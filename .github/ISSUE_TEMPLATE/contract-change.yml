@@ -1,0 +1,50 @@
+name: Schnittstellen-Änderung
+description: Änderung an einem Vertrag zwischen zwei Bounded Contexts
+title: "[Contract] "
+labels: ["contract", "needs-discussion"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ⚠️ **Schnittstellen-Änderungen betreffen mindestens zwei Teams.** Bitte vorher kurz im Meeting / Chat ansprechen.
+
+  - type: dropdown
+    id: schnittstelle
+    attributes:
+      label: Betroffene Schnittstelle
+      options:
+        - bc1-to-bc2
+        - bc2-to-bc3
+        - bc3-to-bc4
+        - andere
+    validations:
+      required: true
+
+  - type: textarea
+    id: was
+    attributes:
+      label: Was soll sich ändern?
+      placeholder: "z.B. neues Feld 'confidence_score' im Output von BC1"
+    validations:
+      required: true
+
+  - type: textarea
+    id: warum
+    attributes:
+      label: Warum?
+    validations:
+      required: true
+
+  - type: textarea
+    id: auswirkung
+    attributes:
+      label: Auswirkung auf das Nachbar-BC
+      placeholder: "Was muss das nachfolgende Team anpassen?"
+    validations:
+      required: true
+
+  - type: textarea
+    id: migrationsplan
+    attributes:
+      label: Migrationsplan
+      placeholder: "Wie kommen wir vom alten zum neuen Stand ohne Bruch?"
