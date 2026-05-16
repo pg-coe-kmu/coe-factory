@@ -1,0 +1,48 @@
+name: Bug
+description: Etwas funktioniert nicht wie erwartet
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: beschreibung
+    attributes:
+      label: Was passiert?
+      placeholder: "Kurze Beschreibung des Problems"
+    validations:
+      required: true
+
+  - type: textarea
+    id: erwartung
+    attributes:
+      label: Was hatte ich erwartet?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduktion
+    attributes:
+      label: Reproduktion
+      description: Wie kann man den Fehler nachstellen?
+      placeholder: |
+        1. Starte den Chat
+        2. Lade Bild X hoch
+        3. Klicke "Analysieren"
+        4. → Fehlermeldung Y
+
+  - type: textarea
+    id: umgebung
+    attributes:
+      label: Umgebung
+      placeholder: "OS, Python-Version, Branch, Commit-Hash, …"
+
+  - type: dropdown
+    id: bc
+    attributes:
+      label: Betroffener Bereich
+      options:
+        - bc1
+        - bc2
+        - bc3
+        - bc4
+        - platform
+        - übergreifend
