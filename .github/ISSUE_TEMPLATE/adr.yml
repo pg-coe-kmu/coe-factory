@@ -1,0 +1,46 @@
+name: ADR – Architecture Decision Record
+description: Eine wichtige Architektur- oder Tooling-Entscheidung dokumentieren
+title: "[ADR] "
+labels: ["adr"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Eine ADR hält fest, *warum* eine Entscheidung getroffen wurde – nicht nur *was*. Sehr wertvoll für den Abschlussbericht.
+
+  - type: textarea
+    id: kontext
+    attributes:
+      label: Kontext
+      description: Welches Problem oder welche Situation hat die Entscheidung ausgelöst?
+    validations:
+      required: true
+
+  - type: textarea
+    id: optionen
+    attributes:
+      label: Geprüfte Optionen
+      placeholder: |
+        - Option A: …
+        - Option B: …
+        - Option C: …
+    validations:
+      required: true
+
+  - type: textarea
+    id: entscheidung
+    attributes:
+      label: Entscheidung
+      description: Welche Option wurde gewählt und warum?
+    validations:
+      required: true
+
+  - type: textarea
+    id: konsequenzen
+    attributes:
+      label: Konsequenzen
+      placeholder: |
+        Positiv:
+        - …
+        Negativ / Trade-offs:
+        - …
