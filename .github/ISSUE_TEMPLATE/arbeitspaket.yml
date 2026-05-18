@@ -1,0 +1,40 @@
+name: Arbeitspaket
+description: Ein Arbeitspaket aus dem Projektplan oder eine konkrete Aufgabe
+title: "[AP] "
+labels: ["arbeitspaket"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Danke fürs Anlegen eines Arbeitspakets. Bitte fülle die Felder aus, damit alle den Kontext verstehen.
+
+  - type: textarea
+    id: ziel
+    attributes:
+      label: Ziel
+      description: Was soll am Ende erreicht sein?
+      placeholder: "z.B. Chat-Interface mit Whisper-Anbindung läuft lokal in Streamlit"
+    validations:
+      required: true
+
+  - type: textarea
+    id: akzeptanzkriterien
+    attributes:
+      label: Akzeptanzkriterien
+      description: Woran erkennen wir, dass das AP fertig ist?
+      placeholder: |
+        - [ ] User kann Sprachnachricht hochladen
+        - [ ] Whisper-Transkription wird angezeigt
+        - [ ] Fehlerfall (kein Audio) wird sauber abgefangen
+    validations:
+      required: true
+
+  - type: textarea
+    id: dod
+    attributes:
+      label: Definition of Done
+      description: Was muss erfüllt sein, bevor wir mergen?
+      value: |
+        - [ ] Code reviewed (oder selbst-gemerged mit Begründung)
+        - [ ] README aktualisiert
+        - [ ] Mockdaten
