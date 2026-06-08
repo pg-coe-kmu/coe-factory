@@ -1,0 +1,174 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://coe-factory/contracts/bc3-to-bc4/tickets.schema.json",
+  "title": "BC3 Tickets-Lieferung an BC4",
+  "description": "Lieferungs-Artefakt von BC3 an BC4. Enthaelt Compliance-Profil und Epics mit Stories. Compliance-Pflichten sind im selben Dokument integriert (compliance_profile-Sub-Block).",
+  "type": "object",
+  "required": [
+    "lieferung_id",
+    "schema_version",
+    "projekt_kurzname",
+    "konzept_ref",
+    "erzeugt_am",
+    "ai_act_klasse",
+    "pflichten",
+    "epics",
+    "gate2"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "lieferung_id": {
+      "type": "string",
+      "description": "Eindeutige ID dieser Lieferung. Deterministisch berechenbar (Hash konzept_id + erzeugt_am) oder UUID.",
+      "pattern": "^(del-[a-z0-9-]+|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$"
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "3.3"
+    },
+    "projekt_kurzname": {
+      "type": "string",
+      "description": "Kurzkennung des Projekts (URL-tauglich, kleinbuchstaben).",
+      "pattern": "^[a-z0-9-]{2,30}$"
+    },
+    "konzept_ref": {
+      "type": "object",
+      "description": "Verweis auf BC2-Konzept inkl. BC1-Audit-Spur.",
+      "required": ["konzept_id", "schema_version", "kp_id", "source_file"],
+      "additionalProperties": false,
+      "properties": {
+        "konzept_id": {"type": "string", "format": "uuid"},
+        "schema_version": {"type": "string"},
+        "prozessprofil_ref": {"type": "string", "description": "Audit-Spur zu BC1-Prozessprofil"},
+        "kp_id": {"type": "string", "pattern": "^KP-[0-9]{2}$"},
+        "source_file": {"type": "string", "description": "relativer Pfad zur eingelesenen BC2-Konzept-Datei"},
+        "zusatz_artefakte": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Optional: weitere BC2-Artefakte (z.B. roi_report.md, prozesspriorisierung.json)"
+        }
+      }
+    },
+    "erzeugt_am": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "generator": {
+      "type": "object",
+      "description": "Optional: Provenance dieser Lieferung (Modell, Lauf-ID, regelbasiert/LLM).",
+      "additionalProperties": false,
+      "properties": {
+        "modell": {"type": "string"},
+        "lauf_id": {"type": "string"},
+        "regelbasiert": {"type": "boolean"}
+      }
+    },
+    "ai_act_klasse": {
+      "type": "string",
+      "enum": ["unacceptable", "high", "limited", "minimal"],
+      "description": "EU AI Act Risikoklasse, projekt-weit. Klassifizierung erfolgt in BC3 Phase 2 (Compliance-Auswertung) gegen Anhang III. Bei 'high' triggert die Pipeline eine Hochrisiko-Eskalation vor Output-Phase."
+    },
+    "pflichten": {
+      "type": "array",
+      "description": "Liste aller Compliance-Pflichten dieses Projekts. Jede Pflicht hat eine eindeutige id, einen Tag (Norm-Referenz) und einen Text. Jede Pflicht muss in mind. einer Story.erfuellt_pflichten[] referenziert sein (Verifikation Phase 5).",
+      "items": {
+        "type": "object",
+        "required": ["id", "tag", "text", "quelle"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string", "pattern": "^p[0-9]+$"},
+          "tag": {"type": "string", "pattern": "^\\[.+\\]$", "description": "Norm-Referenz in eckigen Klammern, z.B. '[AI-Act Art. 14]'"},
+          "text": {"type": "string", "minLength": 10},
+          "quelle": {"type": "string", "enum": ["DSGVO", "AI-Act", "branchen-recht", "DSGVO + branchen-recht", "AI-Act + branchen-recht"]}
+        }
+      }
+    },
+    "epics": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Ein Epic je BC2-Use-Case. epic_id ist <projekt_kurzname>-EP<rang>.",
+      "items": {"$ref": "#/$defs/epic"}
+    },
+    "gate2": {
+      "type": "object",
+      "required": ["status"],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["pending", "approved", "rejected"],
+          "description": "BC3 setzt initial 'pending'. Freigabe durch Mensch (Sergio + BC3, DSB bei risiko_ampel=red oder ai_act_klasse=high)."
+        }
+      }
+    }
+  },
+  "$defs": {
+    "epic": {
+      "type": "object",
+      "required": ["epic_id", "use_case_id_ref", "titel", "ziel", "kategorien", "rechtsgrundlage", "speicherdauer", "risiko_ampel", "stories"],
+      "additionalProperties": false,
+      "properties": {
+        "epic_id": {"type": "string", "pattern": "^[a-z0-9-]+-EP[0-9]+$"},
+        "use_case_id_ref": {"type": "string", "format": "uuid"},
+        "titel": {"type": "string", "minLength": 5, "maxLength": 150},
+        "ziel": {"type": "string", "minLength": 20, "maxLength": 600, "description": "destilliert aus BC2 fachliche_beschreibung + to_be_vision"},
+        "kategorien": {
+          "type": "array",
+          "items": {"type": "string", "pattern": "^(it|fin|gov|sec):[a-z0-9-]+$"},
+          "minItems": 1
+        },
+        "rechtsgrundlage": {"type": "string", "description": "z.B. 'Art. 6 Abs. 1 lit. e DSGVO + Art. 9 Abs. 2 lit. h DSGVO'"},
+        "speicherdauer": {"type": "string", "description": "z.B. '10 Jahre nach § 28f SGB IV'"},
+        "risiko_ampel": {"type": "string", "enum": ["green", "yellow", "red"]},
+        "stories": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/story"}
+        }
+      }
+    },
+    "story": {
+      "type": "object",
+      "required": ["story_id", "titel", "typ", "beschreibung", "akzeptanzkriterien", "kategorien", "compliance_tags", "erfuellt_pflichten", "abhaengigkeiten"],
+      "additionalProperties": false,
+      "properties": {
+        "story_id": {"type": "string", "pattern": "^[a-z0-9-]+-EP[0-9]+\\.[0-9]+$"},
+        "titel": {"type": "string", "minLength": 5, "maxLength": 150},
+        "typ": {"type": "string", "enum": ["user_story", "task", "spike"]},
+        "beschreibung": {"type": "string", "minLength": 20, "maxLength": 1500, "description": "Als/Moechte/Damit-Form"},
+        "akzeptanzkriterien": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["text", "messverfahren"],
+            "additionalProperties": false,
+            "properties": {
+              "text": {"type": "string", "minLength": 10},
+              "messverfahren": {"type": "string", "minLength": 5}
+            }
+          }
+        },
+        "kategorien": {
+          "type": "array",
+          "items": {"type": "string", "pattern": "^(it|fin|gov|sec):[a-z0-9-]+$"}
+        },
+        "compliance_tags": {
+          "type": "array",
+          "items": {"type": "string", "pattern": "^\\[.+\\]$"},
+          "description": "Compliance-Tags, die diese Story betreffen (parallel zu erfuellt_pflichten zur LLM-stabilen Codegen-Verarbeitung)"
+        },
+        "erfuellt_pflichten": {
+          "type": "array",
+          "items": {"type": "string", "pattern": "^p[0-9]+$"},
+          "description": "FK auf pflichten[].id - welche Pflichten erfuellt diese Story"
+        },
+        "abhaengigkeiten": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Story-IDs (vorausgehende Stories im gleichen oder anderen Epic) oder externe Deps"
+        }
+      }
+    }
+  }
+}
