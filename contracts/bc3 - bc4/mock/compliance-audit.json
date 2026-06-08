@@ -1,0 +1,75 @@
+{
+  "lieferung_id": "del-aurelia-2026-06-07-002",
+  "schema_version": "3.4",
+  "projekt_kurzname": "aurelia",
+  "erzeugt_am": "2026-06-07T22:55:00+02:00",
+  "konzept_ref": {
+    "konzept_id": "8a3d2f1c-5b7e-4a89-9c3d-2f1c5b7e4a89",
+    "kp_id": "KP-07"
+  },
+  "vorpruefung": {
+    "ai_act_klasse": "high",
+    "ai_act_begruendung": "Sozialleistungs-Bewertung nach AI-Act Anhang III 5(a). KI-gestuetzte Antragsbearbeitung im Sozialversicherungs-Kontext.",
+    "menschliche_pruefung_noetig": true,
+    "rechtsgrundlage": "Art. 6 Abs. 1 lit. e DSGVO (oeffentliche Aufgabe nach SGB V) + Art. 9 Abs. 2 lit. h DSGVO (Gesundheitsdaten zur Gesundheitsversorgung)",
+    "speicherdauer": "10 Jahre nach § 28f SGB IV ab Bescheid-Rechtskraft",
+    "risiko_ampel": "yellow",
+    "ampel_begruendung": "Hochrisiko-Klasse, aber durch Mitigationen (HitL, PII-Filter, Audit-Log, Loeschungs-Cron) auf gelb gesenkt"
+  },
+  "pflichten": [
+    {
+      "pflicht_id": "p1",
+      "tag": "[AI-Act Art. 14]",
+      "text": "HitL-Pruefschritt bei Konfidenz < 0,8 auf einem Pflichtfeld; Sachbearbeitung prueft binnen 24 h, sonst Eskalation an Teamleitung",
+      "quelle": "AI-Act",
+      "reservierte_ticket_id": "aurelia-EP1.C1",
+      "begruendung": "Hochrisiko-KI Anhang III 5(a) verlangt menschliche Aufsicht bei Entscheidungen mit Auswirkung auf Buerger-Rechte"
+    },
+    {
+      "pflicht_id": "p2",
+      "tag": "[DSGVO Art. 25]",
+      "text": "PII (Versichertenname, IBAN) vor LLM-Call durch BC1-PII-Filter pseudonymisieren; Re-Identifizierung deterministisch im VPN-internen Mapping-Service",
+      "quelle": "DSGVO",
+      "reservierte_ticket_id": null,
+      "begruendung": "Plattform-Standard: PII-Filter ist Teil der Pipeline-Infrastruktur, nicht UC-spezifisch. Wird in jedem LLM-Flow angewendet."
+    },
+    {
+      "pflicht_id": "p3",
+      "tag": "[DSGVO Art. 30]",
+      "text": "Audit-Log je Verarbeitungsschritt (Eingang, OCR, LLM-Call, HitL-Entscheidung, SAP-Write) mit Zeitstempel, Akteur, Aktion; Append-only",
+      "quelle": "DSGVO",
+      "reservierte_ticket_id": null,
+      "begruendung": "Plattform-Standard: Audit-Log-Sink wird zentral betrieben (Postgres Append-only), keine UC-spezifische Implementierung noetig."
+    },
+    {
+      "pflicht_id": "p4",
+      "tag": "[DSGVO Art. 17 + § 28f SGB IV]",
+      "text": "Automatische Loeschung des Antragsdatensatzes 10 Jahre nach Bescheid-Rechtskraft; Backup-Bereinigung gemaess Retention-SLA",
+      "quelle": "DSGVO + branchen-recht",
+      "reservierte_ticket_id": null,
+      "begruendung": "Plattform-Standard: Loeschungs-Cron laeuft zentral fuer alle Datensaetze mit Aufbewahrungs-Metadaten."
+    },
+    {
+      "pflicht_id": "p5",
+      "tag": "[DSGVO Art. 32]",
+      "text": "PII darf SAP-VPN nicht in Klartext verlassen; Verschluesselung in Transit (TLS 1.3) und at Rest (AES-256)",
+      "quelle": "DSGVO",
+      "reservierte_ticket_id": null,
+      "begruendung": "Plattform-Standard: Verschluesselungs-Anforderungen sind in der Infrastruktur durchgesetzt (TLS in n8n, AES-256 in Postgres)."
+    },
+    {
+      "pflicht_id": "p6",
+      "tag": "[AI-Act Anhang III 5(a)]",
+      "text": "System ist Hochrisiko-KI nach AI-Act Anhang III 5(a); Konformitaetsbewertung + Registrierung in EU-Datenbank vor Inbetriebnahme",
+      "quelle": "AI-Act",
+      "reservierte_ticket_id": null,
+      "begruendung": "Organisatorische Pflicht, kein eigenes Code-Ticket. Wird in Compliance-Dokumentation behandelt, nicht durch BC4 implementiert."
+    }
+  ],
+  "dsb_freigabe": {
+    "status": "pending",
+    "freigegeben_von": null,
+    "freigegeben_am": null,
+    "kommentar": null
+  }
+}
