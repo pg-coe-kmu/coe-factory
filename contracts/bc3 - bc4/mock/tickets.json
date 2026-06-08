@@ -6,28 +6,17 @@
     "konzept_id": "8a3d2f1c-5b7e-4a89-9c3d-2f1c5b7e4a89",
     "schema_version": "1.0",
     "prozessprofil_ref": "11111111-2222-3333-4444-555555555555",
-    "kp_id": "KP-07",
-    "source_file": "bc2-material/mock/mock_automatisierungskonzept.json"
   },
-  "erzeugt_am": "2026-06-07T23:00:00+02:00",
-  "generator": {
-    "modell": "manuell-v3.4-mock",
-    "lauf_id": "manuell-2026-06-07-aurelia-ep1",
-    "regelbasiert": true
-  },
-  "menschliche_pruefung_noetig": true,
   "epics": [
     {
-      "epic_id": "aurelia-EP1",
-      "use_case_id_ref": "uc-1111-1111-1111-111111111111",
+      "epic_id": "ep-1111-1111-1111-111111111111",
       "titel": "Automatisierte Antragserfassung via OCR + LLM-Extraktion",
       "ziel": "Eingehende Antraege aus Mail, Portal und Scanner werden binnen 30 Sekunden in SAP angelegt; bei niedriger Konfidenz wandert der Antrag in eine HitL-Queue fuer die Sachbearbeitung. Erfassungszeit sinkt von 5 Min auf < 1 Min, ROI 80%.",
       "kategorien": ["it:backend", "it:integration", "it:ai-pipeline"],
       "stories": [
         {
-          "story_id": "aurelia-EP1.1",
+          "story_id": "st-1111-1111-1111-111111111111-1",
           "titel": "Antragseingang aus 3 Kanaelen einlesen + Duplikat-Pruefung",
-          "typ": "user_story",
           "beschreibung": "Als Sachbearbeiterin moechte ich, dass eingehende Antraege aus Mail-Postfach, Online-Portal und Dokumentenscanner automatisch erfasst und auf Duplikate geprueft werden, damit kein Antrag verloren geht und keine Doppelbearbeitung passiert.",
           "akzeptanzkriterien": [
             {
@@ -39,13 +28,11 @@
               "messverfahren": "Test mit zwei identischen Mail-Eingaengen; SAP-Status 'Duplikat-Warnung' pruefen"
             }
           ],
-          "kategorien": ["it:integration", "it:backend"],
           "abhaengigkeiten": []
         },
         {
-          "story_id": "aurelia-EP1.2",
+          "story_id": "st-1111-1111-1111-111111111111-2",
           "titel": "OCR + LLM-Extraktion von 12 Pflichtfeldern mit Konfidenz-Score",
-          "typ": "user_story",
           "beschreibung": "Als Sachbearbeiterin moechte ich, dass aus dem Antrag automatisch alle 12 Pflichtfelder (Versicherten-ID, Name, Geburtsdatum, Antragsart, Zeitraum von/bis, AU-Datum, Arzt, Bankverbindung, Antragsdatum, Unterschrift-Flag, Anlagen, Sonderbemerkungen) extrahiert werden, damit ich nicht mehr abtippen muss.",
           "akzeptanzkriterien": [
             {
@@ -57,13 +44,11 @@
               "messverfahren": "Lastmessung 300 Antraege, p50 < 30 s, p95 < 60 s"
             }
           ],
-          "kategorien": ["it:backend", "it:ai-pipeline"],
-          "abhaengigkeiten": ["aurelia-EP1.1"]
+          "abhaengigkeiten": ["st-1111-1111-1111-111111111111-1"]
         },
         {
-          "story_id": "aurelia-EP1.3",
+          "story_id": "st-1111-1111-1111-111111111111-3",
           "titel": "SAP-Anlage + DMS-Ablage + Eingangsbestaetigung",
-          "typ": "user_story",
           "beschreibung": "Als Versicherter moechte ich, dass mein Antrag automatisch in SAP angelegt wird und ich binnen Sekunden eine Eingangsbestaetigung mit Antragsnummer erhalte, damit ich den Status sehen kann.",
           "akzeptanzkriterien": [
             {
@@ -75,13 +60,11 @@
               "messverfahren": "End-to-End-Test, Mail-Eingang bzw. Portal-Notification gemessen"
             }
           ],
-          "kategorien": ["it:integration", "it:backend"],
-          "abhaengigkeiten": ["aurelia-EP1.2"]
+          "abhaengigkeiten": ["st-1111-1111-1111-111111111111-2"]
         },
         {
-          "story_id": "aurelia-EP1.C1",
+          "story_id": "st-1111-1111-1111-111111111111-4",
           "titel": "HitL-Pruefschritt bei Konfidenz < 0,8 auf einem Pflichtfeld",
-          "typ": "task",
           "beschreibung": "Als Sachbearbeiterin moechte ich, dass Antraege mit unsicherer Extraktion (Konfidenz < 0,8 auf einem Pflichtfeld) in eine eigene Pruef-Queue wandern, damit ich nur die unklaren Faelle bearbeiten muss und Felder bereits vorbelegt sind. Diese Story entsteht aus der Compliance-Vorpruefung (siehe compliance-audit.json, pflicht_id p1).",
           "akzeptanzkriterien": [
             {
@@ -93,8 +76,7 @@
               "messverfahren": "Eskalations-Logik mit simulierter 24-h-Wartezeit testen"
             }
           ],
-          "kategorien": ["it:frontend", "gov:hitl"],
-          "abhaengigkeiten": ["aurelia-EP1.2"]
+          "abhaengigkeiten": ["st-1111-1111-1111-111111111111-2"]
         }
       ]
     }
