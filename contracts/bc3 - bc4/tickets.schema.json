@@ -1,16 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://coe-factory/contracts/bc3-to-bc4/tickets.schema.json",
-  "title": "BC3 Tickets-Lieferung an BC4",
-  "description": "Lieferungs-Artefakt von BC3 an BC4. Compliance-Pruefung passiert im Vorschritt (Pipeline Phase 2); Ergebnis ist EIN Flag (menschliche_pruefung_noetig). Compliance-Details liegen separat in compliance-audit.json fuer DSB-Audit, nicht hier.",
+  "title": "BC3 Tickets-Lieferung an BC4 (v3.4 reduziert)",
+  "description": "Lieferungs-Artefakt von BC3 an BC4. Maximal reduziert: nur Stammdaten, Epics mit Stories, gate2. Compliance liegt komplett in compliance-audit.json (DSB-Audit).",
   "type": "object",
   "required": [
     "lieferung_id",
     "schema_version",
     "projekt_kurzname",
     "konzept_ref",
-    "erzeugt_am",
-    "menschliche_pruefung_noetig",
     "epics",
     "gate2"
   ],
@@ -18,7 +16,6 @@
   "properties": {
     "lieferung_id": {
       "type": "string",
-      "description": "Eindeutige ID dieser Lieferung (UUID oder deterministischer Hash).",
       "pattern": "^(del-[a-z0-9-]+|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$"
     },
     "schema_version": {
@@ -31,32 +28,14 @@
     },
     "konzept_ref": {
       "type": "object",
-      "required": ["konzept_id", "schema_version", "kp_id", "source_file"],
+      "required": ["konzept_id", "schema_version", "source_file"],
       "additionalProperties": false,
       "properties": {
         "konzept_id": {"type": "string", "format": "uuid"},
         "schema_version": {"type": "string"},
         "prozessprofil_ref": {"type": "string"},
-        "kp_id": {"type": "string", "pattern": "^KP-[0-9]{2}$"},
         "source_file": {"type": "string"}
       }
-    },
-    "erzeugt_am": {
-      "type": "string",
-      "format": "date-time"
-    },
-    "generator": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "modell": {"type": "string"},
-        "lauf_id": {"type": "string"},
-        "regelbasiert": {"type": "boolean"}
-      }
-    },
-    "menschliche_pruefung_noetig": {
-      "type": "boolean",
-      "description": "Ergebnis der Compliance-Vorpruefung (Pipeline Phase 2). Wenn true, enthaelt epics[].stories[] mindestens eine HitL-Story. Wenn false, sind keine Compliance-bezogenen Stories noetig. Details zur Pruefung liegen in compliance-audit.json (separat, fuer DSB)."
     },
     "epics": {
       "type": "array",
@@ -78,17 +57,21 @@
   "$defs": {
     "epic": {
       "type": "object",
-      "required": ["epic_id", "use_case_id_ref", "titel", "ziel", "kategorien", "stories"],
+      "required": ["epic_id", "titel", "ziel", "kategorien", "stories"],
       "additionalProperties": false,
       "properties": {
-        "epic_id": {"type": "string", "pattern": "^[a-z0-9-]+-EP[0-9]+$"},
-        "use_case_id_ref": {"type": "string", "format": "uuid"},
+        "epic_id": {
+          "type": "string",
+          "pattern": "^ep-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "description": "UUID-Format mit ep-Praefix"
+        },
         "titel": {"type": "string", "minLength": 5, "maxLength": 150},
         "ziel": {"type": "string", "minLength": 20, "maxLength": 600},
         "kategorien": {
           "type": "array",
           "items": {"type": "string", "pattern": "^(it|fin|gov|sec):[a-z0-9-]+$"},
-          "minItems": 1
+          "minItems": 1,
+          "description": "Worker-Routing fuer BC4 auf Epic-Ebene; gilt fuer alle Stories des Epics"
         },
         "stories": {
           "type": "array",
@@ -99,12 +82,15 @@
     },
     "story": {
       "type": "object",
-      "required": ["story_id", "titel", "typ", "beschreibung", "akzeptanzkriterien", "kategorien", "abhaengigkeiten"],
+      "required": ["story_id", "titel", "beschreibung", "akzeptanzkriterien", "abhaengigkeiten"],
       "additionalProperties": false,
       "properties": {
-        "story_id": {"type": "string", "pattern": "^[a-z0-9-]+-EP[0-9]+\\.[0-9]+$"},
+        "story_id": {
+          "type": "string",
+          "pattern": "^st-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-[0-9]+$",
+          "description": "UUID-Format mit st-Praefix und laufender Nummer"
+        },
         "titel": {"type": "string", "minLength": 5, "maxLength": 150},
-        "typ": {"type": "string", "enum": ["user_story", "task", "spike"]},
         "beschreibung": {"type": "string", "minLength": 20, "maxLength": 1500},
         "akzeptanzkriterien": {
           "type": "array",
@@ -119,13 +105,12 @@
             }
           }
         },
-        "kategorien": {
-          "type": "array",
-          "items": {"type": "string", "pattern": "^(it|fin|gov|sec):[a-z0-9-]+$"}
-        },
         "abhaengigkeiten": {
           "type": "array",
-          "items": {"type": "string"}
+          "items": {
+            "type": "string",
+            "pattern": "^st-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-[0-9]+$"
+          }
         }
       }
     }
