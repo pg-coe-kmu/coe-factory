@@ -1,0 +1,284 @@
+openapi: 3.0.3
+info:
+  title: Aurelia — Antragserfassung API (Mock)
+  description: |
+    REST-API für die automatisierte Antragserfassung Krankentagegeld (BC2 UC-1).
+    Diese Spec ist ein händisch befüllter Mock — die Endpunkte sind 1:1 mit den Stories aus
+    tickets.json verknüpft (Feld `x-story-id` pro Pfad).
+
+    Stand: 12.06.2026
+  version: 0.1.0
+  contact:
+    name: BC3 — Engineering Architect (Svetlana + Sabrina)
+
+servers:
+  - url: https://aurelia.local/api/v1
+    description: Lokale Entwicklungsumgebung (n8n + Docker)
+  - url: https://aurelia-staging.example/api/v1
+    description: Staging (Platzhalter, wird mit Platform abgestimmt)
+
+tags:
+  - name: antrag
+    description: Antragserfassung und -bearbeitung
+  - name: hitl
+    description: Human-in-the-Loop für unsichere Extraktionen
+  - name: gesundheit
+    description: Health/Status-Endpunkte
+
+paths:
+  /antrag:
+    post:
+      tags: [antrag]
+      summary: Antrag aus einem Eingangskanal aufnehmen
+      x-story-id: st-1111-1111-1111-111111111111-1
+      description: |
+        Implementiert Story 1 (Antragseingang aus 3 Kanälen + Duplikat-Prüfung).
+        Quellen: IMAP-Postfach, Online-Portal-Upload, Scanner-File-Watch.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [quelle, payload]
+              properties:
+                quelle:
+                  type: string
+                  enum: [mail, portal, scanner]
+                payload:
+                  type: string
+                  format: binary
+                  description: PDF oder TIFF des Antrags
+                source_hash:
+                  type: string
+                  description: SHA-256 des Payloads für Idempotenz-Check
+      responses:
+        '201':
+          description: Antrag aufgenommen
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AntragQuittung'
+        '409':
+          description: Duplikat — gleicher source_hash bereits in Queue
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Fehler'
+
+  /antrag/{antrag_id}/extraktion:
+    post:
+      tags: [antrag]
+      summary: OCR + LLM-Extraktion der 12 Pflichtfelder
+      x-story-id: st-1111-1111-1111-111111111111-2
+      description: |
+        Implementiert Story 2 (OCR + LLM-Extraktion).
+      parameters:
+        - in: path
+          name: antrag_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Extraktion erfolgreich; Konfidenz pro Feld in Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Extraktionsergebnis'
+        '422':
+          description: OCR oder LLM hat Pflichtfelder nicht ausreichend erkannt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Extraktionsergebnis'
+
+  /antrag/{antrag_id}/sap-anlage:
+    post:
+      tags: [antrag]
+      summary: Antrag in SAP S/4HANA anlegen + DMS-Ablage
+      x-story-id: st-1111-1111-1111-111111111111-3
+      description: |
+        Implementiert Story 3 (SAP-Anlage + DMS + Eingangsbestätigung).
+        Voraussetzung: Extraktion mit Konfidenz >= 0,8 auf allen Pflichtfeldern
+        ODER HitL-Freigabe über /hitl/{queue_id}/freigabe.
+      parameters:
+        - in: path
+          name: antrag_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '201':
+          description: Antrag in SAP angelegt; Eingangsbestätigung ausgelöst
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SapAnlageQuittung'
+
+  /hitl-queue:
+    get:
+      tags: [hitl]
+      summary: Liste aller HitL-Prüfschritte
+      x-story-id: st-1111-1111-1111-111111111111-4
+      description: |
+        Implementiert Story 4 (HitL-Prüfschritt), Compliance-Story aus Pflicht p1 [AI-Act Art. 14].
+        Für die Sachbearbeitungs-UI.
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [offen, bearbeitet, eskaliert]
+      responses:
+        '200':
+          description: HitL-Queue-Einträge
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HitlEintrag'
+
+  /hitl/{queue_id}/freigabe:
+    post:
+      tags: [hitl]
+      summary: HitL-Eintrag durch Sachbearbeitung freigeben
+      x-story-id: st-1111-1111-1111-111111111111-4
+      parameters:
+        - in: path
+          name: queue_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [korrigierte_felder, bearbeiter]
+              properties:
+                korrigierte_felder:
+                  type: object
+                  additionalProperties:
+                    type: string
+                bearbeiter:
+                  type: string
+                  description: Personalnummer oder Username
+      responses:
+        '200':
+          description: Freigabe akzeptiert, Antrag wandert zurück in den Hauptfluss
+        '410':
+          description: Eskalation überfällig (24h-Frist abgelaufen) — wird automatisch an Teamleitung geroutet
+
+  /health:
+    get:
+      tags: [gesundheit]
+      summary: Health-Check
+      responses:
+        '200':
+          description: Service betriebsbereit
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+
+components:
+  schemas:
+    AntragQuittung:
+      type: object
+      required: [antrag_id, status, source_hash]
+      properties:
+        antrag_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [aufgenommen, duplikat-warnung]
+        source_hash:
+          type: string
+
+    Extraktionsergebnis:
+      type: object
+      required: [antrag_id, pflichtfelder, hitl_noetig]
+      properties:
+        antrag_id:
+          type: string
+          format: uuid
+        pflichtfelder:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/Feldwert'
+        hitl_noetig:
+          type: boolean
+          description: true wenn ein Pflichtfeld Konfidenz < 0,8 hat
+        hitl_queue_id:
+          type: string
+          format: uuid
+          nullable: true
+
+    Feldwert:
+      type: object
+      required: [wert, konfidenz]
+      properties:
+        wert:
+          type: string
+        konfidenz:
+          type: number
+          minimum: 0
+          maximum: 1
+
+    SapAnlageQuittung:
+      type: object
+      required: [antrag_id, sap_id, eingangsbestaetigung_zugestellt]
+      properties:
+        antrag_id:
+          type: string
+          format: uuid
+        sap_id:
+          type: string
+        dms_dokument_id:
+          type: string
+        eingangsbestaetigung_zugestellt:
+          type: boolean
+        zustell_kanal:
+          type: string
+          enum: [portal, mail]
+
+    HitlEintrag:
+      type: object
+      required: [queue_id, antrag_id, ungesicherte_felder, eingang_am]
+      properties:
+        queue_id:
+          type: string
+          format: uuid
+        antrag_id:
+          type: string
+          format: uuid
+        ungesicherte_felder:
+          type: array
+          items:
+            type: string
+        eingang_am:
+          type: string
+          format: date-time
+        eskalations_frist:
+          type: string
+          format: date-time
+
+    Fehler:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
