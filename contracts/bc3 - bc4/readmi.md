@@ -102,7 +102,7 @@ Im Projektplan (Abschnitt 3.2 BC3 → BC4) stand:
 
 ## Issues und Änderungswünsche
 
-- Format-Konflikt oder Schema-Wunsch → ferne ein Issue mit Label `contract` oder WhattsApp :)
+- Format-Konflikt oder Schema-Wunsch → ferne ein Issue mit Label `contract` oder WhatsApp :)
 - Konkrete Fragen zur Mock-Lieferung → einfach Issue.
 
 ---
