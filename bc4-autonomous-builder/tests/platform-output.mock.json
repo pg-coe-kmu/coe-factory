@@ -1,0 +1,159 @@
+{
+  "delivery_id": "bc4-delivery-aurelia-2026-06-12-001",
+  "workflow": "BC3_TO_BC4_RAG_TICKET_WORKFLOW",
+  "status": "success",
+  "environment": "local-docker",
+  "created_at": "2026-06-12T19:35:00.000Z",
+  "created_by": "BC4 Autonomous Builder",
+  "input": {
+    "source_system": "GitHub",
+    "repository": "pg-coe-kmu/coe-factory",
+    "source_file": "contracts/bc3 - bc4/mock/tickets.json",
+    "project_short_name": "aurelia",
+    "schema_version": "3.4",
+    "gate2_status": "pending"
+  },
+  "rag_pipeline": {
+    "vector_database": "Qdrant",
+    "collection": "bc4_tickets",
+    "embedding_runtime": "Ollama",
+    "embedding_model": "nomic-embed-text",
+    "llm_runtime": "Ollama",
+    "llm_model": "llama3.2:3b",
+    "documents_indexed": 5,
+    "retrieval_limit": 3,
+    "top_score": 0.7783653
+  },
+  "query": {
+    "question": "Welche Story beschreibt den HitL-Pruefschritt bei niedriger Konfidenz?",
+    "top_match": {
+      "document_id": "st-1111-1111-1111-111111111111-4",
+      "title": "HitL-Pruefschritt bei Konfidenz < 0,8 auf einem Pflichtfeld",
+      "type": "story",
+      "score": 0.7783653,
+      "source": "tickets.json"
+    }
+  },
+  "bc4_result": {
+    "summary": "BC4 hat die passende Story anhand des lokalen RAG-Kontexts identifiziert.",
+    "answer": "Die relevante Story ist 'HitL-Pruefschritt bei Konfidenz < 0,8 auf einem Pflichtfeld'. Sie beschreibt, dass Antraege mit mindestens einem Pflichtfeld unter 0,8 Konfidenz automatisch in eine Pruef-Queue geleitet werden. Dort kann die Sachbearbeitung die vorbelegten Felder pruefen und bestaetigen. Bei Nicht-Bearbeitung innerhalb von 24 Stunden erfolgt eine Eskalation an die Teamleitung.",
+    "decision": "story_identified",
+    "confidence": "high"
+  },
+  "matched_sources": [
+    {
+      "rank": 1,
+      "score": 0.7783653,
+      "document_id": "st-1111-1111-1111-111111111111-4",
+      "title": "HitL-Pruefschritt bei Konfidenz < 0,8 auf einem Pflichtfeld",
+      "type": "story",
+      "source": "tickets.json"
+    },
+    {
+      "rank": 2,
+      "score": 0.6574667,
+      "document_id": "st-1111-1111-1111-111111111111-1",
+      "title": "Antragseingang aus 3 Kanaelen einlesen + Duplikat-Pruefung",
+      "type": "story",
+      "source": "tickets.json"
+    },
+    {
+      "rank": 3,
+      "score": 0.6129031,
+      "document_id": "ep-1111-1111-1111-111111111111",
+      "title": "Automatisierte Antragserfassung via OCR + LLM-Extraktion",
+      "type": "epic",
+      "source": "tickets.json"
+    }
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "ak-001",
+      "text": "Antrag mit min. einem Pflichtfeld < 0,8 Konfidenz erscheint binnen 5 s in der HitL-Queue mit vorbelegten Feldern und Markierung des unsicheren Feldes",
+      "test_method": "Test mit praeparierten Antraegen; Queue-Eintrag mit Highlight pruefen",
+      "status": "covered"
+    },
+    {
+      "id": "ak-002",
+      "text": "Sachbearbeitung bestaetigt binnen 24 h; bei Nicht-Bearbeitung Eskalation an Teamleitung",
+      "test_method": "Eskalations-Logik mit simulierter 24-h-Wartezeit testen",
+      "status": "covered"
+    }
+  ],
+  "test_report": {
+    "test_status": "passed",
+    "tests": [
+      {
+        "name": "GitHub tickets.json can be loaded",
+        "result": "passed"
+      },
+      {
+        "name": "tickets.json can be parsed",
+        "result": "passed"
+      },
+      {
+        "name": "RAG documents can be created",
+        "result": "passed",
+        "items_created": 5
+      },
+      {
+        "name": "Embeddings can be generated with Ollama",
+        "result": "passed",
+        "embedding_model": "nomic-embed-text"
+      },
+      {
+        "name": "Documents can be stored in Qdrant",
+        "result": "passed",
+        "collection": "bc4_tickets"
+      },
+      {
+        "name": "Relevant story can be retrieved by semantic search",
+        "result": "passed",
+        "top_match": "HitL-Pruefschritt bei Konfidenz < 0,8 auf einem Pflichtfeld"
+      },
+      {
+        "name": "LLM answer can be generated from RAG context",
+        "result": "passed",
+        "llm_model": "llama3.2:3b"
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "type": "n8n_workflow",
+      "name": "BC3 to BC4 RAG Ticket Workflow",
+      "path": "bc4-autonomous-builder/workflows/bc3-to-bc4-rag-ticket-workflow.json",
+      "status": "created"
+    },
+    {
+      "type": "mock_output",
+      "name": "platform-output.mock.json",
+      "path": "bc4-autonomous-builder/examples/platform-output.mock.json",
+      "status": "created"
+    },
+    {
+      "type": "vector_collection",
+      "name": "bc4_tickets",
+      "runtime": "Qdrant",
+      "status": "created"
+    }
+  ],
+  "platform_handoff": {
+    "target_context": "Platform & Testing",
+    "gate": "Gate 3 - UAT & Deployment",
+    "handoff_status": "ready_for_review",
+    "next_steps": [
+      "Workflow exportieren und in GitHub unter workflows/ ablegen",
+      "Mock-Output unter examples/ ablegen",
+      "Testing-Team prueft UAT-Faelle",
+      "Deployment-Dokumentation in docs/ ergaenzen"
+    ]
+  },
+  "compliance": {
+    "data_processing": "local",
+    "external_ai_api_used": false,
+    "human_in_the_loop_required": true,
+    "ai_act_note": "Lokale RAG-Verarbeitung mit transparenter Quellenangabe und menschlicher Pruefung bei unsicheren Faellen.",
+    "gdpr_note": "Keine Uebertragung interner Ticketdaten an externe LLM-APIs im lokalen Setup."
+  }
+}
