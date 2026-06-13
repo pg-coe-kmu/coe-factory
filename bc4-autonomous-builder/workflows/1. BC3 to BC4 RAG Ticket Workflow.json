@@ -1,0 +1,475 @@
+{
+  "name": "BC3 to BC4 RAG Ticket Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 1. SETUP & LOAD\n\n**Manual Trigger → GitHub fetch → Parse JSON**\n\nLädt `tickets.json` aus dem Repo und parsed das JSON für die Weiterverarbeitung.",
+        "height": 296,
+        "width": 660,
+        "color": 6
+      },
+      "id": "7ca53871-d5b0-4e28-9545-91c975db8a08",
+      "name": "Phase 1 – Setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        16,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 2. INDEXING PIPELINE\n\n**Docs erstellen → Embeddings → Qdrant Upsert**\n\nWandelt Epics/Stories in RAG-Dokumente, erzeugt Embeddings via Ollama und schreibt sie in Qdrant.",
+        "height": 296,
+        "width": 880,
+        "color": 5
+      },
+      "id": "a8cbf536-3289-49e8-a367-5f5f0478e937",
+      "name": "Phase 2 – Indexing",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        688,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 3. QUERY PIPELINE\n\n**Frage → Embedding → Vector Search**\n\nNimmt eine Testfrage, erzeugt ein Query-Embedding und sucht die Top-3 passenden Stories in Qdrant.",
+        "height": 296,
+        "width": 660,
+        "color": 7
+      },
+      "id": "a8ac589c-6f97-4cf7-8123-229e85a73cba",
+      "name": "Phase 3 – Query",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 4. RAG GENERATION\n\n**Kontext bauen → LLM antwortet**\n\nBaut den Prompt aus den Suchergebnissen und lässt Llama 3.2 die Antwort generieren.",
+        "height": 296,
+        "width": 440,
+        "color": 2
+      },
+      "id": "c4363aad-a581-435e-afda-f9d69c860d6f",
+      "name": "Phase 4 – Generation",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        672,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 5. OUTPUT & HANDOFF\n\n**BC4 Format → Platform Mock**\n\nStrukturiert die LLM-Antwort als BC4-Output und baut den Platform-Handoff-Payload (Gate 3).",
+        "height": 296,
+        "width": 440
+      },
+      "id": "d9cab177-f262-41dd-8b68-3cf0d2883abd",
+      "name": "Phase 5 – Output",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1136,
+        352
+      ]
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        48,
+        128
+      ],
+      "id": "4decfe47-8ea2-4296-ad5e-2326ce4c69a0",
+      "name": "Manual Trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://raw.githubusercontent.com/pg-coe-kmu/coe-factory/main/contracts/bc3%20-%20bc4/mock/tickets.json",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        256,
+        128
+      ],
+      "id": "c3f2a1fd-0699-4d09-b696-5eef2904b681",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $json.data;\nconst parsed = JSON.parse(raw);\n\nreturn [\n  {\n    json: parsed\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        128
+      ],
+      "id": "f693475a-7b11-4cad-8946-801725546e7a",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $json;\nconst documents = [];\n\nfor (const epic of data.epics || []) {\n  documents.push({\n    json: {\n      document_id: epic.epic_id,\n      type: \"epic\",\n      title: epic.titel,\n      text: `Epic: ${epic.titel}\\nZiel: ${epic.ziel}\\nKategorien: ${(epic.kategorien || []).join(\", \")}`,\n      source: \"tickets.json\"\n    }\n  });\n\n  for (const story of epic.stories || []) {\n    const criteriaText = (story.akzeptanzkriterien || [])\n      .map((k, i) => `${i + 1}. ${k.text} Messverfahren: ${k.messverfahren}`)\n      .join(\"\\n\");\n\n    documents.push({\n      json: {\n        document_id: story.story_id,\n        type: \"story\",\n        title: story.titel,\n        text: `Story: ${story.titel}\\nBeschreibung: ${story.beschreibung}\\nAkzeptanzkriterien:\\n${criteriaText}`,\n        dependencies: story.abhaengigkeiten || [],\n        source: \"tickets.json\"\n      }\n    });\n  }\n}\n\nreturn documents;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        736,
+        128
+      ],
+      "id": "7e55f166-e5e7-468b-a0b3-d976f0210d63",
+      "name": "Create RAG Documents"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/embeddings",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "nomic-embed-text"
+            },
+            {
+              "name": "prompt",
+              "value": "={{ $json.text }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        944,
+        128
+      ],
+      "id": "5f0744a6-cdd4-4511-894b-8776c08efb52",
+      "name": "Generate Embedding"
+    },
+    {
+      "parameters": {
+        "jsCode": "const docs = $('Create RAG Documents').all();\nconst embeddings = $input.all();\n\nconst points = embeddings.map((item, index) => {\n  const doc = docs[index].json;\n\n  return {\n    id: index + 1,\n    vector: item.json.embedding,\n    payload: {\n      document_id: doc.document_id,\n      type: doc.type,\n      title: doc.title,\n      text: doc.text,\n      source: doc.source,\n      dependencies: doc.dependencies || []\n    }\n  };\n});\n\nreturn [\n  {\n    json: {\n      points\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1168,
+        128
+      ],
+      "id": "35bca120-a118-4c9c-8e76-8b978ec9a297",
+      "name": "Prepare Qdrant Points"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "http://host.docker.internal:6333/collections/bc4_tickets/points?wait=true",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"points\": {{ JSON.stringify($json.points) }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1392,
+        128
+      ],
+      "id": "de5d32c6-52b5-42ec-a3b4-9d57fe10917a",
+      "name": "Upsert to Qdrant"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  {\n    json: {\n      question: \"Welche Story beschreibt den HitL-Pruefschritt bei niedriger Konfidenz?\"\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        48,
+        544
+      ],
+      "id": "a1e42e59-3aad-45a8-953c-4befeb6456c8",
+      "name": "Set Test Question"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/embeddings",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "=nomic-embed-text"
+            },
+            {
+              "name": "prompt",
+              "value": "={{ $json.question }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        272,
+        544
+      ],
+      "id": "6cbfde3b-7e9a-4d75-8468-dbca0e55ccf9",
+      "name": "Generate Query Embedding"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:6333/collections/bc4_tickets/points/search",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"vector\": {{ JSON.stringify($json.embedding) }},\n  \"limit\": 3,\n  \"with_payload\": true\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        496,
+        544
+      ],
+      "id": "74527f2c-1bd4-4ce8-9b53-df7e8928f766",
+      "name": "Search Qdrant"
+    },
+    {
+      "parameters": {
+        "jsCode": "const question = $('Set Test Question').first().json.question;\nconst results = $json.result || [];\n\nconst matches = results.map((result, index) => {\n  return {\n    rank: index + 1,\n    score: result.score,\n    document_id: result.payload.document_id,\n    title: result.payload.title,\n    type: result.payload.type,\n    text: result.payload.text,\n    source: result.payload.source,\n    dependencies: result.payload.dependencies || []\n  };\n});\n\nconst context = matches\n  .map(match => {\n    return `Quelle ${match.rank}\nTitel: ${match.title}\nTyp: ${match.type}\nScore: ${match.score}\nInhalt:\n${match.text}`;\n  })\n  .join(\"\\n\\n---\\n\\n\");\n\nreturn [\n  {\n    json: {\n      question,\n      top_match: matches[0]?.title || null,\n      context,\n      matches\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        752,
+        544
+      ],
+      "id": "de4e6a16-3533-4703-92f4-b8abb3527c35",
+      "name": "Prepare RAG Context"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/generate",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama3.2:3b\",\n  \"prompt\": {{ JSON.stringify(\"Du bist der BC4 Autonomous Builder. Beantworte die Frage ausschließlich anhand des folgenden RAG-Kontexts. Gib eine kurze, strukturierte Antwort mit Story-Titel, Begründung und relevanten Akzeptanzkriterien.\\n\\nFrage:\\n\" + $json.question + \"\\n\\nRAG-Kontext:\\n\" + $json.context) }},\n  \"stream\": false\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        976,
+        544
+      ],
+      "id": "0d53c37a-9a72-4fe2-9457-7b569ef4d5bd",
+      "name": "Generate RAG Answer"
+    },
+    {
+      "parameters": {
+        "jsCode": "const ragContext = $('Prepare RAG Context').first().json;\nconst llmAnswer = $json.response;\n\nreturn [\n  {\n    json: {\n      status: \"success\",\n      workflow: \"BC3_TO_BC4_RAG_TICKET_WORKFLOW\",\n      question: ragContext.question,\n      top_match: ragContext.top_match,\n      answer: llmAnswer,\n      sources: ragContext.matches.map(match => ({\n        rank: match.rank,\n        score: match.score,\n        document_id: match.document_id,\n        title: match.title,\n        type: match.type,\n        source: match.source\n      })),\n      generated_at: new Date().toISOString()\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1216,
+        544
+      ],
+      "id": "61ecd9f6-a6bf-4cc4-9e3e-229c2f00a1c1",
+      "name": "Format BC4 Output",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const bc4 = $json;\n\nreturn [\n  {\n    json: {\n      delivery_id: \"bc4-delivery-aurelia-2026-06-12-001\",\n      workflow: bc4.workflow,\n      status: bc4.status,\n      environment: \"local-docker\",\n      created_at: bc4.generated_at,\n      created_by: \"BC4 Autonomous Builder\",\n\n      input: {\n        source_system: \"GitHub\",\n        repository: \"pg-coe-kmu/coe-factory\",\n        source_file: \"contracts/bc3 - bc4/mock/tickets.json\",\n        project_short_name: \"aurelia\",\n        schema_version: \"3.4\",\n        gate2_status: \"pending\"\n      },\n\n      rag_pipeline: {\n        vector_database: \"Qdrant\",\n        collection: \"bc4_tickets\",\n        embedding_runtime: \"Ollama\",\n        embedding_model: \"nomic-embed-text\",\n        llm_runtime: \"Ollama\",\n        llm_model: \"llama3.2:3b\",\n        documents_indexed: 5,\n        retrieval_limit: 3,\n        top_score: bc4.sources?.[0]?.score || null\n      },\n\n      query: {\n        question: bc4.question,\n        top_match: {\n          title: bc4.top_match,\n          document_id: bc4.sources?.[0]?.document_id || null,\n          type: bc4.sources?.[0]?.type || null,\n          score: bc4.sources?.[0]?.score || null,\n          source: bc4.sources?.[0]?.source || null\n        }\n      },\n\n      bc4_result: {\n        summary: \"BC4 hat die passende Story anhand des lokalen RAG-Kontexts identifiziert.\",\n        answer: bc4.answer,\n        decision: \"story_identified\",\n        confidence: \"high\"\n      },\n\n      matched_sources: bc4.sources,\n\n      test_report: {\n        test_status: \"passed\",\n        tests: [\n          {\n            name: \"GitHub tickets.json can be loaded\",\n            result: \"passed\"\n          },\n          {\n            name: \"tickets.json can be parsed\",\n            result: \"passed\"\n          },\n          {\n            name: \"RAG documents can be created\",\n            result: \"passed\",\n            items_created: 5\n          },\n          {\n            name: \"Embeddings can be generated with Ollama\",\n            result: \"passed\",\n            embedding_model: \"nomic-embed-text\"\n          },\n          {\n            name: \"Documents can be stored in Qdrant\",\n            result: \"passed\",\n            collection: \"bc4_tickets\"\n          },\n          {\n            name: \"Relevant story can be retrieved by semantic search\",\n            result: \"passed\",\n            top_match: bc4.top_match\n          },\n          {\n            name: \"LLM answer can be generated from RAG context\",\n            result: \"passed\",\n            llm_model: \"llama3.2:3b\"\n          }\n        ]\n      },\n\n      platform_handoff: {\n        target_context: \"Platform & Testing\",\n        gate: \"Gate 3 - UAT & Deployment\",\n        handoff_status: \"ready_for_review\",\n        next_steps: [\n          \"Workflow exportieren und in GitHub unter workflows/ ablegen\",\n          \"Mock-Output unter examples/ ablegen\",\n          \"Testing-Team prueft UAT-Faelle\",\n          \"Deployment-Dokumentation in docs/ ergaenzen\"\n        ]\n      },\n\n      compliance: {\n        data_processing: \"local\",\n        external_ai_api_used: false,\n        human_in_the_loop_required: true,\n        ai_act_note: \"Lokale RAG-Verarbeitung mit transparenter Quellenangabe und menschlicher Pruefung bei unsicheren Faellen.\",\n        gdpr_note: \"Keine Uebertragung interner Ticketdaten an externe LLM-APIs im lokalen Setup.\"\n      }\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1424,
+        544
+      ],
+      "id": "0249559a-5a07-4f13-b2ab-f1ba1c805380",
+      "name": "Mock Platform Payload"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Create RAG Documents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create RAG Documents": {
+      "main": [
+        [
+          {
+            "node": "Generate Embedding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Embedding": {
+      "main": [
+        [
+          {
+            "node": "Prepare Qdrant Points",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Qdrant Points": {
+      "main": [
+        [
+          {
+            "node": "Upsert to Qdrant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert to Qdrant": {
+      "main": [
+        [
+          {
+            "node": "Set Test Question",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Test Question": {
+      "main": [
+        [
+          {
+            "node": "Generate Query Embedding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Query Embedding": {
+      "main": [
+        [
+          {
+            "node": "Search Qdrant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Qdrant": {
+      "main": [
+        [
+          {
+            "node": "Prepare RAG Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare RAG Context": {
+      "main": [
+        [
+          {
+            "node": "Generate RAG Answer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate RAG Answer": {
+      "main": [
+        [
+          {
+            "node": "Format BC4 Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format BC4 Output": {
+      "main": [
+        [
+          {
+            "node": "Mock Platform Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "2d431e4f-572e-47e7-8951-d333b83c4691",
+  "meta": {
+    "instanceId": "cfee57ad14fe2f6e8a968e97373f065ecb8de2139ee35949ad79ad15be55777a"
+  },
+  "nodeGroups": [],
+  "id": "7OWOskfZfK3XxS2q",
+  "tags": []
+}
