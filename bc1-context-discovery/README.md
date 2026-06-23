@@ -1,20 +1,28 @@
-# BC1 – Interactive Context Discovery
+# BC1 — Interactive Context Discovery
 
-**Team:** Simeon, Richard (Tech: Zakaria)
-**Phase:** 1 – Analyse
+**Team:** Richard, Philipp
+**Phase:** 1 — Discovery
 
 ## Zweck
-KI-gestützter Chatbot-Agent als zentrales Interface, um unstrukturierte Informationen (Gespräche, Dokumente, Schaubilder) in ein strukturiertes Prozess- und Unternehmensmodell zu übersetzen.
+Übersetzt unstrukturierte Eingaben (im MVP: Text-Chat; später Sprache/Dokumente/Bilder) in ein strukturiertes **Prozessprofil (JSON)** + **Confidence-/Vollständigkeits-Status** + **Prozessdoku** und übergibt am **Gate 0** an BC2. BC1 liefert das vollständige Prozessbild; die Auswahl konkreter Use Cases passiert außerhalb von BC1.
 
 ## Messages
-- **Consumed:** Sprachnachrichten (Voice-to-Text), Chat-Interaktion, Dokumente (PDF, Word, Excel), Bilder/Fotos
-- **Produced:** Strukturiertes Unternehmens- & Prozessprofil, Confidence Report, Detaillierte Prozessdokumentation
+- **Consumed:** Chat (MVP) · später Sprache, Dokumente, Bilder · Baseline (read-only)
+- **Produced:** Prozessprofil (JSON), Confidence-Report, Prozessdoku → `contracts/bc1-to-bc2/`
+
+## Bauweise
+**Hybrid:** n8n-Hülle (Verrohrung) + Code-Kern (Gehirn). **MVP-first:** schlanker Text-Interview→JSON-Kern zuerst; weitere Schichten docken an, ohne den Kern zu ändern.
+
+## Struktur
+- `architektur/` — Systemarchitektur (technische Ebene, Überblick)
+- `design/` — Design-Spec (das *Warum*) + Implementierungsplan (die *Anleitung pro Arbeitspaket*, inkl. Code/Tests)
+
+## Wie man hier mitarbeitet
+Ein Arbeitspaket (Issue unter [#48](https://github.com/pg-coe-kmu/coe-factory/issues/48)) öffnen → den dort verlinkten **Plan-Task** lesen (volle Anleitung) → die genannten **Abhängigkeiten** beachten → loslegen. Reihenfolge & Aufteilung stehen in der Arbeitspaket-Übersicht.
 
 ## Arbeitspakete
-- **AP 1.1** Chat-Interface & Multimodaler Ingest (Streamlit/React, Whisper, GPT-4o Vision)
-- **AP 1.2** PII-Filter & Data Privacy (GDPR-Gate)
-- **AP 1.3** Prozess-Extraktion & JSON-Compiler + Completeness-Check
-- **AP 1.4** Dokumentations-Generator (Markdown/PDF)
+[#48 KI-Interviewer](https://github.com/pg-coe-kmu/coe-factory/issues/48) · [#49 Voice/OCR](https://github.com/pg-coe-kmu/coe-factory/issues/49) · [#50 PII-Filter](https://github.com/pg-coe-kmu/coe-factory/issues/50) · [#51 JSON-Compiler](https://github.com/pg-coe-kmu/coe-factory/issues/51) · [#52 Doku-Generator](https://github.com/pg-coe-kmu/coe-factory/issues/52) · [#53 Mapper & Verifier](https://github.com/pg-coe-kmu/coe-factory/issues/53)
 
 ## Schnittstellen
-- **Output an BC2:** Strukturiertes Prozessprofil (siehe `/contracts/bc1-to-bc2/`)
+- **Input von BC0:** Baseline-Lookup (KP/TP/Reifegrad)
+- **Output an BC2:** `contracts/bc1-to-bc2/` (Schema + Mock; gemeinsam mit BC2 + Platform)
