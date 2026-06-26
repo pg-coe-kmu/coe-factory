@@ -30,8 +30,8 @@
 - **Identity Provider** (= zentraler Login-Service) 
 
 
-3. **Compliance-Stories als BC3-Output oder Plattform-Aufgabe?** (PII, Audit, Crypto)
-4. **BC4-Übergabe-Format:** json oder md?
+1. **Compliance — welche BC kümmert sich?** (PII-Filter, Audit-Log, Verschlüsselung)
+2. **BC4-Übergabe-Format:** json oder md?
 
 ---
 
