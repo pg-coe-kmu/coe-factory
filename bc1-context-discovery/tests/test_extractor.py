@@ -42,6 +42,33 @@ def test_conflict_does_not_overwrite_and_marks_unklar():
     assert fv.candidates == ["Bestellung"]
     assert fv.status is FieldStatus.UNKLAR
 
+def test_duplicate_conflict_value_is_not_added_twice():
+    st = SessionState("s1", "0.1")
+    llm1 = FakeLLM({"a": [ExtractionCandidate("prozess_name", "Freigabe")]})
+    extract_and_merge(st, "a", "msg-1", TOY_PROZESS, llm1)
+    llm2 = FakeLLM({"b": [ExtractionCandidate("prozess_name", "Bestellung")]})
+    extract_and_merge(st, "b", "msg-2", TOY_PROZESS, llm2)
+    llm3 = FakeLLM({"c": [ExtractionCandidate("prozess_name", "Bestellung")]})
+    extract_and_merge(st, "c", "msg-3", TOY_PROZESS, llm3)
+    fv = st.values["prozess_name"]
+    assert fv.value == "Freigabe"                # weiterhin nicht überschrieben
+    assert fv.candidates == ["Bestellung"]       # Dedup: kein Duplikat
+    assert fv.status is FieldStatus.UNKLAR
+
+def test_third_differing_value_accumulates_from_unklar_state():
+    st = SessionState("s1", "0.1")
+    llm1 = FakeLLM({"a": [ExtractionCandidate("prozess_name", "Freigabe")]})
+    extract_and_merge(st, "a", "msg-1", TOY_PROZESS, llm1)
+    llm2 = FakeLLM({"b": [ExtractionCandidate("prozess_name", "Bestellung")]})
+    extract_and_merge(st, "b", "msg-2", TOY_PROZESS, llm2)
+    assert st.values["prozess_name"].status is FieldStatus.UNKLAR
+    llm3 = FakeLLM({"c": [ExtractionCandidate("prozess_name", "Einkauf")]})
+    extract_and_merge(st, "c", "msg-3", TOY_PROZESS, llm3)
+    fv = st.values["prozess_name"]
+    assert fv.value == "Freigabe"                # weiterhin nicht überschrieben
+    assert fv.candidates == ["Bestellung", "Einkauf"]
+    assert fv.status is FieldStatus.UNKLAR
+
 def test_invalid_value_is_replaced_by_valid_correction():
     st = SessionState("s1", "0.1")
     llm1 = FakeLLM({"a": [ExtractionCandidate("haeufigkeit", "oft")]})
