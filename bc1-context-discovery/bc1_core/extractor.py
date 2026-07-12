@@ -23,6 +23,13 @@ def extract_and_merge(state: SessionState, message: str, message_id: str,
             )
         elif fv.value == cand.value:
             continue
+        elif fv.status is FieldStatus.UNGUELTIG:
+            # Korrektur: UNGUELTIG ist nicht bestätigt → ersetzen, alter Wert bleibt als Kandidat.
+            if fv.value not in fv.candidates:
+                fv.candidates.append(fv.value)
+            fv.value = cand.value
+            fv.status = _status_for(spec, cand.value)
+            fv.source_message_id = message_id
         else:
             if cand.value not in fv.candidates:
                 fv.candidates.append(cand.value)
