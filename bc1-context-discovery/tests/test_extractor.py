@@ -41,3 +41,27 @@ def test_conflict_does_not_overwrite_and_marks_unklar():
     assert fv.value == "Freigabe"                # nicht überschrieben
     assert fv.candidates == ["Bestellung"]
     assert fv.status is FieldStatus.UNKLAR
+
+def test_invalid_value_is_replaced_by_valid_correction():
+    st = SessionState("s1", "0.1")
+    llm1 = FakeLLM({"a": [ExtractionCandidate("haeufigkeit", "oft")]})
+    extract_and_merge(st, "a", "msg-1", TOY_PROZESS, llm1)
+    assert st.values["haeufigkeit"].status is FieldStatus.UNGUELTIG
+    llm2 = FakeLLM({"b": [ExtractionCandidate("haeufigkeit", "5 mal pro Woche")]})
+    extract_and_merge(st, "b", "msg-2", TOY_PROZESS, llm2)
+    fv = st.values["haeufigkeit"]
+    assert fv.value == "5 mal pro Woche"         # Korrektur ersetzt UNGUELTIG
+    assert fv.status is FieldStatus.GUELTIG
+    assert "oft" in fv.candidates                # alter Wert geht nicht verloren
+    assert fv.source_message_id == "msg-2"
+
+def test_invalid_value_replaced_by_another_invalid_stays_ungueltig():
+    st = SessionState("s1", "0.1")
+    llm1 = FakeLLM({"a": [ExtractionCandidate("haeufigkeit", "oft")]})
+    extract_and_merge(st, "a", "msg-1", TOY_PROZESS, llm1)
+    llm2 = FakeLLM({"b": [ExtractionCandidate("haeufigkeit", "selten")]})
+    extract_and_merge(st, "b", "msg-2", TOY_PROZESS, llm2)
+    fv = st.values["haeufigkeit"]
+    assert fv.value == "selten"
+    assert fv.status is FieldStatus.UNGUELTIG
+    assert "oft" in fv.candidates
