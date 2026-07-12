@@ -2,7 +2,7 @@ from bc1_core.types import FieldStatus, FieldValue, SessionState
 from bc1_core.package import TOY_PROZESS
 from bc1_core.confidence import confidence_check
 from bc1_core.llm import FakeLLM
-from bc1_core.dialog import decide_next, Decision, MAX_ATTEMPTS_PER_FIELD
+from bc1_core.dialog import decide_next, Decision, MAX_ATTEMPTS_PER_FIELD, MAX_ROUNDS
 
 def test_asks_first_open_field_and_counts_attempt():
     st = SessionState("s1", "0.1")
@@ -30,3 +30,10 @@ def test_field_over_attempt_cap_becomes_ungeloest():
     d = decide_next(st, TOY_PROZESS, conf, FakeLLM())
     assert st.values["prozess_name"].status is FieldStatus.UNGELOEST
     assert d.done is True
+
+def test_done_at_round_limit_even_with_open_fields():
+    st = SessionState("s1", "0.1")
+    st.rounds = MAX_ROUNDS
+    conf = confidence_check(st, TOY_PROZESS)
+    assert decide_next(st, TOY_PROZESS, conf, FakeLLM()) == Decision(done=True)
+    assert all(fv.attempts == 0 for fv in st.values.values())
