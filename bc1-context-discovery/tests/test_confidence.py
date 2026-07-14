@@ -72,8 +72,19 @@ def test_optionales_feld_kann_ungeloest_sein():
     assert res.completeness == 1.0
     assert res.ungeloeste_felder == ["notiz"]
 
+def test_ungeloeste_felder_in_paket_reihenfolge():
+    st = SessionState(session_id="s1", schema_version="0.1")
+    # Einfüge-Reihenfolge (ausloeser, prozess_name) = alphabetisch, aber
+    # BEIDE ungleich der Paket-Reihenfolge (prozess_name, ausloeser) —
+    # so fällt sowohl sorted() als auch Einfüge-Reihenfolge durch.
+    st.values["ausloeser"] = FieldValue(value="x", status=FieldStatus.UNGELOEST)
+    st.values["prozess_name"] = FieldValue(value="x", status=FieldStatus.UNGELOEST)
+    res = confidence_check(st, TOY_PROZESS)
+    assert res.ungeloeste_felder == ["prozess_name", "ausloeser"]
+
 # state.values-Einträge ohne Paket-Gegenstück (z. B. nach Paket-Wechsel)
-# werden bewusst still ignoriert — Review-Entscheidung Task 4, plan-gemäß.
+# werden still ignoriert: statuses wird per Plan-Referenzcode (Task 4) nur
+# aus package.fields gebaut, nie aus state.values.
 def test_unbekannte_state_eintraege_werden_ignoriert():
     st = _state_with(prozess_name=FieldStatus.GUELTIG,
                      ausloeser=FieldStatus.GUELTIG,
