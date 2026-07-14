@@ -22,7 +22,13 @@ class InMemoryStateStore(StateStore):
 
     def save(self, state: SessionState) -> None:
         existing = self._data.get(state.session_id)
-        if existing is not None and existing.version != state.version:
+        if existing is None:
+            if state.version != 0:
+                raise StaleStateError(
+                    f"first save for {state.session_id} must have version 0, "
+                    f"got {state.version}"
+                )
+        elif existing.version != state.version:
             raise StaleStateError(
                 f"stale write for {state.session_id}: "
                 f"have {existing.version}, got {state.version}"
