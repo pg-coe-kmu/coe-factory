@@ -8,6 +8,10 @@ def test_field_lookup():
     assert TOY_PROZESS.field("ausloeser").question != ""
     assert TOY_PROZESS.field("gibt_es_nicht") is None
 
+def test_field_lookup_liefert_genau_das_angefragte_feld():
+    for spec in TOY_PROZESS.fields:
+        assert TOY_PROZESS.field(spec.name) is spec
+
 def test_validator_runs():
     h = TOY_PROZESS.field("haeufigkeit")
     assert h.validator("100 mal") is True
