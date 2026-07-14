@@ -1,5 +1,5 @@
 from __future__ import annotations
-from bc1_core.types import FieldStatus, FieldValue, SessionState
+from bc1_core.types import Candidate, FieldStatus, FieldValue, SessionState
 from bc1_core.package import UseCasePackage, FieldSpec
 from bc1_core.llm import LLMClient
 
@@ -14,6 +14,11 @@ def _status_for(spec: FieldSpec, value: str) -> FieldStatus:
     except Exception:
         return FieldStatus.UNGUELTIG
     return FieldStatus.GUELTIG if gueltig else FieldStatus.UNGUELTIG
+
+def _merke_kandidat(fv: FieldValue, wert: str, quelle: str) -> None:
+    # Dedup nach Wert: die erste Quelle eines Werts bleibt maßgeblich.
+    if all(k.value != wert for k in fv.candidates):
+        fv.candidates.append(Candidate(wert, quelle))
 
 def extract_and_merge(state: SessionState, message: str, message_id: str,
                       package: UseCasePackage, llm: LLMClient) -> None:
@@ -34,13 +39,12 @@ def extract_and_merge(state: SessionState, message: str, message_id: str,
         elif fv.value == cand.value:
             continue
         elif fv.status is FieldStatus.UNGUELTIG:
-            # Korrektur: UNGUELTIG ist nicht bestätigt → ersetzen, alter Wert bleibt als Kandidat.
-            if fv.value not in fv.candidates:
-                fv.candidates.append(fv.value)
+            # Korrektur: UNGUELTIG ist nicht bestätigt → ersetzen, alter Wert
+            # bleibt als Kandidat — mit der Quelle, aus der er stammte.
+            _merke_kandidat(fv, fv.value, fv.source_message_id)
             fv.value = cand.value
             fv.status = _status_for(spec, cand.value)
             fv.source_message_id = message_id
         else:
-            if cand.value not in fv.candidates:
-                fv.candidates.append(cand.value)
+            _merke_kandidat(fv, cand.value, message_id)
             fv.status = FieldStatus.UNKLAR

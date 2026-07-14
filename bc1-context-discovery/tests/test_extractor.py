@@ -1,4 +1,4 @@
-from bc1_core.types import FieldStatus, FieldValue, SessionState
+from bc1_core.types import Candidate, FieldStatus, FieldValue, SessionState
 from bc1_core.package import TOY_PROZESS, FieldSpec, UseCasePackage
 from bc1_core.llm import FakeLLM, ExtractionCandidate
 from bc1_core.extractor import extract_and_merge
@@ -39,7 +39,7 @@ def test_conflict_does_not_overwrite_and_marks_unklar():
     extract_and_merge(st, "b", "msg-2", TOY_PROZESS, llm2)
     fv = st.values["prozess_name"]
     assert fv.value == "Freigabe"                # nicht überschrieben
-    assert fv.candidates == ["Bestellung"]
+    assert fv.candidates == [Candidate("Bestellung", "msg-2")]
     assert fv.status is FieldStatus.UNKLAR
 
 def test_duplicate_conflict_value_is_not_added_twice():
@@ -52,7 +52,8 @@ def test_duplicate_conflict_value_is_not_added_twice():
     extract_and_merge(st, "c", "msg-3", TOY_PROZESS, llm3)
     fv = st.values["prozess_name"]
     assert fv.value == "Freigabe"                # weiterhin nicht überschrieben
-    assert fv.candidates == ["Bestellung"]       # Dedup: kein Duplikat
+    # Dedup: kein Duplikat; die Quelle des ERSTEN Vorkommens bleibt maßgeblich
+    assert fv.candidates == [Candidate("Bestellung", "msg-2")]
     assert fv.status is FieldStatus.UNKLAR
 
 def test_third_differing_value_accumulates_from_unklar_state():
@@ -66,7 +67,8 @@ def test_third_differing_value_accumulates_from_unklar_state():
     extract_and_merge(st, "c", "msg-3", TOY_PROZESS, llm3)
     fv = st.values["prozess_name"]
     assert fv.value == "Freigabe"                # weiterhin nicht überschrieben
-    assert fv.candidates == ["Bestellung", "Einkauf"]
+    assert fv.candidates == [Candidate("Bestellung", "msg-2"),
+                             Candidate("Einkauf", "msg-3")]
     assert fv.status is FieldStatus.UNKLAR
 
 def test_invalid_value_is_replaced_by_valid_correction():
@@ -79,8 +81,19 @@ def test_invalid_value_is_replaced_by_valid_correction():
     fv = st.values["haeufigkeit"]
     assert fv.value == "5 mal pro Woche"         # Korrektur ersetzt UNGUELTIG
     assert fv.status is FieldStatus.GUELTIG
-    assert "oft" in fv.candidates                # alter Wert geht nicht verloren
+    # alter Wert geht nicht verloren — samt der Quelle, aus der er stammte
+    assert fv.candidates == [Candidate("oft", "msg-1")]
     assert fv.source_message_id == "msg-2"
+
+# Design-Spec B2/B4: Kandidaten tragen ihre Quelle (message_id) —
+# „Alten + neuen Kandidaten mit message_id behalten".
+def test_konflikt_kandidat_traegt_quelle():
+    st = SessionState("s1", "0.1")
+    llm1 = FakeLLM({"a": [ExtractionCandidate("prozess_name", "Freigabe")]})
+    extract_and_merge(st, "a", "msg-1", TOY_PROZESS, llm1)
+    llm2 = FakeLLM({"b": [ExtractionCandidate("prozess_name", "Bestellung")]})
+    extract_and_merge(st, "b", "msg-2", TOY_PROZESS, llm2)
+    assert st.values["prozess_name"].candidates == [Candidate("Bestellung", "msg-2")]
 
 # Naht zu Task 7: decide_next legt beim Nachfragen FieldValue() an (value=None,
 # attempts gezählt). Die Antwort muss das Feld füllen, OHNE den Nachfrage-
@@ -120,4 +133,4 @@ def test_invalid_value_replaced_by_another_invalid_stays_ungueltig():
     fv = st.values["haeufigkeit"]
     assert fv.value == "selten"
     assert fv.status is FieldStatus.UNGUELTIG
-    assert "oft" in fv.candidates
+    assert fv.candidates == [Candidate("oft", "msg-1")]
