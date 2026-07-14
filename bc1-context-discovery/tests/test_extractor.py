@@ -1,5 +1,5 @@
 from bc1_core.types import FieldStatus, SessionState
-from bc1_core.package import TOY_PROZESS
+from bc1_core.package import TOY_PROZESS, FieldSpec, UseCasePackage
 from bc1_core.llm import FakeLLM, ExtractionCandidate
 from bc1_core.extractor import extract_and_merge
 
@@ -81,6 +81,21 @@ def test_invalid_value_is_replaced_by_valid_correction():
     assert fv.status is FieldStatus.GUELTIG
     assert "oft" in fv.candidates                # alter Wert geht nicht verloren
     assert fv.source_message_id == "msg-2"
+
+# Ein werfender Validator (z. B. int() auf "fuenfhundert") darf nie den Turn
+# crashen — mit Raw-First-Save (Task 8) wäre die Nachricht sonst dauerhaft
+# verloren. Policy: Validator-Fehler = Wert UNGUELTIG.
+def test_werfender_validator_macht_wert_ungueltig_statt_crash():
+    paket = UseCasePackage(
+        name="p", schema_version="0.1",
+        fields=(FieldSpec("betrag", "Wie hoch?",
+                          validator=lambda v: int(v) > 0),),
+    )
+    st = SessionState("s1", "0.1")
+    llm = FakeLLM({"m": [ExtractionCandidate("betrag", "fuenfhundert")]})
+    extract_and_merge(st, "m", "msg-1", paket, llm)
+    assert st.values["betrag"].status is FieldStatus.UNGUELTIG
+    assert st.values["betrag"].value == "fuenfhundert"
 
 def test_invalid_value_replaced_by_another_invalid_stays_ungueltig():
     st = SessionState("s1", "0.1")

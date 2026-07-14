@@ -4,9 +4,16 @@ from bc1_core.package import UseCasePackage, FieldSpec
 from bc1_core.llm import LLMClient
 
 def _status_for(spec: FieldSpec, value: str) -> FieldStatus:
-    if spec.validator is not None and not spec.validator(value):
+    # Policy: ein werfender Validator macht den Wert UNGUELTIG, bricht aber
+    # nie den Turn ab — sonst ginge die Nachricht nach Raw-First-Save (Task 8)
+    # beim Idempotenz-Replay dauerhaft verloren.
+    if spec.validator is None:
+        return FieldStatus.GUELTIG
+    try:
+        gueltig = spec.validator(value)
+    except Exception:
         return FieldStatus.UNGUELTIG
-    return FieldStatus.GUELTIG
+    return FieldStatus.GUELTIG if gueltig else FieldStatus.UNGUELTIG
 
 def extract_and_merge(state: SessionState, message: str, message_id: str,
                       package: UseCasePackage, llm: LLMClient) -> None:
