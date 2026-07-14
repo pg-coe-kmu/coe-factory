@@ -41,6 +41,9 @@ def process_turn(store: StateStore, llm: LLMClient, package: UseCasePackage,
 
     if decision.done:
         state.status = SessionStatus.FERTIG
+        # decide_next kann Felder frisch auf UNGELOEST gecappt haben —
+        # fürs Gate-0-Payload zählt der Stand NACH der Entscheidung.
+        conf = confidence_check(state, package)
         resp = {"status": "fertig", "payload": _profil(state, conf)}
     else:
         state.status = SessionStatus.WARTET
