@@ -15,6 +15,12 @@ class UseCasePackage:
     schema_version: str
     fields: list[FieldSpec]
 
+    def __post_init__(self) -> None:
+        namen = [f.name for f in self.fields]
+        doppelte = sorted({n for n in namen if namen.count(n) > 1})
+        if doppelte:
+            raise ValueError(f"Doppelte Feldnamen im Use-Case-Paket: {doppelte}")
+
     def required_fields(self) -> list[FieldSpec]:
         return [f for f in self.fields if f.required]
 

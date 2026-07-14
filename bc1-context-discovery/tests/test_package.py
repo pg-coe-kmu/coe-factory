@@ -1,3 +1,5 @@
+import pytest
+
 from bc1_core.package import UseCasePackage, FieldSpec, TOY_PROZESS
 
 def test_required_fields_excludes_optional_and_keeps_order():
@@ -16,3 +18,17 @@ def test_validator_runs():
     h = TOY_PROZESS.field("haeufigkeit")
     assert h.validator("100 mal") is True
     assert h.validator("oft") is False
+
+# Audit-Befund: field() nimmt still den ersten Treffer — bei doppelten
+# Feldnamen liefe der Validator des zweiten Specs nie (falsches GUELTIG).
+def test_doppelte_feldnamen_werden_bei_konstruktion_abgelehnt():
+    with pytest.raises(ValueError):
+        UseCasePackage(
+            name="p",
+            schema_version="0.1",
+            fields=[
+                FieldSpec("betrag", "Wie hoch?"),
+                FieldSpec("betrag", "Wie hoch genau?",
+                          validator=lambda v: v.isdigit()),
+            ],
+        )
