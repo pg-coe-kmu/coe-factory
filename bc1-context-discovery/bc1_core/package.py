@@ -2,18 +2,18 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable
 
-@dataclass
+@dataclass(frozen=True)
 class FieldSpec:
     name: str
     question: str
     required: bool = True
     validator: Callable[[str], bool] | None = None
 
-@dataclass
+@dataclass(frozen=True)
 class UseCasePackage:
     name: str
     schema_version: str
-    fields: list[FieldSpec]
+    fields: tuple[FieldSpec, ...]
 
     def __post_init__(self) -> None:
         namen = [f.name for f in self.fields]
@@ -30,11 +30,11 @@ class UseCasePackage:
 TOY_PROZESS = UseCasePackage(
     name="toy_prozess",
     schema_version="0.1",
-    fields=[
+    fields=(
         FieldSpec("prozess_name", "Wie heißt der Prozess?"),
         FieldSpec("ausloeser", "Was löst den Prozess aus?"),
         FieldSpec("haeufigkeit", "Wie oft kommt er vor?",
                   validator=lambda v: any(c.isdigit() for c in v)),
         FieldSpec("notiz", "Sonstige Hinweise?", required=False),
-    ],
+    ),
 )

@@ -1,3 +1,5 @@
+from dataclasses import FrozenInstanceError
+
 import pytest
 
 from bc1_core.package import UseCasePackage, FieldSpec, TOY_PROZESS
@@ -19,6 +21,15 @@ def test_validator_runs():
     assert h.validator("100 mal") is True
     assert h.validator("oft") is False
 
+# TOY_PROZESS ist eine geteilte Modul-Instanz — wäre sie veränderlich,
+# könnte ein Test den Zustand aller folgenden Tests vergiften (belegt im Audit).
+def test_paket_und_feldspecs_sind_unveraenderlich():
+    with pytest.raises(FrozenInstanceError):
+        TOY_PROZESS.field("notiz").required = True
+    with pytest.raises(FrozenInstanceError):
+        TOY_PROZESS.name = "anders"
+    assert isinstance(TOY_PROZESS.fields, tuple)
+
 # Audit-Befund: field() nimmt still den ersten Treffer — bei doppelten
 # Feldnamen liefe der Validator des zweiten Specs nie (falsches GUELTIG).
 def test_doppelte_feldnamen_werden_bei_konstruktion_abgelehnt():
@@ -26,9 +37,9 @@ def test_doppelte_feldnamen_werden_bei_konstruktion_abgelehnt():
         UseCasePackage(
             name="p",
             schema_version="0.1",
-            fields=[
+            fields=(
                 FieldSpec("betrag", "Wie hoch?"),
                 FieldSpec("betrag", "Wie hoch genau?",
                           validator=lambda v: v.isdigit()),
-            ],
+            ),
         )
