@@ -54,6 +54,16 @@ def test_mehrere_gecappte_felder_werden_alle_ungeloest():
     assert st.values["ausloeser"].status is FieldStatus.UNGELOEST
     assert d == Decision(done=True)
 
+def test_gecapptes_feld_wird_uebersprungen_naechstes_offenes_gefragt():
+    st = SessionState("s1", "0.1")
+    st.values["prozess_name"] = FieldValue(status=FieldStatus.FEHLT,
+                                           attempts=MAX_ATTEMPTS_PER_FIELD)
+    conf = confidence_check(st, TOY_PROZESS)
+    d = decide_next(st, TOY_PROZESS, conf, FakeLLM())
+    assert st.values["prozess_name"].status is FieldStatus.UNGELOEST
+    assert d.done is False
+    assert d.next_field == "ausloeser"           # nächstes offenes, nicht das gecappte
+
 # Invariante „LLM nur hinter dem LLM-Client": die Frage muss aus llm.phrase
 # kommen — FakeLLM gibt zufällig field.question zurück, deshalb hier ein
 # Fake mit abweichender Formulierung.
