@@ -11,7 +11,8 @@ def _profil(state: SessionState, conf: ConfidenceResult) -> dict:
     felder = {
         name: {"wert": fv.value, "status": fv.status.value,
                "quelle": fv.source_message_id, "grund": fv.grund,
-               "kandidaten": fv.candidates}
+               "kandidaten": [{"wert": k.value, "quelle": k.source_message_id}
+                              for k in fv.candidates]}
         for name, fv in state.values.items()
     }
     return {

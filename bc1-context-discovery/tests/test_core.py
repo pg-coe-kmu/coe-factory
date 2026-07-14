@@ -1,3 +1,5 @@
+import json
+
 from bc1_core.types import SessionStatus
 from bc1_core.package import TOY_PROZESS
 from bc1_core.store import InMemoryStateStore
@@ -41,3 +43,21 @@ def test_full_run_reaches_fertig_with_completeness():
     assert r["payload"]["felder"]["prozess_name"]["status"] == "gueltig"
     assert r["payload"]["ungeloeste_felder"] == []
     assert store.load("s1").status is SessionStatus.FERTIG
+
+# Die Antwort geht als JSON an n8n/HTTP raus — sie muss json.dumps-fähig
+# sein, AUCH wenn Kandidaten (Konflikte/Korrekturen) im Profil stehen.
+def test_fertig_antwort_mit_kandidaten_ist_json_faehig():
+    store = InMemoryStateStore()
+    llm = FakeLLM({
+        "a": [ExtractionCandidate("prozess_name", "Freigabe"),
+              ExtractionCandidate("ausloeser", "Antrag"),
+              ExtractionCandidate("haeufigkeit", "oft")],       # ungueltig
+        "b": [ExtractionCandidate("haeufigkeit", "5 mal die Woche")],  # Korrektur
+    })
+    process_turn(store, llm, TOY_PROZESS, "s1", "m1", "a")
+    r = process_turn(store, llm, TOY_PROZESS, "s1", "m2", "b")
+    assert r["status"] == "fertig"
+    roundtrip = json.loads(json.dumps(r))
+    assert roundtrip == r
+    assert roundtrip["payload"]["felder"]["haeufigkeit"]["kandidaten"] == \
+        [{"wert": "oft", "quelle": "m1"}]
