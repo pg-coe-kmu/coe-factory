@@ -82,7 +82,7 @@
 - **Vage Antwort:** einmal gezielter nachfragen, sonst Status herabsetzen + Notiz, weiter.
 - **Widerspruch:** MVP nur **exakte Gleich-Feld-Konflikte** (keine semantische Erkennung — das wäre versteckte LLM-Komplexität). Alten + neuen Kandidaten mit `message_id` behalten, Nutzer klären lassen, **nie still überschreiben**.
 - **LLM-Aussetzer/Timeout:** **eng begrenzte** Retries mit Backoff (damit der Chat-Request nicht in n8n-/Client-Timeouts läuft); sonst State speichern und `fehler_fortsetzbar` zurückgeben.
-- **Kaputtes Extraktions-JSON:** gegen Schema validieren; einmal strenger nachfordern; sonst Rohantwort behalten + Feld `nicht_extrahiert`, **nicht abstürzen**.
+- **Kaputtes Extraktions-JSON:** gegen Schema validieren; einmal strenger nachfordern; sonst Rohantwort im `raw_log` behalten, betroffene Felder bleiben `fehlt`, **nicht abstürzen**. (Behandlung im LLM-Adapter, P2 — kein eigener Feldstatus. Präzisiert 14.07.2026: hier stand ein Marker `nicht_extrahiert`, den das bewusste 5-Status-Modell nicht kennt.)
 - **Bewusst NICHT im MVP (YAGNI → Roadmap):** automatische Widerspruchsauflösung, selbstkorrigierende Extraktion, Off-Topic-Erkennung, numerische Per-Feld-Confidence.
 
 ### B5. Test-Strategie
