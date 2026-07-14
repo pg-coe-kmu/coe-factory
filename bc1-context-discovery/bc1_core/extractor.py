@@ -27,6 +27,9 @@ def extract_and_merge(state: SessionState, message: str, message_id: str,
                 value=cand.value,
                 status=_status_for(spec, cand.value),
                 source_message_id=message_id,
+                # Nachfrage-Zähler gehört dem Dialog (Task 7) — beim Befüllen
+                # eines angefragten Felds nicht zurücksetzen (Cap-Politik).
+                attempts=fv.attempts if fv is not None else 0,
             )
         elif fv.value == cand.value:
             continue
