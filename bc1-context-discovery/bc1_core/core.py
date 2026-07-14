@@ -27,12 +27,22 @@ def process_turn(store: StateStore, llm: LLMClient, package: UseCasePackage,
     state = store.load(session_id) or SessionState(session_id, package.schema_version)
 
     if message_id in state.processed_message_ids:
-        return state.last_response
-
-    # Rohnachricht zuerst sichern (vor jedem LLM-Aufruf)
-    state.raw_log.append((message_id, message))
-    state.processed_message_ids.add(message_id)
-    store.save(state)
+        unbeantwortet = state.last_response is None
+        ist_letzte = bool(state.raw_log) and state.raw_log[-1][0] == message_id
+        if not (unbeantwortet and ist_letzte):
+            # Beantwortete Nachricht (n8n-/HTTP-Retry) → gespeicherte Antwort.
+            # Degenerierter Doppelfehler (alte Nachricht wiederholt, während
+            # die letzte unbeantwortet ist) liefert wie der Plan None.
+            return state.last_response
+        # Geloggt, aber nie beantwortet (Crash zwischen den Saves):
+        # Turn fortsetzen, ohne erneut zu loggen.
+    else:
+        # Rohnachricht zuerst sichern (vor jedem LLM-Aufruf); bis zur
+        # finalen Antwort gilt der Turn als offen (last_response = None).
+        state.raw_log.append((message_id, message))
+        state.processed_message_ids.add(message_id)
+        state.last_response = None
+        store.save(state)
 
     state.rounds += 1
     extract_and_merge(state, message, message_id, package, llm)

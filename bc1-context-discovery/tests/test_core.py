@@ -75,3 +75,44 @@ def test_cap_fertig_payload_enthaelt_frisch_gecappte_felder():
         ["prozess_name", "ausloeser", "haeufigkeit"]
     assert r["payload"]["vollstaendigkeit"] == 0.0
     assert r["payload"]["felder"]["haeufigkeit"]["status"] == "ungeloest"
+
+def test_cap_fertig_payload_traegt_grund_je_aufgegebenem_feld():
+    store = InMemoryStateStore()
+    r = None
+    for i in range(7):
+        r = process_turn(store, FakeLLM(), TOY_PROZESS, "s1", f"m{i}", "…")
+    felder = r["payload"]["felder"]
+    assert felder["prozess_name"]["grund"] == "nachfrage_limit_erreicht"
+    assert felder["haeufigkeit"]["grund"] == "nachfrage_limit_erreicht"
+
+# Crash ZWISCHEN Raw-Save und Final-Save (z. B. LLM-Absturz): Die Nachricht
+# ist geloggt, aber unbeantwortet. Ein Replay (n8n-Retry) muss den Turn
+# FORTSETZEN — nicht die Antwort der Vorgänger-Nachricht liefern (Spec B3:
+# Idempotenz schützt vor Retries; Leitregel: nie Daten verlieren).
+def test_replay_nach_crash_zwischen_den_saves_setzt_turn_fort():
+    class CrashtBeimZweitenSave(InMemoryStateStore):
+        def __init__(self):
+            super().__init__()
+            self.scharf = False
+            self._saves_seit_scharf = 0
+        def save(self, state):
+            if self.scharf:
+                self._saves_seit_scharf += 1
+                if self._saves_seit_scharf == 2:   # = Final-Save des Turns
+                    raise RuntimeError("simulierter Absturz vor dem Final-Save")
+            super().save(state)
+
+    store = CrashtBeimZweitenSave()
+    llm = FakeLLM({"zwei": [ExtractionCandidate("prozess_name", "Freigabe")]})
+    process_turn(store, llm, TOY_PROZESS, "s1", "m1", "eins")
+    store.scharf = True
+    try:
+        process_turn(store, llm, TOY_PROZESS, "s1", "m2", "zwei")
+    except RuntimeError:
+        pass                                    # Turn m2 blieb unbeantwortet
+    store.scharf = False
+    r = process_turn(store, llm, TOY_PROZESS, "s1", "m2", "zwei")   # Retry
+    assert r["payload"]["feld"] == "ausloeser"  # m2 wurde verarbeitet, nicht m1-Antwort
+    st = store.load("s1")
+    assert st.raw_log == [("m1", "eins"), ("m2", "zwei")]   # nicht doppelt geloggt
+    assert st.values["prozess_name"].value == "Freigabe"
