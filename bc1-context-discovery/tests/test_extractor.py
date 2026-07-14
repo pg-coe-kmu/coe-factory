@@ -109,6 +109,22 @@ def test_antwort_auf_nachfrage_fuellt_feld_und_erhaelt_attempts():
     assert fv.source_message_id == "msg-2"
     assert fv.attempts == 1
 
+# Korrektur-Zyklus UNGUELTIG→UNGUELTIG→…: der Dedup-Guard verhindert, dass
+# ein schon bekannter Wert beim erneuten Verdrängen doppelt in die Kandidaten
+# wandert. (Bekannte Eigenheit: der AKTUELLE Wert kann zugleich als Kandidat
+# aus einem früheren Zyklus vorliegen — nachgehalten als Roadmap-Notiz.)
+def test_korrektur_zyklus_erzeugt_keine_kandidaten_duplikate():
+    st = SessionState("s1", "0.1")
+    for msg, wert in [("a", "oft"), ("b", "selten"), ("c", "oft"), ("d", "nie")]:
+        llm = FakeLLM({msg: [ExtractionCandidate("haeufigkeit", wert)]})
+        extract_and_merge(st, msg, f"msg-{msg}", TOY_PROZESS, llm)
+    fv = st.values["haeufigkeit"]
+    assert fv.value == "nie"
+    assert fv.status is FieldStatus.UNGUELTIG
+    # "oft" nur einmal, mit der Quelle des ERSTEN Vorkommens (msg-a)
+    assert fv.candidates == [Candidate("oft", "msg-a"),
+                             Candidate("selten", "msg-b")]
+
 # Ein werfender Validator (z. B. int() auf "fuenfhundert") darf nie den Turn
 # crashen — mit Raw-First-Save (Task 8) wäre die Nachricht sonst dauerhaft
 # verloren. Policy: Validator-Fehler = Wert UNGUELTIG.
