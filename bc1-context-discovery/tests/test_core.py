@@ -187,6 +187,18 @@ def test_alte_nachricht_waehrend_offenem_turn_wird_nicht_neu_verarbeitet():
     assert nachher.rounds == vorher.rounds          # nichts doppelt angewandt
     assert nachher.raw_log == vorher.raw_log
 
+def test_zwei_sessions_bleiben_getrennt_auch_bei_gleicher_message_id():
+    store = InMemoryStateStore()
+    llm = FakeLLM({"a": [ExtractionCandidate("prozess_name", "Freigabe")]})
+    process_turn(store, llm, TOY_PROZESS, "s1", "m1", "a")
+    r2 = process_turn(store, llm, TOY_PROZESS, "s2", "m1", "hallo")
+    assert store.load("s1").values["prozess_name"].value == "Freigabe"
+    # s2 startet frisch: kein Wert aus s1, keine Idempotenz-Kollision über m1
+    assert store.load("s2").values["prozess_name"].value is None
+    assert r2 == {"status": "frage",
+                  "payload": {"naechste_frage": "Wie heißt der Prozess?",
+                              "feld": "prozess_name"}}
+
 # Raw-First (Spec B3): die Rohnachricht wird VOR jedem LLM-Aufruf gesichert —
 # stürzt das LLM ab, ist nichts verloren (Leitregel „nie Daten verlieren").
 def test_rohnachricht_ueberlebt_llm_absturz():
