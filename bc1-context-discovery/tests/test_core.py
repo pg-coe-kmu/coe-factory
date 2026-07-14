@@ -1,7 +1,8 @@
 import json
 
 from bc1_core.types import SessionStatus
-from bc1_core.package import TOY_PROZESS
+from bc1_core.package import TOY_PROZESS, FieldSpec, UseCasePackage
+from bc1_core.dialog import MAX_ROUNDS
 from bc1_core.store import InMemoryStateStore
 from bc1_core.llm import FakeLLM, ExtractionCandidate
 from bc1_core.core import process_turn
@@ -119,6 +120,38 @@ def test_replay_nach_crash_zwischen_den_saves_setzt_turn_fort():
     st = store.load("s1")
     assert st.raw_log == [("m1", "eins"), ("m2", "zwei")]   # nicht doppelt geloggt
     assert st.values["prozess_name"].value == "Freigabe"
+
+# Gate 0 sieht das GANZE Paket: auch nie berührte (optionale) Felder stehen
+# im Profil — mit FEHLT-Default, wie in conf.statuses.
+def test_fertig_payload_enthaelt_alle_paketfelder_auch_unberuehrte():
+    store = InMemoryStateStore()
+    llm = FakeLLM({
+        "a": [ExtractionCandidate("prozess_name", "Freigabe"),
+              ExtractionCandidate("ausloeser", "Antrag"),
+              ExtractionCandidate("haeufigkeit", "5 mal")],
+    })
+    r = process_turn(store, llm, TOY_PROZESS, "s1", "m1", "a")
+    assert r["status"] == "fertig"
+    felder = r["payload"]["felder"]
+    assert set(felder) == {"prozess_name", "ausloeser", "haeufigkeit", "notiz"}
+    assert felder["notiz"] == {"wert": None, "status": "fehlt", "quelle": None,
+                               "grund": None, "kandidaten": []}
+
+# Runden-Limit-Fertig bei großem Paket: KEIN Pflichtfeld darf spurlos aus
+# dem Payload verschwinden — auch nie gefragte nicht (Spec Z. 81 + B3).
+def test_runden_limit_fertig_meldet_alle_offenen_pflichtfelder():
+    gross = UseCasePackage(
+        name="gross", schema_version="0.1",
+        fields=tuple(FieldSpec(f"feld_{i:02d}", f"Frage {i}?") for i in range(11)),
+    )
+    store = InMemoryStateStore()
+    r = None
+    for i in range(MAX_ROUNDS):
+        r = process_turn(store, FakeLLM(), gross, "s1", f"m{i}", "…")
+    assert r["status"] == "fertig"
+    assert r["payload"]["ungeloeste_felder"] == [f"feld_{i:02d}" for i in range(11)]
+    assert r["payload"]["felder"]["feld_10"]["grund"] == "runden_limit_erreicht"
+    assert r["payload"]["felder"]["feld_00"]["grund"] == "nachfrage_limit_erreicht"
 
 # Spec Z. 43: Idempotenz gilt PRO message_id — der späte Retry einer älteren
 # Nachricht muss IHRE Antwort bekommen, nicht die der neuesten.

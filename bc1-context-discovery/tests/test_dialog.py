@@ -89,6 +89,20 @@ def test_frage_kommt_aus_llm_phrase_nicht_aus_dem_paket():
     d = decide_next(st, TOY_PROZESS, conf, UmformulierendesLLM())
     assert d.question == "Umformuliert: prozess_name?"
 
+# Spec Z. 81: AUCH das Runden-Limit führt zu „ungeloest + Grund" — sonst
+# verschwänden nie-gefragte Pflichtfelder spurlos aus dem Gate-0-Payload.
+def test_runden_limit_markiert_alle_offenen_pflichtfelder_ungeloest():
+    st = SessionState("s1", "0.1")
+    st.values["prozess_name"] = FieldValue(value="x", status=FieldStatus.GUELTIG)
+    st.rounds = MAX_ROUNDS
+    conf = confidence_check(st, TOY_PROZESS)
+    d = decide_next(st, TOY_PROZESS, conf, FakeLLM())
+    assert d == Decision(done=True)
+    for name in ("ausloeser", "haeufigkeit"):    # inkl. nie angefragtem Feld
+        fv = st.values[name]
+        assert fv.status is FieldStatus.UNGELOEST
+        assert fv.grund == "runden_limit_erreicht"
+
 def test_done_at_round_limit_even_with_open_fields():
     st = SessionState("s1", "0.1")
     st.rounds = MAX_ROUNDS
