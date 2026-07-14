@@ -41,4 +41,6 @@ class SessionState:
     values: dict[str, FieldValue] = field(default_factory=dict)
     processed_message_ids: set[str] = field(default_factory=set)
     raw_log: list[tuple[str, str]] = field(default_factory=list)
-    last_response: dict | None = None
+    # Antwort je verarbeiteter message_id (Idempotenz, Spec Z. 43). Eine
+    # geloggte Nachricht ohne Eintrag hier = offener/abgebrochener Turn.
+    antworten: dict[str, dict] = field(default_factory=dict)

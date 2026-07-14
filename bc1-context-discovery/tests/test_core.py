@@ -120,13 +120,27 @@ def test_replay_nach_crash_zwischen_den_saves_setzt_turn_fort():
     assert st.raw_log == [("m1", "eins"), ("m2", "zwei")]   # nicht doppelt geloggt
     assert st.values["prozess_name"].value == "Freigabe"
 
-# Degenerierter Doppelfehler: eine ALTE, längst beantwortete Nachricht wird
-# wiederholt, während die letzte Nachricht unbeantwortet ist (Crash-Zustand).
-# Sie darf NICHT neu verarbeitet werden (keine doppelte Extraktion/Runde).
+# Spec Z. 43: Idempotenz gilt PRO message_id — der späte Retry einer älteren
+# Nachricht muss IHRE Antwort bekommen, nicht die der neuesten.
+def test_replay_einer_aelteren_nachricht_liefert_ihre_eigene_antwort():
+    store = InMemoryStateStore()
+    llm = FakeLLM({
+        "a": [ExtractionCandidate("prozess_name", "Freigabe")],
+        "b": [ExtractionCandidate("ausloeser", "Antrag")],
+    })
+    r1 = process_turn(store, llm, TOY_PROZESS, "s1", "m1", "a")
+    r2 = process_turn(store, llm, TOY_PROZESS, "s1", "m2", "b")
+    wieder = process_turn(store, llm, TOY_PROZESS, "s1", "m1", "a")  # später Retry
+    assert wieder == r1
+    assert wieder != r2
+
+# Eine ALTE, längst beantwortete Nachricht wird wiederholt, während die
+# letzte Nachricht unbeantwortet ist (Crash-Zustand). Sie darf NICHT neu
+# verarbeitet werden — und bekommt ihre eigene gespeicherte Antwort.
 def test_alte_nachricht_waehrend_offenem_turn_wird_nicht_neu_verarbeitet():
     store = CrashtBeimZweitenSave()
     llm = FakeLLM({"zwei": [ExtractionCandidate("prozess_name", "Freigabe")]})
-    process_turn(store, llm, TOY_PROZESS, "s1", "m1", "eins")
+    r1 = process_turn(store, llm, TOY_PROZESS, "s1", "m1", "eins")
     store.scharf = True
     try:
         process_turn(store, llm, TOY_PROZESS, "s1", "m2", "zwei")
@@ -135,7 +149,7 @@ def test_alte_nachricht_waehrend_offenem_turn_wird_nicht_neu_verarbeitet():
     store.scharf = False
     vorher = store.load("s1")
     r = process_turn(store, llm, TOY_PROZESS, "s1", "m1", "eins")   # altes Replay
-    assert r is None                                # keine erfundene Antwort
+    assert r == r1                                  # die eigene Antwort von damals
     nachher = store.load("s1")
     assert nachher.rounds == vorher.rounds          # nichts doppelt angewandt
     assert nachher.raw_log == vorher.raw_log

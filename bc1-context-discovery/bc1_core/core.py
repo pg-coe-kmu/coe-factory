@@ -27,21 +27,17 @@ def process_turn(store: StateStore, llm: LLMClient, package: UseCasePackage,
     state = store.load(session_id) or SessionState(session_id, package.schema_version)
 
     if message_id in state.processed_message_ids:
-        unbeantwortet = state.last_response is None
-        ist_letzte = bool(state.raw_log) and state.raw_log[-1][0] == message_id
-        if not (unbeantwortet and ist_letzte):
-            # Beantwortete Nachricht (n8n-/HTTP-Retry) → gespeicherte Antwort.
-            # Degenerierter Doppelfehler (alte Nachricht wiederholt, während
-            # die letzte unbeantwortet ist) liefert wie der Plan None.
-            return state.last_response
+        if message_id in state.antworten:
+            # Beantwortete Nachricht (n8n-/HTTP-Retry) → IHRE Antwort,
+            # nicht die der neuesten Nachricht (Idempotenz je message_id).
+            return state.antworten[message_id]
         # Geloggt, aber nie beantwortet (Crash zwischen den Saves):
-        # Turn fortsetzen, ohne erneut zu loggen.
+        # Turn fortsetzen, ohne erneut zu loggen. Das kann nur die
+        # zuletzt geloggte Nachricht sein — Turns laufen sequenziell.
     else:
-        # Rohnachricht zuerst sichern (vor jedem LLM-Aufruf); bis zur
-        # finalen Antwort gilt der Turn als offen (last_response = None).
+        # Rohnachricht zuerst sichern (vor jedem LLM-Aufruf).
         state.raw_log.append((message_id, message))
         state.processed_message_ids.add(message_id)
-        state.last_response = None
         store.save(state)
 
     state.rounds += 1
@@ -61,6 +57,6 @@ def process_turn(store: StateStore, llm: LLMClient, package: UseCasePackage,
                 "payload": {"naechste_frage": decision.question,
                             "feld": decision.next_field}}
 
-    state.last_response = resp
+    state.antworten[message_id] = resp
     store.save(state)
     return resp
