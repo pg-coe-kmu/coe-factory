@@ -1,4 +1,4 @@
-from bc1_core.types import FieldStatus, SessionState
+from bc1_core.types import FieldStatus, FieldValue, SessionState
 from bc1_core.package import TOY_PROZESS, FieldSpec, UseCasePackage
 from bc1_core.llm import FakeLLM, ExtractionCandidate
 from bc1_core.extractor import extract_and_merge
@@ -81,6 +81,20 @@ def test_invalid_value_is_replaced_by_valid_correction():
     assert fv.status is FieldStatus.GUELTIG
     assert "oft" in fv.candidates                # alter Wert geht nicht verloren
     assert fv.source_message_id == "msg-2"
+
+# Naht zu Task 7: decide_next legt beim Nachfragen FieldValue() an (value=None,
+# attempts gezählt). Die Antwort muss das Feld füllen, OHNE den Nachfrage-
+# Zähler zu verlieren — sonst verschiebt sich die Cap-Politik.
+def test_antwort_auf_nachfrage_fuellt_feld_und_erhaelt_attempts():
+    st = SessionState("s1", "0.1")
+    st.values["prozess_name"] = FieldValue(attempts=1)   # wie von decide_next angelegt
+    llm = FakeLLM({"m": [ExtractionCandidate("prozess_name", "Freigabe")]})
+    extract_and_merge(st, "m", "msg-2", TOY_PROZESS, llm)
+    fv = st.values["prozess_name"]
+    assert fv.value == "Freigabe"
+    assert fv.status is FieldStatus.GUELTIG
+    assert fv.source_message_id == "msg-2"
+    assert fv.attempts == 1
 
 # Ein werfender Validator (z. B. int() auf "fuenfhundert") darf nie den Turn
 # crashen — mit Raw-First-Save (Task 8) wäre die Nachricht sonst dauerhaft
