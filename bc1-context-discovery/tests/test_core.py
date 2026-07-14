@@ -85,23 +85,26 @@ def test_cap_fertig_payload_traegt_grund_je_aufgegebenem_feld():
     assert felder["prozess_name"]["grund"] == "nachfrage_limit_erreicht"
     assert felder["haeufigkeit"]["grund"] == "nachfrage_limit_erreicht"
 
+class CrashtBeimZweitenSave(InMemoryStateStore):
+    """Fault-Injection: wirft beim zweiten Save nach Scharfschaltung
+    (= Final-Save des laufenden Turns)."""
+    def __init__(self):
+        super().__init__()
+        self.scharf = False
+        self._saves_seit_scharf = 0
+
+    def save(self, state):
+        if self.scharf:
+            self._saves_seit_scharf += 1
+            if self._saves_seit_scharf == 2:
+                raise RuntimeError("simulierter Absturz vor dem Final-Save")
+        super().save(state)
+
 # Crash ZWISCHEN Raw-Save und Final-Save (z. B. LLM-Absturz): Die Nachricht
 # ist geloggt, aber unbeantwortet. Ein Replay (n8n-Retry) muss den Turn
 # FORTSETZEN — nicht die Antwort der Vorgänger-Nachricht liefern (Spec B3:
 # Idempotenz schützt vor Retries; Leitregel: nie Daten verlieren).
 def test_replay_nach_crash_zwischen_den_saves_setzt_turn_fort():
-    class CrashtBeimZweitenSave(InMemoryStateStore):
-        def __init__(self):
-            super().__init__()
-            self.scharf = False
-            self._saves_seit_scharf = 0
-        def save(self, state):
-            if self.scharf:
-                self._saves_seit_scharf += 1
-                if self._saves_seit_scharf == 2:   # = Final-Save des Turns
-                    raise RuntimeError("simulierter Absturz vor dem Final-Save")
-            super().save(state)
-
     store = CrashtBeimZweitenSave()
     llm = FakeLLM({"zwei": [ExtractionCandidate("prozess_name", "Freigabe")]})
     process_turn(store, llm, TOY_PROZESS, "s1", "m1", "eins")
@@ -116,6 +119,26 @@ def test_replay_nach_crash_zwischen_den_saves_setzt_turn_fort():
     st = store.load("s1")
     assert st.raw_log == [("m1", "eins"), ("m2", "zwei")]   # nicht doppelt geloggt
     assert st.values["prozess_name"].value == "Freigabe"
+
+# Degenerierter Doppelfehler: eine ALTE, längst beantwortete Nachricht wird
+# wiederholt, während die letzte Nachricht unbeantwortet ist (Crash-Zustand).
+# Sie darf NICHT neu verarbeitet werden (keine doppelte Extraktion/Runde).
+def test_alte_nachricht_waehrend_offenem_turn_wird_nicht_neu_verarbeitet():
+    store = CrashtBeimZweitenSave()
+    llm = FakeLLM({"zwei": [ExtractionCandidate("prozess_name", "Freigabe")]})
+    process_turn(store, llm, TOY_PROZESS, "s1", "m1", "eins")
+    store.scharf = True
+    try:
+        process_turn(store, llm, TOY_PROZESS, "s1", "m2", "zwei")
+    except RuntimeError:
+        pass
+    store.scharf = False
+    vorher = store.load("s1")
+    r = process_turn(store, llm, TOY_PROZESS, "s1", "m1", "eins")   # altes Replay
+    assert r is None                                # keine erfundene Antwort
+    nachher = store.load("s1")
+    assert nachher.rounds == vorher.rounds          # nichts doppelt angewandt
+    assert nachher.raw_log == vorher.raw_log
 
 # Raw-First (Spec B3): die Rohnachricht wird VOR jedem LLM-Aufruf gesichert —
 # stürzt das LLM ab, ist nichts verloren (Leitregel „nie Daten verlieren").
