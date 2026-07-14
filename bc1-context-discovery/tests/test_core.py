@@ -116,3 +116,17 @@ def test_replay_nach_crash_zwischen_den_saves_setzt_turn_fort():
     st = store.load("s1")
     assert st.raw_log == [("m1", "eins"), ("m2", "zwei")]   # nicht doppelt geloggt
     assert st.values["prozess_name"].value == "Freigabe"
+
+# Raw-First (Spec B3): die Rohnachricht wird VOR jedem LLM-Aufruf gesichert —
+# stürzt das LLM ab, ist nichts verloren (Leitregel „nie Daten verlieren").
+def test_rohnachricht_ueberlebt_llm_absturz():
+    class ExplodierendesLLM(FakeLLM):
+        def extract(self, message, package, state):
+            raise RuntimeError("LLM weg")
+
+    store = InMemoryStateStore()
+    try:
+        process_turn(store, ExplodierendesLLM(), TOY_PROZESS, "s1", "m1", "wichtig")
+    except RuntimeError:
+        pass
+    assert store.load("s1").raw_log == [("m1", "wichtig")]
