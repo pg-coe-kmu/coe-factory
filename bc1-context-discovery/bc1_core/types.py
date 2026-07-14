@@ -28,6 +28,8 @@ class FieldValue:
     source_message_id: str | None = None
     candidates: list[Candidate] = field(default_factory=list)
     attempts: int = 0
+    # Nur bei UNGELOEST gesetzt: warum das Feld aufgegeben wurde (Spec B4).
+    grund: str | None = None
 
 @dataclass
 class SessionState:

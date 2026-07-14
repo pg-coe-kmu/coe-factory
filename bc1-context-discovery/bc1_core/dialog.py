@@ -21,6 +21,7 @@ def decide_next(state: SessionState, package: UseCasePackage,
         fv = state.values.get(name)
         if fv is not None and fv.attempts >= MAX_ATTEMPTS_PER_FIELD:
             fv.status = FieldStatus.UNGELOEST
+            fv.grund = "nachfrage_limit_erreicht"
 
     offen = [n for n in conf.offene_pflichtfelder
              if state.values.get(n) is None

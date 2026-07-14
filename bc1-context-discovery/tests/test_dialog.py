@@ -54,6 +54,18 @@ def test_mehrere_gecappte_felder_werden_alle_ungeloest():
     assert st.values["ausloeser"].status is FieldStatus.UNGELOEST
     assert d == Decision(done=True)
 
+# Design-Spec Z. 81: „danach Feld ungeloest + Grund" — Gate 0 soll wissen,
+# WARUM ein Feld offen blieb.
+def test_gecapptes_feld_traegt_grund():
+    st = SessionState("s1", "0.1")
+    st.values["prozess_name"] = FieldValue(status=FieldStatus.FEHLT,
+                                           attempts=MAX_ATTEMPTS_PER_FIELD)
+    conf = confidence_check(st, TOY_PROZESS)
+    decide_next(st, TOY_PROZESS, conf, FakeLLM())
+    fv = st.values["prozess_name"]
+    assert fv.status is FieldStatus.UNGELOEST
+    assert fv.grund == "nachfrage_limit_erreicht"
+
 def test_gecapptes_feld_wird_uebersprungen_naechstes_offenes_gefragt():
     st = SessionState("s1", "0.1")
     st.values["prozess_name"] = FieldValue(status=FieldStatus.FEHLT,
