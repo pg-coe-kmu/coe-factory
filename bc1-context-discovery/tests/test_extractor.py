@@ -109,6 +109,19 @@ def test_antwort_auf_nachfrage_fuellt_feld_und_erhaelt_attempts():
     assert fv.source_message_id == "msg-2"
     assert fv.attempts == 1
 
+# Zwei Kandidaten fürs gleiche Feld in EINER Nachricht: sequenzieller Merge —
+# der erste füllt, der zweite erzeugt den Konflikt. Widersprüchliche Angaben
+# in einer Nachricht landen so als UNKLAR beim Dialog zur Klärung.
+def test_zwei_kandidaten_fuers_gleiche_feld_in_einer_nachricht():
+    st = SessionState("s1", "0.1")
+    llm = FakeLLM({"m": [ExtractionCandidate("prozess_name", "Freigabe"),
+                         ExtractionCandidate("prozess_name", "Bestellung")]})
+    extract_and_merge(st, "m", "msg-1", TOY_PROZESS, llm)
+    fv = st.values["prozess_name"]
+    assert fv.value == "Freigabe"
+    assert fv.status is FieldStatus.UNKLAR
+    assert fv.candidates == [Candidate("Bestellung", "msg-1")]
+
 # Korrektur-Zyklus UNGUELTIG→UNGUELTIG→…: der Dedup-Guard verhindert, dass
 # ein schon bekannter Wert beim erneuten Verdrängen doppelt in die Kandidaten
 # wandert. (Bekannte Eigenheit: der AKTUELLE Wert kann zugleich als Kandidat
