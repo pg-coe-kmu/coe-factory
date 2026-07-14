@@ -37,8 +37,10 @@
 - **Eine Schnittstelle n8n ↔ Kern**, eine **versionierte** Antwort mit explizitem Status:
   - **Request:** `{ session_id, message_id, message, schema_version? }`
   - **Response:** `{ status, payload }` mit `status ∈ { "frage", "fertig", "fehler_fortsetzbar" }`
-    - `"frage"` → `payload = { naechste_frage }`
-    - `"fertig"` → `payload = { profil, vollstaendigkeit, ungeloeste_felder[], schema_version }`
+    - `"frage"` → `payload = { naechste_frage, feld }`
+    - `"fertig"` → `payload = { felder, vollstaendigkeit, ungeloeste_felder[], schema_version }`
+      (`felder` = das Profil: je Paketfeld `{ wert, status, quelle, grund, kandidaten[{wert, quelle}] }`;
+      finale Formalisierung gehört nach `contracts/bc1-to-bc2/`, gemeinsam mit BC2 + Platform)
     - `"fehler_fortsetzbar"` → `payload = { grund }`
 - **Idempotenz über `message_id`** (nicht nur `session_id`): bereits verarbeitete Nachrichten werden nicht doppelt angewandt (schützt vor n8n-/HTTP-Retries).
 - **Persistenz gehört dem Kern.** Laden → Ändern → Speichern ist **eine atomare Operation** mit **State-Versionierung (optimistic locking)**; veraltete Updates werden abgewiesen/erneut gespielt. **n8n schreibt nie selbst den Zustand** — es transportiert nur.
