@@ -39,6 +39,11 @@ def process_turn(store: StateStore, llm: LLMClient, package: UseCasePackage,
         # Geloggt, aber nie beantwortet (Crash zwischen den Saves):
         # Turn fortsetzen, ohne erneut zu loggen. Das kann nur die
         # zuletzt geloggte Nachricht sein — Turns laufen sequenziell.
+    elif state.status is SessionStatus.FERTIG:
+        # Nach der Gate-0-Übergabe gibt es keinen Übergang zurück (Spec B3).
+        # Neue Nachrichten erhalten idempotent das Abschlussergebnis;
+        # aktives Zurückweisen ist Sache der Transportschicht (P2).
+        return state.antworten[state.raw_log[-1][0]]
     else:
         # Rohnachricht zuerst sichern (vor jedem LLM-Aufruf).
         state.raw_log.append((message_id, message))

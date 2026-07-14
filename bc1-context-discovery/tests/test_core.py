@@ -187,6 +187,28 @@ def test_alte_nachricht_waehrend_offenem_turn_wird_nicht_neu_verarbeitet():
     assert nachher.rounds == vorher.rounds          # nichts doppelt angewandt
     assert nachher.raw_log == vorher.raw_log
 
+# Spec B3: Die State-Machine kennt keinen Übergang FERTIG → WARTET. Nach
+# der Gate-0-Übergabe öffnet keine neue Nachricht die Session wieder —
+# sie erhält idempotent das Abschlussergebnis (Zurückweisung: Sache von P2).
+def test_fertige_session_wird_nicht_wieder_geoeffnet():
+    store = InMemoryStateStore()
+    llm = FakeLLM({
+        "a": [ExtractionCandidate("prozess_name", "Freigabe"),
+              ExtractionCandidate("ausloeser", "Antrag"),
+              ExtractionCandidate("haeufigkeit", "5 mal")],
+        "b": [ExtractionCandidate("prozess_name", "Anders")],   # Widerspruch
+    })
+    fertig = process_turn(store, llm, TOY_PROZESS, "s1", "m1", "a")
+    assert fertig["status"] == "fertig"
+    vorher = store.load("s1")
+    r = process_turn(store, llm, TOY_PROZESS, "s1", "m2", "b")
+    assert r == fertig                              # idempotenter Abschluss
+    nachher = store.load("s1")
+    assert nachher.status is SessionStatus.FERTIG
+    assert nachher.values["prozess_name"].value == "Freigabe"   # kein UNKLAR
+    assert nachher.raw_log == vorher.raw_log
+    assert nachher.rounds == vorher.rounds
+
 def test_zwei_sessions_bleiben_getrennt_auch_bei_gleicher_message_id():
     store = InMemoryStateStore()
     llm = FakeLLM({"a": [ExtractionCandidate("prozess_name", "Freigabe")]})
