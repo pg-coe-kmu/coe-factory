@@ -49,3 +49,11 @@ def test_optimistic_locking_rejects_version_ahead_write():
     ahead.version = 7           # Caller-Bug: Version läuft dem Store voraus
     with pytest.raises(StaleStateError):
         store.save(ahead)
+
+# Ein Erst-Save mit version != 0 kann nur aus einem Caller-Bug stammen
+# (Zustandsobjekte leben nie außerhalb des Prozesses, nur session_ids).
+def test_erst_save_mit_versionsstand_wird_abgelehnt():
+    store = InMemoryStateStore()
+    st = SessionState(session_id="s1", schema_version="0.1", version=5)
+    with pytest.raises(StaleStateError):
+        store.save(st)
