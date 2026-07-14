@@ -15,12 +15,18 @@ class SessionStatus(str, Enum):
     FERTIG = "fertig"
     FEHLER = "fehler_fortsetzbar"
 
+# Design-Spec B2/B4: jeder Kandidat behält seine Quelle (message_id).
+@dataclass(frozen=True)
+class Candidate:
+    value: str
+    source_message_id: str
+
 @dataclass
 class FieldValue:
     value: str | None = None
     status: FieldStatus = FieldStatus.FEHLT
     source_message_id: str | None = None
-    candidates: list[str] = field(default_factory=list)
+    candidates: list[Candidate] = field(default_factory=list)
     attempts: int = 0
 
 @dataclass
