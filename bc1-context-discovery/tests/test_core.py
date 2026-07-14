@@ -61,3 +61,17 @@ def test_fertig_antwort_mit_kandidaten_ist_json_faehig():
     assert roundtrip == r
     assert roundtrip["payload"]["felder"]["haeufigkeit"]["kandidaten"] == \
         [{"wert": "oft", "quelle": "m1"}]
+
+# Kap-Fertig-Turn: Felder, die decide_next in DIESEM Turn auf UNGELOEST
+# cappt, müssen im Payload unter ungeloeste_felder stehen — die Confidence
+# von VOR decide_next wäre stale (Gate-0-Payload widerspräche sich selbst).
+def test_cap_fertig_payload_enthaelt_frisch_gecappte_felder():
+    store = InMemoryStateStore()
+    r = None
+    for i in range(7):   # 2 Nachfragen je Pflichtfeld, dann gecappt (3 Felder)
+        r = process_turn(store, FakeLLM(), TOY_PROZESS, "s1", f"m{i}", "…")
+    assert r["status"] == "fertig"
+    assert r["payload"]["ungeloeste_felder"] == \
+        ["prozess_name", "ausloeser", "haeufigkeit"]
+    assert r["payload"]["vollstaendigkeit"] == 0.0
+    assert r["payload"]["felder"]["haeufigkeit"]["status"] == "ungeloest"
