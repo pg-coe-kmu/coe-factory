@@ -24,6 +24,8 @@ def test_core_handles_a_different_package_unchanged():
     assert set(r["payload"]["felder"]) == {"lieferant", "betrag"}
 
 def test_run_scripted_liefert_eine_antwort_pro_nachricht():
+    # Import bewusst lokal: der Naht-Test oben ist der Generik-Vertragsbeweis
+    # und muss auch dann collectbar bleiben, wenn cli.py kaputt/absent ist.
     from bc1_core.cli import run_scripted
     llm = FakeLLM({"x": [ExtractionCandidate("lieferant", "ACME")],
                    "y": [ExtractionCandidate("betrag", "500 EUR")]})
