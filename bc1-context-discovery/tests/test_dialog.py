@@ -31,6 +31,42 @@ def test_field_over_attempt_cap_becomes_ungeloest():
     assert st.values["prozess_name"].status is FieldStatus.UNGELOEST
     assert d.done is True
 
+# Die Cap-Politik gilt nur für OFFENE Pflichtfelder — ein gültiges Feld
+# mit hohem Zähler (z. B. nach Korrekturen) darf nie auf UNGELOEST kippen.
+def test_gueltiges_feld_am_cap_bleibt_gueltig():
+    st = SessionState("s1", "0.1")
+    st.values["prozess_name"] = FieldValue(value="x", status=FieldStatus.GUELTIG,
+                                           attempts=MAX_ATTEMPTS_PER_FIELD)
+    conf = confidence_check(st, TOY_PROZESS)
+    decide_next(st, TOY_PROZESS, conf, FakeLLM())
+    assert st.values["prozess_name"].status is FieldStatus.GUELTIG
+
+def test_mehrere_gecappte_felder_werden_alle_ungeloest():
+    st = SessionState("s1", "0.1")
+    st.values["prozess_name"] = FieldValue(status=FieldStatus.FEHLT,
+                                           attempts=MAX_ATTEMPTS_PER_FIELD)
+    st.values["ausloeser"] = FieldValue(status=FieldStatus.FEHLT,
+                                        attempts=MAX_ATTEMPTS_PER_FIELD)
+    st.values["haeufigkeit"] = FieldValue(value="3", status=FieldStatus.GUELTIG)
+    conf = confidence_check(st, TOY_PROZESS)
+    d = decide_next(st, TOY_PROZESS, conf, FakeLLM())
+    assert st.values["prozess_name"].status is FieldStatus.UNGELOEST
+    assert st.values["ausloeser"].status is FieldStatus.UNGELOEST
+    assert d == Decision(done=True)
+
+# Invariante „LLM nur hinter dem LLM-Client": die Frage muss aus llm.phrase
+# kommen — FakeLLM gibt zufällig field.question zurück, deshalb hier ein
+# Fake mit abweichender Formulierung.
+def test_frage_kommt_aus_llm_phrase_nicht_aus_dem_paket():
+    class UmformulierendesLLM(FakeLLM):
+        def phrase(self, field, state):
+            return f"Umformuliert: {field.name}?"
+
+    st = SessionState("s1", "0.1")
+    conf = confidence_check(st, TOY_PROZESS)
+    d = decide_next(st, TOY_PROZESS, conf, UmformulierendesLLM())
+    assert d.question == "Umformuliert: prozess_name?"
+
 def test_done_at_round_limit_even_with_open_fields():
     st = SessionState("s1", "0.1")
     st.rounds = MAX_ROUNDS
