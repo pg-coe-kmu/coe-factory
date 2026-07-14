@@ -1,5 +1,5 @@
 from __future__ import annotations
-from bc1_core.types import SessionState, SessionStatus
+from bc1_core.types import FieldValue, SessionState, SessionStatus
 from bc1_core.package import UseCasePackage
 from bc1_core.store import StateStore
 from bc1_core.llm import LLMClient
@@ -7,14 +7,19 @@ from bc1_core.extractor import extract_and_merge
 from bc1_core.confidence import confidence_check, ConfidenceResult
 from bc1_core.dialog import decide_next
 
-def _profil(state: SessionState, conf: ConfidenceResult) -> dict:
-    felder = {
-        name: {"wert": fv.value, "status": fv.status.value,
-               "quelle": fv.source_message_id, "grund": fv.grund,
-               "kandidaten": [{"wert": k.value, "quelle": k.source_message_id}
-                              for k in fv.candidates]}
-        for name, fv in state.values.items()
-    }
+def _profil(state: SessionState, conf: ConfidenceResult,
+            package: UseCasePackage) -> dict:
+    # Über die Paketfelder iterieren, nicht über state.values: Gate 0 sieht
+    # das ganze Paket (nie berührte Felder als FEHLT), Fremdeinträge nicht —
+    # konsistent zu conf.statuses.
+    felder = {}
+    for spec in package.fields:
+        fv = state.values.get(spec.name) or FieldValue()
+        felder[spec.name] = {
+            "wert": fv.value, "status": fv.status.value,
+            "quelle": fv.source_message_id, "grund": fv.grund,
+            "kandidaten": [{"wert": k.value, "quelle": k.source_message_id}
+                           for k in fv.candidates]}
     return {
         "felder": felder,
         "vollstaendigkeit": conf.completeness,
@@ -50,7 +55,7 @@ def process_turn(store: StateStore, llm: LLMClient, package: UseCasePackage,
         # decide_next kann Felder frisch auf UNGELOEST gecappt haben —
         # fürs Gate-0-Payload zählt der Stand NACH der Entscheidung.
         conf = confidence_check(state, package)
-        resp = {"status": "fertig", "payload": _profil(state, conf)}
+        resp = {"status": "fertig", "payload": _profil(state, conf, package)}
     else:
         state.status = SessionStatus.WARTET
         resp = {"status": "frage",
