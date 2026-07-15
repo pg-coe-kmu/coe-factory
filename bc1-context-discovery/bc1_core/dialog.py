@@ -8,6 +8,10 @@ from bc1_core.llm import LLMClient
 MAX_ATTEMPTS_PER_FIELD = 2
 MAX_ROUNDS = 20
 
+# Wire-Werte für FieldValue.grund (Spec B4) — Vertrag Richtung BC2.
+GRUND_NACHFRAGE_LIMIT = "nachfrage_limit_erreicht"
+GRUND_RUNDEN_LIMIT = "runden_limit_erreicht"
+
 @dataclass
 class Decision:
     done: bool
@@ -21,7 +25,7 @@ def decide_next(state: SessionState, package: UseCasePackage,
         fv = state.values.get(name)
         if fv is not None and fv.attempts >= MAX_ATTEMPTS_PER_FIELD:
             fv.status = FieldStatus.UNGELOEST
-            fv.grund = "nachfrage_limit_erreicht"
+            fv.grund = GRUND_NACHFRAGE_LIMIT
 
     offen = [n for n in conf.offene_pflichtfelder
              if state.values.get(n) is None
@@ -36,7 +40,7 @@ def decide_next(state: SessionState, package: UseCasePackage,
                 fv = FieldValue()
                 state.values[name] = fv
             fv.status = FieldStatus.UNGELOEST
-            fv.grund = "runden_limit_erreicht"
+            fv.grund = GRUND_RUNDEN_LIMIT
         return Decision(done=True)
     if not offen:
         return Decision(done=True)
