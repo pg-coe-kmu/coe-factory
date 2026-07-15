@@ -36,9 +36,18 @@ def process_turn(store: StateStore, llm: LLMClient, package: UseCasePackage,
             # Beantwortete Nachricht (n8n-/HTTP-Retry) → IHRE Antwort,
             # nicht die der neuesten Nachricht (Idempotenz je message_id).
             return state.antworten[message_id]
-        # Geloggt, aber nie beantwortet (Crash zwischen den Saves):
-        # Turn fortsetzen, ohne erneut zu loggen. Das kann nur die
-        # zuletzt geloggte Nachricht sein — Turns laufen sequenziell.
+        if (state.status is SessionStatus.FERTIG
+                or not state.raw_log or state.raw_log[-1][0] != message_id):
+            # Überholter unbeantworteter Turn (Session fertig oder andere
+            # Nachricht kam dazwischen): nie neu verarbeiten — letzte
+            # bekannte Antwort der Session liefern.
+            return next((state.antworten[mid]
+                         for mid, _ in reversed(state.raw_log)
+                         if mid in state.antworten), None)
+        # Crash zwischen den Saves: die zuletzt geloggte, unbeantwortete
+        # Nachricht fortsetzen — mit dem GELOGGTEN Text, nicht dem
+        # (womöglich abweichenden) Retry-Body. Nicht erneut loggen.
+        message = state.raw_log[-1][1]
     elif state.status is SessionStatus.FERTIG:
         # Nach der Gate-0-Übergabe gibt es keinen Übergang zurück (Spec B3).
         # Neue Nachrichten erhalten idempotent das Abschlussergebnis;
