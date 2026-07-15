@@ -113,6 +113,22 @@ def test_antwort_auf_nachfrage_fuellt_feld_und_erhaelt_attempts():
     assert fv.source_message_id == "msg-2"
     assert fv.attempts == 1
 
+# GEWOLLT (Gesamt-Review 15.07.): ein vom Dialog aufgegebenes Feld (UNGELOEST,
+# value=None, grund gesetzt) wird durch eine spätere validierte Extraktion
+# wiederbelebt — echte späte Info schlägt „ungelöst", der grund erlischt.
+def test_spaete_extraktion_belebt_aufgegebenes_feld_wieder():
+    st = SessionState("s1", "0.1")
+    st.values["prozess_name"] = FieldValue(status=FieldStatus.UNGELOEST,
+                                           attempts=2,
+                                           grund="nachfrage_limit_erreicht")
+    llm = FakeLLM({"m": [ExtractionCandidate("prozess_name", "Freigabe")]})
+    extract_and_merge(st, "m", "msg-9", TOY_PROZESS, llm)
+    fv = st.values["prozess_name"]
+    assert fv.value == "Freigabe"
+    assert fv.status is FieldStatus.GUELTIG
+    assert fv.grund is None                     # Grund gilt nur für UNGELOEST
+    assert fv.attempts == 2                     # Zähler-Historie bleibt
+
 # Zwei Kandidaten fürs gleiche Feld in EINER Nachricht: sequenzieller Merge —
 # der erste füllt, der zweite erzeugt den Konflikt. Widersprüchliche Angaben
 # in einer Nachricht landen so als UNKLAR beim Dialog zur Klärung.

@@ -2,7 +2,14 @@ from bc1_core.types import FieldStatus, FieldValue, SessionState
 from bc1_core.package import TOY_PROZESS
 from bc1_core.confidence import confidence_check
 from bc1_core.llm import FakeLLM
-from bc1_core.dialog import decide_next, Decision, MAX_ATTEMPTS_PER_FIELD, MAX_ROUNDS
+from bc1_core.dialog import (GRUND_NACHFRAGE_LIMIT, GRUND_RUNDEN_LIMIT,
+                             MAX_ATTEMPTS_PER_FIELD, MAX_ROUNDS,
+                             Decision, decide_next)
+
+# Die grund-Werte sind Wire-Vertrag Richtung BC2 — wie die Enum-Werte.
+def test_grund_konstanten_sind_wire_vertrag():
+    assert GRUND_NACHFRAGE_LIMIT == "nachfrage_limit_erreicht"
+    assert GRUND_RUNDEN_LIMIT == "runden_limit_erreicht"
 
 def test_asks_first_open_field_and_counts_attempt():
     st = SessionState("s1", "0.1")
