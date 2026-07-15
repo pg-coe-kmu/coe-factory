@@ -279,16 +279,33 @@ def test_crash_resume_verarbeitet_den_geloggten_text():
     assert st.values["prozess_name"].value == "Freigabe"    # aus "orig"
     assert st.raw_log == [("m1", "orig")]
 
-# Raw-First (Spec B3): die Rohnachricht wird VOR jedem LLM-Aufruf gesichert —
-# stürzt das LLM ab, ist nichts verloren (Leitregel „nie Daten verlieren").
-def test_rohnachricht_ueberlebt_llm_absturz():
-    class ExplodierendesLLM(FakeLLM):
-        def extract(self, message, package, state):
-            raise RuntimeError("LLM weg")
+class ExplodierendesLLM(FakeLLM):
+    def extract(self, message, package, state):
+        raise RuntimeError("LLM weg")
 
+# Spec B4: LLM-Aussetzer → State speichern und fehler_fortsetzbar zurückgeben
+# (statt roher Exception). Raw-First (B3): die Rohnachricht ist da bereits
+# gesichert — nichts geht verloren, der Retry kann fortsetzen.
+def test_llm_absturz_liefert_fehler_fortsetzbar_statt_exception():
     store = InMemoryStateStore()
-    try:
-        process_turn(store, ExplodierendesLLM(), TOY_PROZESS, "s1", "m1", "wichtig")
-    except RuntimeError:
-        pass
-    assert store.load("s1").raw_log == [("m1", "wichtig")]
+    r = process_turn(store, ExplodierendesLLM(), TOY_PROZESS, "s1", "m1", "wichtig")
+    assert r == {"status": "fehler_fortsetzbar",
+                 "payload": {"grund": "verarbeitung_fehlgeschlagen"}}
+    st = store.load("s1")
+    assert st.status is SessionStatus.FEHLER
+    assert st.raw_log == [("m1", "wichtig")]    # Raw-First: nichts verloren
+    assert "m1" not in st.antworten             # unbeantwortet → Retry setzt fort
+
+# Spec B94 „Fortsetzbarkeit": nach FEHLER_FORTSETZBAR setzt der Retry mit
+# funktionierendem LLM den Turn normal fort.
+def test_retry_nach_fehler_fortsetzbar_setzt_turn_fort():
+    store = InMemoryStateStore()
+    kaputt = ExplodierendesLLM({"wichtig": [ExtractionCandidate("prozess_name", "Freigabe")]})
+    process_turn(store, kaputt, TOY_PROZESS, "s1", "m1", "wichtig")
+    heil = FakeLLM({"wichtig": [ExtractionCandidate("prozess_name", "Freigabe")]})
+    r = process_turn(store, heil, TOY_PROZESS, "s1", "m1", "wichtig")   # Retry
+    assert r["status"] == "frage"
+    st = store.load("s1")
+    assert st.status is SessionStatus.WARTET
+    assert st.values["prozess_name"].value == "Freigabe"
+    assert st.raw_log == [("m1", "wichtig")]    # nicht doppelt geloggt
