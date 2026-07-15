@@ -262,6 +262,24 @@ def test_ueberholter_crash_turn_oeffnet_fertige_session_nicht():
     assert st.status is SessionStatus.FERTIG
     assert st.values["prozess_name"].value == "Freigabe"   # kein Konflikt
 
+def test_ueberholter_crash_turn_wird_auch_bei_laufender_session_nicht_fortgesetzt():
+    store = CrashtBeimZweitenSave()
+    llm = FakeLLM({"kaputt": [ExtractionCandidate("prozess_name", "Falsch")],
+                   "ok": [ExtractionCandidate("prozess_name", "Freigabe")]})
+    store.scharf = True
+    try:
+        process_turn(store, llm, TOY_PROZESS, "s1", "m1", "kaputt")   # crasht
+    except RuntimeError:
+        pass
+    store.scharf = False
+    r2 = process_turn(store, llm, TOY_PROZESS, "s1", "m2", "ok")      # überholt m1
+    vorher = store.load("s1")
+    r = process_turn(store, llm, TOY_PROZESS, "s1", "m1", "kaputt")   # Replay m1
+    assert r == r2                                  # letzte bekannte Antwort
+    nachher = store.load("s1")
+    assert nachher.values["prozess_name"].value == "Freigabe"   # kein "Falsch"
+    assert nachher.rounds == vorher.rounds
+
 # Beim Crash-Resume zählt der GELOGGTE Text — nicht ein womöglich
 # abweichender Retry-Body (sonst widersprächen sich raw_log und Verarbeitung).
 def test_crash_resume_verarbeitet_den_geloggten_text():
