@@ -221,6 +221,49 @@ def test_zwei_sessions_bleiben_getrennt_auch_bei_gleicher_message_id():
                   "payload": {"naechste_frage": "Wie heißt der Prozess?",
                               "feld": "prozess_name"}}
 
+# Ein überholter Crash-Turn (andere Nachrichten kamen dazwischen, Session
+# wurde regulär FERTIG) darf beim Replay NICHT fortgesetzt werden — sonst
+# würde die abgeschlossene Session wieder geöffnet (Spec B3: kein Übergang
+# zurück). Er erhält die letzte bekannte Antwort der Session.
+def test_ueberholter_crash_turn_oeffnet_fertige_session_nicht():
+    store = CrashtBeimZweitenSave()
+    llm = FakeLLM({
+        "kaputt": [ExtractionCandidate("prozess_name", "Falsch")],
+        "alles": [ExtractionCandidate("prozess_name", "Freigabe"),
+                  ExtractionCandidate("ausloeser", "Antrag"),
+                  ExtractionCandidate("haeufigkeit", "5 mal")],
+    })
+    store.scharf = True
+    try:
+        process_turn(store, llm, TOY_PROZESS, "s1", "m1", "kaputt")   # crasht
+    except RuntimeError:
+        pass
+    store.scharf = False
+    fertig = process_turn(store, llm, TOY_PROZESS, "s1", "m2", "alles")
+    assert fertig["status"] == "fertig"
+    r = process_turn(store, llm, TOY_PROZESS, "s1", "m1", "kaputt")   # Replay
+    assert r == fertig                                # keine Neuverarbeitung
+    st = store.load("s1")
+    assert st.status is SessionStatus.FERTIG
+    assert st.values["prozess_name"].value == "Freigabe"   # kein Konflikt
+
+# Beim Crash-Resume zählt der GELOGGTE Text — nicht ein womöglich
+# abweichender Retry-Body (sonst widersprächen sich raw_log und Verarbeitung).
+def test_crash_resume_verarbeitet_den_geloggten_text():
+    store = CrashtBeimZweitenSave()
+    llm = FakeLLM({"orig": [ExtractionCandidate("prozess_name", "Freigabe")],
+                   "anders": [ExtractionCandidate("prozess_name", "Falsch")]})
+    store.scharf = True
+    try:
+        process_turn(store, llm, TOY_PROZESS, "s1", "m1", "orig")   # crasht
+    except RuntimeError:
+        pass
+    store.scharf = False
+    process_turn(store, llm, TOY_PROZESS, "s1", "m1", "anders")     # Retry
+    st = store.load("s1")
+    assert st.values["prozess_name"].value == "Freigabe"    # aus "orig"
+    assert st.raw_log == [("m1", "orig")]
+
 # Raw-First (Spec B3): die Rohnachricht wird VOR jedem LLM-Aufruf gesichert —
 # stürzt das LLM ab, ist nichts verloren (Leitregel „nie Daten verlieren").
 def test_rohnachricht_ueberlebt_llm_absturz():
