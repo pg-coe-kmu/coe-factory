@@ -31,6 +31,13 @@ def process_turn(store: StateStore, llm: LLMClient, package: UseCasePackage,
                  session_id: str, message_id: str, message: str) -> dict:
     state = store.load(session_id) or SessionState(session_id, package.schema_version)
 
+    if state.schema_version != package.schema_version:
+        # Fail fast: eine Session ist an ihr Paket-Schema gebunden — stilles
+        # Vermischen würde Gate 0 ein falsch etikettiertes Profil liefern.
+        raise ValueError(
+            f"Session {session_id} läuft mit schema_version "
+            f"{state.schema_version}, Aufruf kam mit {package.schema_version}")
+
     if message_id in state.processed_message_ids:
         if message_id in state.antworten:
             # Beantwortete Nachricht (n8n-/HTTP-Retry) → IHRE Antwort,

@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from bc1_core.types import SessionStatus
 from bc1_core.package import TOY_PROZESS, FieldSpec, UseCasePackage
 from bc1_core.dialog import MAX_ROUNDS
@@ -208,6 +210,19 @@ def test_fertige_session_wird_nicht_wieder_geoeffnet():
     assert nachher.values["prozess_name"].value == "Freigabe"   # kein UNKLAR
     assert nachher.raw_log == vorher.raw_log
     assert nachher.rounds == vorher.rounds
+
+# Eine Session ist an ihre schema_version gebunden — ein Turn mit einem
+# anderen Paket darf nie still vermischt werden (Gate 0 bekäme sonst ein
+# Profil mit falscher Schema-Angabe).
+def test_paketwechsel_in_laufender_session_wird_abgelehnt():
+    anderes = UseCasePackage(
+        name="anderes", schema_version="9.9",
+        fields=(FieldSpec("lieferant", "Wer?"),),
+    )
+    store = InMemoryStateStore()
+    process_turn(store, FakeLLM(), TOY_PROZESS, "s1", "m1", "hallo")
+    with pytest.raises(ValueError):
+        process_turn(store, FakeLLM(), anderes, "s1", "m2", "hallo")
 
 def test_zwei_sessions_bleiben_getrennt_auch_bei_gleicher_message_id():
     store = InMemoryStateStore()
