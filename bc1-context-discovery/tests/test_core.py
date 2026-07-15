@@ -224,6 +224,16 @@ def test_paketwechsel_in_laufender_session_wird_abgelehnt():
     with pytest.raises(ValueError):
         process_turn(store, FakeLLM(), anderes, "s1", "m2", "hallo")
 
+def test_paketwechsel_wird_auch_bei_gleicher_schema_version_abgelehnt():
+    anderes = UseCasePackage(
+        name="anderes", schema_version="0.1",   # gleiche Version wie TOY!
+        fields=(FieldSpec("lieferant", "Wer?"),),
+    )
+    store = InMemoryStateStore()
+    process_turn(store, FakeLLM(), TOY_PROZESS, "s1", "m1", "hallo")
+    with pytest.raises(ValueError):
+        process_turn(store, FakeLLM(), anderes, "s1", "m2", "hallo")
+
 def test_zwei_sessions_bleiben_getrennt_auch_bei_gleicher_message_id():
     store = InMemoryStateStore()
     llm = FakeLLM({"a": [ExtractionCandidate("prozess_name", "Freigabe")]})
@@ -280,6 +290,31 @@ def test_ueberholter_crash_turn_wird_auch_bei_laufender_session_nicht_fortgesetz
     assert nachher.values["prozess_name"].value == "Freigabe"   # kein "Falsch"
     assert nachher.rounds == vorher.rounds
 
+# Doppel-Crash: BEIDE Turns blieben unbeantwortet — das Replay der
+# überholten Nachricht bekommt eine Vertragsantwort (fehler_fortsetzbar),
+# niemals None (process_turn -> dict).
+def test_ueberholtes_replay_ohne_jede_antwort_liefert_vertragsantwort():
+    class CrashtBeiFinalSaves(InMemoryStateStore):
+        def __init__(self):
+            super().__init__()
+            self._n = 0
+        def save(self, state):
+            self._n += 1
+            if self._n in (2, 4):               # Final-Saves von m1 und m2
+                raise RuntimeError("Absturz vor dem Final-Save")
+            super().save(state)
+
+    store = CrashtBeiFinalSaves()
+    llm = FakeLLM()
+    for mid in ("m1", "m2"):
+        try:
+            process_turn(store, llm, TOY_PROZESS, "s1", mid, "hallo")
+        except RuntimeError:
+            pass
+    r = process_turn(store, llm, TOY_PROZESS, "s1", "m1", "hallo")   # überholt
+    assert r == {"status": "fehler_fortsetzbar",
+                 "payload": {"grund": "turn_unbeantwortet"}}
+
 # Beim Crash-Resume zählt der GELOGGTE Text — nicht ein womöglich
 # abweichender Retry-Body (sonst widersprächen sich raw_log und Verarbeitung).
 def test_crash_resume_verarbeitet_den_geloggten_text():
@@ -313,6 +348,26 @@ def test_llm_absturz_liefert_fehler_fortsetzbar_statt_exception():
     assert st.status is SessionStatus.FEHLER
     assert st.raw_log == [("m1", "wichtig")]    # Raw-First: nichts verloren
     assert "m1" not in st.antworten             # unbeantwortet → Retry setzt fort
+
+# Ein LLM-Ausfall darf keine unsichtbare Nachfrage verbrauchen: der
+# Fehlerpfad persistiert NUR den FEHLER-Marker, nicht den halb
+# verarbeiteten Turn (rounds/attempts). Der Retry zählt dann genau einmal.
+def test_llm_ausfall_verbraucht_keine_nachfrage():
+    class PhrasenAusfallLLM(FakeLLM):
+        def phrase(self, field, state):
+            raise RuntimeError("LLM weg")
+
+    store = InMemoryStateStore()
+    process_turn(store, PhrasenAusfallLLM(), TOY_PROZESS, "s1", "m1", "hallo")
+    st = store.load("s1")
+    assert st.status is SessionStatus.FEHLER
+    assert st.rounds == 0                       # keine halbe Runde persistiert
+    assert all(fv.attempts == 0 for fv in st.values.values())
+    r = process_turn(store, FakeLLM(), TOY_PROZESS, "s1", "m1", "hallo")  # Retry
+    assert r["status"] == "frage"
+    st = store.load("s1")
+    assert st.rounds == 1                       # genau EINE Runde gezählt
+    assert st.values["prozess_name"].attempts == 1
 
 # Spec B94 „Fortsetzbarkeit": nach FEHLER_FORTSETZBAR setzt der Retry mit
 # funktionierendem LLM den Turn normal fort.

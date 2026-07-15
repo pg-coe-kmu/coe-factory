@@ -29,14 +29,18 @@ def _profil(state: SessionState, conf: ConfidenceResult,
 
 def process_turn(store: StateStore, llm: LLMClient, package: UseCasePackage,
                  session_id: str, message_id: str, message: str) -> dict:
-    state = store.load(session_id) or SessionState(session_id, package.schema_version)
+    state = store.load(session_id) or SessionState(
+        session_id, package.schema_version, paket_name=package.name)
 
-    if state.schema_version != package.schema_version:
-        # Fail fast: eine Session ist an ihr Paket-Schema gebunden — stilles
-        # Vermischen würde Gate 0 ein falsch etikettiertes Profil liefern.
+    if (state.schema_version != package.schema_version
+            or state.paket_name not in (None, package.name)):
+        # Fail fast: eine Session ist an ihr Paket gebunden (Name + Schema) —
+        # stilles Vermischen würde Gate 0 ein falsch etikettiertes Profil
+        # liefern. Version allein ist nicht eindeutig.
         raise ValueError(
-            f"Session {session_id} läuft mit schema_version "
-            f"{state.schema_version}, Aufruf kam mit {package.schema_version}")
+            f"Session {session_id} läuft mit Paket "
+            f"{state.paket_name}/{state.schema_version}, Aufruf kam mit "
+            f"{package.name}/{package.schema_version}")
 
     if message_id in state.processed_message_ids:
         if message_id in state.antworten:
@@ -47,10 +51,13 @@ def process_turn(store: StateStore, llm: LLMClient, package: UseCasePackage,
                 or not state.raw_log or state.raw_log[-1][0] != message_id):
             # Überholter unbeantworteter Turn (Session fertig oder andere
             # Nachricht kam dazwischen): nie neu verarbeiten — letzte
-            # bekannte Antwort der Session liefern.
+            # bekannte Antwort der Session liefern; existiert (nach
+            # Doppel-Crash) keine, eine fortsetzbare Vertragsantwort.
             return next((state.antworten[mid]
                          for mid, _ in reversed(state.raw_log)
-                         if mid in state.antworten), None)
+                         if mid in state.antworten),
+                        {"status": "fehler_fortsetzbar",
+                         "payload": {"grund": "turn_unbeantwortet"}})
         # Crash zwischen den Saves: die zuletzt geloggte, unbeantwortete
         # Nachricht fortsetzen — mit dem GELOGGTEN Text, nicht dem
         # (womöglich abweichenden) Retry-Body. Nicht erneut loggen.
@@ -72,9 +79,12 @@ def process_turn(store: StateStore, llm: LLMClient, package: UseCasePackage,
         conf = confidence_check(state, package)
         decision = decide_next(state, package, conf, llm)
     except Exception:
-        # LLM-Aussetzer (Spec B4): State sichern, fortsetzbar melden. Die
-        # Nachricht bleibt geloggt und UNBEANTWORTET — der Retry setzt den
-        # Turn fort. Retries/Backoff gehören zum echten LLM-Client (Roadmap).
+        # LLM-Aussetzer (Spec B4): fortsetzbar melden. NUR der FEHLER-Marker
+        # wird persistiert — auf dem letzten dauerhaften Stand, nicht auf dem
+        # halb verarbeiteten Turn (sonst verbrauchte der Ausfall unsichtbar
+        # rounds/attempts). Die Nachricht bleibt geloggt und UNBEANTWORTET —
+        # der Retry setzt fort. Retries/Backoff → echter LLM-Client (Roadmap).
+        state = store.load(session_id)
         state.status = SessionStatus.FEHLER
         store.save(state)
         return {"status": "fehler_fortsetzbar",
