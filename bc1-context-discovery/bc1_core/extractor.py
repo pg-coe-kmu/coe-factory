@@ -37,7 +37,19 @@ def extract_and_merge(state: SessionState, message: str, message_id: str,
                 attempts=fv.attempts if fv is not None else 0,
             )
         elif fv.value == cand.value:
-            continue
+            # Erneute Nennung desselben Werts: für UNKLAR ist das die Klärung
+            # (Spec B4 „Nutzer klären lassen"), sonst No-op.
+            if fv.status is FieldStatus.UNKLAR:
+                fv.status = _status_for(spec, cand.value)
+        elif (fv.status is FieldStatus.UNKLAR
+              and any(k.value == cand.value for k in fv.candidates)):
+            # Klärung zugunsten eines Kandidaten (Spec B4): Tausch — der alte
+            # Wert bleibt mit seiner Quelle als Kandidat, nichts geht verloren.
+            fv.candidates = [k for k in fv.candidates if k.value != cand.value]
+            _merke_kandidat(fv, fv.value, fv.source_message_id)
+            fv.value = cand.value
+            fv.status = _status_for(spec, cand.value)
+            fv.source_message_id = message_id
         elif fv.status is FieldStatus.UNGUELTIG:
             # Korrektur: UNGUELTIG ist nicht bestätigt → ersetzen, alter Wert
             # bleibt als Kandidat — mit der Quelle, aus der er stammte.

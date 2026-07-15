@@ -42,19 +42,23 @@ def test_conflict_does_not_overwrite_and_marks_unklar():
     assert fv.candidates == [Candidate("Bestellung", "msg-2")]
     assert fv.status is FieldStatus.UNKLAR
 
-def test_duplicate_conflict_value_is_not_added_twice():
+# Ersetzt den alten Duplikat-Test: seit der Klärungs-Regel löst die erneute
+# Nennung des KANDIDATEN den Konflikt — Dedup greift bei einem dritten Wert,
+# der mehrfach genannt wird, ohne je bestätigt zu werden.
+def test_unbestaetigter_mehrfachwert_wird_nicht_doppelt_kandidat():
     st = SessionState("s1", "0.1")
-    llm1 = FakeLLM({"a": [ExtractionCandidate("prozess_name", "Freigabe")]})
-    extract_and_merge(st, "a", "msg-1", TOY_PROZESS, llm1)
-    llm2 = FakeLLM({"b": [ExtractionCandidate("prozess_name", "Bestellung")]})
-    extract_and_merge(st, "b", "msg-2", TOY_PROZESS, llm2)
-    llm3 = FakeLLM({"c": [ExtractionCandidate("prozess_name", "Bestellung")]})
-    extract_and_merge(st, "c", "msg-3", TOY_PROZESS, llm3)
+    werte = [("a", "Freigabe"), ("b", "Bestellung"), ("c", "Einkauf"),
+             ("d", "Einkauf")]
+    for msg, wert in werte:
+        llm = FakeLLM({msg: [ExtractionCandidate("prozess_name", wert)]})
+        extract_and_merge(st, msg, f"msg-{msg}", TOY_PROZESS, llm)
     fv = st.values["prozess_name"]
-    assert fv.value == "Freigabe"                # weiterhin nicht überschrieben
-    # Dedup: kein Duplikat; die Quelle des ERSTEN Vorkommens bleibt maßgeblich
-    assert fv.candidates == [Candidate("Bestellung", "msg-2")]
-    assert fv.status is FieldStatus.UNKLAR
+    # "Einkauf" wurde als Kandidat erneut genannt -> Klärung per Tausch;
+    # dabei entsteht KEIN Duplikat, jeder Wert existiert genau einmal.
+    assert fv.value == "Einkauf"
+    assert fv.status is FieldStatus.GUELTIG
+    assert fv.candidates == [Candidate("Bestellung", "msg-b"),
+                             Candidate("Freigabe", "msg-a")]
 
 def test_third_differing_value_accumulates_from_unklar_state():
     st = SessionState("s1", "0.1")
@@ -121,6 +125,37 @@ def test_zwei_kandidaten_fuers_gleiche_feld_in_einer_nachricht():
     assert fv.value == "Freigabe"
     assert fv.status is FieldStatus.UNKLAR
     assert fv.candidates == [Candidate("Bestellung", "msg-1")]
+
+# Spec B4 „Nutzer klären lassen": die exakte Re-Bestätigung des Werts löst
+# einen UNKLAR-Konflikt auf — sonst wäre UNKLAR eine Sackgasse und ehrliche
+# Antworten liefen ins Nachfrage-Limit.
+def test_re_bestaetigung_des_werts_loest_unklar_konflikt():
+    st = SessionState("s1", "0.1")
+    llm1 = FakeLLM({"a": [ExtractionCandidate("prozess_name", "Freigabe")]})
+    extract_and_merge(st, "a", "msg-1", TOY_PROZESS, llm1)
+    llm2 = FakeLLM({"b": [ExtractionCandidate("prozess_name", "Bestellung")]})
+    extract_and_merge(st, "b", "msg-2", TOY_PROZESS, llm2)
+    assert st.values["prozess_name"].status is FieldStatus.UNKLAR
+    llm3 = FakeLLM({"c": [ExtractionCandidate("prozess_name", "Freigabe")]})
+    extract_and_merge(st, "c", "msg-3", TOY_PROZESS, llm3)   # Klärung
+    fv = st.values["prozess_name"]
+    assert fv.status is FieldStatus.GUELTIG
+    assert fv.value == "Freigabe"
+    assert fv.candidates == [Candidate("Bestellung", "msg-2")]  # Historie bleibt
+
+def test_bestaetigung_des_kandidaten_loest_unklar_konflikt_per_tausch():
+    st = SessionState("s1", "0.1")
+    llm1 = FakeLLM({"a": [ExtractionCandidate("prozess_name", "Freigabe")]})
+    extract_and_merge(st, "a", "msg-1", TOY_PROZESS, llm1)
+    llm2 = FakeLLM({"b": [ExtractionCandidate("prozess_name", "Bestellung")]})
+    extract_and_merge(st, "b", "msg-2", TOY_PROZESS, llm2)
+    llm3 = FakeLLM({"c": [ExtractionCandidate("prozess_name", "Bestellung")]})
+    extract_and_merge(st, "c", "msg-3", TOY_PROZESS, llm3)   # Klärung: Kandidat
+    fv = st.values["prozess_name"]
+    assert fv.status is FieldStatus.GUELTIG
+    assert fv.value == "Bestellung"
+    assert fv.source_message_id == "msg-3"                  # Klärungs-Nachricht
+    assert fv.candidates == [Candidate("Freigabe", "msg-1")]  # alter Wert bleibt
 
 # Korrektur-Zyklus UNGUELTIG→UNGUELTIG→…: der Dedup-Guard verhindert, dass
 # ein schon bekannter Wert beim erneuten Verdrängen doppelt in die Kandidaten
