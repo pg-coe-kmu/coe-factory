@@ -35,7 +35,7 @@
 - **Genau ein deployter Kern-Dienst.** Die sechs Module (B2) sind *interne* Code-Grenzen, **keine** eigenen Services.
 - **Reihenfolge:** zuerst den Code-Kern über einen minimalen Chat-/HTTP-Client beweisen, **dann** n8n davorschalten. n8n-Integration nicht vor bewiesenem Kernverhalten.
 - **Eine Schnittstelle n8n ↔ Kern**, eine **versionierte** Antwort mit explizitem Status:
-  - **Request:** `{ session_id, message_id, message, schema_version? }`
+  - **Request:** `{ session_id, message_id, message, schema_version? }` (das optionale `schema_version` prüft die **Transportschicht** gegen das deployte Paket; der Kern bindet die Session beim ersten Turn an die Paket-Version und lehnt Wechsel ab)
   - **Response:** `{ status, payload }` mit `status ∈ { "frage", "fertig", "fehler_fortsetzbar" }`
     - `"frage"` → `payload = { naechste_frage, feld }`
     - `"fertig"` → `payload = { felder, vollstaendigkeit, ungeloeste_felder[], schema_version }`
@@ -56,7 +56,7 @@
 | **Schema + Use-Case-Paket** | Deklarative Plug-Stelle (B6). | nein |
 | **LLM-Client** | Adapter, versteckt den Anbieter; austauschbar. Liefert strukturierte Extraktion; **die Zustandsübergänge steuert deterministischer Code**, nicht das LLM. | — |
 
-**Merge-Regel (Extractor → State):** Neue Werte werden als **Kandidaten** geführt. Ein bereits bestätigter Wert wird **nicht still überschrieben**; bei Abweichung entsteht ein markierter Konflikt (B4).
+**Merge-Regel (Extractor → State):** Neue Werte werden als **Kandidaten** geführt. Ein bereits bestätigter (= **gültiger**) Wert wird **nicht still überschrieben**; bei Abweichung entsteht ein markierter Konflikt (B4). Präzisierungen: (1) Ein **ungültiger** Wert gilt nicht als bestätigt — eine validierte Korrektur **ersetzt** ihn, der alte Wert bleibt als Kandidat erhalten (Entscheidung 12.07.2026). (2) Ein **unklarer** Konflikt ist per **exakter Klärung** auflösbar: erneute Nennung des Werts bestätigt ihn, exakte Nennung eines Kandidaten wählt diesen (Tausch; nichts geht verloren; Entscheidung 15.07.2026).
 
 ### B3. Datenfluss & State-Machine
 
@@ -85,7 +85,7 @@
 - **Widerspruch:** MVP nur **exakte Gleich-Feld-Konflikte** (keine semantische Erkennung — das wäre versteckte LLM-Komplexität). Alten + neuen Kandidaten mit `message_id` behalten, Nutzer klären lassen, **nie still überschreiben**.
 - **LLM-Aussetzer/Timeout:** **eng begrenzte** Retries mit Backoff (damit der Chat-Request nicht in n8n-/Client-Timeouts läuft); sonst State speichern und `fehler_fortsetzbar` zurückgeben.
 - **Kaputtes Extraktions-JSON:** gegen Schema validieren; einmal strenger nachfordern; sonst Rohantwort im `raw_log` behalten, betroffene Felder bleiben `fehlt`, **nicht abstürzen**. (Behandlung im LLM-Adapter, P2 — kein eigener Feldstatus. Präzisiert 14.07.2026: hier stand ein Marker `nicht_extrahiert`, den das bewusste 5-Status-Modell nicht kennt.)
-- **Bewusst NICHT im MVP (YAGNI → Roadmap):** automatische Widerspruchsauflösung, selbstkorrigierende Extraktion, Off-Topic-Erkennung, numerische Per-Feld-Confidence.
+- **Bewusst NICHT im MVP (YAGNI → Roadmap):** automatische Widerspruchsauflösung, selbstkorrigierende Extraktion, Off-Topic-Erkennung, numerische Per-Feld-Confidence · LLM-**Retries/Backoff** + Logging verschluckter Validator-Fehler (→ echter LLM-Client; `fehler_fortsetzbar`-Minimalvertrag ist implementiert) · **Thread-Sicherheit des In-Memory-Stores** (MVP läuft sequenziell; Nebenläufigkeit → persistenter StateStore) · Bereinigung der **Wert/Kandidaten-Überlappung** bei UNGUELTIG-Korrektur-Zyklen (kosmetisch, im Test dokumentiert) · aktives **Zurückweisen** von Nachrichten nach Gate 0 (fertige Session antwortet idempotent; Reject-Semantik → Transportschicht).
 
 ### B5. Test-Strategie
 
