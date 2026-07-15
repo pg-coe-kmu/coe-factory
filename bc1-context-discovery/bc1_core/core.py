@@ -67,9 +67,18 @@ def process_turn(store: StateStore, llm: LLMClient, package: UseCasePackage,
         store.save(state)
 
     state.rounds += 1
-    extract_and_merge(state, message, message_id, package, llm)
-    conf = confidence_check(state, package)
-    decision = decide_next(state, package, conf, llm)
+    try:
+        extract_and_merge(state, message, message_id, package, llm)
+        conf = confidence_check(state, package)
+        decision = decide_next(state, package, conf, llm)
+    except Exception:
+        # LLM-Aussetzer (Spec B4): State sichern, fortsetzbar melden. Die
+        # Nachricht bleibt geloggt und UNBEANTWORTET — der Retry setzt den
+        # Turn fort. Retries/Backoff gehören zum echten LLM-Client (Roadmap).
+        state.status = SessionStatus.FEHLER
+        store.save(state)
+        return {"status": "fehler_fortsetzbar",
+                "payload": {"grund": "verarbeitung_fehlgeschlagen"}}
 
     if decision.done:
         state.status = SessionStatus.FERTIG
