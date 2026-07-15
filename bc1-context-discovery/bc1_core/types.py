@@ -35,6 +35,9 @@ class FieldValue:
 class SessionState:
     session_id: str
     schema_version: str
+    # Paket-Bindung der Session (None nur in direkt konstruierten Test-States;
+    # process_turn setzt und prüft den Namen — Version allein ist nicht eindeutig).
+    paket_name: str | None = None
     status: SessionStatus = SessionStatus.AKTIV
     version: int = 0
     rounds: int = 0
