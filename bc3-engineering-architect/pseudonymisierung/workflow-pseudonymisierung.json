@@ -1,0 +1,99 @@
+{
+  "name": "Pseudonymisierung (Formular → ID)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "n1",
+      "name": "Demo starten",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -600,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "formular",
+              "value": "{\"vorname\": \"Anna\", \"nachname\": \"Meier\", \"email\": \"a.meier@example.com\", \"telefon\": \"0231 1234567\", \"ziel\": \"Barcelona\", \"hinreise\": \"2026-10-10\", \"rueckreise\": \"2026-10-15\", \"personen\": 2, \"budget\": 1500, \"anmerkung\": \"Anna Meier hätte gern einen Fensterplatz. Rückruf an 0231 1234567.\"}",
+              "type": "object"
+            },
+            {
+              "id": "a2",
+              "name": "entitaeten",
+              "value": "[{\"idTyp\": \"kunde\", \"felder\": [\"vorname\", \"nachname\", \"email\", \"telefon\"]}]",
+              "type": "array"
+            },
+            {
+              "id": "a3",
+              "name": "freitextFelder",
+              "value": "[\"anmerkung\"]",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "n2",
+      "name": "Formular-Eingang (Beispiel)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -380,
+        0
+      ],
+      "notes": "Im Betrieb kommt hier das echte Formular rein.\nentitaeten sagt, welche Felder zu einer Person gehoeren.\nfreitextFelder werden zusaetzlich nach diesen Werten durchsucht."
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Pseudonymisieren (lokal) — n8n Code-Node\n *\n * Nimmt strukturierte Formulardaten entgegen, trennt die personenbezogenen\n * Felder ab und ersetzt sie durch eine ID. Ab hier arbeitet die gesamte\n * Pipeline nur noch mit der ID.\n *\n * Warum feldbasiert und nicht per Texterkennung:\n * Der Kunde traegt seine Daten in ein Formular ein (Beschluss 12.07.2026:\n * Excel-/Formular-Eingaben statt OCR). Damit ist bekannt, WELCHES Feld ein\n * Name ist — eine Erkennung per NER ist unnoetig und waere nur eine weitere\n * Fehlerquelle. Freitextfelder werden zusaetzlich nach den bekannten Werten\n * durchsucht, falls der Kunde seinen Namen dort nochmal erwaehnt.\n *\n * Rueckweg: KEINER. Der pseudonymisierte Zustand ist der Endzustand fuer\n * alles, was danach kommt (LLM, Speicherung, BC2/BC3/BC4). Kundennachrichten\n * entstehen spaeter aus Vorlage + Mapping, nicht durch Ruecksetzung im LLM-Pfad.\n * Vgl. BC1-Architektur v6, AP 1.2: \"keine personenbezogenen Daten gelangen in\n * nachgelagerte Sub-Komponenten ohne Anonymisierung\".\n *\n * Eingabe (json):\n *   formular  : { feldname: wert }                 die Formulardaten\n *   entitaeten: { idTyp, felder[] }[]              welche Felder zu einer Person gehoeren\n *   freitextFelder: string[]                       Felder, die zusaetzlich durchsucht werden\n * Ausgabe (json):\n *   fachdaten : Formular ohne PII, dafuer mit <idTyp>_id\n *   mapping   : { id -> { feld: wert } }           bleibt lokal / geht in den PII-Tresor\n *   piiLog    : Nachweis, was ersetzt wurde (ohne Klartext)\n */\n\nconst PRAEFIX = {\n  kunde: 'KUN',\n  passagier: 'PAX',\n  mitarbeiter: 'MIT',\n  berater: 'BER',       // UC3 Consultant Placement\n  patient: 'PAT',\n};\n\nconst eingabe = $input.first().json;\nconst formular = { ...(eingabe.formular ?? {}) };\nconst entitaeten = eingabe.entitaeten ?? [];\nconst freitextFelder = eingabe.freitextFelder ?? [];\n\nconst mapping = {};\nconst piiLog = [];\nconst zaehler = {};\nconst klartextWerte = [];   // fuer die Freitext-Suche\n\nfor (const ent of entitaeten) {\n  const praefix = PRAEFIX[ent.idTyp] ?? 'PII';\n  zaehler[praefix] = (zaehler[praefix] ?? 0) + 1;\n  const id = `${praefix}-${String(zaehler[praefix]).padStart(4, '0')}`;\n\n  // PII-Felder aus den Fachdaten herausloesen und im Mapping ablegen\n  const daten = {};\n  for (const feld of ent.felder ?? []) {\n    const wert = formular[feld];\n    if (wert === undefined || wert === null || String(wert).trim() === '') continue;\n    daten[feld] = wert;\n    klartextWerte.push(String(wert).trim());\n    delete formular[feld];\n  }\n  if (!Object.keys(daten).length) continue;\n\n  mapping[id] = daten;\n  formular[`${ent.idTyp}_id`] = id;\n  piiLog.push({ id, typ: ent.idTyp, felder: Object.keys(daten), ersetztAm: new Date().toISOString() });\n\n  // Suchmuster fuer Freitext: nicht nur die Einzelwerte, sondern auch\n  // zusammenhaengende Kombinationen in Feldreihenfolge. Sonst wird aus\n  // \"Anna Meier\" ein \"KUN-0001 KUN-0001\" — was fuer das LLM wie zwei\n  // Personen aussieht.\n  const werte = Object.values(daten).map(String);\n  const muster = [];\n  for (let i = 0; i < werte.length; i++) {\n    for (let j = i; j < werte.length; j++) {\n      muster.push(werte.slice(i, j + 1).join(' '));\n    }\n  }\n  // Laengste zuerst, damit \"Anna Meier\" vor \"Anna\" greift\n  muster.sort((a, b) => b.length - a.length);\n\n  for (const feld of freitextFelder) {\n    if (typeof formular[feld] !== 'string') continue;\n    let text = formular[feld];\n    for (const m of muster) {\n      const regex = m.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');\n      text = text.replace(new RegExp(regex, 'gi'), () => id);\n    }\n    formular[feld] = text;\n  }\n}\n\n// Kontrolle: steht in den Fachdaten noch Klartext?\nconst rest = JSON.stringify(formular);\nconst leckagen = klartextWerte.filter(w =>\n  new RegExp(w.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&'), 'i').test(rest)\n);\nif (leckagen.length) {\n  throw new Error(\n    'Pseudonymisierung unvollstaendig — Klartext noch in den Fachdaten. ' +\n    'Betroffene Felder pruefen (Wert nicht im Log, um kein PII zu protokollieren). ' +\n    `Anzahl: ${leckagen.length}`\n  );\n}\n\nreturn [{\n  json: {\n    fachdaten: formular,   // -> geht weiter an LLM / Speicherung\n    mapping,               // -> PII-Tresor, NICHT weiterreichen\n    piiLog,                // -> Audit-Log (enthaelt bewusst keinen Klartext)\n  }\n}];\n"
+      },
+      "id": "n3",
+      "name": "Pseudonymisieren (lokal)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        0
+      ],
+      "notes": "Ergebnis:\nfachdaten = ohne PII, mit kunde_id -> geht weiter\nmapping   = die Zuordnung -> bleibt lokal\npiiLog    = Nachweis fuers Audit-Log, ohne Klartext"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Demo starten": {
+      "main": [
+        [
+          {
+            "node": "Formular-Eingang (Beispiel)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formular-Eingang (Beispiel)": {
+      "main": [
+        [
+          {
+            "node": "Pseudonymisieren (lokal)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "instanceId": ""
+  },
+  "tags": []
+}
