@@ -1,10 +1,11 @@
-import pytest
+import threading
+
 from fastapi.testclient import TestClient
 
 from bc1_core.llm import ExtractionCandidate, FakeLLM
 from bc1_core.package import TOY_PROZESS
-from bc1_core.store import InMemoryStateStore
-from bc1_core.types import SessionState
+from bc1_core.store import InMemoryStateStore, StaleStateError
+from bc1_core.types import SessionState, SessionStatus
 from bc1_service.api import create_app
 
 
@@ -93,12 +94,105 @@ def test_llm_ausfall_gibt_vertragsantwort_mit_status_200():
     assert antwort.json()["chat_text"]  # Nutzer bekommt eine Chat-Erklärung
 
 
-def test_paket_guard_wird_als_409_gemappt():
+def test_paket_guard_gibt_409_mit_stabilem_detail():
     store = InMemoryStateStore()
     store.save(SessionState("s9", "9.9", paket_name="fremdes_paket"))
     antwort = _turn(_client(store=store), "m1", "Hallo", session="s9")
     assert antwort.status_code == 409
+    # Stabiler Schlüssel statt Exception-Text: der Chat bekommt keine
+    # Interna zu sehen, n8n kann darauf verzweigen.
+    assert antwort.json()["detail"] == "paket_konflikt"
 
 
 def test_prozesse_ohne_snapshot_404():
     assert _client().get("/prozesse").status_code == 404
+
+
+class _StaleBeimErstenSave(InMemoryStateStore):
+    """Simuliert einen verlorenen Schreib-Wettlauf (z. B. zweiter Prozess)."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._saves = 0
+
+    def save(self, state):
+        self._saves += 1
+        if self._saves == 1:
+            raise StaleStateError("fremder Schreibzugriff kam zuerst")
+        super().save(state)
+
+
+# Sicherheitsnetz: das Prozess-Lock deckt nur den Ein-Prozess-Betrieb —
+# ein verlorener CAS-Wettlauf ist ein Konflikt, kein 500er.
+def test_stale_konflikt_gibt_409():
+    antwort = _turn(_client(store=_StaleBeimErstenSave()), "m1", "Hallo")
+    assert antwort.status_code == 409
+    assert antwort.json()["detail"] == "gleichzeitige_anfrage"
+
+
+# Gate-Kriterium ist "kennt die Session diese message_id?", nicht "gibt es
+# schon eine Antwort dazu?": ein bekannter, unbeantworteter Turn (Crash
+# zwischen den Saves) muss an den Kern durch — der liefert idempotent, was er
+# hat, statt den Retry mit 409 abzuweisen.
+def test_bekannter_unbeantworteter_turn_passiert_das_gate():
+    store = InMemoryStateStore()
+    store.save(SessionState(
+        "s1", "0.1", paket_name="toy_prozess", status=SessionStatus.FERTIG,
+        processed_message_ids={"mx"}, raw_log=[("mx", "hallo")],
+    ))
+    antwort = _turn(_client(store=store), "mx", "hallo")
+    assert antwort.status_code == 200
+    # Doppel-Crash-Fall: es existiert keine Antwort -> Vertrags-Fallback.
+    assert antwort.json()["status"] == "fehler_fortsetzbar"
+
+
+class _BarrierenLLM(FakeLLM):
+    """Hält jeden Turn im LLM-Aufruf fest, bis ein zweiter dort ankommt.
+
+    Ohne Serialisierung stehen damit garantiert beide Turns gleichzeitig
+    zwischen Roh- und Final-Save — einer verliert den Versions-Wettlauf.
+    Mit Serialisierung kommt der zweite nie an: die Barriere läuft in ihren
+    Timeout, bricht, und beide Turns laufen nacheinander durch.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.barriere = threading.Barrier(2, timeout=0.5)
+
+    def extract(self, message, package, state):
+        try:
+            self.barriere.wait()
+        except threading.BrokenBarrierError:
+            pass
+        return super().extract(message, package, state)
+
+
+def test_nebenlaeufige_turns_derselben_session_serialisiert():
+    store = InMemoryStateStore()
+    app = create_app(store, _BarrierenLLM(), TOY_PROZESS)
+    ergebnisse: dict[str, object] = {}
+
+    def sende(mid: str) -> None:
+        try:
+            ergebnisse[mid] = TestClient(app).post("/turn", json={
+                "session_id": "s1", "message_id": mid, "message": "hallo",
+            }).status_code
+        except Exception as fehler:   # ohne Lock: StaleStateError aus dem Kern
+            ergebnisse[mid] = repr(fehler)
+
+    threads = [threading.Thread(target=sende, args=(m,)) for m in ("ma", "mb")]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert ergebnisse == {"ma": 200, "mb": 200}
+    st = store.load("s1")
+    assert st.rounds == 2
+    assert st.processed_message_ids == {"ma", "mb"}
+
+
+# Leere IDs sind keine gültigen Schlüssel (Session-Bindung, Idempotenz) —
+# sie dürfen gar nicht erst in den Kern laufen.
+def test_leere_message_id_wird_abgewiesen():
+    assert _turn(_client(), "", "Hallo").status_code == 422
