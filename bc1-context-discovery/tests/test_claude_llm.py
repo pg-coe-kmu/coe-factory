@@ -69,13 +69,48 @@ def test_refusal_wirft_statt_leise_zu_scheitern():
         ClaudeLLM(client=stub).extract("...", TOY_PROZESS, SessionState("s1", "0.1"))
 
 
+# Extraktion und Umformulierung sind triviale Aufgaben. Ohne explizites
+# effort denkt das Standardmodell per Default lange und frisst das
+# max_tokens-Budget auf, statt zu antworten (-> stop_reason max_tokens).
+def test_effort_low_wird_gesetzt():
+    stub = _StubClient([_Antwort(_extraktions_json())])
+    ClaudeLLM(client=stub).extract("...", TOY_PROZESS, SessionState("s1", "0.1"))
+    assert stub.messages.aufrufe[0]["output_config"]["effort"] == "low"
+
+    stub_phrase = _StubClient([_Antwort("Wie oft?")])
+    ClaudeLLM(client=stub_phrase).phrase(
+        TOY_PROZESS.field("haeufigkeit"), SessionState("s1", "0.1")
+    )
+    assert stub_phrase.messages.aufrufe[0]["output_config"]["effort"] == "low"
+
+
+# Abgeschnittene Antworten sind kaputte Antworten: bei extract wäre das JSON
+# unvollständig (json.loads würde mit einer irreführenden Meldung scheitern),
+# bei phrase eine halbe Frage. Beides muss laut werden — process_turn macht
+# daraus den fehler_fortsetzbar-Vertrag.
+def test_max_tokens_truncation_wirft():
+    stub = _StubClient([_Antwort("{\"extrakt", stop_reason="max_tokens")])
+    with pytest.raises(RuntimeError):
+        ClaudeLLM(client=stub).extract("...", TOY_PROZESS, SessionState("s1", "0.1"))
+
+
 def test_phrase_liefert_frage_und_markiert_nachfragen():
     stub = _StubClient([_Antwort("  Wie oft kommt der Prozess vor?  ")])
     state = SessionState("s1", "0.1")
-    state.values["haeufigkeit"] = FieldValue(attempts=1)
+    # attempts zählt der Dialog VOR dem phrase-Aufruf hoch: 1 = Erstfrage,
+    # 2 = erste Nachfrage (MAX_ATTEMPTS_PER_FIELD = 2).
+    state.values["haeufigkeit"] = FieldValue(attempts=2)
     frage = ClaudeLLM(client=stub).phrase(TOY_PROZESS.field("haeufigkeit"), state)
     assert frage == "Wie oft kommt der Prozess vor?"
     assert "Nachfrage" in stub.messages.aufrufe[0]["messages"][0]["content"]
+
+
+def test_phrase_erstfrage_ist_keine_nachfrage():
+    stub = _StubClient([_Antwort("Wie oft kommt der Prozess vor?")])
+    state = SessionState("s1", "0.1")
+    state.values["haeufigkeit"] = FieldValue(attempts=1)   # Erstfrage
+    ClaudeLLM(client=stub).phrase(TOY_PROZESS.field("haeufigkeit"), state)
+    assert "Nachfrage" not in stub.messages.aufrufe[0]["messages"][0]["content"]
 
 
 def test_protocol_konformitaet_ein_turn_durch_process_turn():
@@ -90,6 +125,13 @@ def test_protocol_konformitaet_ein_turn_durch_process_turn():
     assert antwort["status"] == "frage"
     assert antwort["payload"]["feld"] == "ausloeser"
     assert antwort["payload"]["naechste_frage"] == "Was löst den Prozess aus?"
+
+
+def test_modell_override_aus_umgebung(monkeypatch):
+    monkeypatch.setenv("BC1_CLAUDE_MODELL", "test-modell")
+    stub = _StubClient([_Antwort(_extraktions_json())])
+    ClaudeLLM(client=stub).extract("...", TOY_PROZESS, SessionState("s1", "0.1"))
+    assert stub.messages.aufrufe[0]["model"] == "test-modell"
 
 
 @pytest.mark.skipif(

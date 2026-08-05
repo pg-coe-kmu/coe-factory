@@ -64,7 +64,10 @@ class ClaudeLLM:
             max_tokens=4096,
             system=_SYSTEM_EXTRAKTION,
             output_config={
-                "format": {"type": "json_schema", "schema": _EXTRAKTIONS_SCHEMA}
+                "format": {"type": "json_schema", "schema": _EXTRAKTIONS_SCHEMA},
+                # Triviale Aufgabe: ohne effort low denkt das Modell per
+                # Default lange und verbraucht das max_tokens-Budget.
+                "effort": "low",
             },
             messages=[{
                 "role": "user",
@@ -88,13 +91,16 @@ class ClaudeLLM:
         hinweis = (
             "\nEs ist eine Nachfrage: Die bisherige Antwort war unklar oder "
             "ungültig — formuliere die Frage anders und konkreter."
-            if bisher is not None and bisher.attempts > 0
+            # Der Dialog zählt attempts VOR diesem Aufruf hoch: 1 = Erstfrage,
+            # ab 2 ist es wirklich eine Nachfrage.
+            if bisher is not None and bisher.attempts > 1
             else ""
         )
         antwort = self._client.messages.create(
             model=self._modell,
             max_tokens=4096,
             system=_SYSTEM_FRAGE,
+            output_config={"effort": "low"},   # eine Frage formulieren, mehr nicht
             messages=[{
                 "role": "user",
                 "content": (
@@ -109,6 +115,10 @@ class ClaudeLLM:
     def _text_inhalt(antwort) -> str:
         if antwort.stop_reason == "refusal":
             raise RuntimeError("LLM hat die Anfrage abgelehnt (refusal)")
+        if antwort.stop_reason == "max_tokens":
+            # Abgeschnitten = unbrauchbar (halbes JSON, halbe Frage). Ohne
+            # diesen Guard scheitert erst json.loads — mit irreführender Meldung.
+            raise RuntimeError("LLM-Antwort abgeschnitten (max_tokens)")
         for block in antwort.content:
             if block.type == "text":
                 return block.text
