@@ -15,6 +15,9 @@ from bc1_core.types import (
 
 
 def state_to_dict(state: SessionState) -> dict:
+    # antworten wird by-reference gereicht (keine Kopie) — Konsumenten muessen
+    # synchron serialisieren, solange der Caller den State nicht weiter
+    # mutiert; siehe PostgresStateStore.save.
     return {
         "session_id": state.session_id,
         "schema_version": state.schema_version,
@@ -62,7 +65,8 @@ def _feldwert_to_dict(fw: FieldValue) -> dict:
 
 
 def _feldwert_from_dict(feldname: str, daten: dict) -> FieldValue:
-    if daten["value"] is not None and daten["source_message_id"] is None:
+    # Leerstring zaehlt wie fehlend: eine leere Quelle ist keine Quelle.
+    if daten["value"] is not None and not daten["source_message_id"]:
         raise ValueError(
             f"Feld {feldname}: value gesetzt, aber source_message_id fehlt"
         )
