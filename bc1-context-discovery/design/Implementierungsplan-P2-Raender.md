@@ -17,7 +17,7 @@
 - **Kein Netz in Tests** (Architektur-Invariante): Claude nur über injizierte Stubs; Echt-API-Stichproben und Postgres-Tests laufen NUR, wenn `BC1_ECHT_LLM` bzw. `BC1_TEST_DB_DSN` explizit gesetzt sind (sonst skip).
 - **Vertraulichkeit:** Der NoroAI-Referenz-Snapshot und alles aus `Drive/` bleibt strikt lokal — NIE ins Repo. Tests nutzen ausschließlich synthetische, generische Daten („Beispielprozess"). Einzige Kopie ins Repo: `snapshot_schema.json` (BC0-Vertrags-Artefakt, firmenfrei).
 - **Keine `.env`-Datei anlegen** (die Security-Deny-Liste blockt `Read(**/.env*)`): Konfiguration ausschließlich über exportierte Umgebungsvariablen (`BC1_DB_DSN`, `ANTHROPIC_API_KEY`, `BC1_CLAUDE_MODELL`, `BC1_SNAPSHOT_PFAD`). Secrets nie loggen, nie committen.
-- **Neue Dependencies nur die hier genannten:** `fastapi`, `uvicorn[standard]`, `psycopg[binary,pool]`, `anthropic`, `jsonschema`; dev zusätzlich `httpx`. Installation:
+- **Neue Dependencies nur die hier genannten:** `fastapi`, `uvicorn[standard]`, `psycopg[binary,pool]`, `anthropic`, `jsonschema`; dev zusätzlich `httpx` und `httpx2` (nachträglich sanktioniert 06.08. — Starlette-TestClient-Deprecation; ohne `httpx2` läuft die Suite nicht warnungsfrei). Installation:
   ```bash
   cd coe-factory/bc1-context-discovery
   uv pip install --python .venv/bin/python fastapi "uvicorn[standard]" "psycopg[binary,pool]" anthropic jsonschema httpx
@@ -1379,6 +1379,14 @@ Nachgehalten, mit Ziel — nichts fällt still weg:
 - **Wert/Kandidaten-Überlappung** bei UNGUELTIG-Korrektur-Zyklen → kosmetisch, im Test gepinnt (unverändert aus P1).
 - **Supabase-DSN produktiv** (Team-Projekt Frankfurt, Session Pooler) → sobald Creds da sind; Code ist DSN-agnostisch.
 - **Prompt-Feinschliff des Adapters** (Feldtypen aus B1, Mehrsprachigkeit, Beispiele) → P3, wenn die echten Pakete existieren.
+
+### Nachtrag aus dem P2-Gesamt-Review (06.08.)
+
+- **Turn-Claim im Store** (Multi-Prozess-Nebenläufigkeit) → das Transport-Lock in `api.py` serialisiert `/turn` nur **innerhalb eines Prozesses**; mit mehreren uvicorn-Workern bzw. mehreren Instanzen greift es nicht. Heute abgesichert durch das `StaleStateError → 409`-Netz (der Turn geht nicht verloren, der Client wiederholt). Nächster Schritt: einen Turn-Claim in der DB (z. B. Spalte `claimed_by`/`claimed_at` oder `SELECT … FOR UPDATE` auf der Session-Zeile) — fällig, sobald mehr als ein Worker läuft (spätestens beim Deployment-Punkt oben).
+- **Korrupt-Row-Behandlung** → `state_from_dict` wirft heute bei einer beschädigten Zeile rohe `KeyError`/`ValueError` aus dem Store-Load, und die Spalten-`version` wird beim Laden nicht gegen die Version im JSON-Blob abgeglichen. Nächster Schritt: eigene Exception (z. B. `KorrupterStateError`) plus Konsistenz-Check Spalte ⇄ Blob beim Load, damit eine kaputte Zeile als solche erkennbar ist statt als zufälliger Fehler irgendwo im Kern.
+- **`/prozesse`-Auth** → der Endpunkt ist heute offen; er liefert die BC0-Baseline (Prozessliste) unauthentifiziert aus. Nächster Schritt: Auth-Konzept zusammen mit der PII-/DSGVO-Schicht (#50) und dem Deployment (dann ist auch klar, wer der Aufrufer ist).
+- **Pins/Lockfile** → gehört zum Deployment-Punkt oben: bisher sind die Dependencies ungepinnt (`fastapi`, `anthropic`, …). Nächster Schritt: Lockfile (`uv lock`) im selben Schritt wie das Dockerfile, damit Build und lokale Umgebung reproduzierbar identisch sind.
+- **Menschlichere 409-/Fehlertexte für den Chat** → die Transportschicht liefert stabile Schlüssel (`session_abgeschlossen`, `paket_konflikt`, `gleichzeitige_anfrage`, `schema_version_passt_nicht`); n8n zeigt sie roh an. Nächster Schritt: Mapping Schlüssel → freundlicher deutscher Satz an der Chat-Naht (n8n-Set-Node oder `chat_text` für Fehlerfälle) — bewusst Kosmetik, erst nach der echten Claude-Abnahme.
 
 ## Self-Review (vom Autor durchgeführt)
 
