@@ -7,7 +7,7 @@ from bc1_core.package import TOY_PROZESS, FieldSpec, UseCasePackage
 from bc1_core.dialog import MAX_ROUNDS
 from bc1_core.store import InMemoryStateStore
 from bc1_core.llm import FakeLLM, ExtractionCandidate
-from bc1_core.core import process_turn
+from bc1_core.core import PaketKonfliktError, process_turn
 
 def test_first_turn_asks_first_open_field():
     store = InMemoryStateStore()
@@ -233,6 +233,20 @@ def test_paketwechsel_wird_auch_bei_gleicher_schema_version_abgelehnt():
     process_turn(store, FakeLLM(), TOY_PROZESS, "s1", "m1", "hallo")
     with pytest.raises(ValueError):
         process_turn(store, FakeLLM(), anderes, "s1", "m2", "hallo")
+
+# Der Paket-Guard wirft eine EIGENE Exception-Klasse (Subklasse von
+# ValueError): die Transportschicht muss ihn von beliebigen ValueErrors
+# aus der Verarbeitung unterscheiden können, ohne auf Text zu prüfen.
+def test_paket_guard_wirft_paketkonfliktfehler():
+    anderes = UseCasePackage(
+        name="anderes", schema_version="0.1",
+        fields=(FieldSpec("lieferant", "Wer?"),),
+    )
+    store = InMemoryStateStore()
+    process_turn(store, FakeLLM(), TOY_PROZESS, "s1", "m1", "hallo")
+    with pytest.raises(PaketKonfliktError):
+        process_turn(store, FakeLLM(), anderes, "s1", "m2", "hallo")
+
 
 def test_zwei_sessions_bleiben_getrennt_auch_bei_gleicher_message_id():
     store = InMemoryStateStore()
