@@ -27,9 +27,15 @@ CREATE TABLE IF NOT EXISTS bc1.sessions (
 class PostgresStateStore(StateStore):
     def __init__(self, dsn: str) -> None:
         self._pool = ConnectionPool(dsn, min_size=1, max_size=10, open=True)
-        with self._pool.connection() as conn:
-            conn.execute("CREATE SCHEMA IF NOT EXISTS bc1")
-            conn.execute(_TABELLE_SQL)
+        try:
+            with self._pool.connection() as conn:
+                conn.execute("CREATE SCHEMA IF NOT EXISTS bc1")
+                conn.execute(_TABELLE_SQL)
+        except Exception:
+            # Der Pool ist bereits offen: ohne close() blieben seine
+            # Verbindungen und Worker-Threads als Leiche zurueck.
+            self._pool.close()
+            raise
 
     def close(self) -> None:
         self._pool.close()

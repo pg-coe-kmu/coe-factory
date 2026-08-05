@@ -32,8 +32,12 @@ def create_app(
     llm: LLMClient,
     package: UseCasePackage,
     snapshot=None,
+    lifespan=None,
 ) -> FastAPI:
-    app = FastAPI(title="BC1 Context Discovery", version="0.2.0")
+    # lifespan: Aufhaenger fuers Hoch-/Herunterfahren (main.py schliesst dort
+    # den Store). Die Factory kennt den Inhalt nicht — nur den Durchreicher.
+    app = FastAPI(title="BC1 Context Discovery", version="0.2.0",
+                  lifespan=lifespan)
 
     # Ein Lock je Session: /turn liest den State (Gate) und lässt ihn vom Kern
     # fortschreiben — zwei gleichzeitige Turns derselben Session würden sonst
