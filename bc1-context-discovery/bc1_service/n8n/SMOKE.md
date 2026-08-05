@@ -64,7 +64,10 @@ docker run -d --rm --name n8n -p 5678:5678 \
   -v n8n_data:/home/node/.n8n docker.n8n.io/n8nio/n8n
 ```
 
-**3. Workflow:** `bc1-chat-workflow.json` in der n8n-UI importieren (oder Nodes von Hand):
+**3. Workflow:** `bc1-chat-workflow.json` in der n8n-UI importieren (oder Nodes von Hand).
+Die Datei ist ein **einzelnes Workflow-Objekt** (`name`, `nodes`, `connections`, `settings`) —
+genau das Format, das der UI-Import erwartet. Instanz-Daten (IDs, Zeitstempel, Projekt-/
+Besitzer-Angaben) sind bewusst entfernt; n8n vergibt sie beim Import neu.
 
 | Node | Einstellungen |
 |---|---|
@@ -94,8 +97,21 @@ Bonus (Transport-Gate live): Nachricht in die abgeschlossene Chat-Session → Ch
 `session_abgeschlossen` (409-Detail; bewusst roher Text — hübschere Formulierung wäre
 API-Kosmetik, siehe Roadmap-Notiz im Ledger).
 
-## Wiederholung mit echtem Claude
+## Baseline-Nachweis (BC0-Snapshot)
+
+5. ☑ **`GET /prozesse` liefert die Baseline:** Dienst mit gesetztem `BC1_SNAPSHOT_PFAD`
+   gestartet → `curl http://localhost:8000/prozesse` gibt die **10 Kernprozess-Einträge**
+   des BC0-Snapshots zurück (am 05.08.2026 per curl verifiziert). Ohne gesetzten Pfad
+   antwortet der Endpunkt mit 404 `kein_snapshot_konfiguriert` (im Test gepinnt).
+   Der Snapshot selbst bleibt lokal — nie ins Repo (siehe Vertraulichkeits-Regel).
+
+## Wiederholung mit echtem Claude — OFFENER ABNAHME-PUNKT
+
+> ⚠️ **Dieser Punkt ist noch NICHT abgehakt.** Die Checkliste oben lief bewusst gegen die
+> FakeLLM-Verdrahtung (Richard-Entscheidung: FakeLLM-first, damit der Smoke ohne Key und
+> ohne Kosten deterministisch läuft). Der Nachweis „echtes Interview gegen echten Claude"
+> steht damit aus — P2 ist an dieser Stelle noch nicht vollständig abgenommen.
 
 Sobald `ANTHROPIC_API_KEY` (Platform) da ist: Dienst regulär über `bc1_service.main:app`
 starten und Checkliste erneut durchgehen — dann mit frei formulierten Antworten statt der
-Skript-Sätze. (Nachgehalten im Ledger.)
+Skript-Sätze. Erst danach gilt die Bauplan-B3-Zeile als erfüllt. (Nachgehalten im Ledger.)
