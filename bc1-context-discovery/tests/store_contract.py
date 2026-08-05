@@ -10,14 +10,32 @@ import threading
 import pytest
 
 from bc1_core.store import StaleStateError
-from bc1_core.types import Candidate, FieldStatus, FieldValue, SessionState
+from bc1_core.types import (
+    Candidate,
+    FieldStatus,
+    FieldValue,
+    SessionState,
+    SessionStatus,
+)
 
 
 def _fetter_state(session_id: str = "s1") -> SessionState:
     # Breiter State: verbreitert beim InMemory-Store das Rennfenster
     # (deepcopy zwischen Versions-Check und Schreiben) und prüft beim
-    # Postgres-Store nebenbei den vollen Serialisierungs-Roundtrip.
-    st = SessionState(session_id=session_id, schema_version="0.1")
+    # Postgres-Store nebenbei den vollen Serialisierungs-Roundtrip —
+    # deshalb sind ALLE SessionState-Felder befüllt, nicht nur values.
+    st = SessionState(
+        session_id=session_id,
+        schema_version="0.1",
+        paket_name="toy_prozess",
+        status=SessionStatus.WARTET,
+        rounds=2,
+        processed_message_ids={"m0", "m1"},
+        raw_log=[("m0", "erste Nachricht"), ("m1", "zweite Nachricht")],
+        antworten={"m0": {"status": "frage",
+                          "payload": {"naechste_frage": "Wie oft?",
+                                      "feld": "feld_0"}}},
+    )
     for i in range(300):
         st.values[f"feld_{i}"] = FieldValue(
             value=f"wert_{i}",
@@ -80,6 +98,27 @@ class StoreVertrag:
         st.values["feld_0"].value = "manipuliert"
         assert store.load("s1").values["feld_0"].value == "wert_0"
 
+    def test_zwei_sessions_bleiben_getrennt(self, store):
+        # Der Store ist nach session_id partitioniert: ein Schreibvorgang auf
+        # s1 darf s2 weder ueberschreiben noch mit ihm vermischt werden.
+        s1 = _fetter_state("s1")
+        s2 = _fetter_state("s2")
+        s2.rounds = 99
+        s2.values["feld_0"].value = "nur_in_s2"
+        s2.raw_log = [("mx", "nur in s2")]
+        store.save(s1)
+        store.save(s2)
+
+        geladen1 = store.load("s1")
+        geladen2 = store.load("s2")
+        assert geladen1.session_id == "s1" and geladen2.session_id == "s2"
+        assert geladen1.rounds == 2 and geladen2.rounds == 99
+        assert geladen1.values["feld_0"].value == "wert_0"
+        assert geladen2.values["feld_0"].value == "nur_in_s2"
+        assert geladen1.raw_log == [("m0", "erste Nachricht"),
+                                    ("m1", "zweite Nachricht")]
+        assert geladen2.raw_log == [("mx", "nur in s2")]
+
     def test_nebenlaeufige_saves_genau_einer_gewinnt(self, store):
         # Schließt den einzigen adjudiziert-offenen Gesamt-Review-Punkt
         # (Store-Thread-Sicherheit) an der StateStore-Naht.
@@ -88,6 +127,8 @@ class StoreVertrag:
             store.save(_fetter_state(sid))  # gespeichert: Version 1
             n = 8
             barriere = threading.Barrier(n)
+            # list.append ist unter CPython atomar (GIL) — die Zaehler
+            # brauchen daher kein eigenes Lock.
             erfolge: list[int] = []
             fehler: list[int] = []
 
