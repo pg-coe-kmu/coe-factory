@@ -10,12 +10,12 @@
 
 ## Global Constraints
 
-- **Branch:** `bc1-p2-raender`, abgezweigt von `bc1-mvp-kern` (PR #129 ist noch unmerged). Alles lokal; **kein Push ohne Richards ausdrückliches OK.**
+- **Branch:** `bc1-p2-raender`, abgezweigt von `bc1-mvp-kern` (PR #129 ist noch unmerged). Alles lokal; **kein Push ohne ausdrückliches Projekt-OK.**
 - **TDD-Guard NIE bypassen.** Pro Task: erst der rote Test (voller `.venv/bin/pytest`-Lauf aus `bc1-context-discovery/`, damit der Reporter `test.json` schreibt), dann Implementierung. Bei einem Block: Skill `tdd-guard` aufrufen.
 - **Kern bleibt Stdlib-only:** `bc1_core/` bekommt KEINE neuen Dependencies (Task 1 = reine Stdlib). Alles mit Dependencies liegt in `bc1_service/`.
-- **Die bestehenden 82 Tests bleiben grün.** Einzige sanktionierte Umstellung: `tests/test_store.py` wird zur wiederverwendbaren Vertrags-Suite umgebaut (Richard-Auftrag, P2-Teststrategie Punkt 1 im Ledger) — dieselben Zusicherungen, neue Form.
+- **Die bestehenden 82 Tests bleiben grün.** Einzige sanktionierte Umstellung: `tests/test_store.py` wird zur wiederverwendbaren Vertrags-Suite umgebaut (beauftragt, P2-Teststrategie Punkt 1) — dieselben Zusicherungen, neue Form.
 - **Kein Netz in Tests** (Architektur-Invariante): Claude nur über injizierte Stubs; Echt-API-Stichproben und Postgres-Tests laufen NUR, wenn `BC1_ECHT_LLM` bzw. `BC1_TEST_DB_DSN` explizit gesetzt sind (sonst skip).
-- **Vertraulichkeit:** Der NoroAI-Referenz-Snapshot und alles aus `Drive/` bleibt strikt lokal — NIE ins Repo. Tests nutzen ausschließlich synthetische, generische Daten („Beispielprozess"). Einzige Kopie ins Repo: `snapshot_schema.json` (BC0-Vertrags-Artefakt, firmenfrei).
+- **Vertraulichkeit:** Der Referenz-Snapshot (BC0-Handover) und alles aus `Drive/` bleibt strikt lokal — NIE ins Repo. Tests nutzen ausschließlich synthetische, generische Daten („Beispielprozess"). Einzige Kopie ins Repo: `snapshot_schema.json` (BC0-Vertrags-Artefakt, firmenfrei).
 - **Keine `.env`-Datei anlegen** (die Security-Deny-Liste blockt `Read(**/.env*)`): Konfiguration ausschließlich über exportierte Umgebungsvariablen (`BC1_DB_DSN`, `ANTHROPIC_API_KEY`, `BC1_CLAUDE_MODELL`, `BC1_SNAPSHOT_PFAD`). Secrets nie loggen, nie committen.
 - **Neue Dependencies nur die hier genannten:** `fastapi`, `uvicorn[standard]`, `psycopg[binary,pool]`, `anthropic`, `jsonschema`; dev zusätzlich `httpx` und `httpx2` (nachträglich sanktioniert 06.08. — Starlette-TestClient-Deprecation; ohne `httpx2` läuft die Suite nicht warnungsfrei). Installation:
   ```bash
@@ -1164,10 +1164,10 @@ git commit -m "feat(bc1): FastAPI-Transportschicht (/turn) mit schema_version-Ch
 Vorbereitung (einmalig, Schema-Kopie aus dem lokalen BC0-Handover):
 
 ```bash
-cp "/Users/rprezer/Desktop/Claude_Projekte/AutoCoE_Projekt/Drive/BC0 Vorarbeiten/Handover_BC1/09_Handover_BC0_to_BC1/snapshot_schema.json" bc1_service/snapshot_schema.json
+cp "<lokaler BC0-Handover-Ordner>/snapshot_schema.json" bc1_service/snapshot_schema.json
 ```
 
-- [ ] **Step 1: Write the failing test** — `tests/test_snapshot.py` (rein synthetische, generische Daten — NIE der NoroAI-Snapshot)
+- [ ] **Step 1: Write the failing test** — `tests/test_snapshot.py` (rein synthetische, generische Daten — NIE der echte Referenz-Snapshot)
 
 ```python
 import json
@@ -1309,7 +1309,7 @@ def lade_snapshot(pfad: str | Path) -> Snapshot:
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `.venv/bin/pytest tests/test_snapshot.py -v` und voll `.venv/bin/pytest`. Zusätzlich lokaler Smoke (nicht committen, nur ausführen): `BC1_SNAPSHOT_PFAD` auf den lokalen NoroAI-Snapshot zeigen lassen und in einer Python-One-Liner-Session `lade_snapshot(...)` aufrufen — muss 10 `prozess_ids` liefern.
+Run: `.venv/bin/pytest tests/test_snapshot.py -v` und voll `.venv/bin/pytest`. Zusätzlich lokaler Smoke (nicht committen, nur ausführen): `BC1_SNAPSHOT_PFAD` auf den lokalen Referenz-Snapshot zeigen lassen und in einer Python-One-Liner-Session `lade_snapshot(...)` aufrufen — muss 10 `prozess_ids` liefern.
 Expected: PASS (3 passed)
 
 - [ ] **Step 5: Commit**

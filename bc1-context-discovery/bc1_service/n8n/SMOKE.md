@@ -108,7 +108,7 @@ API-Kosmetik, siehe Roadmap-Notiz im Ledger).
 ## Wiederholung mit echtem Claude — OFFENER ABNAHME-PUNKT
 
 > ⚠️ **Dieser Punkt ist noch NICHT abgehakt.** Die Checkliste oben lief bewusst gegen die
-> FakeLLM-Verdrahtung (Richard-Entscheidung: FakeLLM-first, damit der Smoke ohne Key und
+> FakeLLM-Verdrahtung (bewusste Projektentscheidung: FakeLLM-first, damit der Smoke ohne Key und
 > ohne Kosten deterministisch läuft). Der Nachweis „echtes Interview gegen echten Claude"
 > steht damit aus — P2 ist an dieser Stelle noch nicht vollständig abgenommen.
 
