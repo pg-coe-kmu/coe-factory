@@ -1,4 +1,5 @@
 import threading
+from contextlib import asynccontextmanager
 
 from fastapi.testclient import TestClient
 
@@ -196,3 +197,21 @@ def test_nebenlaeufige_turns_derselben_session_serialisiert():
 # sie dürfen gar nicht erst in den Kern laufen.
 def test_leere_message_id_wird_abgewiesen():
     assert _turn(_client(), "", "Hallo").status_code == 422
+
+
+# Die Produktions-Verdrahtung braucht einen Aufhaenger fuers Herunterfahren
+# (Store schliessen) — die Factory reicht ihn nur durch.
+def test_lifespan_wird_durchgereicht():
+    zustand = {"laeuft": False}
+
+    @asynccontextmanager
+    async def _lifespan(app):
+        zustand["laeuft"] = True
+        yield
+        zustand["laeuft"] = False
+
+    app = create_app(InMemoryStateStore(), _fake_llm(), TOY_PROZESS,
+                     lifespan=_lifespan)
+    with TestClient(app):
+        assert zustand["laeuft"]
+    assert not zustand["laeuft"]
