@@ -20,7 +20,7 @@
 - **Neue Dependencies nur die hier genannten:** `fastapi`, `uvicorn[standard]`, `psycopg[binary,pool]`, `anthropic`, `jsonschema`; dev zusätzlich `httpx` und `httpx2` (nachträglich sanktioniert 06.08. — Starlette-TestClient-Deprecation; ohne `httpx2` läuft die Suite nicht warnungsfrei). Installation:
   ```bash
   cd coe-factory/bc1-context-discovery
-  uv pip install --python .venv/bin/python fastapi "uvicorn[standard]" "psycopg[binary,pool]" anthropic jsonschema httpx
+  uv pip install --python .venv/bin/python fastapi "uvicorn[standard]" "psycopg[binary,pool]" anthropic jsonschema httpx httpx2
   ```
 - Deutsche Namen und Docstrings wie im Kern; Conventional Commits mit Scope `bc1`; **Commit nach jeder Task** (bzw. nach jedem RED→GREEN-Paar, wie in P1).
 - Generik-Invariante gilt weiter: keine Verzweigung auf Use-Case- oder Feldnamen außerhalb des Use-Case-Pakets; die API bedient jedes `UseCasePackage`.
@@ -904,7 +904,7 @@ git commit -m "feat(bc1): ClaudeLLM-Adapter (Structured Outputs, enge Retries, R
 - Consumes: `process_turn`, `SessionStatus`, `StateStore`, `LLMClient`, `UseCasePackage`, `TOY_PROZESS`; für `main.py`: `PostgresStateStore` (Task 3), `ClaudeLLM` (Task 4), `lade_snapshot` (Task 6 — bis dahin `snapshot=None`).
 - Produces: `create_app(store, llm, package, snapshot=None) -> FastAPI` mit:
   - `POST /turn` — Request `{session_id, message_id, message, schema_version?}` (exakt Design-Spec B1). Antwort: das `process_turn`-Dict plus Zusatzkey `chat_text` (für n8n). HTTP 200 auch bei `fehler_fortsetzbar` (Vertragsantwort, kein Transportfehler).
-  - Transport-Pflichten (Design-Spec-Deferrals): `schema_version`-Mismatch → **409** `schema_version_passt_nicht` · neue Nachricht an FERTIG-Session → **409** `session_abgeschlossen` (Replays bekannter message_ids laufen weiter idempotent durch) · `ValueError` des Paket-Guards → **409**.
+  - Transport-Pflichten (Design-Spec-Deferrals): `schema_version`-Mismatch → **409** `schema_version_passt_nicht` · neue Nachricht an FERTIG-Session → **409** `session_abgeschlossen` (Replays bekannter message_ids laufen weiter idempotent durch) · Paket-Guard-Konflikt → **409** `paket_konflikt` *(seit Gesamt-Review-Fix über die eigene Kern-Exception `PaketKonfliktError`; das ursprüngliche pauschale ValueError-Mapping war Review-Finding)*.
   - `GET /gesundheit` (statisch) und `GET /prozesse` (404 `kein_snapshot_konfiguriert`, wenn kein Snapshot geladen).
 - `main.py` verdrahtet aus Umgebungsvariablen: `BC1_DB_DSN` (Pflicht), `BC1_SNAPSHOT_PFAD` (optional) → `app` für `uvicorn bc1_service.main:app`.
 
