@@ -1,3 +1,4 @@
+import dataclasses
 import json
 
 import pytest
@@ -70,11 +71,27 @@ def test_wert_ohne_quelle_wird_abgelehnt():
         state_from_dict(daten)
 
 
+# Leerstring ist keine Quelle: der Ledger-Eintrag waere nicht mehr auf eine
+# Nachricht zurueckfuehrbar — genauso kaputt wie eine fehlende Quelle.
+def test_wert_mit_leerer_quelle_wird_abgelehnt():
+    daten = state_to_dict(_voller_state())
+    daten["values"]["prozess_name"]["source_message_id"] = ""
+    with pytest.raises(ValueError):
+        state_from_dict(daten)
+
+
 def test_kandidat_ohne_quelle_wird_abgelehnt():
     daten = state_to_dict(_voller_state())
     daten["values"]["prozess_name"]["candidates"][0]["source_message_id"] = None
     with pytest.raises(ValueError):
         state_from_dict(daten)
+
+
+# Waechter gegen stille Datenverluste: ein neues SessionState-Feld muss hier
+# auffallen, nicht erst als fehlender Wert im persistenten Store.
+def test_serialisierung_deckt_alle_sessionstate_felder():
+    daten = state_to_dict(_voller_state())
+    assert set(daten.keys()) == {f.name for f in dataclasses.fields(SessionState)}
 
 
 def test_unbekannter_statuswert_wird_abgelehnt():
