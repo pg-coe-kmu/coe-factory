@@ -7,6 +7,9 @@ from bc1_core.extractor import extract_and_merge
 from bc1_core.confidence import confidence_check, ConfidenceResult
 from bc1_core.dialog import decide_next
 
+class PaketKonfliktError(ValueError):
+    """Session ist an ein anderes Paket / eine andere schema_version gebunden."""
+
 def _profil(state: SessionState, conf: ConfidenceResult,
             package: UseCasePackage) -> dict:
     # Über die Paketfelder iterieren, nicht über state.values: Gate 0 sieht
@@ -37,7 +40,7 @@ def process_turn(store: StateStore, llm: LLMClient, package: UseCasePackage,
         # Fail fast: eine Session ist an ihr Paket gebunden (Name + Schema) —
         # stilles Vermischen würde Gate 0 ein falsch etikettiertes Profil
         # liefern. Version allein ist nicht eindeutig.
-        raise ValueError(
+        raise PaketKonfliktError(
             f"Session {session_id} läuft mit Paket "
             f"{state.paket_name}/{state.schema_version}, Aufruf kam mit "
             f"{package.name}/{package.schema_version}")
