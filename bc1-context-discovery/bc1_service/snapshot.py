@@ -1,6 +1,6 @@
 """Read-only-Zugriff auf den BC0-Baseline-Snapshot über stabile IDs.
 
-Vertrag: BC0-Handover v1.0 (Simeon, 16.06.) — Snapshot-Datei heute, Live-API
+Vertrag: BC0-Handover v1.0 vom 16.06. — Snapshot-Datei heute, Live-API
 mit identischer Struktur später; BC1 liest nur, Rückgaben laufen über den
 Anreicherungs-Pfad (nicht Teil dieses Moduls).
 """
