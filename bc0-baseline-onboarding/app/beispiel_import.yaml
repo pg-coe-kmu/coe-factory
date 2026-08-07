@@ -1,0 +1,55 @@
+# Beispiel-YAML für den Mandanten-Import (Profil + Prozesse + Bewertungen)
+company:
+  name: Beispiel GmbH
+  branche: Maschinenbau
+  rechtsform: GmbH
+  mitarbeitende: 120
+  region: Bielefeld
+profile:
+  geschaeftsmodell: Sondermaschinenbau mit Servicegeschäft
+  tech_stack: ERP, CRM, CAD, MES
+prozesse:
+  - process_id: KP-02
+    process_name: Vertrieb & Lead-Management
+    kategorie: Kerngeschäftsprozess
+    owner_name: M. Müller
+    owner_role: Vertriebsleiter
+    trigger: eingehende Anfrage
+    input: Lead-Daten aus Web/Messe
+    output: qualifizierter Lead im CRM
+    teilprozesse:
+      - step: 1
+        name: Lead erfassen
+        notation: Anfrage -> CRM-Eintrag -> Quelle/DSGVO
+        bewertungen:
+          1: { stufe: 4, beleg: "Webformular + CRM-Import" }
+          2: { stufe: 3, beleg: "teils manuelle Nacherfassung" }
+          3: { stufe: 4, beleg: "CRM deckt Modellierung ab" }
+      - step: 2
+        name: Lead qualifizieren
+        notation: Bedarf -> Scoring -> Pipeline-Status
+        bewertungen:
+          1: { stufe: 3, beleg: "Scoring teil-digital" }
+          4: { stufe: 2, beleg: "Bewertung manuell" }
+
+# --- Vollständige Unternehmensdaten (frei strukturiert) -> Reiter "Unternehmensdaten" ---
+unternehmensdaten:
+  vision: "Marktführer für KI-gestützte Prozessberatung 2030"
+  roadmap:
+    horizont_12_monate: "MVP autoCoE"
+    horizont_24_monate: "Skalierung + erste Kundenmandate"
+    horizont_36_monate: "Plattform-Angebot"
+  strategische_initiativen:
+    - name: autoCoE Factory
+      sponsor: Geschäftsführung
+      horizont: 24 Monate
+  tech_stack:
+    anzahl_tools: 12
+    tools:
+      - { name: PostgreSQL, kategorie: Datenbank, status: produktiv }
+      - { name: n8n, kategorie: Automation, status: produktiv }
+  team:
+    - { name: A. Muster, rolle: Geschäftsführung }
+    - { name: B. Beispiel, rolle: CTO }
+  finanzen:
+    investitionsbudget_eur: 150000

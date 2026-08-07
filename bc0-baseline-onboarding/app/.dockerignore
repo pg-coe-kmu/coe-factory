@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+bc0.db
+.env
+*.log
+.git

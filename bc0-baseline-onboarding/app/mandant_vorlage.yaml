@@ -1,0 +1,2086 @@
+# ============================================================
+# BC0 Onboarding – Mandanten-Importvorlage
+# Ausfuellen und im Tool ueber 'Aus YAML importieren' hochladen.
+# Hinweise:
+#  - stufe: 1..5 eintragen, Beleg ist Pflicht (sonst wird die Zeile ignoriert).
+#  - Leere Items (stufe: ~) werden beim Import uebersprungen – einfach offen lassen.
+#  - Nicht benoetigte Kernprozesse/Teilprozesse koennen ganz geloescht werden.
+# ============================================================
+
+company:
+  name: Neuer Mandant GmbH
+  branche: ""
+  rechtsform: ""
+  mitarbeitende: 
+  region: ""
+
+profile:
+  geschaeftsmodell: ""
+  tech_stack: ""
+
+# --- Volles Unternehmensprofil (frei strukturiert) -> Reiter 'Unternehmensdaten' ---
+unternehmensdaten:
+  vision: ""
+  mission: ""
+  strategische_initiativen: []
+  roadmap:
+    horizont_12_monate: ""
+    horizont_24_monate: ""
+    horizont_36_monate: ""
+  tech_stack:
+    anzahl_tools: 
+    tools: []
+  team: []
+  finanzen: {}
+
+prozesse:
+  - process_id: KP-01
+    process_name: Strategieprozess
+    kategorie: Steuerungsprozess
+    owner_name: ""
+    owner_role: ""
+    trigger: ""
+    input: ""
+    output: ""
+    teilprozesse:
+      - step: 1
+        name: Teilprozess 1
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 2
+        name: Teilprozess 2
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 3
+        name: Teilprozess 3
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 4
+        name: Teilprozess 4
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 5
+        name: Teilprozess 5
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+
+  - process_id: KP-02
+    process_name: Vertrieb & Lead-Management
+    kategorie: Kerngeschaeftsprozess
+    owner_name: ""
+    owner_role: ""
+    trigger: ""
+    input: ""
+    output: ""
+    teilprozesse:
+      - step: 1
+        name: Teilprozess 1
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 2
+        name: Teilprozess 2
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 3
+        name: Teilprozess 3
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 4
+        name: Teilprozess 4
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 5
+        name: Teilprozess 5
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+
+  - process_id: KP-03
+    process_name: Kunden-Onboarding
+    kategorie: Kerngeschaeftsprozess
+    owner_name: ""
+    owner_role: ""
+    trigger: ""
+    input: ""
+    output: ""
+    teilprozesse:
+      - step: 1
+        name: Teilprozess 1
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 2
+        name: Teilprozess 2
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 3
+        name: Teilprozess 3
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 4
+        name: Teilprozess 4
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 5
+        name: Teilprozess 5
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+
+  - process_id: KP-04
+    process_name: Engagement-/Auftragssteuerung
+    kategorie: Kerngeschaeftsprozess
+    owner_name: ""
+    owner_role: ""
+    trigger: ""
+    input: ""
+    output: ""
+    teilprozesse:
+      - step: 1
+        name: Teilprozess 1
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 2
+        name: Teilprozess 2
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 3
+        name: Teilprozess 3
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 4
+        name: Teilprozess 4
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 5
+        name: Teilprozess 5
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+
+  - process_id: KP-05
+    process_name: Wissensmanagement
+    kategorie: Unterstuetzungsprozess
+    owner_name: ""
+    owner_role: ""
+    trigger: ""
+    input: ""
+    output: ""
+    teilprozesse:
+      - step: 1
+        name: Teilprozess 1
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 2
+        name: Teilprozess 2
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 3
+        name: Teilprozess 3
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 4
+        name: Teilprozess 4
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 5
+        name: Teilprozess 5
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+
+  - process_id: KP-06
+    process_name: HR / Personal
+    kategorie: Unterstuetzungsprozess
+    owner_name: ""
+    owner_role: ""
+    trigger: ""
+    input: ""
+    output: ""
+    teilprozesse:
+      - step: 1
+        name: Teilprozess 1
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 2
+        name: Teilprozess 2
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 3
+        name: Teilprozess 3
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 4
+        name: Teilprozess 4
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 5
+        name: Teilprozess 5
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+
+  - process_id: KP-07
+    process_name: Buchhaltung
+    kategorie: Unterstuetzungsprozess
+    owner_name: ""
+    owner_role: ""
+    trigger: ""
+    input: ""
+    output: ""
+    teilprozesse:
+      - step: 1
+        name: Teilprozess 1
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 2
+        name: Teilprozess 2
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 3
+        name: Teilprozess 3
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 4
+        name: Teilprozess 4
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 5
+        name: Teilprozess 5
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+
+  - process_id: KP-08
+    process_name: IT-Operations
+    kategorie: Unterstuetzungsprozess
+    owner_name: ""
+    owner_role: ""
+    trigger: ""
+    input: ""
+    output: ""
+    teilprozesse:
+      - step: 1
+        name: Teilprozess 1
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 2
+        name: Teilprozess 2
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 3
+        name: Teilprozess 3
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 4
+        name: Teilprozess 4
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 5
+        name: Teilprozess 5
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+
+  - process_id: KP-09
+    process_name: Qualitaetssicherung
+    kategorie: Unterstuetzungsprozess
+    owner_name: ""
+    owner_role: ""
+    trigger: ""
+    input: ""
+    output: ""
+    teilprozesse:
+      - step: 1
+        name: Teilprozess 1
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 2
+        name: Teilprozess 2
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 3
+        name: Teilprozess 3
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 4
+        name: Teilprozess 4
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 5
+        name: Teilprozess 5
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+
+  - process_id: KP-10
+    process_name: Compliance & Datenschutz
+    kategorie: Unterstuetzungsprozess
+    owner_name: ""
+    owner_role: ""
+    trigger: ""
+    input: ""
+    output: ""
+    teilprozesse:
+      - step: 1
+        name: Teilprozess 1
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 2
+        name: Teilprozess 2
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 3
+        name: Teilprozess 3
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 4
+        name: Teilprozess 4
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+      - step: 5
+        name: Teilprozess 5
+        notation: ""
+        bewertungen:
+          # 1) Technologie
+          1: { stufe: ~, beleg: "" }   # Technologiebasis – eingehende Infos digital
+          2: { stufe: ~, beleg: "" }   # Technologiebasis – ausgehende Infos digital
+          3: { stufe: ~, beleg: "" }   # Tools im Prozess – Software-Modellierung
+          4: { stufe: ~, beleg: "" }   # Tools im Prozess – Automatisierungsgrad
+          5: { stufe: ~, beleg: "" }   # Systemintegration – Integration der Tools
+          6: { stufe: ~, beleg: "" }   # Systemintegration – keine Medienbrueche
+          # 2) Prozessdaten
+          7: { stufe: ~, beleg: "" }   # Datenerhebung – digitale Erhebung
+          8: { stufe: ~, beleg: "" }   # Datenerhebung – automatische Erhebung
+          9: { stufe: ~, beleg: "" }   # Datenbereitstellung – Berichtswesen
+          10: { stufe: ~, beleg: "" }   # Datenbereitstellung – einfache Nutzung
+          11: { stufe: ~, beleg: "" }   # Datenverwendung – Schnittstelle/Abruf
+          12: { stufe: ~, beleg: "" }   # Datenverwendung – Prozessverbesserung
+          # 3) Prozessqualitaet
+          13: { stufe: ~, beleg: "" }   # Beschreibung – Umfang Standards
+          14: { stufe: ~, beleg: "" }   # Beschreibung – Detailgrad Standards
+          15: { stufe: ~, beleg: "" }   # Ausfuehrung – Status einsehbar
+          16: { stufe: ~, beleg: "" }   # Ausfuehrung – Stabilitaet bei Last
+          17: { stufe: ~, beleg: "" }   # Compliance – Kontrollen/Pruefinstanzen
+          18: { stufe: ~, beleg: "" }   # Compliance – regulatorische Anforderungen
+          # 4) Kund:innen
+          19: { stufe: ~, beleg: "" }   # Zentrierung – Beduerfnis-Dokumentation
+          20: { stufe: ~, beleg: "" }   # Zentrierung – zugeschnittene Angebote
+          21: { stufe: ~, beleg: "" }   # Nutzen – Status fuer Kund:innen einsehbar
+          22: { stufe: ~, beleg: "" }   # Nutzen – erkennbarer Nutzen
+          23: { stufe: ~, beleg: "" }   # Partizipation – Beteiligungsformate
+          24: { stufe: ~, beleg: "" }   # Partizipation – wirksame Massnahmen
+          # 5) Skills & Kultur
+          25: { stufe: ~, beleg: "" }   # Digital Skills – Kompetenzen der MA
+          26: { stufe: ~, beleg: "" }   # Digital Skills – Verfuegbarkeit
+          27: { stufe: ~, beleg: "" }   # Digital Leadership – Fuehrung denkt digital
+          28: { stufe: ~, beleg: "" }   # Digital Leadership – Anreize
+          29: { stufe: ~, beleg: "" }   # Digital Mindset – digitale Kultur
+          30: { stufe: ~, beleg: "" }   # Digital Mindset – konsequente Anwendung
+

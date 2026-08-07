@@ -1,0 +1,328 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BC0 Onboarding-Tool</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1F3A5F">
+<link rel="apple-touch-icon" href="/static/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="BC0">
+<style>
+:root{--navy:#1F3A5F;--ink:#1f2933;--muted:#6b7280;--line:#dde2e8;--bg:#f4f6f9;--panel:#fff;--accent:#3B6EA5;--ok:#1f9d57;--warn:#c0392b;--amber:#d98c1f;--chip:#eef2f7}
+*{box-sizing:border-box}body{margin:0;font-family:"Segoe UI",Calibri,Arial,sans-serif;color:var(--ink);background:var(--bg)}
+.topbar{display:flex;align-items:center;gap:14px;background:var(--navy);color:#fff;padding:10px 18px}.topbar .logo{font-weight:700}.topbar .sub{color:#b9c6d6;font-size:12.5px}
+.tsel{margin-left:auto;color:#cfe0f0;font-size:12.5px}.tsel select{background:#16324f;color:#fff;border:1px solid #2c4a6e;border-radius:7px;padding:6px 9px}
+.main{display:flex;min-height:calc(100vh - 46px)}
+.side{width:230px;background:#fff;border-right:1px solid var(--line);padding:12px 0}.side h4{margin:14px 18px 6px;font-size:11px;letter-spacing:.6px;color:var(--muted);text-transform:uppercase}
+.nav a{display:flex;align-items:center;gap:10px;padding:9px 18px;color:var(--ink);font-size:13.7px;cursor:pointer;border-left:3px solid transparent}.nav a:hover{background:var(--chip)}.nav a.active{background:var(--chip);border-left-color:var(--accent);font-weight:600;color:var(--navy)}
+.nav .dot{width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.content{flex:1;padding:22px 26px;overflow:auto}.crumb{font-size:12.5px;color:var(--muted);margin-bottom:4px}h1{font-size:22px;margin:0 0 2px}.lead{color:var(--muted);font-size:13.5px;margin:0 0 18px}
+.view{display:none}.view.active{display:block}
+.toolbar{display:flex;gap:12px;align-items:center;margin-bottom:16px}
+input,select,textarea{font-family:inherit;font-size:13.5px;padding:9px 11px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--ink)}.search{flex:1;max-width:300px}
+.btn{background:var(--navy);color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:14px;cursor:pointer;font-weight:600}.btn.sec{background:#fff;color:var(--navy);border:1px solid var(--navy)}.btn.sm{padding:6px 12px;font-size:12.5px}.btn:disabled{opacity:.45}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+.co{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;cursor:pointer}.co:hover{box-shadow:0 6px 20px #0001}
+.co .top{display:flex;align-items:center;gap:12px}.logo-sq{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-family:Georgia,serif}
+.co h3{margin:0;font-size:15.5px}.co .br{font-size:12px;color:var(--muted)}
+.st{font-size:11px;font-weight:700;padding:3px 9px;border-radius:12px;margin-left:auto}.st.abgeschlossen{background:#e4f5ec;color:var(--ok)}.st.laeuft{background:#fbf1e1;color:var(--amber)}.st.neu{background:#eef2f7;color:var(--navy)}
+.co .meta{display:flex;gap:16px;margin-top:12px;font-size:12px;color:var(--muted)}.co .meta b{color:var(--ink);font-size:14px;display:block}
+.bar{height:8px;background:#e9eef4;border-radius:6px;overflow:hidden;margin-top:12px}.bar>i{display:block;height:100%;background:var(--accent)}.barlbl{font-size:11px;color:var(--muted);margin-top:4px}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}.card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:15px}.card .k{font-size:12px;color:var(--muted)}.card .v{font-size:28px;font-weight:700;color:var(--navy);font-family:Georgia,serif}
+.panel{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}.two{display:grid;grid-template-columns:1.25fr 1fr;gap:18px}
+label{font-size:12px;color:var(--muted);display:block;margin-bottom:4px}.row{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}.progresswrap{flex:1;min-width:200px}
+.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.formgrid .full{grid-column:1/3}.formgrid input,.formgrid select,.formgrid textarea{width:100%}
+.dimhead{display:flex;align-items:center;gap:10px;margin:16px 0 6px}.dimhead .tag{background:var(--navy);color:#fff;font-size:11px;padding:3px 9px;border-radius:14px}.dimhead .avg{margin-left:auto;font-size:12.5px;color:var(--muted)}
+.item{border:1px solid var(--line);border-radius:9px;padding:11px 13px;margin-bottom:9px}.item.missing{border-color:#e9b4ad;background:#fdf6f5}.item .meta{font-size:11px;color:var(--muted);margin-bottom:6px}.item .q{font-size:13.5px;margin-bottom:8px}.item .q b{color:var(--accent);margin-right:6px}
+.stufe{display:flex;gap:6px;margin-bottom:8px}.stufe button{width:33px;height:33px;border:1px solid var(--line);background:#fff;border-radius:7px;cursor:pointer;font-weight:600}.stufe button.sel{background:var(--accent);color:#fff;border-color:var(--accent)}
+.beleg{width:100%;min-height:36px}.reqstar{color:var(--warn);font-weight:700}
+.actionbar{position:sticky;bottom:0;background:linear-gradient(#fff0,#fff 30%);padding-top:12px;display:flex;gap:12px;align-items:center}
+.stepper{display:flex;margin:6px 0 20px}.step{flex:1;text-align:center;position:relative;font-size:12.5px;color:var(--muted)}.step .n{width:30px;height:30px;border-radius:50%;background:#e9eef4;color:var(--muted);display:flex;align-items:center;justify-content:center;margin:0 auto 6px;font-weight:700}.step.active .n{background:var(--accent);color:#fff}.step.active{color:var(--navy);font-weight:600}
+.kp{display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px}.kp input{width:16px;height:16px}
+.acc{border:1px solid var(--line);border-radius:10px;margin-bottom:12px;overflow:hidden}.acc .head{display:flex;gap:10px;padding:11px 14px;background:#f7f9fb;cursor:pointer;font-weight:600}.acc .head .tp{margin-left:auto;font-size:11.5px;color:var(--muted);font-weight:400}.acc .body{padding:14px;display:none;border-top:1px solid var(--line)}.acc.open .body{display:block}
+.tprow{display:grid;grid-template-columns:30px 1.1fr 1.6fr;gap:10px;align-items:center;margin-bottom:8px}.tprow .n{width:28px;height:28px;border-radius:50%;background:var(--chip);color:var(--navy);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px}
+table{width:100%;border-collapse:collapse;font-size:12.6px}th,td{border:1px solid var(--line);padding:6px 9px;text-align:left}th{background:var(--navy);color:#fff}tr:nth-child(even) td{background:#f7f9fb}
+.pill{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:var(--chip);color:var(--navy)}.pill.no{background:#fbeae8;color:var(--warn)}
+.toast{position:fixed;right:22px;bottom:22px;background:var(--navy);color:#fff;padding:13px 18px;border-radius:9px;opacity:0;transform:translateY(10px);transition:.25s;font-size:13.5px}.toast.show{opacity:1;transform:none}.toast.err{background:var(--warn)}
+.mut{color:var(--muted);font-size:12.5px}.radarBox{display:flex;justify-content:center}.up{border:2px dashed var(--line);border-radius:10px;padding:18px;text-align:center;color:var(--muted);font-size:13px}
+</style></head><body>
+<div class="topbar"><div class="logo">NoroAI · BC0 Onboarding-Tool</div><div class="sub" id="backendLabel">FastAPI · Backend wird geprüft …</div>
+<div class="tsel" id="tsel" style="display:none">Mandant: <select id="tswitch"></select></div></div>
+<div class="main">
+<aside class="side" id="side" style="display:none"><h4>Mandant</h4><nav class="nav" id="wnav">
+<a data-v="ov" class="active"><span class="dot"></span>Übersicht</a>
+<a data-v="pf"><span class="dot"></span>Unternehmensprofil</a>
+<a data-v="ud"><span class="dot"></span>Unternehmensdaten</a>
+<a data-v="pr"><span class="dot"></span>Prozesse &amp; Teilprozesse</a>
+<a data-v="ra"><span class="dot"></span>Self-Rating</a>
+<a data-v="gr"><span class="dot"></span>Bewertungen</a>
+<a data-v="rb"><span class="dot"></span>Reifegradbericht</a>
+</nav><h4>&nbsp;</h4><div class="nav"><a onclick="goList()"><span class="dot" style="background:#c9ccd1"></span>‹ Alle Mandanten</a></div></aside>
+<div class="content">
+ <section class="view active" id="list"><div class="crumb">BC0 · Mandanten</div><h1>Mandanten</h1><p class="lead">Zentrale Projekt-Datenbank. Neuen Mandanten onboarden oder bestehenden öffnen.</p>
+  <div class="toolbar"><input class="search" id="q" placeholder="Suchen …"><button class="btn sec" id="yamlBtn" style="margin-left:auto">Aus YAML importieren</button><button class="btn" id="newBtn">+ Neuer Mandant</button><input type="file" id="yamlFile" accept=".yaml,.yml" style="display:none"></div>
+  <div class="grid" id="coGrid"></div></section>
+ <section class="view" id="wizard"><div class="crumb" onclick="goList()" style="cursor:pointer">‹ Mandanten</div><h1>Neuen Mandanten onboarden</h1>
+  <div class="stepper" id="stepper"></div><div class="panel" id="stepBody" style="min-height:240px"></div>
+  <div class="row" style="justify-content:space-between"><button class="btn sec" id="backBtn">‹ Zurück</button><button class="btn" id="nextBtn">Weiter ›</button></div></section>
+ <section class="view" id="ov"></section>
+ <section class="view" id="pf"></section>
+ <section class="view" id="ud"></section>
+ <section class="view" id="pr"></section>
+ <section class="view" id="ra"></section>
+ <section class="view" id="gr"></section>
+ <section class="view" id="rb"></section>
+</div></div><div class="toast" id="toast"></div>
+<script>
+var META=null, cur=null, curKP=null, curTP=null;
+function $(id){return document.getElementById(id);}
+function esc(s){return (s==null?'':''+s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function toast(m,e){var t=$('toast');t.textContent=m;t.className='toast show'+(e?' err':'');setTimeout(function(){t.className='toast';},2800);}
+async function api(p,m,b){var o={method:m||'GET',headers:{'Content-Type':'application/json'}};if(b)o.body=JSON.stringify(b);
+  var r=await fetch(p,o);if(!r.ok){var d='';try{d=(await r.json()).detail;}catch(e){d=r.statusText;}throw {status:r.status,detail:d};}
+  if(r.status===204)return null;return await r.json();}
+async function api2(p,text){var r=await fetch(p,{method:"POST",headers:{"Content-Type":"text/plain"},body:text});if(!r.ok){var d="";try{d=(await r.json()).detail;}catch(e){d=r.statusText;}throw{status:r.status,detail:d};}return await r.json();}
+function show(v){var s=document.querySelectorAll('.view');for(var i=0;i<s.length;i++)s[i].classList.remove('active');$(v).classList.add('active');window.scrollTo(0,0);}
+
+function setBackendLabel(){var el=$('backendLabel');if(!el||!META)return;
+  el.textContent = (META.backend==='postgres') ? 'FastAPI + PostgreSQL · Supabase (EU)' : 'FastAPI + SQLite · lokal';}
+async function boot(){META=await api('/api/meta');setBackendLabel();await renderList();}
+function kpName(pid){var i=parseInt(pid.split('-')[1],10)-1;return META.kp_template[i]||pid;}
+
+async function renderList(){
+  var list=await api('/api/companies');var q=($('q').value||'').toLowerCase();var box=$('coGrid');box.innerHTML='';
+  list.filter(function(t){return t.name.toLowerCase().indexOf(q)>=0||(t.branche||'').toLowerCase().indexOf(q)>=0;}).forEach(function(t){
+    var el=document.createElement('div');el.className='co';el.onclick=function(){openTenant(t.id);};
+    var ini=(t.name.match(/[A-ZÄÖÜ]/g)||['?']).slice(0,2).join('');
+    el.innerHTML='<div class="top"><div class="logo-sq" style="background:#3B6EA5">'+ini+'</div><div><h3>'+esc(t.name)+'</h3><div class="br">'+esc(t.branche||'—')+' · '+esc(t.region||'')+'</div></div><span class="st '+(t.status||'neu')+'">'+(t.status||'neu')+'</span></div>'+
+      '<div class="meta"><div>MA<b>'+(t.ma||'–')+'</b></div><div>Kernprozesse<b>'+t.kp_count+'</b></div><div>Ø Reifegrad<b>'+(t.avg?(''+t.avg).replace('.',','):'–')+'</b></div></div>'+
+      '<div class="bar"><i style="width:'+t.progress+'%"></i></div><div class="barlbl">Erfassung '+t.progress+'%</div>';
+    box.appendChild(el);});
+  if(!box.children.length)box.innerHTML='<div class="mut">Noch keine Mandanten — „+ Neuer Mandant".</div>';
+}
+$('q').oninput=renderList;
+$("yamlBtn")&&($("yamlBtn").onclick=function(){$("yamlFile").click();});
+$("yamlFile")&&($("yamlFile").onchange=async function(e){var fl=e.target.files[0];if(!fl)return;var txt=await fl.text();try{var r=await api2("/api/import_yaml",txt);toast("✓ YAML importiert: "+r.prozesse+" Prozesse, "+r.bewertungen+" Bewertungen.");openTenant(r.id);}catch(err){toast("Import-Fehler: "+err.detail,true);}e.target.value="";});
+function goList(){cur=null;$('side').style.display='none';$('tsel').style.display='none';show('list');renderList();}
+
+// ---- wizard ----
+var STEPS=["Unternehmensdaten","Prozesslandkarte","Anlegen"],wstep=0,draft={};
+$('newBtn').onclick=function(){draft={name:'',branche:'',rechtsform:'GmbH',ma:'',region:'',kps:[0,1,2,3]};wstep=0;$('side').style.display='none';$('tsel').style.display='none';renderWiz();show('wizard');};
+function renderWiz(){var s=$('stepper');s.innerHTML='';STEPS.forEach(function(t,i){s.innerHTML+='<div class="step'+(i===wstep?' active':'')+'"><div class="n">'+(i+1)+'</div>'+t+'</div>';});
+  var b=$('stepBody');
+  if(wstep===0){b.innerHTML='<div class="formgrid"><div class="full"><label>Firmenname *</label><input id="f_name" value="'+esc(draft.name)+'"></div><div><label>Branche</label><input id="f_br" value="'+esc(draft.branche)+'"></div><div><label>Rechtsform</label><input id="f_rf" value="'+esc(draft.rechtsform)+'"></div><div><label>Mitarbeitende</label><input id="f_ma" type="number" value="'+esc(draft.ma)+'"></div><div><label>Region</label><input id="f_rg" value="'+esc(draft.region)+'"></div></div>';}
+  else if(wstep===1){var h='<p class="mut">Kernprozesse im Scope:</p>';META.kp_template.forEach(function(k,i){h+='<div class="kp"><input type="checkbox" data-i="'+i+'" '+(draft.kps.indexOf(i)>=0?'checked':'')+'> KP-'+('0'+(i+1)).slice(-2)+' — '+esc(k)+'</div>';});b.innerHTML=h;}
+  else{b.innerHTML='<div style="line-height:1.8;font-size:14px">Unternehmen: <b>'+esc(draft.name||'—')+'</b><br>Branche/Region: '+esc(draft.branche||'—')+' · '+esc(draft.region||'—')+'<br>Kernprozesse: <b>'+draft.kps.length+'</b><br><br><span class="mut">„Anlegen" speichert in der zentralen Projekt-Datenbank und öffnet den Arbeitsbereich.</span></div>';}
+  $('backBtn').disabled=(wstep===0);$('nextBtn').textContent=(wstep===2?'✓ Anlegen':'Weiter ›');}
+function saveWiz(){if(wstep===0){draft.name=$('f_name').value;draft.branche=$('f_br').value;draft.rechtsform=$('f_rf').value;draft.ma=$('f_ma').value;draft.region=$('f_rg').value;}if(wstep===1){draft.kps=[].slice.call(document.querySelectorAll('#stepBody input:checked')).map(function(c){return +c.dataset.i;});}}
+$('backBtn').onclick=function(){saveWiz();if(wstep>0){wstep--;renderWiz();}};
+$('nextBtn').onclick=async function(){saveWiz();if(wstep===0&&!draft.name.trim()){toast('Firmenname fehlt.',true);return;}if(wstep<2){wstep++;renderWiz();return;}
+  try{var r=await api('/api/companies','POST',{name:draft.name,branche:draft.branche,rechtsform:draft.rechtsform,ma:draft.ma?+draft.ma:null,region:draft.region,kps:draft.kps});toast('✓ Mandant angelegt.');openTenant(r.id);}catch(e){toast('Fehler: '+e.detail,true);}};
+
+// ---- tenant workspace ----
+var wnav=document.querySelectorAll('#wnav a');for(var i=0;i<wnav.length;i++){(function(a){a.onclick=function(){for(var j=0;j<wnav.length;j++)wnav[j].classList.remove('active');a.classList.add('active');renderWS(a.dataset.v);};})(wnav[i]);}
+async function openTenant(id){cur=await api('/api/companies/'+id);$('side').style.display='block';$('tsel').style.display='inline';
+  var sw=$('tswitch');var list=await api('/api/companies');sw.innerHTML='';list.forEach(function(t){sw.innerHTML+='<option value="'+t.id+'" '+(t.id===id?'selected':'')+'>'+esc(t.name)+'</option>';});sw.onchange=function(){openTenant(+sw.value);};
+  for(var j=0;j<wnav.length;j++)wnav[j].classList.remove('active');wnav[0].classList.add('active');renderWS('ov');}
+async function reloadCur(){cur=await api('/api/companies/'+cur.company.id);}
+
+function cr(){return 'Mandanten › '+esc(cur.company.name)+' › ';}
+async function renderWS(v){
+  if(v==='ov')return renderOV();
+  if(v==='pf')return renderPF();
+  if(v==='ud')return renderUD();
+  if(v==='pr')return renderPR();
+  if(v==='ra')return renderRA();
+  if(v==='gr')return renderGR();
+  if(v==='rb')return renderRB();
+}
+async function renderOV(){var rep=await api('/api/companies/'+cur.company.id+'/report');
+  var kpn=Object.keys(cur.processes).length;
+  $('ov').innerHTML='<div class="crumb">'+cr()+'Übersicht</div><h1>'+esc(cur.company.name)+'</h1><p class="lead">'+esc(cur.company.branche||'')+' · '+esc(cur.company.region||'')+' · <span class="pill">'+(cur.company.status||'')+'</span></p>'+
+    '<div class="cards"><div class="card"><div class="k">Kernprozesse</div><div class="v">'+kpn+'</div></div><div class="card"><div class="k">Teilprozesse</div><div class="v">'+(kpn*5)+'</div></div><div class="card"><div class="k">Bewertungen</div><div class="v">'+rep.n_bewertungen+'</div></div><div class="card"><div class="k">Ø Reifegrad</div><div class="v">'+(rep.gesamt?(''+rep.gesamt).replace('.',','):'–')+'</div></div></div>'+
+    '<div class="two"><div class="panel"><b>Prozesslandkarte</b><div id="ovkp" style="margin-top:10px"></div></div><div class="panel"><b>Reifegrad-Profil (5 Dimensionen)</b><div class="radarBox" id="ovr"></div></div></div>';
+  var kh='';for(var i=0;i<10;i++){var on=!!cur.processes['KP-'+('0'+(i+1)).slice(-2)];kh+='<div class="kp"><span style="color:'+(on?'#1f9d57':'#c9ccd1')+'">'+(on?'✓':'○')+'</span> KP-'+('0'+(i+1)).slice(-2)+' '+esc(META.kp_template[i])+'</div>';}
+  $('ovkp').innerHTML=kh;
+  spider('ovr',META.dims.map(shortDim),META.dims.map(function(d){return rep.dim_avg[d]||0;}));
+  show('ov');}
+function shortDim(d){return ({"1) Technologie":"Tech","2) Prozessdaten":"Daten","3) Prozessqualität":"Qualität","4) Kundinnen und Kunden":"Kund:innen","5) Skills und Kultur":"Skills"})[d]||d;}
+
+function renderPF(){var p=cur.profile||{};var co=cur.company;
+  $('pf').innerHTML='<div class="crumb">'+cr()+'Profil</div><h1>Unternehmensprofil</h1><p class="lead">noroai_profile</p><div class="panel"><div class="formgrid">'+
+   '<div class="full"><label>Firmenname</label><input id="p_name" value="'+esc(co.name)+'"></div>'+
+   '<div><label>Branche</label><input id="p_br" value="'+esc(co.branche)+'"></div><div><label>Rechtsform</label><input id="p_rf" value="'+esc(co.rechtsform)+'"></div>'+
+   '<div><label>Mitarbeitende</label><input id="p_ma" type="number" value="'+esc(co.ma)+'"></div><div><label>Region</label><input id="p_rg" value="'+esc(co.region)+'"></div>'+
+   '<div class="full"><label>Geschäftsmodell</label><textarea id="p_gm">'+esc(p.geschaeftsmodell)+'</textarea></div>'+
+   '<div class="full"><label>Tech-Stack</label><input id="p_ts" value="'+esc(p.tech_stack)+'"></div></div>'+
+   '<div style="margin-top:12px"><button class="btn" id="p_save">Profil speichern</button></div></div>';
+  $('p_save').onclick=async function(){try{await api('/api/companies/'+co.id+'/profile','PUT',{name:$('p_name').value,branche:$('p_br').value,rechtsform:$('p_rf').value,ma:$('p_ma').value?+$('p_ma').value:null,region:$('p_rg').value,geschaeftsmodell:$('p_gm').value,tech_stack:$('p_ts').value});await reloadCur();toast('✓ Profil gespeichert.');}catch(e){toast('Fehler: '+e.detail,true);}};
+  show('pf');}
+
+function prettyKey(k){return (''+k).replace(/_/g,' ').replace(/\b\w/g,function(m){return m.toUpperCase();});}
+function flat(v){if(v===null||v===undefined)return '';if(typeof v==='object')return esc(JSON.stringify(v));return esc(''+v);}
+function renderNode(v){
+  if(v===null||v===undefined||v==='')return '<span class="mut">—</span>';
+  if(Array.isArray(v)){
+    if(!v.length)return '<span class="mut">—</span>';
+    if(typeof v[0]==='object'&&v[0]!==null){
+      var cols=[];v.forEach(function(o){if(o&&typeof o==='object')Object.keys(o).forEach(function(cc){if(cols.indexOf(cc)<0)cols.push(cc);});});
+      var t='<table style="margin-top:8px"><tr>'+cols.map(function(cc){return '<th>'+esc(prettyKey(cc))+'</th>';}).join('')+'</tr>';
+      v.forEach(function(o){t+='<tr>'+cols.map(function(cc){return '<td>'+flat(o?o[cc]:'')+'</td>';}).join('')+'</tr>';});
+      return t+'</table>';
+    }
+    return '<div style="margin-top:6px">'+v.map(function(x){return '• '+esc(''+x);}).join('<br>')+'</div>';
+  }
+  if(typeof v==='object'){
+    var t='<table style="margin-top:8px">';Object.keys(v).forEach(function(k){t+='<tr><td style="width:32%;vertical-align:top"><b>'+esc(prettyKey(k))+'</b></td><td>'+(v[k]&&typeof v[k]==='object'?renderNode(v[k]):esc(v[k]===null||v[k]===undefined?'—':(''+v[k])))+'</td></tr>';});return t+'</table>';
+  }
+  return esc(''+v);
+}
+function renderUD(){var raw=(cur.profile&&cur.profile.profile_json)||'';var data=null;try{data=raw?JSON.parse(raw):null;}catch(e){data=null;}
+  var h='<div class="crumb">'+cr()+'Unternehmensdaten</div><h1>Unternehmensdaten</h1><p class="lead">Vollständiges Unternehmensprofil (per YAML/Seed importiert).</p>';
+  if(!data||(typeof data==='object'&&!Object.keys(data).length)){
+    h+='<div class="panel mut">Noch keine Unternehmensdaten hinterlegt. Über „Aus YAML importieren" mit einem Block <b>unternehmensdaten:</b> einspielen (oder bei NoroAI: seed_noroai.py erneut ausführen).</div>';
+    $('ud').innerHTML=h;show('ud');return;}
+  Object.keys(data).forEach(function(k){h+='<div class="panel"><b style="font-size:15px;color:var(--navy)">'+esc(prettyKey(k))+'</b>'+renderNode(data[k])+'</div>';});
+  $('ud').innerHTML=h;show('ud');}
+function renderPR(){var keys=Object.keys(cur.processes).sort();
+  $('pr').innerHTML='<div class="crumb">'+cr()+'Prozesse</div><h1>Prozesse &amp; Teilprozesse</h1><p class="lead">ref_prozesse / ref_teilprozesse</p><div id="pracc"></div>';
+  var box=$('pracc');var html='';
+  keys.forEach(function(pid){var p=cur.processes[pid];var tpsfilled=p.tps.filter(function(t){return t.sub_process_name;}).length;
+    html+='<div class="acc" data-pid="'+pid+'"><div class="head">'+pid+' · '+esc(p.process_name)+'<span class="tp">'+(p.owner_name?('Owner: '+esc(p.owner_name)):'<span style="color:#c0392b">Owner fehlt</span>')+' · '+tpsfilled+'/5 TP</span></div><div class="body"><div class="formgrid">'+
+      '<div><label>Process Owner</label><input data-k="owner_name" value="'+esc(p.owner_name)+'"></div><div><label>Rolle</label><input data-k="owner_role" value="'+esc(p.owner_role)+'"></div>'+
+      '<div><label>Kategorie</label><input data-k="kategorie" value="'+esc(p.kategorie)+'"></div><div><label>Auslöser/Trigger</label><input data-k="trigger_text" value="'+esc(p.trigger_text)+'"></div>'+
+      '<div><label>Input</label><input data-k="input_text" value="'+esc(p.input_text)+'"></div><div><label>Output</label><input data-k="output_text" value="'+esc(p.output_text)+'"></div></div>'+
+      '<div style="margin-top:10px"><b style="font-size:13px">Teilprozesse</b><div class="tpl" style="margin-top:8px">'+
+      p.tps.map(function(tp,n){var L='style="display:block;font-size:11px;color:var(--muted);margin:7px 0 2px"';var I='style="width:100%"';return '<div class="tpblock" style="border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px">'
+        +'<div style="display:flex;align-items:center;gap:8px"><span class="n">'+(n+1)+'</span><input '+I+' data-tp="'+n+'" data-f="name" value="'+esc(tp.sub_process_name)+'" placeholder="Teilprozess-Name"></div>'
+        +'<label '+L+'>Beschreibung</label><input '+I+' data-tp="'+n+'" data-f="notation" value="'+esc(tp.notation)+'" placeholder="A → B → C">'
+        +'<label '+L+'>Eingesetzte Tools (CSV)</label><input '+I+' data-tp="'+n+'" data-f="tools" value="'+esc(tp.tools||"")+'" placeholder="z. B. CRM, n8n, Excel">'
+        +'<label '+L+'>Medienbrüche (CSV)</label><input '+I+' data-tp="'+n+'" data-f="medienbrueche" value="'+esc(tp.medienbrueche||"")+'" placeholder="z. B. PDF→manuell, E-Mail→CRM">'
+        +'<label '+L+'>Schnittstellen (CSV)</label><input '+I+' data-tp="'+n+'" data-f="schnittstellen" value="'+esc(tp.schnittstellen||"")+'" placeholder="z. B. CRM↔ERP, ERP↔DATEV">'
+        +'<label '+L+'>API (falls vorhanden)</label><input '+I+' data-tp="'+n+'" data-f="api" value="'+esc(tp.api||"")+'" placeholder="z. B. https://api.example.com/v1 · REST · keine">'
+        +'</div>';}).join('')+
+      '</div></div><div style="margin-top:10px"><button class="btn sm" data-save="'+pid+'">Speichern</button></div></div></div>';
+  });
+  var opts='';META.kp_template.forEach(function(k,i){var pid='KP-'+('0'+(i+1)).slice(-2);if(!cur.processes[pid])opts+='<option value="'+i+'">'+pid+' — '+esc(k)+'</option>';});
+  html+='<div class="row" style="margin-top:6px"><div><label>Kernprozess hinzufügen</label><select id="addKp"><option value="">— wählen —</option>'+opts+'</select></div><button class="btn sm" id="addKpB">+ Hinzufügen</button></div>';
+  box.innerHTML=html;
+  box.querySelectorAll('.acc .head').forEach(function(hd){hd.onclick=function(){hd.parentNode.classList.toggle('open');};});
+  box.querySelectorAll('[data-save]').forEach(function(btn){btn.onclick=async function(){var pid=btn.dataset.save;var acc=btn.closest('.acc');
+    var EM=function(){return {name:'',notation:'',tools:'',medienbrueche:'',schnittstellen:'',api:''};};
+    var body={process_id:pid,tps:[EM(),EM(),EM(),EM(),EM()]};
+    acc.querySelectorAll('[data-k]').forEach(function(inp){body[inp.dataset.k]=inp.value;});
+    acc.querySelectorAll('[data-tp]').forEach(function(inp){body.tps[+inp.dataset.tp][inp.dataset.f]=inp.value;});
+    try{await api('/api/companies/'+cur.company.id+'/process','PUT',body);await reloadCur();toast('✓ '+pid+' gespeichert.');renderPR();}catch(e){toast('Fehler: '+e.detail,true);}};});
+  var ab=$('addKpB');if(ab)ab.onclick=async function(){var v=$('addKp').value;if(v==='')return;try{await api('/api/companies/'+cur.company.id+'/process/add','POST',{kp_index:+v});await reloadCur();renderPR();toast('✓ hinzugefügt.');}catch(e){toast('Fehler: '+e.detail,true);}};
+  show('pr');}
+function renderRA(){var keys=Object.keys(cur.processes).sort();if(!keys.length){$('ra').innerHTML='<div class="crumb">'+cr()+'Self-Rating</div><h1>Self-Rating</h1><p class="lead mut">Erst Prozesse anlegen.</p>';show('ra');return;}
+  curKP=curKP&&cur.processes[curKP]?curKP:keys[0];
+  var p=cur.processes[curKP];
+  var tpopt=p.tps.map(function(tp,n){return '<option value="'+(n+1)+'">TP-'+(n+1)+' · '+esc(tp.sub_process_name)+'</option>';}).join('');
+  var kpopt=keys.map(function(k){return '<option value="'+k+'" '+(k===curKP?'selected':'')+'>'+k+' — '+esc(cur.processes[k].process_name)+'</option>';}).join('');
+  $('ra').innerHTML='<div class="crumb">'+cr()+'Self-Rating</div><h1>Self-Rating</h1><p class="lead">30 Bitkom-Items je Teilprozess · <span class="reqstar">Beleg Pflicht</span></p>'+
+   '<div class="panel"><div class="row"><div><label>Kernprozess</label><select id="kpSel">'+kpopt+'</select></div><div><label>Teilprozess</label><select id="tpSel">'+tpopt+'</select></div><div class="progresswrap"><label>Fortschritt: <span id="pT">0/30</span></label><div class="bar"><i id="pB"></i></div></div><div><label>Ø</label><div style="font-size:22px;font-weight:700;color:var(--navy)" id="aB">–</div></div></div></div>'+
+   '<div class="panel"><label>&#128206; Belege (Dateien) f&uuml;r <b id="docRef"></b> <span class="mut">&mdash; PDF/Bilder je Teilprozess (Stufe 1: Ablage; OCR folgt)</span></label><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0"><input type="file" id="docFile" accept="application/pdf,image/*" capture="environment"><button class="btn sec" id="docUp">Hochladen</button></div><div id="docsList" class="mut">&ndash;</div></div>'+
+   '<div id="items"></div><div class="actionbar"><button class="btn" id="saveR">Speichern</button><button class="btn sec" id="fillR">Beispiel ausfüllen</button><span class="mut" id="sh"></span></div>';
+  $('kpSel').onchange=function(){curKP=$('kpSel').value;renderRA();};
+  curTP=1;$('tpSel').onchange=function(){curTP=+$('tpSel').value;drawItems();};
+  $('docUp').onclick=uploadDoc;
+  drawItems();show('ra');}
+function rkey(){return curKP+'.TP-'+curTP;}
+function curRatings(){return (cur.ratings[rkey()])||{};}
+function drawItems(){var box=$('items');box.innerHTML='';var rg=curRatings();var dims=META.dims;
+  $('sh').innerHTML='bitkom_bewertungen · company_id='+cur.company.id+' · '+rkey();
+  dims.forEach(function(d){var blk=document.createElement('div');blk.innerHTML='<div class="dimhead"><span class="tag">'+shortDim(d)+'</span><span class="avg" id="av'+dims.indexOf(d)+'"></span></div>';
+    META.items.filter(function(it){return it.dimension===d;}).forEach(function(it){var st=rg[it.item_nr]||{};var bs='';for(var s=1;s<=5;s++)bs+='<button data-nr="'+it.item_nr+'" data-s="'+s+'" class="'+(st.stufe===s?'sel':'')+'">'+s+'</button>';
+      var el=document.createElement('div');el.className='item';el.id='it'+it.item_nr;el.innerHTML='<div class="meta">I-'+('0'+it.item_nr).slice(-2)+' · '+esc(it.kriterium)+'</div><div class="q"><b>?</b>'+esc(it.frage)+'</div><div class="stufe">'+bs+'</div><label>Beleg <span class="reqstar">*</span></label><textarea class="beleg" data-nr="'+it.item_nr+'">'+esc(st.beleg)+'</textarea>';blk.appendChild(el);});
+    box.appendChild(blk);});
+  box.querySelectorAll('.stufe button').forEach(function(bt){bt.onclick=function(){var nr=+bt.dataset.nr,s=+bt.dataset.s;var k=rkey();cur.ratings[k]=cur.ratings[k]||{};cur.ratings[k][nr]=cur.ratings[k][nr]||{};cur.ratings[k][nr].stufe=s;var g=document.querySelectorAll('#it'+nr+' .stufe button');for(var j=0;j<g.length;j++)g[j].classList.remove('sel');bt.classList.add('sel');$('it'+nr).classList.remove('missing');updR();};});
+  box.querySelectorAll('.beleg').forEach(function(t){t.oninput=function(){var nr=+t.dataset.nr;var k=rkey();cur.ratings[k]=cur.ratings[k]||{};cur.ratings[k][nr]=cur.ratings[k][nr]||{};cur.ratings[k][nr].beleg=t.value;updR();};});
+  updR();
+  renderDocs();}
+function updR(){var rg=curRatings();var e=Object.keys(rg).filter(function(n){return rg[n].stufe;});$('pT').textContent=e.length+'/30';$('pB').style.width=(e.length/30*100)+'%';
+  var avg=e.length?e.reduce(function(a,n){return a+rg[n].stufe;},0)/e.length:0;$('aB').textContent=avg?avg.toFixed(2).replace('.',','):'–';
+  META.dims.forEach(function(d,i){var ns=META.items.filter(function(x){return x.dimension===d;}).map(function(x){return x.item_nr;});var vs=ns.map(function(n){return (rg[n]||{}).stufe;}).filter(Boolean);var el=$('av'+i);if(el)el.textContent=vs.length?('Ø '+(vs.reduce(function(a,b){return a+b;},0)/vs.length).toFixed(2).replace('.',',')):'';});}
+$('saveR')&&0;
+document.addEventListener('click',async function(ev){
+  if(ev.target&&ev.target.id==='saveR'){var k=rkey();var rg=curRatings();var items={};Object.keys(rg).forEach(function(n){if(rg[n].stufe)items[n]={stufe:rg[n].stufe,beleg:(rg[n].beleg||'')};});
+    if(!Object.keys(items).length){toast('Nichts zu speichern.',true);return;}
+    try{var r=await api('/api/companies/'+cur.company.id+'/rating','POST',{key:k,items:items});toast('✓ '+r.saved+' Bewertungen gespeichert.');cur.company.status='laeuft';}
+    catch(e){toast('Blockiert: '+e.detail,true);document.querySelectorAll('.item').forEach(function(x){x.classList.remove('missing');});var m=(''+e.detail).match(/I-?(\d+)|Item\(s\):\s*([\d, ]+)/);}
+  }
+  if(ev.target&&ev.target.id==='fillR'){var k=rkey();cur.ratings[k]=cur.ratings[k]||{};META.items.forEach(function(it){var s=3+Math.round(Math.random());cur.ratings[k][it.item_nr]={stufe:Math.min(5,s),beleg:'Beleg '+it.kriterium};});drawItems();toast('Beispiel eingefüllt.');}
+});
+
+async function renderDocs(){var el=$('docsList');if(!el)return;var ref=rkey();var lbl=$('docRef');if(lbl)lbl.textContent=ref;
+  try{var ds=await api('/api/companies/'+cur.company.id+'/documents?ref_id='+encodeURIComponent(ref));
+    if(!ds.length){el.innerHTML='<span class="mut">Noch keine Dateien.</span>';return;}
+    el.innerHTML=ds.map(function(d){return '<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)">'
+      +'<a href="/api/companies/'+cur.company.id+'/documents/'+d.doc_id+'/file" target="_blank" rel="noopener">&#128206; '+esc(d.filename)+'</a>'
+      +'<span class="mut" style="font-size:11.5px">'+esc((d.uploaded_at||'').slice(0,16).replace('T',' '))+' &middot; '+esc(d.status)+'</span>'
+      +'<button class="btn sec" style="margin-left:auto" data-doccite="1" data-fn="'+esc(d.filename)+'">Zitat kopieren</button>'
+      +'<button class="btn sec" data-docdel="'+d.doc_id+'" title="L\u00f6schen">&#10005;</button></div>';}).join('');
+    el.querySelectorAll('[data-doccite]').forEach(function(b){b.onclick=function(){var t='Beleg-Dokument: '+b.dataset.fn+' ('+rkey()+')';
+      if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(function(){toast('Zitat kopiert \u2014 ins Beleg-Feld einf\u00fcgen.');},function(){toast(t);});}else{toast(t);}};});
+    el.querySelectorAll('[data-docdel]').forEach(function(b){b.onclick=async function(){if(!confirm('Datei l\u00f6schen?'))return;
+      try{await api('/api/companies/'+cur.company.id+'/documents/'+b.dataset.docdel,'DELETE');toast('Gel\u00f6scht.');renderDocs();}catch(e){toast('Fehler: '+(e.detail||e),true);}};});
+  }catch(e){el.innerHTML='<span class="mut">Belege nicht ladbar: '+esc(e.detail||e)+'</span>';}}
+async function uploadDoc(){var inp=$('docFile');var f=inp&&inp.files&&inp.files[0];if(!f){toast('Keine Datei gew\u00e4hlt.',true);return;}
+  if(f.size>15*1024*1024){toast('Max. 15 MB.',true);return;}
+  var fd=new FormData();fd.append('ref_id',rkey());fd.append('file',f);
+  var r=await fetch('/api/companies/'+cur.company.id+'/documents',{method:'POST',body:fd});
+  if(!r.ok){var d='';try{d=(await r.json()).detail;}catch(e){d=r.statusText;}toast('Upload-Fehler: '+d,true);return;}
+  inp.value='';toast('\u2713 Hochgeladen.');renderDocs();}
+function renderGR(){var rows='';var keys=Object.keys(cur.ratings).sort();keys.forEach(function(k){var rg=cur.ratings[k];Object.keys(rg).sort(function(a,b){return a-b;}).forEach(function(nr){var e=rg[nr];if(!e.stufe)return;var it=META.items[nr-1];rows+='<tr><td>'+k+'.I-'+('0'+nr).slice(-2)+'</td><td>'+k.split('.')[0]+'</td><td>'+k.split('.')[1]+'</td><td>I-'+('0'+nr).slice(-2)+'</td><td>'+shortDim(it.dimension)+'</td><td>'+e.stufe+'</td><td>'+((e.beleg||'').trim()?'✓':'<span class="pill no">fehlt</span>')+'</td></tr>';});});
+  if(!rows)rows='<tr><td colspan="7" class="mut">Noch keine Bewertungen.</td></tr>';
+  $('gr').innerHTML='<div class="crumb">'+cr()+'Bewertungen</div><h1>Bewertungen</h1><div class="panel" style="padding:0;max-height:62vh;overflow:auto"><table><thead><tr><th>id</th><th>KP</th><th>TP</th><th>Item</th><th>Dim</th><th>Stufe</th><th>Beleg</th></tr></thead><tbody>'+rows+'</tbody></table></div>';show('gr');}
+
+async function renderRB(){var rep=await api('/api/companies/'+cur.company.id+'/report');
+  var h='<div class="crumb">'+cr()+'Reifegradbericht</div><div style="display:flex;align-items:center"><h1 style="margin:0">Reifegradbericht</h1><button class="btn sm sec" style="margin-left:auto" onclick="window.print()">Drucken/PDF</button></div><p class="lead">Reifegrad-Feststellung inkl. Matrizen — rein rechnerisch.</p>';
+  h+='<div class="panel"><div style="display:flex;gap:20px;flex-wrap:wrap"><div><div class="mut">Mandant</div><b style="font-size:17px">'+esc(rep.company.name)+'</b></div><div><div class="mut">Gesamt-Ø</div><b style="font-size:26px;color:var(--navy);font-family:Georgia">'+(''+rep.gesamt).replace('.',',')+'</b></div><div><div class="mut">Beleg-Quote</div><b style="font-size:26px;font-family:Georgia;color:'+(rep.beleg_quote===100?'#1f9d57':'#c0392b')+'">'+rep.beleg_quote+'%</b></div><div><div class="mut">Bewertungen</div><b style="font-size:26px;font-family:Georgia">'+rep.n_bewertungen+'</b></div></div></div>';
+  h+='<div class="two"><div class="panel"><b>Bitkom — 5 Dimensionen (konsolidiert)</b><div class="radarBox" id="r5"></div></div><div class="panel"><b>Bitkom — 15 Kriterien (konsolidiert)</b><div class="radarBox" id="r15"></div></div></div>';
+  h+='<div class="panel"><b>Automatisierung — 12 Einzel-Items (Technologie I-01…06 + Prozessqualität I-13…18)</b><div class="radarBox" id="r12"></div></div>';
+  // KP table
+  h+='<div class="panel"><b>Reifegrad je Kernprozess × Dimension</b><table style="margin-top:10px"><tr><th>KP</th><th>Prozess</th>'+rep.dims.map(function(d){return '<th>'+shortDim(d)+'</th>';}).join('')+'<th>Ø</th></tr>';
+  rep.kp_rows.forEach(function(r){h+='<tr><td>'+r.process_id+'</td><td>'+esc(r.process_name)+'</td>'+rep.dims.map(function(d){return '<td>'+fmt(r.dims[d])+'</td>';}).join('')+'<td><b>'+fmt(r.avg)+'</b></td></tr>';});
+  h+='</table></div>';
+  // auto matrices
+  h+='<div class="panel"><b>Spinnennetze je Kernprozess (5 Dimensionen · 15 Kriterien)</b><div id="kpradars"></div></div>';
+  h+='<div class="panel"><b>Prozessautomatisierungs-Matrix (intern, je Teilprozess)</b>';
+  Object.keys(rep.auto).sort().forEach(function(pid){var a=rep.auto[pid];h+='<div style="margin-top:10px"><b style="font-size:13px">'+pid+' · '+esc(a.process_name)+'</b><table style="margin-top:6px"><tr><th>Teilprozess</th>'+rep.pa_crit.map(function(c){return '<th>'+c+'</th>';}).join('')+'<th>Ø</th></tr>';
+    a.rows.forEach(function(r){h+='<tr><td>'+esc(r.tp)+'</td>'+rep.pa_crit.map(function(c){return '<td style="background:'+col(r.krit[c])+'">'+fmt(r.krit[c])+'</td>';}).join('')+'<td><b>'+fmt(r.avg)+'</b></td></tr>';});
+    h+='</table></div>';});
+  h+='</div>';
+  // cross
+  h+='<div class="panel"><b>Cross-funktionale Matrix (je Kernprozess)</b><table style="margin-top:10px"><tr><th>KP</th><th>Owner</th>'+rep.cf_crit.map(function(c){return '<th>'+c+'</th>';}).join('')+'<th>Ø</th><th>Schnittstellen</th></tr>';
+  rep.cross.forEach(function(r){h+='<tr><td>'+r.process_id+'</td><td>'+esc(r.owner||'–')+'</td>'+rep.cf_crit.map(function(c){return '<td style="background:'+col(r.krit[c])+'">'+fmt(r.krit[c])+'</td>';}).join('')+'<td><b>'+fmt(r.avg)+'</b></td><td class="mut">'+esc(r.io)+'</td></tr>';});
+  h+='</table></div><p class="mut" style="font-style:italic">Bitkom-Reifegradmodell · 30 Items × 5 Dim je TP · Matrizen: intern Items 1–6+13–18, cross Items 1–12.</p>';
+  $('rb').innerHTML=h;
+  spider('r5',rep.dims.map(shortDim),rep.dims.map(function(d){return rep.dim_avg[d]||0;}));
+  spider('r15',rep.krit15_labels,rep.krit15_labels.map(function(k){return rep.krit15_overall[k]||0;}));
+  spider('r12',rep.items12,rep.items12.map(function(k){return rep.items12_overall[k]||0;}));
+  var kr=document.getElementById('kpradars');if(kr){kr.innerHTML='';
+    rep.kp_rows.forEach(function(r){if(!r.avg)return;var a='k5_'+r.process_id.replace('-','_'),b='k15_'+r.process_id.replace('-','_');
+      kr.innerHTML+='<div style="margin-top:10px"><b style="font-size:13px">'+r.process_id+' · '+esc(r.process_name)+'</b><div class="two"><div class="radarBox" id="'+a+'"></div><div class="radarBox" id="'+b+'"></div></div></div>';});
+    rep.kp_rows.forEach(function(r){if(!r.avg)return;var a='k5_'+r.process_id.replace('-','_'),b='k15_'+r.process_id.replace('-','_');
+      spider(a,rep.dims.map(shortDim),rep.dims.map(function(d){return r.dims[d]||0;}));
+      spider(b,rep.krit15_labels,rep.krit15_labels.map(function(k){return r.krit15[k]||0;}));});}
+  show('rb');}
+function fmt(v){return v?(''+v).replace('.',','):'–';}
+function col(v){if(!v)return '#fff';var t=(v-1)/4;var r=Math.round(214+(31-214)*t),g=Math.round(110+(157-110)*t),b=Math.round(90+(87-90)*t);return 'rgba('+r+','+g+','+b+',.18)';}
+
+function spider(elId,labels,vals){var N=labels.length,cx=160,cy=145,R=100;var FS=N>8?8:10.5;
+  function pt(i,r){var a=-Math.PI/2+i*2*Math.PI/N;return [cx+r*Math.cos(a),cy+r*Math.sin(a)];}
+  var g='<svg width="320" height="285" viewBox="0 0 320 285">';
+  for(var ring=1;ring<=5;ring++){var p='';for(var i=0;i<N;i++){var xy=pt(i,R*ring/5);p+=(i?'L':'M')+xy[0].toFixed(1)+' '+xy[1].toFixed(1)+' ';}g+='<path d="'+p+'Z" fill="none" stroke="#e3e8ee"/>';}
+  for(var i=0;i<N;i++){var xy=pt(i,R);g+='<line x1="'+cx+'" y1="'+cy+'" x2="'+xy[0].toFixed(1)+'" y2="'+xy[1].toFixed(1)+'" stroke="#e3e8ee"/>';}
+  var any=vals.some(function(v){return v;});if(any){var poly='';for(var i=0;i<N;i++){var xy=pt(i,R*(vals[i]||0)/5);poly+=(i?'L':'M')+xy[0].toFixed(1)+' '+xy[1].toFixed(1)+' ';}g+='<path d="'+poly+'Z" fill="rgba(59,110,165,.25)" stroke="#3B6EA5" stroke-width="2"/>';}
+  for(var i=0;i<N;i++){var xy=pt(i,R+18);g+='<text x="'+xy[0].toFixed(1)+'" y="'+xy[1].toFixed(1)+'" font-size="'+FS+'" fill="#6b7280" text-anchor="middle">'+labels[i]+'</text>';}
+  g+='</svg>';$(elId).innerHTML=g;}
+
+boot();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(function () {});
+  });
+}
+</script></body></html>
