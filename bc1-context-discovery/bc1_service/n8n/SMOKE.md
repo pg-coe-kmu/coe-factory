@@ -115,3 +115,21 @@ API-Kosmetik, siehe Roadmap-Notiz im Ledger).
 Sobald `ANTHROPIC_API_KEY` (Platform) da ist: Dienst regulär über `bc1_service.main:app`
 starten und Checkliste erneut durchgehen — dann mit frei formulierten Antworten statt der
 Skript-Sätze. Erst danach gilt die Bauplan-B3-Zeile als erfüllt. (Nachgehalten im Ledger.)
+
+## Smoke mit Ollama (lokal, ohne API-Key)
+
+Ersetzt die Claude-Abnahme NICHT (die bleibt offen, bis der Key da ist) —
+erlaubt aber Echt-LLM-End-to-End jederzeit lokal. Erwartung ehrlich: das
+8B-Modell extrahiert schwächer als Claude; es testet die Maschinerie,
+nicht die Interview-Qualität.
+
+Voraussetzungen (einmalig): `brew install ollama` · `ollama pull llama3.1:8b` (~5 GB).
+
+1. Ollama starten: `ollama serve` (oder `brew services start ollama`).
+2. Dienst starten wie oben (Postgres-Container, DSN), zusätzlich:
+   `export BC1_LLM=ollama` (optional `BC1_OLLAMA_MODELL=<modell>`).
+   Das ollama-Paket ist dev-Dependency — im .venv vorhanden.
+3. Die 4 Smoke-Szenarien aus der Checkliste oben unverändert durchspielen.
+   Hinweis: erste Antwort bis ~30 s (Modell-Load), danach schneller.
+4. Echt-Stichprobe der Suite:
+   `BC1_ECHT_LLM=1 .venv/bin/pytest tests/test_ollama_llm.py -v -k echt`
