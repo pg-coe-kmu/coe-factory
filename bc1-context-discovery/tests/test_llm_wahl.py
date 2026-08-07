@@ -3,8 +3,6 @@
 Eigenes Modul statt Logik in main.py: der main-Import zieht den
 Postgres-Pool hoch und wäre nicht isoliert testbar.
 """
-import os
-
 import pytest
 
 from bc1_service.claude_llm import ClaudeLLM

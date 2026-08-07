@@ -12,7 +12,6 @@ from __future__ import annotations
 import json
 import os
 
-import httpx
 import ollama
 
 from bc1_core.llm import ExtractionCandidate
@@ -80,10 +79,14 @@ class OllamaLLM:
                 # Primärdoku-Empfehlung: temperature 0 für Determinismus.
                 options={"temperature": 0, "num_predict": 4096},
             )
-        except httpx.ConnectError as fehler:
+        except ConnectionError as fehler:
+            # Die ollama-Lib übersetzt httpx.ConnectError selbst in den
+            # builtin ConnectionError — deshalb DIESER Typ (Gesamt-Review 07.08.).
             raise RuntimeError(
                 f"Ollama ist nicht erreichbar ({fehler}). Läuft `ollama serve`?"
             ) from fehler
         if antwort.done_reason == "length":
             raise RuntimeError("LLM-Antwort abgeschnitten (num_predict)")
+        if not antwort.message.content:
+            raise RuntimeError("LLM-Antwort ohne Inhalt")
         return antwort.message.content
