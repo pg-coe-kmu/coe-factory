@@ -4,7 +4,14 @@ version = "0.1.0"
 requires-python = ">=3.11"
 
 [dependency-groups]
-dev = ["pytest"]
+dev = ["pytest", "httpx", "httpx2"]
+service = [
+    "fastapi",
+    "uvicorn[standard]",
+    "psycopg[binary,pool]",
+    "anthropic",
+    "jsonschema",
+]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
