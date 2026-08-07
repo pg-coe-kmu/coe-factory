@@ -133,3 +133,21 @@ Voraussetzungen (einmalig): `brew install ollama` · `ollama pull llama3.1:8b` (
    Hinweis: erste Antwort bis ~30 s (Modell-Load), danach schneller.
 4. Echt-Stichprobe der Suite:
    `BC1_ECHT_LLM=1 .venv/bin/pytest tests/test_ollama_llm.py -v -k echt`
+
+**Durchgeführt 07.08.2026 (llama3.1:8b, echtes Ollama, Postgres 16 im Container):**
+
+1. ☑ **Interview bis fertig — doppelt:** (a) klare freie Antworten per curl → 3 Runden,
+   Vollständigkeit 1.0, DB `fertig`; (b) Stresstest im Hosted Chat mit bewusst vagen
+   Antworten („keine Ahnung") → Nachfrage-Limit-Pfad, Pflichtfelder sauber `ungeloest`
+   (grund `nachfrage_limit_erreicht`), Session `fertig`. DB-Nachweis für beide.
+2. ☑ **Idempotenz:** identischer `/turn`-Replay → byte-identische Antwort, `rounds` unverändert.
+3. ☑ **LLM kaputt** (Ollama gestoppt): `fehler_fortsetzbar` mit freundlichem `chat_text`,
+   HTTP 200 — der ConnectionError-Guard real ausgelöst, kein 500.
+4. ☑ **Resume:** Ollama wieder gestartet, GLEICHE `message_id` → Turn verarbeitet,
+   Extraktion korrekt, keine `rounds`-Inflation.
+   Bonus: Nachricht in fertige Session → 409 `session_abgeschlossen`.
+
+*8B-Beobachtung (erwartet, Rolle Test-/Dev-Ersatz):* Frage-Phrasierung kann halluzinieren
+(reproduzierbar ein „Rechtsstreit"-Kontext bei `ausloeser`, deterministisch bei temperature 0),
+und Nicht-Antworten werden mitunter wörtlich als Kandidaten extrahiert („Kein Wert angegeben").
+Die Maschinerie selbst (Merge, Nachfragen, Caps, Terminal-Gate) verhält sich korrekt.
