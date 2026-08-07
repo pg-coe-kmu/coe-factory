@@ -363,6 +363,17 @@ def test_leere_antwort_wirft():
         OllamaLLM(client=stub).extract("...", TOY_PROZESS, SessionState("s1", "0.1"))
 
 
+# Codex-Zweitmeinung 07.08.: nur-Whitespace passiert den rohen Guard und
+# wird erst in phrase() zu "" gestrippt — eine leere Frage ginge an den
+# Nutzer und würde idempotent zementiert. Muss laut werden.
+def test_nur_whitespace_antwort_wirft():
+    stub = _StubClient([_Antwort("  \n")])
+    with pytest.raises(RuntimeError):
+        OllamaLLM(client=stub).phrase(
+            TOY_PROZESS.field("haeufigkeit"), SessionState("s1", "0.1")
+        )
+
+
 def test_modell_override_aus_umgebung(monkeypatch):
     monkeypatch.setenv("BC1_OLLAMA_MODELL", "test-modell")
     stub = _StubClient([_Antwort(_extraktions_json())])
@@ -459,9 +470,12 @@ class OllamaLLM:
             ) from fehler
         if antwort.done_reason == "length":
             raise RuntimeError("LLM-Antwort abgeschnitten (num_predict)")
-        if not antwort.message.content:
+        inhalt = antwort.message.content
+        # Auch nur-Whitespace ist "ohne Inhalt": phrase() strippt danach —
+        # eine leere Frage darf nie beim Nutzer landen (Codex-Fund 07.08.).
+        if not inhalt or not inhalt.strip():
             raise RuntimeError("LLM-Antwort ohne Inhalt")
-        return antwort.message.content
+        return inhalt
 ```
 
 - [ ] **Step 5: Run tests to verify they pass**
@@ -748,8 +762,8 @@ git commit -m "test(bc1): Ollama-Echt-Stichprobe (Flag-gated) + Smoke-Anleitung 
 
 ## Abnahme (Gesamtergebnis)
 
-- Suite: **148 passed, 2 skipped** (Claude-Echt + Ollama-Echt ohne Flags), 0 Warnings.
+- Suite: **149 passed, 2 skipped** (Claude-Echt + Ollama-Echt ohne Flags), 0 Warnings.
 - `BC1_LLM=ollama` + laufendes Ollama: die 4 Smoke-Szenarien aus SMOKE.md real bestanden.
 - `bc1_core/` unverändert (`git diff bc1-p2-raender -- bc1-context-discovery/bc1_core/` ist leer).
 - Kein Push ohne ausdrückliches OK.
-- Fix-Welle nach Gesamt-Review 07.08.: ConnectionError-Guard (ollama-Lib-Verhalten empirisch verifiziert), Leer-Antwort-Guard, LLMClient-Annotation.
+- Fix-Welle nach Gesamt-Review 07.08.: ConnectionError-Guard (ollama-Lib-Verhalten empirisch verifiziert), Leer-Antwort-Guard, LLMClient-Annotation, + Whitespace-Guard (Codex-Zweitmeinung).
