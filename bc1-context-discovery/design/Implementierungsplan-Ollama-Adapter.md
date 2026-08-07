@@ -262,7 +262,6 @@ dev = ["pytest", "httpx", "httpx2", "ollama"]
 import json
 import os
 
-import httpx
 import pytest
 
 from bc1_core.package import TOY_PROZESS
@@ -295,7 +294,12 @@ class _StubClient:
 
 class _KaputterClient:
     def chat(self, **kwargs):
-        raise httpx.ConnectError("All connection attempts failed")
+        # Die ollama-Lib wirft bei nicht erreichbarem Server den builtin
+        # ConnectionError (sie übersetzt httpx.ConnectError intern selbst).
+        raise ConnectionError(
+            "Failed to connect to Ollama. Please check that Ollama is "
+            "downloaded, running and accessible."
+        )
 
 
 def _extraktions_json(*paare: tuple[str, str]) -> str:
@@ -376,7 +380,6 @@ from __future__ import annotations
 import json
 import os
 
-import httpx
 import ollama
 
 from bc1_core.llm import ExtractionCandidate
@@ -436,12 +439,16 @@ class OllamaLLM:
                 # Primärdoku-Empfehlung: temperature 0 für Determinismus.
                 options={"temperature": 0, "num_predict": 4096},
             )
-        except httpx.ConnectError as fehler:
+        except ConnectionError as fehler:
+            # Die ollama-Lib übersetzt httpx.ConnectError selbst in den
+            # builtin ConnectionError — deshalb DIESER Typ (Gesamt-Review 07.08.).
             raise RuntimeError(
                 f"Ollama ist nicht erreichbar ({fehler}). Läuft `ollama serve`?"
             ) from fehler
         if antwort.done_reason == "length":
             raise RuntimeError("LLM-Antwort abgeschnitten (num_predict)")
+        if not antwort.message.content:
+            raise RuntimeError("LLM-Antwort ohne Inhalt")
         return antwort.message.content
 ```
 
@@ -571,8 +578,6 @@ git commit -m "feat(bc1): OllamaLLM.phrase — Protocol komplett, Turn-Nachweis 
 Eigenes Modul statt Logik in main.py: der main-Import zieht den
 Postgres-Pool hoch und wäre nicht isoliert testbar.
 """
-import os
-
 import pytest
 
 from bc1_service.claude_llm import ClaudeLLM
@@ -609,10 +614,11 @@ from __future__ import annotations
 
 from typing import Mapping
 
+from bc1_core.llm import LLMClient
 from bc1_service.claude_llm import ClaudeLLM
 
 
-def waehle_llm(umgebung: Mapping[str, str]):
+def waehle_llm(umgebung: Mapping[str, str]) -> LLMClient:
     wahl = umgebung.get("BC1_LLM", "claude")
     if wahl == "claude":
         return ClaudeLLM()
@@ -730,7 +736,8 @@ git commit -m "test(bc1): Ollama-Echt-Stichprobe (Flag-gated) + Smoke-Anleitung 
 
 ## Abnahme (Gesamtergebnis)
 
-- Suite: **147 passed, 2 skipped** (Claude-Echt + Ollama-Echt ohne Flags), 0 Warnings.
+- Suite: **148 passed, 2 skipped** (Claude-Echt + Ollama-Echt ohne Flags), 0 Warnings.
 - `BC1_LLM=ollama` + laufendes Ollama: die 4 Smoke-Szenarien aus SMOKE.md real bestanden.
 - `bc1_core/` unverändert (`git diff bc1-p2-raender -- bc1-context-discovery/bc1_core/` ist leer).
 - Kein Push ohne ausdrückliches OK.
+- Fix-Welle nach Gesamt-Review 07.08.: ConnectionError-Guard (ollama-Lib-Verhalten empirisch verifiziert), Leer-Antwort-Guard, LLMClient-Annotation.
