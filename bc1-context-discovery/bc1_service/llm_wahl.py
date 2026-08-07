@@ -3,10 +3,11 @@ from __future__ import annotations
 
 from typing import Mapping
 
+from bc1_core.llm import LLMClient
 from bc1_service.claude_llm import ClaudeLLM
 
 
-def waehle_llm(umgebung: Mapping[str, str]):
+def waehle_llm(umgebung: Mapping[str, str]) -> LLMClient:
     wahl = umgebung.get("BC1_LLM", "claude")
     if wahl == "claude":
         return ClaudeLLM()

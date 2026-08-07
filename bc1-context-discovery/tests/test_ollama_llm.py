@@ -1,7 +1,6 @@
 import json
 import os
 
-import httpx
 import pytest
 
 from bc1_core.core import process_turn
@@ -36,7 +35,12 @@ class _StubClient:
 
 class _KaputterClient:
     def chat(self, **kwargs):
-        raise httpx.ConnectError("All connection attempts failed")
+        # Die ollama-Lib wirft bei nicht erreichbarem Server den builtin
+        # ConnectionError (sie übersetzt httpx.ConnectError intern selbst).
+        raise ConnectionError(
+            "Failed to connect to Ollama. Please check that Ollama is "
+            "downloaded, running and accessible."
+        )
 
 
 def _extraktions_json(*paare: tuple[str, str]) -> str:
@@ -58,9 +62,18 @@ def test_extract_liefert_kandidaten_und_filtert_unbekannte_felder():
     ]
 
 
+# Leere Modell-Antwort (z. B. wenn ein via BC1_OLLAMA_MODELL gesetztes
+# Reasoning-Modell nur thinking füllt) muss laut werden — Analogie zu
+# ClaudeLLMs "LLM-Antwort ohne Textblock"-Guard.
+def test_leere_antwort_wirft():
+    stub = _StubClient([_Antwort("")])
+    with pytest.raises(RuntimeError):
+        OllamaLLM(client=stub).extract("...", TOY_PROZESS, SessionState("s1", "0.1"))
+
+
 # Constrained Decoding + Determinismus sind der Kern des Adapters: das Schema
 # erzwingt valides JSON, temperature 0 macht Dev-Läufe reproduzierbar, und
-# stream=False ist Pflicht (REST-Default wäre streaming).
+# stream=False pinnt den Nicht-Streaming-Modus (Python-Lib-Default; der REST-Default wäre Streaming).
 def test_extract_nutzt_schema_temperature_null_und_kein_streaming():
     stub = _StubClient([_Antwort(_extraktions_json())])
     OllamaLLM(client=stub).extract("...", TOY_PROZESS, SessionState("s1", "0.1"))
