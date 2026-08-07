@@ -71,6 +71,17 @@ def test_leere_antwort_wirft():
         OllamaLLM(client=stub).extract("...", TOY_PROZESS, SessionState("s1", "0.1"))
 
 
+# Codex-Zweitmeinung 07.08.: nur-Whitespace passiert den rohen Guard und
+# wird erst in phrase() zu "" gestrippt — eine leere Frage ginge an den
+# Nutzer und würde idempotent zementiert. Muss laut werden.
+def test_nur_whitespace_antwort_wirft():
+    stub = _StubClient([_Antwort("  \n")])
+    with pytest.raises(RuntimeError):
+        OllamaLLM(client=stub).phrase(
+            TOY_PROZESS.field("haeufigkeit"), SessionState("s1", "0.1")
+        )
+
+
 # Constrained Decoding + Determinismus sind der Kern des Adapters: das Schema
 # erzwingt valides JSON, temperature 0 macht Dev-Läufe reproduzierbar, und
 # stream=False pinnt den Nicht-Streaming-Modus (Python-Lib-Default; der REST-Default wäre Streaming).

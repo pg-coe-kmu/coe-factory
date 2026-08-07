@@ -87,6 +87,9 @@ class OllamaLLM:
             ) from fehler
         if antwort.done_reason == "length":
             raise RuntimeError("LLM-Antwort abgeschnitten (num_predict)")
-        if not antwort.message.content:
+        inhalt = antwort.message.content
+        # Auch nur-Whitespace ist "ohne Inhalt": phrase() strippt danach —
+        # eine leere Frage darf nie beim Nutzer landen (Codex-Fund 07.08.).
+        if not inhalt or not inhalt.strip():
             raise RuntimeError("LLM-Antwort ohne Inhalt")
-        return antwort.message.content
+        return inhalt
