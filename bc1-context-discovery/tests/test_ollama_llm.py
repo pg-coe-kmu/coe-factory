@@ -134,3 +134,23 @@ def test_protocol_konformitaet_ein_turn_durch_process_turn():
     assert antwort["status"] == "frage"
     assert antwort["payload"]["feld"] == "ausloeser"
     assert antwort["payload"]["naechste_frage"] == "Was löst den Prozess aus?"
+
+
+@pytest.mark.skipif(
+    not os.environ.get("BC1_ECHT_LLM"),
+    reason="Echt-Stichprobe nur mit BC1_ECHT_LLM=1 (lokal, aber langsam)",
+)
+def test_echt_ollama_stichprobe_extraktion():
+    llm = OllamaLLM()
+    try:
+        kandidaten = llm.extract(
+            "Der Prozess heißt Urlaubsantrag und läuft etwa 50 mal pro Jahr.",
+            TOY_PROZESS,
+            SessionState("s1", "0.1"),
+        )
+    except RuntimeError as fehler:
+        if "ollama serve" in str(fehler):
+            pytest.skip("Ollama läuft nicht")
+        raise
+    felder = {k.field_name for k in kandidaten}
+    assert "prozess_name" in felder
