@@ -22,6 +22,7 @@ from bc1_service.prompts import (
     EXTRAKTIONS_SCHEMA,
     SYSTEM_EXTRAKTION,
     SYSTEM_FRAGE,
+    frage_nutzer_prompt,
 )
 
 STANDARD_MODELL = "llama3.1:8b"
@@ -61,6 +62,13 @@ class OllamaLLM:
             for e in daten["extraktionen"]
             if e["feld"] in bekannte and e["wert"].strip()
         ]
+
+    def phrase(self, field: FieldSpec, state: SessionState) -> str:
+        inhalt = self._chat([
+            {"role": "system", "content": SYSTEM_FRAGE},
+            {"role": "user", "content": frage_nutzer_prompt(field, state)},
+        ])
+        return inhalt.strip()
 
     def _chat(self, nachrichten: list[dict], format=None) -> str:
         try:

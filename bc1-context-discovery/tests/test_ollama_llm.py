@@ -4,8 +4,10 @@ import os
 import httpx
 import pytest
 
+from bc1_core.core import process_turn
 from bc1_core.package import TOY_PROZESS
-from bc1_core.types import SessionState
+from bc1_core.store import InMemoryStateStore
+from bc1_core.types import FieldValue, SessionState
 from bc1_service.ollama_llm import OllamaLLM
 
 
@@ -91,3 +93,44 @@ def test_modell_override_aus_umgebung(monkeypatch):
     stub = _StubClient([_Antwort(_extraktions_json())])
     OllamaLLM(client=stub).extract("...", TOY_PROZESS, SessionState("s1", "0.1"))
     assert stub.aufrufe[0]["model"] == "test-modell"
+
+
+def test_phrase_liefert_frage_und_markiert_nachfragen():
+    stub = _StubClient([_Antwort("  Wie oft kommt der Prozess vor?  ")])
+    state = SessionState("s1", "0.1")
+    # attempts zählt der Dialog VOR dem phrase-Aufruf hoch: 1 = Erstfrage,
+    # 2 = erste Nachfrage (MAX_ATTEMPTS_PER_FIELD = 2).
+    state.values["haeufigkeit"] = FieldValue(attempts=2)
+    frage = OllamaLLM(client=stub).phrase(TOY_PROZESS.field("haeufigkeit"), state)
+    assert frage == "Wie oft kommt der Prozess vor?"
+    assert "Nachfrage" in stub.aufrufe[0]["messages"][1]["content"]
+
+
+def test_phrase_erstfrage_ist_keine_nachfrage():
+    stub = _StubClient([_Antwort("Wie oft kommt der Prozess vor?")])
+    state = SessionState("s1", "0.1")
+    state.values["haeufigkeit"] = FieldValue(attempts=1)   # Erstfrage
+    OllamaLLM(client=stub).phrase(TOY_PROZESS.field("haeufigkeit"), state)
+    assert "Nachfrage" not in stub.aufrufe[0]["messages"][1]["content"]
+
+
+def test_phrase_abgeschnitten_wirft():
+    stub = _StubClient([_Antwort("Wie oft", done_reason="length")])
+    with pytest.raises(RuntimeError):
+        OllamaLLM(client=stub).phrase(
+            TOY_PROZESS.field("haeufigkeit"), SessionState("s1", "0.1")
+        )
+
+
+def test_protocol_konformitaet_ein_turn_durch_process_turn():
+    stub = _StubClient([
+        _Antwort(_extraktions_json(("prozess_name", "Urlaubsantrag"))),
+        _Antwort("Was löst den Prozess aus?"),
+    ])
+    antwort = process_turn(
+        InMemoryStateStore(), OllamaLLM(client=stub), TOY_PROZESS,
+        "s1", "m1", "Der Prozess heißt Urlaubsantrag",
+    )
+    assert antwort["status"] == "frage"
+    assert antwort["payload"]["feld"] == "ausloeser"
+    assert antwort["payload"]["naechste_frage"] == "Was löst den Prozess aus?"
