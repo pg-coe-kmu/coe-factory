@@ -42,6 +42,8 @@
 
 Task 1 → 2 → 3 → 4 sequenziell (Konstanten → extract → phrase → Wahl). Task 5 (Echt-Stichprobe, SMOKE, Setup) braucht 2–4.
 
+> Hinweis: Die „Expected"-Zwischenstände in den Tasks sind die Zahlen zum Zeitpunkt der jeweiligen Task (vor der Fix-Welle); der Endstand steht in der Abnahme.
+
 ---
 
 ### Task 1: Geteilte Prompt-Konstanten (`bc1_service/prompts.py`)
@@ -323,7 +325,8 @@ def test_extract_liefert_kandidaten_und_filtert_unbekannte_felder():
 
 # Constrained Decoding + Determinismus sind der Kern des Adapters: das Schema
 # erzwingt valides JSON, temperature 0 macht Dev-Läufe reproduzierbar, und
-# stream=False ist Pflicht (REST-Default wäre streaming).
+# stream=False pinnt den Nicht-Streaming-Modus (Python-Lib-Default; der
+# REST-Default wäre Streaming).
 def test_extract_nutzt_schema_temperature_null_und_kein_streaming():
     stub = _StubClient([_Antwort(_extraktions_json())])
     OllamaLLM(client=stub).extract("...", TOY_PROZESS, SessionState("s1", "0.1"))
@@ -342,13 +345,22 @@ def test_abgeschnittene_antwort_wirft():
         OllamaLLM(client=stub).extract("...", TOY_PROZESS, SessionState("s1", "0.1"))
 
 
-# DER typische Dev-Stolperer: Ollama läuft nicht. Der nackte httpx-Fehler
+# DER typische Dev-Stolperer: Ollama läuft nicht. Der nackte Lib-Fehler
 # ist kryptisch — die Meldung muss den Fix nennen.
 def test_verbindungsfehler_nennt_ollama_serve():
     with pytest.raises(RuntimeError, match="ollama serve"):
         OllamaLLM(client=_KaputterClient()).extract(
             "...", TOY_PROZESS, SessionState("s1", "0.1")
         )
+
+
+# Leere Modell-Antwort (z. B. wenn ein via BC1_OLLAMA_MODELL gesetztes
+# Reasoning-Modell nur thinking füllt) muss laut werden — Analogie zu
+# ClaudeLLMs "LLM-Antwort ohne Textblock"-Guard.
+def test_leere_antwort_wirft():
+    stub = _StubClient([_Antwort("")])
+    with pytest.raises(RuntimeError):
+        OllamaLLM(client=stub).extract("...", TOY_PROZESS, SessionState("s1", "0.1"))
 
 
 def test_modell_override_aus_umgebung(monkeypatch):
@@ -568,7 +580,7 @@ git commit -m "feat(bc1): OllamaLLM.phrase — Protocol komplett, Turn-Nachweis 
 
 **Interfaces:**
 - Consumes: `ClaudeLLM` aus `bc1_service.claude_llm`, `OllamaLLM` aus Task 2/3.
-- Produces: `waehle_llm(umgebung: Mapping[str, str]) -> ClaudeLLM | OllamaLLM` — liest `BC1_LLM` (`"claude"` = Default | `"ollama"`), wirft `RuntimeError` bei unbekanntem Wert. `main.py` ruft `waehle_llm(os.environ)` auf.
+- Produces: `waehle_llm(umgebung: Mapping[str, str]) -> LLMClient` (Annotation = der Protocol-Seam; eine Union der Implementierungen würde den Lazy-Import aufheben) — liest `BC1_LLM` (`"claude"` = Default | `"ollama"`), wirft `RuntimeError` bei unbekanntem Wert. `main.py` ruft `waehle_llm(os.environ)` auf.
 
 - [ ] **Step 1: Write the failing tests** — `tests/test_llm_wahl.py`
 
