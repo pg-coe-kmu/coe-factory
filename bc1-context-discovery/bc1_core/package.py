@@ -2,18 +2,24 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable
 
+from bc1_core.feldtypen import FREITEXT, Feldtyp
+
 @dataclass(frozen=True)
 class FieldSpec:
     name: str
     question: str
     required: bool = True
     validator: Callable[[str], bool] | None = None
+    typ: Feldtyp = FREITEXT
 
 @dataclass(frozen=True)
 class UseCasePackage:
     name: str
     schema_version: str
     fields: tuple[FieldSpec, ...]
+    # Rundenobergrenze ist Paket-Eigenschaft: 26 Pflichtfelder brauchen mehr
+    # Runden als 3 (Spec-Ergänzung P3, dokumentiert im Plan-Kopf).
+    max_rounds: int = 20
 
     def __post_init__(self) -> None:
         namen = [f.name for f in self.fields]

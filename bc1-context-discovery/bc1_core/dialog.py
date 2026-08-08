@@ -31,7 +31,7 @@ def decide_next(state: SessionState, package: UseCasePackage,
              if state.values.get(n) is None
              or state.values[n].status is not FieldStatus.UNGELOEST]
 
-    if state.rounds >= MAX_ROUNDS:
+    if state.rounds >= package.max_rounds:
         # Runden-Limit: alle noch offenen Pflichtfelder aufgeben — auch nie
         # angefragte —, damit sie im Gate-0-Payload sichtbar bleiben (Spec Z. 81).
         for name in offen:
