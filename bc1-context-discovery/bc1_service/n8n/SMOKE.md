@@ -151,3 +151,46 @@ Voraussetzungen (einmalig): `brew install ollama` · `ollama pull llama3.1:8b` (
 (reproduzierbar ein „Rechtsstreit"-Kontext bei `ausloeser`, deterministisch bei temperature 0),
 und Nicht-Antworten werden mitunter wörtlich als Kandidaten extrahiert („Kein Wert angegeben").
 Die Maschinerie selbst (Merge, Nachfragen, Caps, Terminal-Gate) verhält sich korrekt.
+
+## Discovery-Interview live (P3)
+
+Das echte Interview (26 aktive Fragen, Katalog A–J) ist seit P3 der Default:
+`BC1_PAKET=discovery` (bzw. nichts setzen). `BC1_PAKET=toy` schaltet fürs
+schnelle Testen auf das alte Mini-Paket zurück.
+
+1. Dienst wie oben starten (Postgres, DSN, `BC1_LLM=ollama` oder Claude-Key);
+   optional `BC1_SNAPSHOT_PFAD` setzen — dann bietet die Kernprozess-Frage
+   (B4) die echten KP-IDs aus der Baseline als Auswahl an.
+2. Chat öffnen und frei antworten. Erwartung ehrlich: ~15–30 Minuten für
+   ein vollständiges Interview; mit dem 8B-Modell sind schräge
+   Frage-Formulierungen und Extraktions-Lücken normal (Nachfrage-Mechanik
+   fängt sie); Auswahl-Fragen nennen die gültigen Optionen im Fragetext.
+3. Kurz-Variante für Smoke-Zwecke: mehrere Angaben in EINE Nachricht packen
+   („Der Prozess heißt X, läuft 30-mal pro Monat und dauert 2 Stunden…") —
+   die Mehrfach-Extraktion füllt alle passenden Felder auf einmal.
+4. DB-Nachweis wie gehabt (`state->>'status'`, `state->>'paket_name' = 'discovery'`).
+
+### Durchführungs-Protokoll 08.08.2026 (Dienst-Ebene, echtes llama3.1:8b)
+
+Setup: `BC1_LLM=ollama` · `BC1_PAKET` ungesetzt (= Discovery-Default) ·
+`BC1_SNAPSHOT_PFAD` auf die lokale Baseline (bleibt strikt lokal) · Postgres-Testcontainer.
+
+1. ☑ `GET /prozesse` → die 10 Kernprozess-Einträge der Baseline.
+2. ☑ Multi-Fakten-Einstieg („… automatisieren, ganzer Prozess, Zeit sparen") →
+   A1/A2/A3 in EINEM Turn extrahiert; DB: `paket_name=discovery`,
+   `request_goal=zeit_sparen` (AUSWAHL-kanonisiert), nächste Frage ist B1.
+3. ☑ Normalisierung live: „30 mal pro Monat" → `frequency_per_year=360` ·
+   „2 Stunden" → `total_duration_minutes=120` · „kp-09" → `process_id=KP-09`
+   (B4-AUSWAHL gegen die echten Baseline-IDs, case-kanonisiert).
+4. ☑ Idempotenz: gleiche `message_id` erneut gesendet → gespeicherte Antwort,
+   `rounds` unverändert.
+
+8B-Quirks wie oben beschrieben (holprige Frage-Grammatik, vereinzelt Platzhalter
+in Formulierungen) — die Nachfrage-Mechanik bleibt davon unberührt. Der Hosted-
+Chat-Workflow aus P2 (n8n, Volume `n8n_data`) ist unverändert einsatzbereit.
+
+Hinweis `schema_version`: Mit Snapshot trägt die Session `1.0+kp-<hash>` (Fingerprint
+der Prozess-IDs). Wird die Baseline um IDs erweitert/gekürzt, antworten laufende
+Interviews beim nächsten Turn bewusst mit 409 `paket_konflikt` — neues Interview
+starten. Clients, die `schema_version` mitsenden wollen, dürfen nicht auf `"1.0"`
+pinnen (Teil vor dem `+` vergleichen).
