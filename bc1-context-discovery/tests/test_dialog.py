@@ -1,5 +1,5 @@
 from bc1_core.types import FieldStatus, FieldValue, SessionState
-from bc1_core.package import TOY_PROZESS
+from bc1_core.package import TOY_PROZESS, UseCasePackage, FieldSpec
 from bc1_core.confidence import confidence_check
 from bc1_core.llm import FakeLLM
 from bc1_core.dialog import (GRUND_NACHFRAGE_LIMIT, GRUND_RUNDEN_LIMIT,
@@ -116,3 +116,30 @@ def test_done_at_round_limit_even_with_open_fields():
     conf = confidence_check(st, TOY_PROZESS)
     assert decide_next(st, TOY_PROZESS, conf, FakeLLM()) == Decision(done=True)
     assert all(fv.attempts == 0 for fv in st.values.values())
+
+def test_paket_max_rounds_uebersteuert_die_konstante():
+    paket = UseCasePackage(
+        name="lang", schema_version="0.1",
+        fields=(FieldSpec("f1", "?"),),
+        max_rounds=25,
+    )
+    state = SessionState("s1", "0.1")
+    state.rounds = 20   # alte Grenze erreicht — Paket erlaubt mehr
+    conf = confidence_check(state, paket)
+    d = decide_next(state, paket, conf, FakeLLM())
+    assert d.done is False
+    assert d.next_field == "f1"
+
+def test_paket_max_rounds_kappt_wie_bisher():
+    paket = UseCasePackage(
+        name="kurz", schema_version="0.1",
+        fields=(FieldSpec("f1", "?"),),
+        max_rounds=3,
+    )
+    state = SessionState("s1", "0.1")
+    state.rounds = 3
+    conf = confidence_check(state, paket)
+    d = decide_next(state, paket, conf, FakeLLM())
+    assert d.done is True
+    assert state.values["f1"].status is FieldStatus.UNGELOEST
+    assert state.values["f1"].grund == GRUND_RUNDEN_LIMIT

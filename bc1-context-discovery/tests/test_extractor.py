@@ -2,6 +2,7 @@ from bc1_core.types import Candidate, FieldStatus, FieldValue, SessionState
 from bc1_core.package import TOY_PROZESS, FieldSpec, UseCasePackage
 from bc1_core.llm import FakeLLM, ExtractionCandidate
 from bc1_core.extractor import extract_and_merge
+from bc1_core.feldtypen import MINUTEN, ZAHL
 
 def test_new_value_is_stored_with_source_and_validated():
     st = SessionState("s1", "0.1")
@@ -214,3 +215,81 @@ def test_invalid_value_replaced_by_another_invalid_stays_ungueltig():
     assert fv.value == "selten"
     assert fv.status is FieldStatus.UNGUELTIG
     assert fv.candidates == [Candidate("oft", "msg-1")]
+
+def test_typ_normalisiert_vor_validierung_und_speichert_normalisiert():
+    paket = UseCasePackage(
+        name="typ_test", schema_version="0.1",
+        fields=(FieldSpec("dauer", "Wie lange?", typ=MINUTEN),),
+    )
+    state = SessionState("s1", "0.1")
+    llm = FakeLLM({"m": [ExtractionCandidate("dauer", "2 Stunden")]})
+    extract_and_merge(state, "m", "m1", paket, llm)
+    assert state.values["dauer"].value == "120"
+    assert state.values["dauer"].status is FieldStatus.GUELTIG
+
+
+def test_typ_ungueltiger_wert_bleibt_unnormalisiert_und_ungueltig():
+    paket = UseCasePackage(
+        name="typ_test", schema_version="0.1",
+        fields=(FieldSpec("menge", "Wie oft?", typ=ZAHL),),
+    )
+    state = SessionState("s1", "0.1")
+    llm = FakeLLM({"m": [ExtractionCandidate("menge", "5 pro Tag")]})
+    extract_and_merge(state, "m", "m1", paket, llm)
+    assert state.values["menge"].value == "5 pro Tag"
+    assert state.values["menge"].status is FieldStatus.UNGUELTIG
+
+
+def test_expliziter_validator_gewinnt_ueber_typ():
+    # Rückwärtskompatibilität: Felder wie TOY haeufigkeit behalten Verhalten.
+    paket = UseCasePackage(
+        name="typ_test", schema_version="0.1",
+        fields=(FieldSpec("f", "?", validator=lambda v: v == "spezial", typ=ZAHL),),
+    )
+    state = SessionState("s1", "0.1")
+    llm = FakeLLM({"m": [ExtractionCandidate("f", "spezial")]})
+    extract_and_merge(state, "m", "m1", paket, llm)
+    assert state.values["f"].status is FieldStatus.GUELTIG
+
+
+def test_unklar_wird_ueber_normalisierten_kandidaten_match_aufgeloest():
+    # Konflikt-Kandidat "1200" wird über NORMALISIERTE Gleichheit bestätigt:
+    # "100 pro Monat" normalisiert ebenfalls zu "1200" — kein exakter
+    # String-Match auf den Rohwert nötig (Gesamt-Review F3).
+    paket = UseCasePackage(
+        name="typ_test", schema_version="0.1",
+        fields=(FieldSpec("menge", "Wie oft?", typ=ZAHL),),
+    )
+    state = SessionState("s1", "0.1")
+    llm = FakeLLM({
+        "a": [ExtractionCandidate("menge", "600")],
+        "b": [ExtractionCandidate("menge", "1200")],
+        "c": [ExtractionCandidate("menge", "100 pro Monat")],
+    })
+    extract_and_merge(state, "a", "m1", paket, llm)
+    extract_and_merge(state, "b", "m2", paket, llm)
+    assert state.values["menge"].status is FieldStatus.UNKLAR
+    extract_and_merge(state, "c", "m3", paket, llm)
+    fv = state.values["menge"]
+    assert fv.value == "1200"
+    assert fv.status is FieldStatus.GUELTIG
+    assert fv.candidates == [Candidate("600", "m1")]
+
+
+def test_klaerung_erkennt_normalisierte_gleichheit():
+    # "50 pro Monat" und "600" sind nach Normalisierung DERSELBE Wert —
+    # die Wiederholung darf keinen Konflikt (UNKLAR) erzeugen.
+    paket = UseCasePackage(
+        name="typ_test", schema_version="0.1",
+        fields=(FieldSpec("menge", "Wie oft?", typ=ZAHL),),
+    )
+    state = SessionState("s1", "0.1")
+    llm = FakeLLM({
+        "a": [ExtractionCandidate("menge", "50 pro Monat")],
+        "b": [ExtractionCandidate("menge", "600")],
+    })
+    extract_and_merge(state, "a", "m1", paket, llm)
+    extract_and_merge(state, "b", "m2", paket, llm)
+    assert state.values["menge"].value == "600"
+    assert state.values["menge"].status is FieldStatus.GUELTIG
+    assert state.values["menge"].candidates == []
