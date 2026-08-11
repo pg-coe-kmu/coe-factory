@@ -255,3 +255,40 @@ mit `(KP-01 = Strategieprozess, KP-02 = Vertrieb & Lead-Management, …)` enden
 müssen — die Parenthese mit den KP-IDs fehlt komplett. Fortschrittszeile
 („✓ 6 von 26 Pflichtfeldern erfasst") selbst ist korrekt — das betroffene
 Verhalten ist rein die LLM-Antwort, nicht der Transport aus Task 6.
+
+### Abschluss-Turn live (F6, 11.08.2026) — Mechanik-Nachweis, keine Klang-Abnahme
+
+Der riskanteste Prompt-Zweig (Abschluss) lief bislang nie gegen ein echtes LLM
+(nur gegen FakeLLM in Tests). Nachweis auf einer ZWEITEN, isolierten
+Dienst-Instanz (Port 8001, Richards Demo auf Port 8000 unangetastet):
+
+```bash
+BC1_PAKET=toy BC1_LLM=ollama \
+BC1_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" \
+.venv/bin/uvicorn bc1_service.main:app --port 8001
+```
+
+Toy-Paket (3 Pflichtfelder) per curl bis `fertig` durchgespielt — drei freie
+Antworten (`prozess_name`, `ausloeser`, `haeufigkeit`), letzter Turn löst den
+Abschluss aus. Roh-JSON des ABSCHLUSS-Turns:
+
+```json
+{"status":"fertig","payload":{"felder":{
+  "prozess_name":{"wert":"Urlaubsantrag","status":"gueltig","quelle":"m1","grund":null,"kandidaten":[]},
+  "ausloeser":{"wert":"Antrag des Mitarbeiters","status":"gueltig","quelle":"m2","grund":null,"kandidaten":[]},
+  "haeufigkeit":{"wert":"100 mal pro Jahr","status":"gueltig","quelle":"m3","grund":null,"kandidaten":[]},
+  "notiz":{"wert":null,"status":"fehlt","quelle":null,"grund":null,"kandidaten":[]}},
+ "vollstaendigkeit":1.0,"ungeloeste_felder":[],"schema_version":"0.1",
+ "abschluss_text":"Ich habe die Informationen aufgenommen.\n\nDer Urlaubsantrag wird etwa 100 Mal pro Jahr eingereicht, wenn ein Mitarbeiter ihn stellt. Der Prozess beginnt also mit dem Antrag des Mitarbeiters. Die genauen Details zum Ablauf und zur Bearbeitung des Antrags wurden nicht erfasst.",
+ "pflicht_erfasst":3,"pflicht_gesamt":3},
+ "chat_text":"Ich habe die Informationen aufgenommen.\n\nDer Urlaubsantrag wird etwa 100 Mal pro Jahr eingereicht, wenn ein Mitarbeiter ihn stellt. Der Prozess beginnt also mit dem Antrag des Mitarbeiters. Die genauen Details zum Ablauf und zur Bearbeitung des Antrags wurden nicht erfasst.\n\n✓ 3 von 3 Pflichtfeldern erfasst"}
+```
+
+Mechanik bestätigt: `abschluss_text` vorhanden, Fortschrittszeile
+(„✓ 3 von 3 Pflichtfeldern erfasst") korrekt angehängt, und — F2-Nachweis —
+`abschluss_text` endet auf eine Aussage, NICHT auf eine Frage (keine implizit
+erzwungene Anschlussfrage). Ausdrücklich KEINE Klang-Abnahme: der Text ist
+inhaltlich redundant/holprig (typische 8B-Schwäche, siehe „Erwartung ehrlich"
+oben) — bewertet wird hier nur, dass der Abschluss-Zweig mechanisch trägt.
+Danach die :8001-Instanz sauber beendet (`kill`), :8000 blieb während des
+gesamten Nachweises unberührt und erreichbar.
