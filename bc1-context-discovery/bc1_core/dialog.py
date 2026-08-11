@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from bc1_core.types import FieldStatus, FieldValue, SessionState
 from bc1_core.package import UseCasePackage
 from bc1_core.confidence import ConfidenceResult
-from bc1_core.llm import LLMClient
 
 MAX_ATTEMPTS_PER_FIELD = 2
 MAX_ROUNDS = 20
@@ -16,10 +15,9 @@ GRUND_RUNDEN_LIMIT = "runden_limit_erreicht"
 class Decision:
     done: bool
     next_field: str | None = None
-    question: str | None = None
 
 def decide_next(state: SessionState, package: UseCasePackage,
-                conf: ConfidenceResult, llm: LLMClient) -> Decision:
+                conf: ConfidenceResult) -> Decision:
     # Cap-Politik: über dem Limit -> als ungeloest markieren
     for name in conf.offene_pflichtfelder:
         fv = state.values.get(name)
@@ -51,5 +49,4 @@ def decide_next(state: SessionState, package: UseCasePackage,
         fv = FieldValue()
         state.values[target] = fv
     fv.attempts += 1
-    return Decision(done=False, next_field=target,
-                    question=llm.phrase(package.field(target), state))
+    return Decision(done=False, next_field=target)

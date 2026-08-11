@@ -3,11 +3,13 @@ import os
 
 import pytest
 
+from bc1_core.gespraech import TurnKontext
 from bc1_core.package import TOY_PROZESS
 from bc1_core.store import InMemoryStateStore
 from bc1_core.core import process_turn
-from bc1_core.types import FieldValue, SessionState
+from bc1_core.types import SessionState
 from bc1_service.claude_llm import ClaudeLLM
+from bc1_service.prompts import SYSTEM_GESPRAECH
 
 
 class _Block:
@@ -77,40 +79,21 @@ def test_effort_low_wird_gesetzt():
     ClaudeLLM(client=stub).extract("...", TOY_PROZESS, SessionState("s1", "0.1"))
     assert stub.messages.aufrufe[0]["output_config"]["effort"] == "low"
 
-    stub_phrase = _StubClient([_Antwort("Wie oft?")])
-    ClaudeLLM(client=stub_phrase).phrase(
-        TOY_PROZESS.field("haeufigkeit"), SessionState("s1", "0.1")
-    )
-    assert stub_phrase.messages.aufrufe[0]["output_config"]["effort"] == "low"
+    stub_antworte = _StubClient([_Antwort("Wie oft?")])
+    kontext = TurnKontext(nutzer_nachricht="msg", neu_erfasst=(),
+                          naechste_frage="Wie oft?", ist_nachfrage=False,
+                          ist_abschluss=False)
+    ClaudeLLM(client=stub_antworte).antworte(kontext)
+    assert stub_antworte.messages.aufrufe[0]["output_config"]["effort"] == "low"
 
 
 # Abgeschnittene Antworten sind kaputte Antworten: bei extract wäre das JSON
-# unvollständig (json.loads würde mit einer irreführenden Meldung scheitern),
-# bei phrase eine halbe Frage. Beides muss laut werden — process_turn macht
-# daraus den fehler_fortsetzbar-Vertrag.
+# unvollständig (json.loads würde mit einer irreführenden Meldung scheitern).
+# Muss laut werden — process_turn macht daraus den fehler_fortsetzbar-Vertrag.
 def test_max_tokens_truncation_wirft():
     stub = _StubClient([_Antwort("{\"extrakt", stop_reason="max_tokens")])
     with pytest.raises(RuntimeError):
         ClaudeLLM(client=stub).extract("...", TOY_PROZESS, SessionState("s1", "0.1"))
-
-
-def test_phrase_liefert_frage_und_markiert_nachfragen():
-    stub = _StubClient([_Antwort("  Wie oft kommt der Prozess vor?  ")])
-    state = SessionState("s1", "0.1")
-    # attempts zählt der Dialog VOR dem phrase-Aufruf hoch: 1 = Erstfrage,
-    # 2 = erste Nachfrage (MAX_ATTEMPTS_PER_FIELD = 2).
-    state.values["haeufigkeit"] = FieldValue(attempts=2)
-    frage = ClaudeLLM(client=stub).phrase(TOY_PROZESS.field("haeufigkeit"), state)
-    assert frage == "Wie oft kommt der Prozess vor?"
-    assert "Nachfrage" in stub.messages.aufrufe[0]["messages"][0]["content"]
-
-
-def test_phrase_erstfrage_ist_keine_nachfrage():
-    stub = _StubClient([_Antwort("Wie oft kommt der Prozess vor?")])
-    state = SessionState("s1", "0.1")
-    state.values["haeufigkeit"] = FieldValue(attempts=1)   # Erstfrage
-    ClaudeLLM(client=stub).phrase(TOY_PROZESS.field("haeufigkeit"), state)
-    assert "Nachfrage" not in stub.messages.aufrufe[0]["messages"][0]["content"]
 
 
 def test_protocol_konformitaet_ein_turn_durch_process_turn():
@@ -132,6 +115,28 @@ def test_modell_override_aus_umgebung(monkeypatch):
     stub = _StubClient([_Antwort(_extraktions_json())])
     ClaudeLLM(client=stub).extract("...", TOY_PROZESS, SessionState("s1", "0.1"))
     assert stub.messages.aufrufe[0]["model"] == "test-modell"
+
+
+def test_antworte_nur_whitespace_wirft():
+    stub = _StubClient([_Antwort("   ")])
+    kontext = TurnKontext(nutzer_nachricht="msg", neu_erfasst=(),
+                          naechste_frage="Wie oft?", ist_nachfrage=False,
+                          ist_abschluss=False)
+    with pytest.raises(RuntimeError, match="ohne Inhalt"):
+        ClaudeLLM(client=stub).antworte(kontext)
+
+
+def test_antworte_nutzt_gespraechsprompt_und_strippt():
+    stub = _StubClient([_Antwort("  Notiert. Wie oft?  ")])
+    kontext = TurnKontext(nutzer_nachricht="msg", neu_erfasst=(),
+                          naechste_frage="Wie oft?", ist_nachfrage=False,
+                          ist_abschluss=False)
+    text = ClaudeLLM(client=stub).antworte(kontext)
+    assert text == "Notiert. Wie oft?"
+    aufruf = stub.messages.aufrufe[0]
+    assert aufruf["system"] == SYSTEM_GESPRAECH
+    assert "Wie oft?" in aufruf["messages"][0]["content"]
+    assert aufruf["output_config"]["effort"] == "low"
 
 
 @pytest.mark.skipif(

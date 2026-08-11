@@ -1,13 +1,12 @@
 """Geteilte Prompt-Bausteine der LLM-Adapter (Claude, Ollama).
 
 Das Extraktionsschema ist de facto ein Wire-Vertrag mit dem Extractor,
-und der Frage-Prompt (inkl. Nachfrage-Hinweis) ist Dialog-Verhalten —
+und der Gesprächs-Prompt (inkl. Nachfrage-Hinweis) ist Dialog-Verhalten —
 deshalb EIN Ort statt Kopien pro Adapter (Drift-Risiko).
 """
 from __future__ import annotations
 
-from bc1_core.package import FieldSpec
-from bc1_core.types import SessionState
+from bc1_core.gespraech import TurnKontext
 
 EXTRAKTIONS_SCHEMA = {
     "type": "object",
@@ -35,24 +34,49 @@ SYSTEM_EXTRAKTION = (
     "nichts aus Vorwissen ergänzen. Werte wörtlich bzw. minimal normalisiert."
 )
 
-SYSTEM_FRAGE = (
-    "Du führst ein freundliches, professionelles Prozess-Interview auf Deutsch. "
-    "Antworte NUR mit der Frage selbst — ohne Einleitung, ohne Anführungszeichen."
+SYSTEM_GESPRAECH = (
+    "Du führst ein freundliches, professionelles Prozess-Interview auf "
+    "Deutsch. Du bekommst, was der Nutzer gesagt hat, was daraus erfasst "
+    "wurde und die nächste Kernfrage (oder beim Abschluss, dass das "
+    "Interview beendet ist). Regeln: Bestätige NUR die gelieferten "
+    "Werte — erfinde und ergänze nichts. Nenne NIE technische Feldnamen "
+    "oder Interna. Solange das Interview läuft: kurze Bestätigung, falls "
+    "nötig eine kurze Reaktion oder Erklärung, dann genau eine Frage. Bei "
+    "Rückfragen und Nachfragen darfst du ein kurzes, neutrales Beispiel "
+    "geben; in Erstfragen nie ein Beispiel. Antworte kompakt "
+    "(2–4 Sätze plus Frage), ohne Meta-Kommentare. Beim Abschluss: 3–5 "
+    "Sätze, OHNE Frage."
 )
 
 
-def frage_nutzer_prompt(field: FieldSpec, state: SessionState) -> str:
-    """Nutzer-Prompt für die Frage-Formulierung — von beiden Adaptern geteilt."""
-    bisher = state.values.get(field.name)
-    hinweis = (
-        "\nEs ist eine Nachfrage: Die bisherige Antwort war unklar oder "
-        "ungültig — formuliere die Frage anders und konkreter."
-        # Der Dialog zählt attempts VOR diesem Aufruf hoch: 1 = Erstfrage,
-        # ab 2 ist es wirklich eine Nachfrage.
-        if bisher is not None and bisher.attempts > 1
-        else ""
-    )
-    return (
-        "Formuliere genau eine Chat-Frage für dieses Feld:\n"
-        f"Feld: {field.name}\nKernfrage: {field.question}{hinweis}"
-    )
+def gespraech_nutzer_prompt(kontext: TurnKontext) -> str:
+    """Nutzer-Prompt der Gesprächsschicht — von beiden Adaptern geteilt."""
+    teile = [f"Nutzer-Nachricht:\n{kontext.nutzer_nachricht}"]
+    if kontext.neu_erfasst:
+        teile.append(
+            "In diesem Turn erfasst (nur DIESE Werte bestätigen):\n"
+            + "\n".join(f"- {e.frage} → {e.wert}" for e in kontext.neu_erfasst))
+    else:
+        teile.append("In diesem Turn wurde nichts Neues erfasst.")
+    if kontext.ist_abschluss:
+        teile.append(
+            "Das Interview ist abgeschlossen. Fasse die Kernergebnisse in "
+            "3–5 Sätzen zusammen:\n"
+            + "\n".join(f"- {e.frage} → {e.wert}"
+                        for e in kontext.profil_uebersicht))
+        if kontext.offene_fragen:
+            teile.append("Nenne ehrlich, was offen blieb:\n"
+                         + "\n".join(f"- {f}" for f in kontext.offene_fragen))
+        teile.append("Stelle KEINE weitere Frage — das Interview ist beendet.")
+    elif kontext.ist_nachfrage:
+        teile.append(
+            "NACHFRAGE — für dieses Feld liegt noch kein verwertbarer Wert "
+            "vor. Formuliere die Kernfrage anders und konkreter, nenne in der "
+            "Frage enthaltene Optionen vollständig, erkläre kurz den Zweck "
+            "(gern mit einem kurzen, neutralen Beispiel) und sage, dass das "
+            "Feld offen bleiben darf, wenn der Nutzer es nicht weiß.\n"
+            f"Kernfrage: {kontext.naechste_frage}")
+    else:
+        teile.append("Stelle als Nächstes GENAU diese Frage, wörtlich "
+                     f"übernommen:\n{kontext.naechste_frage}")
+    return "\n\n".join(teile)
