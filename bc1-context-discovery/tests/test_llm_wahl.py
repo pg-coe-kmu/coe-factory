@@ -33,3 +33,9 @@ def test_unbekannte_wahl_nennt_alle_drei_optionen():
         waehle_llm({"BC1_LLM": "quatsch"})
     for option in ("claude", "ollama", "gemini"):
         assert option in str(fehler.value)
+
+
+def test_unbekannte_wahl_nennt_die_variable():
+    with pytest.raises(RuntimeError) as fehler:
+        waehle_llm({"BC1_LLM": "quatsch"})
+    assert "BC1_LLM" in str(fehler.value)
