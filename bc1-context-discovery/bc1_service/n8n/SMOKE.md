@@ -203,6 +203,43 @@ deterministische Fortschrittszeile („✓ X von Y Pflichtfeldern erfasst").
 Beim Abschluss kommt eine Ergebnis-Zusammenfassung inkl. offener Felder.
 
 Erwartung ehrlich: Mit `BC1_LLM=ollama` (8B) ist die STRUKTUR nachweisbar
-(Bestätigung, keine Feldnamen-Leaks, KP-Optionsliste überlebt in Erstfragen
-wörtlich) — gut KLINGEN wird es erst mit dem Claude-Adapter. Die
-Klang-Abnahme ist ein offener Punkt wie der Echt-Claude-Smoke (P2).
+(Bestätigung, keine Feldnamen-Leaks, Fortschrittszeile korrekt) — gut KLINGEN
+wird es erst mit dem Claude-Adapter. Die Klang-Abnahme ist ein offener Punkt
+wie der Echt-Claude-Smoke (P2).
+
+> ⚠️ **OFFENER ABNAHME-PUNKT: KP-Optionsliste in Erstfragen.** Spec §8 zählt
+> „KP-Optionsliste überlebt in Erstfragen wörtlich" zum Mechanik-Nachweis —
+> mit llama3.1:8b ist das WIDERLEGT, nicht bestätigt: Bei der B4-Frage
+> (`process_id`) hat das Modell die Kernfrage umformuliert und dabei die
+> Parenthese mit den KP-IDs komplett weggelassen. Die Wörtlich-Treue der
+> Erstfrage ist reine Prompt-Instruktion (`prompts.py:45`), keine
+> Code-Invariante — das 8B-Modell hält sie hier nicht ein. Noch nicht
+> abgehakt: erneut prüfen, sobald der Claude-Adapter läuft. Reißt es auch
+> dort, braucht die Erstfrage-Treue eine mechanische Garantie statt einer
+> Prompt-Bitte (Design-Entscheidung, liegt bei Richard).
+
+Rohes Protokoll (10.08.2026, llama3.1:8b, Dienst über `bc1_service.main:app`,
+Discovery-Paket mit BC0-Snapshot; reproduziert in zwei unabhängigen
+Live-Durchläufen, byte-identisches Ergebnis bei temperature 0):
+
+Request (`POST /turn`):
+
+```json
+{"session_id": "smoke-task6-repro2", "message_id": "a5",
+ "message": "Die Buchhaltungsleitung ist verantwortlich."}
+```
+
+Response:
+
+```json
+{"status": "frage", "payload": {
+  "naechste_frage": "Die Buchhaltungsleitung ist für den Prozess verantwortlich.\n\nZu welchem Ihrer Kernprozesse gehört das?",
+  "feld": "process_id", "pflicht_erfasst": 6, "pflicht_gesamt": 26},
+ "chat_text": "Die Buchhaltungsleitung ist für den Prozess verantwortlich.\n\nZu welchem Ihrer Kernprozesse gehört das?\n\n✓ 6 von 26 Pflichtfeldern erfasst"}
+```
+
+Erwartet hätte `naechste_frage` (Kernfrage `b4_frage`, `discovery_paket.py:39`)
+mit `(KP-01 = Strategieprozess, KP-02 = Vertrieb & Lead-Management, …)` enden
+müssen — die Parenthese mit den KP-IDs fehlt komplett. Fortschrittszeile
+(„✓ 6 von 26 Pflichtfeldern erfasst") selbst ist korrekt — das betroffene
+Verhalten ist rein die LLM-Antwort, nicht der Transport aus Task 6.
