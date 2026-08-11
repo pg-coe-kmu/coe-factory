@@ -12,6 +12,7 @@ import os
 
 import anthropic
 
+from bc1_core.gespraech import TurnKontext
 from bc1_core.llm import ExtractionCandidate
 from bc1_core.package import FieldSpec, UseCasePackage
 from bc1_core.types import SessionState
@@ -19,7 +20,9 @@ from bc1_service.prompts import (
     EXTRAKTIONS_SCHEMA,
     SYSTEM_EXTRAKTION,
     SYSTEM_FRAGE,
+    SYSTEM_GESPRAECH,
     frage_nutzer_prompt,
+    gespraech_nutzer_prompt,
 )
 
 STANDARD_MODELL = "claude-opus-5"
@@ -73,6 +76,24 @@ class ClaudeLLM:
             }],
         )
         return self._text_inhalt(antwort).strip()
+
+    def antworte(self, kontext: TurnKontext) -> str:
+        antwort = self._client.messages.create(
+            model=self._modell,
+            max_tokens=4096,
+            system=SYSTEM_GESPRAECH,
+            output_config={"effort": "low"},   # Versprachlichen, nicht knobeln
+            messages=[{
+                "role": "user",
+                "content": gespraech_nutzer_prompt(kontext),
+            }],
+        )
+        text = self._text_inhalt(antwort).strip()
+        if not text:
+            # Leer-Guard auf den GESTRIPPTEN Inhalt (Spec §5; Lektion aus dem
+            # Ollama-Review): eine leere Antwort darf nie beim Nutzer landen.
+            raise RuntimeError("LLM-Antwort ohne Inhalt")
+        return text
 
     @staticmethod
     def _text_inhalt(antwort) -> str:

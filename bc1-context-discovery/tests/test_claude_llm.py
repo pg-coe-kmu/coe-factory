@@ -3,11 +3,13 @@ import os
 
 import pytest
 
+from bc1_core.gespraech import TurnKontext
 from bc1_core.package import TOY_PROZESS
 from bc1_core.store import InMemoryStateStore
 from bc1_core.core import process_turn
 from bc1_core.types import FieldValue, SessionState
 from bc1_service.claude_llm import ClaudeLLM
+from bc1_service.prompts import SYSTEM_GESPRAECH
 
 
 class _Block:
@@ -132,6 +134,28 @@ def test_modell_override_aus_umgebung(monkeypatch):
     stub = _StubClient([_Antwort(_extraktions_json())])
     ClaudeLLM(client=stub).extract("...", TOY_PROZESS, SessionState("s1", "0.1"))
     assert stub.messages.aufrufe[0]["model"] == "test-modell"
+
+
+def test_antworte_nur_whitespace_wirft():
+    stub = _StubClient([_Antwort("   ")])
+    kontext = TurnKontext(nutzer_nachricht="msg", neu_erfasst=(),
+                          naechste_frage="Wie oft?", ist_nachfrage=False,
+                          ist_abschluss=False)
+    with pytest.raises(RuntimeError, match="ohne Inhalt"):
+        ClaudeLLM(client=stub).antworte(kontext)
+
+
+def test_antworte_nutzt_gespraechsprompt_und_strippt():
+    stub = _StubClient([_Antwort("  Notiert. Wie oft?  ")])
+    kontext = TurnKontext(nutzer_nachricht="msg", neu_erfasst=(),
+                          naechste_frage="Wie oft?", ist_nachfrage=False,
+                          ist_abschluss=False)
+    text = ClaudeLLM(client=stub).antworte(kontext)
+    assert text == "Notiert. Wie oft?"
+    aufruf = stub.messages.aufrufe[0]
+    assert aufruf["system"] == SYSTEM_GESPRAECH
+    assert "Wie oft?" in aufruf["messages"][0]["content"]
+    assert aufruf["output_config"]["effort"] == "low"
 
 
 @pytest.mark.skipif(

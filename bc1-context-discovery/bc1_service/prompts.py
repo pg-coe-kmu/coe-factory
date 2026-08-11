@@ -6,6 +6,7 @@ deshalb EIN Ort statt Kopien pro Adapter (Drift-Risiko).
 """
 from __future__ import annotations
 
+from bc1_core.gespraech import TurnKontext
 from bc1_core.package import FieldSpec
 from bc1_core.types import SessionState
 
@@ -56,3 +57,48 @@ def frage_nutzer_prompt(field: FieldSpec, state: SessionState) -> str:
         "Formuliere genau eine Chat-Frage für dieses Feld:\n"
         f"Feld: {field.name}\nKernfrage: {field.question}{hinweis}"
     )
+
+
+SYSTEM_GESPRAECH = (
+    "Du führst ein freundliches, professionelles Prozess-Interview auf "
+    "Deutsch. Du bekommst, was der Nutzer gesagt hat, was daraus erfasst "
+    "wurde und die nächste Kernfrage. Regeln: Bestätige NUR die gelieferten "
+    "Werte — erfinde und ergänze nichts. Nenne NIE technische Feldnamen "
+    "oder Interna. Struktur: kurze Bestätigung, falls nötig eine kurze "
+    "Reaktion oder Erklärung, dann genau eine Frage. Bei Rückfragen und "
+    "Nachfragen darfst du ein kurzes, neutrales Beispiel geben; in "
+    "Erstfragen nie ein Beispiel. Antworte kompakt "
+    "(2–4 Sätze plus Frage), ohne Meta-Kommentare."
+)
+
+
+def gespraech_nutzer_prompt(kontext: TurnKontext) -> str:
+    """Nutzer-Prompt der Gesprächsschicht — von beiden Adaptern geteilt."""
+    teile = [f"Nutzer-Nachricht:\n{kontext.nutzer_nachricht}"]
+    if kontext.neu_erfasst:
+        teile.append(
+            "In diesem Turn erfasst (nur DIESE Werte bestätigen):\n"
+            + "\n".join(f"- {e.frage} → {e.wert}" for e in kontext.neu_erfasst))
+    else:
+        teile.append("In diesem Turn wurde nichts Neues erfasst.")
+    if kontext.ist_abschluss:
+        teile.append(
+            "Das Interview ist abgeschlossen. Fasse die Kernergebnisse in "
+            "3–5 Sätzen zusammen:\n"
+            + "\n".join(f"- {e.frage} → {e.wert}"
+                        for e in kontext.profil_uebersicht))
+        if kontext.offene_fragen:
+            teile.append("Nenne ehrlich, was offen blieb:\n"
+                         + "\n".join(f"- {f}" for f in kontext.offene_fragen))
+    elif kontext.ist_nachfrage:
+        teile.append(
+            "NACHFRAGE — die bisherige Antwort war unklar oder ungültig. "
+            "Formuliere die Kernfrage anders und konkreter, nenne in der "
+            "Frage enthaltene Optionen vollständig, erkläre kurz den Zweck "
+            "(gern mit einem kurzen, neutralen Beispiel) und sage, dass das "
+            "Feld offen bleiben darf, wenn der Nutzer es nicht weiß.\n"
+            f"Kernfrage: {kontext.naechste_frage}")
+    else:
+        teile.append("Stelle als Nächstes GENAU diese Frage, wörtlich "
+                     f"übernommen:\n{kontext.naechste_frage}")
+    return "\n\n".join(teile)

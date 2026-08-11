@@ -14,6 +14,7 @@ import os
 
 import ollama
 
+from bc1_core.gespraech import TurnKontext
 from bc1_core.llm import ExtractionCandidate
 from bc1_core.package import FieldSpec, UseCasePackage
 from bc1_core.types import SessionState
@@ -21,7 +22,9 @@ from bc1_service.prompts import (
     EXTRAKTIONS_SCHEMA,
     SYSTEM_EXTRAKTION,
     SYSTEM_FRAGE,
+    SYSTEM_GESPRAECH,
     frage_nutzer_prompt,
+    gespraech_nutzer_prompt,
 )
 
 STANDARD_MODELL = "llama3.1:8b"
@@ -66,6 +69,13 @@ class OllamaLLM:
         inhalt = self._chat([
             {"role": "system", "content": SYSTEM_FRAGE},
             {"role": "user", "content": frage_nutzer_prompt(field, state)},
+        ])
+        return inhalt.strip()
+
+    def antworte(self, kontext: TurnKontext) -> str:
+        inhalt = self._chat([
+            {"role": "system", "content": SYSTEM_GESPRAECH},
+            {"role": "user", "content": gespraech_nutzer_prompt(kontext)},
         ])
         return inhalt.strip()
 
