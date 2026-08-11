@@ -228,7 +228,7 @@ Verhaltensänderung.
 > Code-Invariante — das 8B-Modell hält sie hier nicht ein. Noch nicht
 > abgehakt: erneut prüfen, sobald der Claude-Adapter läuft. Reißt es auch
 > dort, braucht die Erstfrage-Treue eine mechanische Garantie statt einer
-> Prompt-Bitte (Design-Entscheidung, liegt bei Richard).
+> Prompt-Bitte (Design-Entscheidung, Team-seitig noch offen).
 
 Rohes Protokoll (10.08.2026, llama3.1:8b, Dienst über `bc1_service.main:app`,
 Discovery-Paket mit BC0-Snapshot; reproduziert in zwei unabhängigen
@@ -260,7 +260,7 @@ Verhalten ist rein die LLM-Antwort, nicht der Transport aus Task 6.
 
 Der riskanteste Prompt-Zweig (Abschluss) lief bislang nie gegen ein echtes LLM
 (nur gegen FakeLLM in Tests). Nachweis auf einer ZWEITEN, isolierten
-Dienst-Instanz (Port 8001, Richards Demo auf Port 8000 unangetastet):
+Dienst-Instanz (Port 8001, die Standard-Instanz auf Port 8000 blieb unangetastet):
 
 ```bash
 BC1_PAKET=toy BC1_LLM=ollama \
