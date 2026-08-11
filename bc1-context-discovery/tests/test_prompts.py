@@ -75,3 +75,12 @@ def test_abschluss_prompt_erzwingt_keine_weitere_frage():
     prompt = gespraech_nutzer_prompt(_kontext(
         naechste_frage=None, ist_abschluss=True))
     assert "KEINE weitere Frage" in prompt
+
+
+# F5 (opus M4): "unklar oder ungültig" unterstellt eine geprüfte Antwort —
+# der Nachfrage-Fall feuert aber auch nach bloßen Rückfragen ohne jeden
+# Wert. Ehrliche Formulierung: es liegt schlicht noch kein Wert vor.
+def test_nachfrage_prompt_unterstellt_keine_ungueltige_antwort():
+    prompt = gespraech_nutzer_prompt(_kontext(ist_nachfrage=True))
+    assert "kein verwertbarer Wert vor" in prompt
+    assert "unklar oder ungültig" not in prompt

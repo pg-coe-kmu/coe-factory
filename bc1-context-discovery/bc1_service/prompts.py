@@ -70,8 +70,8 @@ def gespraech_nutzer_prompt(kontext: TurnKontext) -> str:
         teile.append("Stelle KEINE weitere Frage — das Interview ist beendet.")
     elif kontext.ist_nachfrage:
         teile.append(
-            "NACHFRAGE — die bisherige Antwort war unklar oder ungültig. "
-            "Formuliere die Kernfrage anders und konkreter, nenne in der "
+            "NACHFRAGE — für dieses Feld liegt noch kein verwertbarer Wert "
+            "vor. Formuliere die Kernfrage anders und konkreter, nenne in der "
             "Frage enthaltene Optionen vollständig, erkläre kurz den Zweck "
             "(gern mit einem kurzen, neutralen Beispiel) und sage, dass das "
             "Feld offen bleiben darf, wenn der Nutzer es nicht weiß.\n"
