@@ -194,3 +194,15 @@ der Prozess-IDs). Wird die Baseline um IDs erweitert/gekürzt, antworten laufend
 Interviews beim nächsten Turn bewusst mit 409 `paket_konflikt` — neues Interview
 starten. Clients, die `schema_version` mitsenden wollen, dürfen nicht auf `"1.0"`
 pinnen (Teil vor dem `+` vergleichen).
+
+## Gesprächsschicht live
+
+Seit der Gesprächsschicht antwortet der Interviewer pro Turn mit Bestätigung
+(nur echte erfasste Werte) + Reaktion + Katalogfrage; darunter steht die
+deterministische Fortschrittszeile („✓ X von Y Pflichtfeldern erfasst").
+Beim Abschluss kommt eine Ergebnis-Zusammenfassung inkl. offener Felder.
+
+Erwartung ehrlich: Mit `BC1_LLM=ollama` (8B) ist die STRUKTUR nachweisbar
+(Bestätigung, keine Feldnamen-Leaks, KP-Optionsliste überlebt in Erstfragen
+wörtlich) — gut KLINGEN wird es erst mit dem Claude-Adapter. Die
+Klang-Abnahme ist ein offener Punkt wie der Echt-Claude-Smoke (P2).

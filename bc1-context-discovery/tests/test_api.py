@@ -51,12 +51,25 @@ def test_interview_bis_fertig_mit_chat_text():
     a1 = _turn(client, "m1", "Der Prozess heißt Urlaubsantrag")
     assert a1.status_code == 200
     assert a1.json()["status"] == "frage"
-    assert a1.json()["chat_text"] == a1.json()["payload"]["naechste_frage"]
+    assert a1.json()["chat_text"].startswith(a1.json()["payload"]["naechste_frage"])
     _turn(client, "m2", "Ausgelöst durch einen Antrag")
     a3 = _turn(client, "m3", "Etwa 100 mal pro Jahr")
     assert a3.json()["status"] == "fertig"
     assert a3.json()["payload"]["vollstaendigkeit"] == 1.0
-    assert "abgeschlossen" in a3.json()["chat_text"]
+    assert "Zusammenfassung" in a3.json()["chat_text"]
+    assert "✓ " in a3.json()["chat_text"]
+
+
+def test_chat_text_traegt_fortschrittszeile():
+    client = _client()
+    antwort = _turn(client, "m1", "Der Prozess heißt Urlaubsantrag",
+                    session="s-fortschritt")
+    daten = antwort.json()
+    p = daten["payload"]
+    erwartet = (f"✓ {p['pflicht_erfasst']} von {p['pflicht_gesamt']} "
+                "Pflichtfeldern erfasst")
+    assert daten["chat_text"].endswith(erwartet)
+    assert daten["chat_text"].startswith(p["naechste_frage"])
 
 
 def test_gleiche_message_id_ist_idempotent():

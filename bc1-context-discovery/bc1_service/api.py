@@ -101,9 +101,14 @@ def create_app(
 
 def _chat_text(antwort: dict) -> str:
     if antwort["status"] == "frage":
-        return antwort["payload"]["naechste_frage"] or ""
+        p = antwort["payload"]
+        return ((p["naechste_frage"] or "")
+                + f"\n\n✓ {p['pflicht_erfasst']} von {p['pflicht_gesamt']} "
+                  "Pflichtfeldern erfasst")
     if antwort["status"] == "fertig":
-        v = antwort["payload"]["vollstaendigkeit"]
-        return f"Danke! Das Interview ist abgeschlossen (Vollständigkeit: {v:.0%})."
+        p = antwort["payload"]
+        return ((p["abschluss_text"] or "Danke! Das Interview ist abgeschlossen.")
+                + f"\n\n✓ {p['pflicht_erfasst']} von {p['pflicht_gesamt']} "
+                  "Pflichtfeldern erfasst")
     return ("Da ist gerade etwas schiefgegangen — "
             "bitte schick deine Nachricht einfach noch einmal.")
