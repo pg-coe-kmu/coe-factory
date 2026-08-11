@@ -3,6 +3,7 @@ from dataclasses import FrozenInstanceError
 import pytest
 
 from bc1_core.package import UseCasePackage, FieldSpec, TOY_PROZESS
+from bc1_core.feldtypen import FREITEXT
 
 def test_required_fields_excludes_optional_and_keeps_order():
     namen = [f.name for f in TOY_PROZESS.required_fields()]
@@ -43,3 +44,10 @@ def test_doppelte_feldnamen_werden_bei_konstruktion_abgelehnt():
                           validator=lambda v: v.isdigit()),
             ),
         )
+
+def test_fieldspec_typ_default_ist_freitext():
+    spec = FieldSpec("f", "?")
+    assert spec.typ is FREITEXT
+
+def test_package_max_rounds_default_ist_20():
+    assert TOY_PROZESS.max_rounds == 20

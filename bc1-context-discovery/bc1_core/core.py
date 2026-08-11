@@ -1,11 +1,12 @@
 from __future__ import annotations
-from bc1_core.types import FieldValue, SessionState, SessionStatus
+from bc1_core.types import FieldStatus, FieldValue, SessionState, SessionStatus
 from bc1_core.package import UseCasePackage
 from bc1_core.store import StateStore
 from bc1_core.llm import LLMClient
 from bc1_core.extractor import extract_and_merge
 from bc1_core.confidence import confidence_check, ConfidenceResult
 from bc1_core.dialog import decide_next
+from bc1_core.gespraech import baue_turn_kontext, werte_schnappschuss
 
 class PaketKonfliktError(ValueError):
     """Session ist an ein anderes Paket / eine andere schema_version gebunden."""
@@ -78,9 +79,17 @@ def process_turn(store: StateStore, llm: LLMClient, package: UseCasePackage,
 
     state.rounds += 1
     try:
+        vorher = werte_schnappschuss(state)
         extract_and_merge(state, message, message_id, package, llm)
         conf = confidence_check(state, package)
-        decision = decide_next(state, package, conf, llm)
+        decision = decide_next(state, package, conf)
+        if decision.done:
+            # decide_next kann Felder frisch gecappt haben — für Payload und
+            # Abschluss-Kontext zählt der Stand NACH der Entscheidung.
+            conf = confidence_check(state, package)
+        kontext = baue_turn_kontext(message, vorher, state, package, conf,
+                                    decision.next_field, decision.done)
+        antwortetext = llm.antworte(kontext)
     except Exception:
         # LLM-Aussetzer (Spec B4): fortsetzbar melden. NUR der FEHLER-Marker
         # wird persistiert — auf dem letzten dauerhaften Stand, nicht auf dem
@@ -93,17 +102,23 @@ def process_turn(store: StateStore, llm: LLMClient, package: UseCasePackage,
         return {"status": "fehler_fortsetzbar",
                 "payload": {"grund": "verarbeitung_fehlgeschlagen"}}
 
+    pflicht = package.required_fields()
+    erfasst = sum(1 for s in pflicht
+                  if conf.statuses[s.name] is FieldStatus.GUELTIG)
     if decision.done:
         state.status = SessionStatus.FERTIG
-        # decide_next kann Felder frisch auf UNGELOEST gecappt haben —
-        # fürs Gate-0-Payload zählt der Stand NACH der Entscheidung.
-        conf = confidence_check(state, package)
-        resp = {"status": "fertig", "payload": _profil(state, conf, package)}
+        payload = _profil(state, conf, package)
+        payload["abschluss_text"] = antwortetext
+        payload["pflicht_erfasst"] = erfasst
+        payload["pflicht_gesamt"] = len(pflicht)
+        resp = {"status": "fertig", "payload": payload}
     else:
         state.status = SessionStatus.WARTET
         resp = {"status": "frage",
-                "payload": {"naechste_frage": decision.question,
-                            "feld": decision.next_field}}
+                "payload": {"naechste_frage": antwortetext,
+                            "feld": decision.next_field,
+                            "pflicht_erfasst": erfasst,
+                            "pflicht_gesamt": len(pflicht)}}
 
     state.antworten[message_id] = resp
     store.save(state)
