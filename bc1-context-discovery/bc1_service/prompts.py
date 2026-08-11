@@ -1,4 +1,4 @@
-"""Geteilte Prompt-Bausteine der LLM-Adapter (Claude, Ollama).
+"""Geteilte Prompt-Bausteine der LLM-Adapter (Claude, Ollama, Gemini).
 
 Das Extraktionsschema ist de facto ein Wire-Vertrag mit dem Extractor,
 und der Gesprächs-Prompt (inkl. Nachfrage-Hinweis) ist Dialog-Verhalten —
@@ -50,7 +50,7 @@ SYSTEM_GESPRAECH = (
 
 
 def gespraech_nutzer_prompt(kontext: TurnKontext) -> str:
-    """Nutzer-Prompt der Gesprächsschicht — von beiden Adaptern geteilt."""
+    """Nutzer-Prompt der Gesprächsschicht — von allen Adaptern geteilt."""
     teile = [f"Nutzer-Nachricht:\n{kontext.nutzer_nachricht}"]
     if kontext.neu_erfasst:
         teile.append(
