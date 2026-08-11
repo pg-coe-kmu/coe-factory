@@ -12,11 +12,6 @@ def test_fake_extract_returns_scripted_candidates():
 def test_fake_extract_unknown_message_is_empty():
     assert FakeLLM().extract("hä?", TOY_PROZESS, SessionState("s1", "0.1")) == []
 
-def test_fake_phrase_uses_field_question():
-    fake = FakeLLM()
-    assert fake.phrase(TOY_PROZESS.field("ausloeser"), SessionState("s1", "0.1")) \
-        == "Was löst den Prozess aus?"
-
 def test_fake_antworte_enthaelt_werte_und_kernfrage_woertlich():
     kontext = TurnKontext(
         nutzer_nachricht="msg",

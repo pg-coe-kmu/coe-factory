@@ -14,14 +14,12 @@ import anthropic
 
 from bc1_core.gespraech import TurnKontext
 from bc1_core.llm import ExtractionCandidate
-from bc1_core.package import FieldSpec, UseCasePackage
+from bc1_core.package import UseCasePackage
 from bc1_core.types import SessionState
 from bc1_service.prompts import (
     EXTRAKTIONS_SCHEMA,
     SYSTEM_EXTRAKTION,
-    SYSTEM_FRAGE,
     SYSTEM_GESPRAECH,
-    frage_nutzer_prompt,
     gespraech_nutzer_prompt,
 )
 
@@ -63,19 +61,6 @@ class ClaudeLLM:
             for e in daten["extraktionen"]
             if e["feld"] in bekannte and e["wert"].strip()
         ]
-
-    def phrase(self, field: FieldSpec, state: SessionState) -> str:
-        antwort = self._client.messages.create(
-            model=self._modell,
-            max_tokens=4096,
-            system=SYSTEM_FRAGE,
-            output_config={"effort": "low"},   # eine Frage formulieren, mehr nicht
-            messages=[{
-                "role": "user",
-                "content": frage_nutzer_prompt(field, state),
-            }],
-        )
-        return self._text_inhalt(antwort).strip()
 
     def antworte(self, kontext: TurnKontext) -> str:
         antwort = self._client.messages.create(
