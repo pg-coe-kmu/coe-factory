@@ -11,6 +11,7 @@ service = [
     "psycopg[binary,pool]",
     "anthropic",
     "jsonschema",
+    "google-genai",
 ]
 
 [tool.pytest.ini_options]
