@@ -164,7 +164,10 @@ schnelle Testen auf das alte Mini-Paket zurück.
 2. Chat öffnen und frei antworten. Erwartung ehrlich: ~15–30 Minuten für
    ein vollständiges Interview; mit dem 8B-Modell sind schräge
    Frage-Formulierungen und Extraktions-Lücken normal (Nachfrage-Mechanik
-   fängt sie); Auswahl-Fragen nennen die gültigen Optionen im Fragetext.
+   fängt sie); Auswahl-Fragen SOLLEN die gültigen Optionen im Fragetext
+   nennen — das ist Prompt-Instruktion, keine Garantie, siehe den offenen
+   Abnahmepunkt „KP-Optionsliste in Erstfragen" weiter unten, wo genau das
+   mit llama3.1:8b nicht eingehalten wurde.
 3. Kurz-Variante für Smoke-Zwecke: mehrere Angaben in EINE Nachricht packen
    („Der Prozess heißt X, läuft 30-mal pro Monat und dauert 2 Stunden…") —
    die Mehrfach-Extraktion füllt alle passenden Felder auf einmal.
@@ -194,3 +197,98 @@ der Prozess-IDs). Wird die Baseline um IDs erweitert/gekürzt, antworten laufend
 Interviews beim nächsten Turn bewusst mit 409 `paket_konflikt` — neues Interview
 starten. Clients, die `schema_version` mitsenden wollen, dürfen nicht auf `"1.0"`
 pinnen (Teil vor dem `+` vergleichen).
+
+## Gesprächsschicht live
+
+Seit der Gesprächsschicht antwortet der Interviewer pro Turn mit Bestätigung
+(nur echte erfasste Werte) + Reaktion + Katalogfrage; darunter steht die
+deterministische Fortschrittszeile („✓ X von Y Pflichtfeldern erfasst").
+Beim Abschluss kommt eine Ergebnis-Zusammenfassung inkl. offener Felder.
+
+Erwartung ehrlich: Mit `BC1_LLM=ollama` (8B) ist die STRUKTUR nachweisbar
+(Bestätigung, keine Feldnamen-Leaks, Fortschrittszeile korrekt) — gut KLINGEN
+wird es erst mit dem Claude-Adapter. Die Klang-Abnahme ist ein offener Punkt
+wie der Echt-Claude-Smoke (P2).
+
+Verhaltensänderung seit diesem Branch (ehrlich benannt, nicht nur beworben):
+Ein LLM-Ausfall blockiert jetzt auch den Abschluss-Turn. Vorher lief der
+Fertig-Fall ohne Versprachlichungs-Call durch (kein `antworte`-Aufruf im
+Abschluss-Zweig); seit `process_turn` `antworte` für BEIDE Zweige aufruft,
+führt ein Ausfall dort ebenso zu `fehler_fortsetzbar` statt zum Abschluss.
+Das ist spec-gewollt (kein stiller Fallback) — aber neu, und wer die alte
+Erwartung „Abschluss läuft immer durch" prüft, sieht hier eine echte
+Verhaltensänderung.
+
+> ⚠️ **OFFENER ABNAHME-PUNKT: KP-Optionsliste in Erstfragen.** Spec §8 zählt
+> „KP-Optionsliste überlebt in Erstfragen wörtlich" zum Mechanik-Nachweis —
+> mit llama3.1:8b ist das WIDERLEGT, nicht bestätigt: Bei der B4-Frage
+> (`process_id`) hat das Modell die Kernfrage umformuliert und dabei die
+> Parenthese mit den KP-IDs komplett weggelassen. Die Wörtlich-Treue der
+> Erstfrage ist reine Prompt-Instruktion (`prompts.py:45`), keine
+> Code-Invariante — das 8B-Modell hält sie hier nicht ein. Noch nicht
+> abgehakt: erneut prüfen, sobald der Claude-Adapter läuft. Reißt es auch
+> dort, braucht die Erstfrage-Treue eine mechanische Garantie statt einer
+> Prompt-Bitte (Design-Entscheidung, Team-seitig noch offen).
+
+Rohes Protokoll (10.08.2026, llama3.1:8b, Dienst über `bc1_service.main:app`,
+Discovery-Paket mit BC0-Snapshot; reproduziert in zwei unabhängigen
+Live-Durchläufen, byte-identisches Ergebnis bei temperature 0):
+
+Request (`POST /turn`):
+
+```json
+{"session_id": "smoke-task6-repro2", "message_id": "a5",
+ "message": "Die Buchhaltungsleitung ist verantwortlich."}
+```
+
+Response:
+
+```json
+{"status": "frage", "payload": {
+  "naechste_frage": "Die Buchhaltungsleitung ist für den Prozess verantwortlich.\n\nZu welchem Ihrer Kernprozesse gehört das?",
+  "feld": "process_id", "pflicht_erfasst": 6, "pflicht_gesamt": 26},
+ "chat_text": "Die Buchhaltungsleitung ist für den Prozess verantwortlich.\n\nZu welchem Ihrer Kernprozesse gehört das?\n\n✓ 6 von 26 Pflichtfeldern erfasst"}
+```
+
+Erwartet hätte `naechste_frage` (Kernfrage `b4_frage`, `discovery_paket.py:39`)
+mit `(KP-01 = Strategieprozess, KP-02 = Vertrieb & Lead-Management, …)` enden
+müssen — die Parenthese mit den KP-IDs fehlt komplett. Fortschrittszeile
+(„✓ 6 von 26 Pflichtfeldern erfasst") selbst ist korrekt — das betroffene
+Verhalten ist rein die LLM-Antwort, nicht der Transport aus Task 6.
+
+### Abschluss-Turn live (F6, 11.08.2026) — Mechanik-Nachweis, keine Klang-Abnahme
+
+Der riskanteste Prompt-Zweig (Abschluss) lief bislang nie gegen ein echtes LLM
+(nur gegen FakeLLM in Tests). Nachweis auf einer ZWEITEN, isolierten
+Dienst-Instanz (Port 8001, die Standard-Instanz auf Port 8000 blieb unangetastet):
+
+```bash
+BC1_PAKET=toy BC1_LLM=ollama \
+BC1_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" \
+.venv/bin/uvicorn bc1_service.main:app --port 8001
+```
+
+Toy-Paket (3 Pflichtfelder) per curl bis `fertig` durchgespielt — drei freie
+Antworten (`prozess_name`, `ausloeser`, `haeufigkeit`), letzter Turn löst den
+Abschluss aus. Roh-JSON des ABSCHLUSS-Turns:
+
+```json
+{"status":"fertig","payload":{"felder":{
+  "prozess_name":{"wert":"Urlaubsantrag","status":"gueltig","quelle":"m1","grund":null,"kandidaten":[]},
+  "ausloeser":{"wert":"Antrag des Mitarbeiters","status":"gueltig","quelle":"m2","grund":null,"kandidaten":[]},
+  "haeufigkeit":{"wert":"100 mal pro Jahr","status":"gueltig","quelle":"m3","grund":null,"kandidaten":[]},
+  "notiz":{"wert":null,"status":"fehlt","quelle":null,"grund":null,"kandidaten":[]}},
+ "vollstaendigkeit":1.0,"ungeloeste_felder":[],"schema_version":"0.1",
+ "abschluss_text":"Ich habe die Informationen aufgenommen.\n\nDer Urlaubsantrag wird etwa 100 Mal pro Jahr eingereicht, wenn ein Mitarbeiter ihn stellt. Der Prozess beginnt also mit dem Antrag des Mitarbeiters. Die genauen Details zum Ablauf und zur Bearbeitung des Antrags wurden nicht erfasst.",
+ "pflicht_erfasst":3,"pflicht_gesamt":3},
+ "chat_text":"Ich habe die Informationen aufgenommen.\n\nDer Urlaubsantrag wird etwa 100 Mal pro Jahr eingereicht, wenn ein Mitarbeiter ihn stellt. Der Prozess beginnt also mit dem Antrag des Mitarbeiters. Die genauen Details zum Ablauf und zur Bearbeitung des Antrags wurden nicht erfasst.\n\n✓ 3 von 3 Pflichtfeldern erfasst"}
+```
+
+Mechanik bestätigt: `abschluss_text` vorhanden, Fortschrittszeile
+(„✓ 3 von 3 Pflichtfeldern erfasst") korrekt angehängt, und — F2-Nachweis —
+`abschluss_text` endet auf eine Aussage, NICHT auf eine Frage (keine implizit
+erzwungene Anschlussfrage). Ausdrücklich KEINE Klang-Abnahme: der Text ist
+inhaltlich redundant/holprig (typische 8B-Schwäche, siehe „Erwartung ehrlich"
+oben) — bewertet wird hier nur, dass der Abschluss-Zweig mechanisch trägt.
+Danach die :8001-Instanz sauber beendet (`kill`), :8000 blieb während des
+gesamten Nachweises unberührt und erreichbar.

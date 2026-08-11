@@ -14,14 +14,15 @@ import os
 
 import ollama
 
+from bc1_core.gespraech import TurnKontext
 from bc1_core.llm import ExtractionCandidate
-from bc1_core.package import FieldSpec, UseCasePackage
+from bc1_core.package import UseCasePackage
 from bc1_core.types import SessionState
 from bc1_service.prompts import (
     EXTRAKTIONS_SCHEMA,
     SYSTEM_EXTRAKTION,
-    SYSTEM_FRAGE,
-    frage_nutzer_prompt,
+    SYSTEM_GESPRAECH,
+    gespraech_nutzer_prompt,
 )
 
 STANDARD_MODELL = "llama3.1:8b"
@@ -62,10 +63,10 @@ class OllamaLLM:
             if e["feld"] in bekannte and e["wert"].strip()
         ]
 
-    def phrase(self, field: FieldSpec, state: SessionState) -> str:
+    def antworte(self, kontext: TurnKontext) -> str:
         inhalt = self._chat([
-            {"role": "system", "content": SYSTEM_FRAGE},
-            {"role": "user", "content": frage_nutzer_prompt(field, state)},
+            {"role": "system", "content": SYSTEM_GESPRAECH},
+            {"role": "user", "content": gespraech_nutzer_prompt(kontext)},
         ])
         return inhalt.strip()
 
@@ -88,8 +89,8 @@ class OllamaLLM:
         if antwort.done_reason == "length":
             raise RuntimeError("LLM-Antwort abgeschnitten (num_predict)")
         inhalt = antwort.message.content
-        # Auch nur-Whitespace ist "ohne Inhalt": phrase() strippt danach —
-        # eine leere Frage darf nie beim Nutzer landen (Codex-Fund 07.08.).
+        # Auch nur-Whitespace ist "ohne Inhalt": antworte() strippt danach —
+        # eine leere Antwort darf nie beim Nutzer landen (Codex-Fund 07.08.).
         if not inhalt or not inhalt.strip():
             raise RuntimeError("LLM-Antwort ohne Inhalt")
         return inhalt

@@ -99,11 +99,24 @@ def create_app(
     return app
 
 
+def _fortschrittszeile(p: dict) -> str:
+    # Vor diesem Branch persistierte Payloads (Legacy-Replay alter
+    # message_ids) kennen die Zähler-Keys noch nicht — tolerant rendern
+    # statt KeyError/500 beim Idempotenz-Replay.
+    if "pflicht_erfasst" not in p or "pflicht_gesamt" not in p:
+        return ""
+    return (f"\n\n✓ {p['pflicht_erfasst']} von {p['pflicht_gesamt']} "
+            "Pflichtfeldern erfasst")
+
+
 def _chat_text(antwort: dict) -> str:
     if antwort["status"] == "frage":
-        return antwort["payload"]["naechste_frage"] or ""
+        p = antwort["payload"]
+        return (p.get("naechste_frage") or "") + _fortschrittszeile(p)
     if antwort["status"] == "fertig":
-        v = antwort["payload"]["vollstaendigkeit"]
-        return f"Danke! Das Interview ist abgeschlossen (Vollständigkeit: {v:.0%})."
+        p = antwort["payload"]
+        return ((p.get("abschluss_text")
+                 or "Danke! Das Interview ist abgeschlossen.")
+                + _fortschrittszeile(p))
     return ("Da ist gerade etwas schiefgegangen — "
             "bitte schick deine Nachricht einfach noch einmal.")

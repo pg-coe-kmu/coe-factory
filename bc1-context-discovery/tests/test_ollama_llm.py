@@ -4,10 +4,12 @@ import os
 import pytest
 
 from bc1_core.core import process_turn
+from bc1_core.gespraech import TurnKontext
 from bc1_core.package import TOY_PROZESS
 from bc1_core.store import InMemoryStateStore
-from bc1_core.types import FieldValue, SessionState
+from bc1_core.types import SessionState
 from bc1_service.ollama_llm import OllamaLLM
+from bc1_service.prompts import SYSTEM_GESPRAECH
 
 
 class _Nachricht:
@@ -72,14 +74,15 @@ def test_leere_antwort_wirft():
 
 
 # Codex-Zweitmeinung 07.08.: nur-Whitespace passiert den rohen Guard und
-# wird erst in phrase() zu "" gestrippt — eine leere Frage ginge an den
+# wird erst in antworte() zu "" gestrippt — eine leere Antwort ginge an den
 # Nutzer und würde idempotent zementiert. Muss laut werden.
 def test_nur_whitespace_antwort_wirft():
     stub = _StubClient([_Antwort("  \n")])
+    kontext = TurnKontext(nutzer_nachricht="msg", neu_erfasst=(),
+                          naechste_frage="Wie oft?", ist_nachfrage=False,
+                          ist_abschluss=False)
     with pytest.raises(RuntimeError):
-        OllamaLLM(client=stub).phrase(
-            TOY_PROZESS.field("haeufigkeit"), SessionState("s1", "0.1")
-        )
+        OllamaLLM(client=stub).antworte(kontext)
 
 
 # Constrained Decoding + Determinismus sind der Kern des Adapters: das Schema
@@ -119,33 +122,6 @@ def test_modell_override_aus_umgebung(monkeypatch):
     assert stub.aufrufe[0]["model"] == "test-modell"
 
 
-def test_phrase_liefert_frage_und_markiert_nachfragen():
-    stub = _StubClient([_Antwort("  Wie oft kommt der Prozess vor?  ")])
-    state = SessionState("s1", "0.1")
-    # attempts zählt der Dialog VOR dem phrase-Aufruf hoch: 1 = Erstfrage,
-    # 2 = erste Nachfrage (MAX_ATTEMPTS_PER_FIELD = 2).
-    state.values["haeufigkeit"] = FieldValue(attempts=2)
-    frage = OllamaLLM(client=stub).phrase(TOY_PROZESS.field("haeufigkeit"), state)
-    assert frage == "Wie oft kommt der Prozess vor?"
-    assert "Nachfrage" in stub.aufrufe[0]["messages"][1]["content"]
-
-
-def test_phrase_erstfrage_ist_keine_nachfrage():
-    stub = _StubClient([_Antwort("Wie oft kommt der Prozess vor?")])
-    state = SessionState("s1", "0.1")
-    state.values["haeufigkeit"] = FieldValue(attempts=1)   # Erstfrage
-    OllamaLLM(client=stub).phrase(TOY_PROZESS.field("haeufigkeit"), state)
-    assert "Nachfrage" not in stub.aufrufe[0]["messages"][1]["content"]
-
-
-def test_phrase_abgeschnitten_wirft():
-    stub = _StubClient([_Antwort("Wie oft", done_reason="length")])
-    with pytest.raises(RuntimeError):
-        OllamaLLM(client=stub).phrase(
-            TOY_PROZESS.field("haeufigkeit"), SessionState("s1", "0.1")
-        )
-
-
 def test_protocol_konformitaet_ein_turn_durch_process_turn():
     stub = _StubClient([
         _Antwort(_extraktions_json(("prozess_name", "Urlaubsantrag"))),
@@ -158,6 +134,17 @@ def test_protocol_konformitaet_ein_turn_durch_process_turn():
     assert antwort["status"] == "frage"
     assert antwort["payload"]["feld"] == "ausloeser"
     assert antwort["payload"]["naechste_frage"] == "Was löst den Prozess aus?"
+
+
+def test_antworte_nutzt_gespraechsprompt_und_strippt():
+    stub = _StubClient([_Antwort("  Notiert. Wie oft?  ")])
+    kontext = TurnKontext(nutzer_nachricht="msg", neu_erfasst=(),
+                          naechste_frage="Wie oft?", ist_nachfrage=False,
+                          ist_abschluss=False)
+    text = OllamaLLM(client=stub).antworte(kontext)
+    assert text == "Notiert. Wie oft?"
+    assert stub.aufrufe[0]["messages"][0]["content"] == SYSTEM_GESPRAECH
+    assert "Wie oft?" in stub.aufrufe[0]["messages"][1]["content"]
 
 
 @pytest.mark.skipif(
