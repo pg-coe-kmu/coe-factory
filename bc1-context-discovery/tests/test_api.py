@@ -228,3 +228,42 @@ def test_lifespan_wird_durchgereicht():
     with TestClient(app):
         assert zustand["laeuft"]
     assert not zustand["laeuft"]
+
+
+# Vor diesem Branch persistierte "frage"-Antworten kennen die Zähler-Keys
+# (pflicht_erfasst/pflicht_gesamt) noch nicht. Ein Replay ihrer message_id
+# darf nicht mit KeyError/500 scheitern (Legacy-Upgrade-Pfad).
+def test_replay_legacy_frage_antwort_ohne_zaehler_liefert_chat_text_ohne_fortschritt():
+    store = InMemoryStateStore()
+    store.save(SessionState(
+        "s1", "0.1", paket_name="toy_prozess", status=SessionStatus.WARTET,
+        processed_message_ids={"m1"}, raw_log=[("m1", "hallo")],
+        antworten={"m1": {"status": "frage", "payload": {
+            "naechste_frage": "Wie heißt der Prozess?", "feld": "prozess_name",
+        }}},
+    ))
+    antwort = _turn(_client(store=store), "m1", "hallo")
+    assert antwort.status_code == 200
+    daten = antwort.json()
+    assert daten["chat_text"] == "Wie heißt der Prozess?"
+    assert "✓" not in daten["chat_text"]
+
+
+# Vor diesem Branch persistierte "fertig"-Antworten kennen weder abschluss_text
+# noch die Zähler-Keys. Replay darf nicht mit KeyError/500 scheitern — der
+# bestehende Fallback-Dankestext greift (bislang unerreichbarer Code).
+def test_replay_legacy_fertig_antwort_ohne_abschluss_text_liefert_fallback():
+    store = InMemoryStateStore()
+    store.save(SessionState(
+        "s1", "0.1", paket_name="toy_prozess", status=SessionStatus.FERTIG,
+        processed_message_ids={"m1"}, raw_log=[("m1", "hallo")],
+        antworten={"m1": {"status": "fertig", "payload": {
+            "felder": {}, "vollstaendigkeit": 1.0, "ungeloeste_felder": [],
+            "schema_version": "0.1",
+        }}},
+    ))
+    antwort = _turn(_client(store=store), "m1", "hallo")
+    assert antwort.status_code == 200
+    daten = antwort.json()
+    assert daten["chat_text"] == "Danke! Das Interview ist abgeschlossen."
+    assert "✓" not in daten["chat_text"]
