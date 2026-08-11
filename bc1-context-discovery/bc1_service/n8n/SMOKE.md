@@ -164,7 +164,10 @@ schnelle Testen auf das alte Mini-Paket zurück.
 2. Chat öffnen und frei antworten. Erwartung ehrlich: ~15–30 Minuten für
    ein vollständiges Interview; mit dem 8B-Modell sind schräge
    Frage-Formulierungen und Extraktions-Lücken normal (Nachfrage-Mechanik
-   fängt sie); Auswahl-Fragen nennen die gültigen Optionen im Fragetext.
+   fängt sie); Auswahl-Fragen SOLLEN die gültigen Optionen im Fragetext
+   nennen — das ist Prompt-Instruktion, keine Garantie, siehe den offenen
+   Abnahmepunkt „KP-Optionsliste in Erstfragen" weiter unten, wo genau das
+   mit llama3.1:8b nicht eingehalten wurde.
 3. Kurz-Variante für Smoke-Zwecke: mehrere Angaben in EINE Nachricht packen
    („Der Prozess heißt X, läuft 30-mal pro Monat und dauert 2 Stunden…") —
    die Mehrfach-Extraktion füllt alle passenden Felder auf einmal.
@@ -206,6 +209,15 @@ Erwartung ehrlich: Mit `BC1_LLM=ollama` (8B) ist die STRUKTUR nachweisbar
 (Bestätigung, keine Feldnamen-Leaks, Fortschrittszeile korrekt) — gut KLINGEN
 wird es erst mit dem Claude-Adapter. Die Klang-Abnahme ist ein offener Punkt
 wie der Echt-Claude-Smoke (P2).
+
+Verhaltensänderung seit diesem Branch (ehrlich benannt, nicht nur beworben):
+Ein LLM-Ausfall blockiert jetzt auch den Abschluss-Turn. Vorher lief der
+Fertig-Fall ohne Versprachlichungs-Call durch (kein `antworte`-Aufruf im
+Abschluss-Zweig); seit `process_turn` `antworte` für BEIDE Zweige aufruft,
+führt ein Ausfall dort ebenso zu `fehler_fortsetzbar` statt zum Abschluss.
+Das ist spec-gewollt (kein stiller Fallback) — aber neu, und wer die alte
+Erwartung „Abschluss läuft immer durch" prüft, sieht hier eine echte
+Verhaltensänderung.
 
 > ⚠️ **OFFENER ABNAHME-PUNKT: KP-Optionsliste in Erstfragen.** Spec §8 zählt
 > „KP-Optionsliste überlebt in Erstfragen wörtlich" zum Mechanik-Nachweis —
