@@ -6,7 +6,6 @@ dürfen den Kontext nie erreichen (Leak-Schutz per Konstruktion).
 from bc1_core.confidence import confidence_check
 from bc1_core.gespraech import (
     Erfassung,
-    TurnKontext,
     baue_turn_kontext,
     werte_schnappschuss,
 )
