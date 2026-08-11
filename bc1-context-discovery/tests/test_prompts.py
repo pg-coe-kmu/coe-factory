@@ -37,6 +37,13 @@ def test_system_gespraech_pinnt_die_kernregeln():
     assert "in Erstfragen nie ein Beispiel" in SYSTEM_GESPRAECH
 
 
+# F2 (opus I1 + deferiertes Finding 5): die Struktur-Regel "genau eine
+# Frage" gilt nur, solange das Interview läuft — beim Abschluss ist es
+# eine Zusammenfassung ohne Frage.
+def test_system_gespraech_begrenzt_die_fragen_regel_auf_den_laufenden_fall():
+    assert "OHNE Frage" in SYSTEM_GESPRAECH
+
+
 def test_erstfrage_wird_woertlich_verlangt():
     prompt = gespraech_nutzer_prompt(_kontext(
         neu_erfasst=(Erfassung("Zweck?", "Sparen"),)))
@@ -60,3 +67,11 @@ def test_abschluss_prompt_traegt_uebersicht_und_offenes():
         offene_fragen=("Wer ist verantwortlich?",)))
     assert "Wie oft? → 600" in prompt
     assert "Wer ist verantwortlich?" in prompt
+
+
+# F2 (opus I1): der Abschluss-Prompt darf keine weitere Frage erzwingen —
+# das Interview ist beendet, der Nutzer-Prompt muss das explizit sagen.
+def test_abschluss_prompt_erzwingt_keine_weitere_frage():
+    prompt = gespraech_nutzer_prompt(_kontext(
+        naechste_frage=None, ist_abschluss=True))
+    assert "KEINE weitere Frage" in prompt

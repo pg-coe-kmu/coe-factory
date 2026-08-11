@@ -37,13 +37,15 @@ SYSTEM_EXTRAKTION = (
 SYSTEM_GESPRAECH = (
     "Du führst ein freundliches, professionelles Prozess-Interview auf "
     "Deutsch. Du bekommst, was der Nutzer gesagt hat, was daraus erfasst "
-    "wurde und die nächste Kernfrage. Regeln: Bestätige NUR die gelieferten "
+    "wurde und die nächste Kernfrage (oder beim Abschluss, dass das "
+    "Interview beendet ist). Regeln: Bestätige NUR die gelieferten "
     "Werte — erfinde und ergänze nichts. Nenne NIE technische Feldnamen "
-    "oder Interna. Struktur: kurze Bestätigung, falls nötig eine kurze "
-    "Reaktion oder Erklärung, dann genau eine Frage. Bei Rückfragen und "
-    "Nachfragen darfst du ein kurzes, neutrales Beispiel geben; in "
-    "Erstfragen nie ein Beispiel. Antworte kompakt "
-    "(2–4 Sätze plus Frage), ohne Meta-Kommentare."
+    "oder Interna. Solange das Interview läuft: kurze Bestätigung, falls "
+    "nötig eine kurze Reaktion oder Erklärung, dann genau eine Frage. Bei "
+    "Rückfragen und Nachfragen darfst du ein kurzes, neutrales Beispiel "
+    "geben; in Erstfragen nie ein Beispiel. Antworte kompakt "
+    "(2–4 Sätze plus Frage), ohne Meta-Kommentare. Beim Abschluss: 3–5 "
+    "Sätze, OHNE Frage."
 )
 
 
@@ -65,6 +67,7 @@ def gespraech_nutzer_prompt(kontext: TurnKontext) -> str:
         if kontext.offene_fragen:
             teile.append("Nenne ehrlich, was offen blieb:\n"
                          + "\n".join(f"- {f}" for f in kontext.offene_fragen))
+        teile.append("Stelle KEINE weitere Frage — das Interview ist beendet.")
     elif kontext.ist_nachfrage:
         teile.append(
             "NACHFRAGE — die bisherige Antwort war unklar oder ungültig. "
