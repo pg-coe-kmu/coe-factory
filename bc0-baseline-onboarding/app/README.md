@@ -1,19 +1,12 @@
-# BC0 Onboarding-Tool
-
-**Produktiv:** https://bc0.perspektivwechsel.ai · **Anmeldung erforderlich** (seit 11.08.2026)
+# BC0 Onboarding-Tool (lokal lauffähig)
 
 Erfassung der BC0-Baseline (Mandanten, Unternehmensprofil, Prozesse/Teilprozesse,
 Bitkom-Self-Rating mit Beleg-Pflicht) **und** rechnerische Reifegrad-Feststellung
 (Reifegradbericht, Prozessautomatisierungs-Matrix, Cross-funktionale Matrix,
 5-Dimensionen- und 6-Kriterien-Spinnennetz).
 
-**Stack:** FastAPI + PostgreSQL, statisches HTML-Frontend als PWA. Mandantenfähig (`company_id`).
-Für die lokale Entwicklung läuft die Anwendung ohne gesetzte `DATABASE_URL` gegen eine SQLite-Datei — ein Testhilfsmittel, kein Datenmodell. Maßgeblich ist PostgreSQL.
+**Stack:** FastAPI + SQLite + statisches HTML-Frontend. Mandantenfähig (company_id).
 Autor: Simeon Ehmer · NoroAI · BC0.
-
-**Zugangsschutz.** Alle Endpunkte außer `/api/auth/login`, `/api/auth/logout` und `/api/auth/status` erfordern eine gültige Sitzung. Rollentrennung Benutzer/Admin, Mandantenfilter serverseitig in jedem Endpunkt, Zugriff auf einen fremden Mandanten wird mit **404 statt 403** beantwortet. Einzelheiten in `AUTH.md`, Benutzerpflege über `benutzer_verwalten.py`.
-
-**Tests.** `python -m pytest tests/ -q` — 89 Tests. `tests/conftest.py` setzt `DATABASE_URL` leer, bevor `app` importierbar ist; ohne das liefe der Testlauf gegen die Produktivdatenbank.
 
 ---
 

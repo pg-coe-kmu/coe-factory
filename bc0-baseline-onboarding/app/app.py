@@ -61,7 +61,7 @@ from fastapi.responses import JSONResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 DB = os.environ.get("BC0_DB", os.path.join(HERE, "bc0.db"))
-SCHEMA_SQL = os.path.join(HERE, "schema_v1.1.sql")
+SCHEMA_SQL = os.path.join(HERE, "schema_v1.1.1.sql")
 
 # ---- Beleg-Dokumente: Storage (Stufe 1) ----
 # Default: lokales Verzeichnis ./belege — optional Supabase Storage (EU), wenn
@@ -289,6 +289,241 @@ CREATE TABLE IF NOT EXISTS mandant_systeme(
   PRIMARY KEY(company_id, system_id));
 """
 
+# ---- Erhebungen (ADR-004 Abschnitt 2.5, Schema v1.3 Teil C) --------------------
+# Eine Bewertung wusste bis hierher nur, *wann* sie entstand, nicht *zu welcher
+# Erhebung* sie gehoert. Eine Nacherhebung haette dieselben Item-Schluessel
+# erzeugt und den bisherigen Stand stillschweigend ueberschrieben — womit weder
+# eine Gate-Freigabe reproduzierbar noch ein Vorher-Nachher-Vergleich moeglich
+# waere.
+#
+# Massgeblich ist schema_v1.3_teil_c_erhebungen.sql.
+ERHEBUNG_DDL_PG = """
+CREATE TABLE IF NOT EXISTS ref_erhebungen (
+  company_id   UUID NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
+  erhebung_id  TEXT NOT NULL,
+  bezeichnung  TEXT NOT NULL,
+  stand        DATE NOT NULL,
+  status       TEXT NOT NULL DEFAULT 'offen'
+               CHECK (status IN ('offen','abgeschlossen','verworfen')),
+  methode      TEXT,
+  hinweis      TEXT,
+  angelegt_am  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (company_id, erhebung_id)
+);
+"""
+ERHEBUNG_DDL_SQLITE = """
+CREATE TABLE IF NOT EXISTS ref_erhebungen(
+  company_id INTEGER NOT NULL, erhebung_id TEXT NOT NULL, bezeichnung TEXT NOT NULL,
+  stand TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'offen'
+    CHECK (status IN ('offen','abgeschlossen','verworfen')),
+  methode TEXT, hinweis TEXT, angelegt_am TEXT,
+  PRIMARY KEY(company_id, erhebung_id));
+"""
+
+#: Die drei Zustaende einer Erhebung. `verworfen` wird von allen Auswertungen
+#: uebergangen — ein Fehlversuch soll den Stand nicht verfaelschen.
+ERHEBUNG_STATUS = ["offen", "abgeschlossen", "verworfen"]
+
+# ---- Gate 0: Freigabebogen (Schema v1.4, seit 17.08.2026) ----------------------
+# Zwischen BC1 und BC2 sitzt ein Mensch. Der Bogen beantwortet nicht „ist alles
+# ausgefuellt" — das kann Software allein —, sondern: darf auf dieser Grundlage
+# gerechnet werden? Deshalb traegt jede gepruefte Angabe neben dem Befuellungsgrad
+# eine GUETE. Ein Befuellungsgrad sagt, wie viel dasteht, nicht ob es stimmt; ohne
+# die Guete verfiele am Gate genau die Information, die BC2 braucht, um zwischen
+# Punktwert und Bandbreite zu entscheiden.
+#
+# Massgeblich ist schema_v1.4_gate0.sql. Die Anweisungen hier sind damit
+# deckungsgleich und dienen dem SQLite-Entwicklungsmodus sowie einer PostgreSQL-
+# Datenbank, in der der Nachtrag noch nicht eingespielt wurde. gate_ereignisse und
+# prozess_schnittstellen stammen aus Schema v1.2 und werden hier vorsorglich
+# mitangelegt — ohne sie liefen die ALTER-Anweisungen ins Leere.
+#
+# Der Fremdschluessel gate_ereignisse.benutzer_id -> app_benutzer fehlt hier
+# absichtlich: init_db() laeuft vor AuthDienst.einrichten(), die Tabelle gaebe es
+# zu diesem Zeitpunkt noch nicht. Das Schema-Skript setzt ihn.
+GATE0_DDL_PG = """
+CREATE TABLE IF NOT EXISTS ref_anfragen (
+  company_id     UUID        NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
+  anfrage_id     TEXT        NOT NULL CHECK (anfrage_id ~ '^A-[0-9]{4}-[0-9]{2}$'),
+  originaltext   TEXT        NOT NULL CHECK (length(btrim(originaltext)) > 0),
+  eingang_am     DATE        NOT NULL,
+  eingang_weg    TEXT,
+  steller_id     TEXT,
+  hinweis        TEXT,
+  angelegt_am    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (company_id, anfrage_id)
+);
+CREATE TABLE IF NOT EXISTS ref_gate_pruefpunkte (
+  pruefpunkt     TEXT        PRIMARY KEY CHECK (pruefpunkt ~ '^[a-z_]{3,30}$'),
+  bezeichnung    TEXT        NOT NULL,
+  erlaeuterung   TEXT,
+  quelle_bc      TEXT        NOT NULL CHECK (quelle_bc IN ('BC0','BC1','BC0/BC1')),
+  guete_noetig   BOOLEAN     NOT NULL DEFAULT FALSE,
+  pflicht        BOOLEAN     NOT NULL DEFAULT TRUE,
+  aktiv          BOOLEAN     NOT NULL DEFAULT TRUE,
+  reihenfolge    INTEGER     NOT NULL DEFAULT 100
+);
+CREATE TABLE IF NOT EXISTS prozess_schnittstellen (
+  company_id       UUID       NOT NULL,
+  von_process_id   VARCHAR(8) NOT NULL,
+  nach_process_id  VARCHAR(8) NOT NULL,
+  art              TEXT       NOT NULL
+                   CHECK (art IN ('daten','freigabe','material','information')),
+  beschreibung     TEXT,
+  PRIMARY KEY (company_id, von_process_id, nach_process_id, art)
+);
+CREATE TABLE IF NOT EXISTS gate_ereignisse (
+  ereignis_id  BIGSERIAL   PRIMARY KEY,
+  gate         TEXT        NOT NULL,
+  company_id   UUID        NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
+  objekt_typ   TEXT        NOT NULL,
+  objekt_id    TEXT        NOT NULL,
+  ereignis     TEXT        NOT NULL
+               CHECK (ereignis IN ('freigegeben','widerrufen','zurueckgewiesen','uebergeben')),
+  benutzer_id  TEXT,
+  am           TIMESTAMPTZ NOT NULL DEFAULT now(),
+  grundlage    JSONB,
+  grund        TEXT,
+  paket_id     UUID,
+  CHECK (ereignis <> 'zurueckgewiesen' OR (grund IS NOT NULL AND length(btrim(grund)) > 0))
+);
+ALTER TABLE gate_ereignisse ADD COLUMN IF NOT EXISTS anfrage_id       TEXT;
+ALTER TABLE gate_ereignisse ADD COLUMN IF NOT EXISTS erhebung_id      TEXT;
+ALTER TABLE gate_ereignisse ADD COLUMN IF NOT EXISTS bc1_profil_stand TEXT;
+ALTER TABLE gate_ereignisse ADD COLUMN IF NOT EXISTS kette_bestaetigt BOOLEAN;
+ALTER TABLE gate_ereignisse ADD COLUMN IF NOT EXISTS kette_ergaenzung TEXT;
+ALTER TABLE gate_ereignisse ADD COLUMN IF NOT EXISTS massnahme        TEXT;
+CREATE TABLE IF NOT EXISTS gate_pruefpunkt_werte (
+  ereignis_id    BIGINT      NOT NULL REFERENCES gate_ereignisse(ereignis_id) ON DELETE CASCADE,
+  pruefpunkt     TEXT        NOT NULL REFERENCES ref_gate_pruefpunkte(pruefpunkt),
+  vorhanden_pct  NUMERIC(5,2) CHECK (vorhanden_pct BETWEEN 0 AND 100),
+  guete          TEXT        CHECK (guete IN ('belegt','geschaetzt','geraten','entfaellt')),
+  bestaetigt     BOOLEAN     NOT NULL,
+  anmerkung      TEXT,
+  PRIMARY KEY (ereignis_id, pruefpunkt)
+);
+CREATE INDEX IF NOT EXISTS idx_gate_objekt
+  ON gate_ereignisse(gate, company_id, objekt_id, am DESC);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_gate_massnahme') THEN
+    ALTER TABLE gate_ereignisse ADD CONSTRAINT ck_gate_massnahme
+      CHECK (ereignis <> 'zurueckgewiesen'
+             OR (massnahme IS NOT NULL AND length(btrim(massnahme)) > 0));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_gate_objekt_typ') THEN
+    ALTER TABLE gate_ereignisse ADD CONSTRAINT ck_gate_objekt_typ
+      CHECK (objekt_typ IN ('prozess','teilprozess'));
+  END IF;
+END $$;
+"""
+GATE0_DDL_SQLITE = """
+CREATE TABLE IF NOT EXISTS ref_anfragen(
+  company_id INTEGER NOT NULL, anfrage_id TEXT NOT NULL,
+  originaltext TEXT NOT NULL, eingang_am TEXT NOT NULL, eingang_weg TEXT,
+  steller_id TEXT, hinweis TEXT, angelegt_am TEXT,
+  PRIMARY KEY(company_id, anfrage_id));
+CREATE TABLE IF NOT EXISTS ref_gate_pruefpunkte(
+  pruefpunkt TEXT PRIMARY KEY, bezeichnung TEXT NOT NULL, erlaeuterung TEXT,
+  quelle_bc TEXT NOT NULL CHECK (quelle_bc IN ('BC0','BC1','BC0/BC1')),
+  guete_noetig INTEGER NOT NULL DEFAULT 0, pflicht INTEGER NOT NULL DEFAULT 1,
+  aktiv INTEGER NOT NULL DEFAULT 1, reihenfolge INTEGER NOT NULL DEFAULT 100);
+CREATE TABLE IF NOT EXISTS prozess_schnittstellen(
+  company_id INTEGER NOT NULL, von_process_id TEXT NOT NULL, nach_process_id TEXT NOT NULL,
+  art TEXT NOT NULL CHECK (art IN ('daten','freigabe','material','information')),
+  beschreibung TEXT,
+  PRIMARY KEY(company_id, von_process_id, nach_process_id, art));
+CREATE TABLE IF NOT EXISTS gate_ereignisse(
+  ereignis_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  gate TEXT NOT NULL, company_id INTEGER NOT NULL,
+  objekt_typ TEXT NOT NULL CHECK (objekt_typ IN ('prozess','teilprozess')),
+  objekt_id TEXT NOT NULL,
+  ereignis TEXT NOT NULL
+    CHECK (ereignis IN ('freigegeben','widerrufen','zurueckgewiesen','uebergeben')),
+  benutzer_id TEXT, am TEXT NOT NULL, grundlage TEXT, grund TEXT, paket_id TEXT,
+  anfrage_id TEXT, erhebung_id TEXT, bc1_profil_stand TEXT,
+  kette_bestaetigt INTEGER, kette_ergaenzung TEXT, massnahme TEXT,
+  CHECK (ereignis <> 'zurueckgewiesen' OR (grund IS NOT NULL AND length(trim(grund)) > 0)),
+  CHECK (ereignis <> 'zurueckgewiesen'
+         OR (massnahme IS NOT NULL AND length(trim(massnahme)) > 0)));
+CREATE INDEX IF NOT EXISTS idx_gate_objekt
+  ON gate_ereignisse(gate, company_id, objekt_id);
+CREATE TABLE IF NOT EXISTS gate_pruefpunkt_werte(
+  ereignis_id INTEGER NOT NULL REFERENCES gate_ereignisse(ereignis_id) ON DELETE CASCADE,
+  pruefpunkt TEXT NOT NULL REFERENCES ref_gate_pruefpunkte(pruefpunkt),
+  vorhanden_pct REAL CHECK (vorhanden_pct BETWEEN 0 AND 100),
+  guete TEXT CHECK (guete IN ('belegt','geschaetzt','geraten','entfaellt')),
+  bestaetigt INTEGER NOT NULL, anmerkung TEXT,
+  PRIMARY KEY(ereignis_id, pruefpunkt));
+"""
+
+#: Startbestand des Pruefpunktkatalogs, Wortlaut aus schema_v1.4_gate0.sql.
+#: Als Python-Liste und nicht als INSERT im DDL-Text, weil beide Backends
+#: denselben Bestand brauchen und Wahrheitswerte in SQLite Zahlen sind — dieselbe
+#: Loesung wie bei SYSTEM_KATALOG.
+#: Spalten: pruefpunkt, bezeichnung, erlaeuterung, quelle_bc, guete_noetig, pflicht,
+#: aktiv, reihenfolge.
+GATE_PRUEFPUNKTE = [
+    ("dauer", "Dauer je Ausfuehrung",
+     "Bearbeitungszeit eines Durchlaufs. Ohne sie gibt es keinen Jahresaufwand und damit keinen ROI.",
+     "BC1", True, True, True, 10),
+    ("haeufigkeit", "Ausfuehrungen je Zeitraum",
+     "Wie oft der Prozess laeuft. Meist aus einem System zaehlbar und damit oft besser belegt als die Dauer.",
+     "BC1", True, True, True, 20),
+    ("menge", "Menge je Ausfuehrung",
+     "Stueckzahl oder Volumen je Durchlauf — Zahl der Positionen, Datensaetze, Dokumente.",
+     "BC1", True, True, True, 30),
+    ("rollen", "Beteiligte Rollen mit Zeitanteil",
+     "Welche Rolle wie lange beteiligt ist. Paare (rolle_id, zeitanteil), nicht Namensliste.",
+     "BC1", True, True, True, 40),
+    ("kosten", "Kostensatz je beteiligter Rolle",
+     "Vollkostensatz aus mandant_rollen und rollen_kostensaetze. Guete unterscheidet "
+     "Buchhaltungswert von Branchenreferenz.",
+     "BC0", True, True, True, 50),
+    ("prozessbeschreibung", "Prozessbeschreibung",
+     "Ein bis zwei Saetze, was der Prozess umfasst. Grundlage der Erklaerung durch den BC1-Bot.",
+     "BC0", False, True, True, 60),
+    ("medienbrueche", "Medienbrueche erfasst",
+     "Register aus Schema v1.3 Teil B. Leer kann richtig sein — dann bestaetigt der Mensch die Null.",
+     "BC0", False, True, True, 70),
+    ("ansprechpartner", "Ansprechpartner bei Rueckfragen",
+     "Wer Auskunft geben kann, wenn BC1 oder BC2 nachfragt. Verweis ins Personenregister.",
+     "BC0", False, True, True, 80),
+    ("zulaessigkeit", "Zulaessigkeit der Automatisierung",
+     "Personenbezogene Daten, Mitbestimmung, Vier-Augen-Prinzip, regulatorische Bindung. "
+     "VORGESEHEN, NICHT AKTIV — vor dem Scharfschalten ist zu klaeren, wer das beurteilt.",
+     "BC0", False, True, False, 90),
+]
+
+#: Die vier Guete-Stufen. `entfaellt` ist kein Ausweichwert, sondern die Aussage
+#: „trifft auf diesen Prozess nicht zu".
+GATE_GUETEN = ["belegt", "geschaetzt", "geraten", "entfaellt"]
+
+#: Was der Bogen schreiben darf. `widerrufen` und `uebergeben` stehen zwar in der
+#: Ereignistabelle, entstehen aber nicht an dieser Maske.
+GATE_EREIGNISSE = ["freigegeben", "zurueckgewiesen"]
+
+#: Vorbedingung: mindestens 27 der 30 Items bewertet (Schema v1.4, Abschnitt 18).
+GATE_ITEMS_MIN = 27
+
+#: Projektsetzung, keine Bitkom-Vorgabe — deshalb Hinweis und keine Sperre.
+GATE_SCHWELLE = 3.5
+
+#: Beteiligungsarten, die als Ansprechpartner fuer Rueckfragen zaehlen.
+GATE_ANSPRECHPARTNER = ("mitwirkend", "vertretung", "sponsor")
+
+#: Die vier Zustaende von `am_zug`, zugleich die Reihenfolge der Liste: Was jetzt
+#: zu tun ist, steht oben; was abgeschlossen ist, unten.
+GATE_AM_ZUG = ("entscheiden", "bc0_pflege", "wartet_bc1", "entschieden")
+
+#: Die vier Angaben, die BC1 nachliefern muss. Nur als Wortlaut fuer die
+#: Begruendung — die Feldnamen sind noch nicht benannt, siehe _bc1_angaben().
+GATE_BC1_FELDER = ("Dauer", "Haeufigkeit", "Menge", "Rollen mit Zeitanteil")
+
+#: Arten von Hindernissen, in der Reihenfolge, in der sie abzuarbeiten sind.
+GATE_HINDERNIS_ARTEN = ("eigner", "ansprechpartner", "bewertung")
+
 #: Startbestand des Systemkatalogs. Global wie ITEMS, deshalb im Code und nicht
 #: je Mandant. Die ersten vier stammen aus dem NoroAI-Bestand, die uebrigen sind
 #: im deutschen Mittelstand haeufig und ersparen dem naechsten Mandanten das
@@ -403,6 +638,26 @@ class _Cx:
 def db(): return _Cx()
 
 # Mode-spezifische SELECTs/WHEREs (PG: Schema v1.1 mit UUID/ENUM -> auf App-Sicht aliasen)
+# Der massgebliche Stand je Einzelbewertung: die juengste nicht verworfene
+# Erhebung, die diesen Teilprozess und dieses Item bewertet hat.
+#
+# Ausdruecklich NICHT die juengste Erhebung des Mandanten. Wird im September nur
+# ein Teil der Prozesse nacherhoben, hat die September-Erhebung fuer die uebrigen
+# keine Zeilen — ein Filter auf Mandantenebene liesse sie aus dem Bericht
+# verschwinden. Der aktuelle Stand ist deshalb eine Zusammensetzung: nacherhobene
+# Prozesse mit neuen Werten, unveraenderte mit ihren alten.
+#
+# Entspricht der View v_bewertung_aktuell in schema_v1.3_teil_c_erhebungen.sql.
+# Hier als Unterabfrage, damit auch der SQLite-Entwicklungsmodus sie hat.
+def _bew_aktuell(spalten: str) -> str:
+    return ("(SELECT " + spalten + " FROM (SELECT bb.*, row_number() OVER ("
+            "PARTITION BY bb.company_id, bb.sub_process_id, bb.item_nr "
+            "ORDER BY e.stand DESC, e.erhebung_id DESC) AS rang "
+            "FROM bitkom_bewertungen bb JOIN ref_erhebungen e "
+            "ON e.company_id = bb.company_id AND e.erhebung_id = bb.erhebung_id "
+            "WHERE e.status <> 'verworfen') t WHERE rang = 1) AS bitkom_bewertungen")
+
+
 if PG:
     SEL_CO   = ("SELECT company_id::text AS id,name,branche,rechtsform,mitarbeitende AS ma,region,"
                 "status::text AS status,created_at::text AS created_at FROM companies")
@@ -414,8 +669,11 @@ if PG:
                 "owner_name,owner_role,trigger_text,input_text,output_text,beschreibung FROM ref_prozesse")
     SEL_TP   = ("SELECT company_id::text AS company_id,sub_process_id,process_id,step_no,sub_process_name,"
                 "notation,tools,medienbrueche,schnittstellen,api FROM ref_teilprozesse")
-    SEL_BEW  = ("SELECT company_id::text AS company_id,id,sub_process_id,left(sub_process_id,5) AS process_id,"
-                "item_nr,stufe,beleg,quelle::text AS quelle,bewertet_am::text AS bewertet_am FROM bitkom_bewertungen")
+    SEL_BEW  = ("SELECT company_id::text AS company_id,erhebung_id,id,sub_process_id,"
+                "left(sub_process_id,5) AS process_id,"
+                "item_nr,stufe,beleg,quelle::text AS quelle,bewertet_am::text AS bewertet_am FROM "
+                + _bew_aktuell("company_id,erhebung_id,id,sub_process_id,item_nr,stufe,beleg,"
+                               "quelle,bewertet_am"))
     SEL_DOC  = ("SELECT doc_id::text AS doc_id,company_id::text AS company_id,ref_id,filename,storage_key,"
                 "mime_type,seiten,ocr_confidence,status::text AS status,uploaded_at::text AS uploaded_at FROM beleg_dokumente")
 else:
@@ -423,7 +681,9 @@ else:
     SEL_PROF = "SELECT * FROM company_profile"
     SEL_PROC = "SELECT * FROM ref_prozesse"
     SEL_TP   = "SELECT * FROM ref_teilprozesse"
-    SEL_BEW  = "SELECT * FROM bitkom_bewertungen"
+    SEL_BEW  = ("SELECT * FROM "
+                + _bew_aktuell("company_id,erhebung_id,id,sub_process_id,process_id,item_nr,"
+                               "stufe,beleg,quelle,bewertet_am"))
     SEL_DOC  = ("SELECT doc_id,company_id,ref_id,filename,storage_key,mime_type,seiten,"
                 "ocr_confidence,status,uploaded_at FROM beleg_dokumente")
 
@@ -446,6 +706,11 @@ def init_db():
         c.execute(DOC_DDL_PG)
         c.execute(STAMM_DDL_PG)
         c.execute(ENTITAET_DDL_PG)
+        c.execute(ERHEBUNG_DDL_PG)
+        c.execute(GATE0_DDL_PG)
+        c.executemany("INSERT INTO ref_gate_pruefpunkte(pruefpunkt,bezeichnung,erlaeuterung,"
+                      "quelle_bc,guete_noetig,pflicht,aktiv,reihenfolge) VALUES(?,?,?,?,?,?,?,?) "
+                      "ON CONFLICT (pruefpunkt) DO NOTHING", GATE_PRUEFPUNKTE)
         c.executemany("INSERT INTO ref_systeme_katalog(katalog_id,bezeichnung,kategorie,"
                       "hersteller,quelloffen) VALUES(?,?,?,?,?) "
                       "ON CONFLICT (katalog_id) DO NOTHING", SYSTEM_KATALOG)
@@ -474,10 +739,11 @@ def init_db():
       PRIMARY KEY(company_id,sub_process_id),
       FOREIGN KEY(company_id) REFERENCES companies(id) ON DELETE CASCADE);
     CREATE TABLE IF NOT EXISTS bitkom_bewertungen(
-      company_id INTEGER, id TEXT, sub_process_id TEXT, process_id TEXT, item_nr INTEGER,
+      company_id INTEGER, erhebung_id TEXT NOT NULL DEFAULT 'E-0000-00',
+      id TEXT, sub_process_id TEXT, process_id TEXT, item_nr INTEGER,
       stufe INTEGER CHECK(stufe BETWEEN 1 AND 5), beleg TEXT NOT NULL, quelle TEXT DEFAULT 'manuell',
       bewertet_am TEXT,
-      PRIMARY KEY(company_id,id),
+      PRIMARY KEY(company_id,erhebung_id,id),
       FOREIGN KEY(company_id) REFERENCES companies(id) ON DELETE CASCADE);
     """)
     if not c.execute("SELECT COUNT(*) n FROM ref_items").fetchone()["n"]:
@@ -494,9 +760,16 @@ def init_db():
     c.c.executescript(DOC_DDL_SQLITE)
     c.c.executescript(STAMM_DDL_SQLITE)
     c.c.executescript(ENTITAET_DDL_SQLITE)
+    c.c.executescript(ERHEBUNG_DDL_SQLITE)
+    c.c.executescript(GATE0_DDL_SQLITE)
     c.executemany("INSERT OR IGNORE INTO ref_systeme_katalog(katalog_id,bezeichnung,"
                   "kategorie,hersteller,quelloffen) VALUES(?,?,?,?,?)",
                   [(a, b, k, h, 1 if q else 0) for a, b, k, h, q in SYSTEM_KATALOG])
+    c.executemany("INSERT OR IGNORE INTO ref_gate_pruefpunkte(pruefpunkt,bezeichnung,"
+                  "erlaeuterung,quelle_bc,guete_noetig,pflicht,aktiv,reihenfolge) "
+                  "VALUES(?,?,?,?,?,?,?,?)",
+                  [(p, b, e, q, 1 if g else 0, 1 if pf else 0, 1 if a else 0, r)
+                   for p, b, e, q, g, pf, a, r in GATE_PRUEFPUNKTE])
     c.commit(); c.close()
 
 app = FastAPI(title="BC0 Onboarding")
@@ -545,10 +818,20 @@ def meta():
             "backend":"postgres" if PG else "sqlite"}
 
 def company_progress(c, cid):
+    """Erfassungsgrad und Durchschnitt fuer die Mandantenliste.
+
+    Rechnet auf dem MASSGEBLICHEN Stand, nicht auf allen je geschriebenen
+    Zeilen. Ohne _bew_aktuell zaehlte eine Nacherhebung doppelt: derselbe
+    Teilprozess erschiene mit alter und neuer Bewertung, der Erfassungsgrad
+    stiege ueber 100 % und der Durchschnitt mischte zwei Messzeitpunkte.
+    Derselbe Fehler, gegen den Schema v1.3 Teil C gebaut wurde — hier war er
+    bis zum 17.08.2026 uebersehen.
+    """
     kps=c.execute("SELECT COUNT(*) n FROM ref_prozesse WHERE "+W_CO, (cid,)).fetchone()["n"]
     total=kps*5*30
-    rated=c.execute("SELECT COUNT(*) n FROM bitkom_bewertungen WHERE "+W_CO, (cid,)).fetchone()["n"]
-    avg=c.execute("SELECT AVG(stufe) a FROM bitkom_bewertungen WHERE "+W_CO, (cid,)).fetchone()["a"]
+    quelle=_bew_aktuell("company_id, stufe")
+    rated=c.execute("SELECT COUNT(*) n FROM "+quelle+" WHERE "+W_CO, (cid,)).fetchone()["n"]
+    avg=c.execute("SELECT AVG(stufe) a FROM "+quelle+" WHERE "+W_CO, (cid,)).fetchone()["a"]
     return (round(rated/total*100) if total else 0, round(float(avg),2) if avg else 0, kps)
 
 @app.get("/api/companies")
@@ -611,8 +894,14 @@ def get_company(cid:str, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
     ratings={}
     for r in c.execute(SEL_BEW+" WHERE "+W_CO, (cid,)).fetchall():
         ratings.setdefault(r["sub_process_id"],{})[r["item_nr"]]={"stufe":r["stufe"],"beleg":r["beleg"],"quelle":r["quelle"]}
+    # Welcher Messzeitpunkt gilt? Die Oberflaeche zeigt ihn an, damit niemand
+    # unbemerkt in eine abgeschlossene oder in eine neue Erhebung schreibt.
+    erh=c.execute("SELECT erhebung_id,bezeichnung,status FROM ref_erhebungen WHERE "+W_CO+
+                  " AND status<>'verworfen' ORDER BY stand DESC, erhebung_id DESC LIMIT 1",
+                  (cid,)).fetchone()
     c.close()
-    return {"company":dict(co),"profile":dict(prof) if prof else {},"processes":procs,"ratings":ratings}
+    return {"company":dict(co),"profile":dict(prof) if prof else {},"processes":procs,
+            "ratings":ratings,"erhebung":dict(erh) if erh else None}
 
 @app.put("/api/companies/{cid}/profile")
 async def save_profile(cid:str, req:Request, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
@@ -663,19 +952,21 @@ async def save_rating(cid:str, req:Request, benutzer: Benutzer = Depends(angemel
     if missing:
         raise HTTPException(400, "Beleg fehlt für Item(s): "+", ".join(missing))
     pid=key.split(".")[0]; c=db()
+    # In welche Erhebung wird geschrieben? Legt beim ersten Mal eine an.
+    eid = _erhebung_offen(c, cid)
     for nr,v in items.items():
         if not v.get("stufe"): continue
         rid="%s.I-%02d"%(key,int(nr))
         if PG:
-            c.execute("""INSERT INTO bitkom_bewertungen(company_id,id,sub_process_id,item_nr,stufe,beleg,quelle,bewertet_am)
-                         VALUES(?,?,?,?,?,?,?,?)
-                         ON CONFLICT(company_id,id) DO UPDATE SET stufe=excluded.stufe,beleg=excluded.beleg,quelle=excluded.quelle,bewertet_am=excluded.bewertet_am""",
-                (cid,rid,key,int(nr),int(v["stufe"]),v.get("beleg","").strip(),v.get("quelle","manuell"),now()))
-        else:
-            c.execute("""INSERT INTO bitkom_bewertungen(company_id,id,sub_process_id,process_id,item_nr,stufe,beleg,quelle,bewertet_am)
+            c.execute("""INSERT INTO bitkom_bewertungen(company_id,erhebung_id,id,sub_process_id,item_nr,stufe,beleg,quelle,bewertet_am)
                          VALUES(?,?,?,?,?,?,?,?,?)
-                         ON CONFLICT(company_id,id) DO UPDATE SET stufe=excluded.stufe,beleg=excluded.beleg,quelle=excluded.quelle,bewertet_am=excluded.bewertet_am""",
-                (cid,rid,key,pid,int(nr),int(v["stufe"]),v.get("beleg","").strip(),v.get("quelle","manuell"),now()))
+                         ON CONFLICT(company_id,erhebung_id,id) DO UPDATE SET stufe=excluded.stufe,beleg=excluded.beleg,quelle=excluded.quelle,bewertet_am=excluded.bewertet_am""",
+                (cid,eid,rid,key,int(nr),int(v["stufe"]),v.get("beleg","").strip(),v.get("quelle","manuell"),now()))
+        else:
+            c.execute("""INSERT INTO bitkom_bewertungen(company_id,erhebung_id,id,sub_process_id,process_id,item_nr,stufe,beleg,quelle,bewertet_am)
+                         VALUES(?,?,?,?,?,?,?,?,?,?)
+                         ON CONFLICT(company_id,erhebung_id,id) DO UPDATE SET stufe=excluded.stufe,beleg=excluded.beleg,quelle=excluded.quelle,bewertet_am=excluded.bewertet_am""",
+                (cid,eid,rid,key,pid,int(nr),int(v["stufe"]),v.get("beleg","").strip(),v.get("quelle","manuell"),now()))
     c.execute("UPDATE companies SET status='laeuft' WHERE "+KEY_CO+" AND status='neu'", (cid,))
     c.commit(); c.close(); return {"ok":True,"saved":len([1 for v in items.values() if v.get('stufe')])}
 
@@ -764,6 +1055,8 @@ async def import_yaml(req: Request, _: Benutzer = Depends(admin)):
             (co.get("name", "Importiert"), co.get("branche"), co.get("rechtsform"),
              co.get("mitarbeitende") or co.get("ma"), co.get("region"), "laeuft", now()))
         cid = cur.lastrowid
+    # Der Import erzeugt die Ersterhebung des neuen Mandanten.
+    eid = _erhebung_offen(c, cid)
     pr = data.get("profile", {}) or {}
     full = data.get("unternehmensdaten") or data.get("profil_full") or pr or {}
     c.execute("INSERT INTO company_profile(company_id,geschaeftsmodell,tech_stack,profile_json) VALUES(?,?,?,?)",
@@ -787,13 +1080,13 @@ async def import_yaml(req: Request, _: Benutzer = Depends(admin)):
                 nr = int(nr); beleg = (b.get("beleg") or "").strip() or "Aus YAML übernommen"
                 rid = "%s.I-%02d" % (sid, nr)
                 if PG:
-                    c.execute("""INSERT INTO bitkom_bewertungen(company_id,id,sub_process_id,item_nr,stufe,beleg,quelle,bewertet_am) VALUES(?,?,?,?,?,?,?,?)
-                                 ON CONFLICT(company_id,id) DO UPDATE SET stufe=excluded.stufe,beleg=excluded.beleg,quelle=excluded.quelle,bewertet_am=excluded.bewertet_am""",
-                        (cid, rid, sid, nr, int(b["stufe"]), beleg, "yaml", now()))
+                    c.execute("""INSERT INTO bitkom_bewertungen(company_id,erhebung_id,id,sub_process_id,item_nr,stufe,beleg,quelle,bewertet_am) VALUES(?,?,?,?,?,?,?,?,?)
+                                 ON CONFLICT(company_id,erhebung_id,id) DO UPDATE SET stufe=excluded.stufe,beleg=excluded.beleg,quelle=excluded.quelle,bewertet_am=excluded.bewertet_am""",
+                        (cid, eid, rid, sid, nr, int(b["stufe"]), beleg, "yaml", now()))
                 else:
-                    c.execute("""INSERT INTO bitkom_bewertungen(company_id,id,sub_process_id,process_id,item_nr,stufe,beleg,quelle,bewertet_am) VALUES(?,?,?,?,?,?,?,?,?)
-                                 ON CONFLICT(company_id,id) DO UPDATE SET stufe=excluded.stufe,beleg=excluded.beleg,quelle=excluded.quelle,bewertet_am=excluded.bewertet_am""",
-                        (cid, rid, sid, pid, nr, int(b["stufe"]), beleg, "yaml", now()))
+                    c.execute("""INSERT INTO bitkom_bewertungen(company_id,erhebung_id,id,sub_process_id,process_id,item_nr,stufe,beleg,quelle,bewertet_am) VALUES(?,?,?,?,?,?,?,?,?,?)
+                                 ON CONFLICT(company_id,erhebung_id,id) DO UPDATE SET stufe=excluded.stufe,beleg=excluded.beleg,quelle=excluded.quelle,bewertet_am=excluded.bewertet_am""",
+                        (cid, eid, rid, sid, pid, nr, int(b["stufe"]), beleg, "yaml", now()))
                 nb += 1
     c.commit(); c.close()
     return {"ok": True, "id": cid, "prozesse": np_, "bewertungen": nb}
@@ -871,6 +1164,105 @@ def delete_document(cid: str, doc_id: str,
     delete_file(r["storage_key"])
     c.execute("DELETE FROM beleg_dokumente WHERE " + W_CO + " AND doc_id" + ("::text" if PG else "") + "=?", (cid, doc_id))
     c.commit(); c.close(); return {"ok": True}
+
+# ---------------- Erhebungen (Schema v1.3 Teil C, seit 13.08.2026) ----------------
+def _erhebung_offen(c, cid: str) -> str:
+    """Die Erhebung, in die neue Bewertungen geschrieben werden.
+
+    Es ist die juengste nicht verworfene. Gibt es noch keine, wird eine fuer den
+    laufenden Monat angelegt. Damit muss niemand vor der ersten Bewertung daran
+    denken — und trotzdem haengt jede Bewertung an einem Messzeitpunkt. Ohne
+    diesen Bezug waere eine Gate-Freigabe nicht reproduzierbar, weil sich der
+    Datenstand, auf den sie sich bezog, spaeter nicht mehr herstellen laesst.
+    """
+    zeile = c.execute(
+        "SELECT erhebung_id FROM ref_erhebungen WHERE " + W_CO +
+        " AND status<>'verworfen' ORDER BY stand DESC, erhebung_id DESC LIMIT 1",
+        (cid,)).fetchone()
+    if zeile:
+        return zeile["erhebung_id"]
+    heute = datetime.date.today()
+    erhebung_id = "E-%04d-%02d" % (heute.year, heute.month)
+    c.execute("INSERT INTO ref_erhebungen(company_id,erhebung_id,bezeichnung,stand,status,methode) "
+              "VALUES(?,?,?,?,?,?)",
+              (cid, erhebung_id, "Erhebung %02d/%04d" % (heute.month, heute.year),
+               _heute(), "offen",
+               "Self-Rating je Teilprozess, 30 Bitkom-Items, Belegpflicht"))
+    return erhebung_id
+
+
+@app.get("/api/companies/{cid}/erhebungen")
+def erhebungen(cid: str, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+    """Alle Erhebungen des Mandanten, dazu die Anzahl Bewertungen je Erhebung."""
+    pruefe_mandant(benutzer, cid)
+    c = db()
+    try:
+        zeilen = [dict(r) for r in c.execute(
+            "SELECT e.erhebung_id, e.bezeichnung, "
+            + ("e.stand::text AS stand" if PG else "e.stand") +
+            ", e.status, e.methode, e.hinweis, "
+            "(SELECT count(*) FROM bitkom_bewertungen b WHERE b.company_id=e.company_id "
+            " AND b.erhebung_id=e.erhebung_id) AS bewertungen "
+            "FROM ref_erhebungen e WHERE e." + W_CO +
+            " ORDER BY e.stand DESC, e.erhebung_id DESC", (cid,)).fetchall()]
+    finally:
+        c.close()
+    massgeblich = zeilen[0]["erhebung_id"] if zeilen else None
+    for z in zeilen:
+        z["bewertungen"] = int(z["bewertungen"])
+    return {"erhebungen": zeilen, "massgeblich": massgeblich, "status_werte": ERHEBUNG_STATUS}
+
+
+@app.post("/api/companies/{cid}/erhebungen")
+async def erhebung_steuern(cid: str, req: Request,
+                           benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+    """Erhebung abschliessen oder eine neue beginnen.
+
+    `abschliessen` setzt die offene Erhebung auf `abgeschlossen`. `neu` legt eine
+    Erhebung fuer den laufenden Monat an — sie wird dadurch massgeblich, aendert
+    aber erst etwas, sobald Bewertungen darin stehen: Der aktuelle Stand wird je
+    Teilprozess und Item bestimmt, nicht je Mandant. Ein nicht nacherhobener
+    Prozess behaelt also seinen bisherigen Wert.
+    """
+    pruefe_mandant(benutzer, cid)
+    b = await req.json()
+    aktion = (b.get("aktion") or "").strip()
+    if aktion not in ("abschliessen", "neu", "verwerfen"):
+        raise HTTPException(400, "Unbekannte Aktion: %s" % aktion)
+    c = db()
+    try:
+        if aktion == "neu":
+            heute = datetime.date.today()
+            erhebung_id = "E-%04d-%02d" % (heute.year, heute.month)
+            vorhanden = c.execute("SELECT status FROM ref_erhebungen WHERE " + W_CO +
+                                  " AND erhebung_id=?", (cid, erhebung_id)).fetchone()
+            if vorhanden:
+                raise HTTPException(400, "Fuer diesen Monat gibt es bereits die Erhebung %s"
+                                         % erhebung_id)
+            c.execute("INSERT INTO ref_erhebungen(company_id,erhebung_id,bezeichnung,stand,"
+                      "status,methode,hinweis) VALUES(?,?,?,?,?,?,?)",
+                      (cid, erhebung_id,
+                       (b.get("bezeichnung") or "Erhebung %02d/%04d" % (heute.month, heute.year)).strip(),
+                       _heute(), "offen",
+                       (b.get("methode") or "").strip() or None,
+                       (b.get("hinweis") or "").strip() or None))
+        else:
+            ziel = "abgeschlossen" if aktion == "abschliessen" else "verworfen"
+            erhebung_id = (b.get("erhebung_id") or "").strip()
+            if not erhebung_id:
+                zeile = c.execute("SELECT erhebung_id FROM ref_erhebungen WHERE " + W_CO +
+                                  " AND status='offen' ORDER BY stand DESC LIMIT 1",
+                                  (cid,)).fetchone()
+                if not zeile:
+                    raise HTTPException(400, "Es ist keine Erhebung offen")
+                erhebung_id = zeile["erhebung_id"]
+            c.execute("UPDATE ref_erhebungen SET status=? WHERE " + W_CO + " AND erhebung_id=?",
+                      (ziel, cid, erhebung_id))
+        c.commit()
+    finally:
+        c.close()
+    return {"ok": True, "erhebung_id": erhebung_id}
+
 
 # ---------------- Rollen und Kostensaetze (Stammdaten, seit 11.08.2026) ----------------
 def _heute():
@@ -1213,6 +1605,508 @@ async def save_entitaeten(cid: str, req: Request,
     finally:
         c.close()
     return {"ok": True}
+
+
+# ---------------- Gate 0: Freigabebogen (Schema v1.4, seit 17.08.2026) ----------
+# ALLES IN DIESEM ABSCHNITT IST ADMINISTRATOREN VORBEHALTEN (Depends(admin)).
+# Die Freigabe an BC2 loest den nachgelagerten Kontext aus und betrifft das ganze
+# Unternehmen; sie ist keine Pflegehandlung. Benutzer.darf_freigeben sagt dasselbe.
+#
+# KEIN ZUGRIFF AUF DIE POSTGRESQL-SICHTEN (v_gate_bogen, v_gate_freigabe_aktuell,
+# v_gate_vorbedingungen). Sie gibt es im SQLite-Entwicklungsmodus nicht, und eine
+# Oberflaeche, die nur gegen ein Backend laeuft, waere im zweiten nicht zu testen.
+# Die Abfragen stehen deshalb als portables SQL hier — dasselbe Vorgehen wie bei
+# _bew_aktuell(), das die View v_bewertung_aktuell nachbildet.
+
+def _jetzt():
+    """Aktueller Zeitpunkt im vom Backend erwarteten Typ."""
+    return datetime.datetime.now(datetime.timezone.utc) if PG else now()
+
+
+def _gate_teilprozesse(c, cid, sub_process_id=None):
+    """Teilprozesse des Mandanten mit dem Namen ihres Kernprozesses."""
+    sql = ("SELECT t.sub_process_id, t.process_id, t.sub_process_name, p.process_name "
+           "FROM ref_teilprozesse t JOIN ref_prozesse p "
+           "ON p.company_id=t.company_id AND p.process_id=t.process_id WHERE t." + W_CO)
+    werte = [cid]
+    if sub_process_id:
+        sql += " AND t.sub_process_id=?"; werte.append(sub_process_id)
+    return c.execute(sql + " ORDER BY t.process_id, t.step_no", tuple(werte)).fetchall()
+
+
+def _gate_beteiligungen(c, cid):
+    """Je Kernprozess: ist ein Eigner benannt, ist ein Ansprechpartner benannt.
+
+    Beides haengt am Kernprozess und wird an den Teilprozess vererbt. Ein eigener
+    Eigner je Teilprozess waere eine Genauigkeit, die es in der Wirklichkeit nicht
+    gibt.
+    """
+    eigner, ansprechpartner = set(), set()
+    for r in c.execute("SELECT process_id, funktion FROM prozess_personen WHERE " + W_CO,
+                       (cid,)).fetchall():
+        if r["funktion"] == "eigner":
+            eigner.add(r["process_id"])
+        elif r["funktion"] in GATE_ANSPRECHPARTNER:
+            ansprechpartner.add(r["process_id"])
+    return eigner, ansprechpartner
+
+
+def _gate_reifegrade(c, cid):
+    """Je Teilprozess: Anzahl bewerteter Items und Mittelwert der Stufen.
+
+    Gerechnet wird auf dem massgeblichen Stand (_bew_aktuell), nicht auf allen
+    Zeilen — sonst mittelte der Reifegrad ueber mehrere Erhebungen hinweg.
+    """
+    zeilen = c.execute("SELECT sub_process_id, COUNT(*) AS n_items, AVG(stufe) AS avg_stufe FROM "
+                       + _bew_aktuell("company_id,sub_process_id,item_nr,stufe")
+                       + " WHERE " + W_CO + " GROUP BY sub_process_id", (cid,)).fetchall()
+    return {r["sub_process_id"]: (int(r["n_items"]),
+                                  float(r["avg_stufe"]) if r["avg_stufe"] is not None else None)
+            for r in zeilen}
+
+
+def _gate_werte(c, ereignis_ids):
+    """Die erfassten Pruefpunkte je Ereignis."""
+    if not ereignis_ids:
+        return {}
+    platz = ",".join(["?"] * len(ereignis_ids))
+    ergebnis = {}
+    for r in c.execute("SELECT ereignis_id, pruefpunkt, vorhanden_pct, guete, bestaetigt, anmerkung "
+                       "FROM gate_pruefpunkt_werte WHERE ereignis_id IN (" + platz + ") "
+                       "ORDER BY pruefpunkt", tuple(ereignis_ids)).fetchall():
+        eintrag = dict(r)
+        eintrag["vorhanden_pct"] = (None if eintrag["vorhanden_pct"] is None
+                                    else float(eintrag["vorhanden_pct"]))
+        eintrag["bestaetigt"] = bool(eintrag["bestaetigt"])
+        ergebnis.setdefault(r["ereignis_id"], []).append(eintrag)
+    return ergebnis
+
+
+def _gate_hinweis(ereignis, werte):
+    """Was BC2 aus der Guete folgt — Ableitung, keine Vorschrift.
+
+    Wortgleich mit v_gate_freigabe_aktuell.hinweis_an_bc2, damit beide Wege
+    dieselbe Auskunft geben.
+    """
+    if ereignis != "freigegeben":
+        return "nicht freigegeben"
+    gueten = {w["guete"] for w in werte}
+    if "geraten" in gueten:
+        return "Bandbreite rechnen — mindestens eine Angabe ist geraten"
+    if "geschaetzt" in gueten:
+        return "Bandbreite empfohlen — mindestens eine Angabe ist geschaetzt"
+    return "Punktwert vertretbar — alle rechnungsrelevanten Angaben belegt"
+
+
+def _gate_letzter_stand(c, cid, sub_process_id=None):
+    """Je Teilprozess die juengste Entscheidung, samt ihrer Pruefpunkte.
+
+    Eine Freigabe ist ein Ereignis, keine Eigenschaft: Der aktuelle Stand ist die
+    juengste Zeile, nichts wird ueberschrieben (ADR-003).
+    """
+    innen = ("SELECT g.*, row_number() OVER (PARTITION BY g.objekt_id "
+             "ORDER BY g.am DESC, g.ereignis_id DESC) AS rang FROM gate_ereignisse g "
+             "WHERE g.gate='bc0-bc2' AND g.objekt_typ='teilprozess' AND g." + W_CO)
+    werte = [cid]
+    if sub_process_id:
+        innen += " AND g.objekt_id=?"; werte.append(sub_process_id)
+    zeilen = c.execute("SELECT objekt_id, ereignis_id, ereignis, benutzer_id, "
+                       + ("am::text AS am" if PG else "am") +
+                       ", anfrage_id, erhebung_id, bc1_profil_stand, kette_bestaetigt, "
+                       "kette_ergaenzung, grund, massnahme FROM (" + innen + ") t WHERE rang=1",
+                       tuple(werte)).fetchall()
+    punkte = _gate_werte(c, [r["ereignis_id"] for r in zeilen])
+    ergebnis = {}
+    for r in zeilen:
+        stand = dict(r)
+        stand["stand"] = stand.pop("ereignis")
+        stand["entschieden_am"] = stand.pop("am")
+        stand["kette_bestaetigt"] = (None if stand["kette_bestaetigt"] is None
+                                     else bool(stand["kette_bestaetigt"]))
+        stand["punkte"] = punkte.get(r["ereignis_id"], [])
+        stand["hinweis_an_bc2"] = _gate_hinweis(stand["stand"], stand["punkte"])
+        ergebnis[r["objekt_id"]] = stand
+    return ergebnis
+
+
+def _bc1_angaben(c, cid, sub_process_id):
+    """Die BC1-Anreicherung zu einem Teilprozess — heute immer None.
+
+    HIER WIRD ANGESCHLOSSEN, sobald Richard die vier Feldnamen (Dauer,
+    Haeufigkeit, Menge, Rollen mit Zeitanteil) und die Profil-Version benannt hat.
+    Bis dahin gibt es keine lesbare BC1-Quelle; ein geratenes Schema waere eine
+    Behauptung ueber fremde Daten und schlimmer als keine Angabe.
+
+    Solange None zurueckkommt, ist `entscheiden` nicht erreichbar. Das ist die
+    Wahrheit ueber den Projektstand, kein Mangel dieser Funktion.
+    """
+    return None
+
+
+def _gate_luecken(zeile):
+    """Die offenen Vorbedingungen einer Bogenzeile als (art, text)-Paare.
+
+    Getrennt von _gate_fehlende_vorbedingungen(): Dort steht der Wortlaut, mit dem
+    der Server eine Freigabe abweist — hier der kurze, der in einer Liste mit
+    fuenfzig Zeilen noch lesbar ist.
+    """
+    luecken = []
+    if not zeile["eigner_benannt"]:
+        luecken.append(("eigner", "Eigner fehlt"))
+    if not zeile["ansprechpartner_benannt"]:
+        luecken.append(("ansprechpartner", "Ansprechpartner fehlt"))
+    if not zeile["vollstaendig_bewertet"]:
+        luecken.append(("bewertung", "Bewertung unvollstaendig: %d von %d Items"
+                        % (zeile["items_bewertet"], GATE_ITEMS_MIN)))
+    return luecken
+
+
+def _gate_am_zug(zeile, bc1):
+    """Wer am Zug ist — vier Werte in fester Pruefreihenfolge, samt Begruendung.
+
+    Die Reihenfolge ist die Aussage: Was entschieden ist, bleibt entschieden, auch
+    wenn spaeter eine Vorbedingung wegfaellt. Und was BC0 selbst nachtragen kann,
+    steht vor dem, worauf BC0 nur warten kann.
+
+    `wartet_bc1` SPERRT NICHTS. Der Bogen bleibt oeffenbar, sobald die
+    Vorbedingungen stimmen, und eine Freigabe bleibt moeglich — der Admin kann die
+    BC1-Punkte auf `entfaellt` setzen. Der Zustand steuert allein die
+    Einsortierung in der Liste.
+    """
+    if zeile["stand"] in GATE_EREIGNISSE:
+        return "entschieden", "Entschieden: " + zeile["stand"]
+    luecken = _gate_luecken(zeile)
+    if luecken:
+        return "bc0_pflege", ", ".join(t for _art, t in luecken)
+    if bc1 is None:
+        return "wartet_bc1", "Anreicherung fehlt: " + ", ".join(GATE_BC1_FELDER)
+    return "entscheiden", "Vorbedingungen erfuellt, BC1-Angaben liegen vor"
+
+
+#: Der Wortlaut je Art. Steht am Kernprozess, nicht am Teilprozess — deshalb ohne
+#: Zahl im Text; die Zahl der betroffenen Teilprozesse steht daneben.
+GATE_HINDERNIS_TEXT = {
+    "eigner": "Kein Prozesseigner benannt",
+    "ansprechpartner": "Kein Ansprechpartner fuer Rueckfragen benannt",
+    "bewertung": "Selbsteinschaetzung unvollstaendig (mindestens %d von 30 Items je "
+                 "Teilprozess)" % GATE_ITEMS_MIN,
+}
+
+
+def _gate_hindernisse(zeilen):
+    """Die offenen Vorbedingungen, gruppiert nach Kernprozess und Art.
+
+    NICHT je Teilprozess: Eigner und Ansprechpartner haengen am Kernprozess und
+    werden an seine fuenf Teilprozesse vererbt. Je Teilprozess aufgefuehrt stuende
+    derselbe Satz fuenfzig Mal statt zehn Mal — eine Liste, die niemand liest.
+
+    Gezaehlt wird nur, was auch wirklich blockiert (am_zug='bc0_pflege'). Ein
+    entschiedener Teilprozess wartet auf nichts mehr, und ein Nachtrag daran
+    aenderte die Entscheidung nicht.
+    """
+    gruppen = {}
+    for z in zeilen:
+        if z["am_zug"] != "bc0_pflege":
+            continue
+        for art, _text in _gate_luecken(z):
+            eintrag = gruppen.get((z["process_id"], art))
+            if eintrag is None:
+                eintrag = gruppen[(z["process_id"], art)] = {
+                    "process_id": z["process_id"], "process_name": z["process_name"],
+                    "art": art, "text": GATE_HINDERNIS_TEXT[art], "betroffen": 0}
+            eintrag["betroffen"] += 1
+    return [gruppen[s] for s in sorted(gruppen,
+                                       key=lambda s: (s[0], GATE_HINDERNIS_ARTEN.index(s[1])))]
+
+
+def _gate_bogen(c, cid, sub_process_id=None):
+    """Vorbelegung des Bogens je Teilprozess: Vorbedingungen, Reifegrad, Stand."""
+    eigner, ansprechpartner = _gate_beteiligungen(c, cid)
+    reifegrade = _gate_reifegrade(c, cid)
+    staende = _gate_letzter_stand(c, cid, sub_process_id)
+    ausgabe = []
+    for t in _gate_teilprozesse(c, cid, sub_process_id):
+        items, mittel = reifegrade.get(t["sub_process_id"], (0, None))
+        hat_eigner = t["process_id"] in eigner
+        hat_ansprechpartner = t["process_id"] in ansprechpartner
+        vollstaendig = items >= GATE_ITEMS_MIN
+        stand = staende.get(t["sub_process_id"])
+        zeile = {
+            "sub_process_id": t["sub_process_id"], "process_id": t["process_id"],
+            "sub_process_name": t["sub_process_name"], "process_name": t["process_name"],
+            "eigner_benannt": hat_eigner, "ansprechpartner_benannt": hat_ansprechpartner,
+            "items_bewertet": items, "vollstaendig_bewertet": vollstaendig,
+            "reifegrad": (None if mittel is None else round(mittel, 2)),
+            "ueber_schwelle": (mittel is not None and mittel >= GATE_SCHWELLE),
+            "bogen_ausfuellbar": hat_eigner and hat_ansprechpartner and vollstaendig,
+            "stand": stand["stand"] if stand else None,
+            "entschieden_am": stand["entschieden_am"] if stand else None,
+            "hinweis_an_bc2": stand["hinweis_an_bc2"] if stand else None,
+        }
+        zeile["am_zug"], zeile["am_zug_grund"] = _gate_am_zug(
+            zeile, _bc1_angaben(c, cid, t["sub_process_id"]))
+        ausgabe.append(zeile)
+    return ausgabe
+
+
+def _gate_mandant(c, cid):
+    """Mandant vorhanden? Sonst 404.
+
+    pruefe_mandant() genuegt hier nicht: Ein Admin darf alle Mandanten sehen, also
+    auch solche, die es nicht gibt. Die Verbindung schliesst der Aufrufer im
+    finally-Zweig.
+    """
+    if not c.execute(SEL_CO + " WHERE " + KEY_CO, (cid,)).fetchone():
+        raise HTTPException(404, "Mandant unbekannt.")
+
+
+def _gate_fehlende_vorbedingungen(zeile):
+    fehlt = []
+    if not zeile["eigner_benannt"]:
+        fehlt.append("kein Prozesseigner benannt")
+    if not zeile["ansprechpartner_benannt"]:
+        fehlt.append("kein Ansprechpartner fuer Rueckfragen benannt")
+    if not zeile["vollstaendig_bewertet"]:
+        fehlt.append("nur %d von 30 Items bewertet (mindestens %d noetig)"
+                     % (zeile["items_bewertet"], GATE_ITEMS_MIN))
+    return fehlt
+
+
+@app.get("/api/companies/{cid}/gate")
+def gate_liste(cid: str, benutzer: Benutzer = Depends(admin)):
+    """Alle Teilprozesse mit Vorbedingungen, Reifegrad, letztem Stand und Zustand.
+
+    Sortiert nach GATE_AM_ZUG: Die Liste beantwortet damit nicht mehr nur „was
+    gibt es?", sondern „was ist jetzt zu tun?". Innerhalb eines Zustands nach
+    Teilprozess-ID, damit die Reihenfolge zwischen zwei Aufrufen stabil bleibt.
+    """
+    pruefe_mandant(benutzer, cid)
+    c = db()
+    try:
+        _gate_mandant(c, cid)
+        zeilen = _gate_bogen(c, cid)
+    finally:
+        c.close()
+    zeilen.sort(key=lambda z: (GATE_AM_ZUG.index(z["am_zug"]), z["sub_process_id"]))
+    return {"teilprozesse": zeilen, "hindernisse": _gate_hindernisse(zeilen),
+            "schwelle": GATE_SCHWELLE, "items_min": GATE_ITEMS_MIN}
+
+
+@app.get("/api/companies/{cid}/gate/{sub_process_id}")
+def gate_bogen(cid: str, sub_process_id: str, benutzer: Benutzer = Depends(admin)):
+    """Ein Freigabebogen: Vorbedingungen, Prozesskette, Pruefpunkte, letzter Stand.
+
+    Die Prozesskette wird angezeigt, nicht erfasst — sie steht bereits in
+    prozess_schnittstellen. Ein drittes Mal erfasst hiesse: beim ersten Widerspruch
+    weiss niemand, welche Fassung gilt.
+    """
+    pruefe_mandant(benutzer, cid)
+    c = db()
+    try:
+        _gate_mandant(c, cid)
+        zeilen = _gate_bogen(c, cid, sub_process_id)
+        if not zeilen:
+            raise HTTPException(404, "Teilprozess unbekannt.")
+        bogen = zeilen[0]
+        pid = bogen["process_id"]
+        liefert_an = [r["nach_process_id"] for r in c.execute(
+            "SELECT DISTINCT nach_process_id FROM prozess_schnittstellen WHERE " + W_CO +
+            " AND von_process_id=? ORDER BY nach_process_id", (cid, pid)).fetchall()]
+        empfaengt_von = [r["von_process_id"] for r in c.execute(
+            "SELECT DISTINCT von_process_id FROM prozess_schnittstellen WHERE " + W_CO +
+            " AND nach_process_id=? ORDER BY von_process_id", (cid, pid)).fetchall()]
+        pruefpunkte = [dict(r) for r in c.execute(
+            "SELECT pruefpunkt, bezeichnung, erlaeuterung, quelle_bc, guete_noetig, pflicht, "
+            "reihenfolge FROM ref_gate_pruefpunkte WHERE aktiv" + ("" if PG else "=1") +
+            " ORDER BY reihenfolge, pruefpunkt").fetchall()]
+        stand = _gate_letzter_stand(c, cid, sub_process_id).get(sub_process_id)
+        erhebung = c.execute("SELECT erhebung_id, bezeichnung, status FROM ref_erhebungen WHERE "
+                             + W_CO + " AND status<>'verworfen' "
+                             "ORDER BY stand DESC, erhebung_id DESC LIMIT 1", (cid,)).fetchone()
+    finally:
+        c.close()
+    for p in pruefpunkte:
+        p["guete_noetig"] = bool(p["guete_noetig"])
+        p["pflicht"] = bool(p["pflicht"])
+    bogen["kette"] = {"liefert_an": liefert_an, "empfaengt_von": empfaengt_von}
+    bogen["pruefpunkte"] = pruefpunkte
+    bogen["letzter_stand"] = stand
+    bogen["erhebung"] = dict(erhebung) if erhebung else None
+    bogen["gueten"] = GATE_GUETEN
+    return bogen
+
+
+@app.post("/api/companies/{cid}/gate/{sub_process_id}")
+async def gate_entscheiden(cid: str, sub_process_id: str, req: Request,
+                           benutzer: Benutzer = Depends(admin)):
+    """Die Entscheidung schreiben — Ereignis und Pruefpunkte in EINER Transaktion.
+
+    Ein halb geschriebener Pruefbogen haette keinen Beweiswert: Er behauptete eine
+    Entscheidung, ohne zu belegen, worauf sie beruht. Deshalb wird erst vollstaendig
+    geprueft und dann geschrieben.
+
+    Die Erhebung wird als WERT kopiert, nicht als Verweis gespeichert. Ein Verweis
+    wanderte mit — schriebe BC1 danach nach, behauptete die Freigabe rueckwirkend,
+    etwas geprueft zu haben, das es damals nicht gab.
+    """
+    pruefe_mandant(benutzer, cid)
+    b = await req.json()
+    ereignis = (b.get("ereignis") or "").strip()
+    if ereignis not in GATE_EREIGNISSE:
+        raise HTTPException(400, "Unbekanntes Ereignis: %s" % (ereignis or "—"))
+    grund = (b.get("grund") or "").strip()
+    massnahme = (b.get("massnahme") or "").strip()
+    if ereignis == "zurueckgewiesen":
+        # Beide Pflichtfelder stehen auch als CHECK in der Datenbank. Hier steht
+        # die lesbare Meldung — eine Verletzung der Bedingung waere ein 500er.
+        if not grund:
+            raise HTTPException(400, "Eine Zurueckweisung braucht eine Begruendung.")
+        if not massnahme:
+            raise HTTPException(400, "Eine Zurueckweisung braucht eine Massnahme: Was passiert jetzt?")
+    if ereignis == "freigegeben":
+        massnahme = ""   # freigegeben heisst, es ist nichts zu tun
+
+    c = db()
+    try:
+        _gate_mandant(c, cid)
+        zeilen = _gate_bogen(c, cid, sub_process_id)
+        if not zeilen:
+            raise HTTPException(404, "Teilprozess unbekannt.")
+        bogen = zeilen[0]
+
+        katalog = {r["pruefpunkt"]: dict(r) for r in c.execute(
+            "SELECT pruefpunkt, guete_noetig, aktiv FROM ref_gate_pruefpunkte").fetchall()}
+        gesendet = {}
+        for punkt in (b.get("punkte") or []):
+            name = (punkt.get("pruefpunkt") or "").strip()
+            if name not in katalog:
+                raise HTTPException(400, "Unbekannter Pruefpunkt: %s" % (name or "—"))
+            if not katalog[name]["aktiv"]:
+                raise HTTPException(400, "Pruefpunkt %s ist nicht aktiv und wird nicht bewertet." % name)
+            if name in gesendet:
+                raise HTTPException(400, "Pruefpunkt %s ist doppelt angegeben." % name)
+            guete = (punkt.get("guete") or "").strip() or None
+            if guete and guete not in GATE_GUETEN:
+                raise HTTPException(400, "Unbekannte Guete bei %s: %s" % (name, guete))
+            pct = punkt.get("vorhanden_pct")
+            if pct in ("", None):
+                pct = None
+            else:
+                try:
+                    pct = float(pct)
+                except (TypeError, ValueError):
+                    raise HTTPException(400, "Befuellungsgrad bei %s ist keine Zahl" % name)
+                if not 0 <= pct <= 100:
+                    raise HTTPException(400, "Befuellungsgrad bei %s liegt nicht zwischen 0 und 100" % name)
+            gesendet[name] = (pct, guete, _wahr(punkt.get("bestaetigt")),
+                              (punkt.get("anmerkung") or "").strip() or None)
+
+        if ereignis == "freigegeben":
+            fehlt = _gate_fehlende_vorbedingungen(bogen)
+            if fehlt:
+                raise HTTPException(400, "Der Bogen ist nicht ausfuellbar: " + "; ".join(fehlt))
+            # Guete dort erzwingen, wo der Katalog sie verlangt — und nur bei einer
+            # Freigabe. Eine Zurueckweisung darf abbrechen, ohne jeden Punkt zu
+            # bewerten. Ein gar nicht gesendeter Punkt traegt ebenfalls keine Guete.
+            for name, eintrag in sorted(katalog.items()):
+                if not (eintrag["aktiv"] and eintrag["guete_noetig"]):
+                    continue
+                if not gesendet.get(name, (None, None))[1]:
+                    raise HTTPException(400, 'Pruefpunkt "%s" geht in die Rechnung ein und braucht '
+                                             "bei einer Freigabe eine Guete "
+                                             "(belegt/geschaetzt/geraten/entfaellt)." % name)
+
+        anfrage_id = (b.get("anfrage_id") or "").strip() or None
+        if anfrage_id and not c.execute("SELECT 1 AS da FROM ref_anfragen WHERE " + W_CO +
+                                        " AND anfrage_id=?", (cid, anfrage_id)).fetchone():
+            raise HTTPException(400, "Unbekannte Anfrage: %s" % anfrage_id)
+
+        erhebung_id = _erhebung_offen(c, cid)
+        felder = ("gate,company_id,objekt_typ,objekt_id,ereignis,benutzer_id,am,anfrage_id,"
+                  "erhebung_id,kette_bestaetigt,kette_ergaenzung,grund,massnahme")
+        daten = ("bc0-bc2", cid, "teilprozess", sub_process_id, ereignis,
+                 benutzer.benutzer_id, _jetzt(), anfrage_id, erhebung_id,
+                 _wahr(b.get("kette_bestaetigt")),
+                 (b.get("kette_ergaenzung") or "").strip() or None,
+                 grund or None, massnahme or None)
+        sql = "INSERT INTO gate_ereignisse(" + felder + ") VALUES(" + ",".join(["?"] * 13) + ")"
+        if PG:
+            ereignis_id = c.execute(sql + " RETURNING ereignis_id", daten).fetchone()["ereignis_id"]
+        else:
+            ereignis_id = c.execute(sql, daten).lastrowid
+        for name in sorted(gesendet):
+            pct, guete, bestaetigt, anmerkung = gesendet[name]
+            c.execute("INSERT INTO gate_pruefpunkt_werte(ereignis_id,pruefpunkt,vorhanden_pct,"
+                      "guete,bestaetigt,anmerkung) VALUES(?,?,?,?,?,?)",
+                      (ereignis_id, name, pct, guete, bestaetigt, anmerkung))
+        c.commit()
+    finally:
+        c.close()
+    return {"ok": True, "ereignis_id": ereignis_id, "erhebung_id": erhebung_id,
+            "stand": ereignis}
+
+
+@app.get("/api/companies/{cid}/anfragen")
+def anfragen(cid: str, benutzer: Benutzer = Depends(admin)):
+    """Die externen Anfragen an das CoE — der Ausloeser der Kette."""
+    pruefe_mandant(benutzer, cid)
+    c = db()
+    try:
+        _gate_mandant(c, cid)
+        zeilen = [dict(r) for r in c.execute(
+            "SELECT anfrage_id, originaltext, "
+            + ("eingang_am::text AS eingang_am" if PG else "eingang_am") +
+            ", eingang_weg, steller_id, hinweis FROM ref_anfragen WHERE " + W_CO +
+            " ORDER BY anfrage_id DESC", (cid,)).fetchall()]
+    finally:
+        c.close()
+    return {"anfragen": zeilen}
+
+
+@app.post("/api/companies/{cid}/anfragen")
+async def anfrage_anlegen(cid: str, req: Request, benutzer: Benutzer = Depends(admin)):
+    """Eine Anfrage aufnehmen.
+
+    Der `originaltext` wird nie veraendert — weder gekuerzt noch umformuliert noch
+    zusammengefasst. Eine Zusammenfassung gehoert in `hinweis`. Nur der Wortlaut
+    erlaubt am Ende der Kette die Pruefung, ob die Empfehlung von BC2 die gestellte
+    Frage ueberhaupt beantwortet.
+
+    Die ID vergibt der Server (ADR-004 R2) und verwendet sie nie wieder (R3): Der
+    Zaehler laeuft ueber das Maximum der vergebenen Nummern des Jahres, nicht ueber
+    ihre Anzahl.
+    """
+    pruefe_mandant(benutzer, cid)
+    b = await req.json()
+    originaltext = (b.get("originaltext") or "").strip()
+    if not originaltext:
+        raise HTTPException(400, "Der Originaltext der Anfrage fehlt.")
+    c = db()
+    try:
+        _gate_mandant(c, cid)
+        steller_id = (b.get("steller_id") or "").strip() or None
+        if steller_id and not c.execute("SELECT 1 AS da FROM ref_personen WHERE " + W_CO +
+                                        " AND person_id=?", (cid, steller_id)).fetchone():
+            raise HTTPException(400, "Unbekannte Person: %s" % steller_id)
+        jahr = datetime.date.today().year
+        vorhandene = [r["anfrage_id"] for r in c.execute(
+            "SELECT anfrage_id FROM ref_anfragen WHERE " + W_CO, (cid,)).fetchall()]
+        nummern = [int(x.split("-")[2]) for x in vorhandene
+                   if x.startswith("A-%04d-" % jahr) and x.split("-")[2].isdigit()]
+        naechste = max(nummern or [0]) + 1
+        if naechste > 99:
+            raise HTTPException(400, "Fuer %d sind bereits 99 Anfragen vergeben." % jahr)
+        anfrage_id = "A-%04d-%02d" % (jahr, naechste)
+        eingang_am = (b.get("eingang_am") or "").strip()
+        c.execute("INSERT INTO ref_anfragen(company_id,anfrage_id,originaltext,eingang_am,"
+                  "eingang_weg,steller_id,hinweis,angelegt_am) VALUES(?,?,?,?,?,?,?,?)",
+                  (cid, anfrage_id, originaltext, eingang_am or _heute(),
+                   (b.get("eingang_weg") or "").strip() or None, steller_id,
+                   (b.get("hinweis") or "").strip() or None, _jetzt()))
+        c.commit()
+    finally:
+        c.close()
+    return {"ok": True, "anfrage_id": anfrage_id}
 
 
 # ---------------- Static frontend ----------------

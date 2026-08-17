@@ -61,10 +61,32 @@ table{width:100%;border-collapse:collapse;font-size:12.6px}th,td{border:1px soli
    hinaus dehnen — sonst wird die letzte Spalte abgeschnitten und die Seite
    scrollt waagerecht. */
 #rk table,#ps table{table-layout:fixed}
-#rk table input,#rk table select,#ps table input,#ps table select{width:100%;box-sizing:border-box;padding:5px 7px;font-size:12.6px;border:1px solid var(--line);border-radius:6px}
-#rk table input[type=checkbox],#ps table input[type=checkbox]{width:auto}
+#rk table input,#rk table select,#ps table input,#ps table select,#g0 table input,#g0 table select{width:100%;box-sizing:border-box;padding:5px 7px;font-size:12.6px;border:1px solid var(--line);border-radius:6px}
+#rk table input[type=checkbox],#ps table input[type=checkbox],#g0 table input[type=checkbox]{width:auto}
 #rk table td,#rk table th,#ps table td,#ps table th{overflow:hidden;text-overflow:ellipsis}
 #ps table .btn{width:100%;padding:5px 4px;font-size:12px}
+/* Freigabe (Gate 0): Ampel fuer die Vorbedingungen, Guete-Kennzeichnung und der
+   Sperrhinweis. Bewusst nur wenige Regeln — der Bogen benutzt sonst dieselben
+   Bausteine wie die uebrigen Reiter (.panel, .row, table, .pill). */
+.ampel{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:8px;vertical-align:middle}
+.a-gruen{background:var(--ok)}.a-rot{background:var(--warn)}
+.sperr{margin-top:11px;padding:10px 14px;background:#fdf3f2;border-left:3px solid var(--warn);font-size:13px}
+.hinw{margin-top:11px;padding:10px 14px;background:#fff8ed;border-left:3px solid var(--amber);font-size:13px}
+.g0zeile{display:flex;gap:14px;align-items:baseline;margin-bottom:9px;flex-wrap:wrap}
+.g0zeile .etikett{flex:0 0 210px;color:var(--muted);font-size:12.5px}
+.g0feld{background:#fff;border:1px solid var(--line);border-radius:6px;padding:5px 10px;font-size:13px}
+.g0feld.aus{background:var(--chip);color:var(--muted);font-style:italic}
+.g0zitat{background:#fff;border:1px solid var(--line);border-left:3px solid var(--navy);padding:12px 15px;font-size:13.5px;line-height:1.55}
+.radio{display:inline-flex;gap:6px;align-items:center;font-size:13.5px;margin-right:18px}
+/* Zweiteilung der Liste: oben, was zu entscheiden ist, unten der Sachstand. */
+.g0hind{display:flex;gap:12px;align-items:baseline;padding:8px 0;border-top:1px solid var(--line)}
+.g0hind:first-child{border-top:0}
+.g0hind .kp{flex:0 0 190px;font-size:12.5px;color:var(--muted)}
+.g0hind .was{flex:1;min-width:220px;font-size:13.5px}
+.g0hind a{color:var(--navy);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+.g0nichts{padding:14px 2px;font-size:13.5px;color:var(--muted)}
+#g0 details.g0alle>summary{cursor:pointer;font-weight:600;font-size:14px;padding:2px 0;list-style:revert}
+.pill.gut{background:#e4f5ec;color:var(--ok)}.pill.mittel{background:#fbf1e1;color:var(--amber)}
 .who{margin-left:auto;display:flex;align-items:center;gap:12px;font-size:12.5px;color:#e6ecf3}
 .who .rolle{background:rgba(255,255,255,.16);padding:2px 9px;border-radius:11px;font-size:11px;font-weight:600}
 .who a{color:#fff;text-decoration:underline;cursor:pointer;opacity:.85}
@@ -96,6 +118,9 @@ table{width:100%;border-collapse:collapse;font-size:12.6px}th,td{border:1px soli
 <a data-v="ra"><span class="dot"></span>Self-Rating</a>
 <a data-v="gr"><span class="dot"></span>Bewertungen</a>
 <a data-v="rb"><span class="dot"></span>Reifegradbericht</a>
+<!-- Nur fuer Administratoren. Das Ausblenden ist Bequemlichkeit; die Sperre liegt
+     im Server, der jeden Gate-Endpunkt mit 403 beantwortet (Depends(admin)). -->
+<a data-v="g0" id="navG0" style="display:none"><span class="dot"></span>Freigabe (Gate 0)</a>
 </nav><h4>&nbsp;</h4><div class="nav"><a onclick="goList()"><span class="dot" style="background:#c9ccd1"></span>‹ Alle Mandanten</a></div></aside>
 <div class="content">
  <section class="view active" id="list"><div class="crumb">BC0 · Mandanten</div><h1>Mandanten</h1><p class="lead">Zentrale Projekt-Datenbank. Neuen Mandanten onboarden oder bestehenden öffnen.</p>
@@ -113,6 +138,7 @@ table{width:100%;border-collapse:collapse;font-size:12.6px}th,td{border:1px soli
  <section class="view" id="ra"></section>
  <section class="view" id="gr"></section>
  <section class="view" id="rb"></section>
+ <section class="view" id="g0"></section>
 </div></div><div class="toast" id="toast"></div>
 <script>
 var META=null, cur=null, curKP=null, curTP=null;
@@ -162,6 +188,9 @@ function zeigeBenutzer(){
   var nurAdmin = BENUTZER.ist_admin ? '' : 'none';
   if($('newBtn'))  $('newBtn').style.display  = nurAdmin;
   if($('yamlBtn')) $('yamlBtn').style.display = nurAdmin;
+  /* Der Freigabe-Reiter ebenso: Die Entscheidung loest BC2 aus und betrifft das
+     ganze Unternehmen. Ein Benutzer bekaeme auf jedem Gate-Endpunkt 403. */
+  if($('navG0'))   $('navG0').style.display   = BENUTZER.ist_admin ? 'flex' : 'none';
 }
 
 $('loginForm').onsubmit=async function(ev){
@@ -239,7 +268,7 @@ $('nextBtn').onclick=async function(){saveWiz();if(wstep===0&&!draft.name.trim()
 // ---- tenant workspace ----
 var wnav=document.querySelectorAll('#wnav a');for(var i=0;i<wnav.length;i++){(function(a){a.onclick=function(){for(var j=0;j<wnav.length;j++)wnav[j].classList.remove('active');a.classList.add('active');renderWS(a.dataset.v);};})(wnav[i]);}
 async function openTenant(id){cur=await api('/api/companies/'+id);$('side').style.display='block';$('tsel').style.display='inline';
-  var sw=$('tswitch');var list=await api('/api/companies');sw.innerHTML='';list.forEach(function(t){sw.innerHTML+='<option value="'+t.id+'" '+(t.id===id?'selected':'')+'>'+esc(t.name)+'</option>';});sw.onchange=function(){openTenant(+sw.value);};
+  var sw=$('tswitch');var list=await api('/api/companies');sw.innerHTML='';list.forEach(function(t){sw.innerHTML+='<option value="'+t.id+'" '+(String(t.id)===String(id)?'selected':'')+'>'+esc(t.name)+'</option>';});sw.onchange=function(){openTenant(sw.value);};
   for(var j=0;j<wnav.length;j++)wnav[j].classList.remove('active');wnav[0].classList.add('active');renderWS('ov');}
 async function reloadCur(){cur=await api('/api/companies/'+cur.company.id);}
 
@@ -254,6 +283,7 @@ async function renderWS(v){
   if(v==='ra')return renderRA();
   if(v==='gr')return renderGR();
   if(v==='rb')return renderRB();
+  if(v==='g0')return renderG0();
 }
 async function renderOV(){var rep=await api('/api/companies/'+cur.company.id+'/report');
   var kpn=Object.keys(cur.processes).length;
@@ -703,6 +733,273 @@ function spider(elId,labels,vals){var N=labels.length,cx=160,cy=145,R=100;var FS
   var any=vals.some(function(v){return v;});if(any){var poly='';for(var i=0;i<N;i++){var xy=pt(i,R*(vals[i]||0)/5);poly+=(i?'L':'M')+xy[0].toFixed(1)+' '+xy[1].toFixed(1)+' ';}g+='<path d="'+poly+'Z" fill="rgba(59,110,165,.25)" stroke="#3B6EA5" stroke-width="2"/>';}
   for(var i=0;i<N;i++){var xy=pt(i,R+18);g+='<text x="'+xy[0].toFixed(1)+'" y="'+xy[1].toFixed(1)+'" font-size="'+FS+'" fill="#6b7280" text-anchor="middle">'+labels[i]+'</text>';}
   g+='</svg>';$(elId).innerHTML=g;}
+
+/* ================= Freigabe (Gate 0), seit 17.08.2026 =========================
+   Der Bogen zwischen BC1 und BC2. Er beantwortet nicht „ist alles ausgefüllt" —
+   das kann Software allein —, sondern: darf auf dieser Grundlage gerechnet
+   werden? Deshalb trägt jede Angabe neben dem Befüllungsgrad eine GÜTE.
+
+   Drei Dinge, die man an der Oberfläche sieht:
+     * Vorbedingungen sind Abbruchkriterien, keine Prozentwerte. Sind sie offen,
+       ist der Bogen gesperrt.
+     * Die Prozesskette wird bestätigt, nicht erfasst — sie steht schon in
+       prozess_schnittstellen.
+     * Die Maßnahme erscheint nur bei „nicht freigeben". Freigegeben heißt, es
+       ist nichts zu tun.
+   Alles hier ist Administratoren vorbehalten; der Server weist jeden anderen
+   Aufruf mit 403 ab. */
+var G0=null, G0_ANFRAGEN=[], G0_BOGEN=null;
+var G0_GUETE_TEXT={belegt:'belegt', geschaetzt:'geschätzt', geraten:'geraten', entfaellt:'entfällt'};
+var G0_ZUSTAND_TEXT={entscheiden:'entscheidungsreif', bc0_pflege:'BC0 ist am Zug',
+                     wartet_bc1:'wartet auf BC1', entschieden:'entschieden'};
+
+async function renderG0(){
+  G0 = await api('/api/companies/'+cur.company.id+'/gate');
+  G0_ANFRAGEN = (await api('/api/companies/'+cur.company.id+'/anfragen')).anfragen;
+  G0_BOGEN = null; zeichneG0Liste(); show('g0');
+}
+function g0Ampel(ok){return '<span class="ampel '+(ok?'a-gruen':'a-rot')+'"></span>';}
+
+/* Der Reiter „Freigabe" ist zweigeteilt. Oben steht, was zu entscheiden ist —
+   und wenn nichts zu entscheiden ist, warum nicht und was dagegen hilft. Unten,
+   eingeklappt, der vollständige Sachstand. Eine Liste aus fünfzig gleich
+   aussehenden Zeilen beantwortet „was gibt es?", nicht „was ist jetzt zu tun?". */
+function g0Tabelle(zeilen, mitGrund){
+  var t='<table><tr><th style="width:130px">Teilprozess</th><th>Bezeichnung</th>'
+    +'<th style="width:230px">Vorbedingungen</th><th style="width:110px">Reifegrad</th>'
+    +(mitGrund?'<th style="width:230px">Zustand</th>':'')
+    +'<th style="width:230px">Letzter Stand</th><th style="width:110px"></th></tr>';
+  zeilen.forEach(function(z){
+    t+='<tr><td>'+esc(z.sub_process_id)+'</td>'
+      +'<td>'+esc(z.sub_process_name||'—')+'<div class="mut">'+esc(z.process_id+' · '+z.process_name)+'</div></td>'
+      +'<td>'+g0Ampel(z.eigner_benannt)+'Eigner<br>'+g0Ampel(z.ansprechpartner_benannt)+'Ansprechpartner<br>'
+      +g0Ampel(z.vollstaendig_bewertet)+'bewertet ('+z.items_bewertet+'/30)</td>'
+      +'<td>'+fmt(z.reifegrad)+(z.reifegrad?('<div class="mut">'+(z.ueber_schwelle?'über':'unter')+' '+(''+G0.schwelle).replace('.',',')+'</div>'):'')+'</td>'
+      +(mitGrund?('<td>'+esc(G0_ZUSTAND_TEXT[z.am_zug]||z.am_zug)
+                 +'<div class="mut">'+esc(z.am_zug_grund||'')+'</div></td>'):'')
+      +'<td>'+(z.stand?('<span class="pill'+(z.stand==='freigegeben'?' gut':' no')+'">'+esc(z.stand)+'</span>'
+              +'<div class="mut">'+esc((z.entschieden_am||'').slice(0,16).replace('T',' '))+'</div>'
+              +'<div class="mut">'+esc(z.hinweis_an_bc2||'')+'</div>')
+             :'<span class="mut">noch nicht entschieden</span>')+'</td>'
+      +'<td><button class="btn sm sec" data-bogen="'+esc(z.sub_process_id)+'">Bogen öffnen</button></td></tr>';
+  });
+  return t+'</table>';
+}
+
+/* Der Verweis in den zuständigen Reiter — derselbe Weg, den ein Klick in der
+   Seitenleiste nimmt, damit es nur eine Stelle gibt, die den Reiter wechselt. */
+function g0Reiter(art){return art==='bewertung'?'ra':'ps';}
+function gehZuReiter(v){var a=document.querySelector('#wnav a[data-v="'+v+'"]');if(a)a.click();}
+
+function g0Hindernisse(){
+  var h=G0.hindernisse||[];
+  if(!h.length) return '';
+  var b='';
+  h.forEach(function(x){
+    b+='<div class="g0hind"><span class="kp">'+esc(x.process_id+' · '+x.process_name)+'</span>'
+      +'<span class="was">'+esc(x.text)+' <span class="mut">('+x.betroffen+' Teilprozess'+(x.betroffen===1?'':'e')+')</span></span>'
+      +'<a data-reiter="'+esc(g0Reiter(x.art))+'">'+(x.art==='bewertung'?'zum Self-Rating ›':'zu Personen &amp; Systeme ›')+'</a></div>';
+  });
+  return '<div class="panel"><b>Was du dafür tun kannst</b><div style="margin-top:8px">'+b+'</div></div>';
+}
+
+function zeichneG0Liste(){
+  var reif=G0.teilprozesse.filter(function(z){return z.am_zug==='entscheiden';});
+  var wartet=G0.teilprozesse.filter(function(z){return z.am_zug==='wartet_bc1';}).length;
+  var oben=reif.length
+    ? '<div class="panel" style="padding:0;overflow:auto">'+g0Tabelle(reif,false)+'</div>'
+    : '<div class="panel"><div class="g0nichts">Nichts. Es liegt kein Teilprozess entscheidungsreif vor.</div></div>';
+  var bc1=wartet
+    ? '<div class="hinw">Danach '+(wartet===1?'wartet 1 Teilprozess':'warten '+wartet+' Teilprozesse')+' auf die Anreicherung aus BC1 — Dauer, Häufigkeit, Menge und Rollen mit Zeitanteil liegen nicht vor.</div>'
+    : '';
+  $('g0').innerHTML='<div class="crumb">'+cr()+'Freigabe (Gate 0)</div><h1>Freigabe an BC2 (Gate 0)</h1>'
+    +'<p class="lead">Human in the Loop nach der BC1-Anreicherung. Freigegeben wird der <b>Teilprozess</b>, nicht der Kernprozess — automatisiert wird auf Teilprozessebene. Die Entscheidung ist Administratoren vorbehalten.</p>'
+    +'<h2 style="font-size:17px;margin:0 0 8px">Zu entscheiden</h2>'+oben+g0Hindernisse()+bc1
+    +'<details class="g0alle panel" style="margin-top:18px"><summary>Sachstand aller Teilprozesse ('
+    +G0.teilprozesse.length+')</summary>'
+    +'<div style="margin-top:12px;overflow:auto">'+g0Tabelle(G0.teilprozesse,true)+'</div></details>';
+  $('g0').querySelectorAll('[data-bogen]').forEach(function(b){
+    b.onclick=function(){oeffneG0Bogen(b.dataset.bogen);};});
+  $('g0').querySelectorAll('[data-reiter]').forEach(function(a){
+    a.onclick=function(){gehZuReiter(a.dataset.reiter);};});
+}
+
+async function oeffneG0Bogen(sid){
+  G0_BOGEN = await api('/api/companies/'+cur.company.id+'/gate/'+encodeURIComponent(sid));
+  zeichneG0Bogen(); window.scrollTo(0,0);
+}
+
+/* Befüllungsgrad aus dem, was BC0 selbst weiß. Die BC1-Anteile (Dauer,
+   Häufigkeit, Menge, Rollen) bleiben leer, solange deren Feldnamen nicht benannt
+   sind — eine erfundene Vorbelegung wäre schlimmer als ein leeres Feld. */
+function g0Vorbelegung(punkt){
+  var b=G0_BOGEN, p=cur.processes[b.process_id]||{};
+  if(punkt==='prozessbeschreibung') return (p.beschreibung||'').trim()?100:0;
+  if(punkt==='ansprechpartner') return b.ansprechpartner_benannt?100:0;
+  if(punkt==='medienbrueche'){
+    var tp=(p.tps||[]).filter(function(x){return x.sub_process_id===b.sub_process_id;})[0]||{};
+    return (tp.medienbrueche||'').trim()?100:0;
+  }
+  return '';
+}
+
+function zeichneG0Bogen(){
+  var b=G0_BOGEN, stand=b.letzter_stand, frueher={};
+  (stand&&stand.punkte||[]).forEach(function(p){frueher[p.pruefpunkt]=p;});
+  var offen=[];
+  if(!b.eigner_benannt) offen.push('Prozesseigner');
+  if(!b.ansprechpartner_benannt) offen.push('Ansprechpartner für Rückfragen');
+  if(!b.vollstaendig_bewertet) offen.push('vollständige Selbsteinschätzung');
+
+  /* 1 — Anfrage */
+  var anf='<select id="g0_anfrage"><option value="">— keine Anfrage zugeordnet —</option>';
+  G0_ANFRAGEN.forEach(function(a){
+    var gewaehlt=(stand&&stand.anfrage_id===a.anfrage_id)?' selected':'';
+    anf+='<option value="'+esc(a.anfrage_id)+'"'+gewaehlt+'>'+esc(a.anfrage_id+' · '+a.originaltext.slice(0,70))+'</option>';});
+  anf+='</select>';
+  var gewaehlteAnfrage=G0_ANFRAGEN.filter(function(a){return stand&&a.anfrage_id===stand.anfrage_id;})[0];
+  var h='<div class="crumb"><span id="g0_zurueck" style="cursor:pointer">‹ Freigabe</span></div>'
+   +'<h1>Gate 0 — Freigabe zur Wirtschaftlichkeitsbetrachtung</h1>'
+   +'<p class="lead">'+esc(b.sub_process_id+' · '+(b.sub_process_name||''))+'</p>'
+   +'<div class="panel"><h3>1 · Die Anfrage</h3>'
+   +'<p class="mut">Der Originaltext ist der Anker der Kette. Ohne ihn lässt sich am Ende nicht mehr prüfen, ob die Empfehlung von BC2 die gestellte Frage überhaupt beantwortet. Er wird <b>nie verändert</b> — eine Zusammenfassung gehört in den Hinweis.</p>'
+   +'<div class="g0zeile"><span class="etikett">Anfrage</span><span style="flex:1;min-width:280px">'+anf+'</span></div>'
+   +'<div id="g0_anfrage_text" class="g0zitat"'+(gewaehlteAnfrage?'':' style="display:none"')+'>'+esc(gewaehlteAnfrage?gewaehlteAnfrage.originaltext:'')+'</div>'
+   +'<div class="row" style="margin-top:10px;align-items:flex-end"><div style="flex:1;min-width:280px"><label>Neue Anfrage im Wortlaut aufnehmen</label>'
+   +'<textarea id="g0_neu_text" style="width:100%" placeholder="Wortlaut wie eingegangen — nicht gekürzt, nicht umformuliert"></textarea></div>'
+   +'<div><label>Eingang über</label><input id="g0_neu_weg" placeholder="z. B. Mail, Telefon"></div>'
+   +'<button class="btn sec" id="g0_neu_btn">Anfrage aufnehmen</button></div></div>';
+
+  /* 2 — Gegenstand */
+  h+='<div class="panel"><h3>2 · Gegenstand der Prüfung</h3>'
+   +'<div class="g0zeile"><span class="etikett">Kernprozess</span><span class="g0feld">'+esc(b.process_id+' — '+b.process_name)+'</span></div>'
+   +'<div class="g0zeile"><span class="etikett">Teilprozess</span><span class="g0feld">'+esc(b.sub_process_id+' — '+(b.sub_process_name||''))+'</span>'
+   +'<span class="g0feld">Reifegrad '+fmt(b.reifegrad)+'</span></div>'
+   +'<div class="g0zeile"><span class="etikett">Fokus-Schritt</span><span class="g0feld aus">wartet auf BC1 — Feldname <code>focus_step_id</code> noch nicht benannt</span></div>'
+   +'<div class="g0zeile"><span class="etikett">Selbsteinschätzung</span><span class="g0feld">'+b.items_bewertet+' von 30 Items bewertet</span>'
+   +'<span class="g0feld aus">Stand: '+esc(b.erhebung?b.erhebung.erhebung_id:'—')+'</span></div></div>';
+
+  /* 3 — Vorbedingungen */
+  h+='<div class="panel"><h3>3 · Vorbedingungen <span class="mut" style="font-weight:400">— keine Prozentwerte, sondern Abbruchkriterien</span></h3>'
+   +'<div>'+g0Ampel(b.eigner_benannt)+'Prozesseigner benannt</div>'
+   +'<div>'+g0Ampel(b.ansprechpartner_benannt)+'Ansprechpartner für Rückfragen benannt</div>'
+   +'<div>'+g0Ampel(b.vollstaendig_bewertet)+'Selbsteinschätzung vollständig ('+b.items_bewertet+' von 30, mindestens '+G0.items_min+')</div>'
+   +(offen.length?('<div class="sperr">Offen: '+esc(offen.join(', '))+'. Solange eine Vorbedingung fehlt, ist keine Freigabe möglich — ohne benannten Eigner verantwortet niemand die Angaben, ohne Ansprechpartner hat BC1 oder BC2 bei einer Rückfrage niemanden. Eine Zurückweisung mit Maßnahme ist weiterhin möglich und der richtige Weg.</div>'):'')
+   +'</div>';
+
+  /* 4 — Prozesskette */
+  var kette=function(liste){return liste.length?liste.map(function(x){return '<span class="g0feld">'+esc(x)+'</span>';}).join(' '):'<span class="g0feld aus">nichts erfasst</span>';};
+  h+='<div class="panel"><h3>4 · Prozesskette <span class="mut" style="font-weight:400">— bestätigen, nicht erfassen</span></h3>'
+   +'<div class="g0zeile"><span class="etikett">empfängt von</span>'+kette(b.kette.empfaengt_von)+'</div>'
+   +'<div class="g0zeile"><span class="etikett">liefert an</span>'+kette(b.kette.liefert_an)+'</div>'
+   +'<div class="g0zeile"><span class="etikett">Stimmt das?</span>'
+   +'<label class="radio"><input type="radio" name="g0kette" value="ja"'+((!stand||stand.kette_bestaetigt!==false)?' checked':'')+'> ja</label>'
+   +'<label class="radio"><input type="radio" name="g0kette" value="nein"'+((stand&&stand.kette_bestaetigt===false)?' checked':'')+'> nein</label></div>'
+   +'<div class="g0zeile"><span class="etikett">Es fehlt</span><input id="g0_kette_erg" style="flex:1;min-width:280px" placeholder="z. B. KP-07 liefert zu, steht nicht drin" value="'+esc(stand?(stand.kette_ergaenzung||''):'')+'"></div>'
+   +'<p class="mut">Angezeigt wird, was in <code>prozess_schnittstellen</code> steht. Ein drittes Mal erfasst hieße: Beim ersten Widerspruch weiß niemand mehr, welche Fassung gilt. Die Ergänzung ist ein Auftrag an die Pflege, kein automatischer Nachtrag.</p></div>';
+
+  /* 5 — Pflichtangaben mit Güte */
+  var t='<table><tr><th>Angabe</th><th style="width:70px">Quelle</th><th style="width:110px">vorhanden %</th>'
+    +'<th style="width:150px">Güte</th><th style="width:70px">geprüft</th><th style="width:26%">Anmerkung</th></tr>';
+  b.pruefpunkte.forEach(function(p){
+    var alt=frueher[p.pruefpunkt]||{};
+    var pct=(alt.vorhanden_pct!=null?alt.vorhanden_pct:g0Vorbelegung(p.pruefpunkt));
+    var opt='<option value="">—</option>';
+    b.gueten.forEach(function(g){opt+='<option value="'+g+'"'+(alt.guete===g?' selected':'')+'>'+esc(G0_GUETE_TEXT[g]||g)+'</option>';});
+    t+='<tr data-punkt="'+esc(p.pruefpunkt)+'">'
+      +'<td><b>'+esc(p.bezeichnung)+'</b>'+(p.guete_noetig?' <span class="pill mittel">Güte nötig</span>':'')
+      +'<div class="mut">'+esc(p.erlaeuterung||'')+'</div></td>'
+      +'<td>'+esc(p.quelle_bc)+'</td>'
+      +'<td><input class="g0-pct" type="number" min="0" max="100" step="1" value="'+(pct===''||pct==null?'':pct)+'"></td>'
+      +'<td><select class="g0-guete">'+opt+'</select></td>'
+      +'<td style="text-align:center"><input type="checkbox" class="g0-ok"'+(alt.bestaetigt?' checked':'')+'></td>'
+      +'<td><input class="g0-anm" value="'+esc(alt.anmerkung||'')+'"></td></tr>';
+  });
+  t+='</table>';
+  h+='<div class="panel"><h3>5 · Pflichtangaben</h3>'+t
+   +'<div class="hinw"><b>Warum die Güte-Spalte:</b> „100 % vorhanden" heißt nur, dass ein Wert dasteht — nicht, dass er stimmt. Die Häufigkeit ist meist aus einem System zählbar, die Dauer fast nie. Die Güte wandert an BC2 mit; nur so kann BC2 entscheiden, ob es einen Punktwert oder eine Bandbreite rechnet. Bei einer Freigabe ist sie für jede rechnungsrelevante Angabe Pflicht.</div>'
+   +'<p class="mut">Ein fehlender Haken verhindert die Freigabe nicht — er macht sie begründungspflichtig.</p></div>';
+
+  /* 6 — Reifegradschwelle */
+  h+='<div class="panel"><h3>6 · Reifegradschwelle</h3>'
+   +'<div class="g0zeile"><span class="etikett">Reifegrad &gt; '+(''+G0.schwelle).replace('.',',')+'?</span>'
+   +'<span class="g0feld">'+(b.reifegrad?((b.ueber_schwelle?'ja — ':'nein — ')+fmt(b.reifegrad)+' am Teilprozess'):'noch kein Reifegrad')+'</span>'
+   +'<span class="mut">optional · Projektsetzung, keine Bitkom-Vorgabe</span></div>'
+   +'<p class="mut">Bitkom gibt aus dem Reifegrad ausdrücklich keine Handlungsempfehlung ab. Eine Unterschreitung heißt: Kandidat für Reifegradmaßnahmen, nicht Papierkorb. Sie sperrt die Freigabe deshalb nicht.</p></div>';
+
+  /* 7 — Entscheidung */
+  h+='<div class="panel"><h3>7 · Entscheidung</h3>'
+   +'<div class="g0zeile"><span class="etikett">Freigabe an BC2</span>'
+   +'<label class="radio"><input type="radio" name="g0frei" value="freigegeben"'+(offen.length?' disabled':'')+'> freigeben</label>'
+   +'<label class="radio"><input type="radio" name="g0frei" value="zurueckgewiesen" checked> nicht freigeben</label></div>'
+   +'<div class="g0zeile"><span class="etikett">Begründung</span><input id="g0_grund" style="flex:1;min-width:280px" placeholder="bei Zurückweisung Pflicht" value="'+esc(stand?(stand.grund||''):'')+'"></div>'
+   +'<div class="g0zeile" id="g0_massnahme_zeile"><span class="etikett">Maßnahme <span class="reqstar">*</span></span>'
+   +'<input id="g0_massnahme" style="flex:1;min-width:280px" placeholder="Was passiert jetzt?" value="'+esc(stand?(stand.massnahme||''):'')+'"></div>'
+   +'<p class="mut"><span class="reqstar">*</span> Pflicht bei „nicht freigeben". Bei einer Freigabe bleibt das Feld leer — freigegeben heißt, es ist nichts zu tun.</p>'
+   +'<div class="row"><button class="btn" id="g0_save">Entscheidung festhalten</button>'
+   +'<span class="mut">Festgehalten werden zusätzlich: wer entschieden hat und wann (aus der Anmeldung) und der BC0-Stand '+esc(b.erhebung?b.erhebung.erhebung_id:'—')+' als kopierter Wert.</span></div></div>';
+
+  $('g0').innerHTML=h;
+  $('g0_zurueck').onclick=function(){renderG0();};
+  $('g0_anfrage').onchange=function(){
+    var a=G0_ANFRAGEN.filter(function(x){return x.anfrage_id===$('g0_anfrage').value;})[0];
+    $('g0_anfrage_text').style.display=a?'block':'none';
+    $('g0_anfrage_text').textContent=a?a.originaltext:'';
+  };
+  $('g0_neu_btn').onclick=g0AnfrageAnlegen;
+  document.querySelectorAll('input[name=g0frei]').forEach(function(r){r.onchange=g0MassnahmeZeigen;});
+  g0MassnahmeZeigen();
+  $('g0_save').onclick=g0Speichern;
+}
+
+/* Die Maßnahme erscheint nur bei „nicht freigeben" — bei einer Freigabe gibt es
+   nichts zu tun, und ein leeres Pflichtfeld daneben wäre nur verwirrend. */
+function g0MassnahmeZeigen(){
+  var gewaehlt=document.querySelector('input[name=g0frei]:checked');
+  var nein=!gewaehlt||gewaehlt.value==='zurueckgewiesen';
+  $('g0_massnahme_zeile').style.display=nein?'flex':'none';
+}
+
+async function g0AnfrageAnlegen(){
+  var text=($('g0_neu_text').value||'').trim();
+  if(!text){toast('Der Wortlaut der Anfrage fehlt.',true);return;}
+  try{
+    var r=await api('/api/companies/'+cur.company.id+'/anfragen','POST',
+                    {originaltext:text, eingang_weg:$('g0_neu_weg').value});
+    G0_ANFRAGEN=(await api('/api/companies/'+cur.company.id+'/anfragen')).anfragen;
+    G0_BOGEN.letzter_stand=G0_BOGEN.letzter_stand||{};
+    G0_BOGEN.letzter_stand.anfrage_id=r.anfrage_id;
+    toast('✓ Anfrage '+r.anfrage_id+' aufgenommen.');
+    zeichneG0Bogen();
+  }catch(e){toast('Fehler: '+e.detail,true);}
+}
+
+async function g0Speichern(){
+  var gewaehlt=document.querySelector('input[name=g0frei]:checked');
+  var ereignis=gewaehlt?gewaehlt.value:'zurueckgewiesen';
+  var punkte=[];
+  document.querySelectorAll('#g0 tr[data-punkt]').forEach(function(tr){
+    punkte.push({pruefpunkt:tr.dataset.punkt,
+                 vorhanden_pct:tr.querySelector('.g0-pct').value,
+                 guete:tr.querySelector('.g0-guete').value,
+                 bestaetigt:tr.querySelector('.g0-ok').checked,
+                 anmerkung:tr.querySelector('.g0-anm').value});
+  });
+  var kette=document.querySelector('input[name=g0kette]:checked');
+  var koerper={ereignis:ereignis,
+               anfrage_id:$('g0_anfrage').value,
+               kette_bestaetigt:!kette||kette.value==='ja',
+               kette_ergaenzung:$('g0_kette_erg').value,
+               grund:$('g0_grund').value,
+               massnahme:$('g0_massnahme').value,
+               punkte:punkte};
+  try{
+    await api('/api/companies/'+cur.company.id+'/gate/'+encodeURIComponent(G0_BOGEN.sub_process_id),
+              'POST', koerper);
+    toast('✓ Entscheidung festgehalten.');
+    await renderG0();
+  }catch(e){ toast('Blockiert: '+e.detail, true); }
+}
 
 boot();
 </script>
