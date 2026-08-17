@@ -43,14 +43,55 @@ table{width:100%;border-collapse:collapse;font-size:12.6px}th,td{border:1px soli
 .pill{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;background:var(--chip);color:var(--navy)}.pill.no{background:#fbeae8;color:var(--warn)}
 .toast{position:fixed;right:22px;bottom:22px;background:var(--navy);color:#fff;padding:13px 18px;border-radius:9px;opacity:0;transform:translateY(10px);transition:.25s;font-size:13.5px}.toast.show{opacity:1;transform:none}.toast.err{background:var(--warn)}
 .mut{color:var(--muted);font-size:12.5px}.radarBox{display:flex;justify-content:center}.up{border:2px dashed var(--line);border-radius:10px;padding:18px;text-align:center;color:var(--muted);font-size:13px}
+/* --- Anmeldung (Etappe 4a, 10.08.2026) --- */
+/* Die Sperre liegt als Vollbild-Ebene ueber der Anwendung. Sie ist kein Ersatz
+   fuer die serverseitige Pruefung, sondern deren sichtbare Entsprechung: Der
+   Server weist jede API-Anfrage ohne Sitzung mit 401 ab, unabhaengig davon, was
+   die Oberflaeche anzeigt. */
+.gate{position:fixed;inset:0;background:var(--navy);display:none;align-items:center;justify-content:center;z-index:9999;padding:20px}
+.gate.on{display:flex}
+.gate .box{background:#fff;border-radius:14px;padding:30px 32px;width:100%;max-width:360px;box-shadow:0 18px 50px rgba(0,0,0,.3)}
+.gate h2{margin:0 0 4px;font-size:19px;color:var(--navy)}
+.gate p.mut{margin:0 0 18px}
+.gate label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin:12px 0 4px}
+.gate input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;box-sizing:border-box}
+.gate .btn{width:100%;margin-top:20px}
+.gate .err{color:var(--warn);font-size:12.5px;margin-top:12px;min-height:16px}
+/* Rollen & Kosten: Eingabefelder duerfen die Tabelle nicht ueber den Container
+   hinaus dehnen — sonst wird die letzte Spalte abgeschnitten und die Seite
+   scrollt waagerecht. */
+#rk table,#ps table{table-layout:fixed}
+#rk table input,#rk table select,#ps table input,#ps table select{width:100%;box-sizing:border-box;padding:5px 7px;font-size:12.6px;border:1px solid var(--line);border-radius:6px}
+#rk table input[type=checkbox],#ps table input[type=checkbox]{width:auto}
+#rk table td,#rk table th,#ps table td,#ps table th{overflow:hidden;text-overflow:ellipsis}
+#ps table .btn{width:100%;padding:5px 4px;font-size:12px}
+.who{margin-left:auto;display:flex;align-items:center;gap:12px;font-size:12.5px;color:#e6ecf3}
+.who .rolle{background:rgba(255,255,255,.16);padding:2px 9px;border-radius:11px;font-size:11px;font-weight:600}
+.who a{color:#fff;text-decoration:underline;cursor:pointer;opacity:.85}
 </style></head><body>
+<!-- Anmeldemaske. Ohne gueltige Sitzung liegt sie ueber allem anderen. -->
+<div class="gate" id="gate"><div class="box">
+  <h2>BC0 Onboarding-Tool</h2>
+  <p class="mut" id="gateHint">Bitte anmelden.</p>
+  <form id="loginForm" autocomplete="on">
+    <label for="loginMail">E-Mail</label>
+    <input type="email" id="loginMail" autocomplete="username" required>
+    <label for="loginPw">Passwort</label>
+    <input type="password" id="loginPw" autocomplete="current-password" required>
+    <button class="btn" type="submit" id="loginBtn">Anmelden</button>
+    <div class="err" id="loginErr"></div>
+  </form>
+</div></div>
 <div class="topbar"><div class="logo">NoroAI · BC0 Onboarding-Tool</div><div class="sub" id="backendLabel">FastAPI · Backend wird geprüft …</div>
-<div class="tsel" id="tsel" style="display:none">Mandant: <select id="tswitch"></select></div></div>
+<div class="tsel" id="tsel" style="display:none">Mandant: <select id="tswitch"></select></div>
+<div class="who" id="who" style="display:none"><span id="whoName"></span><span class="rolle" id="whoRolle"></span><a id="logoutLink">Abmelden</a></div></div>
 <div class="main">
 <aside class="side" id="side" style="display:none"><h4>Mandant</h4><nav class="nav" id="wnav">
 <a data-v="ov" class="active"><span class="dot"></span>Übersicht</a>
 <a data-v="pf"><span class="dot"></span>Unternehmensprofil</a>
 <a data-v="ud"><span class="dot"></span>Unternehmensdaten</a>
+<a data-v="rk"><span class="dot"></span>Rollen &amp; Kosten</a>
+<a data-v="ps"><span class="dot"></span>Personen &amp; Systeme</a>
 <a data-v="pr"><span class="dot"></span>Prozesse &amp; Teilprozesse</a>
 <a data-v="ra"><span class="dot"></span>Self-Rating</a>
 <a data-v="gr"><span class="dot"></span>Bewertungen</a>
@@ -66,6 +107,8 @@ table{width:100%;border-collapse:collapse;font-size:12.6px}th,td{border:1px soli
  <section class="view" id="ov"></section>
  <section class="view" id="pf"></section>
  <section class="view" id="ud"></section>
+ <section class="view" id="rk"></section>
+ <section class="view" id="ps"></section>
  <section class="view" id="pr"></section>
  <section class="view" id="ra"></section>
  <section class="view" id="gr"></section>
@@ -76,15 +119,89 @@ var META=null, cur=null, curKP=null, curTP=null;
 function $(id){return document.getElementById(id);}
 function esc(s){return (s==null?'':''+s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function toast(m,e){var t=$('toast');t.textContent=m;t.className='toast show'+(e?' err':'');setTimeout(function(){t.className='toast';},2800);}
-async function api(p,m,b){var o={method:m||'GET',headers:{'Content-Type':'application/json'}};if(b)o.body=JSON.stringify(b);
-  var r=await fetch(p,o);if(!r.ok){var d='';try{d=(await r.json()).detail;}catch(e){d=r.statusText;}throw {status:r.status,detail:d};}
+/* Zentrale Fehlerbehandlung fuer alle API-Aufrufe.
+   Der Fall 401 wird hier abgefangen und fuehrt zur Anmeldemaske. Ohne diese eine
+   Stelle muesste jeder Aufrufer den Fall selbst behandeln — und einer wuerde ihn
+   vergessen. Der Benutzer saehe dann eine leere Seite statt eines Hinweises. */
+async function pruefeAntwort(r){
+  if(r.status===401){BENUTZER=null;zeigeAnmeldung('Die Sitzung ist abgelaufen. Bitte neu anmelden.');}
+  if(!r.ok){var d='';try{d=(await r.json()).detail;}catch(e){d=r.statusText;}throw {status:r.status,detail:d};}
   if(r.status===204)return null;return await r.json();}
-async function api2(p,text){var r=await fetch(p,{method:"POST",headers:{"Content-Type":"text/plain"},body:text});if(!r.ok){var d="";try{d=(await r.json()).detail;}catch(e){d=r.statusText;}throw{status:r.status,detail:d};}return await r.json();}
+async function api(p,m,b){var o={method:m||'GET',headers:{'Content-Type':'application/json'}};if(b)o.body=JSON.stringify(b);
+  return await pruefeAntwort(await fetch(p,o));}
+async function api2(p,text){return await pruefeAntwort(await fetch(p,{method:"POST",headers:{"Content-Type":"text/plain"},body:text}));}
 function show(v){var s=document.querySelectorAll('.view');for(var i=0;i<s.length;i++)s[i].classList.remove('active');$(v).classList.add('active');window.scrollTo(0,0);}
 
 function setBackendLabel(){var el=$('backendLabel');if(!el||!META)return;
   el.textContent = (META.backend==='postgres') ? 'FastAPI + PostgreSQL · Supabase (EU)' : 'FastAPI + SQLite · lokal';}
-async function boot(){META=await api('/api/meta');setBackendLabel();await renderList();}
+
+/* ================= Anmeldung (Etappe 4a, 10.08.2026) =================
+   Der angemeldete Benutzer steht in BENUTZER und wird ausschliesslich vom Server
+   gesetzt. Die Oberflaeche trifft daraus keine Sicherheitsentscheidung — sie
+   blendet nur aus, was ohnehin abgewiesen wuerde. Massgeblich ist stets die
+   Pruefung im Server (bc0_auth). */
+var BENUTZER=null;
+
+function zeigeAnmeldung(hinweis){
+  $('gateHint').textContent = hinweis || 'Bitte anmelden.';
+  $('gate').classList.add('on');
+  $('who').style.display='none';
+  var feld=$('loginMail'); if(feld) setTimeout(function(){feld.focus();},50);
+}
+function verbergeAnmeldung(){$('gate').classList.remove('on');$('loginPw').value='';$('loginErr').textContent='';}
+
+function zeigeBenutzer(){
+  if(!BENUTZER){$('who').style.display='none';return;}
+  $('whoName').textContent=BENUTZER.name;
+  $('whoRolle').textContent=BENUTZER.ist_admin?'Admin':'Benutzer';
+  $('who').style.display='flex';
+  /* Neue Mandanten anlegen ist Admins vorbehalten (Etappe 4b). Der Server weist
+     einen Versuch mit 403 ab — die Knoepfe werden zusaetzlich ausgeblendet, weil
+     man niemandem einen Knopf zeigen sollte, der nur eine Fehlermeldung erzeugt.
+     Das Ausblenden ist Bequemlichkeit, die Sperre liegt im Server. */
+  var nurAdmin = BENUTZER.ist_admin ? '' : 'none';
+  if($('newBtn'))  $('newBtn').style.display  = nurAdmin;
+  if($('yamlBtn')) $('yamlBtn').style.display = nurAdmin;
+}
+
+$('loginForm').onsubmit=async function(ev){
+  ev.preventDefault();
+  var knopf=$('loginBtn'); knopf.disabled=true; $('loginErr').textContent='';
+  try{
+    var r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email:$('loginMail').value,passwort:$('loginPw').value})});
+    var daten=await r.json();
+    if(!r.ok){$('loginErr').textContent=daten.detail||'Anmeldung fehlgeschlagen.';return;}
+    BENUTZER=daten.benutzer; verbergeAnmeldung(); zeigeBenutzer(); await starteAnwendung();
+  }catch(e){ $('loginErr').textContent='Der Server ist nicht erreichbar.'; }
+  finally{ knopf.disabled=false; }
+};
+
+$('logoutLink').onclick=async function(){
+  try{ await fetch('/api/auth/logout',{method:'POST'}); }catch(e){}
+  BENUTZER=null; cur=null; META=null;
+  $('side').style.display='none'; $('tsel').style.display='none';
+  zeigeAnmeldung('Abgemeldet.');
+};
+
+/* Laedt die eigentliche Anwendung — erst nach bestaetigter Anmeldung. */
+async function starteAnwendung(){META=await api('/api/meta');setBackendLabel();show('list');await renderList();}
+
+/* Einstieg. Fragt zuerst, ob eine Sitzung besteht; die Anwendung wird nur
+   geladen, wenn ja. Der zusaetzliche Zustand `eingerichtet` faengt den
+   Erststart ab: Solange kein Konto existiert, waere eine Anmeldemaske ohne
+   Erklaerung eine Sackgasse. */
+async function boot(){
+  var status;
+  try{ status=await (await fetch('/api/auth/status')).json(); }
+  catch(e){ zeigeAnmeldung('Der Server ist nicht erreichbar.'); return; }
+  if(!status.eingerichtet){
+    zeigeAnmeldung('Es ist noch kein Zugang eingerichtet. Der erste Admin wird auf dem Server angelegt (siehe AUTH.md).');
+    return;
+  }
+  if(!status.angemeldet){ zeigeAnmeldung(); return; }
+  BENUTZER=status.benutzer; zeigeBenutzer(); await starteAnwendung();
+}
 function kpName(pid){var i=parseInt(pid.split('-')[1],10)-1;return META.kp_template[i]||pid;}
 
 async function renderList(){
@@ -96,7 +213,9 @@ async function renderList(){
       '<div class="meta"><div>MA<b>'+(t.ma||'–')+'</b></div><div>Kernprozesse<b>'+t.kp_count+'</b></div><div>Ø Reifegrad<b>'+(t.avg?(''+t.avg).replace('.',','):'–')+'</b></div></div>'+
       '<div class="bar"><i style="width:'+t.progress+'%"></i></div><div class="barlbl">Erfassung '+t.progress+'%</div>';
     box.appendChild(el);});
-  if(!box.children.length)box.innerHTML='<div class="mut">Noch keine Mandanten — „+ Neuer Mandant".</div>';
+  if(!box.children.length)box.innerHTML='<div class="mut">'+(BENUTZER&&BENUTZER.ist_admin
+    ? 'Noch keine Mandanten — „+ Neuer Mandant".'
+    : 'Ihnen ist derzeit kein Mandant zugeordnet. Ein Administrator kann das ändern.')+'</div>';
 }
 $('q').oninput=renderList;
 $("yamlBtn")&&($("yamlBtn").onclick=function(){$("yamlFile").click();});
@@ -129,6 +248,8 @@ async function renderWS(v){
   if(v==='ov')return renderOV();
   if(v==='pf')return renderPF();
   if(v==='ud')return renderUD();
+  if(v==='rk')return renderRK();
+  if(v==='ps')return renderPS();
   if(v==='pr')return renderPR();
   if(v==='ra')return renderRA();
   if(v==='gr')return renderGR();
@@ -182,6 +303,264 @@ function renderUD(){var raw=(cur.profile&&cur.profile.profile_json)||'';var data
     $('ud').innerHTML=h;show('ud');return;}
   Object.keys(data).forEach(function(k){h+='<div class="panel"><b style="font-size:15px;color:var(--navy)">'+esc(prettyKey(k))+'</b>'+renderNode(data[k])+'</div>';});
   $('ud').innerHTML=h;show('ud');}
+/* ================= Rollen & Kosten (Stammdaten, seit 11.08.2026) =================
+   Vokabular der ROI-Kostenachse: welche Rollen gibt es beim Mandanten, welcher
+   Kostenklasse gehoeren sie an, und was kostet eine Stunde dieser Klasse.
+   WER an einem Schritt WIE LANGE arbeitet, erhebt BC1 — das ist Aufwandserhebung
+   und gehoert nicht hierher. */
+var RK = null;
+var RK_QUELLE_TEXT = {erhoben:'erhoben', branchenreferenz:'Branchenreferenz', geschaetzt:'geschätzt'};
+
+async function renderRK(){
+  RK = await api('/api/companies/'+cur.company.id+'/rollen_kosten');
+  zeichneRK(); show('rk');
+}
+
+function rkKlassenAuswahl(gewaehlt){
+  return RK.klassen.map(function(k){
+    return '<option value="'+k.klasse+'"'+(k.klasse===gewaehlt?' selected':'')+'>'+k.klasse+' · '+esc(k.bezeichnung)+'</option>';
+  }).join('');
+}
+function rkQuellenAuswahl(gewaehlt){
+  return (META.kosten_quellen||[]).map(function(q){
+    return '<option value="'+q+'"'+(q===gewaehlt?' selected':'')+'>'+esc(RK_QUELLE_TEXT[q]||q)+'</option>';
+  }).join('');
+}
+
+function zeichneRK(){
+  var satzNach = {}; RK.kostensaetze.forEach(function(s){satzNach[s.klasse]=s;});
+
+  var rollen = '<table><tr><th style="width:80px">ID</th><th>Bezeichnung</th><th style="width:230px">Kostenklasse</th><th>Hinweis</th><th style="width:70px">aktiv</th></tr>';
+  RK.rollen.forEach(function(r,i){
+    rollen += '<tr data-rolle="'+i+'">'
+      + '<td class="mut">'+esc(r.rolle_id||'neu')+'</td>'
+      + '<td><input class="rk-bez" value="'+esc(r.bezeichnung)+'" placeholder="z. B. Sachbearbeitung Auftragserfassung"></td>'
+      + '<td><select class="rk-kl">'+rkKlassenAuswahl(r.klasse)+'</select></td>'
+      + '<td><input class="rk-hin" value="'+esc(r.hinweis||'')+'" placeholder="optional"></td>'
+      + '<td style="text-align:center"><input type="checkbox" class="rk-aktiv"'+(r.aktiv?' checked':'')+'></td></tr>';
+  });
+  rollen += '</table>';
+
+  var saetze = '<table><tr><th style="width:230px">Klasse</th><th style="width:140px">Vollkosten €/h</th><th style="width:180px">Quelle</th><th>Bemerkung (z. B. Gemeinkostenfaktor)</th></tr>';
+  RK.klassen.forEach(function(k){
+    var s = satzNach[k.klasse] || {};
+    saetze += '<tr data-klasse="'+k.klasse+'">'
+      + '<td><b>'+k.klasse+'</b> · '+esc(k.bezeichnung)+'</td>'
+      + '<td><input class="rk-satz" type="number" step="0.01" min="0" value="'+(s.satz_eur_h!=null?s.satz_eur_h:'')+'"></td>'
+      + '<td><select class="rk-quelle">'+rkQuellenAuswahl(s.quelle||'branchenreferenz')+'</select></td>'
+      + '<td><input class="rk-bem" value="'+esc(s.bemerkung||'')+'" placeholder="optional"></td></tr>';
+  });
+  saetze += '</table>';
+
+  $('rk').innerHTML =
+    '<div class="crumb">'+cr()+'Rollen &amp; Kosten</div>'
+    + '<h1>Rollen &amp; Kosten</h1>'
+    + '<p class="lead">Grundlage der ROI-Rechnung durch BC2. Hier steht, <b>welche Rollen es gibt</b> und <b>was eine Stunde kostet</b> — nicht, wer wie lange woran arbeitet. Das erhebt BC1.</p>'
+    + '<div class="panel"><h3>Rollen des Mandanten</h3>'
+    + '<p class="mut">BC1 wählt im Interview aus dieser Liste und speichert die ID. Nicht mehr benötigte Rollen werden <b>gesperrt statt gelöscht</b> — Häkchen entfernen genügt. Ein Verweis auf eine verschwundene Rolle wäre nicht mehr auflösbar.</p>'
+    + rollen
+    + '<div class="row" style="margin-top:10px"><button class="btn sec" id="rk_add">+ Rolle</button></div></div>'
+    + '<div class="panel"><h3>Kostensätze je Klasse</h3>'
+    + '<p class="mut"><b>Vollkostensatz</b>, nicht Bruttolohn: einschließlich Arbeitgeberanteil, Ausfallzeiten (1.500–1.600 produktive Stunden statt 2.080) und Arbeitsplatzkosten — typisch das 1,7- bis 2,2-fache des Bruttostundenlohns. Der angesetzte Faktor gehört in die Bemerkung, sonst ist der ROI nicht reproduzierbar.</p>'
+    + '<p class="mut">Eine Änderung erzeugt einen <b>neuen Satz ab heute</b>; der bisherige bleibt erhalten, damit frühere Freigaben nachvollziehbar bleiben.</p>'
+    + saetze + '</div>'
+    + '<div class="row"><button class="btn" id="rk_save">Speichern</button></div>';
+
+  $('rk_add').onclick = function(){
+    RK.rollen.push({rolle_id:'', bezeichnung:'', klasse:'K2', hinweis:'', aktiv:true});
+    zeichneRK();
+  };
+  $('rk_save').onclick = speichereRK;
+}
+
+async function speichereRK(){
+  var rollen = [];
+  document.querySelectorAll('#rk tr[data-rolle]').forEach(function(tr){
+    var i = +tr.dataset.rolle;
+    rollen.push({rolle_id: RK.rollen[i].rolle_id,
+                 bezeichnung: tr.querySelector('.rk-bez').value,
+                 klasse:      tr.querySelector('.rk-kl').value,
+                 hinweis:     tr.querySelector('.rk-hin').value,
+                 /* Der Sperrstatus wird ausdruecklich mitgeschickt. Wuerde er aus
+                    der Anwesenheit in der Liste abgeleitet, waere jede gesperrte
+                    Rolle beim naechsten Speichern wieder aktiv. */
+                 aktiv:       tr.querySelector('.rk-aktiv').checked});
+  });
+  var saetze = [];
+  document.querySelectorAll('#rk tr[data-klasse]').forEach(function(tr){
+    var wert = tr.querySelector('.rk-satz').value;
+    if(wert==='') return;                     // leer = kein Satz hinterlegt
+    saetze.push({klasse: tr.dataset.klasse,
+                 satz_eur_h: wert,
+                 quelle: tr.querySelector('.rk-quelle').value,
+                 bemerkung: tr.querySelector('.rk-bem').value});
+  });
+  try{
+    await api('/api/companies/'+cur.company.id+'/rollen_kosten','PUT',{rollen:rollen, kostensaetze:saetze});
+    toast('✓ Rollen und Kostensätze gespeichert.');
+    await renderRK();
+  }catch(e){ toast('Fehler: '+e.detail, true); }
+}
+
+/* ================= Personen & Systeme (Entitäten-Register, ADR-004, 12.08.2026)
+   Personen und Systeme standen bis hierher als Freitext in fremden Spalten:
+   ref_prozesse.owner_name („Ozan Kiraz / Mehdi Louali") und
+   ref_teilprozesse.tools. Beide Felder mussten eine n:m-Beziehung in einen
+   einzelnen Text pressen und haben das mit Trennzeichen improvisiert.
+
+   Drei Regeln aus ADR-004, die man an der Oberfläche sieht:
+     * IDs vergibt der Server. Neue Zeilen zeigen „neu" statt einer ID.
+     * Gesperrt statt gelöscht — Häkchen entfernen, nicht Zeile löschen.
+     * Klarnamen stehen nur hier. BC1–BC4 lesen Sichten ohne Namen. */
+var PS = null;
+
+async function renderPS(){
+  PS = await api('/api/companies/'+cur.company.id+'/entitaeten');
+  zeichnePS(); show('ps');
+}
+
+function psAuswahl(liste, gewaehlt, wertFeld, textFn, leerText){
+  var h = '<option value="">'+esc(leerText||'—')+'</option>';
+  liste.forEach(function(e){
+    var w = e[wertFeld];
+    h += '<option value="'+esc(w)+'"'+(w===gewaehlt?' selected':'')+'>'+esc(textFn(e))+'</option>';
+  });
+  return h;
+}
+
+function zeichnePS(){
+  /* ---- Personen ---- */
+  var personen = '<table><tr><th style="width:64px">ID</th><th>Name</th><th>Funktion</th>'
+    + '<th style="width:190px">Rolle (Kostenklasse)</th><th style="width:62px">extern</th>'
+    + '<th>Organisation</th><th style="width:56px">aktiv</th></tr>';
+  PS.personen.forEach(function(p,i){
+    personen += '<tr data-person="'+i+'">'
+      + '<td class="mut">'+esc(p.person_id||'neu')+'</td>'
+      + '<td><input class="ps-name" value="'+esc(p.name||'')+'" placeholder="Klarname"></td>'
+      + '<td><input class="ps-funk" value="'+esc(p.funktion||'')+'" placeholder="z. B. Lead DevOps"></td>'
+      + '<td><select class="ps-rolle">'+psAuswahl(PS.rollen, p.rolle_id, 'rolle_id',
+          function(r){return r.rolle_id+' · '+r.bezeichnung+' ('+r.klasse+')';}, 'keine Rolle')+'</select></td>'
+      + '<td style="text-align:center"><input type="checkbox" class="ps-ext"'+(p.extern?' checked':'')+'></td>'
+      + '<td><input class="ps-org" value="'+esc(p.organisation||'')+'" placeholder="bei extern"></td>'
+      + '<td style="text-align:center"><input type="checkbox" class="ps-aktiv"'+(p.aktiv?' checked':'')+'></td></tr>';
+  });
+  personen += '</table>';
+
+  /* ---- Systeme ---- */
+  var systeme = '<table><tr><th style="width:64px">ID</th><th>Bezeichnung im Haus</th>'
+    + '<th style="width:230px">Produkt im Katalog</th><th>Einsatz</th><th style="width:56px">aktiv</th></tr>';
+  PS.systeme.forEach(function(s,i){
+    systeme += '<tr data-system="'+i+'">'
+      + '<td class="mut">'+esc(s.system_id||'neu')+'</td>'
+      + '<td><input class="ps-sbez" value="'+esc(s.bezeichnung||'')+'" placeholder="wie das Haus es nennt"></td>'
+      + '<td><select class="ps-kat">'+psAuswahl(PS.katalog, s.katalog_id, 'katalog_id',
+          function(k){return k.bezeichnung+' ('+k.kategorie+')';}, 'kein Produkt / Eigenbau')+'</select></td>'
+      + '<td><input class="ps-eins" value="'+esc(s.einsatz||'')+'" placeholder="wofür"></td>'
+      + '<td style="text-align:center"><input type="checkbox" class="ps-saktiv"'+(s.aktiv?' checked':'')+'></td></tr>';
+  });
+  systeme += '</table>';
+
+  /* ---- Zuordnung Person <-> Kernprozess ---- */
+  var aktivePersonen = PS.personen.filter(function(p){return p.aktiv;});
+  var zu = '<table><tr><th style="width:230px">Kernprozess</th><th style="width:280px">Person</th>'
+    + '<th style="width:240px">Beteiligung</th><th style="width:90px"></th></tr>';
+  PS.zuordnungen.forEach(function(z,i){
+    zu += '<tr data-zu="'+i+'">'
+      + '<td><select class="ps-zp">'+psAuswahl(PS.prozesse, z.process_id, 'process_id',
+          function(p){return p.process_id+' · '+p.process_name;}, '—')+'</select></td>'
+      + '<td><select class="ps-zper">'+psAuswahl(aktivePersonen, z.person_id, 'person_id',
+          function(p){return p.person_id+' · '+(p.name||p.funktion);}, '—')+'</select></td>'
+      + '<td><select class="ps-zf">'+psAuswahl(PS.beteiligungen, z.funktion, 'wert',
+          function(b){return b.bezeichnung;}, '—')+'</select></td>'
+      + '<td><button class="btn sec" onclick="psZeileWeg('+i+')">entfernen</button></td></tr>';
+  });
+  zu += '</table>';
+
+  /* Prozesse ohne Eigner sichtbar machen — ein solcher Prozess ist nicht
+     interviewfähig, weil BC1 nicht weiß, wen es befragen soll. */
+  var mitEigner = {};
+  PS.zuordnungen.forEach(function(z){ if(z.funktion==='eigner') mitEigner[z.process_id]=1; });
+  var ohne = PS.prozesse.filter(function(p){return !mitEigner[p.process_id];})
+                        .map(function(p){return p.process_id;});
+  var warnung = ohne.length
+    ? '<p class="mut" style="color:#c0392b"><b>Ohne Eigner:</b> '+esc(ohne.join(', '))
+      + ' — diese Prozesse sind nicht interviewfähig.</p>'
+    : '<p class="mut">Jeder Kernprozess hat einen Eigner.</p>';
+
+  $('ps').innerHTML =
+    '<div class="crumb">'+cr()+'Personen &amp; Systeme</div>'
+    + '<h1>Personen &amp; Systeme</h1>'
+    + '<p class="lead">Das Entitäten-Register nach <b>ADR-004</b>. Personen und Systeme bekommen hier stabile IDs, auf die BC1 bis BC4 verweisen können. <b>Klarnamen stehen ausschließlich auf dieser Seite</b> — die nachgelagerten Kontexte lesen Sichten, die nur die ID enthalten.</p>'
+    + '<div class="panel"><h3>Personen</h3>'
+    + '<p class="mut">Der <b>Name darf leer bleiben</b>, wenn nur die Funktion bekannt ist („externer Steuerberater"). Mindestens eines von beiden muss stehen. Ohne zugeordnete Rolle gibt es keine Kostenklasse und damit keinen Beitrag zur ROI-Rechnung. Ausgeschiedene Personen werden <b>gesperrt statt gelöscht</b>: Häkchen entfernen.</p>'
+    + personen
+    + '<div class="row" style="margin-top:10px"><button class="btn sec" id="ps_add_p">+ Person</button></div></div>'
+    + '<div class="panel"><h3>Systeme und Werkzeuge</h3>'
+    + '<p class="mut">Der <b>Produktbezug ist optional</b>. „Strategie-Cockpit" benennt eine Gattung, kein Produkt — solche Einträge bleiben katalogfrei, bis im Interview herauskommt, welches Werkzeug tatsächlich läuft.</p>'
+    + systeme
+    + '<div class="row" style="margin-top:10px"><button class="btn sec" id="ps_add_s">+ System</button></div></div>'
+    + '<div class="panel"><h3>Wer verantwortet welchen Prozess</h3>'
+    + '<p class="mut">Mehrere Personen je Prozess sind zulässig, und dieselbe Person darf zugleich Eigner und Sponsor sein. Genau das ließ sich im alten Feld <code>owner_name</code> nicht abbilden.</p>'
+    + warnung + zu
+    + '<div class="row" style="margin-top:10px"><button class="btn sec" id="ps_add_z">+ Zuordnung</button></div></div>'
+    + '<div class="row"><button class="btn" id="ps_save">Speichern</button></div>';
+
+  $('ps_add_p').onclick = function(){ psUebernehmen();
+    PS.personen.push({person_id:'', name:'', funktion:'', rolle_id:'', extern:false,
+                      organisation:'', aktiv:true}); zeichnePS(); };
+  $('ps_add_s').onclick = function(){ psUebernehmen();
+    PS.systeme.push({system_id:'', bezeichnung:'', katalog_id:'', einsatz:'', aktiv:true});
+    zeichnePS(); };
+  $('ps_add_z').onclick = function(){ psUebernehmen();
+    PS.zuordnungen.push({process_id:'', person_id:'', funktion:'eigner'}); zeichnePS(); };
+  $('ps_save').onclick = speicherePS;
+}
+
+/* Formularstand zurück ins Modell holen, bevor neu gezeichnet wird. Ohne das
+   verlöre jede Eingabe beim Klick auf „+ Person" ihren Inhalt. */
+function psUebernehmen(){
+  document.querySelectorAll('#ps tr[data-person]').forEach(function(tr){
+    var p = PS.personen[+tr.dataset.person];
+    p.name = tr.querySelector('.ps-name').value;
+    p.funktion = tr.querySelector('.ps-funk').value;
+    p.rolle_id = tr.querySelector('.ps-rolle').value;
+    p.extern = tr.querySelector('.ps-ext').checked;
+    p.organisation = tr.querySelector('.ps-org').value;
+    p.aktiv = tr.querySelector('.ps-aktiv').checked;
+  });
+  document.querySelectorAll('#ps tr[data-system]').forEach(function(tr){
+    var s = PS.systeme[+tr.dataset.system];
+    s.bezeichnung = tr.querySelector('.ps-sbez').value;
+    s.katalog_id = tr.querySelector('.ps-kat').value;
+    s.einsatz = tr.querySelector('.ps-eins').value;
+    s.aktiv = tr.querySelector('.ps-saktiv').checked;
+  });
+  document.querySelectorAll('#ps tr[data-zu]').forEach(function(tr){
+    var z = PS.zuordnungen[+tr.dataset.zu];
+    z.process_id = tr.querySelector('.ps-zp').value;
+    z.person_id = tr.querySelector('.ps-zper').value;
+    z.funktion = tr.querySelector('.ps-zf').value;
+  });
+}
+
+function psZeileWeg(i){ psUebernehmen(); PS.zuordnungen.splice(i,1); zeichnePS(); }
+
+async function speicherePS(){
+  psUebernehmen();
+  var unvollstaendig = PS.zuordnungen.filter(function(z){
+    return !(z.process_id && z.person_id && z.funktion); });
+  if(unvollstaendig.length){
+    toast('Es gibt unvollständige Zuordnungszeilen — bitte ausfüllen oder entfernen.', true);
+    return;
+  }
+  try{
+    await api('/api/companies/'+cur.company.id+'/entitaeten','PUT',
+              {personen:PS.personen, systeme:PS.systeme, zuordnungen:PS.zuordnungen});
+    toast('✓ Personen, Systeme und Zuordnungen gespeichert.');
+    await renderPS();
+  }catch(e){ toast('Fehler: '+e.detail, true); }
+}
+
 function renderPR(){var keys=Object.keys(cur.processes).sort();
   $('pr').innerHTML='<div class="crumb">'+cr()+'Prozesse</div><h1>Prozesse &amp; Teilprozesse</h1><p class="lead">ref_prozesse / ref_teilprozesse</p><div id="pracc"></div>';
   var box=$('pracc');var html='';
@@ -190,6 +569,14 @@ function renderPR(){var keys=Object.keys(cur.processes).sort();
       '<div><label>Process Owner</label><input data-k="owner_name" value="'+esc(p.owner_name)+'"></div><div><label>Rolle</label><input data-k="owner_role" value="'+esc(p.owner_role)+'"></div>'+
       '<div><label>Kategorie</label><input data-k="kategorie" value="'+esc(p.kategorie)+'"></div><div><label>Auslöser/Trigger</label><input data-k="trigger_text" value="'+esc(p.trigger_text)+'"></div>'+
       '<div><label>Input</label><input data-k="input_text" value="'+esc(p.input_text)+'"></div><div><label>Output</label><input data-k="output_text" value="'+esc(p.output_text)+'"></div></div>'+
+      /* Beschreibung: Quelle fuer die Erklaerung durch den BC1-Interview-Bot.
+         Ohne sie muesste er auf die Rueckfrage "was gehoert da rein?" entweder
+         schweigen oder sich etwas ausdenken — und Erfinden ist bei BC1
+         ausgeschlossen. */
+      '<div style="margin-top:12px"><label style="display:block;font-size:11px;color:var(--muted);margin-bottom:3px">'
+      +'Beschreibung <span class="mut">— ein bis zwei Sätze, was dieser Kernprozess umfasst. Wird von BC1 verwendet, um Nutzern den Prozess zu erklären.</span></label>'
+      +'<textarea data-k="beschreibung" rows="2" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:13px" '
+      +'placeholder="z. B. Umfasst die Steuerung laufender Kundenaufträge von der Auftragsannahme bis zur Abnahme, einschließlich Terminverfolgung und Eskalation.">'+esc(p.beschreibung||"")+'</textarea></div>'+
       '<div style="margin-top:10px"><b style="font-size:13px">Teilprozesse</b><div class="tpl" style="margin-top:8px">'+
       p.tps.map(function(tp,n){var L='style="display:block;font-size:11px;color:var(--muted);margin:7px 0 2px"';var I='style="width:100%"';return '<div class="tpblock" style="border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px">'
         +'<div style="display:flex;align-items:center;gap:8px"><span class="n">'+(n+1)+'</span><input '+I+' data-tp="'+n+'" data-f="name" value="'+esc(tp.sub_process_name)+'" placeholder="Teilprozess-Name"></div>'
