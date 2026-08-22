@@ -292,3 +292,35 @@ inhaltlich redundant/holprig (typische 8B-Schwäche, siehe „Erwartung ehrlich"
 oben) — bewertet wird hier nur, dass der Abschluss-Zweig mechanisch trägt.
 Danach die :8001-Instanz sauber beendet (`kill`), :8000 blieb während des
 gesamten Nachweises unberührt und erreichbar.
+
+## Gemini-Adapter (Gesprächsschicht mit starkem Modell)
+
+**Start (Key nur in der eigenen Shell, NIE committen):**
+
+    export GEMINI_API_KEY="<eigener Key>"   # bzw. aus ~/.zshrc
+    BC1_LLM=gemini BC1_DB_DSN=... .venv/bin/uvicorn bc1_service.main:app
+    # Modellwahl: BC1_GEMINI_MODELL=gemini-3-flash (Default: gemini-2.5-flash)
+
+**Free-Tier-Leitplanken (Stand 11.08.2026, Konto-abhängig — im AI Studio prüfen):**
+je Modell 5 Requests/min · 20 Requests/Tag. Ein Turn = 2 Requests.
+⚠️ Bis Tier 1 (Kreditkarte) kann Google Free-Tier-Eingaben fürs Training nutzen —
+NUR Demo-Daten ohne echte Personennamen.
+
+**Echt-Stichprobe (2 Requests):**
+
+    BC1_ECHT_LLM=1 .venv/bin/pytest tests/test_gemini_echt.py -v
+
+**Klang-Abnahme (Spec §4) — Call-Plan, Requests mitzählen (max. 16 + 4 Puffer/Tag/Modell):**
+1. Toy-Interview komplett (BC1_PAKET=toy, 3 Turns = 6 Requests): Struktur, Fortschritt,
+   Abschluss ohne Schlussfrage.
+2. Discovery, Auftakt-Nachricht (1 Turn = 2 Requests) — Wortlaut exakt:
+   „Wir möchten unser Consultant-Staffing beschleunigen, um Zeit zu sparen — es geht um
+   den ganzen Prozess. Der Prozess heißt Consultant Placement, verantwortlich ist der
+   Staffing Manager." → erwartete Folgefrage: B4 (Kernprozess) —
+   **überlebt die KP-Optionsliste wörtlich?** (offener Abnahmepunkt aus der
+   Gesprächsschicht).
+3. Nachfrage mit Beispiel (2 Requests) · Rückfrage „Was meinen Sie mit …?" (2 Requests) ·
+   Abschluss-Zusammenfassung auf unbelegte Aussagen prüfen (2 Requests).
+4. Zweites Modell: identischer Ablauf mit BC1_GEMINI_MODELL=gemini-3-flash.
+Roh-JSON (Dienst-Request/-Response, kein SDK-Trace) hier protokollieren; das
+Erstfragen-Ergebnis aktualisiert den offenen Abnahmepunkt oben.
