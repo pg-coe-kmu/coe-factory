@@ -101,25 +101,38 @@ def test_thinking_budget_null_fuer_25_familie():
     assert tk.thinking_budget == 0
 
 
-def test_thinking_level_minimal_fuer_3er_familie():
+def test_25_familie_behaelt_temperature_null():
+    # Determinismus-Pin: die 2.5-Familie sendet weiterhin temperature=0
+    # (nur die 3er-Generation laesst temperature weg).
+    stub = _StubClient([_Antwort("ok")])
+    from bc1_core.gespraech import TurnKontext
+    GeminiLLM(client=stub, modell="gemini-2.5-flash").antworte(
+        TurnKontext("m", (), "F?", False, False))
+    assert stub.models.aufrufe[0]["config"].temperature == 0
+
+
+def test_thinking_level_low_fuer_3er_strich_praefix():
+    # Legacy-Schreibweise "gemini-3-…": gleiche 3er-Generation, gleiche
+    # Konfig wie die Punkt-Schreibweise (LOW; MINIMAL lehnt die API ab —
+    # ersetzt den frueheren MINIMAL-Pin, API-Doku-Stand 23.08.).
     stub = _StubClient([_Antwort("ok")])
     from bc1_core.gespraech import TurnKontext
     GeminiLLM(client=stub, modell="gemini-3-flash").antworte(
         TurnKontext("m", (), "F?", False, False))
     tk = stub.models.aufrufe[0]["config"].thinking_config
-    assert tk.thinking_level == types.ThinkingLevel.MINIMAL
+    assert tk.thinking_level == types.ThinkingLevel.LOW
 
 
-def test_thinking_level_minimal_fuer_3_punkt_familie():
-    # Re-Verify-Fund Gesamt-Review: "gemini-3.7-flash" (aktuelle stabile ID,
-    # SMOKE-Vergleichsmodell) matcht NICHT auf "gemini-3-" — die 3.x-Familie
-    # braucht ihr eigenes Praefix, sonst lehnt der Adapter die Doku-ID ab.
+def test_3_punkt_familie_level_low_ohne_temperature():
+    # API-Doku 3.7 (23.08.): MINIMAL "returns an error" (nur low|medium|high),
+    # Migrationsanleitung verlangt "Strip temperature" fuer die 3er-Generation.
     stub = _StubClient([_Antwort("ok")])
     from bc1_core.gespraech import TurnKontext
     GeminiLLM(client=stub, modell="gemini-3.7-flash").antworte(
         TurnKontext("m", (), "F?", False, False))
-    tk = stub.models.aufrufe[0]["config"].thinking_config
-    assert tk.thinking_level == types.ThinkingLevel.MINIMAL
+    konfig = stub.models.aufrufe[0]["config"]
+    assert konfig.thinking_config.thinking_level == types.ThinkingLevel.LOW
+    assert konfig.temperature is None
 
 
 def test_unbekannte_modellfamilie_wirft_klaren_fehler():
