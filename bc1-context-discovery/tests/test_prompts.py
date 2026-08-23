@@ -1,5 +1,5 @@
 """Die geteilten Prompt-Konstanten sind ein Wire-Vertrag zwischen den
-LLM-Adaptern und dem Extractor — beide Adapter importieren aus prompts.py,
+LLM-Adaptern und dem Extractor — alle Adapter importieren aus prompts.py,
 damit nichts driftet."""
 from bc1_core.gespraech import Erfassung, TurnKontext
 from bc1_service.prompts import (
@@ -35,6 +35,13 @@ def test_system_gespraech_pinnt_die_kernregeln():
     # Entscheidung 6 (10.08.): Beispiele nur bei Rück-/Nachfragen,
     # Erstfragen bleiben beispielfrei (Anker-Effekt).
     assert "in Erstfragen nie ein Beispiel" in SYSTEM_GESPRAECH
+
+
+def test_system_gespraech_verlangt_variierte_einstiege():
+    # Klang-Abnahme 23.08.: "Vielen Dank" eroeffnete bei beiden
+    # Gemini-Modellen fast jeden Zug (3.6: 3/3, 3.7: 4 Vorkommen in 3 Zuegen).
+    assert "Variiere die Satzanfänge" in SYSTEM_GESPRAECH
+    assert "höchstens einmal im ganzen Gespräch" in SYSTEM_GESPRAECH
 
 
 # F2 (opus I1 + deferiertes Finding 5): die Struktur-Regel "genau eine

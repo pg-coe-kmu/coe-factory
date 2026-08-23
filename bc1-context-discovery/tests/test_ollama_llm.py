@@ -148,7 +148,7 @@ def test_antworte_nutzt_gespraechsprompt_und_strippt():
 
 
 @pytest.mark.skipif(
-    not os.environ.get("BC1_ECHT_LLM"),
+    os.environ.get("BC1_ECHT_LLM") != "1",
     reason="Echt-Stichprobe nur mit BC1_ECHT_LLM=1 (lokal, aber langsam)",
 )
 def test_echt_ollama_stichprobe_extraktion():
