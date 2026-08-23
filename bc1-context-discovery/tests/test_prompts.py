@@ -1,5 +1,5 @@
 """Die geteilten Prompt-Konstanten sind ein Wire-Vertrag zwischen den
-LLM-Adaptern und dem Extractor — beide Adapter importieren aus prompts.py,
+LLM-Adaptern und dem Extractor — alle Adapter importieren aus prompts.py,
 damit nichts driftet."""
 from bc1_core.gespraech import Erfassung, TurnKontext
 from bc1_service.prompts import (
