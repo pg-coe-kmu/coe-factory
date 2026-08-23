@@ -126,6 +126,13 @@ def test_stub_client_braucht_keinen_key(monkeypatch):
     _llm([])  # kein Raise: Key-Prüfung nur ohne injizierten Client
 
 
+def test_nur_whitespace_key_wirft_festen_text(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "   ")
+    with pytest.raises(RuntimeError) as fehler:
+        GeminiLLM()
+    assert str(fehler.value) == KEY_FEHLT
+
+
 def test_echter_client_pinnt_timeout_und_keine_retries(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "SENTINEL-TESTKEY-123")
     erfasst = {}
@@ -141,6 +148,20 @@ def test_echter_client_pinnt_timeout_und_keine_retries(monkeypatch):
     # SDK-Doku: timeout in MILLISEKUNDEN; attempts inkl. Erstversuch.
     assert ho.timeout == 30_000
     assert ho.retry_options.attempts == 1
+
+
+def test_echter_client_bekommt_api_key_explizit(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "SENTINEL-TESTKEY-123")
+    erfasst = {}
+
+    def fake_client(**kwargs):
+        erfasst.update(kwargs)
+        return _StubClient([])
+
+    import bc1_service.gemini_llm as modul
+    monkeypatch.setattr(modul.genai, "Client", fake_client)
+    GeminiLLM()
+    assert erfasst["api_key"] == "SENTINEL-TESTKEY-123"
 
 
 def test_429_neutrale_diagnose_genau_ein_aufruf_kein_sentinel(monkeypatch):
