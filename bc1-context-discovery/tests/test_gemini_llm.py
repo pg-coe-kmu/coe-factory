@@ -1,5 +1,6 @@
 """GeminiLLM: Konfiguration, Guards, Key-Hygiene — Stubs, kein Netz."""
 import json
+import traceback
 
 import pytest
 from google.genai import errors, types
@@ -173,6 +174,18 @@ def test_429_neutrale_diagnose_genau_ein_aufruf_kein_sentinel(monkeypatch):
     assert "Kontingent/Rate-Limit" in str(fehler.value)
     assert "SENTINEL-TESTKEY-123" not in str(fehler.value)
     assert len(stub.models.aufrufe) == 1
+
+
+def test_429_sentinel_nicht_in_exception_kette():
+    stub = _StubClient([
+        errors.ClientError(429, {"error": {"message": "SENTINEL-CHAIN-XYZ"}})
+    ])
+    from bc1_core.gespraech import TurnKontext
+    with pytest.raises(RuntimeError) as fehler:
+        GeminiLLM(client=stub).antworte(TurnKontext("m", (), "F?", False, False))
+    volltext = "".join(traceback.format_exception(
+        type(fehler.value), fehler.value, fehler.value.__traceback__))
+    assert "SENTINEL-CHAIN-XYZ" not in volltext
 
 
 def test_andere_client_fehler_fliegen_unveraendert():
