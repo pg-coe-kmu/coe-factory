@@ -36,20 +36,23 @@ KEY_FEHLT = (
     "GEMINI_API_KEY ist nicht gesetzt. Ohne Key kann der Gemini-Adapter "
     "(BC1_LLM=gemini) nicht starten."
 )
-# Niedrigste Thinking-Stufe je Modellfamilie (Spec: Versprachlichen ist
-# kein Knobeln): 2.5-Familie kennt budget 0 = AUS; die 3er-Familie steuert
-# über Level, Minimum ist MINIMAL.
-_THINKING = {
-    "gemini-2.5-": types.ThinkingConfig(thinking_budget=0),
-    "gemini-3-": types.ThinkingConfig(thinking_level=types.ThinkingLevel.MINIMAL),
-    # 3.x-Releases (gemini-3.5/3.6/3.7-…) heissen "gemini-3." — eigenes
-    # Praefix, weil "gemini-3-" den Punkt nicht matcht (Re-Verify-Fund).
-    "gemini-3.": types.ThinkingConfig(thinking_level=types.ThinkingLevel.MINIMAL),
+# Gepinnte Generierungs-Konfiguration je Modellfamilie (Spec: Versprachlichen
+# ist kein Knobeln — niedrigste Thinking-Stufe, deterministisch wo möglich):
+# 2.5-Familie: thinking_budget 0 = AUS, temperature 0.
+# 3er-Generation (gemini-3-… und gemini-3.5/3.6/3.7-…): niedrigste
+# unterstützte Stufe ist LOW ("minimal … returns an error"), und die
+# Migrationsanleitung verlangt "Strip temperature" → None = nicht senden.
+# (API-Doku-Stand 23.08.2026; beide Punkt-/Strich-Präfixe nötig, weil
+# "gemini-3-" den Punkt in "gemini-3.7" nicht matcht.)
+_FAMILIEN = {
+    "gemini-2.5-": (types.ThinkingConfig(thinking_budget=0), 0),
+    "gemini-3-": (types.ThinkingConfig(thinking_level=types.ThinkingLevel.LOW), None),
+    "gemini-3.": (types.ThinkingConfig(thinking_level=types.ThinkingLevel.LOW), None),
 }
 
 
-def _thinking_fuer(modell: str) -> types.ThinkingConfig:
-    for praefix, konfig in _THINKING.items():
+def _familien_konfig(modell: str) -> tuple[types.ThinkingConfig, int | None]:
+    for praefix, konfig in _FAMILIEN.items():
         if modell.startswith(praefix):
             return konfig
     # Kein stilles Weglassen (Spec): unbekannte Familie = ungeklärte Semantik.
@@ -74,7 +77,7 @@ class GeminiLLM:
             ),
         )
         self._modell = modell or os.environ.get("BC1_GEMINI_MODELL", STANDARD_MODELL)
-        self._thinking = _thinking_fuer(self._modell)
+        self._thinking, self._temperature = _familien_konfig(self._modell)
 
     def extract(
         self, message: str, package: UseCasePackage, state: SessionState
@@ -105,7 +108,7 @@ class GeminiLLM:
     def _generate(self, system: str, nutzer: str, json_schema=None) -> str:
         konfig = types.GenerateContentConfig(
             system_instruction=system,
-            temperature=0,
+            temperature=self._temperature,
             max_output_tokens=4096,
             thinking_config=self._thinking,
             response_mime_type=(
