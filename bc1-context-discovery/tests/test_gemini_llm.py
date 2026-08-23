@@ -214,6 +214,17 @@ def test_ohne_kandidaten_wirft():
         GeminiLLM(client=stub).extract("m", PAKET, None)
 
 
+def test_prompt_sicherheitsblockade_wirft_eigenen_fehler():
+    antwort = types.GenerateContentResponse(
+        prompt_feedback=types.GenerateContentResponsePromptFeedback(
+            block_reason=types.BlockedReason.SAFETY
+        )
+    )
+    stub = _StubClient([antwort])
+    with pytest.raises(RuntimeError, match="Prompt-Sicherheitsfilter"):
+        GeminiLLM(client=stub).extract("m", PAKET, None)
+
+
 def test_nur_whitespace_wirft():
     stub = _StubClient([_Antwort("   ")])
     from bc1_core.gespraech import TurnKontext
