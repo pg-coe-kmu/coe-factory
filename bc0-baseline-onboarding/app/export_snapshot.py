@@ -204,10 +204,16 @@ def main():
     version = sys.argv[2] if len(sys.argv) > 2 else "v1"
     os.makedirs(OUT, exist_ok=True)
     c = A.db()
+    # Die Spalte heisst in PostgreSQL `company_id` (UUID) und in SQLite `id`.
+    # Statt das hier ein zweites Mal zu entscheiden, wird die Abfrage aus app.py
+    # uebernommen: `A.SEL_CO` liefert in beiden Dialekten eine Spalte `id`.
+    # Vorher stand hier `SELECT id,name FROM companies` — das lief nur gegen
+    # SQLite und brach gegen PostgreSQL mit `column "id" does not exist`
+    # (gefunden am 23.08.2026 beim ersten Lauf gegen die produktive Datenbank).
     if name:
-        rows = c.execute("SELECT id,name FROM companies WHERE name=?", (name,)).fetchall()
+        rows = c.execute(A.SEL_CO + " WHERE name=?", (name,)).fetchall()
     else:
-        rows = c.execute("SELECT id,name FROM companies ORDER BY id").fetchall()
+        rows = c.execute(A.SEL_CO + " ORDER BY name").fetchall()
     c.close()
     if not rows:
         sys.exit("Kein Mandant gefunden%s." % (" ('%s')" % name if name else ""))

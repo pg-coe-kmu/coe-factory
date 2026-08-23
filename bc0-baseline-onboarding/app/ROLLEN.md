@@ -68,6 +68,14 @@ Zeile = wer, Spalte = worauf.
 
 Die geplante **Anreicherung von BC0-Zeilen** — also dass BC1 unter derselben ID eine eigene Spalte in `public` beschreibt. Das wäre ein zusätzliches, sehr eng begrenztes `W` in der Spalte `public`, auf Spaltenebene statt auf Tabellenebene (`GRANT UPDATE (bc1_spalte_a, …)`). Es kommt erst, wenn ADR-003 entschieden ist — siehe „Noch offen".
 
+### Was die Matrix verschweigt — Befund vom 23.08.2026
+
+Die Matrix beschreibt das **gewollte** Modell. Die Datenbank folgt ihm nicht überall.
+
+Neben den Rechten aus `bc_leser` bestehen **direkte** Berechtigungen an `bc1_role`: bei `ref_personen` und `prozess_personen` ausschließlich direkt, bei sieben weiteren Tabellen doppelt. Praktische Folge: **Ein `REVOKE ... FROM bc_leser` ändert nichts.** Belegt am 23.08.2026 an `ref_prozesse` — das Entzugsskript meldete Vollzug, `bc1_role` las die Tabelle weiter.
+
+Wer Rechte prüft, prüft deshalb mit `\dp <tabelle>` an der Datenbank und nicht anhand dieser Matrix. Wer Rechte entzieht, entzieht sie der Gruppenrolle **und** jeder direkt berechtigten Rolle.
+
 ---
 
 ## Der Stolperstein: `GRANT CONNECT`
@@ -182,5 +190,7 @@ Betrifft nur diese eine Rolle — die anderen BCs und BC0 bleiben davon unberüh
 **Spaltenbezogene Schreibrechte** für die Anreicherung von BC0-Zeilen (`GRANT UPDATE (bc1_spalte_a, …)`). Erst sinnvoll, wenn das Schreibmodell entschieden ist — siehe ADR-003 und #148. Bis dahin gilt: kein Schreibzugriff auf `public`.
 
 **Row-Level-Security** für die Mandantentrennung (Schema v1.1, Abschnitt 7). Relevant, sobald mehr als ein echter Mandant in der Datenbank liegt.
+
+**Direkte Grants bereinigen.** Sieben Tabellen sind doppelt vergeben, zwei ausschließlich direkt. Solange das so ist, ist die Gruppenrolle Dokumentation und keine Steuerung. Eigenes Skript, zusammen mit der Korrektur an `schema_v1.3_teil_a2`, dessen Kopfkommentar („Wer den Namen zu einer `person_id` braucht, fragt in BC0 nach") das Gegenteil des eingerichteten Zustands behauptet.
 
 **Änderungsprotokoll.** `audit_log` ist angelegt, wird aber nicht befüllt. Mit vier schreibenden Rollen wird das dringlicher — siehe R9 in #148.

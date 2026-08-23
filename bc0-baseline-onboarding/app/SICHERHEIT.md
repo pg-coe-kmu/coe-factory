@@ -186,6 +186,13 @@ Abgesichert durch `test_entitaeten.py` Nr. 23: Der Test läuft über **alle**
 Kontaktspalte aufnimmt — auch wenn das jemand später versehentlich tut. Das ist
 die Art von Test, die eine Zusicherung über die Zeit trägt.
 
+**Nachtrag 23.08.2026 — die Zusicherung reicht weniger weit, als dieser Abschnitt
+behauptet hat.** Der Sichtentest prüft die Sichten. Er kann nicht prüfen, ob eine
+nachgelagerte Rolle die **Tabelle** liest, an der Sicht vorbei. Genau das ist der Fall:
+`bc1_role` hat ein direktes `SELECT` auf `ref_personen` und `prozess_personen`. Der Satz
+„an BC1 bis BC4 geht nur die ID" gilt für den Weg über die Sichten und über den
+Snapshot-Export — nicht für den direkten Datenbankzugang. Siehe 3.8.
+
 ### 2.6 SQL-Einschleusung
 
 **138 parametrisierte `execute`-Aufrufe. Keine einzige Stelle, an der eine
@@ -317,6 +324,34 @@ Beschäftigtendaten).
 Das ist kein Programmierfehler, sondern die Lücke mit dem größten realen
 Risiko, sobald echte KMU-Daten eingehen.
 
+### 3.8 Direkte Tabellenrechte laufen an der Sammelrolle vorbei — **hoch**
+
+Gefunden am 23.08.2026 beim Einspielen der Rechteumstellung — durch die Gegenprobe,
+nicht durch das Skript. Das Skript meldete Vollzug und hatte damit recht; die Wirkung
+blieb trotzdem aus.
+
+`bc_leser` **sieht aus wie** die Steuerung der Leserechte und ist es nicht. Neben der
+Gruppenrolle bestehen **direkte** Berechtigungen an `bc1_role`:
+
+| Befund | Tabellen |
+|---|---|
+| `bc1_role=r` **ohne** `bc_leser` | `ref_personen`, `prozess_personen` |
+| `bc1_role=r` **und** `bc_leser=r` (doppelt) | `ref_anfragen`, `ref_berichtstexte`, `ref_erhebungen`, `ref_gate_pruefpunkte`, `ref_items`, `ref_systeme_katalog`, `ref_teilprozesse` |
+
+Zwei Folgen. **Erstens:** Jeder Entzug über `bc_leser` läuft ins Leere — belegt an
+`ref_prozesse`, wo das Skript `bc_leser` korrekt entzog und `bc1_role` die Tabelle
+danach weiterhin las (20 Zeilen). **Zweitens:** `ref_personen` enthält Klarnamen und
+seit Schema v1.5 dienstliche E-Mail und Telefon, mandantenübergreifend und ohne den
+Filter, den nur die Anwendung setzt.
+
+**Nicht kurzerhand entzogen**, weil BC1s Interview-Bot den Gesprächspartner mit Namen
+anspricht und BC0 die Stelle ist, die weiß, wer je Teilprozess zuständig ist. Offen ist
+deshalb nicht *ob* eingegrenzt wird, sondern *worauf*: eine zugeschnittene Sicht
+`v_personen_interview` oder eine ausdrückliche Freigabe mit Zweckangabe im ADR. Beides
+verlangt von BC1 die Antwort auf eine Frage — welche Felder braucht der Bot?
+
+`ref_prozesse` ist seit dem 23.08. geschlossen, für `bc_leser` **und** für `bc1_role`.
+
 ---
 
 ## 4. Bedrohungen und ihre Abdeckung
@@ -337,6 +372,7 @@ Risiko, sobald echte KMU-Daten eingehen.
 | Denial of Service | Firewall | Anmeldemaske ist ein Hebel (3.1) |
 | Innentäter | Rollentrennung in der DB | **kein Protokoll** (3.4) |
 | Datenabfluss an Sprachmodelle | nur IDs nach außen (ADR-004), Sichtentest | Pseudonymisierung, nicht Anonymisierung |
+| Klarnamen an nachgelagerte Kontexte | Sichten und Snapshot-Export geben nur IDs aus | **direkte Tabellenrechte umgehen beides (3.8)** |
 | Lieferkettenangriff | 5 Python-Pakete, 0 npm-Pakete | keine automatische Prüfung auf bekannte Schwachstellen |
 
 ---
@@ -350,12 +386,14 @@ zeitgemäße Passwortableitung, widerrufbare Sitzungen, doppelte
 Mandantentrennung, durchgehend parametrisiertes SQL, und 51 von 130 Tests
 prüfen genau diese Eigenschaften.
 
-**Nicht belastbar sind drei Dinge**, und ich halte sie für die Bedingungen
+**Nicht belastbar sind vier Dinge**, und ich halte sie für die Bedingungen
 einer Freigabe an externe Mandanten:
 
 1. der fehlende Schutz gegen wiederholte Anmeldeversuche (3.1),
 2. die fehlenden Sicherheitskopfzeilen (3.2) — eine Stunde Arbeit,
-3. der fehlende Nachweis nach DSGVO (3.7) — organisatorisch, nicht technisch.
+3. die direkten Tabellenrechte an `bc1_role` (3.8) — sie machen eine Zusicherung
+   ungültig, die dieses Papier bis zum 23.08.2026 geführt hat,
+4. der fehlende Nachweis nach DSGVO (3.7) — organisatorisch, nicht technisch.
 
 Das fehlende Änderungsprotokoll (3.4) ist die Lücke, die mit dem Einsatzzweck
 wächst: Für die Projektgruppe hinnehmbar, für einen Nachweis nach Art. 5 Abs. 2
@@ -374,4 +412,5 @@ Kundenzugängen umkehren.
 *Grundlage: `bc0_auth/` (passwoerter.py, middleware.py, routen.py,
 abhaengigkeiten.py), `app.py`, `Caddyfile`, `docker-compose.yml`, `AUTH.md`,
 `ROLLEN.md`, ADR-003 bis ADR-005, Testsammlung `tests/`. Alle Zahlen am
-19./20.08.2026 an der Arbeitskopie gemessen.*
+19./20.08.2026 an der Arbeitskopie gemessen; der Rechtestand am 23.08.2026 an der
+produktiven Datenbank nachgeprüft.*
