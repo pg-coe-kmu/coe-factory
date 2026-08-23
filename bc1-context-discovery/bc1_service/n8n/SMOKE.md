@@ -299,7 +299,7 @@ gesamten Nachweises unberührt und erreichbar.
 
     export GEMINI_API_KEY="<eigener Key>"   # bzw. aus ~/.zshrc
     BC1_LLM=gemini BC1_DB_DSN=... .venv/bin/uvicorn bc1_service.main:app
-    # Modellwahl: BC1_GEMINI_MODELL=gemini-3.7-flash (Default: gemini-2.5-flash)
+    # Modellwahl: BC1_GEMINI_MODELL=gemini-3.6-flash (Default: gemini-3.7-flash)
 
 **Free-Tier-Leitplanken (Stand 11.08.2026, Konto-abhängig — im AI Studio prüfen):**
 je Modell 5 Requests/min · 20 Requests/Tag. Ein Turn = 2 Requests.
