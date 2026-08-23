@@ -153,11 +153,26 @@ class _Basis:
     """Gemeinsames Verhalten beider Repositories."""
 
     def __init__(self, verbindung_erzeugen: VerbindungsFabrik, ist_postgres: bool):
+        """Merkt sich die Verbindungsfabrik und den Dialektschalter.
+
+        Es wird eine **Fabrik** hinterlegt, keine offene Verbindung. Jede
+        Methode öffnet und schliesst ihre eigene; das Paket hält keinen
+        Verbindungspool und keinen Zustand ueber Anfragen hinweg. Bei der
+        Nutzungsgröße dieser Anwendung ist das der einfachere Weg, und er
+        verhindert die häufigste Fehlerklasse an dieser Stelle: eine
+        Verbindung, die nach einer Ausnahme in einer offenen Transaktion
+        hängenbleibt.
+        """
         self._verbindung_erzeugen = verbindung_erzeugen
         self._pg = bool(ist_postgres)
 
     # Kleine Helfer, damit die Methoden unten lesbar bleiben.
     def _oeffnen(self):
+        """Öffnet eine frische Verbindung.
+
+        Jede aufrufende Methode ist verpflichtet, sie in ``try/finally`` wieder
+        zu schliessen — das ist im ganzen Modul durchgehalten.
+        """
         return self._verbindung_erzeugen()
 
     @property
@@ -201,6 +216,21 @@ class BenutzerRepository(_Basis):
     # ---------------- Lesen ----------------
 
     def _mandanten_lesen(self, verbindung, benutzer_id: str) -> frozenset:
+        """Liest die Mandantenzuordnung eines Benutzers.
+
+        Nimmt die Verbindung als Parameter statt selbst eine zu öffnen: Die
+        Methode wird aus :meth:`_zu_benutzer` heraus je Zeile gerufen. Beim
+        Auflisten von zwanzig Konten wären das sonst zwanzig zusätzliche
+        Verbindungen.
+
+        Das Ergebnis ist ein ``frozenset`` von Zeichenketten. Unveränderlich,
+        weil es in :class:`~bc0_auth.modelle.Benutzer` landet und dort die
+        Grundlage der Mandantentrennung ist — ein Aufrufer soll seine eigenen
+        Rechte nicht nachträglich erweitern können. Die ausdrückliche
+        ``str``-Umwandlung ist nötig, weil PostgreSQL ein ``UUID``-Objekt
+        liefert und SQLite eine Zeichenkette; ohne sie schlüge der Vergleich
+        in ``darf_mandanten_sehen`` nur im Betrieb fehl.
+        """
         zeilen = verbindung.execute(
             "SELECT " + self._uuid_lesen + " FROM app_benutzer_mandanten WHERE benutzer_id=?",
             (benutzer_id,),
@@ -208,6 +238,17 @@ class BenutzerRepository(_Basis):
         return frozenset(str(z["company_id"]) for z in zeilen)
 
     def _zu_benutzer(self, verbindung, zeile) -> Benutzer:
+        """Formt eine Datenbankzeile in die Datenklasse :class:`Benutzer` um.
+
+        Die einzige Stelle, an der das geschieht — deshalb ist hier auch
+        sichergestellt, dass ``passwort_hash`` **nicht** mitwandert. Die
+        Datenklasse hat kein Feld dafür; wer den Hash braucht (nur
+        :meth:`finde_per_email`), bekommt ihn getrennt.
+
+        ``Rolle.aus_text`` weist einen unbekannten Rollennamen ab, statt still
+        auf ``benutzer`` zurückzufallen. Eine unlesbare Rolle ist ein Fehler
+        im Datenbestand und soll als solcher auffallen.
+        """
         return Benutzer(
             benutzer_id=zeile["benutzer_id"],
             email=zeile["email"],
@@ -239,6 +280,13 @@ class BenutzerRepository(_Basis):
             verbindung.close()
 
     def finde_per_id(self, benutzer_id: str) -> Optional[Benutzer]:
+        """Lädt einen Benutzer ueber seine ID.
+
+        Der Weg, ueber den die Middleware bei **jeder** Anfrage den Benutzer
+        neu lädt. Genau daher wirken Sperre, Rollenwechsel und entzogene
+        Mandanten sofort und ohne Neuanmeldung (Tests ``test_auth.py`` Nr. 27
+        und ``test_mandantenfilter.py`` Nr. 11).
+        """
         verbindung = self._oeffnen()
         try:
             zeile = verbindung.execute(
@@ -249,6 +297,14 @@ class BenutzerRepository(_Basis):
             verbindung.close()
 
     def alle(self) -> List[Benutzer]:
+        """Liefert alle Konten, nach E-Mail sortiert.
+
+        Ohne Seitenteilung — bei einer zweistelligen Zahl von Konten
+        angemessen. Würde die Anwendung auf Hunderte Konten wachsen, waere
+        dies die Stelle, an der es zuerst weh täte: :meth:`_zu_benutzer` ruft
+        je Zeile :meth:`_mandanten_lesen`, also N+1 Abfragen auf **einer**
+        Verbindung.
+        """
         verbindung = self._oeffnen()
         try:
             zeilen = verbindung.execute(
@@ -316,6 +372,20 @@ class BenutzerRepository(_Basis):
             verbindung.close()
 
     def _mandanten_schreiben(self, verbindung, benutzer_id: str, mandanten: Iterable[str]) -> None:
+        """Ersetzt die Mandantenzuordnung — löschen, dann neu einfuegen.
+
+        Ersetzen statt Abgleichen, weil die Zuordnung keine eigenen Attribute
+        trägt: Es gibt nichts, was beim Löschen verlorenginge.
+
+        Zwei Dinge sind hier bewusst:
+
+        * Die Menge wird ueber ein ``set`` geführt und von Leereinträgen
+          befreit. Eine doppelt geschickte ID würde sonst am
+          Primärschlüssel scheitern und die ganze Zuordnung zerreißen.
+        * Es wird **nicht** committet. Der Aufrufer entscheidet, ob dies Teil
+          einer größeren Transaktion ist — beim Anlegen eines Benutzers
+          gehören Konto und Zuordnung in einen Commit.
+        """
         verbindung.execute(
             "DELETE FROM app_benutzer_mandanten WHERE benutzer_id=?", (benutzer_id,)
         )
@@ -337,6 +407,19 @@ class BenutzerRepository(_Basis):
             verbindung.close()
 
     def passwort_setzen(self, benutzer_id: str, passwort_hash: str) -> None:
+        """Schreibt einen **bereits abgeleiteten** Hash.
+
+        Der Parameter heisst ``passwort_hash`` und nicht ``passwort``: Diese
+        Schicht sieht nie einen Klartext. Die Ableitung geschieht im
+        :class:`~bc0_auth.dienst.AuthDienst`, die Längenprüfung in
+        :mod:`bc0_auth.passwoerter`. Wer hier einen Klartext hereinreicht,
+        speichert ihn im Klartext — deshalb steht der Hinweis hier.
+
+        Das Beenden der laufenden Sitzungen gehört **nicht** hierher, sondern
+        in den Dienst (``AuthDienst.passwort_aendern``), der beides zusammen
+        auslöst. Diese Methode allein ist kein vollständiger
+        Passwortwechsel.
+        """
         verbindung = self._oeffnen()
         try:
             verbindung.execute(
@@ -365,6 +448,17 @@ class BenutzerRepository(_Basis):
             verbindung.close()
 
     def rolle_setzen(self, benutzer_id: str, rolle: Rolle) -> None:
+        """Setzt die Rolle.
+
+        Der Parameter ist die Aufzählung :class:`Rolle`, keine Zeichenkette —
+        ein Tippfehler fällt damit beim Aufruf auf und nicht erst als
+        unlesbare Zeile beim naechsten Laden.
+
+        Die Änderung wirkt ohne Neuanmeldung; die Middleware lädt den
+        Benutzer je Anfrage neu. Dass ein Admin sich nicht selbst herabstufen
+        kann, wird eine Schicht höher geprüft (``routen.py``), nicht hier —
+        das Repository kennt den Handelnden nicht.
+        """
         verbindung = self._oeffnen()
         try:
             verbindung.execute(
@@ -393,6 +487,15 @@ class BenutzerRepository(_Basis):
             verbindung.close()
 
     def anmeldung_vermerken(self, benutzer_id: str) -> None:
+        """Hält den Zeitpunkt der letzten erfolgreichen Anmeldung fest.
+
+        Rein informativ — die Spalte steuert nichts. Sie ist derzeit der
+        einzige Anhaltspunkt dafür, ob ein Konto ueberhaupt genutzt wird, und
+        damit ein schwacher Ersatz für das fehlende Änderungsprotokoll.
+
+        Der Zeitstempel geht für PostgreSQL als ``datetime`` und für SQLite
+        als ISO-Zeichenkette hinaus; SQLite kennt keinen Zeitstempeltyp.
+        """
         verbindung = self._oeffnen()
         try:
             verbindung.execute(
@@ -408,6 +511,24 @@ class SitzungsRepository(_Basis):
     """Anlegen, Auflösen und Beenden von Sitzungen."""
 
     def anlegen(self, benutzer_id: str, schluessel_abdruck: str, dauer: _dt.timedelta) -> Sitzung:
+        """Legt eine Sitzung an und gibt sie zurück.
+
+        Der Parameter ist der **Abdruck** des Sitzungsschlüssels, nicht der
+        Schlüssel. Der Schlüssel selbst erreicht diese Schicht nie und steht
+        nirgends in der Datenbank — wer ``app_sitzungen`` liest, kann keine
+        Sitzung übernehmen (Test ``test_auth.py`` Nr. 22).
+
+        Der Ablauf wird beim Anlegen **ausgerechnet und gespeichert**, statt
+        ihn später aus ``angelegt_am`` plus der aktuellen Konfiguration
+        abzuleiten. Sonst würde eine Änderung der Sitzungsdauer rückwirkend
+        alle bestehenden Sitzungen verlängern oder beenden.
+
+        Args:
+            benutzer_id: Konto, zu dem die Sitzung gehört.
+            schluessel_abdruck: SHA-256-Abdruck aus
+                :func:`bc0_auth.passwoerter.schluessel_abdruck`.
+            dauer: Gültigkeit ab jetzt.
+        """
         sitzung_id = str(uuid.uuid4())
         angelegt = _jetzt()
         ablauf = angelegt + dauer
@@ -430,6 +551,16 @@ class SitzungsRepository(_Basis):
         return Sitzung(sitzung_id, benutzer_id, angelegt, ablauf)
 
     def finde_per_abdruck(self, schluessel_abdruck: str) -> Optional[Sitzung]:
+        """Sucht eine Sitzung ueber den Abdruck ihres Schlüssels.
+
+        Der Weg, den jede angemeldete Anfrage nimmt. Die Suche läuft über die
+        indizierte Spalte ``schluessel_abdruck``; ein Abgleich ueber alle
+        Zeilen findet nicht statt.
+
+        Gibt die Sitzung **auch dann** zurück, wenn sie abgelaufen ist. Die
+        Ablaufprüfung liegt in :meth:`Sitzung.ist_abgelaufen` und wird vom
+        Dienst ausgewertet — hier wird gelesen, nicht entschieden.
+        """
         verbindung = self._oeffnen()
         try:
             zeile = verbindung.execute(

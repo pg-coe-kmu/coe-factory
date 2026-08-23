@@ -14,6 +14,39 @@
 .side{width:230px;background:#fff;border-right:1px solid var(--line);padding:12px 0}.side h4{margin:14px 18px 6px;font-size:11px;letter-spacing:.6px;color:var(--muted);text-transform:uppercase}
 .nav a{display:flex;align-items:center;gap:10px;padding:9px 18px;color:var(--ink);font-size:13.7px;cursor:pointer;border-left:3px solid transparent}.nav a:hover{background:var(--chip)}.nav a.active{background:var(--chip);border-left-color:var(--accent);font-weight:600;color:var(--navy)}
 .nav .dot{width:8px;height:8px;border-radius:50%;background:var(--accent)}
+/* Erste Gruppenueberschrift dichter an die Uebersicht ruecken, die uebrigen
+   voneinander absetzen — die Gruppen sollen als Bloecke lesbar sein. */
+.nav h4{margin:16px 18px 5px}
+/* Einklappbare Gruppen. Der Kopf ist der Schalter, deshalb Zeiger-Cursor und
+   keine Textmarkierung beim Doppelklick. Der Pfeil ist ein gedrehtes Kaestchen
+   aus zwei Raendern — kein Zeichen aus einer Schriftart und kein Bild, damit er
+   in jeder Umgebung gleich aussieht. */
+.navkopf{display:flex;align-items:center;cursor:pointer;
+         -webkit-user-select:none;user-select:none}
+.navkopf:hover{color:var(--ink)}
+/* margin-left:auto statt space-between — sonst wanderte die Ueberschrift in die
+   Mitte, sobald der Punkt fuer "enthaelt den aktiven Reiter" davor steht. */
+.navkopf::after{content:'';width:6px;height:6px;margin-left:auto;margin-right:3px;
+                border-right:1.6px solid currentColor;border-bottom:1.6px solid currentColor;
+                transform:rotate(45deg) translate(-2px,-2px);transition:transform .15s ease}
+/* Offen zeigt der Pfeil nach unten, zugeklappt nach rechts — dieselbe Sprache
+   wie in einem Dateibaum. */
+.navgruppe.zu .navkopf::after{transform:rotate(-45deg) translate(-2px,-2px)}
+.navgruppe.zu .navinhalt{display:none}
+/* Eine zugeklappte Gruppe, die den gerade offenen Reiter enthaelt, waere eine
+   Falle: Der Benutzer saehe nicht, wo er ist. navGruppeOeffnenFuer() verhindert
+   das; der Punkt am Kopf ist die zweite Sicherung fuer den Fall, dass doch
+   jemand die Gruppe von Hand zuklappt, waehrend er darin steht. */
+.navgruppe.zu.enthaelt-aktiv .navkopf{color:var(--navy);font-weight:700}
+.navgruppe.zu.enthaelt-aktiv .navkopf::before{content:'';width:6px;height:6px;border-radius:50%;
+                background:var(--accent);margin-right:8px;flex:0 0 auto}
+/* Letzter Block: gebaut, aber erst mit Schema v1.9/v2.0 bedienbar. Gedaempft statt
+   ausgeblendet, damit sichtbar bleibt, dass es die Bogen gibt — sie sind Teil
+   der Zusage an das Team, nicht eine Ueberraschung fuer Oktober. Klickbar
+   bleiben sie: der Reiter erklaert dann selbst, was fehlt (501). */
+.nav a.spaeter{color:var(--muted)}
+.nav a.spaeter .dot{background:#c9ccd1}
+.nav a.spaeter.active{color:var(--navy)}
 .content{flex:1;padding:22px 26px;overflow:auto}.crumb{font-size:12.5px;color:var(--muted);margin-bottom:4px}h1{font-size:22px;margin:0 0 2px}.lead{color:var(--muted);font-size:13.5px;margin:0 0 18px}
 .view{display:none}.view.active{display:block}
 .toolbar{display:flex;gap:12px;align-items:center;margin-bottom:16px}
@@ -90,6 +123,110 @@ table{width:100%;border-collapse:collapse;font-size:12.6px}th,td{border:1px soli
 .who{margin-left:auto;display:flex;align-items:center;gap:12px;font-size:12.5px;color:#e6ecf3}
 .who .rolle{background:rgba(255,255,255,.16);padding:2px 9px;border-radius:11px;font-size:11px;font-weight:600}
 .who a{color:#fff;text-decoration:underline;cursor:pointer;opacity:.85}
+
+/* --- Reifegradbericht als Dokument (19.08.2026) ------------------------
+   Bis hierher gab es keine einzige Druckregel; der Knopf warf die
+   Arbeitsoberflaeche auf Papier. Die Regeln unter @media print sind der
+   eigentliche Fix: Navigation weg, feste Umbrueche an den Kapiteln,
+   Tabellenkoepfe auf jeder Folgeseite, und print-color-adjust, damit die
+   eingefaerbten Matrizen nicht weiss herauskommen. */
+.dokleiste{display:flex;gap:18px;align-items:center;margin:8px 0 18px;flex-wrap:wrap}
+.dokleiste .anh{font-size:12.5px;color:var(--muted);display:flex;gap:6px;align-items:center;cursor:pointer}
+.dokleiste .anh input{width:15px;height:15px}
+/* Umschalter zwischen Arbeitsansicht und Berichtsfassung. */
+.umschalt{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.umschalt button{border:0;background:#fff;padding:7px 14px;font:inherit;font-size:13px;cursor:pointer;color:var(--muted)}
+.umschalt button+button{border-left:1px solid var(--line)}
+.umschalt button.an{background:var(--navy);color:#fff;font-weight:600}
+/* Am Bildschirm ist genau eine Ansicht sichtbar. */
+#rb[data-modus="arbeit"] .dok{display:none}
+#rb[data-modus="bericht"] #rbArbeit{display:none}
+.dok{background:#fff;border:1px solid var(--line);border-radius:12px;padding:34px 42px;max-width:900px;font-size:14px;line-height:1.62;color:#1d2733}
+.dok p{margin:0 0 11px}
+.dok h2{font-family:Georgia,serif;font-size:22px;color:var(--navy);margin:0 0 14px;border-bottom:2px solid var(--navy);padding-bottom:7px}
+.dok h2 .nr{display:inline-block;min-width:34px;color:var(--accent)}
+.dok h3{font-size:15.5px;color:var(--navy);margin:22px 0 8px}
+.kap{margin-bottom:34px}
+.titelblatt{text-align:center;padding:34px 0 26px;border-bottom:1px solid var(--line);margin-bottom:34px}
+.tb-kopf{font-size:11.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted)}
+.tb-titel{font-family:Georgia,serif;font-size:38px;color:var(--navy);margin:22px 0 6px}
+.tb-mandant{font-size:19px;font-weight:600;margin-bottom:20px}
+.tb-unter{max-width:540px;margin:0 auto 24px;font-size:13px;color:var(--muted)}
+.tb-unter p{margin:0}
+.tb-tab{max-width:540px;margin:0 auto;text-align:left}
+.tb-tab th{background:none;color:var(--muted);font-weight:600;width:42%;font-size:12.5px}
+.tb-fuss{margin-top:26px;font-size:11.5px;color:var(--muted)}
+.tb-fuss p{margin:0}
+.toc{margin:0;padding-left:22px;font-size:14px}.toc li{margin-bottom:4px}
+.tab{margin:14px 0 8px}.tab td.r,.tab th.r{text-align:right}
+.tab td:first-child{white-space:nowrap}
+.tab tr.unter td{background:#fdf6f5}
+.tab tr.summe td{background:var(--chip);font-weight:600}
+.tab.klein{font-size:11px}
+.skala{max-width:340px}
+.kennz{display:flex;gap:28px;flex-wrap:wrap;margin:16px 0;padding:14px 18px;background:#f7f9fb;border-radius:10px}
+.kennz .lab{display:block;font-size:11.5px;color:var(--muted)}
+.kennz b{font-size:23px;font-family:Georgia,serif;color:var(--navy)}
+.zwei{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0}
+.dok figure{margin:0;text-align:center}
+.dok figcaption{font-size:11.5px;color:var(--muted);margin-top:2px}
+.befund{margin:0 0 12px;padding-left:20px}.befund li{margin-bottom:6px}
+.kpblock,.matblock{margin-bottom:26px}
+.fehlt{color:var(--warn);font-style:italic}
+.dokfuss{margin-top:26px;padding-top:12px;border-top:1px solid var(--line);font-size:11px;color:var(--muted)}
+
+@media print{
+  @page{size:A4 portrait;margin:18mm 16mm 16mm 16mm}
+  html,body{background:#fff!important}
+  .topbar,.side,.noprint,.crumb,.dokleiste,.gate,.toast{display:none!important}
+  /* Gedruckt wird immer das Dokument, nie die Arbeitsansicht. Auch dann,
+     wenn am Bildschirm gerade die Arbeitsansicht offen ist. */
+  #rbArbeit{display:none!important}
+  #rb[data-modus="arbeit"] .dok{display:block!important}
+  .main{display:block;min-height:0}
+  .content{padding:0!important;overflow:visible}
+  .dok{border:0;border-radius:0;padding:0;max-width:none;font-size:10.5pt;line-height:1.5}
+  .dok h2{font-size:16pt}
+  .dok h3{font-size:12pt}
+  .tb-titel{font-size:30pt}
+  .titelblatt{page-break-after:always;border:0;padding-top:52px}
+  .kap{page-break-before:always;margin-bottom:0}
+  .kpblock,.matblock,figure,.kennz,.tb-tab{page-break-inside:avoid}
+  /* Ein Kernprozess je Seite. Ohne diese Regel entscheidet die Blockhoehe, ob
+     einer oder zwei auf ein Blatt passen — bei einem Mandanten so, beim
+     naechsten anders. Ein Bericht, dessen Umfang vom Zufall abhaengt, laesst
+     sich weder zitieren noch seitenweise herausgeben. */
+  .kpblock+.kpblock{page-break-before:always}
+  table{page-break-inside:auto}
+  tr,th,td{page-break-inside:avoid}
+  thead{display:table-header-group}
+  h2,h3{page-break-after:avoid}
+  .tab{font-size:9pt}
+  .tab.klein{font-size:7.5pt}
+  .zwei{gap:8px}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+}
+
+/* --- Bitkom-Darstellungen (19.08.2026) --------------------------------- */
+.cockpit{display:block;margin:0 auto}
+.dok .cockpitbox{text-align:center;margin:14px 0}
+.tab.cross{font-size:11px}
+.tab.cross th{text-align:center}
+.tab.cross td.io{font-size:10px;color:var(--ink);min-width:112px;max-width:150px;white-space:normal;line-height:1.35}
+.tab.cross td.io .frei{color:var(--muted);font-size:9.5px}
+.tab.cross td:first-child{white-space:normal;min-width:120px}
+.tab.cross .ein{font-size:10px;color:var(--muted);background:#fcfdfe}
+.tab.cross td.unstimmig{box-shadow:inset 0 0 0 2px #c0392b}
+
+/* --- KI-Readiness und Prozessdokumentation (19.08.2026) --------------- */
+.krzahl{width:74px;text-align:right}
+.tab td .auf{color:#1f9d57;font-size:11px;font-weight:600}
+.tab td .ab{color:#c0392b;font-size:11px;font-weight:600}
+.hinw{background:#f7f9fb;border-left:3px solid var(--accent);font-size:13px;line-height:1.55}
+.agblock{border:1px solid var(--line);border-radius:9px;padding:14px;margin-bottom:12px;background:#fcfdfe}
+.agblock .formgrid{margin-bottom:10px}
+#pd_wz input,#pd_ts input,#pd_wz select{width:100%;padding:5px 7px;font-size:12.5px}
+#pd_wz td,#pd_ts td{padding:4px 5px}
 </style></head><body>
 <!-- Anmeldemaske. Ohne gueltige Sitzung liegt sie ueber allem anderen. -->
 <div class="gate" id="gate"><div class="box">
@@ -108,19 +245,77 @@ table{width:100%;border-collapse:collapse;font-size:12.6px}th,td{border:1px soli
 <div class="tsel" id="tsel" style="display:none">Mandant: <select id="tswitch"></select></div>
 <div class="who" id="who" style="display:none"><span id="whoName"></span><span class="rolle" id="whoRolle"></span><a id="logoutLink">Abmelden</a></div></div>
 <div class="main">
+<!-- Die Reiter sind nach dem ARBEITSWEG gruppiert, nicht alphabetisch und nicht nach
+     Entstehungsdatum: Stammdaten -> Erhebung -> Ergebnis -> Übergabe. Vorher standen
+     zwölf gleichrangige Einträge untereinander, und die Reihenfolge verriet nicht, was
+     zuerst zu tun ist — wer die Anwendung zum ersten Mal öffnet, sah eine Liste statt
+     eines Weges.
+
+     Zwei Aussagen stecken in der Anordnung selbst:
+       * Block 4 steht unter Block 3. Freigegeben wird zuletzt, und zwar von Hand —
+         das Gate ist keine Rechnung, sondern eine Entscheidung.
+       * Der letzte Block ist abgesetzt, unnummeriert und gedämpft. Er betrifft den Zustand NACH der
+         Automatisierung und ist erst mit Schema v1.9/v2.0 bedienbar.
+
+     Die Gruppenüberschriften sind <h4> und erben die Gestaltung von `.side h4`.
+     `show()` und WS_REITER bleiben unberührt — die Gruppierung ist reine Darstellung. -->
 <aside class="side" id="side" style="display:none"><h4>Mandant</h4><nav class="nav" id="wnav">
+<!-- Übersicht steht ausserhalb jeder Gruppe: Sie ist der Einstieg, nicht ein
+     Schritt des Arbeitswegs — und sie darf nie hinter einem zugeklappten Kopf
+     verschwinden. -->
 <a data-v="ov" class="active"><span class="dot"></span>Übersicht</a>
-<a data-v="pf"><span class="dot"></span>Unternehmensprofil</a>
-<a data-v="ud"><span class="dot"></span>Unternehmensdaten</a>
-<a data-v="rk"><span class="dot"></span>Rollen &amp; Kosten</a>
-<a data-v="ps"><span class="dot"></span>Personen &amp; Systeme</a>
-<a data-v="pr"><span class="dot"></span>Prozesse &amp; Teilprozesse</a>
-<a data-v="ra"><span class="dot"></span>Self-Rating</a>
-<a data-v="gr"><span class="dot"></span>Bewertungen</a>
-<a data-v="rb"><span class="dot"></span>Reifegradbericht</a>
-<!-- Nur fuer Administratoren. Das Ausblenden ist Bequemlichkeit; die Sperre liegt
+
+<div class="navgruppe" id="grp-stamm">
+  <h4 class="navkopf">1 · Stammdaten</h4>
+  <div class="navinhalt">
+    <a data-v="pf"><span class="dot"></span>Unternehmensprofil</a>
+    <a data-v="ud"><span class="dot"></span>Unternehmensdaten</a>
+    <a data-v="rk"><span class="dot"></span>Rollen &amp; Kosten</a>
+    <a data-v="ps"><span class="dot"></span>Personen &amp; Systeme</a>
+  </div>
+</div>
+
+<div class="navgruppe" id="grp-erhebung">
+  <h4 class="navkopf">2 · Erhebung</h4>
+  <div class="navinhalt">
+    <a data-v="pr"><span class="dot"></span>Prozesse &amp; Teilprozesse</a>
+    <a data-v="ra"><span class="dot"></span>Self-Rating</a>
+    <a data-v="gr"><span class="dot"></span>Bewertungen</a>
+  </div>
+</div>
+
+<div class="navgruppe" id="grp-ergebnis">
+  <h4 class="navkopf">3 · Ergebnis</h4>
+  <div class="navinhalt">
+    <a data-v="rb"><span class="dot"></span>Reifegradbericht</a>
+  </div>
+</div>
+
+<!-- Die ganze Gruppe wird in zeigeBenutzer() geschaltet, nicht nur der Eintrag —
+     sonst stuende fuer einen normalen Benutzer ein leerer Kopf da, den man auch
+     noch aufklappen koennte. Das Ausblenden ist Bequemlichkeit; die Sperre liegt
      im Server, der jeden Gate-Endpunkt mit 403 beantwortet (Depends(admin)). -->
-<a data-v="g0" id="navG0" style="display:none"><span class="dot"></span>Freigabe (Gate 0)</a>
+<div class="navgruppe" id="grp-uebergabe" style="display:none">
+  <h4 class="navkopf">4 · Übergabe</h4>
+  <div class="navinhalt">
+    <a data-v="g0" id="navG0"><span class="dot"></span>Freigabe (Gate 0)</a>
+  </div>
+</div>
+
+<!-- Bewusst OHNE Nummer: Bloecke 1 bis 4 sind der Arbeitsweg einer Erhebung,
+     dieser Block ist ein spaeterer Zeithorizont und kein fuenfter Schritt.
+     Nebenwirkung, die den Ausschlag gab: Fuer einen Nicht-Admin ist Block 4
+     ausgeblendet — eine "5" spraenge dann sichtbar ueber die fehlende "4"
+     und saehe nach einem Fehler aus.
+     data-zu="1": als einzige Gruppe zugeklappt vorbelegt. Sie betrifft einen
+     Zustand, den heute noch kein Mandant hat. -->
+<div class="navgruppe" id="grp-spaeter" data-zu="1">
+  <h4 class="navkopf">Nach der Automatisierung</h4>
+  <div class="navinhalt">
+    <a data-v="kr" class="spaeter" title="Erst ab Schema v1.9 bedienbar — vorgesehen für Oktober 2026."><span class="dot"></span>KI-Readiness</a>
+    <a data-v="pd" class="spaeter" title="Erst ab Schema v2.0 bedienbar — vorgesehen für Oktober 2026."><span class="dot"></span>Prozessdokumentation</a>
+  </div>
+</div>
 </nav><h4>&nbsp;</h4><div class="nav"><a onclick="goList()"><span class="dot" style="background:#c9ccd1"></span>‹ Alle Mandanten</a></div></aside>
 <div class="content">
  <section class="view active" id="list"><div class="crumb">BC0 · Mandanten</div><h1>Mandanten</h1><p class="lead">Zentrale Projekt-Datenbank. Neuen Mandanten onboarden oder bestehenden öffnen.</p>
@@ -135,15 +330,70 @@ table{width:100%;border-collapse:collapse;font-size:12.6px}th,td{border:1px soli
  <section class="view" id="rk"></section>
  <section class="view" id="ps"></section>
  <section class="view" id="pr"></section>
+ <section class="view" id="pd"></section>
  <section class="view" id="ra"></section>
+ <section class="view" id="kr"></section>
  <section class="view" id="gr"></section>
  <section class="view" id="rb"></section>
  <section class="view" id="g0"></section>
 </div></div><div class="toast" id="toast"></div>
 <script>
+/* =============================================================================
+   BC0 — Oberfläche. Eine Datei: HTML, CSS und JavaScript zusammen.
+
+   KEIN FRAMEWORK, KEINE ÜBERSETZUNG, KEINE npm-ABHÄNGIGKEIT. Das ist die
+   begründungsbedürftigste Entscheidung der Anwendung, deshalb steht sie hier:
+
+     * Wer diese Datei öffnet, sieht den Quelltext, den der Browser ausführt.
+       Kein Übersetzat, keine Quellkarte dazwischen. Für ein Vorhaben, das über
+       mehrere Semester von wechselnden Personen weitergeführt wird, wiegt das
+       schwerer als der Komfort eines Frameworks.
+     * Null npm-Pakete heißt: nichts, was kompromittiert werden kann, und
+       nichts, was in zwei Jahren nicht mehr baut.
+     * Der Umfang rechtfertigt kein Framework — es sind Formulare, Tabellen und
+       selbst gezeichnetes SVG.
+
+   Der Preis, ebenso deutlich: keine Komponentengrenzen, keine Typprüfung,
+   keine Oberflächentests, und eine Datei, die mit rund 1.900 Zeilen an der
+   Grenze des Handhabbaren steht.
+
+   AUFBAU
+     Ansichten sind <section class="view"> mit einer ID; show(id) schaltet um.
+     Je Ansicht eine render*-Funktion, die ihren HTML-Baum als Zeichenkette
+     baut und einhängt. Zustand liegt in wenigen Modulvariablen.
+
+   ZUSTAND
+     META    globale Stammdaten aus /api/meta — die 30 Items, Dimensionen,
+             Prozessvorlage, Kriterienschnitte. Wird EINMAL beim Start geladen.
+             Die Oberfläche führt bewusst keine zweite Werteliste; sonst liefe
+             ein geänderter Fragetext zwischen Maske und Bericht auseinander.
+     cur     der geöffnete Mandant, vollständig: Unternehmen, Profil,
+             Prozessbaum, Bewertungen, geltende Erhebung. Alle Reiter rendern
+             daraus, ohne beim Umschalten nachzuladen.
+     curKP / curTP  der in der Erfassungsmaske gewählte Kern- und Teilprozess.
+
+   SICHERHEIT AN DIESER STELLE
+     Der Sitzungsschlüssel steht in einem HttpOnly-Cookie und ist hier NICHT
+     lesbar — das ist Absicht. Jede Ausgabe von Server- oder Benutzertext läuft
+     durch esc(); wer eine neue Zeichenkette in innerHTML einsetzt, muss das
+     ebenso tun.
+   ============================================================================= */
 var META=null, cur=null, curKP=null, curTP=null;
+/* Kurzform für getElementById. Die Datei greift so oft auf Elemente zu, dass
+   der volle Name die Zeilen unlesbar machen würde. */
 function $(id){return document.getElementById(id);}
+/* Maskiert Text für die Einbettung in HTML. Die einzige Verteidigung gegen XSS
+   in dieser Datei, denn der HTML-Baum wird als Zeichenkette gebaut.
+   Erfasst &, <, > und " — das doppelte Anführungszeichen ist nötig, weil Werte
+   auch in Attributen landen (value="..."). Das einfache Anführungszeichen ist
+   NICHT erfasst; Attribute werden in dieser Datei durchgehend doppelt
+   begrenzt. Wer das ändert, muss hier &#39; ergänzen.
+   Eine Content-Security-Policy als zweite Linie fehlt noch — siehe
+   Sicherheitskonzept 3.2. */
 function esc(s){return (s==null?'':''+s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+/* Kurzmeldung am unteren Rand. Setzt textContent und nicht innerHTML — die
+   Meldung enthält oft Servertext (Fehlerdetails), der nicht als Markup
+   ausgeführt werden darf. Zweites Argument true färbt sie rot. */
 function toast(m,e){var t=$('toast');t.textContent=m;t.className='toast show'+(e?' err':'');setTimeout(function(){t.className='toast';},2800);}
 /* Zentrale Fehlerbehandlung fuer alle API-Aufrufe.
    Der Fall 401 wird hier abgefangen und fuehrt zur Anmeldemaske. Ohne diese eine
@@ -153,10 +403,24 @@ async function pruefeAntwort(r){
   if(r.status===401){BENUTZER=null;zeigeAnmeldung('Die Sitzung ist abgelaufen. Bitte neu anmelden.');}
   if(!r.ok){var d='';try{d=(await r.json()).detail;}catch(e){d=r.statusText;}throw {status:r.status,detail:d};}
   if(r.status===204)return null;return await r.json();}
+/* Der einzige Weg zur API. Alle Aufrufe laufen hierdurch und damit durch
+   pruefeAntwort — deshalb genügt EINE Stelle für die 401-Behandlung.
+   Das Sitzungscookie geht automatisch mit (gleicher Ursprung); es wird hier
+   nicht angefasst und ist aus JavaScript auch nicht lesbar. */
 async function api(p,m,b){var o={method:m||'GET',headers:{'Content-Type':'application/json'}};if(b)o.body=JSON.stringify(b);
   return await pruefeAntwort(await fetch(p,o));}
 async function api2(p,text){return await pruefeAntwort(await fetch(p,{method:"POST",headers:{"Content-Type":"text/plain"},body:text}));}
-function show(v){var s=document.querySelectorAll('.view');for(var i=0;i<s.length;i++)s[i].classList.remove('active');$(v).classList.add('active');window.scrollTo(0,0);}
+/* Welcher Reiter zuletzt angefordert wurde. Ohne diese Sperre gewinnt der
+   Renderer, der zufaellig zuletzt fertig wird: Wer den Reifegradbericht
+   anklickt, waehrend die Uebersicht noch laedt, landet wieder auf der
+   Uebersicht, weil deren Aufbau laenger dauert. Der Fehler faellt seit dem
+   19.08. auf, weil der Bericht mehr zu laden hat — er war aber vorher da. */
+var WS_REITER=['ov','pf','ud','rk','ps','pr','pd','ra','kr','gr','rb','g0'], WS_ZIEL=null;
+function show(v){
+  if(WS_ZIEL && v!==WS_ZIEL && WS_REITER.indexOf(v)>=0) return;
+  var s=document.querySelectorAll('.view');
+  for(var i=0;i<s.length;i++)s[i].classList.remove('active');
+  $(v).classList.add('active');window.scrollTo(0,0);}
 
 function setBackendLabel(){var el=$('backendLabel');if(!el||!META)return;
   el.textContent = (META.backend==='postgres') ? 'FastAPI + PostgreSQL · Supabase (EU)' : 'FastAPI + SQLite · lokal';}
@@ -190,7 +454,10 @@ function zeigeBenutzer(){
   if($('yamlBtn')) $('yamlBtn').style.display = nurAdmin;
   /* Der Freigabe-Reiter ebenso: Die Entscheidung loest BC2 aus und betrifft das
      ganze Unternehmen. Ein Benutzer bekaeme auf jedem Gate-Endpunkt 403. */
-  if($('navG0'))   $('navG0').style.display   = BENUTZER.ist_admin ? 'flex' : 'none';
+  // Die ganze Gruppe schalten, nicht nur den Eintrag — sonst bliebe fuer einen
+  // normalen Benutzer der Kopf "4 · Uebergabe" ohne Inhalt stehen, und er liesse
+  // sich auch noch auf- und zuklappen.
+  if($('grp-uebergabe')) $('grp-uebergabe').style.display = BENUTZER.ist_admin ? 'block' : 'none';
 }
 
 $('loginForm').onsubmit=async function(ev){
@@ -231,8 +498,21 @@ async function boot(){
   if(!status.angemeldet){ zeigeAnmeldung(); return; }
   BENUTZER=status.benutzer; zeigeBenutzer(); await starteAnwendung();
 }
+/* Klarname eines Kernprozesses aus seiner ID. "KP-03" -> Index 2 in der
+   Vorlage. Fällt auf die ID zurück, wenn die Vorlage sie nicht kennt — ein
+   Mandant kann Prozesse tragen, die nicht aus der Vorlage stammen. */
 function kpName(pid){var i=parseInt(pid.split('-')[1],10)-1;return META.kp_template[i]||pid;}
 
+/* ---- Mandantenliste -------------------------------------------------------
+   Die Einstiegsansicht. Der Server liefert nur die Mandanten, die der
+   Angemeldete sehen darf — hier wird NICHT gefiltert, das Suchfeld filtert
+   allein die bereits erlaubte Menge. Der Mandantenfilter liegt auf dem Server
+   (pruefe_mandant); eine Prüfung im Browser wäre keine.
+   Erfassungsgrad und Ø-Reifegrad kommen aus company_progress() und rechnen auf
+   dem maßgeblichen Stand, nicht auf allen je geschriebenen Zeilen.
+   Der Leertext unterscheidet nach Rolle: Ein Admin sieht den Hinweis auf
+   „+ Neuer Mandant", ein Benutzer den Hinweis, dass ihm keiner zugeordnet
+   ist — für ihn wäre der Knopf gar nicht bedienbar. */
 async function renderList(){
   var list=await api('/api/companies');var q=($('q').value||'').toLowerCase();var box=$('coGrid');box.innerHTML='';
   list.filter(function(t){return t.name.toLowerCase().indexOf(q)>=0||(t.branche||'').toLowerCase().indexOf(q)>=0;}).forEach(function(t){
@@ -249,9 +529,20 @@ async function renderList(){
 $('q').oninput=renderList;
 $("yamlBtn")&&($("yamlBtn").onclick=function(){$("yamlFile").click();});
 $("yamlFile")&&($("yamlFile").onchange=async function(e){var fl=e.target.files[0];if(!fl)return;var txt=await fl.text();try{var r=await api2("/api/import_yaml",txt);toast("✓ YAML importiert: "+r.prozesse+" Prozesse, "+r.bewertungen+" Bewertungen.");openTenant(r.id);}catch(err){toast("Import-Fehler: "+err.detail,true);}e.target.value="";});
-function goList(){cur=null;$('side').style.display='none';$('tsel').style.display='none';show('list');renderList();}
+function goList(){cur=null;WS_ZIEL=null;$('side').style.display='none';$('tsel').style.display='none';show('list');renderList();}
 
-// ---- wizard ----
+/* ---- Anlageassistent ------------------------------------------------------
+   Drei Schritte: Unternehmensdaten, Prozesslandkarte, Bestätigen. Der Entwurf
+   liegt in `draft` und wird bei jedem Schrittwechsel über saveWiz() aus den
+   Feldern eingesammelt — die Felder werden beim Rendern neu erzeugt, ihr
+   Inhalt wäre sonst weg.
+   Vorbelegt sind KP-01 bis KP-04; das ist der Umfang, mit dem die Erhebungen
+   in der Regel beginnen. Weitere Kernprozesse lassen sich später über
+   /process/add nachziehen.
+   Geschrieben wird erst im letzten Schritt, mit EINEM Aufruf. Ein Abbruch
+   vorher hinterlässt nichts in der Datenbank.
+   Anlegen ist Admins vorbehalten — der Server weist einen Benutzer mit 403 ab,
+   auch wenn dieser Knopf sichtbar wäre. */
 var STEPS=["Unternehmensdaten","Prozesslandkarte","Anlegen"],wstep=0,draft={};
 $('newBtn').onclick=function(){draft={name:'',branche:'',rechtsform:'GmbH',ma:'',region:'',kps:[0,1,2,3]};wstep=0;$('side').style.display='none';$('tsel').style.display='none';renderWiz();show('wizard');};
 function renderWiz(){var s=$('stepper');s.innerHTML='';STEPS.forEach(function(t,i){s.innerHTML+='<div class="step'+(i===wstep?' active':'')+'"><div class="n">'+(i+1)+'</div>'+t+'</div>';});
@@ -265,8 +556,83 @@ $('backBtn').onclick=function(){saveWiz();if(wstep>0){wstep--;renderWiz();}};
 $('nextBtn').onclick=async function(){saveWiz();if(wstep===0&&!draft.name.trim()){toast('Firmenname fehlt.',true);return;}if(wstep<2){wstep++;renderWiz();return;}
   try{var r=await api('/api/companies','POST',{name:draft.name,branche:draft.branche,rechtsform:draft.rechtsform,ma:draft.ma?+draft.ma:null,region:draft.region,kps:draft.kps});toast('✓ Mandant angelegt.');openTenant(r.id);}catch(e){toast('Fehler: '+e.detail,true);}};
 
-// ---- tenant workspace ----
-var wnav=document.querySelectorAll('#wnav a');for(var i=0;i<wnav.length;i++){(function(a){a.onclick=function(){for(var j=0;j<wnav.length;j++)wnav[j].classList.remove('active');a.classList.add('active');renderWS(a.dataset.v);};})(wnav[i]);}
+/* ---- Arbeitsbereich eines Mandanten ---------------------------------------
+   openTenant() lädt den Mandanten EINMAL vollständig nach `cur`; die Reiter
+   rendern daraus. Nach jedem Schreibvorgang wird über reloadCur() neu geladen,
+   damit die Anzeige nicht von einer nur im Browser gepflegten Kopie abhängt.
+   renderWS() setzt WS_ZIEL und verteilt auf die render*-Funktionen — siehe die
+   Anmerkung zum Wettlauf bei show(). */
+var wnav=document.querySelectorAll('#wnav a');for(var i=0;i<wnav.length;i++){(function(a){a.onclick=function(){for(var j=0;j<wnav.length;j++)wnav[j].classList.remove('active');a.classList.add('active');navAktivMarkieren();renderWS(a.dataset.v);};})(wnav[i]);}
+
+/* ---- Einklappbare Reitergruppen ------------------------------------------
+   Zwoelf Eintraege sind auf einem Notebook-Bildschirm knapp; wer im Self-Rating
+   arbeitet, braucht die Stammdaten nicht daneben. Die Gruppen lassen sich
+   deshalb einzeln zuklappen.
+
+   Der Zustand liegt je Gruppe in localStorage, nicht im Zustand der Anwendung:
+   Er gehoert zum Arbeitsplatz und nicht zum Mandanten — wer die Stammdaten
+   zuklappt, will sie beim naechsten Oeffnen auch zugeklappt haben, unabhaengig
+   davon, welchen Mandanten er dann bearbeitet. Jeder Zugriff steht in
+   try/catch: In einem privaten Fenster oder bei gesperrten Seitendaten wirft
+   localStorage, und daran darf die Navigation nicht scheitern — ohne Speicher
+   gelten schlicht die Vorbelegungen.
+
+   Vorbelegung: alles offen ausser der Gruppe mit data-zu="1". */
+var NAV_SPEICHER='bc0_nav_gruppen';
+
+function navZustandLesen(){
+  try{ var r=JSON.parse(localStorage.getItem(NAV_SPEICHER)||'{}'); return (r&&typeof r==='object')?r:{}; }
+  catch(e){ return {}; }
+}
+function navZustandSchreiben(z){
+  try{ localStorage.setItem(NAV_SPEICHER, JSON.stringify(z)); }catch(e){}
+}
+
+function navGruppeSchalten(g, zu){
+  g.classList.toggle('zu', zu);
+  var k=g.querySelector('.navkopf');
+  if(k) k.setAttribute('aria-expanded', zu?'false':'true');
+  var z=navZustandLesen(); z[g.id]=zu; navZustandSchreiben(z);
+  navAktivMarkieren();
+}
+
+/* Merkt am zugeklappten Kopf, dass der offene Reiter darin steckt. Ohne das
+   waere nicht erkennbar, wo man gerade ist, sobald jemand die Gruppe zuklappt,
+   in der er arbeitet. */
+function navAktivMarkieren(){
+  [].forEach.call(document.querySelectorAll('#wnav .navgruppe'), function(g){
+    g.classList.toggle('enthaelt-aktiv', !!g.querySelector('a.active'));
+  });
+}
+
+/* Oeffnet die Gruppe, in der ein Reiter liegt. Wird vor jedem programmgesteuerten
+   Sprung gerufen (gehZuReiter) — sonst landete man in einer Ansicht, deren
+   Eintrag in der Leiste nicht zu sehen ist. */
+function navGruppeOeffnenFuer(v){
+  var a=document.querySelector('#wnav a[data-v="'+v+'"]');
+  var g=a && a.parentNode && a.parentNode.parentNode;
+  if(g && g.classList && g.classList.contains('navgruppe') && g.classList.contains('zu'))
+    navGruppeSchalten(g,false);
+}
+
+(function navGruppenAufbauen(){
+  var z=navZustandLesen();
+  [].forEach.call(document.querySelectorAll('#wnav .navgruppe'), function(g){
+    var k=g.querySelector('.navkopf'); if(!k) return;
+    // Gespeicherter Wert schlaegt die Vorbelegung — aber nur, wenn es einen gibt.
+    var startZu = (typeof z[g.id]==='boolean') ? z[g.id] : (g.dataset.zu==='1');
+    g.classList.toggle('zu', startZu);
+    k.setAttribute('role','button');
+    k.setAttribute('tabindex','0');
+    k.setAttribute('aria-expanded', startZu?'false':'true');
+    k.onclick=function(){ navGruppeSchalten(g, !g.classList.contains('zu')); };
+    // Mit der Tastatur bedienbar: Ein <h4> ist von Haus aus kein Schalter.
+    k.onkeydown=function(e){
+      if(e.key==='Enter'||e.key===' '||e.key==='Spacebar'){ e.preventDefault(); k.onclick(); }
+    };
+  });
+  navAktivMarkieren();
+})();
 async function openTenant(id){cur=await api('/api/companies/'+id);$('side').style.display='block';$('tsel').style.display='inline';
   var sw=$('tswitch');var list=await api('/api/companies');sw.innerHTML='';list.forEach(function(t){sw.innerHTML+='<option value="'+t.id+'" '+(String(t.id)===String(id)?'selected':'')+'>'+esc(t.name)+'</option>';});sw.onchange=function(){openTenant(sw.value);};
   for(var j=0;j<wnav.length;j++)wnav[j].classList.remove('active');wnav[0].classList.add('active');renderWS('ov');}
@@ -274,25 +640,58 @@ async function reloadCur(){cur=await api('/api/companies/'+cur.company.id);}
 
 function cr(){return 'Mandanten › '+esc(cur.company.name)+' › ';}
 async function renderWS(v){
+  WS_ZIEL=v;
   if(v==='ov')return renderOV();
   if(v==='pf')return renderPF();
   if(v==='ud')return renderUD();
   if(v==='rk')return renderRK();
   if(v==='ps')return renderPS();
   if(v==='pr')return renderPR();
+  if(v==='pd')return reiterMitSchema('pd', renderPD, 'Prozessdokumentation', 'Schema v2.0');
   if(v==='ra')return renderRA();
+  if(v==='kr')return reiterMitSchema('kr', renderKR, 'KI-Readiness', 'Schema v1.9');
   if(v==='gr')return renderGR();
   if(v==='rb')return renderRB();
   if(v==='g0')return renderG0();
+}
+
+/* Die beiden Boegen des letzten Blocks sind gebaut, ihre Tabellen aber erst mit Schema
+   v1.9 bzw. v2.0 vorhanden. Der Server antwortet dann mit 501 — nicht mit 500,
+   weil der Endpunkt existiert und nur nicht freigeschaltet ist (siehe
+   _tabelle_fehlt in app.py). Ohne diesen Fang liefe der Fehler durch api()
+   als Ausnahme durch und hinterliesse eine leere Seite. Jeder andere Status
+   wird unveraendert weitergereicht — ein 403 soll nicht als "kommt im Oktober"
+   erscheinen. */
+async function reiterMitSchema(v, zeichnen, titel, schema){
+  try{ await zeichnen(); }
+  catch(e){
+    if(!(e && e.status===501)) throw e;
+    $(v).innerHTML='<div class="crumb">'+cr()+esc(titel)+'</div><h1>'+esc(titel)+'</h1>'
+      +'<div class="panel hinw"><b>Noch nicht freigeschaltet.</b> Der Bogen ist gebaut und '
+      +'getestet, aber '+esc(schema)+' ist in dieser Datenbank noch nicht eingespielt. '
+      +'Vorgesehen für Oktober 2026.'
+      +'<div class="mut" style="margin-top:8px">Meldung des Servers: '+esc(e.detail||'—')+'</div>'
+      +'</div>';
+    show(v);
+  }
 }
 async function renderOV(){var rep=await api('/api/companies/'+cur.company.id+'/report');
   var kpn=Object.keys(cur.processes).length;
   $('ov').innerHTML='<div class="crumb">'+cr()+'Übersicht</div><h1>'+esc(cur.company.name)+'</h1><p class="lead">'+esc(cur.company.branche||'')+' · '+esc(cur.company.region||'')+' · <span class="pill">'+(cur.company.status||'')+'</span></p>'+
     '<div class="cards"><div class="card"><div class="k">Kernprozesse</div><div class="v">'+kpn+'</div></div><div class="card"><div class="k">Teilprozesse</div><div class="v">'+(kpn*5)+'</div></div><div class="card"><div class="k">Bewertungen</div><div class="v">'+rep.n_bewertungen+'</div></div><div class="card"><div class="k">Ø Reifegrad</div><div class="v">'+(rep.gesamt?(''+rep.gesamt).replace('.',','):'–')+'</div></div></div>'+
-    '<div class="two"><div class="panel"><b>Prozesslandkarte</b><div id="ovkp" style="margin-top:10px"></div></div><div class="panel"><b>Reifegrad-Profil (5 Dimensionen)</b><div class="radarBox" id="ovr"></div></div></div>';
+    '<div class="two"><div class="panel"><b>Prozesslandkarte</b><div id="ovkp" style="margin-top:10px"></div></div><div class="panel"><b>Reifegrad-Profil (5 Dimensionen)</b><div class="radarBox" id="ovr"></div></div></div>'+
+    /* Das Management-Cockpit gehoert auf die erste Seite: Es beantwortet die
+       Frage, die man beim Oeffnen eines Mandanten zuerst hat — wo steht das
+       Portfolio, und welche Kategorie ist ueberhaupt erhoben. Dieselbe
+       Darstellung steht als Kapitel 3 im Reifegradbericht. */
+    '<div class="panel"><b>Portfolio nach Prozesskategorie (Management-Cockpit)</b>'+
+    '<div class="mut" style="margin:4px 0 8px">Bitkom-Leitfaden 3.0, Zusatzmodul Management-Cockpit. '+
+    'Die Höhe folgt dem Reifegrad; die gestrichelte Linie ist die Projektschwelle 3,5.</div>'+
+    '<div class="cockpitbox" id="ovcock"></div></div>';
   var kh='';for(var i=0;i<10;i++){var on=!!cur.processes['KP-'+('0'+(i+1)).slice(-2)];kh+='<div class="kp"><span style="color:'+(on?'#1f9d57':'#c9ccd1')+'">'+(on?'✓':'○')+'</span> KP-'+('0'+(i+1)).slice(-2)+' '+esc(META.kp_template[i])+'</div>';}
   $('ovkp').innerHTML=kh;
   spider('ovr',META.dims.map(shortDim),META.dims.map(function(d){return rep.dim_avg[d]||0;}));
+  if($('ovcock')) $('ovcock').innerHTML=cockpitSvg(rep);
   show('ov');}
 function shortDim(d){return ({"1) Technologie":"Tech","2) Prozessdaten":"Daten","3) Prozessqualität":"Qualität","4) Kundinnen und Kunden":"Kund:innen","5) Skills und Kultur":"Skills"})[d]||d;}
 
@@ -462,7 +861,8 @@ function zeichnePS(){
   /* ---- Personen ---- */
   var personen = '<table><tr><th style="width:64px">ID</th><th>Name</th><th>Funktion</th>'
     + '<th style="width:190px">Rolle (Kostenklasse)</th><th style="width:62px">extern</th>'
-    + '<th>Organisation</th><th style="width:56px">aktiv</th></tr>';
+    + '<th>Organisation</th><th>E-Mail (dienstlich)</th><th style="width:150px">Telefon (dienstlich)</th>'
+    + '<th style="width:56px">aktiv</th></tr>';
   PS.personen.forEach(function(p,i){
     personen += '<tr data-person="'+i+'">'
       + '<td class="mut">'+esc(p.person_id||'neu')+'</td>'
@@ -472,6 +872,8 @@ function zeichnePS(){
           function(r){return r.rolle_id+' · '+r.bezeichnung+' ('+r.klasse+')';}, 'keine Rolle')+'</select></td>'
       + '<td style="text-align:center"><input type="checkbox" class="ps-ext"'+(p.extern?' checked':'')+'></td>'
       + '<td><input class="ps-org" value="'+esc(p.organisation||'')+'" placeholder="bei extern"></td>'
+      + '<td><input class="ps-mail" value="'+esc(p.email||'')+'" placeholder="dienstliche Adresse"></td>'
+      + '<td><input class="ps-tel" value="'+esc(p.telefon||'')+'" placeholder="dienstliche Nummer"></td>'
       + '<td style="text-align:center"><input type="checkbox" class="ps-aktiv"'+(p.aktiv?' checked':'')+'></td></tr>';
   });
   personen += '</table>';
@@ -522,7 +924,7 @@ function zeichnePS(){
     + '<h1>Personen &amp; Systeme</h1>'
     + '<p class="lead">Das Entitäten-Register nach <b>ADR-004</b>. Personen und Systeme bekommen hier stabile IDs, auf die BC1 bis BC4 verweisen können. <b>Klarnamen stehen ausschließlich auf dieser Seite</b> — die nachgelagerten Kontexte lesen Sichten, die nur die ID enthalten.</p>'
     + '<div class="panel"><h3>Personen</h3>'
-    + '<p class="mut">Der <b>Name darf leer bleiben</b>, wenn nur die Funktion bekannt ist („externer Steuerberater"). Mindestens eines von beiden muss stehen. Ohne zugeordnete Rolle gibt es keine Kostenklasse und damit keinen Beitrag zur ROI-Rechnung. Ausgeschiedene Personen werden <b>gesperrt statt gelöscht</b>: Häkchen entfernen.</p>'
+    + '<p class="mut">Der <b>Name darf leer bleiben</b>, wenn nur die Funktion bekannt ist („externer Steuerberater"). Mindestens eines von beiden muss stehen. Ohne zugeordnete Rolle gibt es keine Kostenklasse und damit keinen Beitrag zur ROI-Rechnung. Ausgeschiedene Personen werden <b>gesperrt statt gelöscht</b>: Häkchen entfernen. Bei E-Mail und Telefon werden <b>ausschließlich dienstliche Angaben</b> erfasst, keine privaten — sie bleiben in BC0 und gehen nicht an die nachgelagerten Kontexte.</p>'
     + personen
     + '<div class="row" style="margin-top:10px"><button class="btn sec" id="ps_add_p">+ Person</button></div></div>'
     + '<div class="panel"><h3>Systeme und Werkzeuge</h3>'
@@ -537,7 +939,7 @@ function zeichnePS(){
 
   $('ps_add_p').onclick = function(){ psUebernehmen();
     PS.personen.push({person_id:'', name:'', funktion:'', rolle_id:'', extern:false,
-                      organisation:'', aktiv:true}); zeichnePS(); };
+                      organisation:'', email:'', telefon:'', aktiv:true}); zeichnePS(); };
   $('ps_add_s').onclick = function(){ psUebernehmen();
     PS.systeme.push({system_id:'', bezeichnung:'', katalog_id:'', einsatz:'', aktiv:true});
     zeichnePS(); };
@@ -556,6 +958,8 @@ function psUebernehmen(){
     p.rolle_id = tr.querySelector('.ps-rolle').value;
     p.extern = tr.querySelector('.ps-ext').checked;
     p.organisation = tr.querySelector('.ps-org').value;
+    p.email = tr.querySelector('.ps-mail').value;
+    p.telefon = tr.querySelector('.ps-tel').value;
     p.aktiv = tr.querySelector('.ps-aktiv').checked;
   });
   document.querySelectorAll('#ps tr[data-system]').forEach(function(tr){
@@ -591,8 +995,14 @@ async function speicherePS(){
   }catch(e){ toast('Fehler: '+e.detail, true); }
 }
 
-function renderPR(){var keys=Object.keys(cur.processes).sort();
-  $('pr').innerHTML='<div class="crumb">'+cr()+'Prozesse</div><h1>Prozesse &amp; Teilprozesse</h1><p class="lead">ref_prozesse / ref_teilprozesse</p><div id="pracc"></div>';
+async function renderPR(){var keys=Object.keys(cur.processes).sort();
+  /* Die cross-sectionale Betrachtung steht hier und nicht nur im Bericht: Sie
+     spricht ueber die Prozesskette, und die wird auf dieser Seite gepflegt.
+     Wer Input, Output und Schnittstellen aendert, sieht unmittelbar, was das
+     fuer die Durchgaengigkeit bedeutet. */
+  var rep=null;
+  try{ rep=await api('/api/companies/'+cur.company.id+'/report'); baueKritZuordnung(); }catch(e){ rep=null; }
+  $('pr').innerHTML='<div class="crumb">'+cr()+'Prozesse</div><h1>Prozesse &amp; Teilprozesse</h1><p class="lead">ref_prozesse / ref_teilprozesse</p><div id="pracc"></div><div id="prcross"></div>';
   var box=$('pracc');var html='';
   keys.forEach(function(pid){var p=cur.processes[pid];var tpsfilled=p.tps.filter(function(t){return t.sub_process_name;}).length;
     html+='<div class="acc" data-pid="'+pid+'"><div class="head">'+pid+' · '+esc(p.process_name)+'<span class="tp">'+(p.owner_name?('Owner: '+esc(p.owner_name)):'<span style="color:#c0392b">Owner fehlt</span>')+' · '+tpsfilled+'/5 TP</span></div><div class="body"><div class="formgrid">'+
@@ -629,6 +1039,14 @@ function renderPR(){var keys=Object.keys(cur.processes).sort();
     acc.querySelectorAll('[data-tp]').forEach(function(inp){body.tps[+inp.dataset.tp][inp.dataset.f]=inp.value;});
     try{await api('/api/companies/'+cur.company.id+'/process','PUT',body);await reloadCur();toast('✓ '+pid+' gespeichert.');renderPR();}catch(e){toast('Fehler: '+e.detail,true);}};});
   var ab=$('addKpB');if(ab)ab.onclick=async function(){var v=$('addKp').value;if(v==='')return;try{await api('/api/companies/'+cur.company.id+'/process/add','POST',{kp_index:+v});await reloadCur();renderPR();toast('✓ hinzugefügt.');}catch(e){toast('Fehler: '+e.detail,true);}};
+  var cb=$('prcross');
+  if(cb) cb.innerHTML = rep
+    ? '<div class="panel"><b>Cross-sectionale Betrachtung (Bitkom, Zusatzmodul Prozessautomatisierung)</b>'
+      +'<div class="mut" style="margin:4px 0 10px">Die Prozesse in der Reihenfolge der Kette, nicht nach Nummer. '
+      +'Unter jedem Kriterium der Durchschnitt und die beiden Einzelfragen. Rot umrandet, wo die beiden '
+      +'Fragen um '+fmt2(rep.cf_delta)+' Stufen oder mehr auseinanderliegen.</div>'
+      +'<div style="overflow-x:auto">'+crossTabelle(rep)+'</div></div>'
+    : '<div class="panel mut">Cross-sectionale Betrachtung nicht verfügbar — der Bericht konnte nicht geladen werden.</div>';
   show('pr');}
 function renderRA(){var keys=Object.keys(cur.processes).sort();if(!keys.length){$('ra').innerHTML='<div class="crumb">'+cr()+'Self-Rating</div><h1>Self-Rating</h1><p class="lead mut">Erst Prozesse anlegen.</p>';show('ra');return;}
   curKP=curKP&&cur.processes[curKP]?curKP:keys[0];
@@ -643,6 +1061,22 @@ function renderRA(){var keys=Object.keys(cur.processes).sort();if(!keys.length){
   curTP=1;$('tpSel').onchange=function(){curTP=+$('tpSel').value;drawItems();};
   $('docUp').onclick=uploadDoc;
   drawItems();show('ra');}
+/* ---- Erfassungsmaske der 30 Bitkom-Items ----------------------------------
+   Der Kern der Anwendung. Bewertet wird je TEILPROZESS, nicht je Kernprozess:
+   30 Items, fünf Dimensionen zu je sechs Fragen.
+
+   BELEGPFLICHT (ADR-005): Jede gesetzte Stufe braucht einen Beleg. Die
+   Oberfläche markiert das Feld, der Server weist ohne Beleg mit 400 ab — die
+   verbindliche Prüfung liegt dort, nicht hier.
+
+   UNGLEICHE SKALENABSTÄNDE: Die fünf Stufen sind keine gleichmäßige Skala
+   (1 = 0 %, 2 = >0–40 %, 3 = >40–50 %, 4 = >50–95 %, 5 = >95 %). Die Knöpfe
+   sehen gleich aus, die Bedeutung ist es nicht; deshalb steht der Fragetext
+   ungekürzt am Item.
+
+   Der Zustand wird unmittelbar in cur.ratings geschrieben und erst beim
+   Speichern gesendet. Ein Reiterwechsel ohne Speichern verwirft ihn — bekannte
+   Schwäche, es gibt keine Warnung. */
 function rkey(){return curKP+'.TP-'+curTP;}
 function curRatings(){return (cur.ratings[rkey()])||{};}
 function drawItems(){var box=$('items');box.innerHTML='';var rg=curRatings();var dims=META.dims;
@@ -668,6 +1102,14 @@ document.addEventListener('click',async function(ev){
   if(ev.target&&ev.target.id==='fillR'){var k=rkey();cur.ratings[k]=cur.ratings[k]||{};META.items.forEach(function(it){var s=3+Math.round(Math.random());cur.ratings[k][it.item_nr]={stufe:Math.min(5,s),beleg:'Beleg '+it.kriterium};});drawItems();toast('Beispiel eingefüllt.');}
 });
 
+/* ---- Belegdokumente -------------------------------------------------------
+   Dateien hängen an einem Kern- oder Teilprozess (ref_id), nicht an einem
+   einzelnen Item. Der Abruf läuft über /documents/{id}/file und damit durch
+   Anmeldepflicht und Mandantenfilter — der Ablagekorb selbst ist nicht
+   öffentlich, und der storage_key erreicht den Browser nie.
+   „Zitat kopieren" legt eine Textzeile in die Zwischenablage, die in ein
+   Beleg-Feld eingefügt werden kann. Das ist der Kitt zwischen Datei und
+   Belegpflicht: Der Beleg bleibt ein Text, die Datei ist sein Nachweis. */
 async function renderDocs(){var el=$('docsList');if(!el)return;var ref=rkey();var lbl=$('docRef');if(lbl)lbl.textContent=ref;
   try{var ds=await api('/api/companies/'+cur.company.id+'/documents?ref_id='+encodeURIComponent(ref));
     if(!ds.length){el.innerHTML='<span class="mut">Noch keine Dateien.</span>';return;}
@@ -691,17 +1133,389 @@ function renderGR(){var rows='';var keys=Object.keys(cur.ratings).sort();keys.fo
   if(!rows)rows='<tr><td colspan="7" class="mut">Noch keine Bewertungen.</td></tr>';
   $('gr').innerHTML='<div class="crumb">'+cr()+'Bewertungen</div><h1>Bewertungen</h1><div class="panel" style="padding:0;max-height:62vh;overflow:auto"><table><thead><tr><th>id</th><th>KP</th><th>TP</th><th>Item</th><th>Dim</th><th>Stufe</th><th>Beleg</th></tr></thead><tbody>'+rows+'</tbody></table></div>';show('gr');}
 
-async function renderRB(){var rep=await api('/api/companies/'+cur.company.id+'/report');
-  var h='<div class="crumb">'+cr()+'Reifegradbericht</div><div style="display:flex;align-items:center"><h1 style="margin:0">Reifegradbericht</h1><button class="btn sm sec" style="margin-left:auto" onclick="window.print()">Drucken/PDF</button></div><p class="lead">Reifegrad-Feststellung inkl. Matrizen — rein rechnerisch.</p>';
+/* ================= Reifegradbericht, neu gefasst am 19.08.2026 ==============
+   Die alte Ansicht war ein Bildschirmabzug: `window.print()` auf die
+   Arbeitsoberflaeche, ohne eine einzige Druckregel. Ergebnis waren acht
+   Blatt mit mitgedruckter Navigation, zerrissenen Kaesten und weiss
+   ausgedruckten Matrizen.
+
+   Diese Fassung ist ein Dokument — am Bildschirm dasselbe wie auf dem Papier,
+   in acht Kapiteln, mit Titelblatt und festen Seitenumbruechen.
+
+   Der Text kommt aus zwei Quellen und keine davon steht hier:
+     * rep.texte  — die festen Bausteine aus ref_berichtstexte (Schema v1.7).
+       Fehlt einer, zeigt der Bericht die Luecke an, statt sie zu ueberspielen.
+     * rep.befund — die Saetze, die aus den Zahlen dieses Mandanten erzeugt
+       wurden. Regelbasiert im Server, ohne Sprachmodell.
+
+   Was hier bewusst NICHT steht: Handlungsempfehlungen, Roadmap, Benchmark,
+   Soll-Ist-Vergleich. Die ersten beiden gehoeren zu BC2, die letzten beiden
+   brauchen Vergleichsdaten, die eine einzelne Erhebung nicht hat. Siehe die
+   Bausteine B-11 und B-12.
+=========================================================================== */
+
+var RB=null, RB_ANHANG=false, RB_MODUS='arbeit';
+function rbModus(m){
+  /* Nur umschalten, nicht neu laden — die Daten sind dieselben. */
+  RB_MODUS=m;
+  var r=$('rb'); if(r) r.setAttribute('data-modus',m);
+  var b=document.querySelectorAll('.dokleiste .umschalt button');
+  for(var i=0;i<b.length;i++) b[i].className=(b[i].textContent.indexOf('Arbeit')>=0)===(m==='arbeit')?'an':'';
+  window.scrollTo(0,0);}
+
+function fmt2(v){
+  /* Im Bericht sind Nachkommastellen kein Zierrat: 3,4 und 3,40 sehen in
+     einer Spalte nebeneinander aus wie unterschiedliche Genauigkeiten. */
+  if(v===null||v===undefined||v===0) return '\u2013';
+  return v.toFixed(2).replace('.',',');
+}
+/* ================= KI-Readiness (Mandantenebene) =========================
+   Der Bogen selbst wird NICHT nachgebaut. Die einundzwanzig Fragen stehen im
+   Werkzeug des Digitalzentrums Chemnitz; wer sie beantworten will, geht
+   dorthin. Hier werden die vier Dimensionswerte erfasst — mit Stichtag,
+   Bearbeiter und Quelle.
+
+   Warum getrennt vom Bitkom-Reifegrad: Bitkom bewertet den PROZESS, dieser
+   Check das UNTERNEHMEN. Die beiden Zahlen duerfen nicht gegeneinander
+   gerechnet werden.
+=========================================================================== */
+var KR=null;
+
+async function renderKR(){
+  var d=await api('/api/companies/'+cur.company.id+'/ki_readiness'); KR=d;
+  var heute=new Date().toISOString().slice(0,10);
+  var h='<div class="crumb">'+cr()+'KI-Readiness</div><h1>KI-Readiness</h1>'
+    +'<p class="lead">Selbsteinschätzung der Organisation — vier Dimensionen, Skala 0 bis 4. '
+    +'Ergänzt den Bitkom-Reifegrad, ersetzt ihn nicht.</p>';
+
+  h+='<div class="panel hinw"><b>So wird erhoben:</b> Den Selbstcheck des Mittelstand-Digital '
+    +'Zentrums Chemnitz ausfüllen — <a href="'+esc(d.quelle_url)+'" target="_blank" rel="noopener">'
+    +esc(d.quelle_url)+'</a> — und die vier Dimensionswerte hier eintragen. Der Bogen selbst wird '
+    +'nicht nachgebaut; er gehört dem Zentrum. <b>Vorgesehener Abstand: sechs Monate.</b> '
+    +'Der Sinn liegt im Vergleich über die Zeit, nicht im einzelnen Wert.</div>';
+
+  h+='<div class="panel"><b>Neue Erhebung erfassen</b><div class="formgrid" style="margin-top:10px">'
+    +'<div><label>Stichtag</label><input type="date" id="kr_stand" value="'+heute+'"></div>'
+    +'<div><label>Anlass</label><select id="kr_anlass">'
+    +'<option value="baseline">Erstaufnahme</option>'
+    +'<option value="nachschau" selected>Nachschau nach sechs Monaten</option>'
+    +'<option value="sonstige">sonstige</option></select></div>'
+    +'<div><label>Ausgefüllt von (Personen-ID oder Rolle)</label>'
+    +'<input id="kr_von" placeholder="P-01"></div>'
+    +'<div><label>Hinweis</label><input id="kr_hinweis" placeholder="optional"></div>'
+    +'</div>';
+
+  h+='<table class="tab" style="margin-top:14px"><thead><tr><th>Dimension</th>'
+    +'<th class="r">Fragen</th><th class="r">Ist</th><th class="r">Soll</th></tr></thead><tbody>';
+  (d.dimensionen||[]).forEach(function(x){
+    h+='<tr><td>'+x.dim_nr+' · '+esc(x.bezeichnung)+'</td><td class="r mut">'+x.fragen+'</td>'
+      +'<td class="r"><input class="krzahl" id="kr_ist_'+x.dim_nr+'" type="number" min="0" max="4" step="0.1"></td>'
+      +'<td class="r"><input class="krzahl" id="kr_soll_'+x.dim_nr+'" type="number" min="0" max="4" step="0.1"></td></tr>';});
+  h+='</tbody></table>'
+    +'<div class="mut" style="margin-top:6px">Skala 0 bis 4: Beobachter · Einsteiger · Erfahrener · '
+    +'Fortgeschrittener · Experte. Das Soll darf nicht unter dem Ist liegen.</div>'
+    +'<div style="margin-top:12px"><button class="btn" id="kr_save">Erhebung speichern</button></div></div>';
+
+  /* Verlauf. Bei einer einzigen Erhebung steht in der Veraenderung nichts —
+     und das ist die richtige Auskunft, keine Luecke. */
+  var e=d.erhebungen||[];
+  h+='<div class="panel"><b>Bisherige Erhebungen</b>';
+  if(!e.length){ h+='<p class="mut" style="margin-top:8px">Noch keine Erhebung erfasst.</p>'; }
+  else{
+    h+='<table class="tab" style="margin-top:10px"><thead><tr><th>Stichtag</th><th>Anlass</th>'
+      +'<th>Ausgefüllt von</th>';
+    (d.dimensionen||[]).forEach(function(x){h+='<th class="r">'+x.dim_nr+'</th>';});
+    h+='<th class="r">Ø</th></tr></thead><tbody>';
+    e.slice().reverse().forEach(function(er,i,arr){
+      var vor=i>0?arr[i-1]:null, summe=0, n=0;
+      h+='<tr><td>'+esc(er.stand)+'</td><td>'+esc(er.anlass)+'</td><td>'+esc(er.ausgefuellt_von||'')+'</td>';
+      (d.dimensionen||[]).forEach(function(x){
+        var w=(er.werte||{})[x.dim_nr]||{}, v=w.ist;
+        if(v!==null&&v!==undefined){summe+=v;n++;}
+        var delta='';
+        if(vor){ var alt=((vor.werte||{})[x.dim_nr]||{}).ist;
+          if(alt!==null&&alt!==undefined&&v!==null&&v!==undefined){
+            var dd=Math.round((v-alt)*10)/10;
+            if(dd) delta='<span class="'+(dd>0?'auf':'ab')+'">'+(dd>0?'+':'')+fmt2(dd)+'</span>';}}
+        h+='<td class="r">'+(v===null||v===undefined?'–':fmt2(v))+' '+delta+'</td>';});
+      h+='<td class="r"><b>'+(n?fmt2(summe/n):'–')+'</b></td></tr>';});
+    h+='</tbody></table>';
+    h+='<div class="mut" style="margin-top:6px">Quelle: '+esc(d.quelle)+'. Erhebt das Unternehmen, '
+      +'nicht den einzelnen Prozess — die Werte gehören nicht mit dem Bitkom-Reifegrad verrechnet.</div>';}
+  h+='</div>';
+
+  $('kr').innerHTML=h;
+  /* Beim Öffnen die jüngste Erhebung vorbelegen, damit man sie fortschreibt
+     statt sie neu zu tippen. */
+  if(e.length){ var j=e[0];
+    (d.dimensionen||[]).forEach(function(x){ var w=(j.werte||{})[x.dim_nr]||{};
+      if(w.ist!==null&&w.ist!==undefined) $('kr_ist_'+x.dim_nr).value=w.ist;
+      if(w.soll!==null&&w.soll!==undefined) $('kr_soll_'+x.dim_nr).value=w.soll;});
+    if(j.ausgefuellt_von) $('kr_von').value=j.ausgefuellt_von;}
+  $('kr_save').onclick=async function(){
+    var werte={};
+    (d.dimensionen||[]).forEach(function(x){
+      var i=$('kr_ist_'+x.dim_nr).value, s=$('kr_soll_'+x.dim_nr).value;
+      if(i!=='') werte[x.dim_nr]={ist:parseFloat(i), soll:(s===''?null:parseFloat(s))};});
+    if(!Object.keys(werte).length){toast('Kein Wert eingetragen.',true);return;}
+    try{
+      await api('/api/companies/'+cur.company.id+'/ki_readiness','PUT',
+        {stand:$('kr_stand').value, anlass:$('kr_anlass').value,
+         ausgefuellt_von:$('kr_von').value, hinweis:$('kr_hinweis').value, werte:werte});
+      toast('✓ Erhebung gespeichert.'); renderKR();
+    }catch(err){toast('Fehler: '+err.detail,true);}};
+  show('kr');}
+
+
+/* ================= Prozessdokumentation ==================================
+   Ein Blatt je automatisiertem Teilprozess. Raster sind sechs der neun
+   Bereiche aus Anhang IV der KI-Verordnung; die drei uebrigen setzen ein
+   Konformitaetsverfahren voraus, das wir nicht fuehren.
+
+   Der Zweck ist nicht die Erfuellung einer Vorschrift, sondern dass in zwei
+   Jahren noch jemand weiss, was der Prozess tut, womit er laeuft und wo er
+   falsch liegt.
+=========================================================================== */
+var PD=null, PD_SID=null;
+
+function pdFeld(id,label,mehrzeilig,pflicht,hinweis){
+  return '<div'+(mehrzeilig?' class="full"':'')+'><label>'+label
+    +(pflicht?' <span class="reqstar">*</span>':'')+'</label>'
+    +(mehrzeilig?'<textarea id="pd_'+id+'"></textarea>':'<input id="pd_'+id+'">')
+    +(hinweis?'<div class="mut" style="font-size:11px;margin-top:2px">'+hinweis+'</div>':'')+'</div>';}
+
+async function renderPD(){
+  var liste=await api('/api/companies/'+cur.company.id+'/prozessdok');
+  var mit={}; (liste.blaetter||[]).forEach(function(b){mit[b.sub_process_id]=b;});
+  var h='<div class="crumb">'+cr()+'Prozessdokumentation</div><h1>Prozessdokumentation</h1>'
+    +'<p class="lead">Ein Blatt je automatisiertem Teilprozess — nach dem Raster aus Anhang IV '
+    +'der KI-Verordnung, ergänzt um die Agenten.</p>';
+
+  h+='<div class="panel hinw"><b>Wozu:</b> Skills und Wissen um einen automatisierten Prozess '
+    +'verlieren sich mit der Zeit. Dagegen hilft kein Reifegradmodell, sondern eine Dokumentation, '
+    +'die aktuell gehalten wird. Deshalb sind zwei Angaben mitzuführen, die man leicht übersieht: '
+    +'<b>wann zuletzt gegen den laufenden Stand geprüft</b> — nicht wann geschrieben — und '
+    +'<b>wer den Prozess heute noch ändern könnte</b>. Steht dort niemand, ist er nicht mehr '
+    +'beherrschbar, gleichgültig wie gut er beschrieben ist.</div>';
+
+  h+='<div class="panel"><b>Teilprozesse</b><div style="margin-top:8px"><select id="pd_sel">'
+    +'<option value="">— Teilprozess wählen —</option>';
+  Object.keys(cur.processes).sort().forEach(function(pid){
+    var p=cur.processes[pid];
+    (p.tps||[]).forEach(function(t,i){
+      var sid=pid+'.TP-'+(i+1);
+      var b=mit[sid];
+      var marke=b?(' · '+b.werkzeuge+' Werkzeuge, '+b.agenten+' Agenten'
+                   +(b.pruefung_faellig?' · Prüfung fällig':'')
+                   +(b.niemand_kann_aendern?' · niemand kann ändern':'')):' · kein Blatt';
+      h+='<option value="'+sid+'"'+(sid===PD_SID?' selected':'')+'>'+sid+' · '
+        +esc(t.sub_process_name||('Teilprozess '+(i+1)))+marke+'</option>';});});
+  h+='</select></div>';
+  var offen=(liste.blaetter||[]).filter(function(b){return b.pruefung_faellig||b.niemand_kann_aendern;});
+  if(offen.length)
+    h+='<div class="mut" style="margin-top:8px">'+offen.length+' Blatt/Blätter brauchen Aufmerksamkeit: '
+      +offen.map(function(b){return b.sub_process_id
+        +(b.niemand_kann_aendern?' (niemand kann ändern)':' (Prüfung fällig)');}).join(', ')+'.</div>';
+  h+='</div><div id="pd_blatt"></div>';
+  $('pd').innerHTML=h;
+  $('pd_sel').onchange=function(){PD_SID=this.value; pdBlatt();};
+  show('pd');
+  if(PD_SID) await pdBlatt();}
+
+
+async function pdBlatt(){
+  var box=$('pd_blatt');
+  if(!PD_SID){box.innerHTML='';return;}
+  var d=await api('/api/companies/'+cur.company.id+'/prozessdok/'+PD_SID); PD=d;
+  var b=d.blatt||{};
+  var h='<div class="panel"><b>1 · Allgemeine Beschreibung</b><div class="formgrid" style="margin-top:10px">'
+    +pdFeld('bezeichnung','Bezeichnung',false,true)
+    +pdFeld('version','Version',false,true,'Ohne Version ist die Angabe wertlos.')
+    +pdFeld('ersteller','Ersteller',false,true,'Wer gebaut hat — Personen-IDs oder Firma.')
+    +'<div><label>In Betrieb seit</label><input type="date" id="pd_in_betrieb_seit"></div>'
+    +pdFeld('zweck','Zweck',true,true)
+    +pdFeld('einsatzumgebung','Einsatzumgebung',true,false,'Womit der Prozess zusammenspielt.')
+    +'</div></div>';
+
+  h+='<div class="panel"><b>2 · Entwicklung und Design</b><div class="formgrid" style="margin-top:10px">'
+    +pdFeld('vorgehen','Vorgehen',true,false)
+    +pdFeld('entscheidungen','Wesentliche Entscheidungen',true,false,
+            'Was bewusst so und nicht anders gebaut wurde — das erklärt später am meisten.')
+    +'</div></div>';
+
+  h+='<div class="panel"><b>Werkzeuge</b><div class="mut" style="margin:4px 0 8px">'
+    +'Mit Version. Auch Bibliotheken und fremde Dienste.</div>'
+    +'<table class="tab" id="pd_wz"><thead><tr><th>Bezeichnung</th><th>Version</th><th>Art</th>'
+    +'<th>Anbieter</th><th>quelloffen</th><th>Lizenz</th><th></th></tr></thead><tbody></tbody></table>'
+    +'<button class="btn sec sm" style="margin-top:8px" onclick="pdZeileWz()">+ Werkzeug</button></div>';
+
+  h+='<div class="panel"><b>Agenten</b><div class="mut" style="margin:4px 0 8px">'
+    +'Was macht welcher Agent — und was ausdrücklich nicht. Die <b>Prompt-Fassung</b> gehört dazu: '
+    +'Bei einem sprachmodellgestützten Agenten ist der Prompt die Geschäftsregel und ändert den '
+    +'Prozess ohne Deployment und ohne Spur.</div><div id="pd_ag"></div>'
+    +'<button class="btn sec sm" style="margin-top:8px" onclick="pdZeileAg()">+ Agent</button></div>';
+
+  h+='<div class="panel"><b>3 · Funktionsweise und Grenzen</b><div class="formgrid" style="margin-top:10px">'
+    +pdFeld('ablauf','Ablauf',true,true)
+    +pdFeld('grenzen','Grenzen',true,true,
+            'Was der Prozess NICHT kann. Die Angabe, die im Betrieb am meisten wert ist — und die zuerst weggelassen wird.')
+    +pdFeld('bekannte_fehler','Bekannte Fehler und Auffälligkeiten',true,false)
+    +'</div></div>';
+
+  h+='<div class="panel"><b>4 · Leistungsmetriken</b><div class="formgrid" style="margin-top:10px">'
+    +pdFeld('metriken','Metriken',true,false)
+    +pdFeld('metriken_warum','Warum diese',true,false)
+    +'</div></div>';
+
+  h+='<div class="panel"><b>6 · Validierung und Test</b>'
+    +'<table class="tab" id="pd_ts" style="margin-top:8px"><thead><tr><th>Datum</th><th>Verfahren</th>'
+    +'<th>Datengrundlage</th><th>Ergebnis</th><th>durchgeführt von</th><th></th></tr></thead><tbody></tbody></table>'
+    +'<button class="btn sec sm" style="margin-top:8px" onclick="pdZeileTs()">+ Test</button></div>';
+
+  h+='<div class="panel"><b>9 · Beobachtung im Betrieb</b><div class="formgrid" style="margin-top:10px">'
+    +pdFeld('ueberwachung','Wie wird beobachtet',true,false)
+    +pdFeld('schwellenwerte','Schwellenwerte',true,false,'Ab wann jemand eingreift.')
+    +pdFeld('bei_stoerung','Bei Störung',true,false)
+    +'</div></div>';
+
+  h+='<div class="panel"><b>Betrieb und Verantwortung</b><div class="formgrid" style="margin-top:10px">'
+    +'<div><label>Betriebsmodell</label><select id="pd_betriebsmodell">'
+    +'<option value="">—</option><option value="selbst_gehostet">selbst gehostet</option>'
+    +'<option value="saas">SaaS</option><option value="hybrid">hybrid</option>'
+    +'<option value="on_premise">on premise</option></select></div>'
+    +pdFeld('standort','Standort',false,false)
+    +pdFeld('fachlich_person_id','Fachlich verantwortlich',false,false,'Personen-ID')
+    +pdFeld('technisch_person_id','Technisch verantwortlich',false,false,
+            'Wer den Dienst neu startet — meist jemand anderes als fachlich.')
+    +'</div></div>';
+
+  h+='<div class="panel"><b>Aktualität</b><div class="mut" style="margin:4px 0 8px">'
+    +'Nicht aus Anhang IV, sondern gegen den Wissensverlust.</div>'
+    +'<div class="formgrid">'
+    +'<div><label>Zuletzt geprüft am</label><input type="date" id="pd_geprueft_am"></div>'
+    +pdFeld('geprueft_von','Geprüft von',false,false)
+    +pdFeld('aenderbar_durch','Änderbar durch',true,false,
+            'Wer diesen Prozess heute ändern könnte — Personen-IDs, keine Rollen. Leer heißt: niemand.')
+    +'</div></div>';
+
+  h+='<div class="actionbar"><button class="btn" id="pd_save">Blatt speichern</button>'
+    +'<span class="mut">Pflichtangaben sind mit <span class="reqstar">*</span> gekennzeichnet.</span></div>';
+  box.innerHTML=h;
+
+  Object.keys(b).forEach(function(k){var el=$('pd_'+k); if(el&&b[k]!==null) el.value=b[k];});
+  (d.werkzeuge||[]).forEach(pdZeileWz);
+  if(!(d.werkzeuge||[]).length) pdZeileWz();
+  (d.agenten||[]).forEach(pdZeileAg);
+  if(!(d.agenten||[]).length) pdZeileAg();
+  (d.tests||[]).forEach(pdZeileTs);
+  $('pd_save').onclick=pdSpeichern;}
+
+
+function pdBool(v){return v===true?'ja':(v===false?'nein':'');}
+function pdBoolWert(s){return s==='ja'?true:(s==='nein'?false:null);}
+
+function pdZeileWz(w){
+  w=w&&w.bezeichnung?w:{};
+  var t=$('pd_wz').querySelector('tbody');
+  var tr=document.createElement('tr');
+  tr.innerHTML='<td><input data-f="bezeichnung" value="'+esc(w.bezeichnung||'')+'"></td>'
+    +'<td><input data-f="version" value="'+esc(w.version||'')+'" style="width:80px"></td>'
+    +'<td><select data-f="art">'
+    +['laufzeit','bibliothek','dienst','modell','entwicklung','orchestrierung'].map(function(a){
+      return '<option'+(w.art===a?' selected':'')+'>'+a+'</option>';}).join('')+'</select></td>'
+    +'<td><input data-f="anbieter" value="'+esc(w.anbieter||'')+'"></td>'
+    +'<td><select data-f="quelloffen"><option value=""></option>'
+    +'<option'+(w.quelloffen===true?' selected':'')+'>ja</option>'
+    +'<option'+(w.quelloffen===false?' selected':'')+'>nein</option></select></td>'
+    +'<td><input data-f="lizenz" value="'+esc(w.lizenz||'')+'" style="width:90px"></td>'
+    +'<td><button class="btn sec sm" onclick="this.closest(\'tr\').remove()">✕</button></td>';
+  t.appendChild(tr);}
+
+function pdZeileAg(a){
+  a=a&&a.bezeichnung?a:{};
+  var box=$('pd_ag');
+  var div=document.createElement('div');
+  div.className='agblock';
+  div.innerHTML='<div class="formgrid">'
+    +'<div><label>Bezeichnung</label><input data-f="bezeichnung" value="'+esc(a.bezeichnung||'')+'"></div>'
+    +'<div><label>Modell und Fassung</label><input data-f="modell" value="'+esc(a.modell||'')+'" '
+    +'placeholder="Modell"> <input data-f="modell_version" value="'+esc(a.modell_version||'')+'" '
+    +'placeholder="Fassung"></div>'
+    +'<div class="full"><label>Aufgabe</label><textarea data-f="aufgabe">'+esc(a.aufgabe||'')+'</textarea></div>'
+    +'<div class="full"><label>Ausdrücklich NICHT seine Aufgabe</label>'
+    +'<textarea data-f="nicht_aufgabe">'+esc(a.nicht_aufgabe||'')+'</textarea></div>'
+    +'<div><label>Bekommt von</label><input data-f="bekommt_von" value="'+esc(a.bekommt_von||'')+'"></div>'
+    +'<div><label>Gibt an</label><input data-f="gibt_an" value="'+esc(a.gibt_an||'')+'"></div>'
+    +'<div class="full"><label>Werkzeugzugriff</label>'
+    +'<input data-f="werkzeugzugriff" value="'+esc(a.werkzeugzugriff||'')+'" '
+    +'placeholder="worauf er zugreift, lesend und schreibend"></div>'
+    +'<div class="full"><label>Eskalation <span class="reqstar">*</span></label>'
+    +'<textarea data-f="eskalation" placeholder="wann er abbricht und an einen Menschen übergibt">'
+    +esc(a.eskalation||'')+'</textarea></div>'
+    +'<div><label>Prompt-Fassung</label><input data-f="prompt_fassung" value="'+esc(a.prompt_fassung||'')+'"></div>'
+    +'<div><label>Deterministisch</label><select data-f="deterministisch"><option value=""></option>'
+    +'<option'+(a.deterministisch===true?' selected':'')+'>ja</option>'
+    +'<option'+(a.deterministisch===false?' selected':'')+'>nein</option></select></div>'
+    +'</div><button class="btn sec sm" onclick="this.closest(\'.agblock\').remove()">Agent entfernen</button>';
+  box.appendChild(div);}
+
+function pdZeileTs(t){
+  t=t&&t.verfahren?t:{};
+  var tb=$('pd_ts').querySelector('tbody');
+  var tr=document.createElement('tr');
+  tr.innerHTML='<td><input type="date" data-f="am" value="'+esc(t.am||'')+'"></td>'
+    +'<td><input data-f="verfahren" value="'+esc(t.verfahren||'')+'"></td>'
+    +'<td><input data-f="datengrundlage" value="'+esc(t.datengrundlage||'')+'"></td>'
+    +'<td><input data-f="ergebnis" value="'+esc(t.ergebnis||'')+'"></td>'
+    +'<td><input data-f="durchgefuehrt_von" value="'+esc(t.durchgefuehrt_von||'')+'" style="width:80px"></td>'
+    +'<td><button class="btn sec sm" onclick="this.closest(\'tr\').remove()">✕</button></td>';
+  tb.appendChild(tr);}
+
+function pdSammle(wurzel,sel){
+  var raus=[];
+  wurzel.querySelectorAll(sel).forEach(function(z){
+    var o={};
+    z.querySelectorAll('[data-f]').forEach(function(el){
+      var v=el.value;
+      if(el.dataset.f==='quelloffen'||el.dataset.f==='deterministisch') v=pdBoolWert(v);
+      o[el.dataset.f]=v;});
+    raus.push(o);});
+  return raus;}
+
+async function pdSpeichern(){
+  var blatt={};
+  ['bezeichnung','zweck','ersteller','version','in_betrieb_seit','einsatzumgebung','vorgehen',
+   'entscheidungen','ablauf','grenzen','bekannte_fehler','metriken','metriken_warum','ueberwachung',
+   'schwellenwerte','bei_stoerung','betriebsmodell','standort','fachlich_person_id',
+   'technisch_person_id','geprueft_am','geprueft_von','aenderbar_durch'].forEach(function(f){
+     var el=$('pd_'+f); if(el) blatt[f]=el.value;});
+  var koerper={blatt:blatt,
+    werkzeuge:pdSammle($('pd_wz'),'tbody tr'),
+    agenten:pdSammle($('pd_ag'),'.agblock'),
+    tests:pdSammle($('pd_ts'),'tbody tr')};
+  try{
+    await api('/api/companies/'+cur.company.id+'/prozessdok/'+PD_SID,'PUT',koerper);
+    toast('✓ Blatt gespeichert.'); renderPD();
+  }catch(e){toast('Fehler: '+(e.detail||e),true);}}
+
+
+function rbArbeit(rep){
+  /* Die Arbeitsansicht, wie sie vor dem 19.08. war — kompakt, zum Scrollen,
+     alle Diagramme auf einer Seite. Sie war versehentlich durch das
+     Berichtsdokument ERSETZT worden; richtig ist, dass beide nebeneinander
+     stehen: diese fuer die taegliche Arbeit, das Dokument zum Herausgeben.
+     Am Bildschirm ist immer genau eine sichtbar, gedruckt wird immer das
+     Dokument. */
+  var h='';
   h+='<div class="panel"><div style="display:flex;gap:20px;flex-wrap:wrap"><div><div class="mut">Mandant</div><b style="font-size:17px">'+esc(rep.company.name)+'</b></div><div><div class="mut">Gesamt-Ø</div><b style="font-size:26px;color:var(--navy);font-family:Georgia">'+(''+rep.gesamt).replace('.',',')+'</b></div><div><div class="mut">Beleg-Quote</div><b style="font-size:26px;font-family:Georgia;color:'+(rep.beleg_quote===100?'#1f9d57':'#c0392b')+'">'+rep.beleg_quote+'%</b></div><div><div class="mut">Bewertungen</div><b style="font-size:26px;font-family:Georgia">'+rep.n_bewertungen+'</b></div></div></div>';
-  h+='<div class="two"><div class="panel"><b>Bitkom — 5 Dimensionen (konsolidiert)</b><div class="radarBox" id="r5"></div></div><div class="panel"><b>Bitkom — 15 Kriterien (konsolidiert)</b><div class="radarBox" id="r15"></div></div></div>';
-  h+='<div class="panel"><b>Automatisierung — 12 Einzel-Items (Technologie I-01…06 + Prozessqualität I-13…18)</b><div class="radarBox" id="r12"></div></div>';
+  h+='<div class="two"><div class="panel"><b>Bitkom — 5 Dimensionen (konsolidiert)</b><div class="radarBox" id="a_r5"></div></div><div class="panel"><b>Bitkom — 15 Kriterien (konsolidiert)</b><div class="radarBox" id="a_r15"></div></div></div>';
+  h+='<div class="panel"><b>Automatisierung — 12 Einzel-Items (Technologie I-01…06 + Prozessqualität I-13…18)</b><div class="radarBox" id="a_r12"></div></div>';
   // KP table
   h+='<div class="panel"><b>Reifegrad je Kernprozess × Dimension</b><table style="margin-top:10px"><tr><th>KP</th><th>Prozess</th>'+rep.dims.map(function(d){return '<th>'+shortDim(d)+'</th>';}).join('')+'<th>Ø</th></tr>';
   rep.kp_rows.forEach(function(r){h+='<tr><td>'+r.process_id+'</td><td>'+esc(r.process_name)+'</td>'+rep.dims.map(function(d){return '<td>'+fmt(r.dims[d])+'</td>';}).join('')+'<td><b>'+fmt(r.avg)+'</b></td></tr>';});
   h+='</table></div>';
   // auto matrices
-  h+='<div class="panel"><b>Spinnennetze je Kernprozess (5 Dimensionen · 15 Kriterien)</b><div id="kpradars"></div></div>';
+  h+='<div class="panel"><b>Spinnennetze je Kernprozess (5 Dimensionen · 15 Kriterien)</b><div id="a_kpradars"></div></div>';
   h+='<div class="panel"><b>Prozessautomatisierungs-Matrix (intern, je Teilprozess)</b>';
   Object.keys(rep.auto).sort().forEach(function(pid){var a=rep.auto[pid];h+='<div style="margin-top:10px"><b style="font-size:13px">'+pid+' · '+esc(a.process_name)+'</b><table style="margin-top:6px"><tr><th>Teilprozess</th>'+rep.pa_crit.map(function(c){return '<th>'+c+'</th>';}).join('')+'<th>Ø</th></tr>';
     a.rows.forEach(function(r){h+='<tr><td>'+esc(r.tp)+'</td>'+rep.pa_crit.map(function(c){return '<td style="background:'+col(r.krit[c])+'">'+fmt(r.krit[c])+'</td>';}).join('')+'<td><b>'+fmt(r.avg)+'</b></td></tr>';});
@@ -710,21 +1524,412 @@ async function renderRB(){var rep=await api('/api/companies/'+cur.company.id+'/r
   // cross
   h+='<div class="panel"><b>Cross-funktionale Matrix (je Kernprozess)</b><table style="margin-top:10px"><tr><th>KP</th><th>Owner</th>'+rep.cf_crit.map(function(c){return '<th>'+c+'</th>';}).join('')+'<th>Ø</th><th>Schnittstellen</th></tr>';
   rep.cross.forEach(function(r){h+='<tr><td>'+r.process_id+'</td><td>'+esc(r.owner||'–')+'</td>'+rep.cf_crit.map(function(c){return '<td style="background:'+col(r.krit[c])+'">'+fmt(r.krit[c])+'</td>';}).join('')+'<td><b>'+fmt(r.avg)+'</b></td><td class="mut">'+esc(r.io)+'</td></tr>';});
-  h+='</table></div><p class="mut" style="font-style:italic">Bitkom-Reifegradmodell · 30 Items × 5 Dim je TP · Matrizen: intern Items 1–6+13–18, cross Items 1–12.</p>';
-  $('rb').innerHTML=h;
-  spider('r5',rep.dims.map(shortDim),rep.dims.map(function(d){return rep.dim_avg[d]||0;}));
-  spider('r15',rep.krit15_labels,rep.krit15_labels.map(function(k){return rep.krit15_overall[k]||0;}));
-  spider('r12',rep.items12,rep.items12.map(function(k){return rep.items12_overall[k]||0;}));
-  var kr=document.getElementById('kpradars');if(kr){kr.innerHTML='';
-    rep.kp_rows.forEach(function(r){if(!r.avg)return;var a='k5_'+r.process_id.replace('-','_'),b='k15_'+r.process_id.replace('-','_');
+  h+='</table></div><p class="mut" style="font-style:italic">Bitkom-Reifegradmodell · 30 Items × 5 Dim je TP · Matrizen: beide auf Items 1–6 + 13–18, intern je Teilprozess, cross-sectional je Kernprozess.</p>';
+  return h;}
+
+function rbArbeitZeichnen(rep){
+  /* Erst nach dem Einhaengen aufrufen — spider() sucht die Zielelemente
+     ueber ihre ID im DOM. */
+  spider('a_r5',rep.dims.map(shortDim),rep.dims.map(function(d){return rep.dim_avg[d]||0;}));
+  spider('a_r15',rep.krit15_labels,rep.krit15_labels.map(function(k){return rep.krit15_overall[k]||0;}));
+  spider('a_r12',rep.items12,rep.items12.map(function(k){return rep.items12_overall[k]||0;}));
+  var kr=document.getElementById('a_kpradars');if(kr){kr.innerHTML='';
+    rep.kp_rows.forEach(function(r){if(!r.avg)return;var a='a_k5_'+r.process_id.replace('-','_'),b='a_k15_'+r.process_id.replace('-','_');
       kr.innerHTML+='<div style="margin-top:10px"><b style="font-size:13px">'+r.process_id+' · '+esc(r.process_name)+'</b><div class="two"><div class="radarBox" id="'+a+'"></div><div class="radarBox" id="'+b+'"></div></div></div>';});
-    rep.kp_rows.forEach(function(r){if(!r.avg)return;var a='k5_'+r.process_id.replace('-','_'),b='k15_'+r.process_id.replace('-','_');
+    rep.kp_rows.forEach(function(r){if(!r.avg)return;var a='a_k5_'+r.process_id.replace('-','_'),b='a_k15_'+r.process_id.replace('-','_');
       spider(a,rep.dims.map(shortDim),rep.dims.map(function(d){return r.dims[d]||0;}));
       spider(b,rep.krit15_labels,rep.krit15_labels.map(function(k){return r.krit15[k]||0;}));});}
+
+}
+
+function bs(rep,id){
+  /* Ein fester Textbaustein. Fehlt er, wird das sichtbar — ein Bericht, der
+     die Luecke verschweigt, sieht fertig aus und ist es nicht. */
+  var t=(rep.texte||{})[id];
+  if(!t) return '<p class="fehlt">Textbaustein '+id+' nicht geladen. Schema v1.7 eingespielt?</p>';
+  return t.split(/\n\s*\n/).map(function(a){return '<p>'+esc(a)+'</p>';}).join('');
+}
+function saetze(list){
+  if(!list||!list.length) return '';
+  return '<p>'+list.map(esc).join(' ')+'</p>';
+}
+function kapitel(nr,titel,inhalt){
+  return '<section class="kap"><h2><span class="nr">'+nr+'</span>'+titel+'</h2>'+inhalt+'</section>';
+}
+
+async function renderRB(){
+  var rep=await api('/api/companies/'+cur.company.id+'/report'); RB=rep;
+  baueKritZuordnung();
+  var h='<div class="crumb noprint">'+cr()+'Reifegradbericht</div>';
+  /* Zwei Ansichten, ein Reiter. Die Arbeitsansicht ist der Normalfall; die
+     Berichtsfassung ist die Zusatzoption zum Herausgeben. GEDRUCKT wird immer
+     die Berichtsfassung — auch aus der Arbeitsansicht heraus, weil ein
+     Bildschirmabzug genau der Fehler war, den wir behoben haben. */
+  h+='<div class="dokleiste noprint">'
+    +'<div class="umschalt">'
+    +'<button class="'+(RB_MODUS==='arbeit'?'an':'')+'" onclick="rbModus(\'arbeit\')">Arbeitsansicht</button>'
+    +'<button class="'+(RB_MODUS==='bericht'?'an':'')+'" onclick="rbModus(\'bericht\')">Berichtsfassung</button>'
+    +'</div>'
+    +'<button class="btn sm" onclick="window.print()">Drucken / PDF</button>'
+    +'<label class="anh"><input type="checkbox" id="anhOn" '+(RB_ANHANG?'checked':'')
+    +' onchange="RB_ANHANG=this.checked;renderRB()"> Anhang mit allen Einzelbewertungen mitdrucken</label>'
+    +'<span class="mut">Gedruckt wird immer die Berichtsfassung. Für Seitenzahlen im '
+    +'Druckdialog „Kopf- und Fußzeilen" anhaken.</span></div>';
+
+  h+='<div id="rbArbeit">'+rbArbeit(rep)+'</div>';
+
+  h+='<div class="dok">';
+
+  /* ---- Titelblatt ---------------------------------------------------- */
+  var erh=(rep.erhebungen||[]).map(function(e){
+    return e.erhebung_id+(e.stand?' (Stand '+e.stand+')':'');}).join(', ')||'nicht angegeben';
+  h+='<section class="titelblatt">'
+    +'<div class="tb-kopf">Projektgruppe KI-CoE-KMU · Bounded Context 0 — Baseline und Reifegrad</div>'
+    +'<h1 class="tb-titel">Reifegradbericht</h1>'
+    +'<div class="tb-mandant">'+esc(rep.company.name)+'</div>'
+    +'<div class="tb-unter">'+bs(rep,'B-01')+'</div>'
+    +'<table class="tb-tab"><tbody>'
+    +'<tr><th>Erhebung</th><td>'+esc(erh)+'</td></tr>'
+    +'<tr><th>Bericht erstellt</th><td>'+esc(rep.erstellt_am||'')+'</td></tr>'
+    +'<tr><th>Erhobene Kernprozesse</th><td>'+rep.kp_rows.filter(function(r){return r.avg;}).length
+        +' von '+rep.kp_rows.length+'</td></tr>'
+    +'<tr><th>Einzelbewertungen</th><td>'+rep.n_bewertungen+', davon mit Beleg '+rep.beleg_quote+' %</td></tr>'
+    +'<tr><th>Textfassung</th><td>'+esc(rep.textfassung||'—')+'</td></tr>'
+    /* Zwei Kennungen, weil zwei Dinge den Text bestimmen: die festen Bausteine
+       aus der Datenbank und die Regeln, nach denen die Befundsaetze gebildet
+       werden. Nur beide zusammen sagen, wie dieser Bericht zustande kam. */
+    +'<tr><th>Regelfassung</th><td>'+esc(rep.regelfassung||'nicht ermittelbar')+'</td></tr>'
+    +'</tbody></table>'
+    +'<div class="tb-fuss">'+bs(rep,'B-14')+'</div>'
+    +'</section>';
+
+  /* ---- Inhalt --------------------------------------------------------- */
+  h+='<section class="kap inhalt"><h2>Inhalt</h2><ol class="toc">'
+    +'<li>Kurzfassung</li><li>Grundlage der Feststellung</li>'
+    +'<li>Portfolio-Übersicht (Management-Cockpit)</li><li>Ergebnis je Dimension</li>'
+    +'<li>Ergebnis je Kernprozess</li><li>Auffälligkeiten</li>'
+    +'<li>Matrizen und cross-sectionale Betrachtung</li>'
+    +'<li>Grenzen dieses Berichts</li><li>Anhang: Herkunft der Zahlen</li></ol></section>';
+
+  /* ---- 1 Kurzfassung -------------------------------------------------- */
+  var k1=bs(rep,'B-02')+saetze(rep.befund.kurzfassung);
+  k1+='<div class="kennz">'
+    +'<div><span class="lab">Digitalisierungsgrad</span><b>'+fmt2(rep.gesamt)+'</b></div>'
+    +'<div><span class="lab">Bewertungen</span><b>'+rep.n_bewertungen+'</b></div>'
+    +'<div><span class="lab">mit Beleg</span><b>'+rep.beleg_quote+' %</b></div>'
+    +'<div><span class="lab">Schwelle (Projektsetzung)</span><b>'+fmt2(rep.schwelle)+'</b></div>'
+    +'</div>';
+  k1+='<table class="tab"><thead><tr><th>Kernprozess</th><th>Bezeichnung</th>'
+     +'<th class="r">Reifegrad</th><th class="r">Teilprozesse</th></tr></thead><tbody>';
+  rep.kp_rows.forEach(function(r){
+    var tps=rep.tp_rows.filter(function(t){return t.process_id===r.process_id;});
+    k1+='<tr'+(r.avg&&r.avg<rep.schwelle?' class="unter"':'')+'><td>'+r.process_id+'</td><td>'
+       +esc(r.process_name)+'</td><td class="r"><b>'+fmt2(r.avg)+'</b></td><td class="r">'
+       +(tps.length||'–')+'</td></tr>';});
+  k1+='</tbody></table><p class="mut">Zeilen unterhalb der Projektschwelle sind hinterlegt.</p>';
+  h+=kapitel('1','Kurzfassung',k1);
+
+  /* ---- 2 Grundlage ---------------------------------------------------- */
+  h+=kapitel('2','Grundlage der Feststellung',
+      bs(rep,'B-03')+'<h3>Die Skala</h3>'+bs(rep,'B-04')
+      +'<table class="tab skala"><thead><tr><th>Stufe</th><th>Erfüllungsgrad</th></tr></thead><tbody>'
+      +'<tr><td>1</td><td>0 %</td></tr><tr><td>2</td><td>über 0 bis 40 %</td></tr>'
+      +'<tr><td>3</td><td>über 40 bis 50 %</td></tr><tr><td>4</td><td>über 50 bis 95 %</td></tr>'
+      +'<tr><td>5</td><td>über 95 %</td></tr></tbody></table>'
+      +'<h3>Belege</h3>'+bs(rep,'B-05'));
+
+  /* ---- 3 Management-Cockpit ------------------------------------------- */
+  var k3c=bs(rep,'B-15')
+    +'<div class="cockpitbox">'+cockpitSvg(rep)+'</div>'
+    +'<table class="tab"><thead><tr><th>Prozesskategorie</th><th>Kernprozess</th>'
+    +'<th class="r">Reifegrad</th><th>Einordnung</th></tr></thead><tbody>';
+  (rep.kategorien||[]).forEach(function(kat){
+    var liste=(rep.cockpit||{})[kat]||[];
+    if(!liste.length){k3c+='<tr><td>'+esc(kat)+'</td><td colspan="3" class="mut">nicht erhoben</td></tr>';return;}
+    liste.forEach(function(p,i){
+      k3c+='<tr'+(p.avg<rep.schwelle?' class="unter"':'')+'>'
+        +(i===0?'<td rowspan="'+liste.length+'"><b>'+esc(kat)+'</b></td>':'')
+        +'<td>'+p.process_id+' · '+esc(p.process_name)+'</td>'
+        +'<td class="r"><b>'+fmt2(p.avg)+'</b></td><td>'+esc(p.stufe_text)+'</td></tr>';});});
+  k3c+='</tbody></table>';
+  h+=kapitel('3','Portfolio-Übersicht (Management-Cockpit)',k3c);
+
+  /* ---- 4 Dimensionen -------------------------------------------------- */
+  var k3=bs(rep,'B-06')+saetze(rep.befund.dimensionen);
+  k3+='<div class="zwei"><figure><div class="radarBox" id="r5"></div>'
+     +'<figcaption>Fünf Dimensionen, über alle Prozesse gemittelt</figcaption></figure>'
+     +'<figure><div class="radarBox" id="r15"></div>'
+     +'<figcaption>Fünfzehn Kriterien, über alle Prozesse gemittelt</figcaption></figure></div>';
+  k3+='<table class="tab"><thead><tr><th>Dimension</th><th class="r">Wert</th>'
+     +'<th>Kriterium</th><th class="r">Wert</th></tr></thead><tbody>';
+  rep.dims.forEach(function(d){
+    var ks=rep.krit15_labels.filter(function(k){return (DIM_VON_KRIT_JS[k]||'')===d;});
+    ks.forEach(function(k,i){
+      k3+='<tr>'+(i===0?'<td rowspan="'+ks.length+'"><b>'+esc(dimName(d))+'</b></td>'
+            +'<td class="r" rowspan="'+ks.length+'"><b>'+fmt2(rep.dim_avg[d])+'</b></td>':'')
+         +'<td>'+esc(k)+'</td><td class="r">'+fmt2(rep.krit15_overall[k])+'</td></tr>';});});
+  k3+='</tbody></table>';
+  h+=kapitel('4','Ergebnis je Dimension',k3);
+
+  /* ---- 5 Kernprozesse ------------------------------------------------- */
+  var k4=bs(rep,'B-07');
+  rep.kp_rows.forEach(function(r){
+    if(!r.avg) return;
+    var tps=rep.tp_rows.filter(function(t){return t.process_id===r.process_id;});
+    k4+='<div class="kpblock"><h3>'+r.process_id+' · '+esc(r.process_name)+'</h3>'
+       +saetze((rep.befund.kernprozesse||{})[r.process_id]);
+    k4+='<table class="tab"><thead><tr><th>Teilprozess</th><th class="r">Reifegrad</th>'
+       +rep.dims.map(function(d){return '<th class="r">'+esc(shortDim(d))+'</th>';}).join('')
+       +'</tr></thead><tbody>';
+    tps.forEach(function(t){
+      k4+='<tr'+(t.avg<rep.schwelle?' class="unter"':'')+'><td>'+esc(t.name)+'</td>'
+         +'<td class="r"><b>'+fmt2(t.avg)+'</b></td>'
+         +rep.dims.map(function(d){return '<td class="r">'+fmt2(t.dims[d])+'</td>';}).join('')+'</tr>';});
+    k4+='<tr class="summe"><td>'+r.process_id+' gesamt</td><td class="r"><b>'+fmt2(r.avg)+'</b></td>'
+       +rep.dims.map(function(d){return '<td class="r">'+fmt2(r.dims[d])+'</td>';}).join('')+'</tr>';
+    k4+='</tbody></table>';
+    var a='k5_'+r.process_id.replace('-','_'), b='k15_'+r.process_id.replace('-','_');
+    k4+='<div class="zwei"><figure><div class="radarBox" id="'+a+'"></div>'
+       +'<figcaption>'+r.process_id+' · fünf Dimensionen</figcaption></figure>'
+       +'<figure><div class="radarBox" id="'+b+'"></div>'
+       +'<figcaption>'+r.process_id+' · fünfzehn Kriterien</figcaption></figure></div></div>';});
+  var nichtErhoben=rep.kp_rows.filter(function(r){return !r.avg;});
+  if(nichtErhoben.length)
+    k4+='<p class="mut">Ohne Bewertung und deshalb nicht dargestellt: '
+       +nichtErhoben.map(function(r){return r.process_id+' '+esc(r.process_name);}).join(', ')+'.</p>';
+  h+=kapitel('5','Ergebnis je Kernprozess',k4);
+
+  /* ---- 6 Auffaelligkeiten --------------------------------------------- */
+  var k5=bs(rep,'B-08');
+  var au=rep.befund.auffaelligkeiten||[];
+  k5+=au.length?'<ul class="befund">'+au.map(function(s){return '<li>'+esc(s)+'</li>';}).join('')+'</ul>'
+               :'<p>In den Zahlen sticht nichts hervor.</p>';
+  h+=kapitel('6','Auffälligkeiten',k5);
+
+  /* ---- 7 Matrizen ----------------------------------------------------- */
+  var k6=bs(rep,'B-09');
+  Object.keys(rep.auto).sort().forEach(function(pid){
+    var a=rep.auto[pid];
+    if(!a.rows.length) return;
+    k6+='<div class="matblock"><h3>'+pid+' · '+esc(a.process_name)+'</h3>'
+       +'<table class="tab"><thead><tr><th>Teilprozess</th>'
+       +rep.pa_crit.map(function(c){return '<th class="r">'+esc(c)+'</th>';}).join('')
+       +'<th class="r">Ø</th></tr></thead><tbody>';
+    a.rows.forEach(function(r){
+      k6+='<tr><td>'+esc(r.tp)+'</td>'
+         +rep.pa_crit.map(function(c){return '<td class="r" style="background:'+col(r.krit[c])+'">'
+              +fmt2(r.krit[c])+'</td>';}).join('')+'<td class="r"><b>'+fmt2(r.avg)+'</b></td></tr>';});
+    k6+='</tbody></table></div>';});
+  k6+='<h3>Cross-sectionale Betrachtung</h3>'+bs(rep,'B-10')+crossTabelle(rep);
+  h+=kapitel('7','Matrizen und cross-sectionale Betrachtung',k6);
+
+  /* ---- 8 Grenzen ------------------------------------------------------ */
+  h+=kapitel('8','Grenzen dieses Berichts',
+      bs(rep,'B-11')+'<h3>Die Schwelle von 3,5</h3>'+bs(rep,'B-12'));
+
+  /* ---- 9 Anhang ------------------------------------------------------- */
+  var k8=bs(rep,'B-13');
+  k8+='<table class="tab"><thead><tr><th>Erhebung</th><th>Stand</th><th>Status</th></tr></thead><tbody>';
+  (rep.erhebungen||[]).forEach(function(e){
+    k8+='<tr><td>'+esc(e.erhebung_id)+'</td><td>'+esc(e.stand||'')+'</td><td>'+esc(e.status||'')+'</td></tr>';});
+  if(!(rep.erhebungen||[]).length) k8+='<tr><td colspan="3" class="mut">keine Erhebung hinterlegt</td></tr>';
+  k8+='</tbody></table>';
+  k8+='<table class="tab"><thead><tr><th>Teilprozess</th><th class="r">Bewertungen</th>'
+     +'<th class="r">ohne Beleg</th><th class="r">Reifegrad</th></tr></thead><tbody>';
+  rep.tp_rows.forEach(function(t){
+    k8+='<tr><td>'+t.sub_process_id+' · '+esc(t.name)+'</td><td class="r">'+t.n_bew+'</td>'
+       +'<td class="r">'+(t.ohne_beleg||'–')+'</td><td class="r">'+fmt2(t.avg)+'</td></tr>';});
+  k8+='</tbody></table>';
+  if(RB_ANHANG) k8+=anhangEinzeln();
+  else k8+='<p class="mut noprint">Die Liste der Einzelbewertungen ist ausgeblendet. '
+          +'Sie lässt sich oben zuschalten; sie umfasst '+rep.n_bewertungen+' Zeilen.</p>';
+  h+=kapitel('9','Anhang: Herkunft der Zahlen',k8);
+
+  h+='<div class="dokfuss">'+esc(rep.company.name)+' · Reifegradbericht · erstellt '
+    +esc(rep.erstellt_am||'')+' · Textfassung '+esc(rep.textfassung||'—')
+    +' · Regelfassung '+esc(rep.regelfassung||'—')+'</div>';
+  h+='</div>';
+
+  $('rb').innerHTML=h;
+  $('rb').setAttribute('data-modus',RB_MODUS);
+  rbArbeitZeichnen(rep);
+
+  /* Spinnennetze erst nach dem Einhaengen zeichnen. */
+  spider('r5',rep.dims.map(shortDim),rep.dims.map(function(d){return rep.dim_avg[d]||0;}));
+  spider('r15',rep.krit15_labels,rep.krit15_labels.map(function(k){return rep.krit15_overall[k]||0;}));
+  rep.kp_rows.forEach(function(r){if(!r.avg)return;
+    var a='k5_'+r.process_id.replace('-','_'), b='k15_'+r.process_id.replace('-','_');
+    if($(a)) spider(a,rep.dims.map(shortDim),rep.dims.map(function(d){return r.dims[d]||0;}));
+    if($(b)) spider(b,rep.krit15_labels,rep.krit15_labels.map(function(k){return r.krit15[k]||0;}));});
   show('rb');}
+
+function anhangEinzeln(){
+  /* Jede einzelne Bewertung. Quelle ist derselbe Bestand, den der Reiter
+     „Bewertungen" zeigt — nicht neu geladen, damit Bericht und Liste nicht
+     auseinanderlaufen koennen. */
+  if(!cur||!cur.ratings) return '<p class="mut">Einzelbewertungen nicht geladen.</p>';
+  var out='<h3>Einzelbewertungen</h3><table class="tab klein"><thead><tr><th>Teilprozess</th>'
+         +'<th>Item</th><th>Kriterium</th><th class="r">Stufe</th><th>Beleg</th></tr></thead><tbody>';
+  Object.keys(cur.ratings).sort().forEach(function(k){
+    var rg=cur.ratings[k];
+    Object.keys(rg).sort(function(a,b){return a-b;}).forEach(function(nr){
+      var e=rg[nr]; if(!e.stufe) return;
+      var it=META.items[nr-1];
+      out+='<tr><td>'+k+'</td><td>I-'+('0'+nr).slice(-2)+'</td><td>'+esc(it.kriterium)+'</td>'
+          +'<td class="r">'+e.stufe+'</td><td>'+esc((e.beleg||'').trim()||'—')+'</td></tr>';});});
+  return out+'</tbody></table>';}
+
+/* ---- Management-Cockpit (Bitkom, Zusatzmodul 3.1, Abbildung 4) -----------
+   Die Prozesse nach Prozesskategorie ueber der Skala von "nicht digital" bis
+   "vollstaendig digital". Keine neue Rechnung, sondern eine andere Anordnung
+   derselben Werte — und die einzige Darstellung im Leitfaden, die den Blick
+   vom einzelnen Prozess auf das Portfolio hebt.
+
+   Die Hoehe eines Kaestchens folgt dem Reifegrad, nicht der Stufenklasse; bei
+   3,4 und 3,6 saehe man sonst denselben Abstand wie bei 3,4 und 3,49. Dass die
+   Klassen selbst ungleich breit sind, ist eine Eigenschaft der Skala und in
+   Kapitel Grundlage erklaert. */
+function cockpitSvg(rep){
+  var kats=rep.kategorien||[], B=760, H=360, LI=132, RE=18, OB=18, UN=34;
+  var innenB=B-LI-RE, innenH=H-OB-UN, spaltenB=innenB/Math.max(1,kats.length);
+  function y(v){ return OB+innenH-((v-1)/4)*innenH; }
+  var g='<svg viewBox="0 0 '+B+' '+H+'" class="cockpit" style="width:100%;height:auto">';
+  var grenzen=[1,1.5,2.5,3.5,4.5,5], namen=rep.cockpit_stufen||[];
+  for(var i=0;i<5;i++){
+    var yo=y(grenzen[i+1]), yu=y(grenzen[i]);
+    g+='<rect x="'+LI+'" y="'+yo.toFixed(1)+'" width="'+innenB+'" height="'+(yu-yo).toFixed(1)
+      +'" fill="'+(i%2?'#f7f9fb':'#fff')+'"/>'
+      +'<text x="'+(LI-8)+'" y="'+((yo+yu)/2+3).toFixed(1)+'" text-anchor="end" font-size="9.5" '
+      +'fill="#6b7280">'+esc(namen[i]||'')+'</text>'
+      +'<line x1="'+LI+'" y1="'+yo.toFixed(1)+'" x2="'+(B-RE)+'" y2="'+yo.toFixed(1)+'" stroke="#e3e8ee"/>';}
+  g+='<line x1="'+LI+'" y1="'+y(1).toFixed(1)+'" x2="'+(B-RE)+'" y2="'+y(1).toFixed(1)+'" stroke="#e3e8ee"/>';
+  /* Die Schwelle ist unsere Projektsetzung, keine Bitkom-Achse — gestrichelt
+     und beschriftet am linken Rand, damit sie nicht wie eine Modellgrenze
+     aussieht. */
+  g+='<line x1="'+LI+'" y1="'+y(rep.schwelle).toFixed(1)+'" x2="'+(B-RE)+'" y2="'+y(rep.schwelle).toFixed(1)
+    +'" stroke="#c0392b" stroke-width="1.2" stroke-dasharray="5 4"/>'
+    +'<text x="'+(LI+4)+'" y="'+(y(rep.schwelle)-4).toFixed(1)+'" font-size="9" fill="#c0392b">'
+    +'Projektschwelle 3,5</text>';
+  kats.forEach(function(k,ki){
+    var x0=LI+ki*spaltenB, mx=x0+spaltenB/2;
+    if(ki) g+='<line x1="'+x0.toFixed(1)+'" y1="'+OB+'" x2="'+x0.toFixed(1)+'" y2="'+(OB+innenH)+'" stroke="#d7dee7"/>';
+    g+='<text x="'+mx.toFixed(1)+'" y="'+(H-12)+'" text-anchor="middle" font-size="11" '
+      +'font-weight="600" fill="#123">'+esc(k)+'</text>';
+    var liste=((rep.cockpit||{})[k]||[]).slice();
+    if(!liste.length){
+      g+='<text x="'+mx.toFixed(1)+'" y="'+(OB+innenH/2).toFixed(1)+'" text-anchor="middle" '
+        +'font-size="10" fill="#9aa5b1">nicht erhoben</text>'; return;}
+    /* Der Punkt sitzt auf der exakten Hoehe, das Schild kann ausweichen.
+       Ohne diese Entzerrung verdecken sich Prozesse mit aehnlichem Wert
+       gegenseitig — bei zehn Prozessen waren zuletzt vier zu sehen. */
+    var links=[], rechts=[];
+    liste.forEach(function(p,i){ (i%2?rechts:links).push(p); });
+    [[links,-1],[rechts,1]].forEach(function(paar){
+      var seite=paar[0], vz=paar[1], letzte=null;
+      seite.forEach(function(p){
+        var yp=y(p.avg), ys=yp;
+        if(letzte!==null && ys-letzte<19) ys=letzte+19;
+        letzte=ys;
+        var breite=Math.min(118,spaltenB/2-10);
+        var sx=mx+vz*14+(vz<0?-breite:0);
+        g+='<line x1="'+mx.toFixed(1)+'" y1="'+yp.toFixed(1)+'" x2="'+(mx+vz*14).toFixed(1)
+          +'" y2="'+ys.toFixed(1)+'" stroke="#9aa5b1" stroke-width=".8"/>'
+          +'<circle cx="'+mx.toFixed(1)+'" cy="'+yp.toFixed(1)+'" r="2.6" fill="'
+          +(p.avg>=rep.schwelle?'#1f9d57':'#c0392b')+'"/>'
+          +'<rect x="'+sx.toFixed(1)+'" y="'+(ys-8.5).toFixed(1)+'" width="'+breite.toFixed(1)
+          +'" height="17" rx="4" fill="'+(p.avg>=rep.schwelle?'#e8f2ea':'#fbeae8')+'" stroke="'
+          +(p.avg>=rep.schwelle?'#1f9d57':'#c0392b')+'"/>'
+          +'<text x="'+(sx+breite/2).toFixed(1)+'" y="'+(ys+4).toFixed(1)+'" text-anchor="middle" '
+          +'font-size="9.5" fill="#1d2733">'+esc(p.process_id)+' · '+fmt2(p.avg)+'</text>';});});});
+  return g+'</svg>';}
+
+/* ---- Cross-sectionale Betrachtung (Bitkom, Zusatzmodul 3.3, Tabelle 4) ----
+   Zwei Dinge unterscheiden sie von der Automatisierungsmatrix: Die Zeilen
+   stehen in der Reihenfolge der Prozesskette, nicht nach Nummer, und unter
+   jedem Kriterium stehen neben dem Durchschnitt die BEIDEN EINZELITEMS.
+   Genau darauf zielt das Modul — ein Kriterium, dessen zwei Items weit
+   auseinanderliegen, ist im Durchschnitt unauffaellig und in der Sache nicht
+   durchgaengig. Solche Stellen sind rot umrandet. */
+function kettenText(r){
+  /* Die Verkettung mit IDs zuerst — sie ist die Auskunft, auf die es hier
+     ankommt. Der Freitext aus input_text/output_text steht darunter, solange
+     er gepflegt ist; ein reines "? → ?" waere nur Rauschen. */
+  var t='';
+  if((r.ein||[]).length)  t+='<b>von</b> '+r.ein.join(', ')+'<br>';
+  if((r.aus||[]).length)  t+='<b>an</b> '+r.aus.join(', ')+'<br>';
+  if(!t) t='<span class="mut">keine Kante erfasst</span><br>';
+  var frei=(r.io||'').trim();
+  if(frei && frei!=='? → ?') t+='<span class="frei">'+esc(frei)+'</span>';
+  return t;}
+
+function crossTabelle(rep){
+  var reihen=(rep.kette||[]).map(function(pid){
+    return rep.cross.filter(function(x){return x.process_id===pid;})[0];}).filter(Boolean);
+  rep.cross.forEach(function(x){if(reihen.indexOf(x)<0) reihen.push(x);});
+  reihen=reihen.filter(function(r){return r.avg;});
+  if(!reihen.length) return '<p class="mut">Keine bewerteten Kernprozesse.</p>';
+
+  var dimVon={}; rep.cf_crit.forEach(function(k){dimVon[k]=DIM_VON_KRIT_JS[k]||'';});
+  var gruppen=[]; rep.cf_crit.forEach(function(k){
+    var d=dimVon[k];
+    if(gruppen.length&&gruppen[gruppen.length-1].d===d) gruppen[gruppen.length-1].k.push(k);
+    else gruppen.push({d:d,k:[k]});});
+
+  var h='<table class="tab cross"><thead>';
+  h+='<tr><th rowspan="3">Prozess</th><th rowspan="3">Schnittstellen</th>';
+  gruppen.forEach(function(gr){h+='<th colspan="'+(gr.k.length*3)+'">'+esc(dimName(gr.d))+'</th>';});
+  h+='</tr><tr>';
+  rep.cf_crit.forEach(function(k){h+='<th colspan="3">'+esc(k)+'</th>';});
+  h+='</tr><tr>';
+  rep.cf_crit.forEach(function(k){
+    var its=(rep.cf_items||{})[k]||['',''];
+    h+='<th class="r">Ø</th><th class="r ein">'+esc(its[0])+'</th><th class="r ein">'+esc(its[1])+'</th>';});
+  h+='</tr></thead><tbody>';
+
+  reihen.forEach(function(r){
+    h+='<tr><td><b>'+r.process_id+'</b> '+esc(r.process_name||'')
+      +(r.owner?'<br><span class="mut">'+esc(r.owner)+'</span>':'')+'</td>'
+      +'<td class="io">'+kettenText(r)+'</td>';
+    rep.cf_crit.forEach(function(k){
+      var its=(rep.cf_items||{})[k]||['',''];
+      var un=(r.unstimmig||[]).indexOf(k)>=0;
+      h+='<td class="r'+(un?' unstimmig':'')+'" style="background:'+col(r.krit[k])+'"><b>'+fmt2(r.krit[k])+'</b></td>'
+        +'<td class="r ein'+(un?' unstimmig':'')+'">'+fmt2((r.items||{})[its[0]])+'</td>'
+        +'<td class="r ein'+(un?' unstimmig':'')+'">'+fmt2((r.items||{})[its[1]])+'</td>';});
+    h+='</tr>';});
+  h+='</tbody></table>';
+
+  var alle=[]; reihen.forEach(function(r){(r.unstimmig||[]).forEach(function(k){
+    alle.push(r.process_id+' bei '+k);});});
+  h+='<p class="mut">Rot umrandet: die beiden Items eines Kriteriums liegen um '
+    +fmt2(rep.cf_delta)+' Stufen oder mehr auseinander. '
+    +(alle.length?'Betroffen sind '+esc(alle.join(', '))+'.'
+                 :'In dieser Erhebung tritt das nicht auf.')+'</p>';
+  return h;}
+
+function dimName(d){return (d||'').replace(/^\d\)\s*/,'');}
+
+/* Zuordnung Kriterium -> Dimension. Sie steht schon in META.items; sie hier
+   noch einmal zu pflegen hiesse, zwei Wahrheiten zu haben. */
+var DIM_VON_KRIT_JS={};
+function baueKritZuordnung(){
+  DIM_VON_KRIT_JS={};
+  if(META&&META.items) META.items.forEach(function(it){DIM_VON_KRIT_JS[it.kriterium]=it.dimension;});}
+
 function fmt(v){return v?(''+v).replace('.',','):'–';}
 function col(v){if(!v)return '#fff';var t=(v-1)/4;var r=Math.round(214+(31-214)*t),g=Math.round(110+(157-110)*t),b=Math.round(90+(87-90)*t);return 'rgba('+r+','+g+','+b+',.18)';}
 
+/* Netzdiagramm als selbst erzeugtes SVG — Folge des Verzichts auf
+   Diagrammbibliotheken.
+   Feste Geometrie: Mittelpunkt (160,145), Radius 100, fünf Ringe für die fünf
+   Stufen. pt() rechnet Index und Radius in Koordinaten um; der Startwinkel
+   -PI/2 setzt das erste Label nach oben statt nach rechts.
+   Die Fläche wird nur gezeichnet, wenn überhaupt ein Wert gesetzt ist —
+   sonst entstünde ein Punkt im Mittelpunkt, der wie „alles auf Stufe 1"
+   aussieht, obwohl nichts erhoben ist. Der Unterschied ist derselbe wie bei
+   _avg() im Backend.
+   Die Schriftgröße sinkt ab neun Achsen, damit sich die Beschriftungen der
+   15 Kriterien nicht überlagern. */
 function spider(elId,labels,vals){var N=labels.length,cx=160,cy=145,R=100;var FS=N>8?8:10.5;
   function pt(i,r){var a=-Math.PI/2+i*2*Math.PI/N;return [cx+r*Math.cos(a),cy+r*Math.sin(a)];}
   var g='<svg width="320" height="285" viewBox="0 0 320 285">';
@@ -772,7 +1977,7 @@ function g0Tabelle(zeilen, mitGrund){
   zeilen.forEach(function(z){
     t+='<tr><td>'+esc(z.sub_process_id)+'</td>'
       +'<td>'+esc(z.sub_process_name||'—')+'<div class="mut">'+esc(z.process_id+' · '+z.process_name)+'</div></td>'
-      +'<td>'+g0Ampel(z.eigner_benannt)+'Eigner<br>'+g0Ampel(z.ansprechpartner_benannt)+'Ansprechpartner<br>'
+      +'<td>'+g0Ampel(z.eigner_benannt)+'Eigner zugeordnet<br>'
       +g0Ampel(z.vollstaendig_bewertet)+'bewertet ('+z.items_bewertet+'/30)</td>'
       +'<td>'+fmt(z.reifegrad)+(z.reifegrad?('<div class="mut">'+(z.ueber_schwelle?'über':'unter')+' '+(''+G0.schwelle).replace('.',',')+'</div>'):'')+'</td>'
       +(mitGrund?('<td>'+esc(G0_ZUSTAND_TEXT[z.am_zug]||z.am_zug)
@@ -789,7 +1994,13 @@ function g0Tabelle(zeilen, mitGrund){
 /* Der Verweis in den zuständigen Reiter — derselbe Weg, den ein Klick in der
    Seitenleiste nimmt, damit es nur eine Stelle gibt, die den Reiter wechselt. */
 function g0Reiter(art){return art==='bewertung'?'ra':'ps';}
-function gehZuReiter(v){var a=document.querySelector('#wnav a[data-v="'+v+'"]');if(a)a.click();}
+/* Sprung aus einer Ansicht heraus in einen anderen Reiter (z. B. aus dem Gate in
+   die Prozesspflege). Erst die Gruppe oeffnen, dann klicken — sonst wechselte
+   die Ansicht, waehrend ihr Eintrag in der Leiste zugeklappt bliebe. */
+function gehZuReiter(v){
+  navGruppeOeffnenFuer(v);
+  var a=document.querySelector('#wnav a[data-v="'+v+'"]');if(a)a.click();
+}
 
 function g0Hindernisse(){
   var h=G0.hindernisse||[];
@@ -835,7 +2046,9 @@ async function oeffneG0Bogen(sid){
 function g0Vorbelegung(punkt){
   var b=G0_BOGEN, p=cur.processes[b.process_id]||{};
   if(punkt==='prozessbeschreibung') return (p.beschreibung||'').trim()?100:0;
-  if(punkt==='ansprechpartner') return b.ansprechpartner_benannt?100:0;
+  /* Der Eigner zählt mit: Wer den Prozess verantwortet, ist auskunftsfähig.
+     Die Vorbelegung ist ein Vorschlag — quittiert wird von Hand. */
+  if(punkt==='ansprechpartner') return (b.ansprechpartner_benannt||b.eigner_benannt)?100:0;
   if(punkt==='medienbrueche'){
     var tp=(p.tps||[]).filter(function(x){return x.sub_process_id===b.sub_process_id;})[0]||{};
     return (tp.medienbrueche||'').trim()?100:0;
@@ -847,8 +2060,7 @@ function zeichneG0Bogen(){
   var b=G0_BOGEN, stand=b.letzter_stand, frueher={};
   (stand&&stand.punkte||[]).forEach(function(p){frueher[p.pruefpunkt]=p;});
   var offen=[];
-  if(!b.eigner_benannt) offen.push('Prozesseigner');
-  if(!b.ansprechpartner_benannt) offen.push('Ansprechpartner für Rückfragen');
+  if(!b.eigner_benannt) offen.push('zugeordneter Prozesseigner');
   if(!b.vollstaendig_bewertet) offen.push('vollständige Selbsteinschätzung');
 
   /* 1 — Anfrage */
@@ -881,10 +2093,10 @@ function zeichneG0Bogen(){
 
   /* 3 — Vorbedingungen */
   h+='<div class="panel"><h3>3 · Vorbedingungen <span class="mut" style="font-weight:400">— keine Prozentwerte, sondern Abbruchkriterien</span></h3>'
-   +'<div>'+g0Ampel(b.eigner_benannt)+'Prozesseigner benannt</div>'
-   +'<div>'+g0Ampel(b.ansprechpartner_benannt)+'Ansprechpartner für Rückfragen benannt</div>'
+   +'<div>'+g0Ampel(b.eigner_benannt)+'Dem Prozess ist mindestens eine Person zugeordnet, darunter ein Eigner</div>'
    +'<div>'+g0Ampel(b.vollstaendig_bewertet)+'Selbsteinschätzung vollständig ('+b.items_bewertet+' von 30, mindestens '+G0.items_min+')</div>'
-   +(offen.length?('<div class="sperr">Offen: '+esc(offen.join(', '))+'. Solange eine Vorbedingung fehlt, ist keine Freigabe möglich — ohne benannten Eigner verantwortet niemand die Angaben, ohne Ansprechpartner hat BC1 oder BC2 bei einer Rückfrage niemanden. Eine Zurückweisung mit Maßnahme ist weiterhin möglich und der richtige Weg.</div>'):'')
+   +'<p class="mut">Weitere Beteiligte (mitwirkend, Vertretung, Sponsor) '+(b.ansprechpartner_benannt?'sind benannt':'sind nicht benannt')+' — das ist eine Auskunft, keine Vorbedingung. Wer einen Prozess verantwortet, ist auskunftsfähig; ob das im Einzelfall reicht, quittieren Sie unten beim Prüfpunkt „Ansprechpartner bei Rückfragen".</p>'
+   +(offen.length?('<div class="sperr">Offen: '+esc(offen.join(', '))+'. Solange eine Vorbedingung fehlt, ist keine Freigabe möglich — ohne zugeordneten Eigner verantwortet niemand die Angaben und niemand nimmt später eine Automatisierung ab. Eine Zurückweisung mit Maßnahme ist weiterhin möglich und der richtige Weg.</div>'):'')
    +'</div>';
 
   /* 4 — Prozesskette */

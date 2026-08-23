@@ -17,11 +17,17 @@ nicht anzeigt.
 
 **Eine abgewiesene Zuordnung darf die Tabelle nicht leeren.** Geprüft wird vor
 dem Löschen, nicht danach.
+
+Seit dem 18.08.2026 (Schema v1.5) kommt eine fünfte dazu: **Die dienstlichen
+Kontaktdaten verlassen BC0 nicht.** Sie stehen nach ADR-004 R5 an derselben
+Stelle wie der Klarname, und keine der pseudonymisierten Sichten gibt sie aus.
 """
 
 from __future__ import annotations
 
+import glob
 import os
+import re
 import sys
 
 import pytest
@@ -266,6 +272,116 @@ def test_unbekannte_person_in_der_zuordnung_wird_abgelehnt(client, mandant):
     antwort = client.put(_pfad(mandant), json={"zuordnungen": [
         {"process_id": kp_a, "person_id": "P-77", "funktion": "eigner"}]})
     assert antwort.status_code == 400
+
+
+# --------------------------------------------------------------------------- #
+# Dienstliche Kontaktdaten (Entscheidung vom 17.08.2026, Schema v1.5)
+#
+# Wer im Interview eine Rückfrage hat, fand bisher keinen Weg zur Person: Der
+# Prozess kennt eine person_id, das Register einen Namen — und damit endete die
+# Spur. Erfasst wird ausschließlich das Dienstliche.
+# --------------------------------------------------------------------------- #
+@pytest.fixture(scope="module")
+def kontakt_mandant(client) -> str:
+    """Eigener Mandant: Die Tests oben verändern den Personenbestand fortlaufend."""
+    return str(client.post("/api/companies",
+                           json={"name": "Kontakt GmbH", "kps": [1]}).json()["id"])
+
+
+def test_kontaktdaten_werden_gespeichert_und_gelesen(client, kontakt_mandant):
+    client.put(_pfad(kontakt_mandant), json={"personen": [
+        {"name": "Ida Eigner", "funktion": "Vertriebsleitung",
+         "email": "i.eigner@noroai.example", "telefon": "+49 30 123456-17"}]})
+    person = _hole(client, kontakt_mandant)["personen"][0]
+    assert person["email"] == "i.eigner@noroai.example"
+    assert person["telefon"] == "+49 30 123456-17"
+
+
+def test_kontaktdaten_duerfen_leer_bleiben(client, kontakt_mandant):
+    """Wie beim Namen: Nicht erhoben ist ein zulässiger Zustand.
+
+    Ein Pflichtfeld erzeugte hier nur Erfindungen — „externer Steuerberater" hat
+    oft keine Nummer im Haus.
+    """
+    d = _hole(client, kontakt_mandant)
+    d["personen"].append({"funktion": "externer Steuerberater", "extern": True})
+    antwort = client.put(_pfad(kontakt_mandant), json={"personen": d["personen"]})
+    assert antwort.status_code == 200, antwort.text
+    neu = _hole(client, kontakt_mandant)["personen"][1]
+    assert neu["email"] is None and neu["telefon"] is None
+
+
+def test_telefonnummer_hat_keinen_formatzwang(client, kontakt_mandant):
+    """Durchwahl, Landesvorwahl und Mobilnummer stehen im Haus in mehreren
+    Schreibweisen — keine davon ist falsch."""
+    d = _hole(client, kontakt_mandant)
+    d["personen"][1]["telefon"] = "Zentrale, App. 4"
+    assert client.put(_pfad(kontakt_mandant), json={"personen": d["personen"]}).status_code == 200
+    assert _hole(client, kontakt_mandant)["personen"][1]["telefon"] == "Zentrale, App. 4"
+
+
+def test_email_ohne_klammeraffen_wird_abgewiesen(client, kontakt_mandant):
+    """Die einzige Prüfung, und sie greift nur bei gefülltem Feld: Ein Tippfehler
+    im Verteiler fällt sonst erst auf, wenn die Rückfrage nicht ankommt."""
+    d = _hole(client, kontakt_mandant)
+    d["personen"][0]["email"] = "i.eigner.noroai.example"
+    antwort = client.put(_pfad(kontakt_mandant), json={"personen": d["personen"]})
+    assert antwort.status_code == 400
+    assert "i.eigner.noroai.example" in antwort.json()["detail"]
+    assert _hole(client, kontakt_mandant)["personen"][0]["email"] == "i.eigner@noroai.example"
+
+
+# --------------------------------------------------------------------------- #
+# Die Zusicherung, an der die ganze Änderung hängt (ADR-004 R5)
+# --------------------------------------------------------------------------- #
+#: Zeichenketten, die in keiner Lesesicht auf ref_personen vorkommen dürfen.
+KONTAKTSPALTEN = ("email", "telefon")
+
+_VIEW = re.compile(r"CREATE\s+(?:OR\s+REPLACE\s+)?VIEW\s+(\w+)\s+AS(.*?);", re.S | re.I)
+
+
+def _schemaskripte():
+    verzeichnis = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    pfade = glob.glob(os.path.join(verzeichnis, "*.sql"))
+    # Das Gate-Schema liegt neben dem Anwendungsverzeichnis, nicht darin.
+    pfade += glob.glob(os.path.join(os.path.dirname(verzeichnis), "gate0", "*.sql"))
+    return sorted(pfade)
+
+
+def _sichten(pfad):
+    """(Name, Rumpf) je CREATE VIEW. Kommentarzeilen fallen weg — ein Wort wie
+    „email" in einer Erläuterung darf den Test nicht auslösen."""
+    text = open(pfad, encoding="utf-8").read()
+    ohne_kommentar = "\n".join(z.split("--")[0] for z in text.splitlines())
+    return [(t.group(1), t.group(2)) for t in _VIEW.finditer(ohne_kommentar)]
+
+
+def test_keine_sicht_gibt_kontaktdaten_aus():
+    """Die pseudonymisierten Sichten dürfen sich nicht durch neue Spalten erweitern.
+
+    Geprüft wird der Quelltext der Schemaskripte und nicht die laufende
+    Datenbank: Im Entwicklungsmodus läuft SQLite, das diese Sichten gar nicht
+    kennt — der Fehler entstünde aber schon beim Schreiben des Skripts. Ein
+    `SELECT *` auf ref_personen wäre genau die stille Erweiterung, gegen die
+    ADR-004 R5 steht; deshalb wird auch danach gesucht und nicht nur nach den
+    beiden Spaltennamen.
+    """
+    geprueft = []
+    for pfad in _schemaskripte():
+        for name, rumpf in _sichten(pfad):
+            if "ref_personen" not in rumpf:
+                continue
+            geprueft.append(name)
+            klein = rumpf.lower()
+            for spalte in KONTAKTSPALTEN:
+                assert spalte not in klein, \
+                    "%s (%s) gibt %s aus" % (name, os.path.basename(pfad), spalte)
+            assert not re.search(r"select\s+\*", rumpf, re.I), \
+                "%s liest ref_personen mit SELECT * und waechst still mit" % name
+            assert not re.search(r"\w+\.\*", rumpf), \
+                "%s liest eine Tabelle mit alias.* und waechst still mit" % name
+    assert "v_prozess_personen_lesen" in geprueft, \
+        "die Sicht, auf die es ankommt, wurde gar nicht gefunden"
 
 
 # --------------------------------------------------------------------------- #

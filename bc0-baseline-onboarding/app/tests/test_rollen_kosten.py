@@ -206,3 +206,19 @@ def test_gesperrte_rolle_laesst_sich_wieder_freigeben(client, mandant):
     client.put(_pfad(mandant), json={"rollen": rollen, "kostensaetze": []})
     danach = {r["rolle_id"]: r["aktiv"] for r in client.get(_pfad(mandant)).json()["rollen"]}
     assert danach[ziel["rolle_id"]] is True
+
+
+def test_beschreibung_wird_gespeichert_und_gelesen(client, mandant):
+    """Die Beschreibung je Kernprozess ist Richards Wunsch aus der ADR-003-Rückmeldung:
+    Der Interview-Bot muss erklären können, was ein Prozess umfasst, ohne zu erfinden."""
+    client.cookies.clear()
+    client.post("/api/auth/login", json={"email": "rk-admin@bc0.test", "passwort": PW})
+    m = str(client.post("/api/companies", json={"name": "Beschreibung GmbH", "kps": [1]}).json()["id"])
+
+    text = "Umfasst die Steuerung laufender Aufträge von der Annahme bis zur Abnahme."
+    antwort = client.put("/api/companies/" + m + "/process",
+                         json={"process_id": "KP-02", "beschreibung": text, "tps": []})
+    assert antwort.status_code == 200
+
+    prozesse = client.get("/api/companies/" + m).json()["processes"]
+    assert prozesse["KP-02"]["beschreibung"] == text

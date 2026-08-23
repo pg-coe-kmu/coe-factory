@@ -18,6 +18,13 @@ Frage „was passiert jetzt?" ist eine Sackgasse.
 
 Dazu die Zusicherung, ohne die eine Freigabe nicht reproduzierbar wäre: Im
 Ereignis steht die Erhebung, auf die sie sich bezieht — als kopierter Wert.
+
+**Seit dem 18.08.2026 gilt eine geänderte fachliche Regel.** Die Vorbedingung
+lautet jetzt „dem Prozess ist mindestens eine Person zugeordnet, darunter ein
+Eigner"; die frühere zweite Vorbedingung „Ansprechpartner benannt" ist entfallen,
+weil sie den Eigner ausschloss und damit einen Prozess sperrte, der einen
+Verantwortlichen hatte. Die Tests zum Zustand `am_zug` weiter unten sind
+entsprechend angepasst.
 """
 
 from __future__ import annotations
@@ -356,7 +363,10 @@ def _bewerte(client, cid, sid, n=30):
 
 @pytest.fixture(scope="module")
 def zustand_mandant(client) -> str:
-    """Zwei Kernprozesse. KP-01 hat einen Eigner, aber *keinen* Ansprechpartner.
+    """Zwei Kernprozesse. Dem ersten ist *ausschließlich* ein Eigner zugeordnet.
+
+    Genau der Fall, an dem sich die Korrektur vom 18.08.2026 zeigt: Bis dahin
+    galt er als „kein Ansprechpartner benannt" und war gesperrt.
 
     Der eigene Mandant ist Absicht: Die Tests weiter oben verändern ihren Stand
     fortlaufend (Freigabe, Widerruf). Ein Zustandstest, der darauf aufsetzte,
@@ -380,29 +390,56 @@ def zustand_mandant(client) -> str:
     return cid
 
 
-def test_am_zug_ohne_ansprechpartner_ist_bc0_pflege(client, zustand_mandant):
-    """Eigner da, 30 Items bewertet — es fehlt allein der Ansprechpartner.
+def test_allein_der_eigner_genuegt_als_vorbedingung(client, zustand_mandant):
+    """Eigner zugeordnet, 30 Items bewertet, sonst niemand benannt — offen ist nichts.
 
-    Der Zustand muss `bc0_pflege` sein und nicht `wartet_bc1`: Was BC0 selbst
-    nachtragen kann, steht vor dem, worauf BC0 nur warten kann.
+    **Korrektur vom 18.08.2026.** Bis dahin suchte das Gate einen Ansprechpartner
+    unter `mitwirkend`, `vertretung`, `sponsor` und schloss den Eigner aus. Ein
+    Prozess mit zugeordnetem Eigner meldete deshalb „Kein Ansprechpartner für
+    Rückfragen benannt" — während genau die Person danebenstand, die den Prozess
+    verantwortet. Wer verantwortet, ist per Definition auskunftsfähig.
     """
     kp = _erster_kp(client, zustand_mandant)
     zeile = _zeile(client, zustand_mandant, kp + ".TP-1")
     assert zeile["eigner_benannt"] and zeile["items_bewertet"] == 30
-    assert zeile["ansprechpartner_benannt"] is False
+    assert zeile["ansprechpartner_benannt"] is False, \
+        "Vorbedingung des Tests: es gibt niemanden ausser dem Eigner"
+    assert zeile["bogen_ausfuellbar"], "der Eigner allein macht den Bogen ausfuellbar"
+    assert zeile["am_zug"] == "wartet_bc1"
+    assert zeile["am_zug_grund"].startswith("Anreicherung fehlt:")
+
+
+def test_prozess_ohne_jede_zuordnung_bleibt_bc0_pflege(client, zustand_mandant):
+    """Die Gegenprobe — und der Fall, den die Sperre wirklich verhindern soll.
+
+    Der zweite Kernprozess ist vollständig bewertet, aber niemandem zugeordnet.
+    Er bleibt gesperrt: Ohne verantwortliche Person nimmt später auch niemand
+    eine Automatisierung ab.
+    """
+    kps = sorted(client.get("/api/companies/" + zustand_mandant).json()["processes"].keys())
+    zweiter = kps[1]
+    _bewerte(client, zustand_mandant, zweiter + ".TP-1")
+    zeile = _zeile(client, zustand_mandant, zweiter + ".TP-1")
+    assert zeile["items_bewertet"] == 30 and zeile["vollstaendig_bewertet"]
+    assert zeile["eigner_benannt"] is False
+    assert zeile["bogen_ausfuellbar"] is False
     assert zeile["am_zug"] == "bc0_pflege"
-    assert zeile["am_zug_grund"] == "Ansprechpartner fehlt"
+    assert "Person" in zeile["am_zug_grund"]
 
 
-def test_nach_dem_nachtragen_wartet_der_teilprozess_auf_bc1(client, zustand_mandant):
-    """Sind die Vorbedingungen erfüllt, wandert der Zustand weiter — nicht auf
-    `entscheiden`, denn die BC1-Angaben gibt es noch nicht."""
+def test_ein_weiterer_beteiligter_aendert_den_zustand_nicht(client, zustand_mandant):
+    """Ein nachgetragener Mitwirkender ist eine Auskunft, keine Vorbedingung.
+
+    `ansprechpartner_benannt` bleibt als Spalte erhalten und springt auf True —
+    am Zustand ändert sich nichts, weil er schon vorher erfüllt war.
+    """
     kp = _erster_kp(client, zustand_mandant)
     personen = client.get("/api/companies/" + zustand_mandant + "/entitaeten").json()["personen"]
     client.put("/api/companies/" + zustand_mandant + "/entitaeten", json={"zuordnungen": [
         {"process_id": kp, "person_id": personen[0]["person_id"], "funktion": "eigner"},
         {"process_id": kp, "person_id": personen[1]["person_id"], "funktion": "mitwirkend"}]})
     zeile = _zeile(client, zustand_mandant, kp + ".TP-1")
+    assert zeile["ansprechpartner_benannt"] is True
     assert zeile["bogen_ausfuellbar"], "wartet_bc1 sperrt nichts — der Bogen bleibt offen"
     assert zeile["am_zug"] == "wartet_bc1"
     assert zeile["am_zug_grund"].startswith("Anreicherung fehlt:")
@@ -425,9 +462,11 @@ def test_nach_der_entscheidung_ist_der_teilprozess_entschieden(client, zustand_m
 def test_hindernisse_sind_je_kernprozess_gruppiert(client):
     """Zehn Kernprozesse, nichts gepflegt: **zehn** Einträge je Art, nicht fünfzig.
 
-    Eigner und Ansprechpartner hängen am Kernprozess und werden an seine fünf
-    Teilprozesse vererbt. Je Teilprozess aufgeführt stünde derselbe Satz fünfzig
-    Mal — eine Liste, die niemand liest.
+    Der Eigner hängt am Kernprozess und wird an seine fünf Teilprozesse vererbt.
+    Je Teilprozess aufgeführt stünde derselbe Satz fünfzig Mal — eine Liste, die
+    niemand liest.
+
+    Zwei Arten, nicht drei: `ansprechpartner` ist am 18.08.2026 entfallen.
     """
     cid = str(client.post("/api/companies",
                           json={"name": "Leer AG", "kps": list(range(10))}).json()["id"])
@@ -438,15 +477,17 @@ def test_hindernisse_sind_je_kernprozess_gruppiert(client):
     je_art = {}
     for h in hindernisse:
         je_art.setdefault(h["art"], []).append(h)
-    assert sorted(je_art) == ["ansprechpartner", "bewertung", "eigner"]
+    assert sorted(je_art) == ["bewertung", "eigner"]
     for art, eintraege in je_art.items():
         assert len(eintraege) == 10, "%s: je Kernprozess ein Eintrag, nicht je Teilprozess" % art
         assert {e["process_id"] for e in eintraege} == \
             {"KP-%02d" % n for n in range(1, 11)}
         assert all(e["betroffen"] == 5 for e in eintraege)
-    assert len(hindernisse) == 30, "zehn Prozesse mal drei Arten — nicht 150"
+    assert len(hindernisse) == 20, "zehn Prozesse mal zwei Arten — nicht 150"
     assert hindernisse[0]["process_id"] == "KP-01" and hindernisse[0]["art"] == "eigner"
     assert hindernisse[0]["process_name"], "der Name gehoert dazu, sonst ist die ID stumm"
+    assert "Ansprechpartner" not in " ".join(h["text"] for h in hindernisse), \
+        "der alte Wortlaut darf nicht wieder auftauchen"
 
 
 def test_hindernisse_zaehlen_entschiedenes_nicht_mehr_mit(client, zustand_mandant):
@@ -461,7 +502,7 @@ def test_hindernisse_zaehlen_entschiedenes_nicht_mehr_mit(client, zustand_mandan
     assert len(bewertung) == 1
     assert bewertung[0]["betroffen"] == 3, "TP-1 ist entschieden, TP-2 bewertet — bleiben drei"
     assert not [h for h in daten["hindernisse"]
-                if h["process_id"] == kp and h["art"] in ("eigner", "ansprechpartner")]
+                if h["process_id"] == kp and h["art"] == "eigner"]
 
 
 def test_die_liste_ist_nach_am_zug_sortiert(client, zustand_mandant):

@@ -14,7 +14,11 @@ Aufruf (im Ordner BC0_App):
 import os, sys, json, datetime
 import app as A
 
-SCHEMA_VERSION = "1.1"  # 1.1: Teilprozess-Felder tools/medienbrueche/schnittstellen/api ergänzt
+SCHEMA_VERSION = "1.2"
+# 1.1: Teilprozess-Felder tools/medienbrueche/schnittstellen/api ergaenzt
+# 1.2: owner_name/owner_role entfallen, dafuer eigner_ids/sponsor_ids (22.08.2026).
+#      BREAKING fuer Leser, die owner_name erwarten — BC1 hat die Umstellung am
+#      22.08. bereits vollzogen und liest die neuen Felder.
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "snapshots")
 
@@ -26,11 +30,71 @@ def slug(s):
     return keep
 
 
+def _admin_kontext():
+    """Ein Benutzer-Objekt mit Adminrechten fuer den Exportlauf.
+
+    Das Skript laeuft auf dem Server, von Hand, durch jemanden, der ohnehin
+    Zugriff auf die Datenbank hat — es ist kein Weg an der Anmeldung vorbei,
+    sondern der Ersatz fuer sie in einem Vorgang ohne HTTP-Anfrage.
+
+    Bewusst OHNE Mandantenzuordnung: Ein Admin sieht nach
+    `darf_mandanten_sehen()` ohnehin alle, und eine erfundene Zuordnung waere
+    eine zweite Wahrheit.
+    """
+    from bc0_auth import Benutzer, Rolle
+    return Benutzer(benutzer_id="export", email="export@bc0.local",
+                    name="Snapshot-Export", rolle=Rolle.ADMIN)
+
+
+def _eigner_und_sponsoren(cid):
+    """Personen-IDs je Kernprozess, getrennt nach Eigner und Sponsor.
+
+    Liest `prozess_personen` unmittelbar aus der Datenbank statt aus
+    `get_company()` — der Endpunkt liefert die Zuordnungen nicht mit, und ihn
+    dafuer zu erweitern hiesse, die Oberflaeche fuer einen Exportzweck zu
+    aendern.
+
+    Sortiert, damit zwei Ausfuehrungen auf demselben Datenstand denselben
+    Snapshot ergeben — dieselbe Zusicherung wie beim Reifegradbericht.
+
+    Returns:
+        dict: ``{process_id: {"eigner": [...], "sponsor": [...]}}``.
+        Fehlt die Tabelle (SQLite-Entwicklungsmodus vor Schema v1.3), kommt ein
+        leeres Woerterbuch zurueck und der Export laeuft ohne die IDs weiter —
+        er soll nicht daran scheitern, dass das Register noch nicht steht.
+    """
+    zu = {}
+    c = A.db()
+    try:
+        w = "company_id::text=?" if A.PG else "company_id=?"
+        for r in c.execute(
+                "SELECT process_id, person_id, funktion FROM prozess_personen "
+                "WHERE " + w + " ORDER BY process_id, person_id", (cid,)).fetchall():
+            eintrag = zu.setdefault(r["process_id"], {"eigner": [], "sponsor": []})
+            if r["funktion"] in eintrag:
+                eintrag[r["funktion"]].append(r["person_id"])
+    except Exception:
+        zu = {}
+    finally:
+        c.close()
+    return zu
+
+
 def build_snapshot(cid, version):
     """Baut das Snapshot-Bundle exakt aus den App-Funktionen (= API-Antworten)."""
-    base = A.get_company(cid)          # {company, profile, processes, ratings}
-    rep = A.report(cid)               # aggregierter Reifegrad inkl. Matrizen/Spider
-    meta = A.meta()                   # items(30) + dims
+    # Seit Etappe 4b (11.08.2026) verlangen get_company() und report() einen
+    # angemeldeten Benutzer (Depends). Direkt aufgerufen bekaemen sie das
+    # Depends-Objekt statt eines Benutzers und liefen in einen AttributeError.
+    # Das Skript lief deshalb seit dem 11.08. nicht mehr — aufgefallen erst
+    # beim Umbau am 22.08. Der Exportlauf ist ein Administratorvorgang, also
+    # wird hier ein Admin-Kontext gebaut, kein Schutz umgangen.
+    admin = _admin_kontext()
+
+    base = A.get_company(cid, admin)   # {company, profile, processes, ratings}
+    rep = A.report(cid, admin)         # aggregierter Reifegrad inkl. Matrizen/Spider
+    meta = A.meta()                    # items(30) + dims
+
+    beteiligung = _eigner_und_sponsoren(cid)
 
     # Profil/Unternehmensdaten aus profile_json (voll) auspacken
     prof = base.get("profile", {}) or {}
@@ -48,8 +112,20 @@ def build_snapshot(cid, version):
             "process_id": p.get("process_id"),
             "process_name": p.get("process_name"),
             "kategorie": p.get("kategorie"),
-            "owner_name": p.get("owner_name"),
-            "owner_role": p.get("owner_role"),
+            # KEINE Klarnamen im Snapshot (ADR-004 R5, geaendert am 22.08.2026).
+            #
+            # Bis hierher standen an dieser Stelle owner_name und owner_role.
+            # Der Rechteentzug aus schema_v1.3_teil_a2 schliesst den Lesepfad
+            # ueber die Datenbank — dieser Export war der zweite Weg, und
+            # ausgerechnet den benutzt BC1 heute. Aufgefallen ist es durch
+            # Richards Rueckmeldung vom 22.08.: "Die Klarnamen fliessen derzeit
+            # auch ueber deinen Snapshot-Export."
+            #
+            # Ersatz sind die Entitaets-IDs aus ref_personen (P-NN). Wer den
+            # Klarnamen braucht, fragt in BC0 nach — das ist der Zweck der
+            # Pseudonymisierung, nicht ihr Nebeneffekt.
+            "eigner_ids": beteiligung.get(p.get("process_id"), {}).get("eigner", []),
+            "sponsor_ids": beteiligung.get(p.get("process_id"), {}).get("sponsor", []),
             "trigger": p.get("trigger_text"),
             "input": p.get("input_text"),
             "output": p.get("output_text"),

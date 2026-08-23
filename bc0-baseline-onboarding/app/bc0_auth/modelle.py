@@ -80,6 +80,11 @@ class Benutzer:
 
     @property
     def ist_admin(self) -> bool:
+        """Kurzform für die Rollenabfrage.
+
+        Bewusst eine Eigenschaft und kein Feld: Die Rolle ist die Wahrheit, und
+        es soll keinen zweiten Wert geben, der mit ihr auseinanderlaufen kann.
+        """
         return self.rolle is Rolle.ADMIN
 
     def darf_mandanten_sehen(self, mandant_id: str) -> bool:
@@ -128,6 +133,21 @@ class Sitzung:
     laeuft_ab: _dt.datetime
 
     def ist_abgelaufen(self, jetzt: Optional[_dt.datetime] = None) -> bool:
+        """Meldet, ob die Sitzung ihre Gültigkeit überschritten hat.
+
+        Die Prüfung geschieht **serverseitig** und nicht nur über ``max_age`` im
+        Cookie — ein Browser ist keine vertrauenswürdige Uhr.
+
+        Die Zeitzonenbehandlung ist der eigentliche Grund für diese Methode:
+        PostgreSQL liefert ``timestamptz`` mit Zeitzone zurück, SQLite einen
+        naiven Zeitstempel. Ein direkter Vergleich der beiden würde einen
+        ``TypeError`` werfen — und zwar nur im Entwicklungsmodus, also genau
+        dort, wo es niemandem auffällt. Ein fehlender ``tzinfo`` wird deshalb
+        als UTC gelesen; so werden die Zeitstempel auch geschrieben.
+
+        Args:
+            jetzt: Vergleichszeitpunkt. Nur für Tests zu setzen.
+        """
         vergleich = jetzt or _dt.datetime.now(_dt.timezone.utc)
         ablauf = self.laeuft_ab
         if ablauf.tzinfo is None:  # SQLite liefert naive Zeitstempel

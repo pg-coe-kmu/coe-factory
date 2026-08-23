@@ -45,6 +45,14 @@ class AuthDienst:
         ist_postgres: bool,
         sitzungsdauer: _dt.timedelta = STANDARD_SITZUNGSDAUER,
     ):
+        """Setzt den Dienst über den beiden Repositories zusammen.
+
+        Die Verbindungsfabrik wird **hereingereicht**, nicht hier erzeugt. Das
+        ist die Stelle, an der die Testbarkeit des ganzen Pakets hängt: In den
+        Tests wird eine SQLite-Datei in einem temporären Verzeichnis gereicht,
+        im Betrieb die PostgreSQL-Verbindung. Das Anmeldepaket selbst kennt
+        weder ``.env`` noch ``DATABASE_URL``.
+        """
         self.benutzer = BenutzerRepository(verbindung_erzeugen, ist_postgres)
         self.sitzungen = SitzungsRepository(verbindung_erzeugen, ist_postgres)
         self.sitzungsdauer = sitzungsdauer
@@ -204,9 +212,23 @@ class AuthDienst:
         _log.info("Benutzer gesperrt: %s", benutzer_id)
 
     def benutzer_entsperren(self, benutzer_id: str) -> None:
+        """Hebt eine Sperre auf.
+
+        Anders als :meth:`benutzer_sperren` ist das **nicht** symmetrisch: Die
+        Sperre hat die laufenden Sitzungen beendet, das Entsperren stellt sie
+        nicht wieder her. Der Benutzer muss sich neu anmelden. Das ist
+        beabsichtigt — eine Sperre soll nicht rückstandslos verschwinden.
+        """
         self.benutzer.aktiv_setzen(benutzer_id, True)
 
     def alle_benutzer(self) -> List[Benutzer]:
+        """Liefert alle Konten — ohne Passwort-Hash, ohne Mandantenfilter.
+
+        Der Filter fehlt hier bewusst: Der Endpunkt darüber ist Admins
+        vorbehalten (``Depends(admin)`` in :mod:`bc0_auth.routen`), und ein
+        Admin sieht ohnehin alles. Wer diese Methode einem anderen Endpunkt
+        zugänglich macht, muss den Filter dort ergänzen.
+        """
         return self.benutzer.alle()
 
 

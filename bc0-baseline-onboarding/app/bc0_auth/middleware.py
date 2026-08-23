@@ -58,6 +58,22 @@ class AnmeldepflichtMiddleware(BaseHTTPMiddleware):
     """
 
     async def dispatch(self, request, call_next):
+        """Entscheidet je Anfrage: durchlassen oder mit 401 abweisen.
+
+        Die Reihenfolge der beiden Bedingungen ist wesentlich. Geprüft wird
+        zuerst, ob der Pfad überhaupt geschützt ist, und erst dann, ob eine
+        Sitzung besteht. Die Vorgabe für alles unter ``/api/`` ist „gesperrt";
+        ein Pfad wird nur durch den ausdrücklichen Eintrag in
+        :data:`OFFENE_PFADE` frei.
+
+        Auch auf offenen Pfaden wird die Sitzung aufgelöst und unter
+        ``request.state.benutzer`` abgelegt — ``/api/auth/status`` braucht den
+        Benutzer, ohne ihn zu verlangen.
+
+        Die 401-Antwort trägt ``Cache-Control: no-store``. Ohne diesen Kopf
+        könnte ein Zwischenspeicher die Abweisung festhalten und sie nach einer
+        erfolgreichen Anmeldung erneut ausliefern.
+        """
         pfad = request.url.path
 
         if not pfad.startswith(GESCHUETZTES_PRAEFIX) or pfad in OFFENE_PFADE:

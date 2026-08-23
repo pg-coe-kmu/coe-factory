@@ -51,15 +51,45 @@ COOKIE_NUR_HTTPS = os.environ.get("BC0_COOKIE_UNSICHER", "").strip() not in ("1"
 # Ein- und Ausgabemodelle
 # --------------------------------------------------------------------------- #
 class AnmeldeDaten(BaseModel):
+    """Rumpf von ``POST /api/auth/login``.
+
+    Kein Feld hat eine Vorbelegung: Beide Angaben sind Pflicht, und ein
+    fehlendes Feld soll als 422 auffallen und nicht als leere Zeichenkette
+    durch die Passwortprüfung laufen.
+    """
+
     email: str
     passwort: str
 
 
 class PasswortDaten(BaseModel):
+    """Rumpf des Passwortwechsels.
+
+    Bewusst **ohne** Feld für das alte Passwort: Der Wechsel setzt eine gültige
+    Sitzung voraus, und der Endpunkt ändert ausschließlich das eigene Konto.
+    Ein Admin setzt fremde Passwörter über ``PUT /benutzer/{id}``.
+
+    Die Mindestlänge prüft nicht dieses Modell, sondern
+    :func:`bc0_auth.passwoerter.pruefe_mindestanforderungen` — damit dieselbe
+    Regel für alle Wege gilt, auf denen ein Passwort entsteht.
+    """
+
     neues_passwort: str
 
 
 class BenutzerAnlegen(BaseModel):
+    """Rumpf von ``POST /api/auth/benutzer`` (Admin).
+
+    ``rolle`` ist mit :data:`Rolle.BENUTZER` vorbelegt. Das ist eine
+    Sicherheitsentscheidung: Wer das Feld vergisst, legt ein gewöhnliches Konto
+    an und keinen Administrator. Der Text wird über ``Rolle.aus_text``
+    aufgelöst, die unbekannte Werte abweist statt sie stillschweigend zu
+    ersetzen (Test ``test_auth.py`` Nr. 7).
+
+    ``mandanten`` ist standardmäßig leer — ein neues Konto sieht zunächst
+    nichts. Auch das ist die sichere Vorbelegung.
+    """
+
     email: str
     name: str
     passwort: str
@@ -68,6 +98,17 @@ class BenutzerAnlegen(BaseModel):
 
 
 class BenutzerAendern(BaseModel):
+    """Rumpf von ``PUT /api/auth/benutzer/{id}`` (Admin).
+
+    Alle Felder sind ``Optional`` und mit ``None`` vorbelegt, weil dies ein
+    **Teilformular** ist: Ein PUT, das nur ``aktiv`` schickt, darf die
+    Mandantenzuordnung nicht leeren. ``None`` heißt „nicht mitgeschickt",
+    nicht „auf leer setzen". Der Unterschied ist der Grund, warum hier nicht
+    einfach die Vorbelegungen aus :class:`BenutzerAnlegen` stehen — dieselbe
+    Fehlerklasse ist im Entitätenregister als Test festgehalten
+    (``test_entitaeten.py`` Nr. 14).
+    """
+
     name: Optional[str] = None
     rolle: Optional[str] = None
     mandanten: Optional[List[str]] = None
@@ -177,11 +218,32 @@ def eigenes_passwort_aendern(
 # --------------------------------------------------------------------------- #
 @router.get("/benutzer")
 def benutzer_auflisten(_: Benutzer = Depends(admin)) -> List[dict]:
+    """Listet alle Konten auf. Admins vorbehalten.
+
+    Der Rückgabeweg führt zwingend über :func:`_als_antwort`; der Passwort-Hash
+    verlässt die Anwendung damit an keiner Stelle (Test ``test_app_zugriff.py``
+    Nr. 9). Der Parameter heißt ``_``, weil der handelnde Admin hier nicht
+    gebraucht wird — ``Depends(admin)`` steht ausschließlich als Rechteprüfung.
+    """
     return [_als_antwort(b) for b in hole_dienst().alle_benutzer()]
 
 
 @router.post("/benutzer")
 def benutzer_anlegen(daten: BenutzerAnlegen, handelnder: Benutzer = Depends(admin)) -> dict:
+    """Legt ein Konto an. Admins vorbehalten.
+
+    Zwei Fehlerklassen werden getrennt gefangen und beide zu 400:
+    :class:`~bc0_auth.passwoerter.PasswortFehler` für ein zu kurzes Passwort und
+    ``ValueError`` für eine bereits vergebene Adresse oder eine unbekannte
+    Rolle. Wichtig ist, was **nicht** passiert: Die Meldung wird unverändert
+    durchgereicht, damit in der Oberfläche „mindestens 12 Zeichen" steht und
+    nicht „Fehler".
+
+    Der handelnde Admin wird protokolliert. Das ist derzeit die einzige Form
+    von Nachvollziehbarkeit im System — ein Änderungsprotokoll in der Datenbank
+    fehlt noch (Etappe 4c, siehe Sicherheitskonzept 3.4). Ein Protokolleintrag
+    in der Containerausgabe überlebt einen Neustart nicht.
+    """
     try:
         neuer = hole_dienst().benutzer_anlegen(
             email=daten.email,
