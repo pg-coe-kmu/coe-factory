@@ -42,6 +42,9 @@ KEY_FEHLT = (
 _THINKING = {
     "gemini-2.5-": types.ThinkingConfig(thinking_budget=0),
     "gemini-3-": types.ThinkingConfig(thinking_level=types.ThinkingLevel.MINIMAL),
+    # 3.x-Releases (gemini-3.5/3.6/3.7-…) heissen "gemini-3." — eigenes
+    # Praefix, weil "gemini-3-" den Punkt nicht matcht (Re-Verify-Fund).
+    "gemini-3.": types.ThinkingConfig(thinking_level=types.ThinkingLevel.MINIMAL),
 }
 
 
@@ -52,7 +55,7 @@ def _thinking_fuer(modell: str) -> types.ThinkingConfig:
     # Kein stilles Weglassen (Spec): unbekannte Familie = ungeklärte Semantik.
     raise RuntimeError(
         f"BC1_GEMINI_MODELL '{modell}': keine gepinnte Thinking-Konfiguration "
-        "für diese Modellfamilie (bekannt: gemini-2.5-*, gemini-3-*)."
+        "für diese Modellfamilie (bekannt: gemini-2.5-*, gemini-3-*, gemini-3.*)."
     )
 
 
