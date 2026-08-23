@@ -229,6 +229,14 @@ Verhaltensänderung.
 > abgehakt: erneut prüfen, sobald der Claude-Adapter läuft. Reißt es auch
 > dort, braucht die Erstfrage-Treue eine mechanische Garantie statt einer
 > Prompt-Bitte (Design-Entscheidung, Team-seitig noch offen).
+>
+> **UPDATE 23.08.2026 (Klang-Abnahme Gemini, s. u.):** Mit gemini-3.6-flash
+> UND gemini-3.7-flash überlebt die KP-Optionsliste die Erstfrage **wörtlich**
+> (alle 10 KP-IDs + Namen; auch in der Nachfrage nach vager Antwort bleibt die
+> Liste vollständig, nur umformatiert). Neubewertung: Das Risiko tritt bei
+> starken Modellen nicht auf — die mechanische Garantie bleibt Roadmap-Anker
+> für schwache/lokale Modelle. Claude-Adapter-Gegenprobe weiter offen (Key
+> ausstehend).
 
 Rohes Protokoll (10.08.2026, llama3.1:8b, Dienst über `bc1_service.main:app`,
 Discovery-Paket mit BC0-Snapshot; reproduziert in zwei unabhängigen
@@ -328,3 +336,48 @@ Pacing: zwischen den Turns 30–60 s warten (Limit 5 Requests/min; 1 Turn = 2 Re
 4. Zweites Modell: identischer Ablauf mit BC1_GEMINI_MODELL=gemini-3.7-flash.
 Roh-JSON (Dienst-Request/-Response, kein SDK-Trace) hier protokollieren; das
 Erstfragen-Ergebnis aktualisiert den offenen Abnahmepunkt oben.
+
+### Klang-Abnahme DURCHGEFÜHRT (23.08.2026) — BESTANDEN, beide Modelle
+
+Setup: Dienst über `bc1_service.main:app`, Postgres-Testcontainer, Toy-Phase mit
+`BC1_PAKET=toy`, Discovery-Phase mit BC0-Snapshot; Modelle gemini-3.6-flash und
+gemini-3.7-flash (bezahltes Konto — Free-Tier-Pacing entfiel).
+
+**Klang-Urteil (Maintainer): bestanden mit einem Finding** — „Vielen Dank"
+eröffnete fast jeden Zug (3.6: 3/3 Züge; 3.7: 4 Vorkommen in 3 Zügen, doppelt im
+Abschluss). → Prompt-Regel ergänzt (`prompts.py`: Einstiege variieren, Dank
+höchstens einmal pro Gespräch); Re-Test danach: genau 1 Dank, im Abschluss.
+**Modellwahl: gemini-3.7-flash** (wärmer, geschliffener) — zugleich neuer
+Code-Default, denn **gemini-2.5-flash ist für Neukonten gesperrt**: 404 „no
+longer available to new users" (Modell wird von models.list weiter GELISTET,
+generiert aber nicht — Listung ist kein Verfügbarkeitsbeweis).
+
+| Prüfpunkt | 3.6-flash | 3.7-flash |
+|---|---|---|
+| Toy-Interview komplett (3 Turns), Abschluss OHNE Frage | ✓ | ✓ |
+| Felder wortgetreu (Raw-First), Quellen korrekt, Vollständigkeit 1.0 | ✓ | ✓ |
+| KP-Optionsliste in Erstfrage wörtlich (alle 10) | ✓ | ✓ |
+| Nachfrage mit Beispiel bei vager Antwort, Optionsliste erneut vollständig | ✓ | ✓ |
+| Rückfrage wird erklärt; danach Cap-Skip `process_id`→`process_steps` | ✓ | ✓ |
+| Thinking LOW / ohne temperature live (3er-Familien-Konfig) | ✓ | ✓ |
+
+Nebenbefunde: 3.7 formatiert Optionslisten teils mit Markdown-Fettdruck ·
+Idempotenz live bestätigt (Replay einer beantworteten message_id = identische
+gespeicherte Antwort ohne neuen LLM-Call) · der Auftakt-Satz füllte 5/26
+Pflichtfeldern in einem Turn · das „Offenlassen"-Angebot der Nachfrage deckt
+sich mit dem Attempts-Cap-Verhalten. Abschluss-Prüfpunkt über das Toy-Paket
+abgedeckt (Discovery erreicht mit 26 Pflichtfeldern in 2 Requests keinen
+Abschluss).
+
+Roh-JSON-Beleg Erstfrage (Auszug, gemini-3.7-flash, Discovery-Auftakt; 3.6
+inhaltsgleich):
+
+```json
+{"status": "frage", "payload": {"naechste_frage": "Vielen Dank für die Angaben. Ich habe notiert, dass Sie den gesamten Prozess „Consultant Placement“ unter der Verantwortung des Staffing Managers beschleunigen möchten, um Zeit zu sparen.\n\nZu welchem Ihrer Kernprozesse gehört das? (KP-01 = Strategieprozess, KP-02 = Vertrieb & Lead-Management, KP-03 = Kunden-Onboarding, KP-04 = Engagement-Steuerung, KP-05 = Wissensmanagement, KP-06 = Personal, KP-07 = Buchhaltung, KP-08 = IT-Operations, KP-09 = QA und Retrospektiven, KP-10 = Compliance und DSGVO)", "feld": "process_id", "pflicht_erfasst": 5, "pflicht_gesamt": 26}}
+```
+
+Roh-JSON-Beleg Abschluss nach Prompt-Fix (Toy, Default-Modell):
+
+```json
+{"status": "fertig", "payload": {"abschluss_text": "Vielen Dank, damit haben wir alle grundlegenden Informationen erfasst. Der Prozess „Urlaubsantrag“ wird ausgelöst, sobald ein Mitarbeiter den Antrag stellt. Dieser Vorgang kommt ungefähr 100 Mal pro Jahr vor. Damit ist unser Interview erfolgreich abgeschlossen.", "pflicht_erfasst": 3, "pflicht_gesamt": 3}}
+```
