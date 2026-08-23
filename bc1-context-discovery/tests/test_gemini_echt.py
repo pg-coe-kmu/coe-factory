@@ -2,7 +2,7 @@
 
 Aufruf (aus bc1-context-discovery/, verbraucht 2 echte Requests):
   BC1_ECHT_LLM=1 .venv/bin/pytest tests/test_gemini_echt.py -v
-Modell-Vergleich: zusätzlich BC1_GEMINI_MODELL=gemini-3-flash setzen.
+Modell-Vergleich: zusätzlich BC1_GEMINI_MODELL=gemini-3.7-flash setzen.
 NIE über das globale Flag allein laufen lassen (das würde auch die
 Claude-/Ollama-Echt-Tests scharf schalten).
 """
