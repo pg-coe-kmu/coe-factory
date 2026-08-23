@@ -121,7 +121,7 @@ class GeminiLLM:
                 # Text (der Kern verwirft Exception-Texte bewusst).
                 raise RuntimeError(
                     "Gemini-Kontingent/Rate-Limit erreicht (HTTP 429)"
-                ) from fehler
+                ) from None
             raise
         if not antwort.candidates:
             raise RuntimeError("LLM-Antwort ohne Kandidaten")
