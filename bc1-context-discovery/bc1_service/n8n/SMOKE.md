@@ -299,7 +299,7 @@ gesamten Nachweises unberührt und erreichbar.
 
     export GEMINI_API_KEY="<eigener Key>"   # bzw. aus ~/.zshrc
     BC1_LLM=gemini BC1_DB_DSN=... .venv/bin/uvicorn bc1_service.main:app
-    # Modellwahl: BC1_GEMINI_MODELL=gemini-3-flash (Default: gemini-2.5-flash)
+    # Modellwahl: BC1_GEMINI_MODELL=gemini-3.7-flash (Default: gemini-2.5-flash)
 
 **Free-Tier-Leitplanken (Stand 11.08.2026, Konto-abhängig — im AI Studio prüfen):**
 je Modell 5 Requests/min · 20 Requests/Tag. Ein Turn = 2 Requests.
@@ -310,7 +310,11 @@ NUR Demo-Daten ohne echte Personennamen.
 
     BC1_ECHT_LLM=1 .venv/bin/pytest tests/test_gemini_echt.py -v
 
+Modell-IDs ändern sich — vor der Abnahme verfügbare Modelle prüfen (AI Studio
+oder models.list).
+
 **Klang-Abnahme (Spec §4) — Call-Plan, Requests mitzählen (max. 16 + 4 Puffer/Tag/Modell):**
+Pacing: zwischen den Turns 30–60 s warten (Limit 5 Requests/min; 1 Turn = 2 Requests).
 1. Toy-Interview komplett (BC1_PAKET=toy, 3 Turns = 6 Requests): Struktur, Fortschritt,
    Abschluss ohne Schlussfrage.
 2. Discovery, Auftakt-Nachricht (1 Turn = 2 Requests) — Wortlaut exakt:
@@ -321,6 +325,6 @@ NUR Demo-Daten ohne echte Personennamen.
    Gesprächsschicht).
 3. Nachfrage mit Beispiel (2 Requests) · Rückfrage „Was meinen Sie mit …?" (2 Requests) ·
    Abschluss-Zusammenfassung auf unbelegte Aussagen prüfen (2 Requests).
-4. Zweites Modell: identischer Ablauf mit BC1_GEMINI_MODELL=gemini-3-flash.
+4. Zweites Modell: identischer Ablauf mit BC1_GEMINI_MODELL=gemini-3.7-flash.
 Roh-JSON (Dienst-Request/-Response, kein SDK-Trace) hier protokollieren; das
 Erstfragen-Ergebnis aktualisiert den offenen Abnahmepunkt oben.
