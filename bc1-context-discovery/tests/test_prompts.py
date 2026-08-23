@@ -37,6 +37,13 @@ def test_system_gespraech_pinnt_die_kernregeln():
     assert "in Erstfragen nie ein Beispiel" in SYSTEM_GESPRAECH
 
 
+def test_system_gespraech_verlangt_variierte_einstiege():
+    # Klang-Abnahme 23.08.: "Vielen Dank" eroeffnete bei beiden
+    # Gemini-Modellen fast jeden Zug (3.6: 3/3, 3.7: 4 Vorkommen in 3 Zuegen).
+    assert "Variiere die Satzanfänge" in SYSTEM_GESPRAECH
+    assert "höchstens einmal im ganzen Gespräch" in SYSTEM_GESPRAECH
+
+
 # F2 (opus I1 + deferiertes Finding 5): die Struktur-Regel "genau eine
 # Frage" gilt nur, solange das Interview läuft — beim Abschluss ist es
 # eine Zusammenfassung ohne Frage.

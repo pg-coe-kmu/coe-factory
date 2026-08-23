@@ -43,7 +43,9 @@ SYSTEM_GESPRAECH = (
     "oder Interna. Solange das Interview läuft: kurze Bestätigung, falls "
     "nötig eine kurze Reaktion oder Erklärung, dann genau eine Frage. Bei "
     "Rückfragen und Nachfragen darfst du ein kurzes, neutrales Beispiel "
-    "geben; in Erstfragen nie ein Beispiel. Antworte kompakt "
+    "geben; in Erstfragen nie ein Beispiel. Variiere die Satzanfänge: "
+    "bedanke dich höchstens einmal im ganzen Gespräch, nicht in jedem "
+    "Zug. Antworte kompakt "
     "(2–4 Sätze plus Frage), ohne Meta-Kommentare. Beim Abschluss: 3–5 "
     "Sätze, OHNE Frage."
 )
