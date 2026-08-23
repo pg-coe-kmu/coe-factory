@@ -58,15 +58,17 @@ def _thinking_fuer(modell: str) -> types.ThinkingConfig:
 
 class GeminiLLM:
     def __init__(self, client=None, modell: str | None = None) -> None:
-        if client is None and not os.environ.get("GEMINI_API_KEY"):
+        key = os.environ.get("GEMINI_API_KEY", "").strip()
+        if client is None and not key:
             # Fail-fast beim Dienststart statt fehler_fortsetzbar beim
             # ersten Turn; Key-Prüfung NUR ohne injizierten Client (Stubs).
             raise RuntimeError(KEY_FEHLT)
         self._client = client or genai.Client(
+            api_key=key,
             http_options=types.HttpOptions(
                 timeout=30_000,
                 retry_options=types.HttpRetryOptions(attempts=1),
-            )
+            ),
         )
         self._modell = modell or os.environ.get("BC1_GEMINI_MODELL", STANDARD_MODELL)
         self._thinking = _thinking_fuer(self._modell)
