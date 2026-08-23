@@ -123,6 +123,12 @@ class GeminiLLM:
                     "Gemini-Kontingent/Rate-Limit erreicht (HTTP 429)"
                 ) from None
             raise
+        feedback = getattr(antwort, "prompt_feedback", None)
+        if feedback is not None and getattr(feedback, "block_reason", None):
+            # Gemini hat den PROMPT blockiert (keine Kandidaten) — eigener
+            # fester Text statt generischem „ohne Kandidaten"; KEINE
+            # Feedback-Details interpolieren (könnten Details verraten).
+            raise RuntimeError("LLM-Anfrage blockiert (Prompt-Sicherheitsfilter)")
         if not antwort.candidates:
             raise RuntimeError("LLM-Antwort ohne Kandidaten")
         grund = antwort.candidates[0].finish_reason
