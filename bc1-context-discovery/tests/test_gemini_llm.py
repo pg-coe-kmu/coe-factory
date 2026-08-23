@@ -110,6 +110,18 @@ def test_thinking_level_minimal_fuer_3er_familie():
     assert tk.thinking_level == types.ThinkingLevel.MINIMAL
 
 
+def test_thinking_level_minimal_fuer_3_punkt_familie():
+    # Re-Verify-Fund Gesamt-Review: "gemini-3.7-flash" (aktuelle stabile ID,
+    # SMOKE-Vergleichsmodell) matcht NICHT auf "gemini-3-" — die 3.x-Familie
+    # braucht ihr eigenes Praefix, sonst lehnt der Adapter die Doku-ID ab.
+    stub = _StubClient([_Antwort("ok")])
+    from bc1_core.gespraech import TurnKontext
+    GeminiLLM(client=stub, modell="gemini-3.7-flash").antworte(
+        TurnKontext("m", (), "F?", False, False))
+    tk = stub.models.aufrufe[0]["config"].thinking_config
+    assert tk.thinking_level == types.ThinkingLevel.MINIMAL
+
+
 def test_unbekannte_modellfamilie_wirft_klaren_fehler():
     with pytest.raises(RuntimeError, match="keine gepinnte Thinking-Konfiguration"):
         _llm([], modell="gemma-7b")
