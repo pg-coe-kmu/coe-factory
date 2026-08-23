@@ -15,7 +15,7 @@ from bc1_core.package import FieldSpec, UseCasePackage
 from bc1_service.gemini_llm import GeminiLLM
 
 pytestmark = pytest.mark.skipif(
-    not (os.environ.get("BC1_ECHT_LLM") and os.environ.get("GEMINI_API_KEY")),
+    not (os.environ.get("BC1_ECHT_LLM") == "1" and os.environ.get("GEMINI_API_KEY")),
     reason="Echt-Stichprobe: BC1_ECHT_LLM=1 und GEMINI_API_KEY nötig",
 )
 
