@@ -5294,8 +5294,12 @@ am Container eingetroffen** (bc1 zuletzt => BLOCK, bc1 zuerst => DURCH).
   nagelt fest, dass der bc1-Kaskadentrigger ZULETZT feuert — der spaetestmoegliche
   Zeitpunkt und damit der unguenstigste Fall. Kippt diese Reihenfolge je, schlaegt der
   Test an, statt dass die Kaskaden-Tests unbemerkt nur noch den bequemen Fall pruefen.
-  **Diese Abwaegung liegt Richard zur Entscheidung vor** (Restrisiko: das Queue-Modell
-  ist dokumentiertes PostgreSQL-Verhalten, aber keine Standard-Zusage).
+  **RICHARD-ENTSCHEIDUNG 25.08.: so lassen, der Reihenfolge-Test sichert ab.**
+  Damit ist der Punkt entschieden und wird nicht neu verhandelt. Bewusst getragenes
+  Restrisiko: das Queue-Modell ist dokumentiertes PostgreSQL-Verhalten, aber keine
+  Standard-Zusage. Frueherkennung liegt bei
+  `test_kaskadentests_laufen_im_unguenstigsten_fall` — schlaegt der an, ist diese
+  Entscheidung neu zu bewerten, nicht der Test anzupassen.
 - **I2 „Kaskadentiefe ist nicht die normative Ursache" — uebernommen.** Praeziser:
   `CASCADE` und `NO ACTION` sind beides RI-Constraint-Trigger; die unmittelbare
   `NO ACTION`-Pruefung kann vor einem noch ausstehenden Loeschast feuern. Die Tiefe
