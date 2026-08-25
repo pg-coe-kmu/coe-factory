@@ -184,7 +184,8 @@ ob Task 13/14 gegen die vorläufige Regel vorgezogen werden, entscheidet Richard
 - Consumes: —
 - Produces: Branch `bc1-db-profil-fundament` mit diesem Plan als erstem Commit.
 
-- [ ] **Step 1: Branch anlegen**
+- [x] **Step 1: Branch anlegen** — ERLEDIGT 25.08.: `bc1-db-profil-fundament` auf
+      `058a77e` gepinnt, Hash verifiziert.
 
 ```bash
 cd coe-factory
@@ -221,12 +222,11 @@ docker exec bc1-test-pg psql -U postgres -c "select version()"
 Der Plan nutzt `CREATE OR REPLACE TRIGGER` (ab PG 14) und `pg_advisory_xact_lock`.
 Ist der Container älter als 14, neu aufsetzen — nicht umbauen.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit** — ERLEDIGT 25.08. als `bc57daa` (nicht gepusht: Push ins
+      geteilte Repo braucht Richards ausdrückliches OK).
 
-```bash
-git add bc1-context-discovery/design/Implementierungsplan-DB-Profil-Fundament.md
-git commit -m "docs(bc1): Implementierungsplan DB-Profil-Fundament (Etappe 1)"
-```
+**Für den Bau bleibt aus Task 1 offen:** Step 2 (Container hochfahren, Suite-Basis
+messen) und Step 3 (PostgreSQL-Version prüfen) — beides muss vor Task 2 laufen.
 
 ---
 
