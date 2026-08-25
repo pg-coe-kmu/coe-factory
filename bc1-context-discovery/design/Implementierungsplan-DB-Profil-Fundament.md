@@ -23,7 +23,9 @@ friert beim Abschluss ein und liefert der API das DB→Wire-Overlay.
 **Tech Stack:** Python 3.12 · PostgreSQL 16/17 (Test-Container, später Supabase) ·
 psycopg 3 + psycopg_pool · FastAPI · pytest (Container-Tests über `BC1_TEST_DB_DSN`).
 
-> **Stand: Rev. 8 — von Codex freigegeben (Runde 8: READY, 0 Findings).**
+> **Stand: Rev. 9 — Bau-Befund aus Task 3 eingearbeitet (siehe Changelog Rev. 9).**
+> Rev. 8 war von Codex freigegeben (Runde 8: READY, 0 Findings); der Befund kam
+> erst beim Ausführen am Container zutage, nicht beim Lesen.
 > Verlauf: R1 NO (7C/6I/1M) · R2 NO (3C/6I/1M) · R3 WITH FIXES (0C/2I/2M) ·
 > R4 WITH FIXES (0C/2I/1M) · R5 WITH FIXES (0C/2I) · R6 WITH FIXES (1C — am Container
 > widerlegt, von Codex an PG-Doku und RI-Quellcode bestätigt) · R7 WITH FIXES (0C/1I) ·
@@ -679,7 +681,8 @@ git commit -m "test(bc1): BC0-Testgeruest mit zwei Mandanten + Rollenmodell"
 eingespielt (`psql -1` bzw. psycopg ohne autocommit) — eigene Transaktionsbefehle würden
 die Atomarität der Dreifallregel (Task 4) zerstören.
 
-- [ ] **Step 1: Failing tests schreiben** (`tests/test_ddl_trigger.py`)
+- [x] **Step 1: Failing tests schreiben** (`tests/test_ddl_trigger.py`) — ERLEDIGT 25.08.
+      (zwei Tests kamen beim Bauen dazu, siehe Changelog Rev. 9)
 
 ```python
 import threading
@@ -1007,6 +1010,91 @@ def test_triggerinduziertes_delete_ohne_kaskade_prallt_am_freeze(db):
         assert "eingefroren" in str(fehler.value)
 
 
+def test_dsgvo_kaskade_raeumt_ein_voll_befuelltes_profil(db):
+    # LUECKE DER URSPRUENGLICHEN PLAN-TESTS (am Container gefunden, 25.08.):
+    # die bisherigen Kaskaden-Tests liessen process_owner_rolle_id leer und
+    # deckten damit nicht ab, was in Etappe 2 der Normalfall ist. Mit gesetztem
+    # Rollenbezug UND einer profil_rollen-Zeile blockierte profil_rollen_rolle_fk
+    # das DELETE — die DSGVO-Loeschung waere stillschweigend gescheitert.
+    # Ursache: profil_rollen wird erst auf Kaskadentiefe 2 geraeumt, die
+    # NO-ACTION-Pruefung beim Loeschen von mandant_rollen laeuft auf Tiefe 1.
+    with verbindung(db) as conn:
+        # ALLE sieben kreuzenden Referenzen gesetzt (Codex N9-I4): Prozess,
+        # Teilprozess und Erhebung sind Pflicht, dazu owner_rolle, upstream,
+        # downstream und eine profil_rollen-Zeile.
+        _insert(conn, process_owner_rolle_id="R-01",
+                upstream_process_id="KP-02", downstream_process_id="KP-02")
+        conn.execute(
+            "INSERT INTO bc1.profil_rollen (company_id, focus_step_id, "
+            "profil_version, pos, rolle_id) VALUES (%s, 'KP-01.TP-1', 1, 1, 'R-01')",
+            (MANDANT_A,))
+        conn.execute("UPDATE bc1.prozessprofil SET status = 'fertig'")
+        conn.commit()
+    with verbindung(db, None) as conn:
+        conn.execute("DELETE FROM companies WHERE company_id = %s", (MANDANT_A,))
+        conn.commit()
+    with verbindung(db, None) as conn:
+        assert conn.execute("SELECT count(*) FROM bc1.prozessprofil").fetchone()[0] == 0
+        assert conn.execute("SELECT count(*) FROM bc1.profil_rollen").fetchone()[0] == 0
+
+
+def test_einzelne_mandant_rolle_bleibt_trotz_deferrable_geschuetzt(db):
+    # Die Kur darf die Schutzwirkung nicht kosten: eine einzelne mandant_rollen-
+    # Zeile, auf die eine Profilzeile zeigt, muss unloeschbar bleiben. Bei
+    # DEFERRABLE INITIALLY DEFERRED schlaegt das erst beim COMMIT zu — deshalb
+    # liegt der commit() INNERHALB des raises-Blocks.
+    with verbindung(db) as conn:
+        _insert(conn)
+        conn.execute(
+            "INSERT INTO bc1.profil_rollen (company_id, focus_step_id, "
+            "profil_version, pos, rolle_id) VALUES (%s, 'KP-01.TP-1', 1, 1, 'R-01')",
+            (MANDANT_A,))
+        conn.commit()
+    with verbindung(db, None) as conn:
+        with pytest.raises(Exception) as fehler:
+            conn.execute("DELETE FROM mandant_rollen WHERE company_id = %s "
+                         "AND rolle_id = 'R-01'", (MANDANT_A,))
+            conn.commit()
+        assert "profil_rollen_rolle_fk" in str(fehler.value)
+
+
+def test_unbekannte_rolle_id_wird_weiterhin_abgewiesen(db):
+    # Codex N9-I4: die Behauptung "DEFERRED kostet keine Schutzwirkung" war
+    # unbelegt. Bei INITIALLY DEFERRED schlaegt der FK erst beim COMMIT zu.
+    with verbindung(db) as conn:
+        _insert(conn)
+        conn.commit()
+    with verbindung(db) as conn:
+        with pytest.raises(Exception) as fehler:
+            conn.execute(
+                "INSERT INTO bc1.profil_rollen (company_id, focus_step_id, "
+                "profil_version, pos, rolle_id) "
+                "VALUES (%s, 'KP-01.TP-1', 1, 1, 'R-99')", (MANDANT_A,))
+            conn.commit()
+        assert "profil_rollen_rolle_fk" in str(fehler.value)
+
+
+def test_kaskadentests_laufen_im_unguenstigsten_fall(db):
+    # Diese Zusicherung ist der Grund, warum die Kaskaden-Tests etwas beweisen.
+    # Beim DELETE FROM companies stehen die Kaskaden aller direkt referenzierenden
+    # Tabellen in EINER Startqueue (Reihenfolge nach Triggername); was sie
+    # ausloesen, wird HINTEN angehaengt. Feuert der bc1-Kaskadentrigger ZULETZT,
+    # ist das der spaetestmoegliche Zeitpunkt, zu dem bc1-Zeilen verschwinden —
+    # also der unguenstigste Fall. Am Container per Vorhersage bestaetigt:
+    # bc1 zuletzt => profil_rollen_rolle_fk blockte (vor dem DEFERRABLE-Fix),
+    # bc1 zuerst  => lief durch. Kippt diese Reihenfolge, testen die Kaskaden-
+    # Tests nur noch den bequemen Fall — dann schlaegt hier Alarm.
+    with verbindung(db, None) as conn:
+        namen = conn.execute(
+            "SELECT c.conrelid::regclass::text "
+            "  FROM pg_constraint c JOIN pg_trigger t ON t.tgconstraint = c.oid "
+            " WHERE c.confrelid = 'companies'::regclass AND c.contype = 'f' "
+            "   AND t.tgrelid = 'companies'::regclass "
+            " ORDER BY t.tgname").fetchall()
+    assert namen, "keine companies-Kaskadentrigger gefunden"
+    assert namen[-1][0] == "bc1.prozessprofil"
+
+
 def test_fremder_teilprozess_wird_vom_verbund_fk_abgewiesen(db):
     # MANDANT_B hat KP-01.TP-1 ebenfalls — der Verbund-FK muss den Mandanten mitpruefen.
     with verbindung(db) as conn:
@@ -1018,7 +1106,8 @@ def test_fremder_teilprozess_wird_vom_verbund_fk_abgewiesen(db):
         assert "prozessprofil_erhebung_fk" in str(fehler.value)
 ```
 
-- [ ] **Step 2: Tests laufen lassen (RED)**
+- [x] **Step 2: Tests laufen lassen (RED)** — ERLEDIGT 25.08.: 20 errors,
+      `FileNotFoundError` in `spiele_ddl_ein` — genau der vorhergesagte RED.
 
 ```bash
 BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" .venv/bin/pytest tests/test_ddl_trigger.py -v
@@ -1027,7 +1116,7 @@ BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" .venv/bin/
 Erwartet: alle FAIL — `prozessprofil.sql` existiert nicht (`FileNotFoundError` in
 `spiele_ddl_ein`).
 
-- [ ] **Step 3: DDL schreiben** (`bc1_service/db/prozessprofil.sql`)
+- [x] **Step 3: DDL schreiben** (`bc1_service/db/prozessprofil.sql`) — ERLEDIGT 25.08.
 
 ```sql
 -- BC1 Etappe 1 — Profil-Fundament. Zielstruktur nach Brief BC1->BC0 vom 22.08.
@@ -1180,8 +1269,25 @@ CREATE TABLE IF NOT EXISTS bc1.profil_rollen (
         FOREIGN KEY (company_id, focus_step_id, profil_version)
         REFERENCES bc1.prozessprofil (company_id, focus_step_id, profil_version)
         ON DELETE CASCADE,
+    -- DEFERRABLE INITIALLY DEFERRED ist hier PFLICHT, nicht Geschmack — am
+    -- Container gemessen (postgres:16, 25.08.): ohne die Verzoegerung blockiert
+    -- dieser FK die DSGVO-Loeschkaskade. Grund: bei DELETE FROM companies wird
+    -- mandant_rollen auf Kaskadentiefe 1 geraeumt und seine NO-ACTION-Pruefung
+    -- sofort ausgewertet, waehrend profil_rollen erst auf Tiefe 2 verschwindet
+    -- (companies -> prozessprofil -> profil_rollen). Die Verletzung ist also nur
+    -- transient innerhalb der Loeschtransaktion. Gemessen:
+    --   NO ACTION                     -> Kaskade BLOCKIERT
+    --   DEFERRABLE INITIALLY IMMEDIATE-> Kaskade BLOCKIERT
+    --   DEFERRABLE INITIALLY DEFERRED -> Kaskade laeuft, beide Schutzwirkungen bleiben
+    -- Die Schutzwirkung kostet das nichts: eine einzelne mandant_rollen-Zeile,
+    -- auf die ein Profil zeigt, bleibt unloeschbar (dann eben beim COMMIT), und
+    -- eine unbekannte rolle_id wird weiterhin abgewiesen.
+    -- FOLGE FUER ETAPPE 2 (Rollen-Writer): FK-Fehler schlagen beim COMMIT zu,
+    -- nicht beim INSERT. Wer sie frueher sehen will, setzt nach dem Einfuegen
+    -- SET CONSTRAINTS bc1.profil_rollen_rolle_fk IMMEDIATE.
     CONSTRAINT profil_rollen_rolle_fk FOREIGN KEY (company_id, rolle_id)
         REFERENCES mandant_rollen (company_id, rolle_id)
+        DEFERRABLE INITIALLY DEFERRED
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS profil_rollen_rolle_einmalig
@@ -1330,7 +1436,9 @@ CREATE OR REPLACE TRIGGER tr_freeze_rollen
     FOR EACH ROW EXECUTE FUNCTION bc1.tf_freeze_rollen();
 ```
 
-- [ ] **Step 4: Tests laufen lassen (GREEN)**
+- [x] **Step 4: Tests laufen lassen (GREEN)** — ERLEDIGT 25.08.: 22 passed;
+      volle Suite `270 passed, 4 skipped`. **Zwischenstand war 18/2 rot** — der Befund
+      zu `profil_rollen_rolle_fk` steht im Changelog Rev. 9.
 
 ```bash
 BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" .venv/bin/pytest tests/test_ddl_trigger.py -v
@@ -1353,7 +1461,7 @@ die Werte mit `RAISE NOTICE 'depth=% eltern=%'` nachmessen und den Befund melden
 **nicht** die Freeze-Regel aufweichen: Kaskade muss durch, direkter und fremder
 Trigger-DELETE müssen prallen.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit** — ERLEDIGT 25.08.
 
 ```bash
 git add bc1-context-discovery/bc1_service/db/prozessprofil.sql bc1-context-discovery/tests/test_ddl_trigger.py
@@ -5110,6 +5218,109 @@ git commit -m "docs(bc1): Einspiel-Anleitung, GRANT-Signal-Vorlage und K5-Betrie
 | K-B | GRANT-Signal inkl. Lese-Rollen für `bc1.prozessprofil` · **neu: brauchen wir `SELECT` auf `ref_erhebungen`?** (s. Task 13) | Simeon, Bündel #3 | Supabase-Deploy, nicht den Bau |
 | K-C | Zahlen-Wertebereiche (0 zulässig? Präzision) | BC2 | finale CHECKs, nicht die DDL-Struktur |
 | K-D | Company-UUID im Snapshot-Export | Simeon, Bündel #2 | nur den Snapshot-Abgleich der Startprüfung |
+
+# Changelog Rev. 9 (Bau-Befund Task 3 — am Container gefunden, nicht im Review)
+
+**Gefunden beim Ausfuehren von Task 3, nicht beim Lesen.** Nach 8 Codex-Runden READY —
+der Fehler zeigte sich erst, als die DDL wirklich lief. 18 Tests gruen, 2 rot:
+
+    ForeignKeyViolation: update or delete on table "mandant_rollen" violates
+    foreign key constraint "profil_rollen_rolle_fk" on table "profil_rollen"
+
+**Tragweite: die DSGVO-Loeschkaskade war blockiert.** `DELETE FROM companies` ist der
+Loeschweg K5; er waere in Etappe 2 (sobald `profil_rollen` befuellt wird) hart
+gescheitert. Der Plan war in sich widerspruechlich: seine eigenen Tests verlangten die
+durchlaufende Kaskade, seine DDL verhinderte sie.
+
+**Ursache, am Container gemessen (postgres:16), nicht angenommen:**
+`profil_rollen` wird erst auf Kaskadentiefe 2 geraeumt (companies -> prozessprofil ->
+profil_rollen), waehrend `mandant_rollen` schon auf Tiefe 1 verschwindet und seine
+NO-ACTION-Pruefung sofort ausgewertet wird. Die Verletzung ist also nur transient
+innerhalb der Loeschtransaktion. Reproduziert auch mit nackten Tabellen ohne unsere
+Trigger — der Freeze-Mechanismus ist unbeteiligt.
+
+| FK-Modus | DSGVO-Kaskade | einzelne mandant_rolle | unbekannte rolle_id |
+|---|---|---|---|
+| `NO ACTION` (Rev. 8) | **blockiert** | blockiert | blockiert |
+| `DEFERRABLE INITIALLY IMMEDIATE` | **blockiert** | blockiert | blockiert |
+| `DEFERRABLE INITIALLY DEFERRED` | laeuft | blockiert | blockiert |
+
+**Fix:** `profil_rollen_rolle_fk` auf `DEFERRABLE INITIALLY DEFERRED`. Beide
+Schutzwirkungen bleiben erhalten — die Kur kostet nichts ausser dem Zeitpunkt der
+Fehlermeldung. `ON DELETE CASCADE` waere falsch gewesen (wuerde Zeilen aus einem
+eingefrorenen Profil entfernen; `tf_freeze_rollen` wuerde es ohnehin als Exception
+werfen), `INITIALLY IMMEDIATE` wirkungslos (gemessen).
+
+**Zwei Regressionstests ergaenzt**, weil die Luecke im Testsatz selbst lag:
+- `test_dsgvo_kaskade_raeumt_ein_voll_befuelltes_profil` — die bisherigen
+  Kaskaden-Tests liessen `process_owner_rolle_id` leer und deckten damit nicht ab,
+  was in Etappe 2 der Normalfall ist.
+- `test_einzelne_mandant_rolle_bleibt_trotz_deferrable_geschuetzt` — nagelt fest,
+  dass die Verzoegerung keine Schutzwirkung kostet.
+
+**Mitgemessen, damit es nicht offen bleibt:** die uebrigen BC1->BC0-Fremdschluessel
+(`prozessprofil_owner_rolle_fk` und die anderen) laufen bei der Mandantenloeschung
+durch, weil `prozessprofil` direkt an `companies` haengt und damit auf Tiefe 1
+verschwindet — dieselbe Tiefen-Logik, nur zu unseren Gunsten. Sie bleiben unveraendert.
+Weil "haengt an der Feuerreihenfolge" der eigentliche Verdacht war, wurde das nicht
+geglaubt, sondern erschuettert: die companies-referenzierenden Constraints wurden in
+vier Varianten neu angelegt (unveraendert · nur der bc1-FK neu · nur mandant_rollen neu ·
+alle BC0-FKs neu, sodass der bc1-FK zuerst feuert). **Alle vier laufen durch.** Die
+Korrektheit haengt also an der Kaskadentiefe, nicht an der Constraint-Anlagereihenfolge.
+
+## Zweitmeinung: Codex-Runde 9 (Job task-mt8svn65-m0p0mr) — WITH FIXES (1C/3I/2M)
+
+**Adjudiziert, nicht blind uebernommen.** Vorher wurde das Queue-Modell durch
+VORHERSAGE validiert (nicht nur nachtraeglich erklaert): Beim `DELETE FROM companies`
+stehen die Kaskaden aller direkt referenzierenden Tabellen in EINER Startqueue
+(Reihenfolge nach Triggername); was sie ausloesen, wird HINTEN angehaengt. Daraus
+folgte die pruefbare Vorhersage, dass `profil_rollen_rolle_fk` auch OHNE DEFERRABLE
+durchlaeuft, sobald der bc1-Kaskadentrigger zuerst feuert. **Beide Vorhersagen sind
+am Container eingetroffen** (bc1 zuletzt => BLOCK, bc1 zuerst => DURCH).
+
+- **C1 „die uebrigen sechs FKs haengen auch an der Reihenfolge" — NICHT uebernommen,
+  mit Begruendung.** Codex' Gegenvorschlag (alle sieben `DEFERRABLE INITIALLY
+  IMMEDIATE` plus `SET CONSTRAINTS ... DEFERRED` vor dem Firmen-DELETE) setzt voraus,
+  dass WIR das DELETE ausfuehren. Das tut BC0 — wir koennen dort kein `SET CONSTRAINTS`
+  erzwingen, also traegt die Variante nicht. Und die sechs Pruefungen *auf*
+  `prozessprofil` koennen nach dem validierten Queue-Modell nicht zu frueh feuern: sie
+  werden von Kaskaden angehaengt, die selbst in der Startqueue stehen, waehrend
+  `prozessprofil` ueber seinen eigenen `ON DELETE CASCADE` bereits in dieser Startqueue
+  liegt. Vier verschiedene Constraint-Anlagereihenfolgen wurden gemessen, alle laufen
+  durch. Alle sechs auf `INITIALLY DEFERRED` zu stellen wuerde dagegen die
+  Fehlerlokalitaet des Writers (Tasks 13-15) verschlechtern: jeder falsche
+  `process_id`/`focus_step_id`/`erhebung_id` schluege erst beim COMMIT zu.
+  **Statt Uebernahme abgesichert:** `test_kaskadentests_laufen_im_unguenstigsten_fall`
+  nagelt fest, dass der bc1-Kaskadentrigger ZULETZT feuert — der spaetestmoegliche
+  Zeitpunkt und damit der unguenstigste Fall. Kippt diese Reihenfolge je, schlaegt der
+  Test an, statt dass die Kaskaden-Tests unbemerkt nur noch den bequemen Fall pruefen.
+  **Diese Abwaegung liegt Richard zur Entscheidung vor** (Restrisiko: das Queue-Modell
+  ist dokumentiertes PostgreSQL-Verhalten, aber keine Standard-Zusage).
+- **I2 „Kaskadentiefe ist nicht die normative Ursache" — uebernommen.** Praeziser:
+  `CASCADE` und `NO ACTION` sind beides RI-Constraint-Trigger; die unmittelbare
+  `NO ACTION`-Pruefung kann vor einem noch ausstehenden Loeschast feuern. Die Tiefe
+  macht die beobachtete Reihenfolge plausibel, die Garantie liefert die Queue.
+- **I3 „migriert bestehende Installationen nicht" — geprueft, bereits gedeckt.**
+  `pg_get_constraintdef` gibt `DEFERRABLE INITIALLY DEFERRED` mit aus (am Container
+  nachgesehen), die Sollsignatur aus Task 4 enthaelt es also. Ein Altbestand mit
+  nicht-aufschiebbarem FK landet damit in **Fall 3** und bricht mit Diff ab, statt
+  still den falschen Constraint zu behalten. Kein zusaetzliches `ALTER TABLE` noetig.
+- **I4 „Testabdeckung beweist die Eigenschaft nicht" — uebernommen.** Der
+  Vollprofil-Test setzt jetzt ALLE sieben kreuzenden Referenzen (inkl. `upstream`/
+  `downstream`); dazu zwei neue Tests: `test_unbekannte_rolle_id_wird_weiterhin_
+  abgewiesen` (die Behauptung „DEFERRED kostet keine Schutzwirkung" war unbelegt) und
+  `test_kaskadentests_laufen_im_unguenstigsten_fall` (s. C1).
+  **Offen bleibt Codex' Punkt zum Ausschnitt-Charakter des BC0-Geruests** — weitere
+  kreuzende NO-ACTION-FKs oder `BEFORE DELETE`-Trigger in nicht enthaltenen
+  BC0-Tabellen kann unser Test nicht ausschliessen. Gehoert vor den Supabase-Deploy
+  gegen die echte DB geprueft (nachgehalten bei den Deploy-Voraussetzungen).
+- **M5 Writer-Verhalten / M6 `ON DELETE CASCADE` waere falsch** — beide bestaetigen
+  die getroffene Wahl; `SET CONSTRAINTS ... IMMEDIATE` ist der richtige Kontrollpunkt
+  und steht im DDL-Kommentar.
+
+**Folge fuer Etappe 2 (im DDL-Kommentar vermerkt):** FK-Fehler auf `profil_rollen`
+schlagen jetzt beim COMMIT zu, nicht beim INSERT. Wer sie frueher braucht, setzt
+`SET CONSTRAINTS bc1.profil_rollen_rolle_fk IMMEDIATE`.
 
 # Changelog Rev. 8 (Codex-Runde 7, Job task-mt88pzcw-kjqjqz — WITH FIXES, 0 Critical)
 
