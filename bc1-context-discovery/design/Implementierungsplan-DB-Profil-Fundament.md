@@ -23,7 +23,8 @@ friert beim Abschluss ein und liefert der API das DB→Wire-Overlay.
 **Tech Stack:** Python 3.12 · PostgreSQL 16/17 (Test-Container, später Supabase) ·
 psycopg 3 + psycopg_pool · FastAPI · pytest (Container-Tests über `BC1_TEST_DB_DSN`).
 
-> **Stand: Rev. 9 — Bau-Befund aus Task 3 eingearbeitet (siehe Changelog Rev. 9).**
+> **Stand: Rev. 10 — Phase A gebaut; Bau-Befunde aus Task 3 und Task 4 eingearbeitet
+> (siehe Changelogs Rev. 9 und Rev. 10).**
 > Rev. 8 war von Codex freigegeben (Runde 8: READY, 0 Findings); der Befund kam
 > erst beim Ausführen am Container zutage, nicht beim Lesen.
 > Verlauf: R1 NO (7C/6I/1M) · R2 NO (3C/6I/1M) · R3 WITH FIXES (0C/2I/2M) ·
@@ -1496,9 +1497,11 @@ No-op-Fall an einer fremden Einstellung. **Naht für K-B:** Sobald Simeon die Ro
 nennt, kommt genau eine `GRANT SELECT`-Zeile dazu und die Sollsignatur wird neu
 generiert. Vor dem Supabase-Deploy ist das ohnehin fällig (Deploy-Gate).
 
-- [ ] **Step 1: Failing tests schreiben** (`tests/test_ddl_einspielen.py`)
+- [x] **Step 1: Failing tests schreiben** (`tests/test_ddl_einspielen.py`) - ERLEDIGT 25.08.
 
 ```python
+from pathlib import Path
+
 import pytest
 
 from tests.db_fixture import DSN, MANDANT_A, frische_db, spiele_ddl_ein, verbindung
@@ -1566,7 +1569,15 @@ def test_fall_3_abweichende_spalte_bricht_ab_ohne_etwas_zu_aendern():
 
 
 def _katalog_stempel():
-    """Fingerabdruck des Katalogzustands: aendert sich bei JEDEM Rewrite."""
+    """Fingerabdruck der Katalogzeilen, die unsere Anlage schreibt.
+
+    Bewusst praezise formuliert (Codex N10-I7): das ist NICHT "jeder denkbare
+    Rewrite". Erfasst sind pg_class, pg_proc, pg_trigger, pg_description und die
+    Tabellen-ACL — nicht pg_attribute, nicht pg_policy, nicht Rollenmitglied-
+    schaften und nicht pg_temp. Fuer den No-op-Nachweis reicht das: die Statements
+    in Abschnitt 2/3 schreiben genau in diese Kataloge. Die weitergehende Drift
+    faengt die Sollsignatur ab, nicht dieser Stempel.
+    """
     with verbindung(DSN, None) as conn:
         return conn.execute(
             "SELECT (SELECT array_agg(p.xmin::text ORDER BY p.proname) "
@@ -1636,6 +1647,95 @@ def test_fall_3_erkennt_jede_semantische_abweichung(eingriff, spur):
     assert spur in str(fehler.value)
 
 
+def test_einspielen_als_falscher_eigentuemer_wird_abgewiesen():
+    # Betriebsrisiko, beim Bauen gemessen (25.08.): Abschnitt 0 prueft nur, OB die
+    # einspielende Rolle im Schema bc1 anlegen darf — ein Superuser darf das auch.
+    # Ohne SET ROLE wuerden die Tabellen postgres gehoeren; die Sollsignatur haelt
+    # aber Eigentuemer UND ACL fest, die Nachpruefung schlaegt also an und rollt
+    # alles zurueck. Dieser Test haelt genau das fest.
+    import psycopg
+    frische_db(DSN, mit_ddl=False)
+    ddl = (Path(__file__).parents[1] / "bc1_service" / "db" / "prozessprofil.sql"
+           ).read_text(encoding="utf-8")
+    with pytest.raises(Exception) as fehler:
+        with psycopg.connect(DSN) as conn:          # bewusst OHNE SET ROLE
+            conn.execute(ddl)
+            conn.commit()
+    assert "Nachpruefung fehlgeschlagen" in str(fehler.value)
+    assert "postgres" in str(fehler.value)
+    with verbindung(DSN, None) as conn:
+        assert not _tabellen(conn)                  # vollstaendiger Rollback
+
+
+def test_spaltenrecht_an_fremde_rolle_wird_erkannt():
+    # Codex N10-C1: Spaltenrechte liegen in pg_attribute.attacl, nicht in
+    # pg_class.relacl. Ein GRANT auf EINE Spalte umging Signatur UND Rechte-Test.
+    frische_db(DSN)
+    with verbindung(DSN) as conn:
+        conn.execute("GRANT SELECT (profil) ON bc1.prozessprofil TO bc2_role")
+        conn.commit()
+    with verbindung(DSN, None) as conn:
+        assert conn.execute(
+            "SELECT has_column_privilege('bc2_role', 'bc1.prozessprofil', "
+            "'profil', 'SELECT')").fetchone()[0], "Vorbedingung: das Recht wirkt"
+    with pytest.raises(Exception) as fehler:
+        spiele_ddl_ein(DSN)
+    assert "Sollsignatur" in str(fehler.value)
+    assert "bc2_role" in str(fehler.value)
+
+
+def test_mitgliedschaft_in_bc1_role_wird_erkannt():
+    # Codex N10-C2: GRANT bc1_role TO <beliebige Rolle> gibt volle Rechte, ohne
+    # dass sich eine Tabellen-ACL aendert. Eine feste Rollenliste sieht das nicht.
+    frische_db(DSN)
+    with verbindung(DSN, None) as conn:
+        conn.execute("DROP ROLE IF EXISTS fremde_rolle")
+        conn.execute("CREATE ROLE fremde_rolle NOLOGIN")
+        conn.execute("GRANT bc1_role TO fremde_rolle")
+        conn.commit()
+    try:
+        with pytest.raises(Exception) as fehler:
+            spiele_ddl_ein(DSN)
+        assert "Sollsignatur" in str(fehler.value)
+        assert "fremde_rolle" in str(fehler.value)
+    finally:
+        with verbindung(DSN, None) as conn:
+            conn.execute("DROP ROLE IF EXISTS fremde_rolle")
+            conn.commit()
+
+
+def test_deaktivierter_interner_fk_trigger_wird_erkannt():
+    # Codex N10-I3: tgisinternal wird ausgeschlossen — ein deaktivierter RI-Trigger
+    # laesst die Constraint-Definition unveraendert, der FK wird aber nicht mehr
+    # erzwungen. profil_write_status hat NUR interne Trigger, isoliert den Fall also.
+    frische_db(DSN)
+    with verbindung(DSN, None) as conn:
+        conn.execute("ALTER TABLE bc1.profil_write_status DISABLE TRIGGER ALL")
+        conn.commit()
+    with pytest.raises(Exception) as fehler:
+        spiele_ddl_ein(DSN)
+    assert "Sollsignatur" in str(fehler.value)
+
+
+def test_zweiter_lauf_in_derselben_session_ist_ein_no_op():
+    # Codex N10-I4: die TEMP VIEW kennt kein ON COMMIT DROP und ueberlebt den
+    # Commit. Ein zweiter Lauf in DERSELBEN Session lief deshalb auf
+    # "relation bc1_ist_signatur already exists". Die Fixture verdeckte das,
+    # weil sie je Lauf eine neue Verbindung oeffnet.
+    import psycopg
+    frische_db(DSN, mit_ddl=False)
+    ddl = (Path(__file__).parents[1] / "bc1_service" / "db" / "prozessprofil.sql"
+           ).read_text(encoding="utf-8")
+    with psycopg.connect(DSN) as conn:
+        conn.execute("SET ROLE bc1_role")
+        conn.execute(ddl)
+        conn.commit()
+        conn.execute(ddl)          # zweiter Lauf, SELBE Session
+        conn.commit()
+    with verbindung(DSN, None) as conn:
+        assert set(VERTRAGSTABELLEN) <= _tabellen(conn)
+
+
 def test_bc1_role_darf_alles_auf_den_drei_tabellen():
     frische_db(DSN)
     with verbindung(DSN, None) as conn:
@@ -1658,7 +1758,8 @@ def test_fremde_bc_rollen_lesen_nichts_auch_nicht_ueber_bc_leser():
                     (rolle, f"bc1.{tabelle}")).fetchone()[0], f"{rolle} sieht {tabelle}"
 ```
 
-- [ ] **Step 2: Tests laufen lassen (RED)**
+- [x] **Step 2: Tests laufen lassen (RED)** - ERLEDIGT 25.08.: 10 failed, 3 passed.
+      Genau wie vorhergesagt blieb `test_fall_1` gruen (Abschnitt 2 legt ja an).
 
 ```bash
 BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" .venv/bin/pytest tests/test_ddl_einspielen.py -v
@@ -1668,33 +1769,54 @@ Erwartet: `test_fall_2/3/…` FAIL (kein Vorprüfungs-Block, keine Rechte-Sektio
 `test_fall_1` kann bereits PASSEN — Abschnitt 2 legt ja an. Das ist in Ordnung: die
 neuen Regeln sind RED, das Bestehende bleibt grün.
 
-- [ ] **Step 3: Abschnitt 0b (Signatur-Definition) in `prozessprofil.sql` einfügen** —
+- [x] **Step 3: Abschnitt 0b (Signatur-Definition) in `prozessprofil.sql` einfügen** — ERLEDIGT 25.08.
       direkt nach Abschnitt 0, VOR Abschnitt 2
 
 ```sql
+-- ============================================================
+-- 0a. DETERMINISMUS UND DEPLOYMENT-SPERRE
+-- ============================================================
+-- Deterministischer Suchpfad (Codex N10-I6): ohne ihn koennen die pg_get_*def-
+-- Ausgaben je nach search_path unterschiedlich qualifiziert sein — die Signatur
+-- meldete dann Fall 3 ohne echten Unterschied. pg_temp steht bewusst HINTEN:
+-- sonst koennte eine gleichnamige TEMP-Tabelle eine BC0-Tabelle beschatten.
+-- Muss VOR Abschnitt 0 stehen, weil has_table_privilege(current_user, 'companies',
+-- ...) den Suchpfad benutzt. SET LOCAL gilt nur fuer diese Transaktion.
+SET LOCAL search_path = public, pg_temp;
+
+-- Deployment-Sperre (Codex N10-I5): serialisiert zwei GLEICHZEITIGE Einspielungen
+-- dieser Datei — sonst koennte zwischen Vorpruefung und Commit ein zweiter Lauf
+-- dazwischenfunken. Sie schuetzt AUSDRUECKLICH NICHT gegen fremde, manuelle DDL
+-- waehrend des Laufs; dass waehrend des Einspielens niemand von Hand am Schema
+-- arbeitet, bleibt eine Betriebsannahme (gehoert in SMOKE.md, Task 16).
+SELECT pg_advisory_xact_lock(hashtext('bc1.prozessprofil.einspielen'));
+
 -- ============================================================
 -- 0b. SOLLSIGNATUR — was "identisch" bedeutet (Spec K1, Geltungsbereich: NUR bc1)
 -- ============================================================
 -- Erfasst alle semantisch wirksamen Definitionen unserer drei Vertragstabellen:
 -- Spalten (Typ, Nullability, Default) · Constraints (inkl. CHECK-Ausdruck und
--- FK-Aktionen) · Indizes (inkl. Partialpraedikat) · Trigger (inkl. Definition) ·
--- Trigger-Funktionsrumpf · Eigentuemer · effektive Rechte.
+-- FK-Aktionen inkl. DEFERRABLE-Modus) · Indizes (inkl. Partialpraedikat) ·
+-- Trigger (eigene UND Aktivierungszustand der internen) · Trigger-Funktionsrumpf ·
+-- Eigentuemer · Tabellen- UND Spaltenrechte · effektive Rechte ALLER Rollen ·
+-- Mitgliedschaften in bc1_role · RLS, Policies, Regeln · Tabellenkommentare.
 -- Rechte auf BC0-Tabellen sind ausdruecklich NICHT Teil der Signatur — die vergibt
 -- BC0; sonst haenge unser No-op-Fall an fremden Aenderungen.
 -- Kein vorheriges DROP (Codex R2-N-C3): ein unqualifiziertes
 -- 'DROP TABLE IF EXISTS bc1_soll_signatur' koennte eine gleichnamige PERMANENTE
 -- Tabelle aus dem Suchpfad loeschen — also eine Aenderung VOR der Pruefung, genau
--- das, was die Dreifallregel verbietet. Lebensdauer: die beiden TEMP-TABELLEN
--- verschwinden mit dem Commit (ON COMMIT DROP), die TEMP VIEW erst mit der
--- Session (Views kennen ON COMMIT DROP nicht) — beide Einspielwege (psql -1 und
--- psycopg) beenden die Session direkt nach dem Commit.
+-- das, was die Dreifallregel verbietet.
+-- Lebensdauer: die beiden TEMP-TABELLEN verschwinden mit dem Commit
+-- (ON COMMIT DROP), die TEMP VIEW erst mit der Session — Views kennen kein
+-- ON COMMIT DROP. Deshalb OR REPLACE (Codex N10-I4): ohne das scheiterte ein
+-- zweiter Lauf in DERSELBEN Session an 'relation already exists'.
 CREATE TEMP TABLE bc1_soll_signatur (zeile text PRIMARY KEY) ON COMMIT DROP;
 
 INSERT INTO pg_temp.bc1_soll_signatur (zeile) VALUES
--- << HIER die generierte Sollsignatur einsetzen (Step 6) >>
-    ('platzhalter|wird|in|step6|ersetzt');
+-- << HIER die generierte Sollsignatur einsetzen (Step 7) >>
+    ('platzhalter|wird|in|step7|ersetzt');
 
-CREATE TEMP VIEW bc1_ist_signatur AS
+CREATE OR REPLACE TEMP VIEW bc1_ist_signatur AS
 SELECT format('spalte|%s|%s|%s|%s|%s|%s|%s', c.relname, a.attname,
               format_type(a.atttypid, a.atttypmod),
               CASE WHEN a.attnotnull THEN 'notnull' ELSE 'null' END,
@@ -1705,8 +1827,7 @@ SELECT format('spalte|%s|%s|%s|%s|%s|%s|%s', c.relname, a.attname,
   JOIN pg_class c ON c.oid = a.attrelid
   JOIN pg_namespace n ON n.oid = c.relnamespace
   LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
- WHERE n.nspname = 'bc1'
-   AND c.relname IN ('prozessprofil', 'profil_rollen', 'profil_write_status')
+ WHERE n.nspname = 'bc1' AND c.relname IN ('prozessprofil', 'profil_rollen', 'profil_write_status')
    AND a.attnum > 0 AND NOT a.attisdropped
 UNION ALL
 SELECT format('constraint|%s|%s|%s', c.relname, con.conname,
@@ -1714,22 +1835,32 @@ SELECT format('constraint|%s|%s|%s', c.relname, con.conname,
   FROM pg_constraint con
   JOIN pg_class c ON c.oid = con.conrelid
   JOIN pg_namespace n ON n.oid = c.relnamespace
- WHERE n.nspname = 'bc1'
-   AND c.relname IN ('prozessprofil', 'profil_rollen', 'profil_write_status')
+ WHERE n.nspname = 'bc1' AND c.relname IN ('prozessprofil', 'profil_rollen', 'profil_write_status')
 UNION ALL
 SELECT format('index|%s|%s|%s', tablename, indexname, indexdef)
   FROM pg_indexes
- WHERE schemaname = 'bc1'
-   AND tablename IN ('prozessprofil', 'profil_rollen', 'profil_write_status')
+ WHERE schemaname = 'bc1' AND tablename IN ('prozessprofil', 'profil_rollen', 'profil_write_status')
 UNION ALL
 SELECT format('trigger|%s|%s|%s|%s', c.relname, t.tgname,
               pg_get_triggerdef(t.oid), t.tgenabled)
   FROM pg_trigger t
   JOIN pg_class c ON c.oid = t.tgrelid
   JOIN pg_namespace n ON n.oid = c.relnamespace
- WHERE n.nspname = 'bc1'
-   AND c.relname IN ('prozessprofil', 'profil_rollen', 'profil_write_status')
+ WHERE n.nspname = 'bc1' AND c.relname IN ('prozessprofil', 'profil_rollen', 'profil_write_status')
    AND NOT t.tgisinternal
+UNION ALL
+-- Codex N10-I3: die INTERNEN RI-Trigger werden oben ausgeschlossen, weil ihre
+-- Namen OIDs tragen und zwischen Installationen verschieden sind. Ihr
+-- AKTIVIERUNGSZUSTAND gehoert aber in die Signatur — ein deaktivierter RI-Trigger
+-- laesst die Constraint-Definition unveraendert und erzwingt den FK trotzdem
+-- nicht mehr. Schluessel ist deshalb der Constraint-Name, nicht der Triggername.
+SELECT format('trigger_intern|%s|%s|%s', c.relname, con.conname, t.tgenabled)
+  FROM pg_trigger t
+  JOIN pg_class c ON c.oid = t.tgrelid
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  JOIN pg_constraint con ON con.oid = t.tgconstraint
+ WHERE n.nspname = 'bc1' AND c.relname IN ('prozessprofil', 'profil_rollen', 'profil_write_status')
+   AND t.tgisinternal
 UNION ALL
 -- Nicht nur der Rumpf: Sprache, SECURITY-Modus, Volatilitaet und die
 -- Funktionskonfiguration gehoeren zur Semantik (Codex R1-I2).
@@ -1746,8 +1877,10 @@ SELECT format('funktion|%s(%s)->%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s',
    AND p.proname IN ('tf_version_vergeben', 'tf_freeze_profil', 'tf_freeze_rollen')
 UNION ALL
 -- Auch die Funktionsrechte gehoeren zur Signatur: EXECUTE liegt per Default bei
--- PUBLIC (Codex R3-N-I2). Fuer Trigger-Funktionen ist das folgenlos, aber es
--- gehoert sichtbar in die Sollsignatur statt unbemerkt zu driften.
+-- PUBLIC (Codex R3-N-I2). Fuer Trigger-Funktionen ist das folgenlos — direkt
+-- aufrufen laesst sich eine Trigger-Funktion nicht —, aber es gehoert sichtbar in
+-- die Sollsignatur statt unbemerkt zu driften. Codex N10-M8 zu Recht: "nur
+-- bc1_role, alles andere nichts" gilt fuer TABELLEN, nicht fuer diese ACL-Zeilen.
 SELECT format('funktion_acl|%s|%s|%s|%s', p.proname,
               CASE WHEN acl.grantee = 0 THEN 'PUBLIC'
                    ELSE pg_get_userbyid(acl.grantee) END,
@@ -1761,8 +1894,7 @@ SELECT format('funktion_acl|%s|%s|%s|%s', p.proname,
 UNION ALL
 SELECT format('eigentuemer|%s|%s', c.relname, pg_get_userbyid(c.relowner))
   FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
- WHERE n.nspname = 'bc1'
-   AND c.relname IN ('prozessprofil', 'profil_rollen', 'profil_write_status')
+ WHERE n.nspname = 'bc1' AND c.relname IN ('prozessprofil', 'profil_rollen', 'profil_write_status')
 UNION ALL
 -- Gesetzte Rechte VOLLSTAENDIG (Codex R1-I2): aclexplode listet JEDEN Grantee,
 -- auch unerwartete und PUBLIC — eine feste Rollenliste haette zusaetzliche
@@ -1775,23 +1907,86 @@ SELECT format('acl|%s|%s|%s|%s', c.relname,
   JOIN pg_namespace n ON n.oid = c.relnamespace
   CROSS JOIN LATERAL aclexplode(
       coalesce(c.relacl, acldefault('r', c.relowner))) AS acl
- WHERE n.nspname = 'bc1'
-   AND c.relname IN ('prozessprofil', 'profil_rollen', 'profil_write_status')
+ WHERE n.nspname = 'bc1' AND c.relname IN ('prozessprofil', 'profil_rollen', 'profil_write_status')
 UNION ALL
--- Zusaetzlich die EFFEKTIVE Sicht (loest Rollenvererbung auf): so faellt auch
--- auf, wenn eine BC-Rolle ueber bc_leser an unsere Tabellen kaeme.
+-- Codex N10-C1: SPALTENRECHTE liegen in pg_attribute.attacl, nicht in relacl.
+-- Ein 'GRANT SELECT (profil) ON bc1.prozessprofil TO bc2_role' war vorher fuer
+-- Signatur UND Rechte-Test unsichtbar.
+SELECT format('spalte_acl|%s|%s|%s|%s|%s', c.relname, a.attname,
+              CASE WHEN acl.grantee = 0 THEN 'PUBLIC'
+                   ELSE pg_get_userbyid(acl.grantee) END,
+              acl.privilege_type, acl.is_grantable)
+  FROM pg_attribute a
+  JOIN pg_class c ON c.oid = a.attrelid
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  CROSS JOIN LATERAL aclexplode(a.attacl) AS acl
+ WHERE n.nspname = 'bc1' AND c.relname IN ('prozessprofil', 'profil_rollen', 'profil_write_status')
+   AND a.attnum > 0 AND NOT a.attisdropped AND a.attacl IS NOT NULL
+UNION ALL
+-- Codex N10-C2: 'GRANT bc1_role TO <irgendwer>' gibt volle Rechte, OHNE dass sich
+-- eine Tabellen-ACL aendert. Die Mitgliederliste gehoert deshalb in die Signatur.
+SELECT format('mitglied|bc1_role|%s', pg_get_userbyid(m.member))
+  FROM pg_auth_members m
+ WHERE m.roleid = (SELECT oid FROM pg_roles WHERE rolname = 'bc1_role')
+UNION ALL
+-- Codex N10-I3: RLS-Zustand und Policies — eine nachtraeglich aktivierte Policy
+-- aenderte die Sichtbarkeit, ohne eine der obigen Zeilen zu beruehren.
+SELECT format('rls|%s|%s|%s', c.relname, c.relrowsecurity, c.relforcerowsecurity)
+  FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+ WHERE n.nspname = 'bc1' AND c.relname IN ('prozessprofil', 'profil_rollen', 'profil_write_status')
+UNION ALL
+SELECT format('policy|%s|%s|%s|%s', c.relname, pol.polname, pol.polcmd,
+              coalesce(pg_get_expr(pol.polqual, pol.polrelid), '-'))
+  FROM pg_policy pol
+  JOIN pg_class c ON c.oid = pol.polrelid
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+ WHERE n.nspname = 'bc1' AND c.relname IN ('prozessprofil', 'profil_rollen', 'profil_write_status')
+UNION ALL
+-- Codex N10-I3: Regeln (pg_rewrite) koennen ein INSERT/UPDATE stillschweigend
+-- umleiten, ohne Constraint oder Trigger anzufassen.
+SELECT format('regel|%s|%s', c.relname, r.rulename)
+  FROM pg_rewrite r
+  JOIN pg_class c ON c.oid = r.ev_class
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+ WHERE n.nspname = 'bc1' AND c.relname IN ('prozessprofil', 'profil_rollen', 'profil_write_status')
+UNION ALL
+-- Codex N10-I3: die drei COMMENT ON TABLE sind Teil der Anlage — dann gehoeren
+-- sie auch zur Signatur, sonst pruefen wir etwas nicht, das wir selbst schreiben.
+SELECT format('kommentar|%s|%s', c.relname, md5(d.description))
+  FROM pg_description d
+  JOIN pg_class c ON c.oid = d.objoid
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+ WHERE n.nspname = 'bc1' AND c.relname IN ('prozessprofil', 'profil_rollen', 'profil_write_status') AND d.objsubid = 0
+UNION ALL
+-- EFFEKTIVE Sicht, jetzt ueber ALLE Rollen statt einer festen Liste (Codex
+-- N10-C2). Bewusst ausgenommen: Superuser (sie duerfen per Definition alles —
+-- das ist die administrative Vertrauensgrenze, keine Drift) und die pg_*-
+-- Systemrollen (Cluster-Konstanten; sie wuerden die Signatur zwischen
+-- Installationen unterscheiden, ohne etwas ueber UNSER Schema auszusagen).
+-- Eine normale Rolle, die MITGLIED einer pg_*-Rolle ist, taucht trotzdem auf —
+-- has_table_privilege loest die Vererbung auf.
 SELECT format('effektiv|%s|%s|%s', c.relname, r.rolname, priv)
   FROM pg_class c
   JOIN pg_namespace n ON n.oid = c.relnamespace,
        pg_roles r,
        unnest(ARRAY['SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER']) AS priv
- WHERE n.nspname = 'bc1'
-   AND c.relname IN ('prozessprofil', 'profil_rollen', 'profil_write_status')
-   AND r.rolname IN ('bc1_role', 'bc_leser', 'bc2_role', 'bc3_role', 'bc4_role')
-   AND has_table_privilege(r.oid, c.oid, priv);
+ WHERE n.nspname = 'bc1' AND c.relname IN ('prozessprofil', 'profil_rollen', 'profil_write_status')
+   AND NOT r.rolsuper AND r.rolname NOT LIKE 'pg\_%'
+   AND has_table_privilege(r.oid, c.oid, priv)
+UNION ALL
+-- Und dasselbe auf SPALTENEBENE (Codex N10-C1): has_any_column_privilege sieht
+-- auch Rechte, die NUR auf einzelnen Spalten liegen.
+SELECT format('effektiv_spalte|%s|%s|%s', c.relname, r.rolname, priv)
+  FROM pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace,
+       pg_roles r,
+       unnest(ARRAY['SELECT','INSERT','UPDATE','REFERENCES']) AS priv
+ WHERE n.nspname = 'bc1' AND c.relname IN ('prozessprofil', 'profil_rollen', 'profil_write_status')
+   AND NOT r.rolsuper AND r.rolname NOT LIKE 'pg\_%'
+   AND has_any_column_privilege(r.oid, c.oid, priv);
 ```
 
-- [ ] **Step 4: Abschnitt 1 (Vorprüfung) einfügen** — nach 0b, VOR Abschnitt 2
+- [x] **Step 4: Abschnitt 1 (Vorprüfung) einfügen** — nach 0b, VOR Abschnitt 2 - ERLEDIGT 25.08.
 
 ```sql
 -- ============================================================
@@ -1853,7 +2048,13 @@ BEGIN
 END $$;
 ```
 
-- [ ] **Step 5: Abschnitt 2 in den Einspiel-Guard wickeln (Fall 2 = echter No-op)**
+- [x] **Step 5: Abschnitt 2 in den Einspiel-Guard wickeln (Fall 2 = echter No-op)** - ERLEDIGT 25.08.: 14 Statements gewickelt, programmatisch mit
+      einem SQL-Splitter, der Dollar-Quoting respektiert. Gegengeprueft: kein
+      Vertragsobjekt verloren, alle 27 Constraints erhalten, beide Partial-Indizes da.
+      **Ein Fehler dabei, der Erwaehnung verdient:** ein KOMMENTAR innerhalb des
+      Dollar-Quotes enthielt den Tagnamen des aeusseren Blocks und schloss ihn damit
+      vorzeitig - innerhalb eines Dollar-Quotes ist auch ein `--`-Kommentar Rohtext.
+      Seitdem steht in der Klammer kein Tagname mehr im Klartext.
 
 `CREATE TABLE IF NOT EXISTS` ist ein No-op — `CREATE OR REPLACE FUNCTION`,
 `CREATE OR REPLACE TRIGGER`, `COMMENT`, `REVOKE` und `GRANT` sind es **nicht**
@@ -1895,7 +2096,9 @@ Regeln für den Umbau:
   Variante — ein unerwarteter Restbestand wird zum Fehler statt zur stillen Ersetzung.
 - Die `RAISE NOTICE`-Zeilen bleiben, damit der Betrieb sieht, welcher Fall lief.
 
-- [ ] **Step 6: Abschnitt 3 (Rechte) — INNERHALB des Guards — und Abschnitt 4
+- [x] **Step 6: Abschnitt 3 (Rechte) — INNERHALB des Guards — und Abschnitt 4 - ERLEDIGT 25.08. Der `DO`-Block fuer `bc_leser`
+      wurde zu einem reinen plpgsql-`IF`: ein zweiter Block mit gleichem Tag haette
+      den aeusseren geschlossen.
       (Nachprüfung, read-only) ans Dateiende**
 
 ⚠️ **Abschnitt 3 steht im `DO $einspielen$`-Block aus Step 5** (Codex R2-N-C2): `REVOKE`
@@ -1949,7 +2152,21 @@ BEGIN
 END $$;
 ```
 
-- [ ] **Step 7: Sollsignatur EINMALIG generieren und einsetzen**
+- [x] **Step 7: Sollsignatur EINMALIG generieren und einsetzen** - ERLEDIGT 25.08.,
+      nach Codex-Runde 10 neu erzeugt: **151 Zeilen** (31 spalte, 27 constraint,
+      21 acl, 21 effektiv, 12 effektiv_spalte, 12 trigger_intern, 6 index,
+      6 funktion_acl, 3 eigentuemer, 3 funktion, 3 trigger, 3 kommentar, 3 rls).
+      Erzeugt ueber den im Plan zuerst genannten Weg: mit Platzhalter einspielen,
+      die Nachpruefung listet den Ist-Bestand als Plus-Zeilen und rollt zurueck.
+      Gegenprobe: in den **Tabellen**-Rechtezeilen (acl, spalte_acl, effektiv,
+      effektiv_spalte) steht ausschliesslich `bc1_role`, kein `bc_leser`, kein
+      `bcN_role`, kein `PUBLIC`, und `mitglied|bc1_role|...` ist leer.
+      **Korrektur meiner frueheren Aussage (Codex N10-M8):** "kein PUBLIC" galt
+      nur fuer Tabellenrechte. Die Signatur enthaelt sehr wohl
+      `funktion_acl|...|PUBLIC|EXECUTE` fuer die drei Trigger-Funktionen — das ist
+      PostgreSQL-Default und folgenlos, weil eine Trigger-Funktion nicht regulaer
+      aufrufbar ist, aber "nur bc1_role, alles andere nichts" gilt woertlich eben
+      nur fuer die Tabellen.
 
 Die Sollsignatur wird nicht von Hand getippt (`pg_get_constraintdef` formatiert selbst),
 sondern aus dem frisch angelegten Bestand erzeugt. Ablauf:
@@ -1979,7 +2196,10 @@ unterscheiden). Bricht das Einspielen im Zielsystem mit reinen Formatierungsdiff
 wird die Signatur **auf der Zielversion neu erzeugt, der Diff gelesen und bewusst
 committet** — niemals die Prüfung abgeschaltet.
 
-- [ ] **Step 8: Tests laufen lassen (GREEN)**
+- [x] **Step 8: Tests laufen lassen (GREEN)** - ERLEDIGT 25.08.: 13/13 gruen, volle Suite
+      `285 passed, 4 skipped`. Kontrollfluss am Container nachgesehen: Lauf 1 meldet
+      Fall 1 (vollstaendige Anlage) plus Sollsignatur bestaetigt, Lauf 2 meldet
+      Fall 2 (No-op) plus es wird NICHTS ausgefuehrt.
 
 ```bash
 BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" .venv/bin/pytest tests/test_ddl_einspielen.py tests/test_ddl_trigger.py -v
@@ -1987,15 +2207,22 @@ BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" .venv/bin/
 
 Erwartet: alle Tests beider Dateien grün. Danach volle Suite.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit** - ERLEDIGT 25.08.
 
 ```bash
 git add bc1-context-discovery/bc1_service/db/prozessprofil.sql bc1-context-discovery/tests/test_ddl_einspielen.py
 git commit -m "feat(bc1): DDL-Rechte, Sollsignatur und atomare Einspiel-Dreifallregel"
 ```
 
----
+> **AB HIER GILT: der SQL-Block in Task 3 ist NICHT mehr der Dateiinhalt.**
+> Task 4 hat `prozessprofil.sql` umstrukturiert (Abschnitte 0b/1/4 dazu, Abschnitt
+> 2+3 in den Einspiel-Guard gewickelt, Sollsignatur eingesetzt). Der Task-3-Block
+> dokumentiert weiterhin den Zwischenstand nach Task 3 - er ist Bau-Historie, keine
+> Quelle mehr. **Wer die Datei aus dem Plan neu erzeugt, macht Task 4 kaputt.**
+> Aenderungen an der DDL gehen ab jetzt direkt in die Datei; die Sollsignatur muss
+> danach neu erzeugt werden (Step 7), sonst bricht das eigene Einspielen mit Fall 3 ab.
 
+---
 # Phase B — Kern: Completion-Guard (K0) und Mandanten-Guard
 
 > **Preis ehrlich benannt (Spec K0/K3):** Der Kern bekommt zwei fachliche Erweiterungen
@@ -5267,6 +5494,75 @@ geglaubt, sondern erschuettert: die companies-referenzierenden Constraints wurde
 vier Varianten neu angelegt (unveraendert · nur der bc1-FK neu · nur mandant_rollen neu ·
 alle BC0-FKs neu, sodass der bc1-FK zuerst feuert). **Alle vier laufen durch.** Die
 Korrektheit haengt also an der Kaskadentiefe, nicht an der Constraint-Anlagereihenfolge.
+
+# Changelog Rev. 10 (Task 4 gebaut + Codex-Runde 10, Job task-mt8twhqu-4dbewl)
+
+**Verdikt: WITH FIXES (2C/5I/1M).** Codex hat zuerst das bestaetigt, worauf es mir
+am meisten ankam: **der Guard-Umbau ist semantisch verlustfrei und korrekt gequotet** —
+kein Anlage-, Kommentar-, Index-, Funktions- oder Trigger-Statement fehlt, `$ddl$` und
+`$fn$` sauber gepaart, `$einspielen$` kommt im eigenen Rumpf nicht vor. Die Findings
+sitzen alle in der SOLLSIGNATUR, nicht im Umbau.
+
+**Ein eigener Fehler beim Bauen, vor Codex gefunden und gefixt:** ein KOMMENTAR
+innerhalb des Dollar-Quotes enthielt den Tagnamen des aeusseren Blocks und schloss ihn
+vorzeitig. Innerhalb eines Dollar-Quotes ist auch ein `--`-Kommentar Rohtext. Seitdem
+steht in der Klammer kein Tagname mehr im Klartext.
+
+**JEDES Critical/Important wurde erst durch einen Test BEWIESEN, dann gefixt** — keine
+Uebernahme auf Zuruf. Alle vier neuen Tests waren zuerst rot:
+
+| Finding | Beweis | Fix |
+|---|---|---|
+| **C1** Spaltenrechte unsichtbar (`attacl` statt `relacl`) | `GRANT SELECT (profil) … TO bc2_role` blieb unbemerkt, Rechte-Test blieb gruen | `spalte_acl` + `effektiv_spalte` (`has_any_column_privilege`) in die Signatur |
+| **C2** feste Rollenliste uebersieht Vererbung | `GRANT bc1_role TO fremde_rolle` gab volle Rechte ohne ACL-Aenderung | `mitglied|bc1_role|…` + `effektiv` ueber ALLE Rollen statt fuenf |
+| **I3** interne RI-Trigger ausgeschlossen | `DISABLE TRIGGER ALL` auf `profil_write_status` (hat nur interne) blieb unbemerkt — FK still nicht mehr erzwungen | `trigger_intern` ueber `tgconstraint` (Constraint-Name statt OID-Triggername = installationsstabil) |
+| **I4** zweiter Lauf in DERSELBEN Session scheiterte | `relation bc1_ist_signatur already exists` — die Fixture verdeckte es, weil sie je Lauf neu verbindet | `CREATE OR REPLACE TEMP VIEW` |
+
+**Weiter aus I3 uebernommen** (kein eigener Test, aber gleiche Klasse „schwaecht still
+eine Zusicherung"): RLS-Zustand und Policies, Regeln aus `pg_rewrite`, und die drei
+Tabellen-Kommentare — letztere, weil wir sie selbst anlegen und dann auch pruefen
+sollten. Signatur damit **121 -> 151 Zeilen**.
+
+**I5 (TOCTOU) teilweise:** `pg_advisory_xact_lock` serialisiert zwei gleichzeitige
+Einspielungen DIESER Datei. Gegen fremde, manuelle DDL waehrend des Laufs hilft das
+nicht — das ist jetzt eine **ausdrueckliche Betriebsannahme** und gehoert in SMOKE.md
+(Task 16). Ein Lock, das nur wir nehmen, schuetzt nicht vor jemandem, der es nicht nimmt;
+das ehrlich zu benennen ist mehr wert als der Anschein von Sicherheit.
+
+**I6 (falsche Fall-3-Meldungen) teilweise:** `SET LOCAL search_path = public, pg_temp`
+macht die Deparser-Ausgaben deterministisch — `pg_temp` bewusst HINTEN, sonst koennte
+eine gleichnamige TEMP-Tabelle eine BC0-Tabelle beschatten. Die Bindung an die
+PostgreSQL-Minorversion bleibt und ist bereits als Betriebsregel notiert (Step 7).
+`md5(prosrc)` schlaegt auch bei reinen Kommentaraenderungen an — das ist gewollt: eine
+Kommentaraenderung IST eine Aenderung an der Datei.
+
+**I7 uebernommen (Ehrlichkeit):** Der Docstring von `_katalog_stempel` behauptete
+„aendert sich bei JEDEM Rewrite". Das war zu stark — er erfasst pg_class, pg_proc,
+pg_trigger, pg_description und die Tabellen-ACL, aber weder `pg_attribute` noch
+`pg_policy` noch Rollenmitgliedschaften noch `pg_temp`. Jetzt praezise formuliert.
+
+**M8 uebernommen (Korrektur einer eigenen Aussage):** Ich hatte „kein PUBLIC in der
+Sollsignatur" berichtet. Das galt nur fuer TABELLENrechte. `funktion_acl|…|PUBLIC|
+EXECUTE` steht sehr wohl drin (PostgreSQL-Default fuer die drei Trigger-Funktionen,
+folgenlos — eine Trigger-Funktion ist nicht regulaer aufrufbar). Im Plan korrigiert.
+
+**NICHT uebernommen, nachgehalten statt stillschweigend verworfen (Prinzip 4):**
+Aus I3 bleiben Spaltencollation, physische Spaltenreihenfolge, ACL-Grantor sowie
+Tabellenpersistenz/Vererbung ausserhalb der Signatur. Begruendung: sie koennen keine
+Zusicherung still schwaechen (eine geaenderte Collation oder Spaltenreihenfolge faellt
+sofort beim Lesen/Schreiben auf, Persistenz und Vererbung aendert niemand versehentlich),
+kosten aber Signaturzeilen und Umgebungsabhaengigkeit. **Naechster Schritt:** vor dem
+Supabase-Deploy gemeinsam mit dem dortigen Rollenbestand neu bewerten — dort gibt es
+mehr Rollen und mehr Automatik als im Test-Container.
+
+**Zusaetzlicher Test, der nicht aus dem Review kam**, sondern aus einer eigenen Frage
+beim Bauen: Was, wenn jemand die DDL versehentlich als **Superuser** statt als
+`bc1_role` einspielt? Abschnitt 0 laesst das durch (ein Superuser darf im Schema
+anlegen), die Tabellen gehoerten dann `postgres`. Gemessen: die Nachpruefung schlaegt an
+(`eigentuemer`- und `acl`-Zeilen weichen ab) und rollt vollstaendig zurueck — 0 Tabellen.
+Festgehalten in `test_einspielen_als_falscher_eigentuemer_wird_abgewiesen`.
+
+**Tests nach Task 4: 290 passed, 4 skipped** (18 in `test_ddl_einspielen.py`).
 
 ## Zweitmeinung: Codex-Runde 9 (Job task-mt8svn65-m0p0mr) — WITH FIXES (1C/3I/2M)
 
