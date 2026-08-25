@@ -256,7 +256,7 @@ erfunden: Spalten, Typen, CHECK-Muster und Sichten werden übernommen.
     `spiele_ddl_ein(dsn: str) -> None`,
     `verbindung(dsn: str, rolle: str | None = None)` (Contextmanager, `SET ROLE`).
 
-- [ ] **Step 1: Gerüst-SQL schreiben** (`tests/db/bc0_geruest.sql`)
+- [x] **Step 1: Gerüst-SQL schreiben** (`tests/db/bc0_geruest.sql`) — ERLEDIGT 25.08.
 
 Struktur + Rollen + Rechte, KEINE Testdaten (die setzt Python).
 
@@ -436,9 +436,16 @@ GRANT SELECT ON v_bewertung_aktuell, mandant_systeme, ref_teilprozesse, companie
 
 -- BEWUSST NICHT: SELECT auf ref_prozesse (BC0 hat das Recht entzogen, R14-I2).
 -- Ein Test beweist, dass der direkte Lesezugriff scheitert und v_prozesse_lesen trägt.
+--
+-- ABWEICHUNG, bewusst und geprueft (25.08., Abgleich gegen origin/main): BC0s
+-- prozess_personen traegt zusaetzlich einen FK auf ref_personen(company_id, person_id).
+-- Den hat das Geruest nicht, weil ref_personen fehlt — das Geruest ist an dieser
+-- Stelle also LAXER als BC0. Folgenlos, solange BC1 prozess_personen nur mittelbar
+-- ueber v_prozesse_lesen liest und nie beschreibt. Schreibt BC1 dort je hinein,
+-- muss ref_personen ins Geruest.
 ```
 
-- [ ] **Step 2: Fixture-Modul schreiben** (`tests/db_fixture.py`)
+- [x] **Step 2: Fixture-Modul schreiben** (`tests/db_fixture.py`) — ERLEDIGT 25.08.
 
 ```python
 """Fixture-Helfer für alle DB-Tests: BC0-Gerüst + unsere DDL + zwei Mandanten.
@@ -575,7 +582,7 @@ def _testdaten(conn) -> None:
         (MANDANT_B,))
 ```
 
-- [ ] **Step 3: Failing test schreiben** (`tests/test_db_fixture.py`)
+- [x] **Step 3: Failing test schreiben** (`tests/test_db_fixture.py`) — ERLEDIGT 25.08.
 
 Die DDL gibt es noch nicht — deshalb baut dieser Test das Gerüst OHNE sie
 (`mit_ddl=False`) und prüft nur BC0-Seite und Rechte.
@@ -626,7 +633,8 @@ def test_default_privileges_reproduzieren_den_bc_leser_automatismus():
     assert darf is True
 ```
 
-- [ ] **Step 4: Tests laufen lassen (RED)**
+- [x] **Step 4: Tests laufen lassen (RED)** — ERLEDIGT 25.08.: `ModuleNotFoundError:
+      No module named 'tests.db_fixture'` (genau der vorhergesagte RED, vor Step 1/2).
 
 ```bash
 BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" .venv/bin/pytest tests/test_db_fixture.py -v
@@ -635,7 +643,8 @@ BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" .venv/bin/
 Erwartet: FAIL — `ModuleNotFoundError: tests.db_fixture` bzw. fehlende SQL-Datei,
 je nachdem, welche Datei zuerst entsteht. Erst RED sehen, dann Step 1/2 fertigstellen.
 
-- [ ] **Step 5: Tests laufen lassen (GREEN)**
+- [x] **Step 5: Tests laufen lassen (GREEN)** — ERLEDIGT 25.08.: 3 passed;
+      volle Suite `248 passed, 4 skipped` (Basis 245 + 3 neue, keine Regression).
 
 ```bash
 BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" .venv/bin/pytest tests/test_db_fixture.py -v
@@ -643,7 +652,7 @@ BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" .venv/bin/
 
 Erwartet: alle Fixture-Tests grün. Danach die volle Suite.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit** — ERLEDIGT 25.08.
 
 ```bash
 git add bc1-context-discovery/tests/db/bc0_geruest.sql bc1-context-discovery/tests/db_fixture.py bc1-context-discovery/tests/test_db_fixture.py
