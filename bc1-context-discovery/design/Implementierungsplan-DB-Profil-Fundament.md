@@ -197,7 +197,10 @@ git log -1 --format=%H          # MUSS 058a77e... sein, sonst stoppen
 Der Branch wird **direkt auf `058a77e` gepinnt** — ein `pull --ff-only` auf
 `bc1-gemini-adapter` könnte den Ausgangsstand stillschweigend verschieben.
 
-- [ ] **Step 2: Test-Container hochfahren und Basis messen**
+- [x] **Step 2: Test-Container hochfahren und Basis messen** — ERLEDIGT 25.08.:
+      `245 passed, 4 skipped` — exakt die erwartete Basis. Die 4 Skips sind
+      Echt-API-Stichproben (Claude/Gemini/Ollama, brauchen `BC1_ECHT_LLM=1`),
+      **keine still übersprungenen Container-Tests** — mit `-rs` nachgeprüft.
 
 ```bash
 docker run -d --rm --name bc1-test-pg -e POSTGRES_PASSWORD=test -p 55432:5432 postgres:16
@@ -213,7 +216,9 @@ Erwartet: `245 passed, 4 skipped` (Momentaufnahme — reale Zahl notieren und be
 **Weicht die Zahl ab, erst klären, dann bauen.** Läuft der Container nicht, ist die
 Zahl wertlos (Container-Tests skippen still).
 
-- [ ] **Step 3: PostgreSQL-Version festhalten**
+- [x] **Step 3: PostgreSQL-Version festhalten** — ERLEDIGT 25.08.:
+      `PostgreSQL 16.14 (Debian 16.14-1.pgdg13+1) on aarch64-unknown-linux-gnu`.
+      16 ≥ 14, also `CREATE OR REPLACE TRIGGER` und `pg_advisory_xact_lock` nutzbar.
 
 ```bash
 docker exec bc1-test-pg psql -U postgres -c "select version()"
@@ -225,8 +230,8 @@ Ist der Container älter als 14, neu aufsetzen — nicht umbauen.
 - [x] **Step 4: Commit** — ERLEDIGT 25.08. als `bc57daa` (nicht gepusht: Push ins
       geteilte Repo braucht Richards ausdrückliches OK).
 
-**Für den Bau bleibt aus Task 1 offen:** Step 2 (Container hochfahren, Suite-Basis
-messen) und Step 3 (PostgreSQL-Version prüfen) — beides muss vor Task 2 laufen.
+**Task 1 ist vollständig abgeschlossen (25.08.).** Alle vier Steps abgehakt, Basis und
+PG-Version gemessen. Task 2 kann starten.
 
 ---
 
