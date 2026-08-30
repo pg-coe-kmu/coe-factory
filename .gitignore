@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Claude Code: lokale Agent-Worktrees und Sitzungsdaten (nicht versionieren)
+.claude/
+
+# macOS
+.DS_Store
