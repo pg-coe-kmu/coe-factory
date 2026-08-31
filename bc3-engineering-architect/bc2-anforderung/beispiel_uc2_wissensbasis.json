@@ -1,0 +1,244 @@
+{
+  "konzept_id": "b2000000-0000-4000-8000-0000000000c2",
+  "schema_version": "2.1-bc3",
+  "prozessprofil_ref": "A-2026-02",
+  "erzeugt_am": "2026-08-30T20:00:00+02:00",
+  "erzeugt_von": "BC3 Engineering Architect — Entwurf zur Freigabe durch BC2, keine BC2-Lieferung",
+  "kontext": {
+    "prozess_kurzbeschreibung": "Wissenstransfer bei NoroAI Consulting: Frage entsteht, Mitarbeitende durchsuchen Google-Drive-Ordner manuell, Dokumente werden einzeln geöffnet und gelesen, die Antwort wird zusammengetragen und mündlich oder per Mail weitergegeben.",
+    "kp_id": "KP-05",
+    "unternehmen": "NoroAI Consulting GmbH",
+    "betroffene_systeme_landschaft": [
+      "Google Drive",
+      "Outlook",
+      "mündliche Weitergabe"
+    ],
+    "hauptschmerzpunkte": [
+      {
+        "beschreibung": "Wissen ist über gewachsene Drive-Ordner verstreut",
+        "haeufigkeit": "jede Recherche",
+        "auswirkung": "Suche dauert Stunden statt Sekunden"
+      },
+      {
+        "beschreibung": "Dokumente müssen einzeln geöffnet und gelesen werden",
+        "haeufigkeit": "jede Recherche",
+        "auswirkung": "rund 20 Min je Frage"
+      },
+      {
+        "beschreibung": "Antworten werden nicht festgehalten",
+        "haeufigkeit": "laufend",
+        "auswirkung": "dieselbe Frage verursacht mehrfach denselben Aufwand"
+      }
+    ]
+  },
+  "potenziale": [
+    {
+      "potenzial_id": "b2000000-0000-4000-8000-000000000001",
+      "titel": "Wissensquellen automatisch indexieren und aktuell halten",
+      "rang": 2,
+      "betroffene_teilprozess_ids": [
+        "KP-05.TP-1"
+      ],
+      "betroffene_prozessschritte": [
+        "Wissensquellen pflegen",
+        "Dokumente auffindbar machen"
+      ],
+      "beschreibung": "Das Wissen von NoroAI liegt heute in Google-Drive-Ordnern, die historisch gewachsen sind. Wer eine Frage hat, muss wissen, in welchem Ordner die Antwort stehen könnte, die Dokumente einzeln öffnen und lesen. Es gibt keine Übersicht darüber, welche Fassung eines Dokuments die gültige ist, und niemand pflegt die Ablage systematisch. Automatisiert wird das Erfassen, Zerlegen und Indexieren der Dokumente sowie das Nachführen bei Änderungen.\n\nErgebnis ist ein durchsuchbarer Index über alle freigegebenen Wissensquellen, in dem jeder Abschnitt seine Herkunft mitführt: Dokument, Fassung, Änderungsdatum und Ordner. Der Datenfluss läuft vom Drive über die Aufbereitung in den Index und von dort in die Beantwortung, die im zweiten Potenzial beschrieben ist.\n\nBeteiligte Rollen sind die Wissensträger als Autoren, das Team als Nutzende und die Compliance-Rolle für die Freigabe von Quellen. Vorbedingung ist eine Entscheidung, welche Ordner überhaupt in den Index dürfen; personenbezogene und mandantenbezogene Ablagen bleiben außen vor. Sonderfälle: Dokumente ohne auslesbaren Text werden gemeldet statt stillschweigend übergangen; gelöschte oder ersetzte Dokumente verschwinden aus dem Index, damit keine veralteten Antworten entstehen; sehr große Dokumente werden abschnittsweise verarbeitet.",
+      "betroffene_systeme": [
+        {
+          "name": "Google Drive Wissensordner",
+          "rolle": "Quelle",
+          "integration": "API"
+        },
+        {
+          "name": "Vektorindex",
+          "rolle": "Ziel",
+          "integration": "DB"
+        },
+        {
+          "name": "Freigaberegister Wissensquellen",
+          "rolle": "Quelle",
+          "integration": "DB"
+        }
+      ],
+      "manueller_aufwand_heute": "hoch",
+      "impact": "mittel",
+      "umsetzungskomplexitaet": "mittel",
+      "value": {
+        "ist_kosten_eur_jahr": 14400.0,
+        "einsparung_eur_jahr": 8640.0,
+        "ersparnis_prozent": 60.0,
+        "investition_eur_richtwert": 6400.0,
+        "amortisation_monate": 8.9,
+        "value_quelle": "annahme",
+        "annahmen": [
+          "Pflegeaufwand heute rund 20 h/Monat (Annahme, nicht erhoben)",
+          "Vollkostensatz 60 EUR/h (Annahme, nicht erhoben)",
+          "angenommener Einsparungsgrad: 60 %",
+          "Umsetzungs-Tagessatz 800 EUR",
+          "VORLÄUFIG — Übergangslieferung, Gate 0 nicht durchlaufen"
+        ]
+      },
+      "aufwand_schaetzung_pt": 8,
+      "prioritaet_score": 37.5,
+      "kategorie": "Strategisch",
+      "potenzielle_loesung": {
+        "ansatz": "Geplanter Abgleich der freigegebenen Drive-Ordner, Textextraktion je Dateityp, Zerlegung in Abschnitte mit Herkunftsangabe, Einbettung und Ablage im Vektorindex. Änderungen und Löschungen werden nachgeführt. Nicht lesbare Dateien landen in einer Fehlerliste.",
+        "tech_stack_empfehlung": [
+          "n8n",
+          "Mistral Large",
+          "PostgreSQL",
+          "Vektordatenbank"
+        ],
+        "to_be_kurz": "Alle freigegebenen Wissensquellen sind aktuell indexiert und mit Herkunft auffindbar."
+      },
+      "to_be_vision": "Der Wissensbestand von NoroAI ist jederzeit vollständig und aktuell indexiert, ohne dass jemand daran denken muss. Neue oder geänderte Dokumente sind spätestens am nächsten Tag durchsuchbar, gelöschte verschwinden ebenso zuverlässig, sodass veraltete Stände nicht weiterleben. Jeder indexierte Abschnitt weiß, aus welchem Dokument, welcher Fassung und welchem Ordner er stammt; damit ist jede spätere Antwort belegbar. Welche Ordner überhaupt aufgenommen werden, ist eine bewusste Entscheidung und nicht das Ergebnis eines Zufalls: mandanten- und personenbezogene Ablagen bleiben außerhalb. Dateien, die sich nicht auslesen lassen, erscheinen in einer sichtbaren Fehlerliste, statt still zu fehlen. Die Wissensträger merken vom Index nichts, außer dass ihre Dokumente gefunden werden.",
+      "fachliche_anforderungen": [
+        "Nur ausdrücklich freigegebene Ordner werden indexiert.",
+        "Mandanten- und personenbezogene Ablagen sind vom Index ausgeschlossen.",
+        "Jeder Abschnitt führt Dokument, Fassung, Änderungsdatum und Ordner mit.",
+        "Geänderte Dokumente sind spätestens am nächsten Tag im Index aktualisiert.",
+        "Gelöschte oder ersetzte Dokumente werden aus dem Index entfernt.",
+        "Nicht auslesbare Dateien erscheinen in einer Fehlerliste.",
+        "Der Index trägt die Teilprozess-ID KP-05.TP-1."
+      ],
+      "akzeptanzkriterien_geschaeftlich": [
+        "Gegeben ein neues Dokument in einem freigegebenen Ordner, wenn der Abgleich läuft, dann ist es am nächsten Tag durchsuchbar.",
+        "Gegeben ein gelöschtes Dokument, wenn der Abgleich läuft, dann liefert der Index keine Abschnitte daraus mehr.",
+        "Gegeben ein gescanntes PDF ohne Textebene, wenn es verarbeitet wird, dann steht es mit Grund in der Fehlerliste.",
+        "Gegeben ein Ordner ohne Freigabe, wenn der Abgleich läuft, dann wird kein Inhalt daraus indexiert.",
+        "Gegeben ein indexierter Abschnitt, wenn er geprüft wird, dann sind Dokument, Fassung und Ordner erkennbar."
+      ],
+      "voraussetzungen": [
+        "Freigaberegister, welche Drive-Ordner aufgenommen werden dürfen",
+        "Lesender Zugriff auf die freigegebenen Ordner",
+        "Betrieb einer Vektordatenbank",
+        "DSGVO-Bewertung der aufgenommenen Inhalte"
+      ],
+      "risiken": [
+        {
+          "beschreibung": "Personenbezogene Dokumente gelangen versehentlich in den Index",
+          "wahrscheinlichkeit": "med",
+          "auswirkung": "high",
+          "gegenmassnahme": "Freigaberegister als Positivliste, keine Vererbung von Unterordnern"
+        },
+        {
+          "beschreibung": "Veraltete Fassungen bleiben im Index und erzeugen falsche Antworten",
+          "wahrscheinlichkeit": "med",
+          "auswirkung": "med",
+          "gegenmassnahme": "Löschabgleich bei jedem Lauf, Fassung im Abschnitt mitführen"
+        }
+      ]
+    },
+    {
+      "potenzial_id": "b2000000-0000-4000-8000-000000000002",
+      "titel": "Interne Fragen mit Quellenangabe beantworten",
+      "rang": 1,
+      "betroffene_teilprozess_ids": [
+        "KP-05.TP-1"
+      ],
+      "betroffene_prozessschritte": [
+        "Frage entgegennehmen",
+        "Antwort zusammentragen",
+        "Antwort weitergeben"
+      ],
+      "beschreibung": "Heute entsteht eine interne Frage, und die fragende Person durchsucht die Drive-Ordner selbst oder fragt Kolleginnen und Kollegen. Dokumente werden einzeln geöffnet und gelesen, die Antwort wird zusammengetragen und mündlich oder per Mail weitergegeben. Sie ist danach nirgends festgehalten, sodass dieselbe Frage später erneut denselben Aufwand verursacht. Automatisiert wird das Auffinden der relevanten Stellen und das Formulieren einer belegten Antwort, nicht die fachliche Bewertung.\n\nErgebnis ist eine Antwort mit Quellenangabe je Aussage, aus der hervorgeht, aus welchem Dokument und welcher Fassung sie stammt. Der Datenfluss geht von der Frage über die Suche im Index zur Antwortformulierung und in ein Protokoll, das Frage, Antwort und verwendete Quellen festhält.\n\nBeteiligte Rollen sind alle Mitarbeitenden als Fragende und die Wissensträger als fachliche Instanz bei Zweifelsfällen. Vorbedingung ist ein gefüllter Index aus dem ersten Potenzial. Sonderfälle: findet die Suche keine ausreichend passende Stelle, wird das gesagt, statt eine Antwort zu erfinden; widersprechen sich Quellen, werden beide gezeigt und die Entscheidung an den Menschen gegeben; Fragen zu mandantenbezogenen Inhalten werden abgelehnt.",
+      "betroffene_systeme": [
+        {
+          "name": "Vektorindex",
+          "rolle": "Quelle",
+          "integration": "DB"
+        },
+        {
+          "name": "Chat-Oberfläche",
+          "rolle": "Quelle+Ziel",
+          "integration": "API"
+        },
+        {
+          "name": "Frageprotokoll",
+          "rolle": "Ziel",
+          "integration": "DB"
+        }
+      ],
+      "manueller_aufwand_heute": "sehr hoch",
+      "impact": "sehr hoch",
+      "umsetzungskomplexitaet": "mittel",
+      "value": {
+        "ist_kosten_eur_jahr": 30000.0,
+        "einsparung_eur_jahr": 21000.0,
+        "ersparnis_prozent": 70.0,
+        "investition_eur_richtwert": 12000.0,
+        "amortisation_monate": 6.9,
+        "value_quelle": "annahme",
+        "annahmen": [
+          "1500 interne Recherchen im Jahr (Annahme, nicht erhoben)",
+          "Vollkostensatz 60 EUR/h (Annahme, nicht erhoben)",
+          "manuelle Zeit heute: 20 Min/Recherche (Annahme, nicht gemessen)",
+          "angenommener Einsparungsgrad: 70 %",
+          "Umsetzungs-Tagessatz 800 EUR",
+          "VORLÄUFIG — Übergangslieferung, Gate 0 nicht durchlaufen"
+        ]
+      },
+      "aufwand_schaetzung_pt": 15,
+      "prioritaet_score": 75.0,
+      "kategorie": "Strategisch",
+      "potenzielle_loesung": {
+        "ansatz": "Semantische Suche im Index, Auswahl der besten Abschnitte, Antwortformulierung ausschließlich auf Basis der gefundenen Stellen, mit Quellenangabe je Aussage. Ohne ausreichende Treffer wird keine Antwort erzeugt. Frage, Antwort und Quellen werden protokolliert.",
+        "tech_stack_empfehlung": [
+          "n8n",
+          "Mistral Large",
+          "PostgreSQL",
+          "Vektordatenbank"
+        ],
+        "to_be_kurz": "Fragen werden in Sekunden mit belegter Antwort beantwortet statt in Stunden Handarbeit."
+      },
+      "to_be_vision": "Wer eine interne Frage hat, stellt sie und bekommt binnen Sekunden eine Antwort, unter der steht, worauf sie sich stützt: Dokument, Fassung, Abschnitt. Damit ist jede Antwort überprüfbar, und niemand muss darauf vertrauen, dass das System recht hat. Findet sich keine ausreichend passende Stelle, sagt das System genau das und schlägt vor, wen man fragen könnte, statt eine plausibel klingende Antwort zu erfinden. Widersprechen sich zwei Quellen, werden beide gezeigt und die Entscheidung bleibt beim Menschen. Fragen, die auf mandantenbezogene Inhalte zielen, werden abgelehnt und nicht beantwortet. Jede Frage und jede Antwort wird protokolliert, sodass häufige Fragen sichtbar werden und gezielt in die Wissensbasis wandern können. Die Recherchezeit sinkt von Stunden auf Sekunden.",
+      "fachliche_anforderungen": [
+        "Jede Antwort nennt je Aussage die Quelle mit Dokument und Fassung.",
+        "Ohne ausreichend passende Fundstellen wird keine Antwort erzeugt.",
+        "Widersprüchliche Quellen werden beide gezeigt, ohne Vorauswahl.",
+        "Fragen zu mandantenbezogenen Inhalten werden abgelehnt.",
+        "Frage, Antwort und verwendete Quellen werden protokolliert.",
+        "Antwortzeit im Regelfall unter zehn Sekunden.",
+        "Jede Anfrage trägt die Teilprozess-ID KP-05.TP-1."
+      ],
+      "akzeptanzkriterien_geschaeftlich": [
+        "Gegeben eine Frage mit passenden Quellen, wenn sie gestellt wird, dann kommt binnen zehn Sekunden eine Antwort mit Quellenangabe je Aussage.",
+        "Gegeben eine Frage ohne passende Quelle, wenn sie gestellt wird, dann sagt das System, dass es keine Grundlage hat, und erfindet keine Antwort.",
+        "Gegeben zwei widersprechende Quellen, wenn die Antwort erzeugt wird, dann werden beide genannt und der Widerspruch benannt.",
+        "Gegeben eine Frage zu einem Mandantenprojekt, wenn sie gestellt wird, dann wird sie abgelehnt.",
+        "Gegeben eine beantwortete Frage, wenn das Protokoll gelesen wird, dann sind Frage, Antwort und Quellen nachvollziehbar."
+      ],
+      "voraussetzungen": [
+        "Gefüllter Index aus Potenzial 1",
+        "Definition, welche Inhalte als mandantenbezogen gelten",
+        "Aufbewahrungsregel für das Frageprotokoll"
+      ],
+      "risiken": [
+        {
+          "beschreibung": "Antwort klingt plausibel, ist aber nicht durch die Quelle gedeckt",
+          "wahrscheinlichkeit": "med",
+          "auswirkung": "high",
+          "gegenmassnahme": "Quellenangabe je Aussage erzwingen, Antwort ohne Treffer unterbinden"
+        },
+        {
+          "beschreibung": "Frageprotokoll enthält personenbezogene Angaben",
+          "wahrscheinlichkeit": "med",
+          "auswirkung": "med",
+          "gegenmassnahme": "Aufbewahrungsfrist, Pseudonymisierung der fragenden Person"
+        }
+      ]
+    }
+  ],
+  "gesamtempfehlung": {
+    "reihenfolge_potenzial_ids": [
+      "b2000000-0000-4000-8000-000000000001",
+      "b2000000-0000-4000-8000-000000000002"
+    ],
+    "begruendung": "Potenzial 2 hat den höheren Score, setzt aber einen gefüllten Index voraus. Deshalb wird mit Potenzial 1 begonnen. Diese Abhängigkeit lässt sich in v2.0 nicht abbilden, seit abhaengigkeiten entfallen ist, und steht hier im Freitext."
+  },
+  "gate1": {
+    "status": "pending",
+    "kommentar": "Zahlen sind Annahmen (value_quelle = annahme), noch nicht gerechnet. Gate 0 ist für KP-05.TP-1 nicht durchlaufen."
+  }
+}
