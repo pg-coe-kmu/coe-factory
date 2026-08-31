@@ -1,0 +1,256 @@
+{
+  "konzept_id": "b3000000-0000-4000-8000-0000000000c3",
+  "schema_version": "2.1-bc3",
+  "prozessprofil_ref": "A-2026-03",
+  "erzeugt_am": "2026-08-30T20:00:00+02:00",
+  "erzeugt_von": "BC3 Engineering Architect — Entwurf zur Freigabe durch BC2, keine BC2-Lieferung",
+  "kontext": {
+    "prozess_kurzbeschreibung": "Neueinstellung und Onboarding bei NoroAI Consulting: Lebensläufe gehen unstrukturiert ein und werden manuell abgelegt; für eine Projektausschreibung werden sie von Hand gesichtet, mit den Anforderungen abgeglichen und als Personalvorschlag per Mail versendet.",
+    "kp_id": "KP-06",
+    "unternehmen": "NoroAI Consulting GmbH",
+    "betroffene_systeme_landschaft": [
+      "Bewerbungspostfach",
+      "Dokumentenablage",
+      "Outlook"
+    ],
+    "hauptschmerzpunkte": [
+      {
+        "beschreibung": "Lebensläufe liegen unstrukturiert als Dateien im Ordner",
+        "haeufigkeit": "jeder Eingang",
+        "auswirkung": "rund 20 Min Ablage- und Lesearbeit je Dokument"
+      },
+      {
+        "beschreibung": "Abgleich mit Projektanforderungen erfolgt vollständig von Hand",
+        "haeufigkeit": "jede Ausschreibung",
+        "auswirkung": "rund 3 Stunden je Ausschreibung"
+      },
+      {
+        "beschreibung": "Auswahl hängt an der Erinnerung einzelner Personen",
+        "haeufigkeit": "laufend",
+        "auswirkung": "passende Profile werden übersehen"
+      }
+    ]
+  },
+  "potenziale": [
+    {
+      "potenzial_id": "b3000000-0000-4000-8000-000000000001",
+      "titel": "Lebensläufe strukturiert erfassen und Kompetenzprofil aufbauen",
+      "rang": 1,
+      "betroffene_teilprozess_ids": [
+        "KP-06.TP-1"
+      ],
+      "betroffene_prozessschritte": [
+        "Lebenslauf entgegennehmen",
+        "Lebenslauf ablegen",
+        "Kompetenzen erfassen"
+      ],
+      "beschreibung": "Lebensläufe erreichen NoroAI heute unstrukturiert als PDF oder Word-Datei und werden von Hand in einem Ordner abgelegt. Wer später wissen will, wer welche Kompetenz hat, muss die Dateien einzeln öffnen. Es gibt keine einheitliche Erfassung von Fähigkeiten, Erfahrung und Verfügbarkeit. Automatisiert wird das Auslesen der Angaben und der Aufbau eines strukturierten Kompetenzprofils, nicht die Bewertung von Personen.\n\nErgebnis ist ein Profil je Person mit Kompetenzen, Erfahrungsjahren, Branchen, Sprachen und Verfügbarkeit, jeweils mit Belegstelle im Ausgangsdokument. Der Datenfluss läuft vom eingehenden Dokument über die Extraktion in das Profilregister.\n\nBeteiligte Rollen sind die Personalverantwortung als Pflegende, die betroffene Person als Auskunftsberechtigte und die Compliance-Rolle. Vorbedingung ist eine Einwilligung zur Verarbeitung. Sonderfälle: unklare oder widersprüchliche Angaben werden markiert statt geraten; die betroffene Person kann ihr Profil einsehen und korrigieren lassen; automatisierte Ableitungen über Eignung finden in diesem Schritt ausdrücklich nicht statt. Der Anwendungsfall fällt unter Anhang III der EU-KI-Verordnung, weil er Beschäftigung betrifft.",
+      "betroffene_systeme": [
+        {
+          "name": "Bewerbungspostfach",
+          "rolle": "Quelle",
+          "integration": "Email"
+        },
+        {
+          "name": "Dokumentenablage Lebensläufe",
+          "rolle": "Quelle",
+          "integration": "Datei"
+        },
+        {
+          "name": "Profilregister",
+          "rolle": "Ziel",
+          "integration": "DB"
+        }
+      ],
+      "manueller_aufwand_heute": "hoch",
+      "impact": "hoch",
+      "umsetzungskomplexitaet": "gering",
+      "value": {
+        "ist_kosten_eur_jahr": 12000.0,
+        "einsparung_eur_jahr": 9000.0,
+        "ersparnis_prozent": 75.0,
+        "investition_eur_richtwert": 6400.0,
+        "amortisation_monate": 8.5,
+        "value_quelle": "annahme",
+        "annahmen": [
+          "600 Lebensläufe im Jahr (Annahme, nicht erhoben)",
+          "Vollkostensatz 60 EUR/h (Annahme, nicht erhoben)",
+          "manuelle Zeit heute: 20 Min/Lebenslauf (Annahme, nicht gemessen)",
+          "angenommener Einsparungsgrad: 75 %",
+          "Umsetzungs-Tagessatz 800 EUR",
+          "VORLÄUFIG — Übergangslieferung, Gate 0 nicht durchlaufen"
+        ]
+      },
+      "aufwand_schaetzung_pt": 8,
+      "prioritaet_score": 75.0,
+      "kategorie": "Quick Win",
+      "potenzielle_loesung": {
+        "ansatz": "Textextraktion aus PDF und Word, LLM-gestützte Strukturierung in ein festes Profilschema, Belegstelle je Feld. Unsichere Felder werden markiert und der Personalverantwortung vorgelegt. Keine Bewertung, keine Rangfolge in diesem Schritt.",
+        "tech_stack_empfehlung": [
+          "n8n",
+          "Mistral Large",
+          "PostgreSQL",
+          "OCR-Service"
+        ],
+        "to_be_kurz": "Lebensläufe liegen als strukturiertes, belegtes Kompetenzprofil vor statt als PDF im Ordner."
+      },
+      "to_be_vision": "Ein eingehender Lebenslauf ist binnen Minuten als strukturiertes Profil verfügbar: Kompetenzen, Erfahrungsjahre, Branchen, Sprachen und Verfügbarkeit stehen in einheitlichen Feldern, und zu jedem Feld ist erkennbar, an welcher Stelle des Dokuments es steht. Die Personalverantwortung prüft nur noch die Felder, bei denen die Extraktion unsicher war, statt jedes Dokument vollständig zu lesen. Die betroffene Person kann ihr Profil einsehen und Korrekturen verlangen; jede Änderung bleibt nachvollziehbar. In diesem Schritt findet ausdrücklich keine Bewertung und keine Rangfolge statt: das Profil beschreibt, es beurteilt nicht. Verarbeitet wird nur mit vorliegender Einwilligung, und Profile ohne Weiterverwendung werden nach Ablauf der Aufbewahrungsfrist gelöscht. Damit ist die Grundlage für das Matching gelegt, ohne dass unterwegs eine Entscheidung über Menschen automatisiert wird.",
+      "fachliche_anforderungen": [
+        "PDF- und Word-Lebensläufe münden in dasselbe Profilschema.",
+        "Je Profilfeld wird die Belegstelle im Ausgangsdokument mitgeführt.",
+        "Unsichere oder widersprüchliche Angaben werden markiert, nicht geraten.",
+        "Die Verarbeitung setzt eine dokumentierte Einwilligung voraus.",
+        "Die betroffene Person kann ihr Profil einsehen und korrigieren lassen.",
+        "In diesem Schritt findet keine Bewertung und keine Rangfolge statt.",
+        "Profile werden nach Ablauf der Aufbewahrungsfrist gelöscht.",
+        "Jedes Profil trägt die Teilprozess-ID KP-06.TP-1."
+      ],
+      "akzeptanzkriterien_geschaeftlich": [
+        "Gegeben ein PDF-Lebenslauf mit Einwilligung, wenn er eingeht, dann liegt binnen fünf Minuten ein strukturiertes Profil vor.",
+        "Gegeben ein Lebenslauf ohne dokumentierte Einwilligung, wenn er eingeht, dann wird er nicht verarbeitet und der Vorgang wird gemeldet.",
+        "Gegeben eine unklare Angabe zur Erfahrungsdauer, wenn das Profil erzeugt wird, dann ist das Feld als unsicher markiert und leer statt geschätzt.",
+        "Gegeben ein erzeugtes Profil, wenn die betroffene Person Auskunft verlangt, dann ist das Profil vollständig mit Belegstellen ausgebbar.",
+        "Gegeben ein Profil nach Ablauf der Aufbewahrungsfrist, wenn der Löschlauf erfolgt, dann ist es entfernt und die Löschung protokolliert."
+      ],
+      "voraussetzungen": [
+        "Dokumentierte Einwilligung je Person",
+        "Festgelegtes Profilschema und Kompetenzkatalog",
+        "Aufbewahrungs- und Löschregel für Bewerberdaten",
+        "Pseudonymisierung vor der LLM-Grenze nach ADR-004"
+      ],
+      "risiken": [
+        {
+          "beschreibung": "Verarbeitung von Bewerberdaten fällt unter Anhang III der EU-KI-Verordnung",
+          "wahrscheinlichkeit": "high",
+          "auswirkung": "high",
+          "gegenmassnahme": "Keine Bewertung in diesem Schritt, Transparenzhinweis, Auskunfts- und Korrekturrecht"
+        },
+        {
+          "beschreibung": "Extraktionsfehler wirken sich später im Matching aus",
+          "wahrscheinlichkeit": "med",
+          "auswirkung": "med",
+          "gegenmassnahme": "Belegstelle je Feld, unsichere Felder leer lassen statt raten"
+        }
+      ]
+    },
+    {
+      "potenzial_id": "b3000000-0000-4000-8000-000000000002",
+      "titel": "Projektanforderung mit Profilen abgleichen und Vorschlagsliste erzeugen",
+      "rang": 2,
+      "betroffene_teilprozess_ids": [
+        "KP-06.TP-1"
+      ],
+      "betroffene_prozessschritte": [
+        "Projektausschreibung lesen",
+        "Profile sichten",
+        "Personalvorschlag zusammenstellen",
+        "Vorschlag versenden"
+      ],
+      "beschreibung": "Heute liest die Personalverantwortung die Projektausschreibung, sichtet die abgelegten Lebensläufe von Hand, gleicht Fähigkeiten und Erfahrung mit den Anforderungen ab, stellt einen Personalvorschlag zusammen und versendet ihn per Mail an das Team. Der Abgleich dauert Stunden und ist von der Tagesform und der Erinnerung an einzelne Personen abhängig. Automatisiert wird das Auffinden und Vorsortieren passender Profile, nicht die Auswahl.\n\nErgebnis ist eine begründete Vorschlagsliste: je Person die erfüllten und die fehlenden Anforderungen, jeweils mit Bezug auf das Profilfeld. Der Datenfluss geht von der Ausschreibung über die Strukturierung der Anforderungen und den Abgleich mit dem Profilregister in die Vorschlagsliste.\n\nBeteiligte Rollen sind die Personalverantwortung als Entscheidende, die Projektleitung als Anfordernde und die betroffenen Personen. Vorbedingung sind gefüllte Profile aus dem ersten Potenzial. Sonderfälle: erfüllt niemand die Anforderungen, wird das gesagt statt die Liste aufgefüllt; die Reihenfolge ist ein Vorschlag und keine Entscheidung; eine Ablehnung allein auf Basis der Liste ist ausgeschlossen. Der Anwendungsfall fällt unter Anhang III der EU-KI-Verordnung.",
+      "betroffene_systeme": [
+        {
+          "name": "Profilregister",
+          "rolle": "Quelle",
+          "integration": "DB"
+        },
+        {
+          "name": "Projektausschreibung",
+          "rolle": "Quelle",
+          "integration": "Datei"
+        },
+        {
+          "name": "Outlook",
+          "rolle": "Ziel",
+          "integration": "Email"
+        },
+        {
+          "name": "Entscheidungsprotokoll",
+          "rolle": "Ziel",
+          "integration": "DB"
+        }
+      ],
+      "manueller_aufwand_heute": "sehr hoch",
+      "impact": "sehr hoch",
+      "umsetzungskomplexitaet": "hoch",
+      "value": {
+        "ist_kosten_eur_jahr": 21600.0,
+        "einsparung_eur_jahr": 14040.0,
+        "ersparnis_prozent": 65.0,
+        "investition_eur_richtwert": 14400.0,
+        "amortisation_monate": 12.3,
+        "value_quelle": "annahme",
+        "annahmen": [
+          "120 Projektausschreibungen im Jahr (Annahme, nicht erhoben)",
+          "Vollkostensatz 60 EUR/h (Annahme, nicht erhoben)",
+          "manuelle Zeit heute: 180 Min/Ausschreibung (Annahme, nicht gemessen)",
+          "angenommener Einsparungsgrad: 65 %",
+          "Umsetzungs-Tagessatz 800 EUR",
+          "VORLÄUFIG — Übergangslieferung, Gate 0 nicht durchlaufen"
+        ]
+      },
+      "aufwand_schaetzung_pt": 18,
+      "prioritaet_score": 50.0,
+      "kategorie": "Strategisch",
+      "potenzielle_loesung": {
+        "ansatz": "Strukturierung der Anforderungen aus der Ausschreibung, regelbasierter Abgleich gegen den Kompetenzkatalog, Begründung je Person mit Bezug auf das Profilfeld. Das Ergebnis ist ein Vorschlag; die Auswahl trifft ein Mensch und wird protokolliert.",
+        "tech_stack_empfehlung": [
+          "n8n",
+          "Mistral Large",
+          "PostgreSQL"
+        ],
+        "to_be_kurz": "Passende Profile werden in Minuten vorgeschlagen und begründet; die Auswahl bleibt beim Menschen."
+      },
+      "to_be_vision": "Eine neue Projektausschreibung wird in ihre Anforderungen zerlegt, und binnen Minuten liegt eine Vorschlagsliste vor, in der zu jeder Person steht, welche Anforderungen sie erfüllt und welche nicht, jeweils mit Bezug auf das konkrete Profilfeld. Die Personalverantwortung liest damit eine begründete Grundlage statt einen Stapel Lebensläufe und kann sich auf die Entscheidung konzentrieren. Erfüllt niemand die Anforderungen, sagt das System genau das, statt die Liste mit unpassenden Vorschlägen aufzufüllen. Die Reihenfolge ist ausdrücklich ein Vorschlag: eine Absage oder Zusage allein auf dieser Grundlage ist ausgeschlossen, und jede getroffene Entscheidung wird mit Begründung protokolliert. Betroffene Personen können erfahren, dass ein solches Verfahren eingesetzt wird und auf welcher Datengrundlage es arbeitet. Das Matching sinkt von Stunden auf Minuten, ohne dass eine Entscheidung über Menschen an eine Maschine abgegeben wird.",
+      "fachliche_anforderungen": [
+        "Anforderungen werden aus der Ausschreibung strukturiert erfasst.",
+        "Je vorgeschlagener Person werden erfüllte und fehlende Anforderungen benannt.",
+        "Jede Aussage verweist auf das zugrunde liegende Profilfeld.",
+        "Erfüllt niemand die Anforderungen, wird die Liste nicht aufgefüllt.",
+        "Die Reihenfolge ist ein Vorschlag, keine Entscheidung.",
+        "Eine Ablehnung allein auf Basis der Liste ist technisch ausgeschlossen.",
+        "Jede Auswahlentscheidung wird mit Begründung protokolliert.",
+        "Betroffene werden über den Einsatz des Verfahrens informiert.",
+        "Jeder Vorgang trägt die Teilprozess-ID KP-06.TP-1."
+      ],
+      "akzeptanzkriterien_geschaeftlich": [
+        "Gegeben eine Ausschreibung mit klaren Anforderungen, wenn der Abgleich läuft, dann liegt binnen zehn Minuten eine begründete Vorschlagsliste vor.",
+        "Gegeben eine Person auf der Liste, wenn der Vorschlag geprüft wird, dann ist je Anforderung erkennbar, welches Profilfeld sie stützt.",
+        "Gegeben eine Ausschreibung, die niemand erfüllt, wenn der Abgleich läuft, dann bleibt die Liste leer und der Grund wird genannt.",
+        "Gegeben eine Vorschlagsliste, wenn eine Absage erteilt werden soll, dann ist dies ohne dokumentierte menschliche Entscheidung nicht möglich.",
+        "Gegeben eine getroffene Auswahl, wenn das Protokoll gelesen wird, dann sind Entscheidende, Zeitpunkt und Begründung nachvollziehbar.",
+        "Gegeben eine betroffene Person, wenn sie Auskunft verlangt, dann ist der Einsatz des Verfahrens und die Datengrundlage darstellbar."
+      ],
+      "voraussetzungen": [
+        "Gefüllte Profile aus Potenzial 1",
+        "Kompetenzkatalog mit definierten Ausprägungen",
+        "Transparenzhinweis für Betroffene nach EU-KI-Verordnung",
+        "Festgelegte Zuständigkeit für die Auswahlentscheidung"
+      ],
+      "risiken": [
+        {
+          "beschreibung": "Hochrisiko-Anwendung nach Anhang III der EU-KI-Verordnung (Beschäftigung)",
+          "wahrscheinlichkeit": "high",
+          "auswirkung": "high",
+          "gegenmassnahme": "Menschliche Entscheidung technisch erzwingen, Protokollpflicht, Transparenzhinweis, Auskunftsrecht"
+        },
+        {
+          "beschreibung": "Systematische Benachteiligung durch unvollständige Profile",
+          "wahrscheinlichkeit": "med",
+          "auswirkung": "high",
+          "gegenmassnahme": "Fehlende Felder als fehlend ausweisen, nicht als Nichterfüllung werten"
+        }
+      ]
+    }
+  ],
+  "gesamtempfehlung": {
+    "reihenfolge_potenzial_ids": [
+      "b3000000-0000-4000-8000-000000000001",
+      "b3000000-0000-4000-8000-000000000002"
+    ],
+    "begruendung": "Potenzial 1 zuerst: der Abgleich setzt strukturierte Profile voraus. Beide Potenziale fallen unter Anhang III der EU-KI-Verordnung; die menschliche Entscheidung ist deshalb in beiden Fällen Bestandteil der Anforderungen und nicht optional."
+  },
+  "gate1": {
+    "status": "pending",
+    "kommentar": "Zahlen sind Annahmen (value_quelle = annahme), noch nicht gerechnet. Gate 0 ist für KP-06.TP-1 nicht durchlaufen. Fällt unter Anhang III der EU-KI-Verordnung (Beschäftigung), die menschliche Entscheidung ist deshalb Anforderung und nicht Empfehlung."
+  }
+}
