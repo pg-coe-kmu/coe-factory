@@ -8,7 +8,7 @@
   "input": {
     "source_system": "GitHub",
     "repository": "pg-coe-kmu/coe-factory",
-    "source_file": "contracts/bc3 - bc4/mock/tickets.json",
+    "source_file": "contracts/bc3-to-bc4/mock/tickets.json",
     "project_short_name": "aurelia",
     "schema_version": "3.4",
     "gate2_status": "pending"
