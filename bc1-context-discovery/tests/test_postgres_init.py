@@ -52,3 +52,15 @@ def test_main_ohne_dsn_meldet_die_fehlende_variable(monkeypatch):
     monkeypatch.delenv("BC1_DB_DSN", raising=False)
     with pytest.raises(RuntimeError, match="BC1_DB_DSN"):
         importlib.import_module("bc1_service.main")
+
+
+# Fehlt die Mandanten-ID, soll der Dienst ebenso mit einer lesbaren Meldung
+# stehenbleiben — sonst liefe der Dienst ohne Mandanten-Bindung an, und jede
+# Session würde stillschweigend mandantenlos gespeichert.
+def test_main_ohne_company_id_meldet_die_fehlende_variable(monkeypatch):
+    import importlib
+
+    monkeypatch.setenv("BC1_DB_DSN", "postgresql://egal/egal")
+    monkeypatch.delenv("BC1_COMPANY_ID", raising=False)
+    with pytest.raises(RuntimeError, match="BC1_COMPANY_ID"):
+        importlib.import_module("bc1_service.main")

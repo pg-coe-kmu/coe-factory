@@ -1,13 +1,24 @@
 import threading
 from contextlib import asynccontextmanager
+from dataclasses import replace
 
 from fastapi.testclient import TestClient
 
 from bc1_core.llm import ExtractionCandidate, FakeLLM
-from bc1_core.package import TOY_PROZESS
+from bc1_core.package import FieldSpec, TOY_PROZESS, UseCasePackage
 from bc1_core.store import InMemoryStateStore, StaleStateError
 from bc1_core.types import SessionState, SessionStatus
-from bc1_service.api import create_app
+from bc1_service.api import ABBRUCH_TEXT, create_app
+
+MANDANT = "11111111-1111-1111-1111-111111111111"
+MANDANT_B = "22222222-2222-2222-2222-222222222222"
+
+IDENT_PAKET = UseCasePackage(
+    name="ident_test", schema_version="1.1+ctx-aaaaaaaaaaaaaaaa", max_rounds=2,
+    fields=(FieldSpec("tp_id", "Welcher Schritt?",
+                      validator=lambda v: v == "KP-01.TP-1",
+                      identitaetskritisch=True),),
+)
 
 
 def _fake_llm() -> FakeLLM:
@@ -31,7 +42,8 @@ class ExplodierendesLLM(FakeLLM):
 
 def _client(llm=None, store=None) -> TestClient:
     return TestClient(create_app(store or InMemoryStateStore(),
-                                 llm or _fake_llm(), TOY_PROZESS))
+                                 llm or _fake_llm(), TOY_PROZESS,
+                                 company_id=MANDANT))
 
 
 def _turn(client, mid, text, session="s1", **extra):
@@ -110,7 +122,8 @@ def test_llm_ausfall_gibt_vertragsantwort_mit_status_200():
 
 def test_paket_guard_gibt_409_mit_stabilem_detail():
     store = InMemoryStateStore()
-    store.save(SessionState("s9", "9.9", paket_name="fremdes_paket"))
+    store.save(SessionState("s9", "9.9", paket_name="fremdes_paket",
+                            company_id=MANDANT))
     antwort = _turn(_client(store=store), "m1", "Hallo", session="s9")
     assert antwort.status_code == 409
     # Stabiler Schlüssel statt Exception-Text: der Chat bekommt keine
@@ -153,6 +166,7 @@ def test_bekannter_unbeantworteter_turn_passiert_das_gate():
     store.save(SessionState(
         "s1", "0.1", paket_name="toy_prozess", status=SessionStatus.FERTIG,
         processed_message_ids={"mx"}, raw_log=[("mx", "hallo")],
+        company_id=MANDANT,
     ))
     antwort = _turn(_client(store=store), "mx", "hallo")
     assert antwort.status_code == 200
@@ -183,7 +197,7 @@ class _BarrierenLLM(FakeLLM):
 
 def test_nebenlaeufige_turns_derselben_session_serialisiert():
     store = InMemoryStateStore()
-    app = create_app(store, _BarrierenLLM(), TOY_PROZESS)
+    app = create_app(store, _BarrierenLLM(), TOY_PROZESS, company_id=MANDANT)
     ergebnisse: dict[str, object] = {}
 
     def sende(mid: str) -> None:
@@ -224,7 +238,7 @@ def test_lifespan_wird_durchgereicht():
         zustand["laeuft"] = False
 
     app = create_app(InMemoryStateStore(), _fake_llm(), TOY_PROZESS,
-                     lifespan=_lifespan)
+                     lifespan=_lifespan, company_id=MANDANT)
     with TestClient(app):
         assert zustand["laeuft"]
     assert not zustand["laeuft"]
@@ -241,6 +255,7 @@ def test_replay_legacy_frage_antwort_ohne_zaehler_liefert_chat_text_ohne_fortsch
         antworten={"m1": {"status": "frage", "payload": {
             "naechste_frage": "Wie heißt der Prozess?", "feld": "prozess_name",
         }}},
+        company_id=MANDANT,
     ))
     antwort = _turn(_client(store=store), "m1", "hallo")
     assert antwort.status_code == 200
@@ -261,9 +276,114 @@ def test_replay_legacy_fertig_antwort_ohne_abschluss_text_liefert_fallback():
             "felder": {}, "vollstaendigkeit": 1.0, "ungeloeste_felder": [],
             "schema_version": "0.1",
         }}},
+        company_id=MANDANT,
     ))
     antwort = _turn(_client(store=store), "m1", "hallo")
     assert antwort.status_code == 200
     daten = antwort.json()
     assert daten["chat_text"] == "Danke! Das Interview ist abgeschlossen."
     assert "✓" not in daten["chat_text"]
+
+
+def test_abbruch_liefert_200_mit_festem_text():
+    client = TestClient(create_app(InMemoryStateStore(), FakeLLM(), IDENT_PAKET,
+                                   company_id=MANDANT))
+    _turn(client, "m1", "keine ahnung")
+    antwort = _turn(client, "m2", "immer noch nicht")
+    assert antwort.status_code == 200
+    assert antwort.json()["status"] == "abgebrochen_ohne_identitaet"
+    assert antwort.json()["chat_text"] == ABBRUCH_TEXT
+
+
+def test_neue_nachricht_nach_abbruch_wird_abgewiesen():
+    client = TestClient(create_app(InMemoryStateStore(), FakeLLM(), IDENT_PAKET,
+                                   company_id=MANDANT))
+    _turn(client, "m1", "a")
+    _turn(client, "m2", "b")
+    assert _turn(client, "m3", "c").status_code == 409
+
+
+def test_abbruch_replay_liefert_dieselbe_antwort():
+    client = TestClient(create_app(InMemoryStateStore(), FakeLLM(), IDENT_PAKET,
+                                   company_id=MANDANT))
+    _turn(client, "m1", "a")
+    erst = _turn(client, "m2", "b").json()
+    assert _turn(client, "m2", "b").json() == erst
+
+
+def test_fremder_mandant_bekommt_409_mandant_konflikt():
+    store = InMemoryStateStore()
+    store.save(SessionState("s1", "0.1", paket_name="toy_prozess",
+                            company_id=MANDANT_B))
+    client = TestClient(create_app(store, _fake_llm(), TOY_PROZESS,
+                                   company_id=MANDANT))
+    antwort = _turn(client, "m1", "hallo")
+    assert antwort.status_code == 409
+    assert antwort.json()["detail"] == "mandant_konflikt"
+
+
+def test_fremder_mandant_hat_vorrang_vor_schema_pruefung():
+    # Pinnt die Reihenfolge (R12-I1): laeuft der Schema-Check vor dem
+    # Mandanten-Guard, bekaeme ein fremder Mandant hier "schema_version_passt_
+    # nicht" statt "mandant_konflikt" — ein schwaecheres Orakel.
+    store = InMemoryStateStore()
+    store.save(SessionState("s1", "0.1", paket_name="toy_prozess",
+                            company_id=MANDANT_B))
+    client = TestClient(create_app(store, _fake_llm(), TOY_PROZESS,
+                                   company_id=MANDANT))
+    antwort = _turn(client, "m1", "hallo", schema_version="99.9")
+    assert antwort.status_code == 409
+    assert antwort.json()["detail"] == "mandant_konflikt"
+
+
+def test_fremder_mandant_wird_auch_bei_terminaler_session_abgewiesen():
+    # Spec K4: A->B muss aktiv UND terminal greifen — ausdruecklich auch ohne
+    # bestehende Profil-Bindung (R12-I1).
+    store = InMemoryStateStore()
+    store.save(SessionState("s1", "0.1", paket_name="toy_prozess",
+                            company_id=MANDANT_B, status=SessionStatus.FERTIG,
+                            processed_message_ids={"m1"}, raw_log=[("m1", "hallo")],
+                            antworten={"m1": {"status": "fertig", "payload": {}}}))
+    client = TestClient(create_app(store, _fake_llm(), TOY_PROZESS,
+                                   company_id=MANDANT))
+    for mid in ("m1", "m2"):                       # Replay UND neue Nachricht
+        antwort = _turn(client, mid, "hallo")
+        assert antwort.status_code == 409
+        assert antwort.json()["detail"] == "mandant_konflikt"
+
+
+def test_alt_session_ohne_company_id_bekommt_409():
+    store = InMemoryStateStore()
+    store.save(SessionState("s1", "0.1", paket_name="toy_prozess",
+                            status=SessionStatus.FERTIG,
+                            processed_message_ids={"m1"}, raw_log=[("m1", "hallo")],
+                            antworten={"m1": {"status": "fertig", "payload": {}}}))
+    client = TestClient(create_app(store, _fake_llm(), TOY_PROZESS,
+                                   company_id=MANDANT))
+    assert _turn(client, "m1", "hallo").status_code == 409
+
+
+def test_recovery_replay_mit_alter_schema_version_geht_durch():
+    store = InMemoryStateStore()
+    llm = FakeLLM()
+    client_alt = TestClient(create_app(store, llm, IDENT_PAKET, company_id=MANDANT))
+    _turn(client_alt, "m1", "a")
+    erst = _turn(client_alt, "m2", "b").json()
+
+    neues_paket = replace(IDENT_PAKET, schema_version="1.1+ctx-bbbbbbbbbbbbbbbb")
+    client_neu = TestClient(create_app(store, llm, neues_paket, company_id=MANDANT))
+    antwort = _turn(client_neu, "m2", "b", schema_version="1.1+ctx-aaaaaaaaaaaaaaaa")
+    assert antwort.status_code == 200
+    assert antwort.json()["status"] == erst["status"]
+
+
+def test_recovery_replay_mit_falscher_schema_version_bleibt_409():
+    store = InMemoryStateStore()
+    llm = FakeLLM()
+    client_alt = TestClient(create_app(store, llm, IDENT_PAKET, company_id=MANDANT))
+    _turn(client_alt, "m1", "a")
+    _turn(client_alt, "m2", "b")
+    neues_paket = replace(IDENT_PAKET, schema_version="1.1+ctx-bbbbbbbbbbbbbbbb")
+    client_neu = TestClient(create_app(store, llm, neues_paket, company_id=MANDANT))
+    antwort = _turn(client_neu, "m2", "b", schema_version="1.1+ctx-cccccccccccccccc")
+    assert antwort.status_code == 409

@@ -1,6 +1,6 @@
 """Produktions-Verdrahtung: uvicorn bc1_service.main:app
 
-Pflicht: BC1_DB_DSN. Optional: BC1_SNAPSHOT_PFAD (BC0-Baseline), BC1_CLAUDE_MODELL,
+Pflicht: BC1_DB_DSN, BC1_COMPANY_ID. Optional: BC1_SNAPSHOT_PFAD (BC0-Baseline), BC1_CLAUDE_MODELL,
 ANTHROPIC_API_KEY (liest das SDK selbst), BC1_LLM ("claude" | "ollama" | "gemini",
 Default claude — ollama = lokaler Test-/Dev-Ersatz ohne API-Key; gemini = Gemini API,
 braucht GEMINI_API_KEY), BC1_OLLAMA_MODELL, BC1_GEMINI_MODELL,
@@ -25,6 +25,14 @@ if not _dsn:
         'export BC1_DB_DSN="postgresql://user:pass@host:5432/datenbank"'
     )
 
+_company_id = os.environ.get("BC1_COMPANY_ID", "").strip()
+if not _company_id:
+    raise RuntimeError(
+        "BC1_COMPANY_ID ist nicht gesetzt — ohne Mandanten-ID kann der Dienst "
+        "keine Sessions einem Mandanten zuordnen. Beispiel: "
+        'export BC1_COMPANY_ID="<mandanten-id>"'
+    )
+
 _snapshot_pfad = os.environ.get("BC1_SNAPSHOT_PFAD")
 _snapshot = lade_snapshot(_snapshot_pfad) if _snapshot_pfad else None
 _prozesse = (
@@ -47,4 +55,5 @@ app = create_app(
     waehle_paket(os.environ, _prozesse),
     _snapshot,
     lifespan=_lebenszyklus,
+    company_id=_company_id,
 )
