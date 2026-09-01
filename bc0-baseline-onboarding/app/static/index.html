@@ -227,8 +227,57 @@ table{width:100%;border-collapse:collapse;font-size:12.6px}th,td{border:1px soli
 .agblock .formgrid{margin-bottom:10px}
 #pd_wz input,#pd_ts input,#pd_wz select{width:100%;padding:5px 7px;font-size:12.5px}
 #pd_wz td,#pd_ts td{padding:4px 5px}
+
+/* --- Startseite mit zwei Kacheln (28.08.2026) -------------------------
+   Zwei verschiedene Menschen, zwei verschiedene Anliegen: Der Anfragende
+   bringt ein Problem und fuenf Minuten mit, der Erhebende Prozesswissen
+   und Tage. Bis heute landeten beide in derselben Mandantenliste — fuer
+   den zweiten richtig, fuer den ersten eine Zumutung. */
+.kacheln{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;max-width:900px}
+.kachel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 22px 20px;
+        cursor:pointer;transition:box-shadow .15s,transform .15s;display:flex;flex-direction:column;gap:8px}
+.kachel:hover{box-shadow:0 8px 26px #0002;transform:translateY(-2px)}
+.kachel:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.kachel .sym{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+             color:#fff;font-size:22px;margin-bottom:4px}
+.kachel h2{margin:0;font-size:17px}
+.kachel .wer{font-size:12.5px;color:var(--muted);line-height:1.5}
+.kachel .dauer{margin-top:auto;padding-top:10px;font-size:11.5px;color:var(--muted);border-top:1px solid var(--line)}
+
+/* --- Anfragemaske ----------------------------------------------------- */
+#anf .formgrid .full{grid-column:1/-1}
+#anf textarea{width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--line);
+              border-radius:8px;font:inherit;font-size:13.5px;line-height:1.5}
+.anfzeile{border:1px solid var(--line);border-radius:9px;padding:11px 13px;margin-bottom:8px;background:#fcfdfe}
+.anfzeile .kopf{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.anfzeile .aid{font-weight:700;font-size:13.5px}
+.stpill{font-size:11px;padding:2px 9px;border-radius:999px;background:#eef2f6;color:#41546b;font-weight:600}
+.stpill.eingegangen{background:#fdf3e0;color:#8a6100}
+.stpill.erledigt{background:#e7f6ec;color:#1f7a42}
+.stpill.abgelehnt{background:#fbeaea;color:#a33}
+.ohnebezug{font-size:11.5px;color:#8a6100;background:#fdf8ee;border-left:3px solid #e0a83c;
+           padding:6px 10px;border-radius:0 6px 6px 0;margin-top:8px}
 </style></head><body>
 <!-- Anmeldemaske. Ohne gueltige Sitzung liegt sie ueber allem anderen. -->
+<!-- Passwortwechsel (28.08.2026, ToDo 24). Der Endpunkt POST /api/auth/me/passwort
+     gibt es seit dem 10.08. und ist getestet — es fehlte allein die Schaltflaeche.
+     Die Kurzanleitung wies seit dem 17.08. an, das Passwort "oben rechts unter
+     deinem Namen" zu aendern; mit dieser Anleitung sind zwoelf Konten verteilt
+     worden. Der Weg gab es nie. -->
+<div class="gate" id="pwGate"><div class="box">
+  <h2>Passwort ändern</h2>
+  <p class="mut">Mindestens 12 Zeichen. <b>Alle offenen Sitzungen werden beendet</b> — auch diese;
+   Sie müssen sich danach neu anmelden.</p>
+  <form id="pwForm" autocomplete="off">
+    <label for="pwNeu">Neues Passwort</label>
+    <input type="password" id="pwNeu" autocomplete="new-password" required>
+    <label for="pwNeu2">Noch einmal</label>
+    <input type="password" id="pwNeu2" autocomplete="new-password" required>
+    <button class="btn" type="submit" id="pwBtn">Ändern</button>
+    <button class="btn sec" type="button" id="pwAbbruch" style="width:100%;margin-top:8px">Abbrechen</button>
+    <div class="err" id="pwErr"></div>
+  </form>
+</div></div>
 <div class="gate" id="gate"><div class="box">
   <h2>BC0 Onboarding-Tool</h2>
   <p class="mut" id="gateHint">Bitte anmelden.</p>
@@ -243,7 +292,7 @@ table{width:100%;border-collapse:collapse;font-size:12.6px}th,td{border:1px soli
 </div></div>
 <div class="topbar"><div class="logo">NoroAI · BC0 Onboarding-Tool</div><div class="sub" id="backendLabel">FastAPI · Backend wird geprüft …</div>
 <div class="tsel" id="tsel" style="display:none">Mandant: <select id="tswitch"></select></div>
-<div class="who" id="who" style="display:none"><span id="whoName"></span><span class="rolle" id="whoRolle"></span><a id="logoutLink">Abmelden</a></div></div>
+<div class="who" id="who" style="display:none"><span id="whoName"></span><span class="rolle" id="whoRolle"></span><a id="pwLink">Passwort ändern</a><a id="logoutLink">Abmelden</a></div></div>
 <div class="main">
 <!-- Die Reiter sind nach dem ARBEITSWEG gruppiert, nicht alphabetisch und nicht nach
      Entstehungsdatum: Stammdaten -> Erhebung -> Ergebnis -> Übergabe. Vorher standen
@@ -318,7 +367,28 @@ table{width:100%;border-collapse:collapse;font-size:12.6px}th,td{border:1px soli
 </div>
 </nav><h4>&nbsp;</h4><div class="nav"><a onclick="goList()"><span class="dot" style="background:#c9ccd1"></span>‹ Alle Mandanten</a></div></aside>
 <div class="content">
- <section class="view active" id="list"><div class="crumb">BC0 · Mandanten</div><h1>Mandanten</h1><p class="lead">Zentrale Projekt-Datenbank. Neuen Mandanten onboarden oder bestehenden öffnen.</p>
+ <!-- Startseite. Steht VOR der Mandantenliste, weil die Liste eine Antwort auf
+      eine Frage ist, die der Anfragende gar nicht gestellt hat: "welcher Mandant?" -->
+ <section class="view active" id="start"><div class="crumb">BC0</div><h1>Was möchten Sie tun?</h1>
+  <p class="lead">Zwei Wege. Der eine dauert fünf Minuten, der andere begleitet ein Unternehmen über Wochen.</p>
+  <div class="kacheln">
+   <div class="kachel" id="kachelAnfrage" tabindex="0" role="button">
+    <div class="sym" style="background:#C77C3C">&#9998;</div>
+    <h2>Anfrage an das CoE</h2>
+    <div class="wer">Sie haben ein Anliegen — etwas dauert zu lange, geht zu oft schief oder
+     bindet zu viele Menschen. Sie beschreiben es in eigenen Worten. Alles Weitere klärt das CoE.</div>
+    <div class="dauer">Etwa fünf Minuten · keine Vorkenntnisse nötig</div>
+   </div>
+   <div class="kachel" id="kachelOnboarding" tabindex="0" role="button">
+    <div class="sym" style="background:#3B6EA5">&#9636;</div>
+    <h2>Onboarding</h2>
+    <div class="wer">Sie nehmen eine Baseline auf: Prozesslandkarte, Personen und Systeme,
+     30 Bitkom-Items je Teilprozess, Reifegradbericht und Freigabe.</div>
+    <div class="dauer">Stunden bis Tage · die bisherige Arbeitsansicht</div>
+   </div>
+  </div></section>
+ <section class="view" id="anf"></section>
+ <section class="view" id="list"><div class="crumb" onclick="goStart()" style="cursor:pointer">&lsaquo; Start</div><h1>Mandanten</h1><p class="lead">Zentrale Projekt-Datenbank. Neuen Mandanten onboarden oder bestehenden öffnen.</p>
   <div class="toolbar"><input class="search" id="q" placeholder="Suchen …"><button class="btn sec" id="yamlBtn" style="margin-left:auto">Aus YAML importieren</button><button class="btn" id="newBtn">+ Neuer Mandant</button><input type="file" id="yamlFile" accept=".yaml,.yml" style="display:none"></div>
   <div class="grid" id="coGrid"></div></section>
  <section class="view" id="wizard"><div class="crumb" onclick="goList()" style="cursor:pointer">‹ Mandanten</div><h1>Neuen Mandanten onboarden</h1>
@@ -473,6 +543,58 @@ $('loginForm').onsubmit=async function(ev){
   finally{ knopf.disabled=false; }
 };
 
+/* ---- Passwortwechsel (28.08.2026, ToDo 24) --------------------------------
+   Die Fachschicht war nie das Problem: `POST /api/auth/me/passwort` existiert
+   seit dem 10.08., prueft die Mindestlaenge und ist in `test_auth.py`
+   abgedeckt. Es fehlte allein die Schaltflaeche — und die Kurzanleitung
+   beschrieb den Weg trotzdem. Zwoelf Konten sind mit dieser Anleitung
+   verteilt worden.
+
+   Zwei Felder, obwohl der Server nur eines nimmt: Der Wechsel beendet ALLE
+   Sitzungen. Ein Tippfehler im einzigen Feld wuerde den Benutzer aus seinem
+   eigenen Konto aussperren — mit einem Passwort, das nur er kennt und das er
+   nie gesehen hat. Der Abgleich ist deshalb keine Bequemlichkeit, sondern das,
+   was diesen Fall verhindert.
+
+   Das alte Passwort wird nicht abgefragt. Das ist eine bewusste Setzung des
+   Endpunkts (siehe `PasswortDaten` in bc0_auth/routen.py): Der Wechsel setzt
+   eine gueltige Sitzung voraus und aendert ausschliesslich das eigene Konto. */
+function zeigePwMaske(){
+  $('pwNeu').value=''; $('pwNeu2').value=''; $('pwErr').textContent='';
+  $('pwGate').classList.add('on');
+  setTimeout(function(){ $('pwNeu').focus(); }, 50);
+}
+function verbergePwMaske(){ $('pwGate').classList.remove('on'); $('pwNeu').value=''; $('pwNeu2').value=''; }
+
+$('pwLink').onclick=zeigePwMaske;
+$('pwAbbruch').onclick=verbergePwMaske;
+/* Escape schliesst die Maske. Ohne sie waere ein versehentlicher Klick auf
+   "Passwort aendern" nur ueber "Abbrechen" wieder loszuwerden — die Maske
+   liegt ueber allem. */
+$('pwGate').onkeydown=function(ev){ if(ev.key==='Escape') verbergePwMaske(); };
+
+$('pwForm').onsubmit=async function(ev){
+  ev.preventDefault();
+  var a=$('pwNeu').value, b=$('pwNeu2').value;
+  $('pwErr').textContent='';
+  if(a!==b){ $('pwErr').textContent='Die beiden Eingaben sind nicht gleich.'; $('pwNeu2').focus(); return; }
+  if(a.length<12){ $('pwErr').textContent='Mindestens 12 Zeichen.'; $('pwNeu').focus(); return; }
+  var knopf=$('pwBtn'); knopf.disabled=true;
+  try{
+    var r=await fetch('/api/auth/me/passwort',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({neues_passwort:a})});
+    var daten=await r.json();
+    if(!r.ok){ $('pwErr').textContent=daten.detail||'Der Wechsel ist fehlgeschlagen.'; return; }
+    /* Die Sitzung ist jetzt tot — auch diese. Nicht weiterarbeiten lassen und
+       auf den ersten 401 warten, sondern sofort auf die Anmeldung zurueck. */
+    verbergePwMaske();
+    BENUTZER=null; cur=null; META=null;
+    $('side').style.display='none'; $('tsel').style.display='none';
+    zeigeAnmeldung('Passwort geändert. Bitte mit dem neuen Passwort anmelden.');
+  }catch(e){ $('pwErr').textContent='Der Server ist nicht erreichbar.'; }
+  finally{ knopf.disabled=false; }
+};
+
 $('logoutLink').onclick=async function(){
   try{ await fetch('/api/auth/logout',{method:'POST'}); }catch(e){}
   BENUTZER=null; cur=null; META=null;
@@ -481,7 +603,20 @@ $('logoutLink').onclick=async function(){
 };
 
 /* Laedt die eigentliche Anwendung — erst nach bestaetigter Anmeldung. */
-async function starteAnwendung(){META=await api('/api/meta');setBackendLabel();show('list');await renderList();}
+/* Einstieg nach der Anmeldung ist seit dem 28.08.2026 die Startseite, nicht
+   mehr die Mandantenliste. Die Liste beantwortet die Frage "welcher Mandant?"
+   — der Anfragende hat sie nie gestellt. Die Liste bleibt unveraendert
+   erreichbar, sie ist nur nicht mehr das Erste, was jeder sieht. */
+async function starteAnwendung(){META=await api('/api/meta');setBackendLabel();goStart();}
+
+function goStart(){cur=null;WS_ZIEL=null;$('side').style.display='none';$('tsel').style.display='none';show('start');}
+$('kachelOnboarding').onclick=goList;
+$('kachelAnfrage').onclick=goAnfrage;
+/* Mit der Tastatur bedienbar: Die Kacheln sind div, kein button — ohne diese
+   Zeilen waeren sie fuer jeden, der nicht mit der Maus arbeitet, tot. */
+['kachelOnboarding','kachelAnfrage'].forEach(function(id){
+  $(id).onkeydown=function(ev){ if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();$(id).click();} };
+});
 
 /* Einstieg. Fragt zuerst, ob eine Sitzung besteht; die Anwendung wird nur
    geladen, wenn ja. Der zusaetzliche Zustand `eingerichtet` faengt den
@@ -501,7 +636,17 @@ async function boot(){
 /* Klarname eines Kernprozesses aus seiner ID. "KP-03" -> Index 2 in der
    Vorlage. Fällt auf die ID zurück, wenn die Vorlage sie nicht kennt — ein
    Mandant kann Prozesse tragen, die nicht aus der Vorlage stammen. */
-function kpName(pid){var i=parseInt(pid.split('-')[1],10)-1;return META.kp_template[i]||pid;}
+/* Der Name eines Kernprozesses steht im BESTAND, nicht in der Vorlage.
+   Bis zum 27.08.2026 wurde er ueber META.kp_template[i] nachgeschlagen. Das
+   war doppelt falsch: Ein umbenannter KP-03 zeigte weiter den Vorlagennamen,
+   und ein elfter Kernprozess haette gar keinen gehabt. Die Vorlage bleibt
+   Rueckfall fuer Stellen, an denen `cur` noch nicht geladen ist. */
+function kpName(pid){
+  var p = (typeof cur === 'object' && cur && cur.processes) ? cur.processes[pid] : null;
+  if (p && p.process_name) return p.process_name;
+  var i = parseInt(pid.split('-')[1], 10) - 1;
+  return (META.kp_template && META.kp_template[i]) || pid;
+}
 
 /* ---- Mandantenliste -------------------------------------------------------
    Die Einstiegsansicht. Der Server liefert nur die Mandanten, die der
@@ -530,6 +675,179 @@ $('q').oninput=renderList;
 $("yamlBtn")&&($("yamlBtn").onclick=function(){$("yamlFile").click();});
 $("yamlFile")&&($("yamlFile").onchange=async function(e){var fl=e.target.files[0];if(!fl)return;var txt=await fl.text();try{var r=await api2("/api/import_yaml",txt);toast("✓ YAML importiert: "+r.prozesse+" Prozesse, "+r.bewertungen+" Bewertungen.");openTenant(r.id);}catch(err){toast("Import-Fehler: "+err.detail,true);}e.target.value="";});
 function goList(){cur=null;WS_ZIEL=null;$('side').style.display='none';$('tsel').style.display='none';show('list');renderList();}
+
+/* ---- Anfrage an das CoE (28.08.2026) --------------------------------------
+   Bis heute entstand eine Anfrage nur in Gate 0 — einem Reiter, der fuer
+   Nicht-Admins ausgeblendet ist. Wer etwas wollte, schrieb eine Mail, und
+   damit begann die Kette ausserhalb des Modells. Diese Maske ist der belegte
+   Anfang: Sie schreibt nach `ref_anfragen`, und `ref_anfragen` ist seit dem
+   27.08. der Trigger fuer BC1.
+
+   Das Raster fuer die Felder: WAS WEISS NUR DER ANFRAGENDE, UND WAS FRAGT
+   SPAETER NIEMAND MEHR NACH? Alles andere gehoert in die Arbeit von BC1 bis
+   BC4 und nicht in dieses Formular. Deshalb hier ausdruecklich NICHT:
+   Loesungsvorschlaege (verengen vor der Analyse), ein Self-Rating (Reifegrad
+   ist Erhebung, nicht Anfrage) und Zeitmessungen (erhebt BC1, mit Guete). */
+var ANF = {cid:null, prozesse:{}, personen:[]};
+
+async function goAnfrage(){
+  cur=null; WS_ZIEL=null;
+  $('side').style.display='none'; $('tsel').style.display='none';
+  show('anf');
+  await renderAnf();
+}
+
+async function renderAnf(){
+  $('anf').innerHTML='<div class="crumb" onclick="goStart()" style="cursor:pointer">&lsaquo; Start</div>'
+    +'<h1>Anfrage an das CoE</h1>'
+    +'<p class="lead">Beschreiben Sie Ihr Anliegen in eigenen Worten. Fünf Minuten reichen.</p>'
+    +'<div id="anfBody" class="mut">Lade …</div>';
+  var list=[];
+  try{ list=await api('/api/companies'); }
+  catch(e){ $('anfBody').innerHTML='<div class="panel mut">Die Mandanten konnten nicht geladen werden.</div>'; return; }
+  if(!list.length){
+    $('anfBody').innerHTML='<div class="panel mut">Ihnen ist derzeit kein Mandant zugeordnet. '
+      +'Eine Anfrage braucht ein Unternehmen, zu dem sie gehört — ein Administrator kann das einrichten.</div>';
+    return;
+  }
+  var da=false; for(var i=0;i<list.length;i++) if(String(list[i].id)===String(ANF.cid)) da=true;
+  if(!da) ANF.cid=list[0].id;
+  await zeichneAnfrage(list);
+}
+
+async function zeichneAnfrage(list){
+  var daten=await api('/api/companies/'+ANF.cid);
+  ANF.prozesse=daten.processes||{};
+  /* Die Personen kommen aus dem Register, nicht aus einem Namensfeld: In
+     `ref_anfragen` steht nach ADR-004 R5 kein Klarname, sondern eine ID. */
+  ANF.personen=[];
+  try{ var e=await api('/api/companies/'+ANF.cid+'/entitaeten');
+       ANF.personen=(e.personen||[]).filter(function(x){return x.aktiv;}); }catch(err){}
+
+  var mopt=list.map(function(t){return '<option value="'+esc(String(t.id))+'"'
+    +(String(t.id)===String(ANF.cid)?' selected':'')+'>'+esc(t.name)+'</option>';}).join('');
+  /* Der erste Eintrag ist bewusst "weiß ich nicht" und nicht der erste
+     Kernprozess: Ein Fachbereichsmensch, der auf gut Glück etwas anklickt, ist
+     schlechter als ein leeres Feld — dann läuft ein vollständiges Interview
+     auf dem falschen Prozess, und es fällt erst am Gate auf. */
+  var kopt='<option value="">— weiß ich nicht —</option>'
+    +Object.keys(ANF.prozesse).sort().map(function(pid){
+       return '<option value="'+pid+'">'+pid+' — '+esc(ANF.prozesse[pid].process_name||'')+'</option>';}).join('');
+  var popt='<option value="">— keine Angabe —</option>'
+    +ANF.personen.map(function(pp){return '<option value="'+esc(pp.person_id)+'">'
+       +esc(pp.person_id)+' · '+esc(pp.name||'')+'</option>';}).join('');
+
+  $('anfBody').innerHTML=
+    '<div class="panel">'
+    +(list.length>1 ? '<div class="row"><div style="min-width:280px"><label>Unternehmen</label>'
+        +'<select id="anfCo">'+mopt+'</select></div></div>' : '')
+    +'<div class="formgrid" style="margin-top:6px">'
+    +'<div class="full"><label>Worum geht es? <span class="reqstar">*</span></label>'
+    +'<textarea id="anfText" rows="5" placeholder="z. B. Die Reisebuchung läuft über drei Mails und eine Excel-Liste. Jeder macht es anders, und am Monatsende fehlt immer etwas."></textarea>'
+    +'<div class="mut" style="font-size:11px;margin-top:3px">Ihr Wortlaut wird <b>nie verändert</b> — '
+    +'weder gekürzt noch umformuliert. Nur so lässt sich am Ende prüfen, ob die Empfehlung Ihre Frage beantwortet.</div></div>'
+
+    +'<div class="full"><label>Was soll dabei herauskommen?</label>'
+    +'<textarea id="anfZiel" rows="2" placeholder="z. B. Ich will die Reisekostenabrechnung nicht mehr am Wochenende machen."></textarea>'
+    +'<div class="mut" style="font-size:11px;margin-top:3px">Ihr Text oben beschreibt fast immer das <i>Problem</i>. '
+    +'Woran am Ende gemessen wird, ob wir geliefert haben, steht selten darin — und niemand fragt später danach.</div></div>'
+
+    +'<div class="full"><label>Warum jetzt?</label>'
+    +'<input id="anfAusl" placeholder="z. B. Die Kollegin, die es bisher gemacht hat, geht Ende September.">'
+    +'<div class="mut" style="font-size:11px;margin-top:3px">Erklärt die Dringlichkeit besser als jede Prioritätsstufe — '
+    +'und ist in vier Wochen nicht mehr rekonstruierbar.</div></div>'
+
+    +'<div class="full"><label>Größenordnung <span class="mut">— geschätzt</span></label>'
+    +'<input id="anfUmf" placeholder="z. B. etwa zwölf Leute, jeden Monatsanfang">'
+    +'<div class="mut" style="font-size:11px;margin-top:3px">Nur als Anhaltspunkt für die Reihenfolge. '
+    +'<b>Keine Messung</b> — Häufigkeit und Dauer erhebt das Interview später, mit Gütegrad.</div></div>'
+
+    +'<div><label>Welcher Prozess ist betroffen?</label><select id="anfKp">'+kopt+'</select></div>'
+    +'<div><label>Welcher Schritt darin?</label><select id="anfTp" disabled><option value="">—</option></select></div>'
+    +'<div class="full" id="anfWeiss"></div>'
+    +'<div><label>Wer fragt?</label><select id="anfPer">'+popt+'</select></div>'
+    +'</div>'
+    +'<div class="actionbar" style="margin-top:14px"><button class="btn" id="anfSend">Anfrage absenden</button>'
+    +'<span class="mut" id="anfHint"></span></div></div>'
+    +'<div class="panel" style="margin-top:16px"><b>Bisherige Anfragen</b>'
+    +'<div class="mut" style="margin:4px 0 10px">Was eingegangen ist und wo es steht.</div>'
+    +'<div id="anfListe" class="mut">–</div></div>';
+
+  if($('anfCo')) $('anfCo').onchange=function(){ANF.cid=$('anfCo').value;renderAnf();};
+  $('anfKp').onchange=anfKpGewaehlt;
+  $('anfSend').onclick=anfAbsenden;
+  anfKpGewaehlt();
+  await anfListeLaden();
+}
+
+/* Der Teilprozess haengt am Kernprozess — ohne den einen ergibt der andere
+   keinen Bezug, und der Server weist die Kombination ohnehin mit 400 ab
+   (ck_anfrage_tp_gehoert_kp in Schema v2.1 tut dasselbe in der Datenbank). */
+function anfKpGewaehlt(){
+  var pid=$('anfKp').value, tp=$('anfTp'), hin=$('anfWeiss');
+  if(!pid){
+    tp.innerHTML='<option value="">—</option>'; tp.disabled=true; tp.value='';
+    hin.innerHTML='<div class="ohnebezug">„Weiß ich nicht“ ist in Ordnung. Die Anfrage wird aufgenommen '
+      +'und bleibt im Zustand <b>eingegangen</b> liegen, bis das Interview den Prozess bestimmt hat. '
+      +'Ein geratener Prozess wäre schlechter als keiner — dann liefe das ganze Interview auf dem falschen.</div>';
+    return;
+  }
+  hin.innerHTML='';
+  var tps=(ANF.prozesse[pid]||{}).tps||[];
+  tp.innerHTML='<option value="">— keine Angabe —</option>'
+    +tps.filter(function(t){return t.sub_process_id;}).map(function(t){
+       return '<option value="'+esc(t.sub_process_id)+'">'+esc(t.sub_process_id)+' · '
+         +esc(t.sub_process_name||'ohne Namen')+'</option>';}).join('');
+  tp.disabled=false;
+}
+
+async function anfListeLaden(){
+  try{
+    var r=await api('/api/companies/'+ANF.cid+'/anfragen');
+    var zs=r.anfragen||[];
+    if(!zs.length){ $('anfListe').innerHTML='<div class="mut">Noch keine Anfrage für diesen Mandanten.</div>'; return; }
+    $('anfListe').innerHTML=zs.map(function(a){
+      var st=a.status||'eingegangen';
+      return '<div class="anfzeile"><div class="kopf"><span class="aid">'+esc(a.anfrage_id)+'</span>'
+        +'<span class="stpill '+esc(st)+'">'+esc(st.replace('_',' '))+'</span>'
+        +'<span class="mut" style="font-size:11.5px">'+esc(a.eingang_am||'')
+        +(a.eingang_weg?' · '+esc(a.eingang_weg):'')+'</span>'
+        +'<span class="mut" style="font-size:11.5px;margin-left:auto">'
+        +(a.process_id ? esc(a.process_id)+(a.sub_process_id?' · '+esc(a.sub_process_id):'')
+                        +' <span class="mut">('+esc(a.zuordnung_quelle||'')+')</span>'
+                       : '<span style="color:#8a6100">ohne Prozessbezug</span>')+'</span></div>'
+        +'<div style="margin-top:6px;font-size:13px">'+esc(a.originaltext||'')+'</div>'
+        +(a.erhofftes_ziel?'<div class="mut" style="margin-top:4px;font-size:12px">Ziel: '+esc(a.erhofftes_ziel)+'</div>':'')
+        +'</div>';
+    }).join('');
+  }catch(e){ $('anfListe').innerHTML='<div class="mut">Die Anfragen konnten nicht geladen werden.</div>'; }
+}
+
+async function anfAbsenden(){
+  var text=($('anfText').value||'').trim();
+  if(!text){ toast('Bitte beschreiben Sie zuerst Ihr Anliegen.',true); $('anfText').focus(); return; }
+  var kp=$('anfKp').value||'', tp=(kp?($('anfTp').value||''):'');
+  var koerper={originaltext:text,
+               erhofftes_ziel:($('anfZiel').value||'').trim(),
+               ausloeser:($('anfAusl').value||'').trim(),
+               umfang_geschaetzt:($('anfUmf').value||'').trim(),
+               steller_id:$('anfPer').value||'',
+               eingang_weg:'pwa'};
+  /* Nur mitschicken, wenn wirklich gewaehlt: Ein leerer Prozessbezug MIT
+     Herkunftsangabe ist in der Datenbank verboten (ck_anfrage_bezug_paarweise)
+     — beide oder keiner. */
+  if(kp){ koerper.process_id=kp; koerper.zuordnung_quelle='anfrage'; if(tp) koerper.sub_process_id=tp; }
+  var knopf=$('anfSend'); knopf.disabled=true;
+  try{
+    var d=await api('/api/companies/'+ANF.cid+'/anfragen','POST',koerper);
+    toast('✓ Aufgenommen als '+d.anfrage_id+'.');
+    $('anfText').value=''; $('anfZiel').value=''; $('anfAusl').value=''; $('anfUmf').value='';
+    $('anfKp').value=''; anfKpGewaehlt();
+    $('anfHint').textContent='Ihre Anfrage trägt die Nummer '+d.anfrage_id+'. Sie steht unten in der Liste.';
+    await anfListeLaden();
+  }catch(e){ toast('Fehler: '+(e.detail||'unbekannt'),true); }
+  finally{ knopf.disabled=false; }
+}
 
 /* ---- Anlageassistent ------------------------------------------------------
    Drei Schritte: Unternehmensdaten, Prozesslandkarte, Bestätigen. Der Entwurf
@@ -677,8 +995,13 @@ async function reiterMitSchema(v, zeichnen, titel, schema){
 }
 async function renderOV(){var rep=await api('/api/companies/'+cur.company.id+'/report');
   var kpn=Object.keys(cur.processes).length;
+  /* Gezaehlt, nicht gerechnet. Bis zum 27.08.2026 stand hier kpn*5 — eine
+     Behauptung, die stimmte, solange jeder Kernprozess genau fuenf
+     Teilprozesse hatte. Seit Schema v2.2 sind es eins bis neun, und eine
+     plausibel aussehende falsche Zahl faellt niemandem auf. */
+  var tpn=0; for (var _p in cur.processes) tpn += (cur.processes[_p].tps||[]).length;
   $('ov').innerHTML='<div class="crumb">'+cr()+'Übersicht</div><h1>'+esc(cur.company.name)+'</h1><p class="lead">'+esc(cur.company.branche||'')+' · '+esc(cur.company.region||'')+' · <span class="pill">'+(cur.company.status||'')+'</span></p>'+
-    '<div class="cards"><div class="card"><div class="k">Kernprozesse</div><div class="v">'+kpn+'</div></div><div class="card"><div class="k">Teilprozesse</div><div class="v">'+(kpn*5)+'</div></div><div class="card"><div class="k">Bewertungen</div><div class="v">'+rep.n_bewertungen+'</div></div><div class="card"><div class="k">Ø Reifegrad</div><div class="v">'+(rep.gesamt?(''+rep.gesamt).replace('.',','):'–')+'</div></div></div>'+
+    '<div class="cards"><div class="card"><div class="k">Kernprozesse</div><div class="v">'+kpn+'</div></div><div class="card"><div class="k">Teilprozesse</div><div class="v">'+tpn+'</div></div><div class="card"><div class="k">Bewertungen</div><div class="v">'+rep.n_bewertungen+'</div></div><div class="card"><div class="k">Ø Reifegrad</div><div class="v">'+(rep.gesamt?(''+rep.gesamt).replace('.',','):'–')+'</div></div></div>'+
     '<div class="two"><div class="panel"><b>Prozesslandkarte</b><div id="ovkp" style="margin-top:10px"></div></div><div class="panel"><b>Reifegrad-Profil (5 Dimensionen)</b><div class="radarBox" id="ovr"></div></div></div>'+
     /* Das Management-Cockpit gehoert auf die erste Seite: Es beantwortet die
        Frage, die man beim Oeffnen eines Mandanten zuerst hat — wo steht das
@@ -688,7 +1011,17 @@ async function renderOV(){var rep=await api('/api/companies/'+cur.company.id+'/r
     '<div class="mut" style="margin:4px 0 8px">Bitkom-Leitfaden 3.0, Zusatzmodul Management-Cockpit. '+
     'Die Höhe folgt dem Reifegrad; die gestrichelte Linie ist die Projektschwelle 3,5.</div>'+
     '<div class="cockpitbox" id="ovcock"></div></div>';
-  var kh='';for(var i=0;i<10;i++){var on=!!cur.processes['KP-'+('0'+(i+1)).slice(-2)];kh+='<div class="kp"><span style="color:'+(on?'#1f9d57':'#c9ccd1')+'">'+(on?'✓':'○')+'</span> KP-'+('0'+(i+1)).slice(-2)+' '+esc(META.kp_template[i])+'</div>';}
+  /* Ueber den Bestand laufen, nicht bis zehn zaehlen. Sonst bleibt ein
+     elfter Kernprozess unsichtbar, obwohl er in der Datenbank steht — und
+     die Vorlage entscheidet, was der Mandant von sich selbst sieht. */
+  var kh='';
+  Object.keys(cur.processes).sort().forEach(function(pid){
+    kh+='<div class="kp"><span style="color:#1f9d57">✓</span> '+esc(pid)+' '+esc(kpName(pid))+'</div>';
+  });
+  (META.kp_template||[]).forEach(function(k,i){
+    var pid='KP-'+('0'+(i+1)).slice(-2);
+    if(!cur.processes[pid]) kh+='<div class="kp"><span style="color:#c9ccd1">○</span> '+pid+' '+esc(k)+'</div>';
+  });
   $('ovkp').innerHTML=kh;
   spider('ovr',META.dims.map(shortDim),META.dims.map(function(d){return rep.dim_avg[d]||0;}));
   if($('ovcock')) $('ovcock').innerHTML=cockpitSvg(rep);
@@ -1026,10 +1359,29 @@ async function renderPR(){var keys=Object.keys(cur.processes).sort();
         +'<label '+L+'>Schnittstellen (CSV)</label><input '+I+' data-tp="'+n+'" data-f="schnittstellen" value="'+esc(tp.schnittstellen||"")+'" placeholder="z. B. CRM↔ERP, ERP↔DATEV">'
         +'<label '+L+'>API (falls vorhanden)</label><input '+I+' data-tp="'+n+'" data-f="api" value="'+esc(tp.api||"")+'" placeholder="z. B. https://api.example.com/v1 · REST · keine">'
         +'</div>';}).join('')+
-      '</div></div><div style="margin-top:10px"><button class="btn sm" data-save="'+pid+'">Speichern</button></div></div></div>';
+      '</div></div><div style="margin-top:10px">'
+      +'<button class="btn sm" data-save="'+pid+'">Speichern</button> '
+      +'<button class="btn sec sm" data-addtp="'+pid+'">+ Teilprozess</button>'
+      +'</div></div></div>';
   });
-  var opts='';META.kp_template.forEach(function(k,i){var pid='KP-'+('0'+(i+1)).slice(-2);if(!cur.processes[pid])opts+='<option value="'+i+'">'+pid+' — '+esc(k)+'</option>';});
-  html+='<div class="row" style="margin-top:6px"><div><label>Kernprozess hinzufügen</label><select id="addKp"><option value="">— wählen —</option>'+opts+'</select></div><button class="btn sm" id="addKpB">+ Hinzufügen</button></div>';
+  /* Die Vorlage ist ein VORSCHLAG, kein Bausatz. Bis zum 27.08.2026 war sie
+     die einzige Quelle: Wer einen elften Prozess brauchte oder einen eigenen
+     Namen, kam nicht durch. Jetzt fuellt ein Klick auf einen Vorschlag nur
+     das Namensfeld vor — abgeschickt wird immer {name, kategorie}. */
+  var opts='';(META.kp_template||[]).forEach(function(k,i){
+    var pid='KP-'+('0'+(i+1)).slice(-2);
+    if(!cur.processes[pid])opts+='<option value="'+esc(k)+'">'+pid+' — '+esc(k)+'</option>';
+  });
+  var kopts=(META.kategorien||['Steuerungsprozess','Kerngeschäftsprozess','Unterstützungsprozess'])
+    .map(function(k){return '<option value="'+esc(k)+'">'+esc(k)+'</option>';}).join('');
+  html+='<div class="row" style="margin-top:6px;align-items:flex-end">'
+    +'<div><label>Kernprozess hinzufügen</label>'
+    +'<input id="addKpName" placeholder="eigener Name, z. B. Ersatzteilversorgung" list="kpVorschlaege">'
+    +'<datalist id="kpVorschlaege">'+opts+'</datalist>'
+    +'<div class="mut" style="font-size:11px;margin-top:2px">Die Bitkom-Namen stehen als Vorschlag zur Auswahl. '
+    +'Ein eigener Name ist erlaubt — die ID vergibt die Anwendung.</div></div>'
+    +'<div><label>Kategorie</label><select id="addKpKat">'+kopts+'</select></div>'
+    +'<button class="btn sm" id="addKpB">+ Hinzufügen</button></div>';
   box.innerHTML=html;
   box.querySelectorAll('.acc .head').forEach(function(hd){hd.onclick=function(){hd.parentNode.classList.toggle('open');};});
   box.querySelectorAll('[data-save]').forEach(function(btn){btn.onclick=async function(){var pid=btn.dataset.save;var acc=btn.closest('.acc');
@@ -1038,7 +1390,27 @@ async function renderPR(){var keys=Object.keys(cur.processes).sort();
     acc.querySelectorAll('[data-k]').forEach(function(inp){body[inp.dataset.k]=inp.value;});
     acc.querySelectorAll('[data-tp]').forEach(function(inp){body.tps[+inp.dataset.tp][inp.dataset.f]=inp.value;});
     try{await api('/api/companies/'+cur.company.id+'/process','PUT',body);await reloadCur();toast('✓ '+pid+' gespeichert.');renderPR();}catch(e){toast('Fehler: '+e.detail,true);}};});
-  var ab=$('addKpB');if(ab)ab.onclick=async function(){var v=$('addKp').value;if(v==='')return;try{await api('/api/companies/'+cur.company.id+'/process/add','POST',{kp_index:+v});await reloadCur();renderPR();toast('✓ hinzugefügt.');}catch(e){toast('Fehler: '+e.detail,true);}};
+  var ab=$('addKpB');if(ab)ab.onclick=async function(){
+    var name=($('addKpName').value||'').trim(), kat=$('addKpKat').value;
+    if(!name){toast('Bitte einen Namen eingeben.',true);return;}
+    try{
+      var d=await api('/api/companies/'+cur.company.id+'/process/add','POST',{name:name,kategorie:kat});
+      await reloadCur();renderPR();toast('✓ '+d.process_id+' angelegt.');
+    }catch(e){toast('Fehler: '+e.detail,true);}
+  };
+  /* Ein Teilprozess je Klick, sichtbar und einzeln — Struktur soll nicht als
+     Nebenwirkung eines Speicherns entstehen. Die Grenze neun kommt vom Server
+     als 400 mit Begruendung zurueck; sie wird hier nicht nachgebaut, damit es
+     nur EINE Stelle gibt, die sie kennt. */
+  document.querySelectorAll('[data-addtp]').forEach(function(btn){
+    btn.onclick=async function(){
+      var pid=btn.dataset.addtp;
+      try{
+        var d=await api('/api/companies/'+cur.company.id+'/process/'+pid+'/subprocess/add','POST',{});
+        await reloadCur();renderPR();toast('✓ '+d.sub_process_id+' angelegt.');
+      }catch(e){toast('Fehler: '+e.detail,true);}
+    };
+  });
   var cb=$('prcross');
   if(cb) cb.innerHTML = rep
     ? '<div class="panel"><b>Cross-sectionale Betrachtung (Bitkom, Zusatzmodul Prozessautomatisierung)</b>'

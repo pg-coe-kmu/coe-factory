@@ -3,7 +3,14 @@
 -- Stand: 22.08.2026 · Autor: Simeon Ehmer
 --
 -- ============================================================
---  ERST NACH DEM DREIER-TERMIN EINSPIELEN.
+--  FREIGEGEBEN AM 27.08.2026 — der Dreier-Termin entfaellt.
+--
+--  Bis dahin stand hier "erst nach dem Dreier-Termin einspielen".
+--  Der Termin stand seit dem 11.08. an und kam nicht zustande; die
+--  Entscheidung, auf die er warten sollte, ist inzwischen anders
+--  gefallen: Die Anfrage entsteht in der PWA und IST der Trigger fuer
+--  BC1. Damit ist der Prozessbezug keine Vorabfrage mehr, sondern
+--  Bestandteil der Eingabemaske.
 -- ============================================================
 --
 -- Rein additiv. Nimmt nichts weg, aendert keinen Primaerschluessel,
@@ -63,8 +70,9 @@ COMMENT ON COLUMN ref_anfragen.sub_process_id IS
 
 COMMENT ON COLUMN ref_anfragen.zuordnung_quelle IS
   'Woher die Zuordnung stammt (ADR-005, Herkunftsnachweis): '
-  'anfrage = der Annehmende hat sie gesetzt · '
-  'vorschlag_bc1 = aus dem Textabgleich vorgeschlagen und bestaetigt · '
+  'anfrage = der Annehmende hat sie in der Maske gesetzt · '
+  'vorschlag_bc0 = regelbasierter Stichwortabgleich von BC0, bestaetigt · '
+  'vorschlag_bc1 = semantisch von BC1 vorgeschlagen und bestaetigt · '
   'interview = im Trichter gewaehlt. '
   'Macht bei einer Fehlzuordnung unterscheidbar, ob jemand sich geirrt '
   'hat oder ob der Vorschlag schlecht war.';
@@ -119,13 +127,39 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_anfrage_zuordnung_quelle') THEN
     ALTER TABLE ref_anfragen ADD CONSTRAINT ck_anfrage_zuordnung_quelle
       CHECK (zuordnung_quelle IS NULL
-             OR zuordnung_quelle IN ('anfrage','vorschlag_bc1','interview'));
+             OR zuordnung_quelle IN ('anfrage','vorschlag_bc0','vorschlag_bc1','interview'));
   END IF;
 END $$;
 
 -- Bewusst CHECK und kein ENUM: Eine weitere Quelle ist eine additive
 -- Erweiterung, ein ENUM-Wert waere ein Typumbau. Gleiche Begruendung
 -- wie bei BC1s Statusfeld.
+
+-- Nachtrag 27.08.2026 — vierter Wert `vorschlag_bc0`.
+--
+-- Der Trichter wird als 1+3+4 zusammen gebaut. Stufe 1 ist die Zuordnung in
+-- der Anfragemaske (`anfrage`), Stufe 4 die Auswahl im Interview
+-- (`interview`). Stufe 3, der Abgleich des Anliegens gegen die
+-- Prozessbeschreibungen, findet an ZWEI Stellen statt und muss deshalb
+-- unterscheidbar sein:
+--
+--   vorschlag_bc0  Regelbasierter Stichwortabgleich in BC0 gegen
+--                  ref_prozesse.beschreibung, trigger_text und die
+--                  Teilprozessnamen DIESES Mandanten. OHNE Sprachmodell —
+--                  BC0 bleibt LLM-frei, aus demselben Grund, aus dem die
+--                  Befundsaetze des Reifegradberichts regelbasiert entstehen:
+--                  Die Herkunft jeder Aussage muss nachweisbar bleiben.
+--   vorschlag_bc1  Semantischer Vergleich durch BC1s Bot, der denselben
+--                  Mandanten kennt und dieselben Beschreibungen liest.
+--
+-- Warum die Unterscheidung zaehlt: Bei einer Fehlzuordnung ist sonst nicht
+-- erkennbar, OB die Regel zu grob war oder das Sprachmodell danebenlag.
+-- Zwei verschiedene Fehlerursachen, zwei verschiedene Reparaturen.
+--
+-- Beide Vorschlaege sind BESTAETIGUNGSPFLICHTIG. Eine falsche
+-- Vorab-Festlegung ist schlechter als gar keine: Dann laeuft ein
+-- vollstaendiges Interview auf dem falschen Prozess, und es faellt erst
+-- am Gate auf.
 
 -- ------------------------------------------------------------
 -- 4. Pflicht — erst wenn der Bestand sie erfuellt

@@ -4,7 +4,12 @@
    - Navigation & index.html: network-first (frische UI), Fallback Cache (offline).
    - Übrige statische Assets (Icons, Manifest): cache-first.
    Registriert unter Scope "/" (sw.js wird von app.py unter /sw.js ausgeliefert). */
-const CACHE = "bc0-pwa-v2";
+/* v3 (28.08.2026): Der Name wird bei jeder Aenderung an der Shell erhoeht.
+   Grund: "activate" loescht alle Caches, deren Name nicht CACHE ist. Blieb
+   der Name gleich, ueberlebte der beim ERSTEN Besuch abgelegte Stand von
+   /static/index.html beliebig lange und wurde offline weiter ausgeliefert
+   — am 28.08.2026 nachgemessen: 41.292 Zeichen gegenueber 158.706 live. */
+const CACHE = "bc0-pwa-v4";   /* 28.08.2026, zweite Aenderung des Tages: Passwortwechsel */
 const SHELL = [
   "/",
   "/static/index.html",

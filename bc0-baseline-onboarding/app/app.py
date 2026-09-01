@@ -450,7 +450,23 @@ CREATE TABLE IF NOT EXISTS ref_anfragen (
   steller_id     TEXT,
   hinweis        TEXT,
   angelegt_am    TIMESTAMPTZ NOT NULL DEFAULT now(),
-  PRIMARY KEY (company_id, anfrage_id)
+  -- v2.1/v2.2/v2.3 nachgezogen, damit eine FRISCHE Installation dieselbe
+  -- Tabelle bekommt wie eine gewachsene. Steht die Datenbank schon, tut
+  -- CREATE TABLE IF NOT EXISTS hier nichts — massgeblich sind dann die
+  -- Schemadateien. Genau diese Luecke war am 27.08. der Fehler: Die Pflicht
+  -- stand im Schema, der Schreibweg kannte sie nicht.
+  process_id       TEXT,
+  sub_process_id   TEXT,
+  zuordnung_quelle TEXT,
+  status           TEXT        NOT NULL DEFAULT 'eingegangen',
+  status_seit      DATE,
+  erhofftes_ziel   TEXT,
+  ausloeser        TEXT,
+  umfang_geschaetzt TEXT,
+  PRIMARY KEY (company_id, anfrage_id),
+  -- Ohne Prozess kein FORTSCHRITT (v2.3). Entstehen darf die Anfrage ohne.
+  CHECK (process_id IS NOT NULL OR status = 'eingegangen'),
+  CHECK ((process_id IS NULL) = (zuordnung_quelle IS NULL))
 );
 CREATE TABLE IF NOT EXISTS ref_gate_pruefpunkte (
   pruefpunkt     TEXT        PRIMARY KEY CHECK (pruefpunkt ~ '^[a-z_]{3,30}$'),
@@ -521,7 +537,12 @@ CREATE TABLE IF NOT EXISTS ref_anfragen(
   company_id INTEGER NOT NULL, anfrage_id TEXT NOT NULL,
   originaltext TEXT NOT NULL, eingang_am TEXT NOT NULL, eingang_weg TEXT,
   steller_id TEXT, hinweis TEXT, angelegt_am TEXT,
-  PRIMARY KEY(company_id, anfrage_id));
+  process_id TEXT, sub_process_id TEXT, zuordnung_quelle TEXT,
+  status TEXT NOT NULL DEFAULT 'eingegangen', status_seit TEXT,
+  erhofftes_ziel TEXT, ausloeser TEXT, umfang_geschaetzt TEXT,
+  PRIMARY KEY(company_id, anfrage_id),
+  CHECK (process_id IS NOT NULL OR status = 'eingegangen'),
+  CHECK ((process_id IS NULL) = (zuordnung_quelle IS NULL)));
 CREATE TABLE IF NOT EXISTS ref_gate_pruefpunkte(
   pruefpunkt TEXT PRIMARY KEY, bezeichnung TEXT NOT NULL, erlaeuterung TEXT,
   quelle_bc TEXT NOT NULL CHECK (quelle_bc IN ('BC0','BC1','BC0/BC1')),
@@ -738,6 +759,18 @@ def _build_krit15():
 KRIT15 = _build_krit15()
 ITEMS12 = [1,2,3,4,5,6,13,14,15,16,17,18]
 KATEGORIEN = ("Steuerungsprozess","Kerngeschäftsprozess","Unterstützungsprozess")
+
+# Woher der Prozessbezug einer Anfrage stammt (Schema v2.1, vierter Wert
+# nachgetragen am 27.08.2026). Die Unterscheidung zwischen vorschlag_bc0 und
+# vorschlag_bc1 ist kein Ordnungsfimmel: Bei einer Fehlzuordnung ist sonst
+# nicht erkennbar, ob der regelbasierte Stichwortabgleich zu grob war oder
+# das Sprachmodell danebenlag — zwei Ursachen, zwei Reparaturen.
+ZUORDNUNG_QUELLEN = ("anfrage","vorschlag_bc0","vorschlag_bc1","interview")
+
+# Die Kette, wie sie in v2.2 als CHECK steht. Gate 0 sitzt ZWISCHEN Interview
+# und ROI-Rechnung, nicht dahinter.
+ANFRAGE_STATUS = ("eingegangen","zugeordnet","im_interview","am_gate",
+                  "bewertet","beauftragt","erledigt","abgelehnt")
 
 def kpid(i):
     """Bildet die Kernprozess-ID aus dem nullbasierten Listenindex.
@@ -1122,6 +1155,10 @@ def meta():
     """
     c=db(); items=[dict(r) for r in c.execute("SELECT * FROM ref_items ORDER BY item_nr").fetchall()]; c.close()
     return {"items":items,"dims":DIMS,"kp_template":KP_TEMPLATE,
+            "kp_template_ist_vorschlag":True,"kategorien":list(KATEGORIEN),
+            "max_kp":MAX_KP,"max_tp":MAX_TP,
+            "zuordnung_quellen":list(ZUORDNUNG_QUELLEN),
+            "anfrage_status":list(ANFRAGE_STATUS),
             "pa_crit":PA_CRIT,"cf_crit":CF_CRIT,
             "kostenklassen":[{"klasse":k,"bezeichnung":b} for k,b in KOSTENKLASSEN],
             "kosten_quellen":KOSTEN_QUELLEN,
@@ -1293,32 +1330,138 @@ async def save_process(cid:str, req:Request, benutzer: Benutzer = Depends(angeme
              tp.get("schnittstellen"),tp.get("api"),cid,"%s.TP-%d"%(pid,n)))
     c.commit(); c.close(); return {"ok":True}
 
+MAX_KP    = 99   # ^KP-[0-9]{2}$ — zweistellig, also KP-01 bis KP-99
+MAX_TP    = 9    # ADR-002: der TP-Teil ist EINSTELLIG. Nicht kosmetisch —
+                 # bei gemischt ein- und zweistelliger Schreibweise sortiert
+                 # TP-10 vor TP-2, und die Sortierung nach ID ist an vielen
+                 # Stellen die einzige Ordnung. Wer darueber hinaus will,
+                 # aendert ADR-002 und zieht ueberall eine Sortierlogik nach.
+START_TP  = 5    # So viele Teilprozesse bekommt ein neuer Kernprozess.
+                 # Startwert, keine Grenze: sechs bis neun kommen ueber
+                 # add_subprocess dazu.
+
+
+def _naechste_kp_nummer(c, cid):
+    """Die kleinste freie Kernprozess-Nummer dieses Mandanten.
+
+    Bewusst `max + 1` und nicht `count + 1`: Wurde je ein Prozess
+    ausgelassen, wuerde `count + 1` eine bereits vergebene ID liefern und
+    am ON CONFLICT scheitern — stillschweigend, mit `ok: true`.
+    """
+    r = c.execute("SELECT process_id FROM ref_prozesse WHERE " + W_CO +
+                  " ORDER BY process_id DESC", (cid,)).fetchone()
+    return 1 if not r else int(str(r["process_id"])[3:5]) + 1
+
+
 @app.post("/api/companies/{cid}/process/add")
 async def add_process(cid:str, req:Request, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
-    """Nimmt einen weiteren Kernprozess aus der Vorlage in den Umfang auf.
+    """Nimmt einen weiteren Kernprozess in den Umfang auf.
 
-    Für den Fall, dass beim Anlegen nicht alle zehn Kernprozesse gewählt
-    wurden und später einer nachkommt. Legt den Prozess und seine fünf
-    Teilprozesse an.
+    **Geaendert am 27.08.2026.** Bis dahin nahm dieser Endpunkt einen
+    ``kp_index`` in die Vorlage :data:`KP_TEMPLATE` entgegen und schlug den
+    Namen dort nach. Das hatte drei Folgen, die zusammengehoeren:
 
-    Durchgehend ``ON CONFLICT DO NOTHING``, also **wiederholbar**: Ein zweiter
-    Aufruf für denselben Kernprozess ist wirkungslos und überschreibt
-    insbesondere keine bereits gepflegten Teilprozessnamen. Ein doppelter Klick
-    in der Oberfläche kann damit keinen Schaden anrichten.
+    1. Ein elfter Kernprozess war unmoeglich — ``KP_TEMPLATE[10]`` warf einen
+       ``IndexError`` und damit HTTP 500 statt einer lesbaren Antwort.
+    2. Ein Mandant konnte seine Prozesse nicht selbst benennen. Die zehn
+       Bitkom-Namen sind eine Vorlage, keine Ordnung der Welt; ein anderes
+       Haus teilt anders ein.
+    3. Der Listenindex war zugleich Identitaet **und** Namensquelle. Damit
+       hing die ID an einer Konstante im Quelltext statt an der Datenbank.
 
-    Die Kategorie folgt der Bitkom-Vorlage: KP-01 ist Steuerungsprozess,
-    KP-02 bis KP-04 sind Kerngeschäftsprozesse, der Rest sind
-    Unterstützungsprozesse. Der Mandant kann sie anschließend über
-    :func:`save_process` ändern.
+    Jetzt kommen ``name`` und ``kategorie`` vom Aufrufer, und **die ID vergibt
+    diese Anwendung** — `max + 1` je Mandant. Das ist ADR-003 Regel 2
+    („alle IDs stammen aus BC0") zum ersten Mal woertlich erfuellt, statt sie
+    an den Index einer Vorlage zu delegieren.
+
+    ``KP_TEMPLATE`` bleibt als **Vorschlagsliste** in ``/api/meta`` erhalten —
+    die Oberflaeche bietet die zehn Namen weiter an, erzwingt sie aber nicht.
+
+    Legt den Prozess und :data:`START_TP` Teilprozesse an. Weitere kommen ueber
+    :func:`add_subprocess` dazu, einzeln und sichtbar.
+
+    Durchgehend ``ON CONFLICT DO NOTHING``, also **wiederholbar**.
     """
     pruefe_mandant(benutzer, cid)
-    b=await req.json(); i=int(b["kp_index"]); pid=kpid(i); c=db()
+    b = await req.json()
+    name = (b.get("name") or "").strip()
+    kat  = (b.get("kategorie") or "").strip()
+
+    # Rueckwaertsvertraeglich: Wer noch kp_index schickt, bekommt Name und
+    # Kategorie aus der Vorlage. Faellt weg, sobald die Oberflaeche umgestellt
+    # ist — bis dahin soll ein alter Browser-Cache keinen Fehler ausloesen.
+    if not name and "kp_index" in b:
+        i = int(b["kp_index"])
+        if not (0 <= i < len(KP_TEMPLATE)):
+            raise HTTPException(400, "kp_index %d liegt ausserhalb der Vorlage (0..%d). "
+                                     "Nutze stattdessen name und kategorie."
+                                     % (i, len(KP_TEMPLATE) - 1))
+        name = KP_TEMPLATE[i]
+        kat  = "Steuerungsprozess" if i == 0 else ("Kerngeschäftsprozess" if i < 4 else "Unterstützungsprozess")
+
+    if not name:
+        raise HTTPException(400, "name fehlt.")
+    if kat not in KATEGORIEN:
+        raise HTTPException(400, "kategorie muss eine von %s sein." % ", ".join(KATEGORIEN))
+
+    c = db()
+    nr = _naechste_kp_nummer(c, cid)
+    if nr > MAX_KP:
+        c.close()
+        raise HTTPException(400, "Mehr als %d Kernprozesse sind nicht moeglich: "
+                                 "Die ID KP-XX ist zweistellig." % MAX_KP)
+    pid = "KP-%02d" % nr
+
     c.execute("INSERT INTO ref_prozesse(company_id,process_id,process_name,kategorie) VALUES(?,?,?,?) ON CONFLICT(company_id,process_id) DO NOTHING",
-        (cid,pid,KP_TEMPLATE[i],"Steuerungsprozess" if i==0 else ("Kerngeschäftsprozess" if i<4 else "Unterstützungsprozess")))
-    for n in range(1,6):
+        (cid, pid, name, kat))
+    for n in range(1, START_TP + 1):
         c.execute("INSERT INTO ref_teilprozesse(company_id,sub_process_id,process_id,step_no,sub_process_name,notation) VALUES(?,?,?,?,?,?) ON CONFLICT(company_id,sub_process_id) DO NOTHING",
-            (cid,"%s.TP-%d"%(pid,n),pid,n,"Teilprozess %d"%n,""))
-    c.commit(); c.close(); return {"ok":True,"process_id":pid}
+            (cid, "%s.TP-%d" % (pid, n), pid, n, "Teilprozess %d" % n, ""))
+    c.commit(); c.close()
+    return {"ok": True, "process_id": pid, "process_name": name, "kategorie": kat}
+
+
+@app.post("/api/companies/{cid}/process/{pid}/subprocess/add")
+async def add_subprocess(cid:str, pid:str, req:Request, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+    """Haengt einen weiteren Teilprozess an einen Kernprozess.
+
+    **Neu am 27.08.2026.** Diesen Weg gab es bisher gar nicht:
+    :func:`save_process` ist ausdruecklich UPDATE-only und kann keine Struktur
+    erzeugen, :func:`add_process` legt nur ganze Kernprozesse an. Ein sechster
+    Teilprozess war damit ueber die Schnittstelle unerreichbar — und in der
+    Datenbank bis zum 27.08. ohnehin durch ``step_no CHECK BETWEEN 1 AND 5``
+    gesperrt (aufgehoben in Schema v2.2).
+
+    ``step_no`` ist `max + 1` je Kernprozess. Die Grenze :data:`MAX_TP` wird
+    mit **400** abgewiesen und nicht mit einem 500 aus der Datenbank: Wer an
+    eine Grenze stoesst, soll erfahren, dass es eine gibt, und warum.
+
+    ``ON CONFLICT DO NOTHING`` wie ueberall — ein doppelter Klick legt keinen
+    zweiten Schritt an.
+    """
+    pruefe_mandant(benutzer, cid)
+    b = await req.json() if await req.body() else {}
+    name = (b.get("name") or "").strip()
+
+    c = db()
+    if not c.execute("SELECT 1 AS da FROM ref_prozesse WHERE " + W_CO + " AND process_id=?",
+                     (cid, pid)).fetchone():
+        c.close(); raise HTTPException(404, "Kernprozess unbekannt.")
+
+    r = c.execute("SELECT step_no FROM ref_teilprozesse WHERE " + W_CO +
+                  " AND process_id=? ORDER BY step_no DESC", (cid, pid)).fetchone()
+    n = (int(r["step_no"]) + 1) if r else 1
+    if n > MAX_TP:
+        c.close()
+        raise HTTPException(400, "%s hat bereits %d Teilprozesse. Mehr als %d sind nicht "
+                                 "moeglich: Der TP-Teil der ID ist nach ADR-002 einstellig."
+                                 % (pid, n - 1, MAX_TP))
+
+    sid = "%s.TP-%d" % (pid, n)
+    c.execute("INSERT INTO ref_teilprozesse(company_id,sub_process_id,process_id,step_no,sub_process_name,notation) VALUES(?,?,?,?,?,?) ON CONFLICT(company_id,sub_process_id) DO NOTHING",
+        (cid, sid, pid, n, name or ("Teilprozess %d" % n), ""))
+    c.commit(); c.close()
+    return {"ok": True, "sub_process_id": sid, "step_no": n}
 
 @app.post("/api/companies/{cid}/rating")
 async def save_rating(cid:str, req:Request, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
@@ -3425,7 +3568,7 @@ async def gate_entscheiden(cid: str, sub_process_id: str, req: Request,
 
 
 @app.get("/api/companies/{cid}/anfragen")
-def anfragen(cid: str, benutzer: Benutzer = Depends(admin)):
+def anfragen(cid: str, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
     """Die externen Anfragen an das CoE — der Ausloeser der Kette."""
     pruefe_mandant(benutzer, cid)
     c = db()
@@ -3434,7 +3577,10 @@ def anfragen(cid: str, benutzer: Benutzer = Depends(admin)):
         zeilen = [dict(r) for r in c.execute(
             "SELECT anfrage_id, originaltext, "
             + ("eingang_am::text AS eingang_am" if PG else "eingang_am") +
-            ", eingang_weg, steller_id, hinweis FROM ref_anfragen WHERE " + W_CO +
+            ", eingang_weg, steller_id, hinweis"
+            ", process_id, sub_process_id, zuordnung_quelle, status"
+            ", erhofftes_ziel, ausloeser, umfang_geschaetzt"
+            " FROM ref_anfragen WHERE " + W_CO +
             " ORDER BY anfrage_id DESC", (cid,)).fetchall()]
     finally:
         c.close()
@@ -3442,7 +3588,7 @@ def anfragen(cid: str, benutzer: Benutzer = Depends(admin)):
 
 
 @app.post("/api/companies/{cid}/anfragen")
-async def anfrage_anlegen(cid: str, req: Request, benutzer: Benutzer = Depends(admin)):
+async def anfrage_anlegen(cid: str, req: Request, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
     """Eine Anfrage aufnehmen.
 
     Der `originaltext` wird nie veraendert — weder gekuerzt noch umformuliert noch
@@ -3453,6 +3599,22 @@ async def anfrage_anlegen(cid: str, req: Request, benutzer: Benutzer = Depends(a
     Die ID vergibt der Server (ADR-004 R2) und verwendet sie nie wieder (R3): Der
     Zaehler laeuft ueber das Maximum der vergebenen Nummern des Jahres, nicht ueber
     ihre Anzahl.
+
+    **Erweitert am 28.08.2026** um die Felder, die v2.1 bis v2.3 gebracht haben.
+    Bis dahin schrieb dieser Endpunkt sie nicht — und seit dem Einspielen von
+    v2.1 am 27.08. war er dadurch in der Produktivdatenbank **funktionsunfaehig**:
+    ``process_id`` und ``zuordnung_quelle`` standen auf NOT NULL, das INSERT nannte
+    sie nicht, jeder Aufruf endete in einer NotNullViolation. Aufgefallen ist es
+    nicht, weil in den zwei Tagen niemand den Knopf gedrueckt hat.
+
+    **Die Lehre steht hier und nicht in einem Papier:** Wer eine Pflicht im Schema
+    setzt, geht am selben Tag jeden Schreibweg durch, der die Tabelle anfasst. Ein
+    ``NOT NULL`` ohne Gegenprobe am Endpunkt ist eine Zeitbombe mit unbekannter
+    Laufzeit.
+
+    ``eingang_weg`` faellt auf ``pwa`` zurueck: Wer ueber diesen Endpunkt kommt,
+    kommt ueber die Anwendung. Der Wert ist der einzige Hinweis darauf, ob eine
+    Anfrage aus der Maske stammt oder nachgetragen wurde.
     """
     pruefe_mandant(benutzer, cid)
     b = await req.json()
@@ -3466,6 +3628,38 @@ async def anfrage_anlegen(cid: str, req: Request, benutzer: Benutzer = Depends(a
         if steller_id and not c.execute("SELECT 1 AS da FROM ref_personen WHERE " + W_CO +
                                         " AND person_id=?", (cid, steller_id)).fetchone():
             raise HTTPException(400, "Unbekannte Person: %s" % steller_id)
+
+        # --- Prozessbezug (v2.1) --------------------------------------
+        # Leer ist erlaubt und heisst "weiss ich nicht". Die Datenbank
+        # laesst die Anfrage dann entstehen, aber nicht weiterlaufen
+        # (v2.3, ck_anfrage_fortschritt_braucht_prozess). Wer aus dem
+        # Fachbereich kommt, kennt KP-06.TP-2 nicht — und ein geratener
+        # Bezug ist schlechter als keiner: Dann fuehrt BC1 ein
+        # vollstaendiges Interview auf dem falschen Prozess.
+        process_id = (b.get("process_id") or "").strip() or None
+        sub_process_id = (b.get("sub_process_id") or "").strip() or None
+        quelle = (b.get("zuordnung_quelle") or "").strip() or None
+
+        if sub_process_id and not process_id:
+            raise HTTPException(400, "Ein Teilprozess ohne Kernprozess ergibt keinen Bezug.")
+        if process_id:
+            if not c.execute("SELECT 1 AS da FROM ref_prozesse WHERE " + W_CO +
+                             " AND process_id=?", (cid, process_id)).fetchone():
+                raise HTTPException(400, "Unbekannter Kernprozess: %s" % process_id)
+            if sub_process_id and not c.execute(
+                    "SELECT 1 AS da FROM ref_teilprozesse WHERE " + W_CO +
+                    " AND sub_process_id=? AND process_id=?",
+                    (cid, sub_process_id, process_id)).fetchone():
+                raise HTTPException(400, "%s gehoert nicht zu %s." % (sub_process_id, process_id))
+            # Herkunft ist Pflicht, sobald ein Bezug da ist (ADR-005, und
+            # ck_anfrage_bezug_paarweise setzt es durch). Wer ueber die
+            # Maske kommt, hat ihn selbst gewaehlt: 'anfrage'.
+            quelle = quelle or "anfrage"
+            if quelle not in ZUORDNUNG_QUELLEN:
+                raise HTTPException(400, "Unbekannte Zuordnungsquelle: %s" % quelle)
+        elif quelle:
+            raise HTTPException(400, "Eine Zuordnungsquelle ohne Prozessbezug beschreibt nichts.")
+
         jahr = datetime.date.today().year
         vorhandene = [r["anfrage_id"] for r in c.execute(
             "SELECT anfrage_id FROM ref_anfragen WHERE " + W_CO, (cid,)).fetchall()]
@@ -3477,14 +3671,23 @@ async def anfrage_anlegen(cid: str, req: Request, benutzer: Benutzer = Depends(a
         anfrage_id = "A-%04d-%02d" % (jahr, naechste)
         eingang_am = (b.get("eingang_am") or "").strip()
         c.execute("INSERT INTO ref_anfragen(company_id,anfrage_id,originaltext,eingang_am,"
-                  "eingang_weg,steller_id,hinweis,angelegt_am) VALUES(?,?,?,?,?,?,?,?)",
+                  "eingang_weg,steller_id,hinweis,angelegt_am,"
+                  "process_id,sub_process_id,zuordnung_quelle,"
+                  "status,status_seit,erhofftes_ziel,ausloeser,umfang_geschaetzt) "
+                  "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                   (cid, anfrage_id, originaltext, eingang_am or _heute(),
-                   (b.get("eingang_weg") or "").strip() or None, steller_id,
-                   (b.get("hinweis") or "").strip() or None, _jetzt()))
+                   (b.get("eingang_weg") or "").strip() or "pwa", steller_id,
+                   (b.get("hinweis") or "").strip() or None, _jetzt(),
+                   process_id, sub_process_id, quelle,
+                   "eingegangen", eingang_am or _heute(),
+                   (b.get("erhofftes_ziel") or "").strip() or None,
+                   (b.get("ausloeser") or "").strip() or None,
+                   (b.get("umfang_geschaetzt") or "").strip() or None))
         c.commit()
     finally:
         c.close()
-    return {"ok": True, "anfrage_id": anfrage_id}
+    return {"ok": True, "anfrage_id": anfrage_id, "status": "eingegangen",
+            "process_id": process_id, "zuordnung_quelle": quelle}
 
 
 # ---------------- Static frontend ----------------

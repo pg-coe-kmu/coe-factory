@@ -116,6 +116,18 @@ def test_benutzer_scheitert_auf_allen_gate_endpunkten(nutzer_client, mandant, cl
 
     403 und nicht 404: Der Mandant ist ihm zugeordnet, er kennt ihn. Was ihm
     fehlt, ist die Rolle.
+
+    **Geaendert am 27.08.2026:** Die beiden Anfrage-Endpunkte standen bis dahin
+    mit in dieser Liste. Sie gehoerten nie dazu — sie waren nur mit im selben
+    Codeabschnitt gelandet, weil sie im selben Schema v1.4 kamen. Die
+    Begruendung des Abschnitts traegt ausdruecklich die **Freigabe**: Sie
+    loest den nachgelagerten Kontext aus und betrifft das ganze Unternehmen.
+    Eine Anfrage tut nichts dergleichen.
+
+    Die Rechtelage war dadurch widerspruechlich: Derselbe Benutzer durfte ueber
+    ``POST .../rating`` dreissig Bitkom-Bewertungen ueberschreiben — die
+    Baseline —, aber keine Anfrage lesen. Siehe
+    :func:`test_benutzer_darf_anfragen_lesen_und_anlegen`.
     """
     tp = _tp(client, mandant)
     basis = "/api/companies/" + mandant
@@ -124,9 +136,22 @@ def test_benutzer_scheitert_auf_allen_gate_endpunkten(nutzer_client, mandant, cl
     assert nutzer_client.post(basis + "/gate/" + tp,
                               json={"ereignis": "freigegeben", "kette_bestaetigt": True,
                                     "punkte": _punkte()}).status_code == 403
-    assert nutzer_client.get(basis + "/anfragen").status_code == 403
-    assert nutzer_client.post(basis + "/anfragen",
-                              json={"originaltext": "Geht da was mit KI?"}).status_code == 403
+
+
+def test_benutzer_darf_anfragen_lesen_und_anlegen(nutzer_client, mandant):
+    """Die Anfrage ist eine Pflegehandlung, keine Freigabe.
+
+    Wer eine Anfrage an das CoE stellt, ist derselbe Mandant, der das
+    Onboarding gemacht hat und Self-Ratings abgibt — sein Konto existiert, und
+    der Mandantenfilter greift wie ueberall. Es braucht dafuer keine dritte
+    Rolle, sondern dieselbe Schwelle wie beim Self-Rating, das ohnehin mehr
+    zulaesst.
+    """
+    basis = "/api/companies/" + mandant
+    assert nutzer_client.get(basis + "/anfragen").status_code == 200
+    r = nutzer_client.post(basis + "/anfragen",
+                           json={"originaltext": "Unsere Angebote dauern zu lange."})
+    assert r.status_code in (200, 201), r.text
 
 
 def test_benutzer_sieht_die_freigabe_nicht_in_der_liste(nutzer_client, mandant):
