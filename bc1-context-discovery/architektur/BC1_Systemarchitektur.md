@@ -22,7 +22,8 @@ flowchart LR
   G --> BC2["BC2"]
 ```
 
-Eine Schnittstelle n8n → Kern: `{session_id, message_id, message}` → `{status, payload}` mit `status ∈ frage | fertig | fehler_fortsetzbar`.
+Eine Schnittstelle n8n → Kern: `{session_id, message_id, message}` → `{status, payload}` mit `status ∈ frage | fertig | fehler_fortsetzbar | abgebrochen_ohne_identitaet`.
+Der vierte Wert ist **terminal wie `fertig`, erzeugt aber kein Profil**: er beendet ein Interview definiert, wenn die Prozess-Identität ungeklärt bleibt (Details in der Design-Spec, B1).
 
 ## Kern-Module (je eine Verantwortung)
 

@@ -5436,6 +5436,7 @@ git commit -m "docs(bc1): Einspiel-Anleitung, GRANT-Signal-Vorlage und K5-Betrie
 | `SECURITY DEFINER`-Prüfpfad für die S-NN-Restlücke | nur falls die Restlücke je stört |
 | Automatische Auflösung verwaister Drafts | K5 bleibt manuell (YAGNI) |
 | Echt-Gegenprobe gegen Supabase (SMOKE, echter Profil-Write auf den Demo-Mandanten) | sobald Projektreferenz + DSN da sind und K-C entschieden ist |
+| **Mandantenweiter Sitzungsschlüssel `(company_id, session_id)` in `bc1.sessions`** — heute ist `session_id` allein der Schlüssel. Folge: Belegt Mandant A eine `session_id`, bekommt Mandant B für dieselbe ID dauerhaft `409 mandant_konflikt` und kann sie nie verwenden. Fail-closed (keine Daten überschreiten die Mandantengrenze), aber eine **Verfügbarkeitskopplung zwischen Mandanten**. | Vor der n8n-Anbindung entscheiden — **relevant, sobald die `session_id` clientseitig vergeben wird**. Solange BC1 sie selbst erzeugt (kollisionsfrei, z. B. UUID), ist nichts zu tun. Gefunden im Phase-B-Gesamtreview (Naht-Triage). |
 
 # Offene Klärpunkte (blockieren einzelne Tasks, nicht den Plan)
 
