@@ -192,11 +192,15 @@ Setup: `BC1_LLM=ollama` · `BC1_PAKET` ungesetzt (= Discovery-Default) ·
 in Formulierungen) — die Nachfrage-Mechanik bleibt davon unberührt. Der Hosted-
 Chat-Workflow aus P2 (n8n, Volume `n8n_data`) ist unverändert einsatzbereit.
 
-Hinweis `schema_version`: Mit Snapshot trägt die Session `1.0+kp-<hash>` (Fingerprint
-der Prozess-IDs). Wird die Baseline um IDs erweitert/gekürzt, antworten laufende
-Interviews beim nächsten Turn bewusst mit 409 `paket_konflikt` — neues Interview
-starten. Clients, die `schema_version` mitsenden wollen, dürfen nicht auf `"1.0"`
-pinnen (Teil vor dem `+` vergleichen).
+Hinweis `schema_version`: Seit dem BC0-Kontext ist dieser im Betrieb Pflicht
+(main.py lädt ihn beim Start) — die Session trägt daher immer `1.1+ctx-<hash>`
+(Fingerprint aus Mandant, Teilprozessen, Systemen, ggf. KP-Liste). Der oben
+protokollierte `1.0+kp-<hash>`-Zweig greift nur noch ohne Kontext (Tests,
+Etappe-0-Kompatibilität) — über main.py nicht mehr erreichbar. Wird eine
+dieser Grundlagen erweitert/gekürzt, antworten laufende Interviews beim
+nächsten Turn bewusst mit 409 `paket_konflikt` — neues Interview starten.
+Clients, die `schema_version` mitsenden wollen, dürfen nicht auf `"1.0"` oder
+`"1.1"` pinnen (Teil vor dem `+` vergleichen).
 
 ## Gesprächsschicht live
 

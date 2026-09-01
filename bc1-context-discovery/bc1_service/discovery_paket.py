@@ -13,6 +13,8 @@ gelten für den in focus_step benannten Schritt.
 from __future__ import annotations
 
 import hashlib
+import json
+from dataclasses import dataclass
 
 from bc1_core.feldtypen import (
     AUSWAHL,
@@ -25,43 +27,97 @@ from bc1_core.feldtypen import (
     ZAHL,
 )
 from bc1_core.package import FieldSpec, UseCasePackage
+from bc1_service.paket_feldtypen import PROZENT_GANZ_0_100, baue_system_typ
 
 SCHEMA_VERSION = "1.0"
+# Neue Basisversion, weil sich die BEDEUTUNG aendert: focus_step ist jetzt eine
+# validierte Teilprozess-ID, focus_step_systems prueft gegen mandant_systeme
+# (Spec K2 — nur mit BC0-Kontext erreichbar, s. Bc0Kontext unten).
+SCHEMA_VERSION_CTX = "1.1"
 MAX_ROUNDS_DISCOVERY = 60   # 26 Pflichtfelder × 2 Versuche + Puffer
+
+
+@dataclass(frozen=True)
+class Bc0Kontext:
+    """Alles, was beim Dienststart einmalig aus BC0 geladen wird (Spec K2)."""
+    company_id: str
+    teilprozesse: tuple[tuple[str, str], ...]      # (TP-ID, Schrittname)
+    system_ids: tuple[str, ...]
+
+
+def _ctx_fingerprint(kontext: Bc0Kontext, kp_ids: list[str]) -> str:
+    # Kanonisch, strukturiert, sortiert (Spec K2, R5-M7): gleiche Grundlagen =>
+    # gleicher Wert, unabhaengig von Query-Reihenfolge. Wie beim B4-Fingerprint
+    # unten fliessen nur die IDs ein, nicht die Anzeige-Namen — eine reine
+    # Umbenennung im BC0-Snapshot aendert die Validator-Semantik nicht und
+    # soll die Paket-Identitaet nicht unnoetig churnen lassen.
+    roh = json.dumps(
+        {"company_id": kontext.company_id.lower(),
+         "kp": sorted(kp_ids),
+         "snn": sorted(kontext.system_ids),
+         "tp": sorted(tp for tp, _ in kontext.teilprozesse)},
+        sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(roh.encode()).hexdigest()[:16]
 
 
 def baue_discovery_paket(
     prozesse: list[tuple[str, str]] | None = None,
+    kontext: Bc0Kontext | None = None,
 ) -> UseCasePackage:
-    """prozesse: (ID, Name)-Paare aus dem BC0-Snapshot für B4; None → Freitext."""
+    """prozesse: (ID, Name)-Paare aus dem BC0-Snapshot für B4; None → Freitext.
+    kontext: einmalig beim Dienststart geladene BC0-Anbindung (Spec K2) —
+    schaltet focus_step auf eine geprüfte Teilprozess-Auswahl (identitäts-
+    kritisch) und focus_step_systems auf die Mandanten-Systemmenge um. Ohne
+    Kontext bleibt das Etappe-0-Verhalten (Freitext, schema_version 1.0)
+    unverändert."""
     if prozesse:
         b4_typ = AUSWAHL(*(pid for pid, _ in prozesse))
         b4_frage = ("Zu welchem Ihrer Kernprozesse gehört das? ("
                     + ", ".join(f"{pid} = {name}" for pid, name in prozesse) + ")")
-        # Semver-Build-Metadata-Semantik (+-Suffix, von Konsumenten beim
-        # Versionsvergleich ignorierbar): der Fingerprint macht den Snapshot-
-        # Inhalt Teil der Paket-Identität, damit der bestehende Paket-Guard
-        # (core.py, PaketKonfliktError) bei einem Snapshot-Wechsel zwischen
-        # zwei Turns derselben Session greift — sonst validierte eine
-        # fortgesetzte Session gegen einen anderen Options-Satz als den, mit
-        # dem sie gestartet wurde. sorted(): paketrelevant ist der Options-
-        # INHALT (welche IDs gültig sind), nicht seine Reihenfolge — eine
-        # reine Umsortierung (z. B. andere Snapshot-Query-Reihenfolge) ändert
-        # die Validator-Semantik nicht und soll die Identität nicht unnötig
-        # churnen lassen.
-        # Verifikations-Critical (Codex-Residuum, Fix-Welle 5): 8 Hex-Zeichen
-        # (32 Bit) sind kollisionsanfällig — Codex hat real zwei verschiedene
-        # Prozess-IDs mit identischem 8-Hex-Fingerprint gebruteforced; der
-        # Paket-Guard griff dann bei einem Snapshot-Wechsel NICHT. 16 Hex
-        # (64 Bit) statt 8.
-        fp = hashlib.sha256(
-            repr(sorted(pid for pid, _ in prozesse)).encode()
-        ).hexdigest()[:16]
-        schema_version = f"{SCHEMA_VERSION}+kp-{fp}"
     else:
         b4_typ = FREITEXT
         b4_frage = "Zu welchem Ihrer Kernprozesse gehört das?"
-        schema_version = SCHEMA_VERSION
+
+    if kontext is not None:
+        # E5 wird zur geprüften Teilprozess-Auswahl; ohne BC0-Anbindung gibt es
+        # keine Prozess-Identität, die man erzwingen könnte (identitaetskritisch
+        # haengt deshalb bewusst am Kontext, nicht an einer Konstante).
+        e5_typ = AUSWAHL(*(tp for tp, _ in kontext.teilprozesse))
+        e5_frage = ("Welcher Schritt kostet am meisten Zeit oder nervt am "
+                    "meisten? ("
+                    + ", ".join(f"{tp} = {name}" for tp, name in kontext.teilprozesse)
+                    + ")")
+        f2_typ = baue_system_typ(frozenset(kontext.system_ids))
+        # E4 ganzzahlig NUR im Kontext-Zweig (Codex R2-N-I4): geschrieben wird
+        # ausschliesslich mit BC0-Kontext, und der Zweig traegt mit 1.1+ctx-
+        # ohnehin eine neue Version. Der kontextfreie Zweig bleibt bei
+        # PROZENT_0_100 — sonst aendert sich Semantik unter unveraenderter 1.0.
+        e4_typ = PROZENT_GANZ_0_100
+        # Semver-Build-Metadata-Semantik (+-Suffix, von Konsumenten beim
+        # Versionsvergleich ignorierbar): der Fingerprint macht Teilprozess-
+        # Liste, System-Menge, Mandant UND KP-Liste Teil der Paket-Identität,
+        # damit der bestehende Paket-Guard (core.py, PaketKonfliktError) bei
+        # jeder dieser Grundlagen-Änderungen zwischen zwei Turns derselben
+        # Session greift.
+        schema_version = (f"{SCHEMA_VERSION_CTX}+ctx-"
+                          f"{_ctx_fingerprint(kontext, [pid for pid, _ in (prozesse or [])])}")
+    else:
+        e5_typ, f2_typ, e4_typ = FREITEXT, LISTE, PROZENT_0_100
+        e5_frage = ("Welcher Schritt kostet am meisten Zeit oder nervt am "
+                    "meisten?")
+        if prozesse:
+            # Verifikations-Critical (Codex-Residuum, Fix-Welle 5): 8 Hex-
+            # Zeichen (32 Bit) sind kollisionsanfällig — Codex hat real zwei
+            # verschiedene Prozess-IDs mit identischem 8-Hex-Fingerprint
+            # gebruteforced; der Paket-Guard griff dann bei einem Snapshot-
+            # Wechsel NICHT. 16 Hex (64 Bit) statt 8. sorted(): paketrelevant
+            # ist der Options-INHALT, nicht die Reihenfolge.
+            fp = hashlib.sha256(
+                repr(sorted(pid for pid, _ in prozesse)).encode()
+            ).hexdigest()[:16]
+            schema_version = f"{SCHEMA_VERSION}+kp-{fp}"
+        else:
+            schema_version = SCHEMA_VERSION
 
     return UseCasePackage(
         name="discovery",
@@ -128,9 +184,8 @@ def baue_discovery_paket(
             FieldSpec("total_duration_minutes",                                  # E1
                       "Wie lange dauert ein kompletter Durchlauf im Schnitt?",
                       typ=MINUTEN),
-            FieldSpec("focus_step",                                              # E5 (⚠️ auf M hochgestuft — Fokus-Schnitt)
-                      "Welcher Schritt kostet am meisten Zeit oder nervt am "
-                      "meisten?"),
+            FieldSpec("focus_step", e5_frage, typ=e5_typ,                        # E5 (⚠️ auf M hochgestuft — Fokus-Schnitt)
+                      identitaetskritisch=kontext is not None),
             FieldSpec("focus_step_duration_minutes",                             # E2
                       "Wie lange dauert dieser Schritt im Schnitt?",
                       typ=MINUTEN),
@@ -140,14 +195,14 @@ def baue_discovery_paket(
                       typ=AUSWAHL("gemessen", "geschaetzt", "aus_system")),
             FieldSpec("focus_step_duration_confidence_pct",                      # E4
                       "Wie sicher ist diese Zeitangabe (0–100 %)?",
-                      typ=PROZENT_0_100),
+                      typ=e4_typ),
             # --- Block F — Fokus-Schritt: Rollen & Systeme ---
             FieldSpec("focus_step_roles",                                        # F1
                       "Welche Rollen oder Abteilungen sind an diesem Schritt "
                       "beteiligt?", typ=LISTE),
             FieldSpec("focus_step_systems",                                      # F2
                       "Welche IT-Systeme oder Tools nutzen Sie in diesem "
-                      "Schritt?", typ=LISTE),
+                      "Schritt?", typ=f2_typ),
             FieldSpec("focus_step_media_break",                                  # F3
                       "Müssen Sie zwischen Systemen wechseln oder Daten "
                       "manuell übertragen?", typ=JA_NEIN),

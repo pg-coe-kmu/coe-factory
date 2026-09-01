@@ -1,4 +1,6 @@
 """Integrität des Discovery-Pakets gegen die Spec-Feldliste (P3)."""
+import re
+
 import pytest
 
 from bc1_core.core import PaketKonfliktError, process_turn
@@ -7,6 +9,7 @@ from bc1_core.store import InMemoryStateStore
 from bc1_service.discovery_paket import (
     MAX_ROUNDS_DISCOVERY,
     SCHEMA_VERSION,
+    Bc0Kontext,
     baue_discovery_paket,
 )
 
@@ -203,3 +206,73 @@ def test_typ_stichproben_gegen_die_spec_tabelle():
     assert paket.field("request_goal").typ.validator("zeit_sparen") is True
     assert paket.field("request_goal").typ.validator("abkuerzen") is False
     assert paket.field("documentation_status").typ.validator("6") is False
+
+
+KONTEXT = Bc0Kontext(
+    company_id="11111111-1111-1111-1111-111111111111",
+    teilprozesse=(("KP-01.TP-1", "Erfassen"), ("KP-01.TP-2", "Pruefen")),
+    system_ids=("S-01", "S-02"))
+
+
+def _feld(paket, name):
+    return paket.field(name)
+
+
+def test_mit_kontext_traegt_das_paket_den_ctx_fingerprint():
+    paket = baue_discovery_paket(kontext=KONTEXT)
+    assert re.fullmatch(r"1\.1\+ctx-[0-9a-f]{16}", paket.schema_version)
+
+
+def test_fokus_schritt_ist_auswahl_und_identitaetskritisch():
+    spec = _feld(baue_discovery_paket(kontext=KONTEXT), "focus_step")
+    assert spec.identitaetskritisch is True
+    assert spec.typ.validator("KP-01.TP-1") is True
+    assert spec.typ.validator("Bestellung pruefen") is False
+    assert spec.typ.normalisiere("kp-01.tp-2") == "KP-01.TP-2"
+    assert "KP-01.TP-1 = Erfassen" in spec.question
+
+
+def test_systemfeld_prueft_gegen_die_mandanten_menge():
+    spec = _feld(baue_discovery_paket(kontext=KONTEXT), "focus_step_systems")
+    assert spec.typ.validator(spec.typ.normalisiere("SAP (s-01)")) is True
+    assert spec.typ.validator(spec.typ.normalisiere("Eigenbau (S-99)")) is False
+
+
+def test_fingerprint_reagiert_auf_jede_grundlage_aber_nicht_auf_reihenfolge():
+    basis = baue_discovery_paket(kontext=KONTEXT).schema_version
+    gedreht = baue_discovery_paket(kontext=Bc0Kontext(
+        KONTEXT.company_id, KONTEXT.teilprozesse[::-1], KONTEXT.system_ids[::-1]))
+    assert gedreht.schema_version == basis                     # Inhalt zaehlt, nicht Reihenfolge
+    for abweichung in (
+        Bc0Kontext("22222222-2222-2222-2222-222222222222",
+                   KONTEXT.teilprozesse, KONTEXT.system_ids),
+        Bc0Kontext(KONTEXT.company_id, KONTEXT.teilprozesse[:1], KONTEXT.system_ids),
+        Bc0Kontext(KONTEXT.company_id, KONTEXT.teilprozesse, ("S-01",)),
+    ):
+        assert baue_discovery_paket(kontext=abweichung).schema_version != basis
+
+
+def test_kp_liste_bleibt_teil_der_paket_identitaet():
+    ohne_kp = baue_discovery_paket(kontext=KONTEXT).schema_version
+    mit_kp = baue_discovery_paket([("KP-01", "Auftrag")], kontext=KONTEXT).schema_version
+    assert ohne_kp != mit_kp
+
+
+def test_ohne_kontext_bleibt_alles_wie_bisher():
+    paket = baue_discovery_paket()
+    assert paket.schema_version == "1.0"
+    assert paket.field("focus_step").identitaetskritisch is False
+
+
+def test_konfidenz_prozent_ist_im_kontext_zweig_ganzzahlig():
+    # Sonst waere '70,5' gueltig, aber nicht in die integer-Spalte schreibbar
+    # (Codex R1-C4). Nur im Kontext-Zweig — der kontextfreie behaelt Semantik
+    # UND Version 1.0 (Codex R2-N-I4).
+    mit = baue_discovery_paket(kontext=KONTEXT).field(
+        "focus_step_duration_confidence_pct").typ
+    assert mit.validator(mit.normalisiere("70")) is True
+    assert mit.validator(mit.normalisiere("70,5")) is False
+
+    ohne = baue_discovery_paket().field(
+        "focus_step_duration_confidence_pct").typ
+    assert ohne.validator(ohne.normalisiere("70,5")) is True    # unveraendert
