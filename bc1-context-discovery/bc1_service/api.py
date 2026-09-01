@@ -3,9 +3,10 @@
 Zustandslos gegenüber der Fachlogik: Persistenz macht der Kern (Architektur-
 Invariante). Hier liegen nur die laut Design-Spec an die Transportschicht
 delegierten Pflichten: Mandanten-Guard vor jeder anderen Prüfung,
-schema_version-Check im Request und aktives Zurückweisen neuer Nachrichten
-an Sessions in einem Endzustand (fertig oder abgebrochen ohne Identität —
-Gate 0).
+schema_version-Check im Request (mit Ausnahme für den terminalen Recovery-
+Replay, den der Kern über darf_recovery_replay entscheidet) und aktives
+Zurückweisen neuer Nachrichten an Sessions in einem Endzustand (fertig oder
+abgebrochen ohne Identität — Gate 0).
 """
 from __future__ import annotations
 

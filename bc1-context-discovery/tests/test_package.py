@@ -45,6 +45,31 @@ def test_doppelte_feldnamen_werden_bei_konstruktion_abgelehnt():
             ),
         )
 
+# Review-Befund: identitaetskritisch wirkt nur ueber required_fields() —
+# auf einem optionalen Feld waere die Flagge ein stiller No-op (kein Fail-safe,
+# kein Abbruch, Session laeuft ins Runden-Limit ohne geklaerte Identitaet).
+def test_identitaetskritisch_ohne_required_wird_bei_konstruktion_abgelehnt():
+    with pytest.raises(ValueError):
+        UseCasePackage(
+            name="p",
+            schema_version="0.1",
+            fields=(
+                FieldSpec("tp_id", "Welcher Schritt?",
+                          required=False, identitaetskritisch=True),
+            ),
+        )
+
+def test_identitaetskritisch_mit_required_baut_problemlos():
+    paket = UseCasePackage(
+        name="p",
+        schema_version="0.1",
+        fields=(
+            FieldSpec("tp_id", "Welcher Schritt?",
+                      required=True, identitaetskritisch=True),
+        ),
+    )
+    assert paket.field("tp_id").identitaetskritisch is True
+
 def test_fieldspec_typ_default_ist_freitext():
     spec = FieldSpec("f", "?")
     assert spec.typ is FREITEXT

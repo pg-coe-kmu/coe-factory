@@ -30,6 +30,16 @@ class UseCasePackage:
         if doppelte:
             raise ValueError(f"Doppelte Feldnamen im Use-Case-Paket: {doppelte}")
 
+        # identitaetskritisch wirkt nur ueber required_fields() (dialog.py) —
+        # auf einem optionalen Feld waere die Flagge ein stiller No-op: kein
+        # Fail-safe, kein Abbruch, die Session liefe ins Runden-Limit ohne
+        # geklaerte Identitaet. Also die widerspruechliche Kombination hier
+        # ablehnen statt sie still durchgehen zu lassen.
+        falsch = [f.name for f in self.fields
+                  if f.identitaetskritisch and not f.required]
+        if falsch:
+            raise ValueError(f"identitaetskritisch verlangt required=True: {falsch}")
+
     def required_fields(self) -> list[FieldSpec]:
         return [f for f in self.fields if f.required]
 

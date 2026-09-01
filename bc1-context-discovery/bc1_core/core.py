@@ -40,14 +40,17 @@ def _ctx(schema_version: str) -> str:
 def darf_recovery_replay(state: SessionState, package: UseCasePackage,
                          message_id: str,
                          mitgesendete_version: str | None) -> bool:
-    """Eng begrenzte Ausnahme fuer den nachholenden Profil-Write (R13-I2).
+    """Eng begrenzte Ausnahme fuer den terminalen Recovery-Replay (R13-I2).
 
     Alle VIER Bedingungen muessen gelten: gleicher Paketname, gleiche
     Basisversion, ausschliesslich abweichender ctx-Hash UND eine im Request
     mitgesendete alte schema_version, die zur Session passt. Fehlt die Version,
     gibt es KEIN Recovery (Codex R1-I1: 'None' waere die vierte Bedingung
     stillschweigend uebersprungen). Der Turn aendert per Definition nichts am
-    Interview; er holt nur den Write nach. Die Mandanten-Pruefung ist davon
+    Interview mehr — jeder Terminalzustand darf ihn idempotent wiederholen;
+    der nachholende Profil-Write ist EIN Anwendungsfall davon (ABGEBROCHEN_
+    OHNE_IDENTITAET erzeugt nie ein Profil, gibt also nichts nachzuholen, faellt
+    aber ebenso unter ist_terminal). Die Mandanten-Pruefung ist davon
     ausdruecklich AUSGENOMMEN (R11-C1).
     """
     return (mitgesendete_version is not None

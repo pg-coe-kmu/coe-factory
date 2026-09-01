@@ -29,6 +29,7 @@ def _fetter_state(session_id: str = "s1") -> SessionState:
         schema_version="0.1",
         paket_name="toy_prozess",
         status=SessionStatus.WARTET,
+        company_id="11111111-1111-1111-1111-111111111111",
         rounds=2,
         processed_message_ids={"m0", "m1"},
         raw_log=[("m0", "erste Nachricht"), ("m1", "zweite Nachricht")],
