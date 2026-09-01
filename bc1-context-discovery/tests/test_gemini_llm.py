@@ -18,6 +18,7 @@ from bc1_service.prompts import (
 PAKET = UseCasePackage(
     name="gemini_test", schema_version="0.1",
     fields=(FieldSpec("zweck", "Was ist der Zweck?"),))
+MANDANT = "11111111-1111-1111-1111-111111111111"
 
 
 class _Kandidat:
@@ -266,6 +267,7 @@ def test_protokoll_konformitaet_ein_turn_durch_process_turn():
         _Antwort("Notiert: Automatisieren. Fertig!"),
     ])
     antwort = process_turn(InMemoryStateStore(), GeminiLLM(client=stub),
-                           PAKET, "s-gemini", "m1", "Wir wollen automatisieren")
+                           PAKET, "s-gemini", "m1", "Wir wollen automatisieren",
+                           company_id=MANDANT)
     assert antwort["status"] == "fertig"
     assert "Automatisieren" in antwort["payload"]["abschluss_text"]

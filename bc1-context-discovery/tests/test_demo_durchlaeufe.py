@@ -9,6 +9,8 @@ from bc1_core.llm import ExtractionCandidate, FakeLLM
 from bc1_core.store import InMemoryStateStore
 from bc1_service.discovery_paket import baue_discovery_paket
 
+MANDANT = "11111111-1111-1111-1111-111111111111"
+
 
 def _lauf(session_id, nachrichten):
     paket = baue_discovery_paket(None)
@@ -19,7 +21,8 @@ def _lauf(session_id, nachrichten):
     store = InMemoryStateStore()
     antwort = None
     for i, (text, _) in enumerate(nachrichten, start=1):
-        antwort = process_turn(store, llm, paket, session_id, f"m{i}", text)
+        antwort = process_turn(store, llm, paket, session_id, f"m{i}", text,
+                               company_id=MANDANT)
     return antwort
 
 

@@ -1,17 +1,29 @@
 import json
+from dataclasses import replace
 
 import pytest
 
-from bc1_core.types import SessionStatus
+from bc1_core.types import SessionState, SessionStatus
 from bc1_core.package import TOY_PROZESS, FieldSpec, UseCasePackage
 from bc1_core.dialog import MAX_ROUNDS
 from bc1_core.store import InMemoryStateStore
 from bc1_core.llm import FakeLLM, ExtractionCandidate
-from bc1_core.core import PaketKonfliktError, process_turn
+from bc1_core.core import (MandantKonfliktError, PaketKonfliktError,
+                           process_turn)
+
+MANDANT = "11111111-1111-1111-1111-111111111111"
+
+
+def _turn(store, llm, package, session_id, message_id, message,
+          company_id=MANDANT, mitgesendete_version=None):
+    """Testhelfer: process_turn mit Standard-Mandant."""
+    return process_turn(store, llm, package, session_id, message_id, message,
+                        company_id=company_id,
+                        mitgesendete_version=mitgesendete_version)
 
 def test_first_turn_asks_first_open_field():
     store = InMemoryStateStore()
-    r = process_turn(store, FakeLLM(), TOY_PROZESS, "s1", "msg-1", "hallo")
+    r = _turn(store, FakeLLM(), TOY_PROZESS, "s1", "msg-1", "hallo")
     assert r["status"] == "frage"
     assert r["payload"]["feld"] == "prozess_name"
     st = store.load("s1")
@@ -22,8 +34,8 @@ def test_first_turn_asks_first_open_field():
 def test_idempotent_replay_returns_same_response_without_double_log():
     store = InMemoryStateStore()
     llm = FakeLLM({"hallo": [ExtractionCandidate("prozess_name", "Freigabe")]})
-    first = process_turn(store, llm, TOY_PROZESS, "s1", "msg-1", "hallo")
-    again = process_turn(store, llm, TOY_PROZESS, "s1", "msg-1", "hallo")
+    first = _turn(store, llm, TOY_PROZESS, "s1", "msg-1", "hallo")
+    again = _turn(store, llm, TOY_PROZESS, "s1", "msg-1", "hallo")
     assert again == first
     st = store.load("s1")
     assert st.raw_log == [("msg-1", "hallo")]   # nicht doppelt
@@ -36,9 +48,9 @@ def test_full_run_reaches_fertig_with_completeness():
         "b": [ExtractionCandidate("ausloeser", "Antrag geht ein")],
         "c": [ExtractionCandidate("haeufigkeit", "100 mal")],
     })
-    process_turn(store, llm, TOY_PROZESS, "s1", "m1", "a")
-    process_turn(store, llm, TOY_PROZESS, "s1", "m2", "b")
-    r = process_turn(store, llm, TOY_PROZESS, "s1", "m3", "c")
+    _turn(store, llm, TOY_PROZESS, "s1", "m1", "a")
+    _turn(store, llm, TOY_PROZESS, "s1", "m2", "b")
+    r = _turn(store, llm, TOY_PROZESS, "s1", "m3", "c")
     assert r["status"] == "fertig"
     assert r["payload"]["vollstaendigkeit"] == 1.0
     assert r["payload"]["schema_version"] == "0.1"
@@ -57,8 +69,8 @@ def test_fertig_antwort_mit_kandidaten_ist_json_faehig():
               ExtractionCandidate("haeufigkeit", "oft")],       # ungueltig
         "b": [ExtractionCandidate("haeufigkeit", "5 mal die Woche")],  # Korrektur
     })
-    process_turn(store, llm, TOY_PROZESS, "s1", "m1", "a")
-    r = process_turn(store, llm, TOY_PROZESS, "s1", "m2", "b")
+    _turn(store, llm, TOY_PROZESS, "s1", "m1", "a")
+    r = _turn(store, llm, TOY_PROZESS, "s1", "m2", "b")
     assert r["status"] == "fertig"
     roundtrip = json.loads(json.dumps(r))
     assert roundtrip == r
@@ -72,7 +84,7 @@ def test_cap_fertig_payload_enthaelt_frisch_gecappte_felder():
     store = InMemoryStateStore()
     r = None
     for i in range(7):   # 2 Nachfragen je Pflichtfeld, dann gecappt (3 Felder)
-        r = process_turn(store, FakeLLM(), TOY_PROZESS, "s1", f"m{i}", "…")
+        r = _turn(store, FakeLLM(), TOY_PROZESS, "s1", f"m{i}", "…")
     assert r["status"] == "fertig"
     assert r["payload"]["ungeloeste_felder"] == \
         ["prozess_name", "ausloeser", "haeufigkeit"]
@@ -83,7 +95,7 @@ def test_cap_fertig_payload_traegt_grund_je_aufgegebenem_feld():
     store = InMemoryStateStore()
     r = None
     for i in range(7):
-        r = process_turn(store, FakeLLM(), TOY_PROZESS, "s1", f"m{i}", "…")
+        r = _turn(store, FakeLLM(), TOY_PROZESS, "s1", f"m{i}", "…")
     felder = r["payload"]["felder"]
     assert felder["prozess_name"]["grund"] == "nachfrage_limit_erreicht"
     assert felder["haeufigkeit"]["grund"] == "nachfrage_limit_erreicht"
@@ -110,14 +122,14 @@ class CrashtBeimZweitenSave(InMemoryStateStore):
 def test_replay_nach_crash_zwischen_den_saves_setzt_turn_fort():
     store = CrashtBeimZweitenSave()
     llm = FakeLLM({"zwei": [ExtractionCandidate("prozess_name", "Freigabe")]})
-    process_turn(store, llm, TOY_PROZESS, "s1", "m1", "eins")
+    _turn(store, llm, TOY_PROZESS, "s1", "m1", "eins")
     store.scharf = True
     try:
-        process_turn(store, llm, TOY_PROZESS, "s1", "m2", "zwei")
+        _turn(store, llm, TOY_PROZESS, "s1", "m2", "zwei")
     except RuntimeError:
         pass                                    # Turn m2 blieb unbeantwortet
     store.scharf = False
-    r = process_turn(store, llm, TOY_PROZESS, "s1", "m2", "zwei")   # Retry
+    r = _turn(store, llm, TOY_PROZESS, "s1", "m2", "zwei")   # Retry
     assert r["payload"]["feld"] == "ausloeser"  # m2 wurde verarbeitet, nicht m1-Antwort
     st = store.load("s1")
     assert st.raw_log == [("m1", "eins"), ("m2", "zwei")]   # nicht doppelt geloggt
@@ -132,7 +144,7 @@ def test_fertig_payload_enthaelt_alle_paketfelder_auch_unberuehrte():
               ExtractionCandidate("ausloeser", "Antrag"),
               ExtractionCandidate("haeufigkeit", "5 mal")],
     })
-    r = process_turn(store, llm, TOY_PROZESS, "s1", "m1", "a")
+    r = _turn(store, llm, TOY_PROZESS, "s1", "m1", "a")
     assert r["status"] == "fertig"
     felder = r["payload"]["felder"]
     assert set(felder) == {"prozess_name", "ausloeser", "haeufigkeit", "notiz"}
@@ -149,7 +161,7 @@ def test_runden_limit_fertig_meldet_alle_offenen_pflichtfelder():
     store = InMemoryStateStore()
     r = None
     for i in range(MAX_ROUNDS):
-        r = process_turn(store, FakeLLM(), gross, "s1", f"m{i}", "…")
+        r = _turn(store, FakeLLM(), gross, "s1", f"m{i}", "…")
     assert r["status"] == "fertig"
     assert r["payload"]["ungeloeste_felder"] == [f"feld_{i:02d}" for i in range(11)]
     assert r["payload"]["felder"]["feld_10"]["grund"] == "runden_limit_erreicht"
@@ -163,9 +175,9 @@ def test_replay_einer_aelteren_nachricht_liefert_ihre_eigene_antwort():
         "a": [ExtractionCandidate("prozess_name", "Freigabe")],
         "b": [ExtractionCandidate("ausloeser", "Antrag")],
     })
-    r1 = process_turn(store, llm, TOY_PROZESS, "s1", "m1", "a")
-    r2 = process_turn(store, llm, TOY_PROZESS, "s1", "m2", "b")
-    wieder = process_turn(store, llm, TOY_PROZESS, "s1", "m1", "a")  # später Retry
+    r1 = _turn(store, llm, TOY_PROZESS, "s1", "m1", "a")
+    r2 = _turn(store, llm, TOY_PROZESS, "s1", "m2", "b")
+    wieder = _turn(store, llm, TOY_PROZESS, "s1", "m1", "a")  # später Retry
     assert wieder == r1
     assert wieder != r2
 
@@ -175,15 +187,15 @@ def test_replay_einer_aelteren_nachricht_liefert_ihre_eigene_antwort():
 def test_alte_nachricht_waehrend_offenem_turn_wird_nicht_neu_verarbeitet():
     store = CrashtBeimZweitenSave()
     llm = FakeLLM({"zwei": [ExtractionCandidate("prozess_name", "Freigabe")]})
-    r1 = process_turn(store, llm, TOY_PROZESS, "s1", "m1", "eins")
+    r1 = _turn(store, llm, TOY_PROZESS, "s1", "m1", "eins")
     store.scharf = True
     try:
-        process_turn(store, llm, TOY_PROZESS, "s1", "m2", "zwei")
+        _turn(store, llm, TOY_PROZESS, "s1", "m2", "zwei")
     except RuntimeError:
         pass
     store.scharf = False
     vorher = store.load("s1")
-    r = process_turn(store, llm, TOY_PROZESS, "s1", "m1", "eins")   # altes Replay
+    r = _turn(store, llm, TOY_PROZESS, "s1", "m1", "eins")   # altes Replay
     assert r == r1                                  # die eigene Antwort von damals
     nachher = store.load("s1")
     assert nachher.rounds == vorher.rounds          # nichts doppelt angewandt
@@ -200,10 +212,10 @@ def test_fertige_session_wird_nicht_wieder_geoeffnet():
               ExtractionCandidate("haeufigkeit", "5 mal")],
         "b": [ExtractionCandidate("prozess_name", "Anders")],   # Widerspruch
     })
-    fertig = process_turn(store, llm, TOY_PROZESS, "s1", "m1", "a")
+    fertig = _turn(store, llm, TOY_PROZESS, "s1", "m1", "a")
     assert fertig["status"] == "fertig"
     vorher = store.load("s1")
-    r = process_turn(store, llm, TOY_PROZESS, "s1", "m2", "b")
+    r = _turn(store, llm, TOY_PROZESS, "s1", "m2", "b")
     assert r == fertig                              # idempotenter Abschluss
     nachher = store.load("s1")
     assert nachher.status is SessionStatus.FERTIG
@@ -220,9 +232,9 @@ def test_paketwechsel_in_laufender_session_wird_abgelehnt():
         fields=(FieldSpec("lieferant", "Wer?"),),
     )
     store = InMemoryStateStore()
-    process_turn(store, FakeLLM(), TOY_PROZESS, "s1", "m1", "hallo")
+    _turn(store, FakeLLM(), TOY_PROZESS, "s1", "m1", "hallo")
     with pytest.raises(ValueError):
-        process_turn(store, FakeLLM(), anderes, "s1", "m2", "hallo")
+        _turn(store, FakeLLM(), anderes, "s1", "m2", "hallo")
 
 def test_paketwechsel_wird_auch_bei_gleicher_schema_version_abgelehnt():
     anderes = UseCasePackage(
@@ -230,9 +242,9 @@ def test_paketwechsel_wird_auch_bei_gleicher_schema_version_abgelehnt():
         fields=(FieldSpec("lieferant", "Wer?"),),
     )
     store = InMemoryStateStore()
-    process_turn(store, FakeLLM(), TOY_PROZESS, "s1", "m1", "hallo")
+    _turn(store, FakeLLM(), TOY_PROZESS, "s1", "m1", "hallo")
     with pytest.raises(ValueError):
-        process_turn(store, FakeLLM(), anderes, "s1", "m2", "hallo")
+        _turn(store, FakeLLM(), anderes, "s1", "m2", "hallo")
 
 # Der Paket-Guard wirft eine EIGENE Exception-Klasse (Subklasse von
 # ValueError): die Transportschicht muss ihn von beliebigen ValueErrors
@@ -243,16 +255,16 @@ def test_paket_guard_wirft_paketkonfliktfehler():
         fields=(FieldSpec("lieferant", "Wer?"),),
     )
     store = InMemoryStateStore()
-    process_turn(store, FakeLLM(), TOY_PROZESS, "s1", "m1", "hallo")
+    _turn(store, FakeLLM(), TOY_PROZESS, "s1", "m1", "hallo")
     with pytest.raises(PaketKonfliktError):
-        process_turn(store, FakeLLM(), anderes, "s1", "m2", "hallo")
+        _turn(store, FakeLLM(), anderes, "s1", "m2", "hallo")
 
 
 def test_zwei_sessions_bleiben_getrennt_auch_bei_gleicher_message_id():
     store = InMemoryStateStore()
     llm = FakeLLM({"a": [ExtractionCandidate("prozess_name", "Freigabe")]})
-    process_turn(store, llm, TOY_PROZESS, "s1", "m1", "a")
-    r2 = process_turn(store, llm, TOY_PROZESS, "s2", "m1", "hallo")
+    _turn(store, llm, TOY_PROZESS, "s1", "m1", "a")
+    r2 = _turn(store, llm, TOY_PROZESS, "s2", "m1", "hallo")
     assert store.load("s1").values["prozess_name"].value == "Freigabe"
     # s2 startet frisch: kein Wert aus s1, keine Idempotenz-Kollision über m1
     assert store.load("s2").values["prozess_name"].value is None
@@ -276,13 +288,13 @@ def test_ueberholter_crash_turn_oeffnet_fertige_session_nicht():
     })
     store.scharf = True
     try:
-        process_turn(store, llm, TOY_PROZESS, "s1", "m1", "kaputt")   # crasht
+        _turn(store, llm, TOY_PROZESS, "s1", "m1", "kaputt")   # crasht
     except RuntimeError:
         pass
     store.scharf = False
-    fertig = process_turn(store, llm, TOY_PROZESS, "s1", "m2", "alles")
+    fertig = _turn(store, llm, TOY_PROZESS, "s1", "m2", "alles")
     assert fertig["status"] == "fertig"
-    r = process_turn(store, llm, TOY_PROZESS, "s1", "m1", "kaputt")   # Replay
+    r = _turn(store, llm, TOY_PROZESS, "s1", "m1", "kaputt")   # Replay
     assert r == fertig                                # keine Neuverarbeitung
     st = store.load("s1")
     assert st.status is SessionStatus.FERTIG
@@ -294,13 +306,13 @@ def test_ueberholter_crash_turn_wird_auch_bei_laufender_session_nicht_fortgesetz
                    "ok": [ExtractionCandidate("prozess_name", "Freigabe")]})
     store.scharf = True
     try:
-        process_turn(store, llm, TOY_PROZESS, "s1", "m1", "kaputt")   # crasht
+        _turn(store, llm, TOY_PROZESS, "s1", "m1", "kaputt")   # crasht
     except RuntimeError:
         pass
     store.scharf = False
-    r2 = process_turn(store, llm, TOY_PROZESS, "s1", "m2", "ok")      # überholt m1
+    r2 = _turn(store, llm, TOY_PROZESS, "s1", "m2", "ok")      # überholt m1
     vorher = store.load("s1")
-    r = process_turn(store, llm, TOY_PROZESS, "s1", "m1", "kaputt")   # Replay m1
+    r = _turn(store, llm, TOY_PROZESS, "s1", "m1", "kaputt")   # Replay m1
     assert r == r2                                  # letzte bekannte Antwort
     nachher = store.load("s1")
     assert nachher.values["prozess_name"].value == "Freigabe"   # kein "Falsch"
@@ -324,10 +336,10 @@ def test_ueberholtes_replay_ohne_jede_antwort_liefert_vertragsantwort():
     llm = FakeLLM()
     for mid in ("m1", "m2"):
         try:
-            process_turn(store, llm, TOY_PROZESS, "s1", mid, "hallo")
+            _turn(store, llm, TOY_PROZESS, "s1", mid, "hallo")
         except RuntimeError:
             pass
-    r = process_turn(store, llm, TOY_PROZESS, "s1", "m1", "hallo")   # überholt
+    r = _turn(store, llm, TOY_PROZESS, "s1", "m1", "hallo")   # überholt
     assert r == {"status": "fehler_fortsetzbar",
                  "payload": {"grund": "turn_unbeantwortet"}}
 
@@ -339,11 +351,11 @@ def test_crash_resume_verarbeitet_den_geloggten_text():
                    "anders": [ExtractionCandidate("prozess_name", "Falsch")]})
     store.scharf = True
     try:
-        process_turn(store, llm, TOY_PROZESS, "s1", "m1", "orig")   # crasht
+        _turn(store, llm, TOY_PROZESS, "s1", "m1", "orig")   # crasht
     except RuntimeError:
         pass
     store.scharf = False
-    process_turn(store, llm, TOY_PROZESS, "s1", "m1", "anders")     # Retry
+    _turn(store, llm, TOY_PROZESS, "s1", "m1", "anders")     # Retry
     st = store.load("s1")
     assert st.values["prozess_name"].value == "Freigabe"    # aus "orig"
     assert st.raw_log == [("m1", "orig")]
@@ -357,7 +369,7 @@ class ExplodierendesLLM(FakeLLM):
 # gesichert — nichts geht verloren, der Retry kann fortsetzen.
 def test_llm_absturz_liefert_fehler_fortsetzbar_statt_exception():
     store = InMemoryStateStore()
-    r = process_turn(store, ExplodierendesLLM(), TOY_PROZESS, "s1", "m1", "wichtig")
+    r = _turn(store, ExplodierendesLLM(), TOY_PROZESS, "s1", "m1", "wichtig")
     assert r == {"status": "fehler_fortsetzbar",
                  "payload": {"grund": "verarbeitung_fehlgeschlagen"}}
     st = store.load("s1")
@@ -374,12 +386,12 @@ def test_llm_ausfall_verbraucht_keine_nachfrage():
             raise RuntimeError("LLM weg")
 
     store = InMemoryStateStore()
-    process_turn(store, PhrasenAusfallLLM(), TOY_PROZESS, "s1", "m1", "hallo")
+    _turn(store, PhrasenAusfallLLM(), TOY_PROZESS, "s1", "m1", "hallo")
     st = store.load("s1")
     assert st.status is SessionStatus.FEHLER
     assert st.rounds == 0                       # keine halbe Runde persistiert
     assert all(fv.attempts == 0 for fv in st.values.values())
-    r = process_turn(store, FakeLLM(), TOY_PROZESS, "s1", "m1", "hallo")  # Retry
+    r = _turn(store, FakeLLM(), TOY_PROZESS, "s1", "m1", "hallo")  # Retry
     assert r["status"] == "frage"
     st = store.load("s1")
     assert st.rounds == 1                       # genau EINE Runde gezählt
@@ -390,9 +402,9 @@ def test_llm_ausfall_verbraucht_keine_nachfrage():
 def test_retry_nach_fehler_fortsetzbar_setzt_turn_fort():
     store = InMemoryStateStore()
     kaputt = ExplodierendesLLM({"wichtig": [ExtractionCandidate("prozess_name", "Freigabe")]})
-    process_turn(store, kaputt, TOY_PROZESS, "s1", "m1", "wichtig")
+    _turn(store, kaputt, TOY_PROZESS, "s1", "m1", "wichtig")
     heil = FakeLLM({"wichtig": [ExtractionCandidate("prozess_name", "Freigabe")]})
-    r = process_turn(store, heil, TOY_PROZESS, "s1", "m1", "wichtig")   # Retry
+    r = _turn(store, heil, TOY_PROZESS, "s1", "m1", "wichtig")   # Retry
     assert r["status"] == "frage"
     st = store.load("s1")
     assert st.status is SessionStatus.WARTET
@@ -404,7 +416,7 @@ def test_frage_traegt_gespraechstext_mit_bestaetigung_und_kernfrage():
     store = InMemoryStateStore()
     llm = FakeLLM({"Der Prozess heißt Urlaubsantrag":
                    [ExtractionCandidate("prozess_name", "Urlaubsantrag")]})
-    resp = process_turn(store, llm, TOY_PROZESS, "s-gespraech", "m1",
+    resp = _turn(store, llm, TOY_PROZESS, "s-gespraech", "m1",
                         "Der Prozess heißt Urlaubsantrag")
     p = resp["payload"]
     # Fake-Komposition: Bestätigung der echten Werte + nächste Kernfrage wörtlich.
@@ -420,9 +432,9 @@ def test_abschluss_traegt_zusammenfassung_und_zaehler():
         "A": [ExtractionCandidate("prozess_name", "Urlaubsantrag")],
         "B": [ExtractionCandidate("ausloeser", "Antrag")],
         "C": [ExtractionCandidate("haeufigkeit", "100 mal pro Jahr")]})
-    process_turn(store, llm, TOY_PROZESS, "s-abschluss", "m1", "A")
-    process_turn(store, llm, TOY_PROZESS, "s-abschluss", "m2", "B")
-    resp = process_turn(store, llm, TOY_PROZESS, "s-abschluss", "m3", "C")
+    _turn(store, llm, TOY_PROZESS, "s-abschluss", "m1", "A")
+    _turn(store, llm, TOY_PROZESS, "s-abschluss", "m2", "B")
+    resp = _turn(store, llm, TOY_PROZESS, "s-abschluss", "m3", "C")
     assert resp["status"] == "fertig"
     p = resp["payload"]
     assert "Urlaubsantrag" in p["abschluss_text"]
@@ -437,5 +449,157 @@ def test_gespraechstext_kommt_aus_llm_antworte_nicht_aus_dem_paket():
             return "GANZ EIGENE FORMULIERUNG"
 
     store = InMemoryStateStore()
-    resp = process_turn(store, EigeneWorte(), TOY_PROZESS, "s-inv", "m1", "Hallo")
+    resp = _turn(store, EigeneWorte(), TOY_PROZESS, "s-inv", "m1", "Hallo")
     assert resp["payload"]["naechste_frage"] == "GANZ EIGENE FORMULIERUNG"
+
+
+IDENT_PAKET = UseCasePackage(
+    name="ident_test", schema_version="1.1+ctx-aaaaaaaaaaaaaaaa", max_rounds=2,
+    fields=(FieldSpec("tp_id", "Welcher Schritt?",
+                      validator=lambda v: v == "KP-01.TP-1",
+                      identitaetskritisch=True),),
+)
+
+
+def test_runden_limit_ohne_identitaet_endet_im_abbruch_zustand():
+    store = InMemoryStateStore()
+    llm = FakeLLM()
+    _turn(store, llm, IDENT_PAKET, "s1", "m1", "keine ahnung")
+    r = _turn(store, llm, IDENT_PAKET, "s1", "m2", "immer noch nicht")
+    assert r["status"] == "abgebrochen_ohne_identitaet"
+    assert r["payload"]["grund"] == "identitaet_ungeklaert"
+    assert r["payload"]["feld"] == "tp_id"
+    assert store.load("s1").status is SessionStatus.ABGEBROCHEN_OHNE_IDENTITAET
+
+
+class _WerfendesLLM(FakeLLM):
+    def antworte(self, kontext):
+        raise RuntimeError("LLM kaputt")
+
+
+def test_abbruch_kommt_ohne_llm_aus():
+    # R8-I2: ein LLM-Ausfall darf den definierten Terminalzustand nicht in
+    # fehler_fortsetzbar kippen. Gegenprobe im Frage-Turn: DORT schlaegt der
+    # Ausfall wie gehabt durch (der Kern faengt ihn, Codex R2-N-I5).
+    store = InMemoryStateStore()
+    frage_turn = _turn(store, _WerfendesLLM(), IDENT_PAKET, "s1", "m1", "keine ahnung")
+    assert frage_turn["status"] == "fehler_fortsetzbar"
+
+    store2 = InMemoryStateStore()
+    _turn(store2, FakeLLM(), IDENT_PAKET, "s1", "m1", "keine ahnung")
+    r = _turn(store2, _WerfendesLLM(), IDENT_PAKET, "s1", "m2", "nein")
+    assert r["status"] == "abgebrochen_ohne_identitaet"
+
+
+def test_abbruch_replay_ist_idempotent():
+    store = InMemoryStateStore()
+    llm = FakeLLM()
+    _turn(store, llm, IDENT_PAKET, "s1", "m1", "a")
+    erst = _turn(store, llm, IDENT_PAKET, "s1", "m2", "b")
+    assert _turn(store, llm, IDENT_PAKET, "s1", "m2", "b") == erst
+
+
+MANDANT_B = "22222222-2222-2222-2222-222222222222"
+
+
+def test_mandanten_guard_weist_fremden_mandanten_immer_ab():
+    store = InMemoryStateStore()
+    llm = FakeLLM()
+    _turn(store, llm, TOY_PROZESS, "s1", "m1", "hallo")
+    with pytest.raises(MandantKonfliktError):
+        _turn(store, llm, TOY_PROZESS, "s1", "m2", "hallo", company_id=MANDANT_B)
+    with pytest.raises(MandantKonfliktError):        # auch der bekannte Replay
+        _turn(store, llm, TOY_PROZESS, "s1", "m1", "hallo", company_id=MANDANT_B)
+
+
+def test_alt_session_ohne_company_id_wird_immer_abgewiesen():
+    store = InMemoryStateStore()
+    store.save(SessionState("s1", "0.1", paket_name="toy_prozess"))   # company_id=None
+    with pytest.raises(MandantKonfliktError):
+        _turn(store, FakeLLM(), TOY_PROZESS, "s1", "m1", "hallo")
+
+
+def test_company_id_liegt_schon_im_ersten_gespeicherten_stand():
+    gesehen = []
+
+    class _SpionStore(InMemoryStateStore):
+        def save(self, state):
+            gesehen.append(state.company_id)
+            super().save(state)
+
+    _turn(_SpionStore(), FakeLLM(), TOY_PROZESS, "s1", "m1", "hallo")
+    assert gesehen and gesehen[0] == MANDANT          # schon beim Roh-Log-Save
+
+
+def test_recovery_replay_passiert_den_paket_guard_nur_bei_ctx_abweichung():
+    store = InMemoryStateStore()
+    llm = FakeLLM()
+    _turn(store, llm, IDENT_PAKET, "s1", "m1", "a")
+    erst = _turn(store, llm, IDENT_PAKET, "s1", "m2", "b")     # terminal
+    alt_version = IDENT_PAKET.schema_version
+    anderes_ctx = replace(IDENT_PAKET, schema_version="1.1+ctx-bbbbbbbbbbbbbbbb")
+    assert _turn(store, llm, anderes_ctx, "s1", "m2", "b",
+                 mitgesendete_version=alt_version) == erst
+
+    with pytest.raises(PaketKonfliktError):          # ohne Altversion kein Recovery
+        _turn(store, llm, anderes_ctx, "s1", "m2", "b")
+
+    andere_basis = replace(IDENT_PAKET, schema_version="1.2+ctx-bbbbbbbbbbbbbbbb")
+    with pytest.raises(PaketKonfliktError):
+        _turn(store, llm, andere_basis, "s1", "m2", "b",
+              mitgesendete_version=alt_version)
+
+    anderer_name = replace(anderes_ctx, name="fremd")
+    with pytest.raises(PaketKonfliktError):
+        _turn(store, llm, anderer_name, "s1", "m2", "b",
+              mitgesendete_version=alt_version)
+
+
+# Direkter Unit-Test der produzierten Schnittstelle (Plan-Vertrag): sichert die
+# Extraktion aus process_turn in eine eigenstaendige, importierbare Funktion ab.
+def test_darf_recovery_replay_direkt():
+    from bc1_core.core import darf_recovery_replay
+
+    state = SessionState("s1", "1.1+ctx-aaaaaaaaaaaaaaaa", paket_name="ident_test",
+                         status=SessionStatus.ABGEBROCHEN_OHNE_IDENTITAET,
+                         processed_message_ids={"m2"})
+    anderes_ctx = replace(IDENT_PAKET, schema_version="1.1+ctx-bbbbbbbbbbbbbbbb")
+    assert darf_recovery_replay(state, anderes_ctx, "m2",
+                                "1.1+ctx-aaaaaaaaaaaaaaaa") is True
+    assert darf_recovery_replay(state, anderes_ctx, "m2", None) is False
+
+
+# Terminal-Gate (Spec B3) gilt fuer BEIDE Terminalzustaende, nicht nur FERTIG:
+# eine neue, nie gesehene Nachricht darf eine abgebrochene Session nicht
+# wieder oeffnen.
+def test_abgebrochene_session_wird_nicht_wieder_geoeffnet():
+    store = InMemoryStateStore()
+    llm = FakeLLM()
+    _turn(store, llm, IDENT_PAKET, "s1", "m1", "a")
+    abgebrochen = _turn(store, llm, IDENT_PAKET, "s1", "m2", "b")
+    assert abgebrochen["status"] == "abgebrochen_ohne_identitaet"
+    r = _turn(store, llm, IDENT_PAKET, "s1", "m3", "c")   # neue Nachricht
+    assert r == abgebrochen
+    st = store.load("s1")
+    assert st.raw_log == [("m1", "a"), ("m2", "b")]   # m3 nicht mitprotokolliert
+
+
+# R11-C1/K3: der Mandanten-Guard laeuft nach JEDEM load, auch dem erneuten
+# load im Fehlerpfad — nicht nur beim ersten load des Turns.
+def test_except_pfad_prueft_mandant_beim_erneuten_load():
+    class _MandantWechselStore(InMemoryStateStore):
+        def __init__(self):
+            super().__init__()
+            self._loads = 0
+
+        def load(self, session_id):
+            self._loads += 1
+            st = super().load(session_id)
+            if self._loads == 3 and st is not None:
+                st.company_id = MANDANT_B   # aendert sich zwischen den beiden loads
+            return st
+
+    store = _MandantWechselStore()
+    _turn(store, FakeLLM(), TOY_PROZESS, "s1", "m1", "hallo")
+    with pytest.raises(MandantKonfliktError):
+        _turn(store, ExplodierendesLLM(), TOY_PROZESS, "s1", "m2", "kaputt")

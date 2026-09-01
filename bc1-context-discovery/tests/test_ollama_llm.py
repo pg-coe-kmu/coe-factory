@@ -11,6 +11,8 @@ from bc1_core.types import SessionState
 from bc1_service.ollama_llm import OllamaLLM
 from bc1_service.prompts import SYSTEM_GESPRAECH
 
+MANDANT = "11111111-1111-1111-1111-111111111111"
+
 
 class _Nachricht:
     def __init__(self, content: str) -> None:
@@ -130,6 +132,7 @@ def test_protocol_konformitaet_ein_turn_durch_process_turn():
     antwort = process_turn(
         InMemoryStateStore(), OllamaLLM(client=stub), TOY_PROZESS,
         "s1", "m1", "Der Prozess heißt Urlaubsantrag",
+        company_id=MANDANT,
     )
     assert antwort["status"] == "frage"
     assert antwort["payload"]["feld"] == "ausloeser"

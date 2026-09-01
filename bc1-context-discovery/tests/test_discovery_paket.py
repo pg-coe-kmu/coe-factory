@@ -10,6 +10,8 @@ from bc1_service.discovery_paket import (
     baue_discovery_paket,
 )
 
+MANDANT = "11111111-1111-1111-1111-111111111111"
+
 MUSS_FELDER = [
     "request_intent", "request_goal", "scope_focus",
     "process_name", "process_owner_role", "process_id", "process_steps",
@@ -123,9 +125,9 @@ def test_b4_snapshot_wechsel_wird_vom_bestehenden_paket_guard_abgelehnt():
     paket_a = baue_discovery_paket([("KP-01", "X")])
     paket_b = baue_discovery_paket([("KP-02", "Y")])
     store = InMemoryStateStore()
-    process_turn(store, FakeLLM(), paket_a, "s1", "m1", "hallo")
+    process_turn(store, FakeLLM(), paket_a, "s1", "m1", "hallo", company_id=MANDANT)
     with pytest.raises(PaketKonfliktError):
-        process_turn(store, FakeLLM(), paket_b, "s1", "m2", "hallo")
+        process_turn(store, FakeLLM(), paket_b, "s1", "m2", "hallo", company_id=MANDANT)
 
 
 def test_b4_leere_snapshot_liste_ist_ebenfalls_freitext():
