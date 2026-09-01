@@ -11,6 +11,9 @@ class FieldSpec:
     required: bool = True
     validator: Callable[[str], bool] | None = None
     typ: Feldtyp = FREITEXT
+    # Ohne gueltigen Wert gibt es kein Profil und keinen Abschluss (Spec K0).
+    # Generisch: Pakete ohne solches Feld verhalten sich unveraendert.
+    identitaetskritisch: bool = False
 
 @dataclass(frozen=True)
 class UseCasePackage:

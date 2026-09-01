@@ -1,6 +1,7 @@
 import json
 
-from bc1_core.types import FieldStatus, SessionStatus, FieldValue, SessionState
+from bc1_core.types import (Ergebnis, FieldStatus, FieldValue, SessionState,
+                            SessionStatus, TERMINALE_STATUS)
 
 def test_fieldvalue_defaults_to_fehlt():
     fv = FieldValue()
@@ -29,6 +30,20 @@ def test_sessionstatus_wire_werte():
     assert SessionStatus.WARTET.value == "wartet_auf_antwort"
     assert SessionStatus.FERTIG.value == "fertig"
     assert SessionStatus.FEHLER.value == "fehler_fortsetzbar"
+    assert SessionStatus.ABGEBROCHEN_OHNE_IDENTITAET.value == "abgebrochen_ohne_identitaet"
+
+# Ergebnis ersetzt Decision.done (Spec K0) — auch hier sind die String-Werte
+# der Wire-Vertrag, nicht nur ein internes Implementierungsdetail.
+def test_ergebnis_wire_werte():
+    assert Ergebnis.WEITER.value == "weiter"
+    assert Ergebnis.FERTIG.value == "fertig"
+    assert Ergebnis.ABGEBROCHEN_OHNE_IDENTITAET.value == "abgebrochen_ohne_identitaet"
+
+# TERMINALE_STATUS ist die Vertragskonstante fuer Replay-Weiche (core) und
+# Terminal-Gate (api): beide muessen JEDEN Endzustand kennen, nicht nur FERTIG.
+def test_terminale_status_umfasst_beide_endzustaende():
+    assert set(TERMINALE_STATUS) == {SessionStatus.FERTIG,
+                                      SessionStatus.ABGEBROCHEN_OHNE_IDENTITAET}
 
 def test_status_enums_serialisieren_und_rehydrieren_als_wire_string():
     assert json.dumps(FieldStatus.GUELTIG) == '"gueltig"'
