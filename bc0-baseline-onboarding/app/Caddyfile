@@ -4,5 +4,53 @@
 #   DOMAIN=bc0.foo.org    -> automatisches Let's-Encrypt-HTTPS
 {$DOMAIN} {
     encode gzip
+
+    # ------------------------------------------------------------------
+    # Obergrenze fuer den Anfragekoerper (Punkt 46, Befund A3)
+    # ------------------------------------------------------------------
+    # Ohne diese Zeile nimmt die Anwendung eine 500-MB-Datei erst vollstaendig
+    # entgegen und weist sie dann wegen MAX_DOC_MB ab — der Speicher ist da
+    # bereits verbraucht. Caddy kappt hier, bevor etwas bei der Anwendung
+    # ankommt. 20 MB liegen ueber MAX_DOC_MB (15), damit die fachliche Meldung
+    # der Anwendung im Regelfall gewinnt und nicht Caddys nackte 413.
+    request_body {
+        max_size 20MB
+    }
+
+    # ------------------------------------------------------------------
+    # Sicherheits-Header (Punkt 70, Befunde A2 und A5; deckt Punkt 43 mit ab)
+    # ------------------------------------------------------------------
+    header {
+        # HSTS: ein Jahr. Greift nur ueber HTTPS — bei DOMAIN=:80 ohne Wirkung,
+        # aber auch ohne Schaden. Kein `preload`: Das ist eine Eintragung in
+        # Browserlisten, aus der man nicht kurzfristig wieder herauskommt.
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+        # Verhindert MIME-Sniffing. **Das ist Punkt 43:** Der `mime_type` eines
+        # Belegs stammt vom Hochladenden und ist nicht vertrauenswuerdig. Ohne
+        # nosniff kann der Browser eine als Bild deklarierte Datei als HTML
+        # ausfuehren — im selben Ursprung, also mit dem Sitzungscookie.
+        X-Content-Type-Options "nosniff"
+
+        # Keine fremde Einbettung. Klickjacking gegen eine Anwendung, in der
+        # Freigaben erteilt werden, ist kein theoretischer Fall.
+        X-Frame-Options "DENY"
+
+        # Beim Verlassen der Seite nur die Herkunft senden, nicht den Pfad.
+        # Pfade tragen hier Mandanten- und Prozess-IDs.
+        Referrer-Policy "strict-origin-when-cross-origin"
+
+        # CSP. `unsafe-inline` ist noetig, solange Stil und Skript in
+        # static/index.html eingebettet sind — das ist bewusst so, die Datei
+        # ist die ganze Anwendung. Der Gewinn liegt trotzdem in `default-src
+        # 'self'`: Kein fremder Ursprung wird geladen, keine Daten fliessen
+        # nach draussen, und `frame-ancestors 'none'` haelt auch dort, wo
+        # X-Frame-Options ignoriert wird.
+        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+
+        # Der Server nennt seinen Namen nicht.
+        -Server
+    }
+
     reverse_proxy app:8000
 }

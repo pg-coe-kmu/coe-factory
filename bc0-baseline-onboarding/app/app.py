@@ -38,6 +38,7 @@ Start:  pip install -r requirements.txt
         Browser: http://localhost:8000
 """
 import sqlite3, os, datetime, json, uuid, re, urllib.request, urllib.error, hashlib
+import logging
 
 HERE = os.path.dirname(__file__)
 
@@ -772,6 +773,45 @@ ZUORDNUNG_QUELLEN = ("anfrage","vorschlag_bc0","vorschlag_bc1","interview")
 ANFRAGE_STATUS = ("eingegangen","zugeordnet","im_interview","am_gate",
                   "bewertet","beauftragt","erledigt","abgelehnt")
 
+# ---------------------------------------------------------------------------
+# Fehlerbehandlung (Punkt 45, Befund A4)
+# ---------------------------------------------------------------------------
+LOG = logging.getLogger("bc0")
+
+
+def _fehler(zweck, ausnahme, code=400,
+            satz="Der Vorgang ist fehlgeschlagen. Der Grund steht im Serverprotokoll."):
+    """Schreibt die Einzelheiten ins Protokoll und gibt einen allgemeinen Satz zurueck.
+
+    **Der Anlass.** Bis zum 02.09.2026 stand in mehreren Endpunkten
+    ``HTTPException(400, "Nicht gespeichert: %s" % str(e))``. Damit gingen
+    Tabellen-, Spalten- und Constraint-Namen an den Aufrufer — bei einem
+    Verstoss gegen ``ck_anfrage_bezug_paarweise`` etwa der vollstaendige
+    Bedingungstext. Das ist eine Landkarte des Schemas fuer jeden, der Fehler
+    provozieren kann.
+
+    **Warum nicht einfach schweigen.** Wer nur "Fehler" sagt, zwingt jeden
+    Betreuer aufs Raten. Deshalb geht die Einzelheit ins Protokoll, wo sie
+    hingehoert, und nach draussen geht ein Satz, der sagt, wo sie steht.
+
+    **Die Ausnahme sind fachliche Pruefungen.** "KP-99 ist unbekannt" oder
+    "Ohne Kernprozess ist es keine Zuordnung" bleiben woertlich — sie nennen
+    nichts Internes und sagen dem Aufrufer genau, was zu tun ist. Nur
+    *unerwartete* Ausnahmen laufen hier durch.
+
+    Args:
+        zweck: Was versucht wurde — steht im Protokoll, nicht in der Antwort.
+        ausnahme: Die aufgetretene Ausnahme.
+        code: HTTP-Status.
+        satz: Was der Aufrufer zu sehen bekommt.
+
+    Returns:
+        Eine :class:`HTTPException` zum Auswerfen.
+    """
+    LOG.exception("%s fehlgeschlagen: %s", zweck, ausnahme)
+    return HTTPException(code, satz)
+
+
 def kpid(i):
     """Bildet die Kernprozess-ID aus dem nullbasierten Listenindex.
 
@@ -792,13 +832,14 @@ def now():
     Irland, der Server in Nürnberg, und die Zeitumstellung soll keine Lücke
     oder Dopplung in einer Zeitreihe erzeugen.
 
-    Bekannte Schwäche: ``utcnow()`` liefert einen naiven Zeitstempel und ist ab
+    **Berichtigt am 02.09.2026.** ``utcnow()`` ist ab Python 3.12 abgekuendigt
+    und warnte bei jedem Lauf. Bekannt: Der Zeitstempel ist weiterhin naiv und ab
     Python 3.12 als überholt gekennzeichnet. Der Nachfolger wäre
     ``datetime.now(datetime.UTC)``. Ein Wechsel ändert die geschriebene
     Zeichenkette um das Anhängsel ``+00:00`` und ist deshalb nicht folgenlos —
     er gehört mit einer Datenprüfung zusammen und nicht nebenbei erledigt.
     """
-    return datetime.datetime.utcnow().isoformat()
+    return datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None).isoformat()
 
 def _kat(v, default="Unterstützungsprozess"):
     """Kategorie auf kanonische ENUM-Werte (mit Umlaut, Schema v1.1 [3]) normalisieren."""
@@ -1319,9 +1360,15 @@ async def save_process(cid:str, req:Request, benutzer: Benutzer = Depends(angeme
     pruefe_mandant(benutzer, cid)
     b=await req.json(); pid=b["process_id"]; c=db()
     kat=_kat(b.get("kategorie")) if PG else b.get("kategorie")
-    c.execute("""UPDATE ref_prozesse SET owner_name=?,owner_role=?,kategorie=?,trigger_text=?,input_text=?,output_text=?,
+    # owner_name und owner_role werden hier NICHT mehr geschrieben.
+    # Die Maske bot dafuer bis zum 02.09.2026 zwei Eingabefelder an, deren
+    # Inhalt nirgends mehr gelesen wurde: Der Eigner steht seit Schema v1.3
+    # Teil A in prozess_personen, und die pseudonymisierte Sicht liefert ihn
+    # als eigner_ids. Ein Feld, das Eingaben entgegennimmt und verwirft, ist
+    # schlimmer als kein Feld — es sieht nach Pflege aus.
+    c.execute("""UPDATE ref_prozesse SET kategorie=?,trigger_text=?,input_text=?,output_text=?,
                  beschreibung=? WHERE """+W_CO+" AND process_id=?",
-        (b.get("owner_name"),b.get("owner_role"),kat,b.get("trigger_text"),
+        (kat,b.get("trigger_text"),
          b.get("input_text"),b.get("output_text"),b.get("beschreibung"),cid,pid))
     for n,tp in enumerate(b.get("tps",[]),start=1):
         c.execute("""UPDATE ref_teilprozesse SET sub_process_name=?,notation=?,tools=?,medienbrueche=?,schnittstellen=?,api=?
@@ -1611,6 +1658,39 @@ def _stufentext(v):
             return text
     return COCKPIT_STUFEN[-1][1]
 
+
+def _eigner_ids(c, cid, pid):
+    """Liefert die Personen-IDs, die einen Prozess als Eigner fuehren.
+
+    **Warum nicht ``ref_prozesse.owner_name``.** Das Feld stammt aus der Zeit
+    vor Schema v1.3 Teil A und traegt seit der Pseudonymisierung nichts mehr:
+    Klarnamen stehen nach ADR-004 R5 an genau einer Stelle, naemlich in
+    ``ref_personen``. Die Zuordnung Person→Prozess liegt in
+    ``prozess_personen`` mit ``funktion = 'eigner'``.
+
+    Zurueck kommen **IDs, keine Namen** — dieselbe Form, die
+    ``v_prozesse_lesen`` als ``eigner_ids`` an BC1 bis BC4 ausliefert. Wer den
+    Klarnamen braucht, schlaegt ihn in ``ref_personen`` nach; wer ihn nicht
+    braucht, bekommt ihn hier auch nicht.
+
+    Args:
+        c: offene Verbindung.
+        cid: Mandant.
+        pid: Kernprozess-ID, z. B. ``KP-03``.
+
+    Returns:
+        Sortierte Liste der P-IDs, leer wenn kein Eigner zugeordnet ist.
+    """
+    try:
+        rows = c.execute(
+            "SELECT person_id FROM prozess_personen WHERE " + W_CO +
+            " AND process_id=? AND funktion='eigner' ORDER BY person_id",
+            (cid, pid)).fetchall()
+        return [r["person_id"] for r in rows]
+    except Exception:
+        # Fehlt die Tabelle (Schema v1.3 Teil A nicht eingespielt), soll der
+        # Bericht trotzdem rechnen — dann steht eben kein Eigner dort.
+        return []
 
 def _prozesskanten(cid):
     """Kanten aus prozess_schnittstellen — in einer EIGENEN Verbindung.
@@ -2045,7 +2125,13 @@ def report(cid:str, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
                 items["I-%02d"%nr]=v; werte.append(v)
             if all(werte) and abs(werte[0]-werte[1])>=CF_DELTA:
                 unstimmig.append(name)
-        cross.append({"process_id":pid,"process_name":p["process_name"],"owner":p["owner_name"],
+        # Eigner aus prozess_personen, nicht aus ref_prozesse.owner_name.
+        # Das alte Feld stammt aus der SQLite-Zeit und ist seit der
+        # Pseudonymisierung (Schema v1.3 Teil A) leer — die Matrix zeigte
+        # deshalb bei allen zehn Prozessen nichts an. Gemeldet von BC1 am
+        # 02.09.2026 als "Owner fehlt".
+        cross.append({"process_id":pid,"process_name":p["process_name"],
+                      "owner":", ".join(_eigner_ids(c, cid, pid)) or None,
                       "kategorie":p["kategorie"],
                       "io":(p["input_text"] or "?")+" → "+(p["output_text"] or "?"),
                       "krit":crit,"items":items,"unstimmig":unstimmig,
@@ -2276,7 +2362,8 @@ async def ki_readiness_speichern(cid:str, req:Request, benutzer: Benutzer = Depe
         c.close(); raise
     except Exception as e:
         c.close()
-        raise HTTPException(400, "Nicht gespeichert: %s" % str(e).split("\n")[0])
+        raise _fehler("Speichern", e, 400,
+                      "Nicht gespeichert. Der Grund steht im Serverprotokoll.")
     c.close()
     return {"ok":True,"readiness_id":rid}
 
@@ -2424,7 +2511,8 @@ async def prozessdok_speichern(cid:str, sid:str, req:Request,
         c.close(); raise
     except Exception as e:
         c.close()
-        raise HTTPException(400, "Nicht gespeichert: %s" % str(e).split("\n")[0])
+        raise _fehler("Speichern", e, 400,
+                      "Nicht gespeichert. Der Grund steht im Serverprotokoll.")
     c.close()
     return {"ok":True}
 
@@ -2444,6 +2532,9 @@ async def import_yaml(req: Request, _: Benutzer = Depends(admin)):
     try:
         data = _y.safe_load(raw.decode("utf-8"))
     except Exception as e:
+        # Hier bleibt die Meldung ausfuehrlich: Ein YAML-Fehler betrifft die
+        # Datei, die der Aufrufer selbst geschickt hat — Zeile und Spalte sind
+        # genau das, was er braucht, und ueber das Schema sagen sie nichts.
         raise HTTPException(400, "YAML-Fehler: %s" % e)
     if not isinstance(data, dict):
         raise HTTPException(400, "YAML-Wurzel muss ein Objekt sein (company:/profile:/prozesse:).")
@@ -2560,7 +2651,9 @@ async def upload_document(cid: str, ref_id: str = Form(...), file: UploadFile = 
     try:
         store_file(key, data, file.content_type)
     except Exception as e:
-        c.close(); raise HTTPException(502, "Storage-Fehler: %s" % e)
+        c.close()
+        raise _fehler("Ablage im Storage", e, 502,
+                      "Die Datei konnte nicht abgelegt werden.")
     c.execute("INSERT INTO beleg_dokumente(doc_id,company_id,ref_id,filename,storage_key,mime_type,status,uploaded_at) VALUES(?,?,?,?,?,?,?,?)",
         (doc_id, cid, ref_id, safe, key, file.content_type, "hochgeladen", now()))
     c.commit()
@@ -2621,8 +2714,26 @@ def get_document_file(cid: str, doc_id: str,
         data = load_file(r["storage_key"])
     except Exception:
         raise HTTPException(404, "Datei nicht im Storage")
-    return Response(content=data, media_type=r["mime_type"] or "application/octet-stream",
-                    headers={"Content-Disposition": 'inline; filename="%s"' % r["filename"]})
+    # Punkt 43 (Befund A2): `attachment` statt `inline`, und der Inhaltstyp
+    # wird NICHT uebernommen.
+    #
+    # `mime_type` stammt aus dem Upload und damit vom Hochladenden — er ist
+    # keine Feststellung, sondern eine Behauptung. Wird eine HTML-Datei als
+    # `image/png` deklariert und `inline` ausgeliefert, fuehrt der Browser sie
+    # im selben Ursprung aus: mit dem Sitzungscookie des Betrachters.
+    #
+    # `attachment` laesst den Browser die Datei speichern statt anzeigen,
+    # `application/octet-stream` nimmt ihm den Anlass zum Raten, und der
+    # nosniff-Header aus dem Caddyfile (Punkt 70) schliesst den Rest.
+    #
+    # Der Preis ist ehrlich zu nennen: Belege oeffnen sich nicht mehr im
+    # Browserfenster, sie werden heruntergeladen. Das ist der Unterschied
+    # zwischen bequem und ungefaehrlich.
+    return Response(content=data, media_type="application/octet-stream",
+                    headers={
+                        "Content-Disposition": 'attachment; filename="%s"' % r["filename"],
+                        "X-Content-Type-Options": "nosniff",
+                    })
 
 @app.delete("/api/companies/{cid}/documents/{doc_id}")
 def delete_document(cid: str, doc_id: str,
@@ -3690,6 +3801,235 @@ async def anfrage_anlegen(cid: str, req: Request, benutzer: Benutzer = Depends(a
             "process_id": process_id, "zuordnung_quelle": quelle}
 
 
+
+# ---------------------------------------------------------------------------
+# Was BC0 an BC1 schuldet — Zuordnung, Status, Kanten
+# ---------------------------------------------------------------------------
+# Alle drei Endpunkte gibt es aus einem Grund: BC1 braucht Schreibzugriff auf
+# Dinge, die in `public` stehen — und dort schreibt nach ADR-003 Regel 1
+# niemand ausser BC0. Der Ausweg waere ein GRANT UPDATE an bc1_role gewesen;
+# er wurde am 26.08.2026 ausdruecklich verworfen, mit der Begruendung, die
+# seitdem gilt: **Die Regel ist nur so viel wert, wie sie ohne Ausnahmen gilt.**
+#
+# Diese Endpunkte sind die Gegenleistung fuer diese Haltung. Wer eine Regel
+# durchsetzt, muss den Weg bauen, der sie einhaltbar macht.
+
+
+@app.put("/api/companies/{cid}/anfragen/{anfrage_id}/zuordnung")
+async def anfrage_zuordnen(cid: str, anfrage_id: str, req: Request,
+                           benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+    """Traegt den Prozessbezug einer Anfrage nach.
+
+    **Wofuer.** Eine Anfrage darf ohne Prozessbezug entstehen — der
+    Fachbereich kennt ``KP-06.TP-2`` nicht, und ein geratener Bezug ist
+    schlechter als keiner. Sie kommt dann aber keinen Schritt weiter
+    (``ck_anfrage_fortschritt_braucht_prozess``). Der Bezug entsteht im
+    Interview, und dieser Endpunkt ist der Weg, ihn einzutragen.
+
+    **Herkunft ist Pflicht.** ``zuordnung_quelle`` unterscheidet vier Wege,
+    und die Unterscheidung ist kein Ordnungsfimmel: Bei einer Fehlzuordnung
+    ist sonst nicht erkennbar, ob der Stichwortabgleich zu grob war
+    (``vorschlag_bc0``), das Sprachmodell danebenlag (``vorschlag_bc1``), der
+    Anfragende selbst gewaehlt hat (``anfrage``) oder es im Gespraech geklaert
+    wurde (``interview``) — vier Ursachen, vier Reparaturen.
+
+    **Der Teilprozess ist optional.** Auf Kernprozessebene ist ein Anliegen
+    formulierbar; der Fokus-Schritt ist *Ergebnis* des Interviews. Ihn zur
+    Pflicht zu machen hiesse, die Antwort vor der Frage zu verlangen.
+
+    **Was er nicht tut: den Status aendern.** Zuordnen und Fortschreiten sind
+    zwei Entscheidungen. Wer sie zusammenlegt, kann die eine nicht ohne die
+    andere treffen — und beim Berichtigen einer falschen Zuordnung wuerde der
+    Status mitwandern, ohne dass es jemand wollte.
+
+    Args:
+        cid: Mandant.
+        anfrage_id: Anfrage, z. B. ``A-2026-04``.
+        req: JSON mit ``process_id``, optional ``sub_process_id``, und
+            ``zuordnung_quelle`` aus :data:`ZUORDNUNG_QUELLEN`.
+
+    Returns:
+        Der neue Bezug samt unveraendertem Status.
+    """
+    pruefe_mandant(benutzer, cid)
+    b = await req.json()
+    process_id = (b.get("process_id") or "").strip() or None
+    sub_process_id = (b.get("sub_process_id") or "").strip() or None
+    quelle = (b.get("zuordnung_quelle") or "").strip() or None
+
+    if not process_id:
+        raise HTTPException(400, "Ohne Kernprozess ist es keine Zuordnung.")
+    if not quelle:
+        raise HTTPException(400, "Die Herkunft der Zuordnung fehlt (ADR-005).")
+    if quelle not in ZUORDNUNG_QUELLEN:
+        raise HTTPException(400, "Unbekannte Zuordnungsquelle: %s" % quelle)
+
+    c = db()
+    try:
+        _gate_mandant(c, cid)
+        if not c.execute("SELECT 1 AS da FROM ref_anfragen WHERE " + W_CO +
+                         " AND anfrage_id=?", (cid, anfrage_id)).fetchone():
+            raise HTTPException(404, "Unbekannte Anfrage: %s" % anfrage_id)
+        if not c.execute("SELECT 1 AS da FROM ref_prozesse WHERE " + W_CO +
+                         " AND process_id=?", (cid, process_id)).fetchone():
+            raise HTTPException(400, "Unbekannter Kernprozess: %s" % process_id)
+        if sub_process_id and not c.execute(
+                "SELECT 1 AS da FROM ref_teilprozesse WHERE " + W_CO +
+                " AND sub_process_id=? AND process_id=?",
+                (cid, sub_process_id, process_id)).fetchone():
+            raise HTTPException(400, "%s gehoert nicht zu %s." % (sub_process_id, process_id))
+
+        c.execute("UPDATE ref_anfragen SET process_id=?,sub_process_id=?,zuordnung_quelle=? "
+                  "WHERE " + W_CO + " AND anfrage_id=?",
+                  (process_id, sub_process_id, quelle, cid, anfrage_id))
+        c.commit()
+        zeile = c.execute("SELECT status FROM ref_anfragen WHERE " + W_CO +
+                          " AND anfrage_id=?", (cid, anfrage_id)).fetchone()
+    finally:
+        c.close()
+    return {"ok": True, "anfrage_id": anfrage_id, "process_id": process_id,
+            "sub_process_id": sub_process_id, "zuordnung_quelle": quelle,
+            "status": zeile["status"] if zeile else None}
+
+
+@app.put("/api/companies/{cid}/anfragen/{anfrage_id}/status")
+async def anfrage_status_setzen(cid: str, anfrage_id: str, req: Request,
+                                benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+    """Setzt den Status einer Anfrage.
+
+    **Wofuer.** Der Status stand seit v2.2 in der Datenbank, wurde angezeigt —
+    und aendern konnte ihn nur, wer SQL schreibt. Damit lief die Kette an
+    jedem vorbei, der sie eigentlich weiterbewegt: BC1 muss ``im_interview``
+    melden koennen, sonst weiss niemand, dass ein Interview laeuft.
+
+    **Zwei Pruefungen, und beide sind wichtig.**
+
+    Die erste ist die Wertemenge aus :data:`ANFRAGE_STATUS`. Die zweite ist
+    die Regel aus v2.3: **ohne Prozessbezug kein Fortschritt.** Eine Anfrage
+    ohne ``process_id`` bleibt auf ``eingegangen`` stehen; die Datenbank haelt
+    das mit ``ck_anfrage_fortschritt_braucht_prozess`` ohnehin durch, aber ein
+    Constraint-Fehler ist keine Antwort, mit der ein Aufrufer etwas anfangen
+    kann. Deshalb steht hier ein Satz, der sagt, was zu tun ist.
+
+    **Kein Ruecksprung ausser nach ``abgelehnt``.** Die Kette laeuft vorwaerts.
+    Wer einen Schritt zurueck will, hat in Wahrheit eine Berichtigung vor —
+    und die soll sichtbar sein, nicht als stiller Statuswechsel durchgehen.
+    ``abgelehnt`` ist von jedem Punkt aus erreichbar; ein Anliegen kann
+    jederzeit sein Ende finden.
+
+    Args:
+        cid: Mandant.
+        anfrage_id: Anfrage.
+        req: JSON mit ``status``, optional ``status_seit`` (ISO-Datum).
+
+    Returns:
+        Alter und neuer Status.
+    """
+    pruefe_mandant(benutzer, cid)
+    b = await req.json()
+    neu = (b.get("status") or "").strip()
+    if neu not in ANFRAGE_STATUS:
+        raise HTTPException(400, "Unbekannter Status: %s. Erlaubt: %s"
+                            % (neu, ", ".join(ANFRAGE_STATUS)))
+
+    c = db()
+    try:
+        _gate_mandant(c, cid)
+        zeile = c.execute("SELECT status, process_id FROM ref_anfragen WHERE " + W_CO +
+                          " AND anfrage_id=?", (cid, anfrage_id)).fetchone()
+        if not zeile:
+            raise HTTPException(404, "Unbekannte Anfrage: %s" % anfrage_id)
+        alt = zeile["status"]
+
+        if neu != "eingegangen" and neu != "abgelehnt" and not zeile["process_id"]:
+            raise HTTPException(
+                400, "%s hat keinen Prozessbezug und bleibt deshalb auf 'eingegangen'. "
+                     "Erst zuordnen (PUT .../zuordnung), dann fortschreiten." % anfrage_id)
+
+        if neu != "abgelehnt" and ANFRAGE_STATUS.index(neu) < ANFRAGE_STATUS.index(alt):
+            raise HTTPException(
+                400, "Rueckschritt von '%s' auf '%s' ist nicht vorgesehen. Wer berichtigen "
+                     "will, soll es sichtbar tun." % (alt, neu))
+
+        c.execute("UPDATE ref_anfragen SET status=?,status_seit=? WHERE " + W_CO +
+                  " AND anfrage_id=?",
+                  (neu, (b.get("status_seit") or "").strip() or _heute(), cid, anfrage_id))
+        c.commit()
+    finally:
+        c.close()
+    return {"ok": True, "anfrage_id": anfrage_id, "status_alt": alt, "status": neu}
+
+
+@app.post("/api/companies/{cid}/prozesskanten")
+async def prozesskante_anlegen(cid: str, req: Request,
+                               benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+    """Traegt eine Kante zwischen zwei Kernprozessen nach.
+
+    **Wofuer.** BC0 erhebt die Kanten und liefert sie als gegeben. Fehlt eine
+    — etwa weil ein Prozess heute ohne Nachfolger endet und der Folgeprozess
+    erst in einer Anfrage benannt wird —, ergaenzt BC1 sie aus dem Interview.
+    Auch hier gilt ADR-003 Regel 1: BC1 ruft, BC0 schreibt.
+
+    **Die Art ist Pflicht.** ``daten`` · ``freigabe`` · ``material`` ·
+    ``information``. Im Interview ist das ohnehin die bessere Frage: *Was
+    fliesst zwischen den beiden?* trennt schaerfer als *was kommt danach?* —
+    und ohne die Art waere die Kante nicht speicherbar, sie steht im
+    Primaerschluessel.
+
+    **Herkunft in der Beschreibung.** Wie bei den 16 Kanten vom 02.09.2026
+    traegt jede Zeile, woher sie stammt. Ohne das ist in vier Wochen nicht
+    mehr erkennbar, was auf einem Beleg steht und was auf einer Vermutung.
+
+    Args:
+        cid: Mandant.
+        req: JSON mit ``von_process_id``, ``nach_process_id``, ``art`` und
+            optional ``beschreibung``.
+
+    Returns:
+        Die angelegte Kante; ``neu = False``, wenn sie schon stand.
+    """
+    pruefe_mandant(benutzer, cid)
+    b = await req.json()
+    von = (b.get("von_process_id") or "").strip()
+    nach = (b.get("nach_process_id") or "").strip()
+    art = (b.get("art") or "").strip()
+    ARTEN = ("daten", "freigabe", "material", "information")
+
+    if not von or not nach:
+        raise HTTPException(400, "Eine Kante braucht beide Seiten.")
+    if von == nach:
+        raise HTTPException(400, "Ein Prozess ist nicht sein eigener Nachfolger.")
+    if art not in ARTEN:
+        raise HTTPException(400, "Unbekannte Art: %s. Erlaubt: %s" % (art, ", ".join(ARTEN)))
+
+    c = db()
+    try:
+        _gate_mandant(c, cid)
+        for pid in (von, nach):
+            if not c.execute("SELECT 1 AS da FROM ref_prozesse WHERE " + W_CO +
+                             " AND process_id=?", (cid, pid)).fetchone():
+                raise HTTPException(400, "Unbekannter Kernprozess: %s" % pid)
+
+        vorhanden = c.execute(
+            "SELECT 1 AS da FROM prozess_schnittstellen WHERE " + W_CO +
+            " AND von_process_id=? AND nach_process_id=? AND art=?",
+            (cid, von, nach, art)).fetchone()
+        if vorhanden:
+            return {"ok": True, "neu": False, "von_process_id": von,
+                    "nach_process_id": nach, "art": art}
+
+        c.execute("INSERT INTO prozess_schnittstellen"
+                  "(company_id,von_process_id,nach_process_id,art,beschreibung) "
+                  "VALUES(?,?,?,?,?)",
+                  (cid, von, nach, art,
+                   (b.get("beschreibung") or "").strip() or
+                   "nachgetragen am %s ueber die Schnittstelle" % _heute()))
+        c.commit()
+    finally:
+        c.close()
+    return {"ok": True, "neu": True, "von_process_id": von,
+            "nach_process_id": nach, "art": art}
+
 # ---------------- Static frontend ----------------
 @app.get("/")
 def index():
@@ -3720,6 +4060,63 @@ def sw():
     # Service Worker auf Root-Pfad -> Scope "/" (PWA)
     return FileResponse(os.path.join(HERE, "static", "sw.js"), media_type="application/javascript",
                         headers={"Cache-Control": "no-cache"})
+
+# ---------------- Anfrage-PWA (01.09.2026) ----------------
+# Eine ZWEITE Anwendung, nicht ein weiterer Reiter. Sie hat einen eigenen
+# Namen, ein eigenes Symbol, einen eigenen Service Worker und laesst sich
+# getrennt installieren.
+#
+# WARUM UNTER /anfrage UND NICHT AUF EIGENER ADRESSE
+#   Gleicher Ursprung heisst gleiches Sitzungscookie: Wer in BC0
+#   angemeldet ist, ist es hier auch, ohne Token-Uebergabe und ohne SSO.
+#   Auf einer eigenen Subdomain waere genau das die Huerde, an der so
+#   etwas liegen bleibt. Ein Umzug spaeter kostet fast nichts — der
+#   Geltungsbereich des Service Workers und drei Pfade.
+#
+# WAS SIE NICHT TUT
+#   Sie schreibt nicht selbst in `public`. Sie ruft denselben Endpunkt
+#   wie jeder andere: POST /api/companies/{cid}/anfragen. Damit bleibt
+#   ADR-003 Regel 1 unangetastet, auch wenn diese Oberflaeche spaeter
+#   von BC1 betrieben wird.
+@app.get("/anfrage")
+@app.get("/anfrage/")
+def anfrage_pwa():
+    """Liefert die Anfrage-Anwendung aus — wie ``/`` ohne Anmeldepflicht.
+
+    Die Middleware schuetzt nur ``/api/``. Die Seite selbst enthaelt keine
+    Mandantendaten; sie fragt ``/api/auth/status`` und zeigt bei Bedarf ihre
+    eigene Anmeldemaske. Waere sie geschuetzt, gaebe es keine Seite, auf der
+    man sich anmelden koennte.
+    """
+    return FileResponse(os.path.join(HERE, "static", "anfrage", "index.html"))
+
+@app.get("/anfrage/sw.js")
+def anfrage_sw():
+    """Service Worker der Anfrage-Anwendung.
+
+    Muss unter ``/anfrage/`` liegen: Der Geltungsbereich eines Service
+    Workers ist das Verzeichnis, aus dem er ausgeliefert wird. Von hier aus
+    bedient er genau diese Anwendung und nicht BC0 — die Trennung der beiden
+    PWAs waere sonst nur eine des Pfades.
+
+    ``Cache-Control: no-cache`` aus demselben Grund wie bei BC0: Ein
+    zwischengespeicherter Service Worker liefert eine alte Fassung aus, und
+    niemand versteht, warum ein Ausrollen keine Wirkung zeigt.
+    """
+    return FileResponse(os.path.join(HERE, "static", "anfrage", "sw.js"),
+                        media_type="application/javascript",
+                        headers={"Cache-Control": "no-cache"})
+
+@app.get("/anfrage/manifest.json")
+def anfrage_manifest():
+    """Eigenes Manifest — eigener Name, eigenes Startziel, eigener Bereich.
+
+    Ohne das waere es dieselbe installierte Anwendung wie BC0. Der Unterschied
+    ist nicht kosmetisch: Auf dem Tablet eines Fachbereichsmitarbeiters soll
+    ``CoE-Anfrage`` stehen und nicht ``BC0``.
+    """
+    return FileResponse(os.path.join(HERE, "static", "anfrage", "manifest.json"),
+                        media_type="application/manifest+json")
 
 @app.get("/manifest.json")
 def manifest():

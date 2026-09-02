@@ -9,7 +9,28 @@
    der Name gleich, ueberlebte der beim ERSTEN Besuch abgelegte Stand von
    /static/index.html beliebig lange und wurde offline weiter ausgeliefert
    — am 28.08.2026 nachgemessen: 41.292 Zeichen gegenueber 158.706 live. */
-const CACHE = "bc0-pwa-v4";   /* 28.08.2026, zweite Aenderung des Tages: Passwortwechsel */
+/* HUELLE 535a45f0 — Pruefsumme (SHA-256, acht Stellen) von static/index.html.
+   Aendert sich die Huelle, aendert sich dieser Wert. Der Test
+   test_cache_name_haengt_an_der_huelle schlaegt dann fehl und zwingt zu der
+   Entscheidung, die am 01.09.2026 unterblieben ist: CACHE erhoehen — ja oder nein?
+   Am 02.09.2026 nachgeruestet, weil kein Test den vergessenen Namenswechsel sah. */
+const CACHE = "bc0-pwa-v6";   /* 02.09.2026, ein Sprung von v5 aus, mit zwei
+                                 Aenderungen an der Huelle: die Eignerspalte
+                                 liest prozess_personen statt des leeren Feldes
+                                 owner_name (die zwei Eingabefelder sind durch
+                                 einen Hinweis ersetzt), und esc() maskiert
+                                 zusaetzlich das Hochkomma.
+
+                                 Der Name blieb bei der zweiten Aenderung auf
+                                 v6 — ausgerollt ist v5, und der Name muss sich
+                                 gegenueber dem AUSGELIEFERTEN Stand
+                                 unterscheiden, nicht gegenueber jedem
+                                 Zwischenstand. Sonst zaehlt er Arbeitsschritte
+                                 statt Auslieferungen. */   /* 01.09.2026: Die Huelle hat sich geaendert — das
+                                 Anfrageformular ist heraus, die Kachel fuehrt nach
+                                 /anfrage/. Am 02.09. beim Ausrollen bemerkt, dass der
+                                 Name dabei auf v4 stehen geblieben war: die Regel aus
+                                 Zeile 7 war verletzt, ohne dass ein Test es merkte. */
 const SHELL = [
   "/",
   "/static/index.html",
@@ -25,7 +46,15 @@ self.addEventListener("install", (e) => {
 self.addEventListener("activate", (e) => {
   e.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      /* NUR die eigenen Ablagen aufraeumen. Seit dem 01.09.2026 gibt es eine
+         zweite Anwendung unter /anfrage/ mit eigenem Cache. `caches.keys()`
+         liefert die Ablagen des GANZEN Ursprungs — ein Filter auf
+         "alles ausser meinem Namen" haette beim Aktivieren die Ablage der
+         anderen Anwendung geloescht, und die andere beim naechsten
+         Aktivieren diese hier. Zwei Worker, die sich gegenseitig ausraeumen. */
+      .then((keys) => Promise.all(
+        keys.filter((k) => k.startsWith("bc0-pwa-") && k !== CACHE)
+            .map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });

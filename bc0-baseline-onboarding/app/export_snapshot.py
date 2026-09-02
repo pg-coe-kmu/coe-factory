@@ -159,7 +159,7 @@ def build_snapshot(cid, version):
     snap = {
         "schema_version": SCHEMA_VERSION,
         "snapshot_version": version,
-        "generated_at": datetime.datetime.utcnow().isoformat() + "Z",
+        "generated_at": datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None).isoformat() + "Z",
         "generator": "BC0 Onboarding-Tool",
         "mandant": {
             "id": co.get("id"),

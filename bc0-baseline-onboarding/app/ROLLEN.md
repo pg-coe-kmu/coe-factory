@@ -120,14 +120,44 @@ GRANT USAGE, CREATE ON SCHEMA <bcN> TO <bcN>_role;
 GRANT USAGE ON SCHEMA <bcN> TO bc_leser;
 GRANT SELECT ON ALL TABLES IN SCHEMA <bcN> TO bc_leser;
 
--- 6. Kuenftige Tabellen automatisch lesbar
+-- 6. OPTIONAL: kuenftige Tabellen automatisch lesbar
 --    Setzt voraus, dass der ausfuehrende Nutzer Mitglied der Rolle ist:
 GRANT <bcN>_role TO CURRENT_USER;
 ALTER DEFAULT PRIVILEGES FOR ROLE <bcN>_role IN SCHEMA <bcN>
   GRANT SELECT ON TABLES TO bc_leser;
 ```
 
-Schritt 6 ist der Grund, warum neue Tabellen eines BC ohne Nacharbeit für die anderen lesbar sind. Ohne ihn müsste nach jeder neuen Tabelle nachgefasst werden.
+> ### ⚠️ Schritt 6 ist **nicht** ausgeführt — für keinen Kontext
+>
+> **Berichtigt am 02.09.2026.** An dieser Stelle stand: *„Schritt 6 ist der Grund, warum neue
+> Tabellen eines BC ohne Nacharbeit für die anderen lesbar sind."* Das ist eine Aussage über
+> einen Zustand, den es nicht gibt — Schritt 6 ist eine **Anleitung**, und ausgeführt wurde er
+> nie. In keinem Schema des Projekts steht ein `ALTER DEFAULT PRIVILEGES`; nachgesehen wurde in
+> allen `schema_v*.sql`.
+>
+> **Gefunden von BC1** (Frage 9 vom 02.09.2026): Richard wollte wissen, ob sein `REVOKE` auf
+> `bc1.profil_write_status` mit unserem Rechtemodell kollidiert. Die Antwort ist nein — weil es
+> die Automatik nicht gibt, gegen die er sich absichern wollte.
+>
+> **Und sie soll auch nicht kommen.** BC1 führt mit `bc1.profil_write_status` bewusst eine
+> Tabelle, die niemand außer `bc1_role` lesen soll. Mit Schritt 6 bekäme `bc_leser` sie
+> automatisch und verlöre sie durch ein nachgeschobenes `REVOKE` wieder — ein Hin und Her, bei
+> dem im Zweifel die Reihenfolge entscheidet, wer was sieht.
+>
+> **Es gilt also: gezielt erteilen, wenn eine Tabelle steht.** Für BC1:
+>
+> ```sql
+> GRANT USAGE ON SCHEMA bc1 TO bc_leser;                    -- am 02.09.2026 gesetzt
+> GRANT SELECT ON bc1.prozessprofil, bc1.profil_rollen TO bc_leser;   -- sobald eingespielt
+> ```
+>
+> `GRANT USAGE ON SCHEMA` ist dabei die Stelle, an der es sonst hakt: Ohne das Recht auf das
+> Schema nützt ein `SELECT` auf die Tabelle nichts, und der Fehler sieht wie ein fehlendes
+> Tabellenrecht aus.
+>
+> **Die Lehre.** Eine Anleitung beschreibt, was zu tun wäre; ein Betriebshandbuch, was gilt. Steht
+> beides im selben Dokument, muss der Unterschied im Satz stehen — sonst liest ein anderer
+> Kontext eine Absicht als Tatsache und plant dagegen.
 
 ---
 

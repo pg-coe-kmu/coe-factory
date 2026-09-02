@@ -377,7 +377,7 @@ table{width:100%;border-collapse:collapse;font-size:12.6px}th,td{border:1px soli
     <h2>Anfrage an das CoE</h2>
     <div class="wer">Sie haben ein Anliegen — etwas dauert zu lange, geht zu oft schief oder
      bindet zu viele Menschen. Sie beschreiben es in eigenen Worten. Alles Weitere klärt das CoE.</div>
-    <div class="dauer">Etwa fünf Minuten · keine Vorkenntnisse nötig</div>
+    <div class="dauer">Etwa fünf Minuten · eigene Anwendung, dieselbe Anmeldung &rsaquo;</div>
    </div>
    <div class="kachel" id="kachelOnboarding" tabindex="0" role="button">
     <div class="sym" style="background:#3B6EA5">&#9636;</div>
@@ -460,7 +460,13 @@ function $(id){return document.getElementById(id);}
    begrenzt. Wer das ändert, muss hier &#39; ergänzen.
    Eine Content-Security-Policy als zweite Linie fehlt noch — siehe
    Sicherheitskonzept 3.2. */
-function esc(s){return (s==null?'':''+s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+/* Punkt 51: Das Hochkomma wird mitmaskiert.
+   Solange jedes Attribut in doppelte Anfuehrungszeichen gesetzt ist, ist es
+   ungefaehrlich — aber das ist eine Zusage, die bei jeder neuen HTML-Zeile
+   neu eingehalten werden muss. Ein Zeichen mehr in dieser Funktion nimmt sie
+   allen Zeilen ab, auch denen, die es noch nicht gibt.
+   &#39; statt &apos;: Aeltere Browser kennen &apos; in HTML nicht. */
+function esc(s){return (s==null?'':''+s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 /* Kurzmeldung am unteren Rand. Setzt textContent und nicht innerHTML — die
    Meldung enthält oft Servertext (Fehlerdetails), der nicht als Markup
    ausgeführt werden darf. Zweites Argument true färbt sie rot. */
@@ -611,7 +617,13 @@ async function starteAnwendung(){META=await api('/api/meta');setBackendLabel();g
 
 function goStart(){cur=null;WS_ZIEL=null;$('side').style.display='none';$('tsel').style.display='none';show('start');}
 $('kachelOnboarding').onclick=goList;
-$('kachelAnfrage').onclick=goAnfrage;
+/* Die Kachel fuehrt seit dem 01.09.2026 in die ZWEITE Anwendung unter
+   /anfrage/ — nicht mehr in eine Ansicht dieser hier. Zwei Eingaenge fuer
+   dieselbe Sache waren genau der Fehler, den diese Trennung behebt.
+   Der Anfragende soll nicht zwoelf Reiter ueber Reifegrade sehen und ein
+   Textfeld suchen; und die Sitzung gilt drueben weiter, weil es derselbe
+   Ursprung ist. */
+$('kachelAnfrage').onclick=function(){ window.location.href='/anfrage/'; };
 /* Mit der Tastatur bedienbar: Die Kacheln sind div, kein button — ohne diese
    Zeilen waeren sie fuer jeden, der nicht mit der Maus arbeitet, tot. */
 ['kachelOnboarding','kachelAnfrage'].forEach(function(id){
@@ -697,108 +709,48 @@ async function goAnfrage(){
   await renderAnf();
 }
 
+/* ---- Anfragen ansehen (Verwaltungssicht) ----------------------------------
+   Das FORMULAR steht seit dem 01.09.2026 nicht mehr hier, sondern in der
+   eigenen Anwendung unter /anfrage/. Hier bleibt der Bestand: was
+   eingegangen ist, wo es steht, ob ein Prozessbezug da ist.
+
+   Die Trennung ist der Zweck. Wer eine Anfrage stellt, bringt fuenf Minuten
+   mit und sucht ein Textfeld; wer hier arbeitet, erhebt eine Baseline und
+   braucht die Uebersicht. Zwei Menschen, zwei Anwendungen — dieselbe
+   Datenbank, derselbe Endpunkt, dieselbe Anmeldung.
+
+   Zwei Eingaenge fuer dieselbe Sache waren der Fehler, den diese Trennung
+   behebt: Deshalb ist das Formular hier VERSCHWUNDEN und nicht nur
+   ausgeblendet. */
+var ANF = {cid:null};
+
 async function renderAnf(){
   $('anf').innerHTML='<div class="crumb" onclick="goStart()" style="cursor:pointer">&lsaquo; Start</div>'
-    +'<h1>Anfrage an das CoE</h1>'
-    +'<p class="lead">Beschreiben Sie Ihr Anliegen in eigenen Worten. Fünf Minuten reichen.</p>'
+    +'<h1>Anfragen</h1>'
+    +'<p class="lead">Der Bestand an Anliegen — Eingang, Stand und Prozessbezug. '
+    +'Aufgenommen werden sie in der <a href="/anfrage/">Anfrage-Anwendung</a>.</p>'
     +'<div id="anfBody" class="mut">Lade …</div>';
   var list=[];
   try{ list=await api('/api/companies'); }
   catch(e){ $('anfBody').innerHTML='<div class="panel mut">Die Mandanten konnten nicht geladen werden.</div>'; return; }
   if(!list.length){
-    $('anfBody').innerHTML='<div class="panel mut">Ihnen ist derzeit kein Mandant zugeordnet. '
-      +'Eine Anfrage braucht ein Unternehmen, zu dem sie gehört — ein Administrator kann das einrichten.</div>';
+    $('anfBody').innerHTML='<div class="panel mut">Ihnen ist derzeit kein Mandant zugeordnet.</div>';
     return;
   }
   var da=false; for(var i=0;i<list.length;i++) if(String(list[i].id)===String(ANF.cid)) da=true;
   if(!da) ANF.cid=list[0].id;
-  await zeichneAnfrage(list);
-}
-
-async function zeichneAnfrage(list){
-  var daten=await api('/api/companies/'+ANF.cid);
-  ANF.prozesse=daten.processes||{};
-  /* Die Personen kommen aus dem Register, nicht aus einem Namensfeld: In
-     `ref_anfragen` steht nach ADR-004 R5 kein Klarname, sondern eine ID. */
-  ANF.personen=[];
-  try{ var e=await api('/api/companies/'+ANF.cid+'/entitaeten');
-       ANF.personen=(e.personen||[]).filter(function(x){return x.aktiv;}); }catch(err){}
 
   var mopt=list.map(function(t){return '<option value="'+esc(String(t.id))+'"'
     +(String(t.id)===String(ANF.cid)?' selected':'')+'>'+esc(t.name)+'</option>';}).join('');
-  /* Der erste Eintrag ist bewusst "weiß ich nicht" und nicht der erste
-     Kernprozess: Ein Fachbereichsmensch, der auf gut Glück etwas anklickt, ist
-     schlechter als ein leeres Feld — dann läuft ein vollständiges Interview
-     auf dem falschen Prozess, und es fällt erst am Gate auf. */
-  var kopt='<option value="">— weiß ich nicht —</option>'
-    +Object.keys(ANF.prozesse).sort().map(function(pid){
-       return '<option value="'+pid+'">'+pid+' — '+esc(ANF.prozesse[pid].process_name||'')+'</option>';}).join('');
-  var popt='<option value="">— keine Angabe —</option>'
-    +ANF.personen.map(function(pp){return '<option value="'+esc(pp.person_id)+'">'
-       +esc(pp.person_id)+' · '+esc(pp.name||'')+'</option>';}).join('');
-
   $('anfBody').innerHTML=
-    '<div class="panel">'
-    +(list.length>1 ? '<div class="row"><div style="min-width:280px"><label>Unternehmen</label>'
-        +'<select id="anfCo">'+mopt+'</select></div></div>' : '')
-    +'<div class="formgrid" style="margin-top:6px">'
-    +'<div class="full"><label>Worum geht es? <span class="reqstar">*</span></label>'
-    +'<textarea id="anfText" rows="5" placeholder="z. B. Die Reisebuchung läuft über drei Mails und eine Excel-Liste. Jeder macht es anders, und am Monatsende fehlt immer etwas."></textarea>'
-    +'<div class="mut" style="font-size:11px;margin-top:3px">Ihr Wortlaut wird <b>nie verändert</b> — '
-    +'weder gekürzt noch umformuliert. Nur so lässt sich am Ende prüfen, ob die Empfehlung Ihre Frage beantwortet.</div></div>'
-
-    +'<div class="full"><label>Was soll dabei herauskommen?</label>'
-    +'<textarea id="anfZiel" rows="2" placeholder="z. B. Ich will die Reisekostenabrechnung nicht mehr am Wochenende machen."></textarea>'
-    +'<div class="mut" style="font-size:11px;margin-top:3px">Ihr Text oben beschreibt fast immer das <i>Problem</i>. '
-    +'Woran am Ende gemessen wird, ob wir geliefert haben, steht selten darin — und niemand fragt später danach.</div></div>'
-
-    +'<div class="full"><label>Warum jetzt?</label>'
-    +'<input id="anfAusl" placeholder="z. B. Die Kollegin, die es bisher gemacht hat, geht Ende September.">'
-    +'<div class="mut" style="font-size:11px;margin-top:3px">Erklärt die Dringlichkeit besser als jede Prioritätsstufe — '
-    +'und ist in vier Wochen nicht mehr rekonstruierbar.</div></div>'
-
-    +'<div class="full"><label>Größenordnung <span class="mut">— geschätzt</span></label>'
-    +'<input id="anfUmf" placeholder="z. B. etwa zwölf Leute, jeden Monatsanfang">'
-    +'<div class="mut" style="font-size:11px;margin-top:3px">Nur als Anhaltspunkt für die Reihenfolge. '
-    +'<b>Keine Messung</b> — Häufigkeit und Dauer erhebt das Interview später, mit Gütegrad.</div></div>'
-
-    +'<div><label>Welcher Prozess ist betroffen?</label><select id="anfKp">'+kopt+'</select></div>'
-    +'<div><label>Welcher Schritt darin?</label><select id="anfTp" disabled><option value="">—</option></select></div>'
-    +'<div class="full" id="anfWeiss"></div>'
-    +'<div><label>Wer fragt?</label><select id="anfPer">'+popt+'</select></div>'
-    +'</div>'
-    +'<div class="actionbar" style="margin-top:14px"><button class="btn" id="anfSend">Anfrage absenden</button>'
-    +'<span class="mut" id="anfHint"></span></div></div>'
-    +'<div class="panel" style="margin-top:16px"><b>Bisherige Anfragen</b>'
-    +'<div class="mut" style="margin:4px 0 10px">Was eingegangen ist und wo es steht.</div>'
+    (list.length>1 ? '<div class="panel"><div class="row"><div style="min-width:280px"><label>Unternehmen</label>'
+        +'<select id="anfCo">'+mopt+'</select></div></div></div>' : '')
+    +'<div class="panel"><b>Eingegangene Anfragen</b>'
+    +'<div class="mut" style="margin:4px 0 10px">Neue Anfragen entstehen unter '
+    +'<a href="/anfrage/">/anfrage</a> — dort, wo der Anfragende nicht zwölf Reiter sieht.</div>'
     +'<div id="anfListe" class="mut">–</div></div>';
-
   if($('anfCo')) $('anfCo').onchange=function(){ANF.cid=$('anfCo').value;renderAnf();};
-  $('anfKp').onchange=anfKpGewaehlt;
-  $('anfSend').onclick=anfAbsenden;
-  anfKpGewaehlt();
   await anfListeLaden();
-}
-
-/* Der Teilprozess haengt am Kernprozess — ohne den einen ergibt der andere
-   keinen Bezug, und der Server weist die Kombination ohnehin mit 400 ab
-   (ck_anfrage_tp_gehoert_kp in Schema v2.1 tut dasselbe in der Datenbank). */
-function anfKpGewaehlt(){
-  var pid=$('anfKp').value, tp=$('anfTp'), hin=$('anfWeiss');
-  if(!pid){
-    tp.innerHTML='<option value="">—</option>'; tp.disabled=true; tp.value='';
-    hin.innerHTML='<div class="ohnebezug">„Weiß ich nicht“ ist in Ordnung. Die Anfrage wird aufgenommen '
-      +'und bleibt im Zustand <b>eingegangen</b> liegen, bis das Interview den Prozess bestimmt hat. '
-      +'Ein geratener Prozess wäre schlechter als keiner — dann liefe das ganze Interview auf dem falschen.</div>';
-    return;
-  }
-  hin.innerHTML='';
-  var tps=(ANF.prozesse[pid]||{}).tps||[];
-  tp.innerHTML='<option value="">— keine Angabe —</option>'
-    +tps.filter(function(t){return t.sub_process_id;}).map(function(t){
-       return '<option value="'+esc(t.sub_process_id)+'">'+esc(t.sub_process_id)+' · '
-         +esc(t.sub_process_name||'ohne Namen')+'</option>';}).join('');
-  tp.disabled=false;
 }
 
 async function anfListeLaden(){
@@ -821,32 +773,6 @@ async function anfListeLaden(){
         +'</div>';
     }).join('');
   }catch(e){ $('anfListe').innerHTML='<div class="mut">Die Anfragen konnten nicht geladen werden.</div>'; }
-}
-
-async function anfAbsenden(){
-  var text=($('anfText').value||'').trim();
-  if(!text){ toast('Bitte beschreiben Sie zuerst Ihr Anliegen.',true); $('anfText').focus(); return; }
-  var kp=$('anfKp').value||'', tp=(kp?($('anfTp').value||''):'');
-  var koerper={originaltext:text,
-               erhofftes_ziel:($('anfZiel').value||'').trim(),
-               ausloeser:($('anfAusl').value||'').trim(),
-               umfang_geschaetzt:($('anfUmf').value||'').trim(),
-               steller_id:$('anfPer').value||'',
-               eingang_weg:'pwa'};
-  /* Nur mitschicken, wenn wirklich gewaehlt: Ein leerer Prozessbezug MIT
-     Herkunftsangabe ist in der Datenbank verboten (ck_anfrage_bezug_paarweise)
-     — beide oder keiner. */
-  if(kp){ koerper.process_id=kp; koerper.zuordnung_quelle='anfrage'; if(tp) koerper.sub_process_id=tp; }
-  var knopf=$('anfSend'); knopf.disabled=true;
-  try{
-    var d=await api('/api/companies/'+ANF.cid+'/anfragen','POST',koerper);
-    toast('✓ Aufgenommen als '+d.anfrage_id+'.');
-    $('anfText').value=''; $('anfZiel').value=''; $('anfAusl').value=''; $('anfUmf').value='';
-    $('anfKp').value=''; anfKpGewaehlt();
-    $('anfHint').textContent='Ihre Anfrage trägt die Nummer '+d.anfrage_id+'. Sie steht unten in der Liste.';
-    await anfListeLaden();
-  }catch(e){ toast('Fehler: '+(e.detail||'unbekannt'),true); }
-  finally{ knopf.disabled=false; }
 }
 
 /* ---- Anlageassistent ------------------------------------------------------
@@ -1328,6 +1254,23 @@ async function speicherePS(){
   }catch(e){ toast('Fehler: '+e.detail, true); }
 }
 
+/* Eigner eines Kernprozesses — IDs mit Klarnamen, wenn vorhanden.
+   Bis zum 02.09.2026 zeigte die Maske hier ref_prozesse.owner_name an. Das
+   Feld stammt aus der Zeit vor der Pseudonymisierung und ist seitdem leer;
+   bei allen zehn Prozessen stand deshalb rot "Owner fehlt", obwohl jeder
+   Prozess einen Eigner hat. Gemeldet von BC1 (Frage 5). */
+function eignerText(pid){
+  if(!PS || !PS.zuordnungen) return null;
+  var ids = PS.zuordnungen.filter(function(z){
+      return z.process_id===pid && z.funktion==='eigner'; })
+    .map(function(z){ return z.person_id; }).sort();
+  if(!ids.length) return null;
+  return ids.map(function(id){
+    var pers = (PS.personen||[]).filter(function(p){ return p.person_id===id; })[0];
+    return pers && pers.name ? id+' · '+pers.name : id;
+  }).join(', ');
+}
+
 async function renderPR(){var keys=Object.keys(cur.processes).sort();
   /* Die cross-sectionale Betrachtung steht hier und nicht nur im Bericht: Sie
      spricht ueber die Prozesskette, und die wird auf dieser Seite gepflegt.
@@ -1335,11 +1278,16 @@ async function renderPR(){var keys=Object.keys(cur.processes).sort();
      fuer die Durchgaengigkeit bedeutet. */
   var rep=null;
   try{ rep=await api('/api/companies/'+cur.company.id+'/report'); baueKritZuordnung(); }catch(e){ rep=null; }
+  /* Eigner stehen in prozess_personen, nicht in ref_prozesse.owner_name.
+     PS wurde bisher erst beim Oeffnen von "Personen & Systeme" geladen —
+     hier wird es nachgeholt, sonst bliebe die Eignerspalte leer, obwohl
+     die Zuordnung existiert. */
+  if(!PS){ try{ PS=await api('/api/companies/'+cur.company.id+'/entitaeten'); }catch(e){} }
   $('pr').innerHTML='<div class="crumb">'+cr()+'Prozesse</div><h1>Prozesse &amp; Teilprozesse</h1><p class="lead">ref_prozesse / ref_teilprozesse</p><div id="pracc"></div><div id="prcross"></div>';
   var box=$('pracc');var html='';
   keys.forEach(function(pid){var p=cur.processes[pid];var tpsfilled=p.tps.filter(function(t){return t.sub_process_name;}).length;
-    html+='<div class="acc" data-pid="'+pid+'"><div class="head">'+pid+' · '+esc(p.process_name)+'<span class="tp">'+(p.owner_name?('Owner: '+esc(p.owner_name)):'<span style="color:#c0392b">Owner fehlt</span>')+' · '+tpsfilled+'/5 TP</span></div><div class="body"><div class="formgrid">'+
-      '<div><label>Process Owner</label><input data-k="owner_name" value="'+esc(p.owner_name)+'"></div><div><label>Rolle</label><input data-k="owner_role" value="'+esc(p.owner_role)+'"></div>'+
+    html+='<div class="acc" data-pid="'+pid+'"><div class="head">'+pid+' · '+esc(p.process_name)+'<span class="tp">'+(function(){var e=eignerText(pid);return e?('Eigner: '+esc(e)):'<span style="color:#c0392b">kein Eigner zugeordnet</span>';})()+' · '+tpsfilled+'/5 TP</span></div><div class="body"><div class="formgrid">'+
+      '<div style="grid-column:1/-1"><label>Eigner</label><div class="hint">'+(function(){var e=eignerText(pid);return e?esc(e):'noch keiner zugeordnet';})()+' &middot; zugeordnet wird unter <b>Personen &amp; Systeme</b>. Klarnamen stehen nach ADR-004 nur dort.</div></div>'+
       '<div><label>Kategorie</label><input data-k="kategorie" value="'+esc(p.kategorie)+'"></div><div><label>Auslöser/Trigger</label><input data-k="trigger_text" value="'+esc(p.trigger_text)+'"></div>'+
       '<div><label>Input</label><input data-k="input_text" value="'+esc(p.input_text)+'"></div><div><label>Output</label><input data-k="output_text" value="'+esc(p.output_text)+'"></div></div>'+
       /* Beschreibung: Quelle fuer die Erklaerung durch den BC1-Interview-Bot.
