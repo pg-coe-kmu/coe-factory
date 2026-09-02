@@ -62,8 +62,8 @@ def darf_recovery_replay(state: SessionState, package: UseCasePackage,
             and _ctx(state.schema_version).startswith("ctx-")
             and _ctx(package.schema_version).startswith("ctx-"))
 
-def _profil(state: SessionState, conf: ConfidenceResult,
-            package: UseCasePackage) -> dict:
+def profil_payload(state: SessionState, conf: ConfidenceResult,
+                   package: UseCasePackage) -> dict:
     # Über die Paketfelder iterieren, nicht über state.values: Gate 0 sieht
     # das ganze Paket (nie berührte Felder als FEHLT), Fremdeinträge nicht —
     # konsistent zu conf.statuses.
@@ -178,7 +178,7 @@ def process_turn(store: StateStore, llm: LLMClient, package: UseCasePackage,
                             "pflicht_gesamt": len(pflicht)}}
     elif decision.ergebnis is Ergebnis.FERTIG:
         state.status = SessionStatus.FERTIG
-        payload = _profil(state, conf, package)
+        payload = profil_payload(state, conf, package)
         payload["abschluss_text"] = antwortetext
         payload["pflicht_erfasst"] = erfasst
         payload["pflicht_gesamt"] = len(pflicht)
