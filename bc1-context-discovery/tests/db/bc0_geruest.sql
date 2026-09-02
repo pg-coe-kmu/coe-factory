@@ -55,7 +55,7 @@ CREATE TABLE ref_teilprozesse (
     company_id       uuid        NOT NULL,
     sub_process_id   varchar(16) NOT NULL CHECK (sub_process_id ~ '^KP-[0-9]{2}\.TP-[0-9]+$'),
     process_id       varchar(8)  NOT NULL,
-    step_no          integer     NOT NULL CHECK (step_no BETWEEN 1 AND 5),
+    step_no          integer     NOT NULL CHECK (step_no BETWEEN 1 AND 9),  -- v2.2 (27.08.): bis 9
     sub_process_name text        NOT NULL,
     notation         text,
     tools            text,
@@ -163,13 +163,19 @@ GRANT USAGE ON SCHEMA public TO bc1_role, bc_leser;
 
 -- Der Stolperstein aus R14-I1: BC0 vergibt SELECT auf JEDE neue Tabelle von bc1_role
 -- automatisch an bc_leser. Ohne diese Zeile testet die ACL-Prüfung ins Leere.
+-- In der Supabase am 02.09.2026 bestaetigt (pg_default_acl: bc1_role / bc1 -> bc_leser=r),
+-- anders als BC0s schriftliche Antwort 9 — der Katalog ist massgeblich.
 ALTER DEFAULT PRIVILEGES FOR ROLE bc1_role IN SCHEMA bc1 GRANT SELECT ON TABLES TO bc_leser;
 
--- Rechte, die BC1 laut Spec K1 (Einspiel-Voraussetzungen I9) bekommt:
+-- Rechte wie in BC0 seit 02.09.: REFERENCES direkt an bc1_role (fuer unsere FKs);
+-- Lesen ueber die GRUPPENROLLE bc_leser, in der bc1_role Mitglied ist (siehe Rollenblock
+-- oben — BC0 hat die direkten Doppel-GRANTs entfernt). SELECT auf ref_erhebungen ist am
+-- 02.09.2026 in der Supabase als erteilt GEMESSEN (Rev. 11b) — K-B ist insoweit erledigt,
+-- offen bleibt dort nur die Rueckfrage zu profil_rollen.
 GRANT REFERENCES ON companies, ref_prozesse, ref_teilprozesse, mandant_rollen,
                     ref_erhebungen TO bc1_role;
 GRANT SELECT ON v_bewertung_aktuell, mandant_systeme, ref_teilprozesse, companies,
-                v_prozesse_lesen TO bc1_role;
+                v_prozesse_lesen, ref_erhebungen TO bc_leser;
 
 -- BEWUSST NICHT: SELECT auf ref_prozesse (BC0 hat das Recht entzogen, R14-I2).
 -- Ein Test beweist, dass der direkte Lesezugriff scheitert und v_prozesse_lesen trägt.

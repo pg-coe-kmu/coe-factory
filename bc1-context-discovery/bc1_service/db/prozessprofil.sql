@@ -43,13 +43,13 @@ BEGIN
         'companies', 'ref_prozesse', 'ref_teilprozesse', 'mandant_rollen', 'ref_erhebungen'
     ]) AS t WHERE NOT has_table_privilege(current_user, t, 'REFERENCES');
     IF fehlend IS NOT NULL THEN
-        RAISE EXCEPTION 'GRANT REFERENCES fehlt auf: %. Das ist das GRANT-Signal an BC0 '
-                        '(Buendel-Frage #3).', array_to_string(fehlend, ', ');
+        RAISE EXCEPTION 'GRANT REFERENCES fehlt auf: %. (von BC0 am 02.09. erteilt — '
+                        'fehlt es hier, stimmt das Ziel nicht).', array_to_string(fehlend, ', ');
     END IF;
 
     SELECT array_agg(t) INTO fehlend FROM unnest(ARRAY[
         'v_bewertung_aktuell', 'mandant_systeme', 'ref_teilprozesse', 'companies',
-        'v_prozesse_lesen'
+        'v_prozesse_lesen', 'ref_erhebungen'
     ]) AS t WHERE NOT has_table_privilege(current_user, t, 'SELECT');
     IF fehlend IS NOT NULL THEN
         RAISE EXCEPTION 'GRANT SELECT fehlt auf: %.', array_to_string(fehlend, ', ');
@@ -86,6 +86,7 @@ INSERT INTO pg_temp.bc1_soll_signatur (zeile) VALUES
     ('acl|profil_rollen|bc1_role|TRIGGER|f'),
     ('acl|profil_rollen|bc1_role|TRUNCATE|f'),
     ('acl|profil_rollen|bc1_role|UPDATE|f'),
+    ('acl|profil_rollen|bc_leser|SELECT|f'),
     ('acl|profil_write_status|bc1_role|DELETE|f'),
     ('acl|profil_write_status|bc1_role|INSERT|f'),
     ('acl|profil_write_status|bc1_role|REFERENCES|f'),
@@ -100,6 +101,7 @@ INSERT INTO pg_temp.bc1_soll_signatur (zeile) VALUES
     ('acl|prozessprofil|bc1_role|TRIGGER|f'),
     ('acl|prozessprofil|bc1_role|TRUNCATE|f'),
     ('acl|prozessprofil|bc1_role|UPDATE|f'),
+    ('acl|prozessprofil|bc_leser|SELECT|f'),
     ('constraint|profil_rollen|profil_rollen_genau_eine_quelle|CHECK (((rolle_id IS NOT NULL) <> (btrim(COALESCE(rolle_freitext, ''''::text)) <> ''''::text)))'),
     ('constraint|profil_rollen|profil_rollen_pkey|PRIMARY KEY (company_id, focus_step_id, profil_version, pos)'),
     ('constraint|profil_rollen|profil_rollen_pos_positiv|CHECK ((pos > 0))'),
@@ -131,6 +133,10 @@ INSERT INTO pg_temp.bc1_soll_signatur (zeile) VALUES
     ('effektiv_spalte|profil_rollen|bc1_role|REFERENCES'),
     ('effektiv_spalte|profil_rollen|bc1_role|SELECT'),
     ('effektiv_spalte|profil_rollen|bc1_role|UPDATE'),
+    ('effektiv_spalte|profil_rollen|bc2_role|SELECT'),
+    ('effektiv_spalte|profil_rollen|bc3_role|SELECT'),
+    ('effektiv_spalte|profil_rollen|bc4_role|SELECT'),
+    ('effektiv_spalte|profil_rollen|bc_leser|SELECT'),
     ('effektiv_spalte|profil_write_status|bc1_role|INSERT'),
     ('effektiv_spalte|profil_write_status|bc1_role|REFERENCES'),
     ('effektiv_spalte|profil_write_status|bc1_role|SELECT'),
@@ -139,6 +145,10 @@ INSERT INTO pg_temp.bc1_soll_signatur (zeile) VALUES
     ('effektiv_spalte|prozessprofil|bc1_role|REFERENCES'),
     ('effektiv_spalte|prozessprofil|bc1_role|SELECT'),
     ('effektiv_spalte|prozessprofil|bc1_role|UPDATE'),
+    ('effektiv_spalte|prozessprofil|bc2_role|SELECT'),
+    ('effektiv_spalte|prozessprofil|bc3_role|SELECT'),
+    ('effektiv_spalte|prozessprofil|bc4_role|SELECT'),
+    ('effektiv_spalte|prozessprofil|bc_leser|SELECT'),
     ('effektiv|profil_rollen|bc1_role|DELETE'),
     ('effektiv|profil_rollen|bc1_role|INSERT'),
     ('effektiv|profil_rollen|bc1_role|REFERENCES'),
@@ -146,6 +156,10 @@ INSERT INTO pg_temp.bc1_soll_signatur (zeile) VALUES
     ('effektiv|profil_rollen|bc1_role|TRIGGER'),
     ('effektiv|profil_rollen|bc1_role|TRUNCATE'),
     ('effektiv|profil_rollen|bc1_role|UPDATE'),
+    ('effektiv|profil_rollen|bc2_role|SELECT'),
+    ('effektiv|profil_rollen|bc3_role|SELECT'),
+    ('effektiv|profil_rollen|bc4_role|SELECT'),
+    ('effektiv|profil_rollen|bc_leser|SELECT'),
     ('effektiv|profil_write_status|bc1_role|DELETE'),
     ('effektiv|profil_write_status|bc1_role|INSERT'),
     ('effektiv|profil_write_status|bc1_role|REFERENCES'),
@@ -160,6 +174,10 @@ INSERT INTO pg_temp.bc1_soll_signatur (zeile) VALUES
     ('effektiv|prozessprofil|bc1_role|TRIGGER'),
     ('effektiv|prozessprofil|bc1_role|TRUNCATE'),
     ('effektiv|prozessprofil|bc1_role|UPDATE'),
+    ('effektiv|prozessprofil|bc2_role|SELECT'),
+    ('effektiv|prozessprofil|bc3_role|SELECT'),
+    ('effektiv|prozessprofil|bc4_role|SELECT'),
+    ('effektiv|prozessprofil|bc_leser|SELECT'),
     ('eigentuemer|profil_rollen|bc1_role'),
     ('eigentuemer|profil_write_status|bc1_role'),
     ('eigentuemer|prozessprofil|bc1_role'),
@@ -750,24 +768,22 @@ BEGIN
         BEFORE INSERT OR UPDATE OR DELETE ON bc1.profil_rollen
         FOR EACH ROW EXECUTE FUNCTION bc1.tf_freeze_rollen() $ddl$;
 
-    -- ---------- Abschnitt 3: Rechte — nur bc1_role; alles andere ausdruecklich
-    -- weg, bis Klaerpunkt K-B beantwortet ist (Spec K1, R14-I1) ----------
+    -- ---------- Abschnitt 3: Rechte (Rev. 11, BC0-Antwort 3 vom 02.09.) ----------
+    -- bc1_role: voll auf allen drei Tabellen. bc_leser (Gruppenrolle; BC2, BC3, BC4
+    -- lesen darueber): SELECT auf die zwei Vertragstabellen, NICHTS auf
+    -- profil_write_status. PUBLIC: nichts. BC0s Katalog HAT ein ALTER DEFAULT PRIVILEGES
+    -- fuer bc1_role in bc1 (bc_leser=r, in der Supabase gemessen 02.09.) — ohne das
+    -- explizite REVOKE laese bc_leser auch profil_write_status. Das REVOKE ist Pflicht.
+    -- Als plpgsql-IF statt als geschachtelter DO-Block, und in der Klammer steht kein
+    -- Tagname im Klartext (auch Kommentare sind dort Rohtext — hier einmal passiert).
     EXECUTE $ddl$ REVOKE ALL ON bc1.prozessprofil, bc1.profil_rollen, bc1.profil_write_status
         FROM PUBLIC $ddl$;
-
     EXECUTE $ddl$ GRANT SELECT, INSERT, UPDATE, DELETE
         ON bc1.prozessprofil, bc1.profil_rollen, bc1.profil_write_status TO bc1_role $ddl$;
-    -- bc_leser bekommt SELECT ueber BC0s ALTER DEFAULT PRIVILEGES automatisch — ein
-    -- REVOKE nur von PUBLIC entfernt das NICHT (R14-I1). Deshalb explizit, und fuer
-    -- ALLE drei Tabellen (die Lese-Wertemenge ist Buendel-Frage #3, K-B).
-    -- Als reines plpgsql-IF statt als geschachtelter DO-Block: ein zweiter
-    -- DO-Block mit demselben Quoting-Tag wuerde den aeusseren vorzeitig schliessen.
-    -- (ACHTUNG, hier selbst passiert: auch KOMMENTARE zaehlen. Innerhalb eines
-    -- Dollar-Quotes ist alles Rohtext — ein Tagname im Kommentar beendet den Block.
-    -- Deshalb steht in dieser Datei innerhalb der Klammer kein Tagname im Klartext.)
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'bc_leser') THEN
         EXECUTE $ddl$ REVOKE ALL ON bc1.prozessprofil, bc1.profil_rollen,
                       bc1.profil_write_status FROM bc_leser $ddl$;
+        EXECUTE $ddl$ GRANT SELECT ON bc1.prozessprofil, bc1.profil_rollen TO bc_leser $ddl$;
     END IF;
 END
 $einspielen$;

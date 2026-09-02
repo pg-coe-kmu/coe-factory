@@ -244,13 +244,58 @@ def test_bc1_role_darf_alles_auf_den_drei_tabellen():
                     (f"bc1.{tabelle}", recht)).fetchone()[0], f"{tabelle}/{recht}"
 
 
-def test_fremde_bc_rollen_lesen_nichts_auch_nicht_ueber_bc_leser():
-    # R14-I1: BC0s DEFAULT PRIVILEGES haetten bc_leser SELECT gegeben; die
-    # Positivkontrolle in test_db_fixture.py beweist, dass der Automatismus wirkt.
+def test_bc_leser_liest_die_vertragstabellen_aber_nie_den_write_status():
+    # BC0-Antwort 3 (02.09.): Leser von bc1.prozessprofil ist die GRUPPENROLLE
+    # bc_leser — BC2, BC3, BC4 lesen ueber ihre Mitgliedschaft, ein spaeterer Entzug
+    # wirkt an einer Stelle. profil_rollen gleichgestellt (Rueckfrage an BC0 offen,
+    # Rev. 11). profil_write_status bleibt allein bei bc1_role.
+    # ACHTUNG bei einer VIERTEN Tabelle: die Namen stehen hier bewusst als Literale
+    # (die Rollen sind je Tabelle verschieden, VERTRAGSTABELLEN traegt das nicht mehr).
+    # Eine neue Tabelle muss hier UND im REVOKE in prozessprofil.sql nachgetragen
+    # werden — sonst oeffnet BC0s ALTER DEFAULT PRIVILEGES sie still fuer bc_leser.
     frische_db(DSN)
     with verbindung(DSN, None) as conn:
         for rolle in ("bc_leser", "bc2_role", "bc3_role", "bc4_role"):
-            for tabelle in VERTRAGSTABELLEN:
-                assert not conn.execute(
+            for tabelle in ("prozessprofil", "profil_rollen"):
+                assert conn.execute(
                     "SELECT has_table_privilege(%s, %s, 'SELECT')",
-                    (rolle, f"bc1.{tabelle}")).fetchone()[0], f"{rolle} sieht {tabelle}"
+                    (rolle, f"bc1.{tabelle}")).fetchone()[0], f"{rolle} liest {tabelle} nicht"
+                for recht in ("INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"):
+                    assert not conn.execute(
+                        "SELECT has_table_privilege(%s, %s, %s)",
+                        (rolle, f"bc1.{tabelle}", recht)).fetchone()[0], f"{rolle}/{tabelle}/{recht}"
+            # ALLE sieben Rechte, nicht nur die vier des Plans: mit der Vierer-Liste
+            # blieb der Test bei TRUNCATE/REFERENCES/TRIGGER auf write_status gruen
+            # (Review 02.09., am Container mutiert).
+            for recht in ("SELECT", "INSERT", "UPDATE", "DELETE",
+                          "TRUNCATE", "REFERENCES", "TRIGGER"):
+                assert not conn.execute(
+                    "SELECT has_table_privilege(%s, 'bc1.profil_write_status', %s)",
+                    (rolle, recht)).fetchone()[0], f"{rolle} sieht profil_write_status/{recht}"
+
+
+def test_bc_leser_kann_die_vertragstabellen_wirklich_lesen():
+    # has_table_privilege ignoriert das Schema-USAGE. Ohne "GRANT USAGE ON SCHEMA bc1
+    # TO bc_leser" bliebe der Rechte-Test oben gruen, waehrend BC2 real
+    # "permission denied for schema bc1" bekaeme (Review 02.09., am Container
+    # mutiert nachgewiesen). Deshalb hier der echte Vollzug statt der Behauptung.
+    frische_db(DSN)
+    with verbindung(DSN, "bc_leser") as conn:
+        assert conn.execute("SELECT count(*) FROM bc1.prozessprofil").fetchone()[0] == 0
+        assert conn.execute("SELECT count(*) FROM bc1.profil_rollen").fetchone()[0] == 0
+
+
+def test_keine_spaltenrechte_im_schema_bc1():
+    # Spaltenrechte leben in pg_attribute.attacl, NICHT in relacl — genau daran
+    # scheiterte in Task 4 schon einmal ein Rechte-Test (Codex-Runde 10: ein
+    # GRANT SELECT (profil) TO bc2_role blieb unsichtbar). has_table_privilege
+    # sieht sie ebenfalls nicht. Deshalb hier direkt am Katalog.
+    frische_db(DSN)
+    with verbindung(DSN, None) as conn:
+        treffer = conn.execute(
+            "SELECT c.relname, a.attname, a.attacl::text "
+            "  FROM pg_attribute a "
+            "  JOIN pg_class c ON c.oid = a.attrelid "
+            "  JOIN pg_namespace n ON n.oid = c.relnamespace "
+            " WHERE n.nspname = 'bc1' AND a.attacl IS NOT NULL").fetchall()
+    assert treffer == [], f"Spaltenrechte im Schema bc1: {treffer}"
