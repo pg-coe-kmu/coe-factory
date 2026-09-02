@@ -23,11 +23,38 @@ def test_teilprozesse_liefern_nur_den_eigenen_mandanten():
         a = bc0_lesepfade.teilprozesse(conn, MANDANT_A)
         b = bc0_lesepfade.teilprozesse(conn, MANDANT_B)
     assert a == [("KP-01.TP-1", "Erfassen A"), ("KP-01.TP-2", "Pruefen A"),
-                 ("KP-02.TP-1", "Bestellen A")]
+                 ("KP-01.TP-3", "Archivieren A"), ("KP-02.TP-1", "Bestellen A")]
     gemeinsam = {tp for tp, _ in a}
     assert gemeinsam <= {tp for tp, _ in b}                  # IDs kollidieren...
     assert dict(a) != dict(b)                                # ...die Inhalte nicht
     assert {tp for tp, _ in b} - gemeinsam == {"KP-02.TP-2"}  # B-exklusiv
+
+
+def test_bewertete_teilprozesse_filtern_mandant_und_verworfene_erhebungen():
+    # Rev. 11: interviewbar ist nur, was mindestens eine AKTUELLE Bewertung hat.
+    # KP-01.TP-3 ist bei A ausschliesslich in der verworfenen E-2026-03 bewertet —
+    # fuer v_bewertung_aktuell also unbewertet. B hat dieselben IDs, aber nur
+    # KP-01.TP-1 bewertet: ein fehlender company_id-Filter faellt sofort auf.
+    with verbindung(DSN) as conn:
+        alle_a = bc0_lesepfade.teilprozesse(conn, MANDANT_A)
+        a = bc0_lesepfade.bewertete_teilprozesse(conn, MANDANT_A)
+        b = bc0_lesepfade.bewertete_teilprozesse(conn, MANDANT_B)
+    # Ohne diese Zeilen bewiese der Test die Verworfen-Logik nicht: fehlte KP-01.TP-3
+    # in der Fixture oder seine Bewertung, waere er gruen, ohne dass je eine verworfene
+    # Erhebung im Spiel war. Die Rohtabelle ist fuer bc1_role gesperrt, deshalb als
+    # Eigentuemer gelesen — reine Fixture-Zusicherung, kein Produktivpfad.
+    assert ("KP-01.TP-3", "Archivieren A") in alle_a
+    with verbindung(DSN, None) as conn:
+        status = conn.execute(
+            "SELECT e.status FROM bitkom_bewertungen b "
+            "  JOIN ref_erhebungen e ON e.company_id = b.company_id "
+            "                       AND e.erhebung_id = b.erhebung_id "
+            " WHERE b.company_id = %s AND b.sub_process_id = 'KP-01.TP-3'",
+            (MANDANT_A,)).fetchall()
+    assert [z[0] for z in status] == ["verworfen"]
+    assert a == [("KP-01.TP-1", "Erfassen A"), ("KP-01.TP-2", "Pruefen A"),
+                 ("KP-02.TP-1", "Bestellen A")]
+    assert b == [("KP-01.TP-1", "Erfassen B")]
 
 
 def test_system_ids_sind_mandantengetrennt():

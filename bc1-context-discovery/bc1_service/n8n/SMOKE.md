@@ -9,9 +9,27 @@
 
 ```bash
 export BC1_DB_DSN="postgresql://postgres:test@localhost:55432/postgres"   # oder Supabase-DSN
+export BC1_COMPANY_ID="11111111-1111-1111-1111-111111111111"              # Pflicht seit Task 10
+                       # ^ Test-Container: Fixture-Mandant A · Supabase: echte company_id
 export ANTHROPIC_API_KEY="..."                                            # nie committen
 .venv/bin/uvicorn bc1_service.main:app --port 8000
 ```
+
+**Zwei Startabbrüche sind regulär, kein Fehler** (BC0-Antwort 10 vom 02.09.; der erste
+Wortlaut stammt von BC0 und ist mit ihnen abgestimmt). Der Dienst startet nicht und sagt
+warum:
+
+- Mandant ohne Teilprozesse:
+  „Für diesen Mandanten sind noch keine Teilprozesse erfasst. Das Interview kann erst
+  geführt werden, wenn die Prozessstruktur steht."
+- Teilprozesse vorhanden, aber keiner bewertet:
+  „Für diesen Mandanten ist noch kein Teilprozess bewertet. Das Interview kann erst
+  geführt werden, wenn mindestens ein Teilprozess im Self-Rating bewertet ist."
+
+**Interviewbar sind nur BEWERTETE Teilprozesse** (mindestens eine aktuelle Bewertung in
+`v_bewertung_aktuell`; verworfene Erhebungen zählen nicht). Zu einem unbewerteten
+Teilprozess entsteht kein Profil — die Auswahl im Interview zeigt ihn deshalb gar nicht
+erst an.
 
 *Ohne Claude-Key (FakeLLM-Demo, so lief der Smoke am 05.08.2026):* statt `main:app` eine
 lokale, NICHT committete Demo-Verdrahtung nutzen — Wegwerf-Datei `demo_fake.py` außerhalb
@@ -197,8 +215,13 @@ Hinweis `schema_version`: Seit dem BC0-Kontext ist dieser im Betrieb Pflicht
 (Fingerprint aus Mandant, Teilprozessen, Systemen, ggf. KP-Liste). Der oben
 protokollierte `1.0+kp-<hash>`-Zweig greift nur noch ohne Kontext (Tests,
 Etappe-0-Kompatibilität) — über main.py nicht mehr erreichbar. Wird eine
-dieser Grundlagen erweitert/gekürzt, antworten laufende Interviews beim
-nächsten Turn bewusst mit 409 `paket_konflikt` — neues Interview starten.
+dieser Grundlagen erweitert/gekürzt, antworten laufende Interviews **nach einem
+Neustart des Dienstes** beim nächsten Turn bewusst mit 409 `paket_konflikt` — neues
+Interview starten. (Ohne Neustart passiert nichts: `main.py` lädt den Kontext einmal
+beim Start, eine Änderung bei BC0 erreicht den laufenden Prozess also gar nicht.)
+Das gilt auch für neu BEWERTETE Teilprozesse: die Auswahl enthält nur bewertete,
+also ändert schon eine hinzukommende Bewertung die Startmenge. Ein nach dem Start
+bewerteter Teilprozess ist erst nach einem Neustart des Dienstes wählbar.
 Clients, die `schema_version` mitsenden wollen, dürfen nicht auf `"1.0"` oder
 `"1.1"` pinnen (Teil vor dem `+` vergleichen).
 

@@ -41,7 +41,9 @@ MAX_ROUNDS_DISCOVERY = 60   # 26 Pflichtfelder × 2 Versuche + Puffer
 class Bc0Kontext:
     """Alles, was beim Dienststart einmalig aus BC0 geladen wird (Spec K2)."""
     company_id: str
-    teilprozesse: tuple[tuple[str, str], ...]      # (TP-ID, Schrittname)
+    # (TP-ID, Schrittname) — nur BEWERTETE (Rev. 11, s. start.lade_kontext). Zu einem
+    # unbewerteten Teilprozess entsteht kein Profil; die Menge geht in den Fingerprint ein.
+    teilprozesse: tuple[tuple[str, str], ...]
     system_ids: tuple[str, ...]
 
 

@@ -1,5 +1,5 @@
-"""Lesende Zugriffe auf BC0-Objekte. Vier von den fuenf, die Etappe 1 braucht — die
-fuenfte (Erhebungs-Lookup) folgt mit Task 13, sobald die offene externe Klaerung steht.
+"""Lesende Zugriffe auf BC0-Objekte. Fuenf von den sechs, die Etappe 1 braucht — die
+sechste (Erhebungs-Lookup) folgt mit Task 13.
 
 Normativ (Spec R5-I5): JEDER Lookup filtert ueber company_id. BC0 nutzt
 zusammengesetzte Schluessel — IDs wie 'KP-01.TP-1' oder 'S-01' wiederholen sich
@@ -19,10 +19,27 @@ def mandant_existiert(conn, company_id: str) -> bool:
 
 
 def teilprozesse(conn, company_id: str) -> list[tuple[str, str]]:
-    """(TP-ID, Schrittname) des Mandanten — Grundlage der statischen Auswahl (K2)."""
+    """(TP-ID, Schrittname) des Mandanten — ALLE, auch unbewertete. Seit Rev. 11 nur
+    noch die Strukturpruefung beim Start; die Interview-Auswahl liefert
+    bewertete_teilprozesse()."""
     return [(zeile[0], zeile[1]) for zeile in conn.execute(
         "SELECT sub_process_id, sub_process_name FROM ref_teilprozesse "
         "WHERE company_id = %s ORDER BY sub_process_id", (company_id,)).fetchall()]
+
+
+def bewertete_teilprozesse(conn, company_id: str) -> list[tuple[str, str]]:
+    """Teilprozesse mit mindestens einer AKTUELLEN Bewertung — nur diese sind
+    interviewbar (Rev. 11). Ohne aktuelle Bewertung gibt es keine erhebung_id, und zu
+    einem unbewerteten Teilprozess entsteht kein Profil (BC0-Antwort 1b, 02.09.).
+    'Aktuell' im Sinn der Sicht v_bewertung_aktuell: verworfene Erhebungen zaehlen
+    nicht. Die 27-von-30-Regel prueft das Gate, nicht BC1."""
+    return [(zeile[0], zeile[1]) for zeile in conn.execute(
+        "SELECT t.sub_process_id, t.sub_process_name FROM ref_teilprozesse t "
+        " WHERE t.company_id = %s AND EXISTS ("
+        "       SELECT 1 FROM v_bewertung_aktuell v "
+        "        WHERE v.company_id = t.company_id "
+        "          AND v.sub_process_id = t.sub_process_id) "
+        " ORDER BY t.sub_process_id", (company_id,)).fetchall()]
 
 
 def system_ids(conn, company_id: str) -> list[str]:

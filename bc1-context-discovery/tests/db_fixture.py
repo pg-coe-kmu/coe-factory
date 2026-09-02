@@ -70,9 +70,10 @@ def _testdaten(conn) -> None:
             "(company_id, sub_process_id, process_id, step_no, sub_process_name) VALUES "
             "(%s, 'KP-01.TP-1', 'KP-01', 1, %s), "
             "(%s, 'KP-01.TP-2', 'KP-01', 2, %s), "
+            "(%s, 'KP-01.TP-3', 'KP-01', 3, %s), "
             "(%s, 'KP-02.TP-1', 'KP-02', 1, %s)",
             (mandant, f"Erfassen {kuerzel}", mandant, f"Pruefen {kuerzel}",
-             mandant, f"Bestellen {kuerzel}"))
+             mandant, f"Archivieren {kuerzel}", mandant, f"Bestellen {kuerzel}"))
         conn.execute(
             "INSERT INTO mandant_rollen (company_id, rolle_id, bezeichnung, klasse) "
             "VALUES (%s, 'R-01', 'Sachbearbeitung', 'K2')", (mandant,))
@@ -100,12 +101,14 @@ def _testdaten(conn) -> None:
     conn.execute(
         "INSERT INTO ref_erhebungen (company_id, erhebung_id, bezeichnung, stand, status) "
         "VALUES (%s, 'E-2026-01', 'Erst', '2026-01-15', 'abgeschlossen'), "
-        "       (%s, 'E-2026-02', 'Nach',  '2026-06-01', 'abgeschlossen')",
-        (MANDANT_A, MANDANT_A))
+        "       (%s, 'E-2026-02', 'Nach',  '2026-06-01', 'abgeschlossen'), "
+        "       (%s, 'E-2026-03', 'Verworfen', '2026-07-01', 'verworfen')",
+        (MANDANT_A, MANDANT_A, MANDANT_A))
     conn.execute(
         "INSERT INTO ref_erhebungen (company_id, erhebung_id, bezeichnung, stand, status) "
-        "VALUES (%s, 'E-2026-09', 'B-Erhebung', '2026-03-01', 'abgeschlossen')",
-        (MANDANT_B,))
+        "VALUES (%s, 'E-2026-09', 'B-Erhebung', '2026-03-01', 'abgeschlossen'), "
+        "       (%s, 'E-2026-10', 'B-Gleichstand', '2026-03-01', 'abgeschlossen')",
+        (MANDANT_B, MANDANT_B))
     # A: KP-01.TP-1 wurde in E-2026-01 bewertet und in E-2026-02 teilweise nacherhoben
     # (genau die 1.2-Logik: je Item die juengste nicht verworfene Erhebung).
     # id folgt BC0s Muster '^KP-\d{2}\.TP-\d+\.I-\d{2}$'; beleg ist Pflicht.
@@ -118,15 +121,33 @@ def _testdaten(conn) -> None:
         "(%s, 'E-2026-01', 'KP-01.TP-1.I-01', 'KP-01.TP-1', 1, 2, 'Erstaufnahme', "
         " '2026-01-15'), "
         "(%s, 'E-2026-01', 'KP-01.TP-1.I-02', 'KP-01.TP-1', 2, 3, 'Erstaufnahme', "
-        " '2026-01-15')",
-        (MANDANT_A, MANDANT_A))
+        " '2026-01-15'), "
+        "(%s, 'E-2026-02', 'KP-01.TP-2.I-01', 'KP-01.TP-2', 1, 3, 'Nacherhebung TP-2', "
+        " '2026-06-01'), "
+        "(%s, 'E-2026-01', 'KP-02.TP-1.I-01', 'KP-02.TP-1', 1, 2, 'Erstaufnahme TP', "
+        " '2026-01-15'), "
+        "(%s, 'E-2026-03', 'KP-01.TP-3.I-01', 'KP-01.TP-3', 1, 1, 'nur in verworfener Erhebung', "
+        " '2026-07-01')",
+        (MANDANT_A, MANDANT_A, MANDANT_A, MANDANT_A, MANDANT_A))
     conn.execute(
         "UPDATE bitkom_bewertungen SET erhebung_id = 'E-2026-02', "
         "       stufe = 4, beleg = 'Nacherhebung', bewertet_am = '2026-06-01' "
         " WHERE company_id = %s AND id = 'KP-01.TP-1.I-01'", (MANDANT_A,))
+    # Korrektur INNERHALB der alten Erhebung — genau das tut BC0s save_rating per
+    # ON CONFLICT (bewertet_am = excluded.bewertet_am). Danach hat E-2026-01 den
+    # juengsten Schreibzeitpunkt, E-2026-02 aber den juengsten Erhebungs-STAND.
+    # Task 13 muss E-2026-02 liefern (Rev. 11).
+    conn.execute(
+        "UPDATE bitkom_bewertungen SET bewertet_am = '2026-08-01', "
+        "       beleg = 'Korrektur in der alten Erhebung' "
+        " WHERE company_id = %s AND id = 'KP-01.TP-1.I-02'", (MANDANT_A,))
     # B: gleicher Teilprozess-Schluessel, andere Erhebung — Kollisionsfalle.
+    # E-2026-09 und E-2026-10 haben denselben Stand: Tie-Breaker fuer Task 13
+    # (erhebung_id DESC -> E-2026-10 gewinnt). bewertet_am bleibt hier bewusst
+    # Default now().
     conn.execute(
         "INSERT INTO bitkom_bewertungen "
         "(company_id, erhebung_id, id, sub_process_id, item_nr, stufe, beleg) VALUES "
-        "(%s, 'E-2026-09', 'KP-01.TP-1.I-01', 'KP-01.TP-1', 1, 5, 'B-Aufnahme')",
-        (MANDANT_B,))
+        "(%s, 'E-2026-09', 'KP-01.TP-1.I-01', 'KP-01.TP-1', 1, 5, 'B-Aufnahme'), "
+        "(%s, 'E-2026-10', 'KP-01.TP-1.I-02', 'KP-01.TP-1', 2, 4, 'B-Gleichstand')",
+        (MANDANT_B, MANDANT_B))
