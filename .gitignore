@@ -216,3 +216,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Lokaler Werkzeug-Zustand (tdd-guard u. a.) — gehoert nicht ins geteilte Repo
+.claude/
