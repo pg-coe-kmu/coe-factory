@@ -158,9 +158,10 @@ im Review sichtbar sind:
 ```
 Phase A (DB-Fundament)      Task 1 → 2 → 3 → 4
 Phase B (Kern K0 + Guard)   Task 5 → 6 → 7
-Phase C (Paket + Lesepfade) Task 8 → 9 → 10
-Phase D (Writer)            Task 11 → 12 → [K-A-Gate] → 13 → 14 → 15
+Phase C (Paket + Lesepfade) Task 8 → 9 → 10 → 10b (Rev. 11: Nacharbeit BC0-Antwort 02.09.)
+Phase D (Writer)            Task 11 → 12 → 13 → 14 → 15
 Phase E (Betrieb)           Task 16
+Danach (nicht Teil dieses Plans): Use-Case-Testprofile — Vorbereitung in Anhang A
 ```
 
 Strikt sequenziell. Phase A und Phase B sind technisch unabhängig voneinander (DDL
@@ -168,11 +169,15 @@ berührt keinen Python-Kern) — wer parallelisiert, muss trotzdem beide vor Pha
 abschließen. Phase C braucht Phase A (Lesepfade testen gegen das Gerüst) und Phase B
 (`identitaetskritisch` muss existieren).
 
-**Blockiert:** Task 13 (`erhebung_id`-Regel) hängt an Klärpunkt **K-A** (Bündel-Frage #1
-an Simeon) — und Task 14 (Reconcile) hängt an Task 13, weil der Writer die Funktion beim
-Anlegen JEDER Profilzeile ruft. **Phase D endet damit real nach Task 12, solange K-A
-offen ist** (Codex R1-C6). Tasks 1–12 und die Doku aus Task 16 sind ohne Antwort baubar;
-ob Task 13/14 gegen die vorläufige Regel vorgezogen werden, entscheidet Richard.
+**Entblockt (Rev. 11, 02.09.):** Klärpunkt K-A ist beantwortet (BC0: „Bau es so" — die
+jüngste unter den aktuellen Erhebungen, nach `ref_erhebungen.stand`). Phase D ist damit
+komplett baubar. **Neu davor: Task 10b** — vier Annahmen aus Phase A/C sind durch die
+BC0-Antworten widerlegt (Leserolle `bc_leser`, kein `ALTER DEFAULT PRIVILEGES`, `step_no`
+bis 9, Interview nur für bewertete Teilprozesse). Wer Task 11 ohne 10b baut, baut auf
+einem Gerüst, das BC0 nicht mehr abbildet, und auf einer Auswahl, die dauerhaft in 503
+führt. Die Use-Case-Testprofile stehen als **Anhang A** (Roadmap-Vorbereitung, nicht ausführbar)
+hinter Task 16; ihr Design folgt, wenn `Profilinhalt` (Task 11) und der Writer (Task 14)
+existieren — dann werden sie ein eigener, vollständiger TDD-Task (Codex Rev. 11a, I3).
 
 ---
 
@@ -239,6 +244,14 @@ PG-Version gemessen. Task 2 kann starten.
 ---
 
 ## Task 2: BC0-Test-Gerüst mit zwei Mandanten
+
+> ⚠️ **Rev. 11 (02.09.):** Der SQL-Block und die Fixture unten sind NICHT mehr der
+> Dateiinhalt. Task 10b ändert `step_no` auf 1–9, entfernt die
+> `ALTER DEFAULT PRIVILEGES`-Simulation (BC0 hat keine — Antwort 9), verlegt die
+> SELECT-Rechte von `bc1_role` auf die Gruppenrolle `bc_leser` und erweitert die
+> Testdaten (KP-01.TP-3 in beiden Mandanten, Erhebung E-2026-03 „verworfen",
+> Bewertungen für KP-01.TP-2 und KP-02.TP-1, Korrektur-Zeitstempel an KP-01.TP-1.I-02).
+> Maßgeblich sind `tests/db/bc0_geruest.sql` und `tests/db_fixture.py`.
 
 **Warum zuerst:** Ohne ein schema-identisches BC0-Gerüst lässt sich weder ein
 Fremdschlüssel anlegen noch ein Mandantenfilter widerlegen. Das Gerüst ist aus
@@ -1472,6 +1485,16 @@ git commit -m "feat(bc1): DDL Profil-Fundament — Vertragstabellen, Version, Fr
 ---
 
 ## Task 4: DDL — Rechte, Sollsignatur, atomare Dreifallregel
+
+> ⚠️ **Rev. 11 (02.09.):** Die „Rechte-Entscheidung, bewusst eng" unten (`bc_leser` =
+> nichts) ist durch BC0-Antwort 3 überholt: **`bc_leser` ist der Leser** von
+> `bc1.prozessprofil` (BC2–BC4 lesen über ihre Mitgliedschaft), `profil_rollen` wird
+> gleichgestellt (Rückfrage an BC0 läuft), `profil_write_status` bleibt allein bei
+> `bc1_role`. Die Begründung über `ALTER DEFAULT PRIVILEGES` war sachlich falsch (BC0 hat
+> keine, Antwort 9). Task 10b Teil 1 ändert Abschnitt 3 der DDL, dreht den Test
+> `test_fremde_bc_rollen_lesen_nichts_auch_nicht_ueber_bc_leser` und erzeugt die
+> Sollsignatur neu. Der Test `test_default_privileges_reproduzieren_den_bc_leser_automatismus`
+> entfällt — er bewies einen Automatismus, den es in BC0 nie gab.
 
 **Ziel (Spec K1):** Das Skript läuft in EINER Transaktion und prüft den Ist-Zustand
 **vor** jeder Änderung: (1) nichts da ⇒ Anlage · (2) exakt identisch ⇒ No-op ·
@@ -3723,6 +3746,493 @@ git commit -m "feat(bc1): Teilprozess-Auswahl, S-NN-Feldtyp und Pflicht-Mandante
 
 ---
 
+## Task 10b: Nacharbeit nach BC0-Antwort 02.09. — Gerüst, Rechte, bewertete Teilprozesse, Startprüfung
+
+**Warum ein eigener Task (Rev. 11):** Simeons Antworten vom 02.09. (PDF, 6 Seiten, plus zwei
+Chat-Nachrichten) widerlegen Annahmen, auf denen Phase D aufbauen würde. Jede einzelne ist
+klein, keine ist kosmetisch, und sie liegen in Artefakten aus Phase A und C. Deshalb werden
+sie HIER geschlossen, vor Task 11 — nicht in Task 11 „mitgenommen".
+
+| Annahme im Bestand | BC0-Antwort 02.09. | Stelle |
+|---|---|---|
+| `bc_leser` bekommt NICHTS auf `bc1.*` (bis K-B) | `bc_leser` IST der Leser von `bc1.prozessprofil`; BC2–BC4 lesen darüber. `profil_write_status` bleibt bei `bc1_role` | DDL Abschnitt 3 · `tests/test_ddl_einspielen.py` |
+| BC0 vergibt per `ALTER DEFAULT PRIVILEGES` automatisch SELECT an `bc_leser` | Es gibt KEIN `ALTER DEFAULT PRIVILEGES` in BC0s Schemata (Antwort 9; BC0 korrigiert seine Rollen-Doku) | `tests/db/bc0_geruest.sql` Z. 164–166 · `tests/test_db_fixture.py` Positivkontrolle |
+| `step_no BETWEEN 1 AND 5` | seit Schema v2.2 (27.08.) bis 9; ein elfter Kernprozess ist möglich | `tests/db/bc0_geruest.sql` Z. 58 |
+| `bc1_role` liest direkt | `bc1_role` liest über die Gruppenrolle `bc_leser` (BC0 hat 48 direkte Doppel-GRANTs entfernt); direkt nur `ref_personen`/`prozess_personen` (nicht im Gerüst) | `tests/db/bc0_geruest.sql` Z. 168–172 |
+| Mandant ohne Teilprozesse: Dienst startet | regulärer Zustand; nicht starten, BC0 liefert den Wortlaut (Antwort 10; Task-10-Review I1) | `bc1_service/start.py` |
+| `focus_step` bietet ALLE Teilprozesse an | Zu einem unbewerteten Teilprozess entsteht kein Profil (Antwort 1b). Richard, 02.09.: BC1 stellt keine Bitkom-Fragen im Chat (Team-Beschluss 02.07.) → **nur bewertete Teilprozesse sind interviewbar** | `bc1_service/bc0_lesepfade.py` · `bc1_service/start.py` |
+
+**Warum die Auswahl-Einschränkung hier hingehört und kein Nice-to-have ist:** Nach
+Snapshot v3 (27.08.) hat NoroAI 50 Teilprozesse, bewertet sind 23; der Übungsmandant hat
+dieselben 50, bewertet 20 (Herleitung, DB-Messung steht aus). Mit der heutigen Auswahl
+über ALLE Teilprozesse würde über die Hälfte aller Interviews in Task 14 an
+`ErhebungFehltError` scheitern und die fertige Session dauerhaft im 503 parken — genau
+das, was Task 11 sich selbst verbietet („nur vertretbar, wenn kein regulärer Nutzerwert
+dort landen kann"). „Bewertet" heißt hier: **mindestens eine aktuelle Bewertung in
+`v_bewertung_aktuell`** — das ist die technische Bedingung für eine `erhebung_id`. Die
+Gate-Regel „27 von 30" prüft das Gate, nicht BC1.
+
+**Files:**
+- Modify: `tests/db/bc0_geruest.sql`, `tests/db_fixture.py`, `tests/test_db_fixture.py`,
+  `tests/test_ddl_einspielen.py`, `tests/test_bc0_lesepfade.py`, `tests/test_start.py`
+- Modify: `bc1_service/db/prozessprofil.sql` (Abschnitt 0 und 3, Sollsignatur neu),
+  `bc1_service/bc0_lesepfade.py`, `bc1_service/start.py`, `bc1_service/n8n/SMOKE.md`
+
+**Interfaces:**
+- Produces: `bc0_lesepfade.bewertete_teilprozesse(conn, company_id) -> list[tuple[str, str]]`
+  · `start.MELDUNG_KEINE_TEILPROZESSE`, `start.MELDUNG_KEINE_BEWERTUNG` (feste Texte) ·
+  **Semantikänderung:** `Bc0Kontext.teilprozesse` enthält ab jetzt NUR bewertete
+  Teilprozesse; `bc0_lesepfade.teilprozesse()` (alle) bleibt für die Strukturprüfung.
+- Consumes: `v_bewertung_aktuell`, `ref_erhebungen` (Gerüst), `Bc0Kontext` (Task 10).
+
+**Zwei Commits, je ein RED→GREEN-Paar:** Teil 1 (Gerüst, Rechte, Signatur) · Teil 2
+(bewertete Teilprozesse, Startprüfung). Nicht zusammenlegen — Teil 1 ändert die
+Sollsignatur, Teil 2 das Startverhalten; beides soll einzeln reviewbar sein.
+
+**Vorab wissen (am Container am 02.09. gemessen, PostgreSQL 16):** `ALTER DEFAULT
+PRIVILEGES … IN SCHEMA bc1` legt einen Eintrag in `pg_default_acl` an, der mit
+`DROP SCHEMA bc1 CASCADE` verschwindet. `frische_db` droppt das Schema → nach dem Entfernen
+der Zeile aus dem Gerüst bleibt kein Alt-Eintrag im Test-Container zurück. Bleibt der
+neue Test trotzdem rot, ist die Ursache woanders — nicht raten, `pg_default_acl` abfragen.
+
+### Teil 1 — Gerüst auf BC0-Stand 02.09., `bc_leser` als Leser
+
+- [ ] **Step 1: Failing tests schreiben**
+
+`tests/test_db_fixture.py`: `test_default_privileges_reproduzieren_den_bc_leser_automatismus`
+**löschen** (bewies einen Automatismus, den BC0 nicht hat) und ersetzen durch:
+
+```python
+def test_geruest_hat_kein_default_privilege_und_bc1_role_liest_ueber_bc_leser():
+    # BC0-Antwort 9 (02.09.): kein ALTER DEFAULT PRIVILEGES in BC0s Schemata. Zweite
+    # Chat-Nachricht 02.09.: bc1_role liest ueber die Gruppenrolle bc_leser, die
+    # direkten Doppel-GRANTs sind weg. Das Geruest bildet genau das ab.
+    frische_db(DSN, mit_ddl=False)
+    with verbindung(DSN, "bc1_role") as conn:
+        conn.execute("CREATE TABLE bc1.leck_probe (x int)")
+        conn.commit()
+    with verbindung(DSN, None) as conn:
+        assert conn.execute(
+            "SELECT has_table_privilege('bc_leser', 'bc1.leck_probe', 'SELECT')"
+        ).fetchone()[0] is False                       # kein Automatismus mehr
+        assert conn.execute(
+            "SELECT pg_has_role('bc1_role', 'bc_leser', 'USAGE')").fetchone()[0] is True
+        for objekt in ("v_bewertung_aktuell", "mandant_systeme", "ref_teilprozesse",
+                       "companies", "v_prozesse_lesen", "ref_erhebungen"):
+            # Kein DIREKTES SELECT an bc1_role mehr. Achtung: companies,
+            # ref_teilprozesse und ref_erhebungen behalten ihr direktes REFERENCES
+            # (bc1_role=x in der ACL) — deshalb aclexplode nach Privileg, nicht
+            # ein Substring-Test auf 'bc1_role=' (am Container 02.09. so gesehen).
+            direkt = conn.execute(
+                "SELECT count(*) FROM pg_class c, aclexplode(c.relacl) a "
+                " WHERE c.oid = %s::regclass AND a.grantee = 'bc1_role'::regrole "
+                "   AND a.privilege_type = 'SELECT'", (objekt,)).fetchone()[0]
+            assert direkt == 0, f"{objekt}: direkter SELECT-GRANT an bc1_role"
+            assert conn.execute(
+                "SELECT has_table_privilege('bc1_role', %s, 'SELECT')",
+                (objekt,)).fetchone()[0] is True, f"{objekt}: nicht ueber bc_leser lesbar"
+
+
+def test_step_no_reicht_bis_neun_und_nicht_weiter():
+    # BC0 Schema v2.2 (27.08.): CHECK (step_no BETWEEN 1 AND 9). Das ID-Muster liesse
+    # TP-10 zu — die Grenze zieht der CHECK, nicht die Regex.
+    frische_db(DSN, mit_ddl=False)
+    with verbindung(DSN, None) as conn:
+        conn.execute(
+            "INSERT INTO ref_teilprozesse (company_id, sub_process_id, process_id, "
+            "step_no, sub_process_name) VALUES (%s, 'KP-01.TP-9', 'KP-01', 9, 'neun')",
+            (MANDANT_A,))
+        conn.commit()
+    with verbindung(DSN, None) as conn:
+        with pytest.raises(Exception) as fehler:
+            conn.execute(
+                "INSERT INTO ref_teilprozesse (company_id, sub_process_id, process_id, "
+                "step_no, sub_process_name) VALUES (%s, 'KP-01.TP-10', 'KP-01', 10, 'zehn')",
+                (MANDANT_A,))
+        assert "step_no" in str(fehler.value)
+```
+
+`tests/test_ddl_einspielen.py`: `test_fremde_bc_rollen_lesen_nichts_auch_nicht_ueber_bc_leser`
+**ersetzen** durch:
+
+```python
+def test_bc_leser_liest_die_vertragstabellen_aber_nie_den_write_status():
+    # BC0-Antwort 3 (02.09.): Leser von bc1.prozessprofil ist die GRUPPENROLLE
+    # bc_leser — BC2, BC3, BC4 lesen ueber ihre Mitgliedschaft, ein spaeterer Entzug
+    # wirkt an einer Stelle. profil_rollen gleichgestellt (Rueckfrage an BC0 offen,
+    # Rev. 11). profil_write_status bleibt allein bei bc1_role.
+    frische_db(DSN)
+    with verbindung(DSN, None) as conn:
+        for rolle in ("bc_leser", "bc2_role", "bc3_role", "bc4_role"):
+            for tabelle in ("prozessprofil", "profil_rollen"):
+                assert conn.execute(
+                    "SELECT has_table_privilege(%s, %s, 'SELECT')",
+                    (rolle, f"bc1.{tabelle}")).fetchone()[0], f"{rolle} liest {tabelle} nicht"
+                for recht in ("INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"):
+                    assert not conn.execute(
+                        "SELECT has_table_privilege(%s, %s, %s)",
+                        (rolle, f"bc1.{tabelle}", recht)).fetchone()[0], f"{rolle}/{tabelle}/{recht}"
+            for recht in ("SELECT", "INSERT", "UPDATE", "DELETE"):
+                assert not conn.execute(
+                    "SELECT has_table_privilege(%s, 'bc1.profil_write_status', %s)",
+                    (rolle, recht)).fetchone()[0], f"{rolle} sieht profil_write_status"
+```
+
+- [ ] **Step 2: RED**
+
+```bash
+BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" .venv/bin/pytest tests/test_db_fixture.py tests/test_ddl_einspielen.py -v
+```
+
+Erwartet rot: die zwei neuen Fixture-Tests (Simulation noch da; `step_no` 9 wird
+abgewiesen) und der neue Rechte-Test (`bc_leser` hat noch kein SELECT). Alles andere grün.
+
+- [ ] **Step 3: Gerüst ändern** (`tests/db/bc0_geruest.sql`)
+
+Z. 58: `step_no integer NOT NULL CHECK (step_no BETWEEN 1 AND 9),  -- v2.2 (27.08.): bis 9`
+
+Z. 164–172 (Kommentar, `ALTER DEFAULT PRIVILEGES`, Rechteblock) **komplett ersetzen** durch:
+
+```sql
+-- BC0 hat KEIN ALTER DEFAULT PRIVILEGES (Antwort 9 vom 02.09.); die Simulation, die hier
+-- bis Rev. 10 stand, bildete etwas ab, das es in BC0 nie gab.
+--
+-- Rechte wie in BC0 seit 02.09.: REFERENCES direkt an bc1_role (fuer unsere FKs);
+-- Lesen ueber die GRUPPENROLLE bc_leser, in der bc1_role Mitglied ist (siehe Rollenblock
+-- oben — BC0 hat die direkten Doppel-GRANTs entfernt). SELECT auf ref_erhebungen ist von
+-- BC0 zugesagt (Antwort 3), die Erteilung ist noch zu bestaetigen (Klaerpunkt K-B).
+GRANT REFERENCES ON companies, ref_prozesse, ref_teilprozesse, mandant_rollen,
+                    ref_erhebungen TO bc1_role;
+GRANT SELECT ON v_bewertung_aktuell, mandant_systeme, ref_teilprozesse, companies,
+                v_prozesse_lesen, ref_erhebungen TO bc_leser;
+```
+
+(`GRANT bc_leser TO bc1_role` steht bereits im Rollenblock des Gerüsts — die Schleife
+vergibt `bc_leser` an `bc1_role` bis `bc4_role`. Nichts doppelt anlegen.) Die Zeilen
+ab „BEWUSST NICHT: SELECT auf ref_prozesse" bleiben unverändert.
+
+- [ ] **Step 4: DDL ändern** (`bc1_service/db/prozessprofil.sql`)
+
+**Abschnitt 0 (Vorprüfung), SELECT-Liste** um `ref_erhebungen` ergänzen — Task 13 joint
+darauf; fehlt das Recht im Ziel, soll das Einspielen sagen, was fehlt, nicht der erste
+Profil-Write:
+
+```sql
+    SELECT array_agg(t) INTO fehlend FROM unnest(ARRAY[
+        'v_bewertung_aktuell', 'mandant_systeme', 'ref_teilprozesse', 'companies',
+        'v_prozesse_lesen', 'ref_erhebungen'
+    ]) AS t WHERE NOT has_table_privilege(current_user, t, 'SELECT');
+```
+
+Und im REFERENCES-Fehlertext „Das ist das GRANT-Signal an BC0 (Buendel-Frage #3)" ersetzen
+durch „(von BC0 am 02.09. erteilt — fehlt es hier, stimmt das Ziel nicht)".
+
+**Abschnitt 3 (Rechte, Z. 753–771)** komplett ersetzen durch:
+
+```sql
+    -- ---------- Abschnitt 3: Rechte (Rev. 11, BC0-Antwort 3 vom 02.09.) ----------
+    -- bc1_role: voll auf allen drei Tabellen. bc_leser (Gruppenrolle; BC2, BC3, BC4
+    -- lesen darueber): SELECT auf die zwei Vertragstabellen, NICHTS auf
+    -- profil_write_status. PUBLIC: nichts. BC0 hat kein ALTER DEFAULT PRIVILEGES
+    -- (Antwort 9) — das explizite REVOKE bleibt trotzdem: Zusicherung statt Annahme.
+    -- Als plpgsql-IF statt als geschachtelter DO-Block, und in der Klammer steht kein
+    -- Tagname im Klartext (auch Kommentare sind dort Rohtext — hier einmal passiert).
+    EXECUTE $ddl$ REVOKE ALL ON bc1.prozessprofil, bc1.profil_rollen, bc1.profil_write_status
+        FROM PUBLIC $ddl$;
+    EXECUTE $ddl$ GRANT SELECT, INSERT, UPDATE, DELETE
+        ON bc1.prozessprofil, bc1.profil_rollen, bc1.profil_write_status TO bc1_role $ddl$;
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'bc_leser') THEN
+        EXECUTE $ddl$ REVOKE ALL ON bc1.prozessprofil, bc1.profil_rollen,
+                      bc1.profil_write_status FROM bc_leser $ddl$;
+        EXECUTE $ddl$ GRANT SELECT ON bc1.prozessprofil, bc1.profil_rollen TO bc_leser $ddl$;
+    END IF;
+```
+
+Der Dateikopf-Kommentar zu Abschnitt 3 („nur bc1_role; alles andere ausdruecklich weg, bis
+Klaerpunkt K-B beantwortet ist") wird entsprechend angepasst.
+
+- [ ] **Step 5: Sollsignatur neu erzeugen — und den Diff LESEN**
+
+Signaturblock durch die Platzhalterzeile ersetzen, dann aus `bc1-context-discovery/`:
+
+```bash
+BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" .venv/bin/python ../../signatur-erzeugen.py
+git diff bc1_service/db/prozessprofil.sql
+```
+
+**Erwartete Änderung, Zeile für Zeile:** NEU `acl|prozessprofil|bc_leser|SELECT|f` und
+`acl|profil_rollen|bc_leser|SELECT|f` · NEU `effektiv|<T>|<R>|SELECT` und
+`effektiv_spalte|<T>|<R>|SELECT` für T ∈ {prozessprofil, profil_rollen} und
+R ∈ {bc_leser, bc2_role, bc3_role, bc4_role} (16 Zeilen — die drei BC-Rollen erscheinen,
+weil `has_table_privilege` die Mitgliedschaft auflöst) · **KEINE** neue Zeile für
+`profil_write_status` · **keine** entfernte Zeile. Das sind 18 neue Zeilen; die reale Zahl
+zählen und im Bericht nennen, nicht diese Erwartung abschreiben. Erscheint etwas anderes:
+anhalten und verstehen, nicht committen.
+
+**Deploy-Konsequenz (gehört in Task 16, hier nur benannt):** Die `effektiv|`-Zeilen hängen
+ab jetzt davon ab, WER in der Zieldatenbank Mitglied von `bc_leser` ist. Sind es in der
+Supabase mehr oder andere Rollen als `bc2_role`…`bc4_role`, weicht der Ist-Bestand von
+der Sollsignatur ab und das Einspielen bricht mit Fall 3 ab. Vor dem Einspielen die
+Mitglieder abfragen und das Gerüst angleichen — siehe Task 16, Step 1, Punkt 5.
+
+- [ ] **Step 6: GREEN, volle Suite, Commit**
+
+```bash
+BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" .venv/bin/pytest -q -W error
+git add bc1-context-discovery/tests/db/bc0_geruest.sql bc1-context-discovery/tests/test_db_fixture.py \
+        bc1-context-discovery/tests/test_ddl_einspielen.py bc1-context-discovery/bc1_service/db/prozessprofil.sql
+git commit -m "fix(bc1): bc_leser als Leser der Vertragstabellen, Geruest auf BC0-Stand 02.09."
+```
+
+Erwartete Suite: 347 − 1 (Positivkontrolle gelöscht) + 2 (neue Fixture-Tests) = **348 passed**,
+4 skipped; der ersetzte Rechte-Test zählt netto null. Momentaufnahme, reale Zahl berichten.
+
+### Teil 2 — nur bewertete Teilprozesse, Startprüfung mit BC0-Wortlaut
+
+- [ ] **Step 7: Fixture erweitern** (`tests/db_fixture.py`) — **vollständige Anweisungen, nicht nur die Deltas** (Codex Rev. 11a, I1)
+
+Warum: Task 14 bindet Drafts an `KP-01.TP-2` und `KP-02.TP-1` — in der Rev.-10-Fixture
+unbewertet, `_einfuegen` wäre in `ErhebungFehltError` gelaufen (**Planfehler, in Rev. 11
+gefunden**). Außerdem braucht Task 13 einen Teilprozess, der NUR in einer verworfenen
+Erhebung bewertet ist, und einen Gleichstand im Erhebungs-Stand (Tie-Breaker `erhebung_id`).
+
+In der Mandanten-Schleife den Teilprozess-INSERT **durch diesen ersetzen** (vier Zeilen,
+acht Parameter — beide Mandanten bekommen TP-3, sonst bricht der B-exklusiv-Test):
+
+```python
+        conn.execute(
+            "INSERT INTO ref_teilprozesse "
+            "(company_id, sub_process_id, process_id, step_no, sub_process_name) VALUES "
+            "(%s, 'KP-01.TP-1', 'KP-01', 1, %s), "
+            "(%s, 'KP-01.TP-2', 'KP-01', 2, %s), "
+            "(%s, 'KP-01.TP-3', 'KP-01', 3, %s), "
+            "(%s, 'KP-02.TP-1', 'KP-02', 1, %s)",
+            (mandant, f"Erfassen {kuerzel}", mandant, f"Pruefen {kuerzel}",
+             mandant, f"Archivieren {kuerzel}", mandant, f"Bestellen {kuerzel}"))
+```
+
+Die beiden `ref_erhebungen`-INSERTs **durch diese ersetzen** (A: dritte Erhebung
+„verworfen"; B: zweite Erhebung mit GLEICHEM Stand wie E-2026-09):
+
+```python
+    conn.execute(
+        "INSERT INTO ref_erhebungen (company_id, erhebung_id, bezeichnung, stand, status) "
+        "VALUES (%s, 'E-2026-01', 'Erst', '2026-01-15', 'abgeschlossen'), "
+        "       (%s, 'E-2026-02', 'Nach',  '2026-06-01', 'abgeschlossen'), "
+        "       (%s, 'E-2026-03', 'Verworfen', '2026-07-01', 'verworfen')",
+        (MANDANT_A, MANDANT_A, MANDANT_A))
+    conn.execute(
+        "INSERT INTO ref_erhebungen (company_id, erhebung_id, bezeichnung, stand, status) "
+        "VALUES (%s, 'E-2026-09', 'B-Erhebung', '2026-03-01', 'abgeschlossen'), "
+        "       (%s, 'E-2026-10', 'B-Gleichstand', '2026-03-01', 'abgeschlossen')",
+        (MANDANT_B, MANDANT_B))
+```
+
+Den A-Bewertungs-INSERT **durch diesen ersetzen** (fünf Zeilen, fünf Parameter); die
+bestehende `UPDATE`-Anweisung für `I-01` (→ E-2026-02) bleibt danach stehen, und
+DIREKT DAHINTER kommt die neue Korrektur-Anweisung:
+
+```python
+    conn.execute(
+        "INSERT INTO bitkom_bewertungen "
+        "(company_id, erhebung_id, id, sub_process_id, item_nr, stufe, beleg, "
+        " bewertet_am) VALUES "
+        "(%s, 'E-2026-01', 'KP-01.TP-1.I-01', 'KP-01.TP-1', 1, 2, 'Erstaufnahme', "
+        " '2026-01-15'), "
+        "(%s, 'E-2026-01', 'KP-01.TP-1.I-02', 'KP-01.TP-1', 2, 3, 'Erstaufnahme', "
+        " '2026-01-15'), "
+        "(%s, 'E-2026-02', 'KP-01.TP-2.I-01', 'KP-01.TP-2', 1, 3, 'Nacherhebung TP-2', "
+        " '2026-06-01'), "
+        "(%s, 'E-2026-01', 'KP-02.TP-1.I-01', 'KP-02.TP-1', 1, 2, 'Erstaufnahme TP', "
+        " '2026-01-15'), "
+        "(%s, 'E-2026-03', 'KP-01.TP-3.I-01', 'KP-01.TP-3', 1, 1, 'nur in verworfener Erhebung', "
+        " '2026-07-01')",
+        (MANDANT_A, MANDANT_A, MANDANT_A, MANDANT_A, MANDANT_A))
+    conn.execute(
+        "UPDATE bitkom_bewertungen SET erhebung_id = 'E-2026-02', "
+        "       stufe = 4, beleg = 'Nacherhebung', bewertet_am = '2026-06-01' "
+        " WHERE company_id = %s AND id = 'KP-01.TP-1.I-01'", (MANDANT_A,))
+    # Korrektur INNERHALB der alten Erhebung — genau das tut BC0s save_rating per
+    # ON CONFLICT (bewertet_am = excluded.bewertet_am). Danach hat E-2026-01 den
+    # juengsten Schreibzeitpunkt, E-2026-02 aber den juengsten Erhebungs-STAND.
+    # Task 13 muss E-2026-02 liefern (Rev. 11).
+    conn.execute(
+        "UPDATE bitkom_bewertungen SET bewertet_am = '2026-08-01', "
+        "       beleg = 'Korrektur in der alten Erhebung' "
+        " WHERE company_id = %s AND id = 'KP-01.TP-1.I-02'", (MANDANT_A,))
+```
+
+Den B-Bewertungs-INSERT **durch diesen ersetzen** (Gleichstand im Stand, Tie-Breaker
+`erhebung_id DESC` → E-2026-10 gewinnt; `bewertet_am` bleibt hier bewusst Default `now()`):
+
+```python
+    conn.execute(
+        "INSERT INTO bitkom_bewertungen "
+        "(company_id, erhebung_id, id, sub_process_id, item_nr, stufe, beleg) VALUES "
+        "(%s, 'E-2026-09', 'KP-01.TP-1.I-01', 'KP-01.TP-1', 1, 5, 'B-Aufnahme'), "
+        "(%s, 'E-2026-10', 'KP-01.TP-1.I-02', 'KP-01.TP-1', 2, 4, 'B-Gleichstand')",
+        (MANDANT_B, MANDANT_B))
+```
+
+Ergebnis je Mandant: **A** bewertet = KP-01.TP-1 (E-01/E-02), KP-01.TP-2 (E-02),
+KP-02.TP-1 (E-01); unbewertet = KP-01.TP-3 (nur E-03, verworfen). **B** bewertet =
+KP-01.TP-1 (E-09 + E-10, gleicher Stand); unbewertet = KP-01.TP-2, KP-01.TP-3,
+KP-02.TP-1, KP-02.TP-2. Gültigkeit gegen alle Gerüst-Constraints (PK, UNIQUE
+`(company_id, erhebung_id, sub_process_id, item_nr)`, id-Muster, FK auf `ref_erhebungen`,
+Status-CHECK) hat Codex in Rev. 11a bestätigt.
+
+- [ ] **Step 8: Failing tests schreiben**
+
+`tests/test_bc0_lesepfade.py` — bestehenden Test anpassen (vier Teilprozesse bei A) und
+einen neuen ergänzen:
+
+```python
+def test_teilprozesse_liefern_nur_den_eigenen_mandanten():
+    with verbindung(DSN) as conn:
+        a = bc0_lesepfade.teilprozesse(conn, MANDANT_A)
+        b = bc0_lesepfade.teilprozesse(conn, MANDANT_B)
+    assert a == [("KP-01.TP-1", "Erfassen A"), ("KP-01.TP-2", "Pruefen A"),
+                 ("KP-01.TP-3", "Archivieren A"), ("KP-02.TP-1", "Bestellen A")]
+    gemeinsam = {tp for tp, _ in a}
+    assert gemeinsam <= {tp for tp, _ in b}                  # IDs kollidieren...
+    assert dict(a) != dict(b)                                # ...die Inhalte nicht
+    assert {tp for tp, _ in b} - gemeinsam == {"KP-02.TP-2"}  # B-exklusiv
+
+
+def test_bewertete_teilprozesse_filtern_mandant_und_verworfene_erhebungen():
+    # Rev. 11: interviewbar ist nur, was mindestens eine AKTUELLE Bewertung hat.
+    # KP-01.TP-3 ist bei A ausschliesslich in der verworfenen E-2026-03 bewertet —
+    # fuer v_bewertung_aktuell also unbewertet. B hat dieselben IDs, aber nur
+    # KP-01.TP-1 bewertet: ein fehlender company_id-Filter faellt sofort auf.
+    with verbindung(DSN) as conn:
+        a = bc0_lesepfade.bewertete_teilprozesse(conn, MANDANT_A)
+        b = bc0_lesepfade.bewertete_teilprozesse(conn, MANDANT_B)
+    assert a == [("KP-01.TP-1", "Erfassen A"), ("KP-01.TP-2", "Pruefen A"),
+                 ("KP-02.TP-1", "Bestellen A")]
+    assert b == [("KP-01.TP-1", "Erfassen B")]
+```
+
+`tests/test_start.py` — der bestehende Kontext-Test bleibt wörtlich: A liefert genau die
+drei bewerteten Teilprozesse, womit `KP-01.TP-3` bereits ausgeschlossen ist (ein eigener
+Negativtest dafür wäre redundant — Codex Rev. 11a, M4). Dazu zwei neue:
+
+```python
+@pytest.mark.skipif(not DSN, reason="BC1_TEST_DB_DSN nicht gesetzt")
+def test_mandant_ohne_teilprozesse_startet_nicht_mit_bc0_wortlaut():
+    # BC0-Antwort 10 (02.09.): der Zustand ist regulaer (Mandant -> Kernprozesse ->
+    # Teilprozesse) — nicht starten, mit dem von BC0 vorgeschlagenen Wortlaut.
+    frische_db(DSN)
+    leer = "33333333-3333-3333-3333-333333333333"
+    with verbindung(DSN, None) as conn:
+        conn.execute("INSERT INTO companies (company_id, name) VALUES (%s, 'Demo C')", (leer,))
+        conn.commit()
+    with verbindung(DSN) as conn:
+        with pytest.raises(RuntimeError) as fehler:
+            lade_kontext(conn, leer)
+    assert "noch keine Teilprozesse erfasst" in str(fehler.value)
+
+
+@pytest.mark.skipif(not DSN, reason="BC1_TEST_DB_DSN nicht gesetzt")
+def test_mandant_mit_teilprozessen_aber_ohne_bewertung_startet_nicht():
+    # Nach dem Filter kann die Auswahl leer sein, obwohl Teilprozesse existieren —
+    # dann waere BC0s Wortlaut ("keine Teilprozesse erfasst") sachlich falsch.
+    frische_db(DSN)
+    ohne = "44444444-4444-4444-4444-444444444444"
+    with verbindung(DSN, None) as conn:
+        conn.execute("INSERT INTO companies (company_id, name) VALUES (%s, 'Demo D')", (ohne,))
+        conn.execute("INSERT INTO ref_prozesse (company_id, process_id, process_name, kategorie) "
+                     "VALUES (%s, 'KP-01', 'Auftrag D', 'Kerngeschäftsprozess')", (ohne,))
+        conn.execute("INSERT INTO ref_teilprozesse (company_id, sub_process_id, process_id, "
+                     "step_no, sub_process_name) VALUES (%s, 'KP-01.TP-1', 'KP-01', 1, 'Erfassen D')",
+                     (ohne,))
+        conn.commit()
+    with verbindung(DSN) as conn:
+        with pytest.raises(RuntimeError) as fehler:
+            lade_kontext(conn, ohne)
+    assert "noch kein Teilprozess bewertet" in str(fehler.value)
+```
+
+- [ ] **Step 9: RED, dann implementieren**
+
+`bc1_service/bc0_lesepfade.py` — neue Funktion (Modul-Docstring: „Vier von den fuenf"
+→ „Fuenf von den sechs … die sechste (Erhebungs-Lookup) folgt mit Task 13"):
+
+```python
+def bewertete_teilprozesse(conn, company_id: str) -> list[tuple[str, str]]:
+    """Teilprozesse mit mindestens einer AKTUELLEN Bewertung — nur diese sind
+    interviewbar (Rev. 11). Ohne aktuelle Bewertung gibt es keine erhebung_id, und zu
+    einem unbewerteten Teilprozess entsteht kein Profil (BC0-Antwort 1b, 02.09.).
+    'Aktuell' im Sinn der Sicht v_bewertung_aktuell: verworfene Erhebungen zaehlen
+    nicht. Die 27-von-30-Regel prueft das Gate, nicht BC1."""
+    return [(zeile[0], zeile[1]) for zeile in conn.execute(
+        "SELECT t.sub_process_id, t.sub_process_name FROM ref_teilprozesse t "
+        " WHERE t.company_id = %s AND EXISTS ("
+        "       SELECT 1 FROM v_bewertung_aktuell v "
+        "        WHERE v.company_id = t.company_id "
+        "          AND v.sub_process_id = t.sub_process_id) "
+        " ORDER BY t.sub_process_id", (company_id,)).fetchall()]
+```
+
+`bc1_service/start.py`:
+
+```python
+# Wortlaut von BC0 (Antwort 10, 02.09.) — nicht umformulieren, er ist mit BC0 abgestimmt.
+MELDUNG_KEINE_TEILPROZESSE = (
+    "Für diesen Mandanten sind noch keine Teilprozesse erfasst. Das Interview kann "
+    "erst geführt werden, wenn die Prozessstruktur steht.")
+# Zweite Stufe (Rev. 11): Struktur da, aber nichts bewertet — BC0s Satz waere hier falsch.
+MELDUNG_KEINE_BEWERTUNG = (
+    "Für diesen Mandanten ist noch kein Teilprozess bewertet. Das Interview kann erst "
+    "geführt werden, wenn mindestens ein Teilprozess im Self-Rating bewertet ist.")
+
+
+def lade_kontext(conn, company_id: str) -> Bc0Kontext:
+    if not bc0_lesepfade.mandant_existiert(conn, company_id):
+        raise RuntimeError(
+            f"Mandant {company_id} existiert nicht in companies — "
+            "BC1_COMPANY_ID pruefen.")
+    if not bc0_lesepfade.teilprozesse(conn, company_id):
+        raise RuntimeError(MELDUNG_KEINE_TEILPROZESSE)
+    bewertete = bc0_lesepfade.bewertete_teilprozesse(conn, company_id)
+    if not bewertete:
+        raise RuntimeError(MELDUNG_KEINE_BEWERTUNG)
+    return Bc0Kontext(
+        company_id=company_id,
+        teilprozesse=tuple(bewertete),
+        system_ids=tuple(bc0_lesepfade.system_ids(conn, company_id)))
+```
+
+`main.py` bleibt unberührt — `lade_kontext` wirft bereits `RuntimeError`, der Pool-Abbau
+im `except` steht seit Task 10. Der Modul-Docstring von `start.py` bekommt den Satz:
+„Der Dienst bietet nur bewertete Teilprozesse an (Rev. 11); die Auswahl geht in den
+ctx-Fingerprint ein — ein nach dem Start neu bewerteter Teilprozess ist erst nach
+Neustart wählbar, laufende Sessions bekommen dann 409 `paket_konflikt`."
+
+`bc1_service/n8n/SMOKE.md`: unter den Startvariablen die zwei Startmeldungen wörtlich,
+und beim Punkt „Startmengen-Ehrlichkeit" den Zusatz „gilt auch für neu BEWERTETE
+Teilprozesse".
+
+- [ ] **Step 10: GREEN, volle Suite, Commit**
+
+```bash
+BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" .venv/bin/pytest -q -W error
+git add bc1-context-discovery/tests/db_fixture.py bc1-context-discovery/tests/test_bc0_lesepfade.py \
+        bc1-context-discovery/tests/test_start.py bc1-context-discovery/bc1_service/bc0_lesepfade.py \
+        bc1-context-discovery/bc1_service/start.py bc1-context-discovery/bc1_service/n8n/SMOKE.md
+git commit -m "feat(bc1): Interview nur fuer bewertete Teilprozesse, Startabbruch mit BC0-Wortlaut"
+```
+
+Erwartet: **351 passed**, 4 skipped (348 + 1 Lesepfad-Test + 2 Start-Tests) — Momentaufnahme.
+
+**Was Task 10b für Phase D ändert (dort NICHT mehr separat beschrieben):** Task 13 nutzt
+`KP-01.TP-3` als unbewerteten Teilprozess (statt `KP-02.TP-1`, der jetzt bewertet ist) ·
+Task 14/15 finden für ihre Draft-Ziele `KP-01.TP-2` → `E-2026-02` und `KP-02.TP-1` →
+`E-2026-01` echte Erhebungen · bei B liefert `KP-01.TP-1` jetzt `E-2026-10` (Gleichstand,
+Tie-Breaker) — kein Phase-D-Test erwartet dort einen konkreten Wert · der 503-Test in Task 14 („ohne Bewertung") wird zum
+Wettlauf-Test „Bewertung nach Sitzungsstart verworfen" mit `KP-01.TP-3`.
+
+---
+
 # Phase D — Profil-Writer
 
 > **Reconcile-Modell (Spec K3):** Kein „Auslöser". Der Writer gleicht am Ende **jedes
@@ -4281,18 +4791,24 @@ git commit -m "feat(bc1): S-NN-Sweep beim Schreiben inkl. normativer Statusueber
 
 ---
 
-## Task 13: `erhebung_id`-Lookup — **BLOCKIERT durch Klärpunkt K-A**
+## Task 13: `erhebung_id`-Lookup — Regel „jüngste unter den aktuellen" nach Erhebungsstand
 
-> ⛔ **HARTES GATE — dieser Task steht VOR dem Reconcile-Task (Codex R1-C6):** Der
-> Writer ruft `erhebung_id()` beim Anlegen jeder Profilzeile auf; ohne diese Funktion
-> kann Task 14 nicht grün werden. Bündel-Frage #1 an Simeon muss beantwortet sein (a: welche
-> `erhebung_id`, wenn die aktuellen Bewertungen aus mehreren Erhebungen stammen ·
-> b: Teilprozess ganz ohne Bewertung — `NULL`, Platzhalter oder Interview verweigern?).
-> Ist die Antwort beim Erreichen dieses Tasks nicht da: **Sofort-Eskalation** (so steht
-> es in der Spec) und **stoppen** — Tasks 11 und 12 sind DB-frei und bis dahin gebaut,
-> ein fertiger Writer gegen eine unbestätigte Erhebungsregel wäre dagegen genau die
-> Abkürzung, die wir nicht nehmen. Ob wir trotzdem mit der vorläufigen Regel
-> weiterbauen, entscheidet Richard; die Entscheidung gehört in den Bericht.
+> ✅ **Klärpunkt K-A ist beantwortet (BC0, 02.09.):** (a) Mehrere aktuelle Erhebungen hinter
+> einem Teilprozess → „Dein Vorschlag gilt: die jüngste unter den aktuellen. Bau es so." ·
+> (b) Teilprozess ohne aktuelle Bewertung → es entsteht kein Profil. Fall (b) tritt im
+> Betrieb seit Task 10b nur noch als Wettlauf auf (Bewertung nach Sitzungsstart verworfen),
+> weil der Dienst unbewertete Teilprozesse gar nicht mehr anbietet. `SELECT` auf
+> `ref_erhebungen` ist von BC0 zugesagt (Antwort 3) und im Gerüst seit Task 10b gesetzt.
+
+**Was „jüngste" heißt — und warum die Rev.-10-Query falsch war:** `v_bewertung_aktuell`
+rankt je Item nach `e.stand DESC, e.erhebung_id DESC` über `ref_erhebungen`. „Jüngste
+unter den aktuellen" ist also die Erhebung mit dem größten **Erhebungs-Stand** — nicht die
+mit dem jüngsten `bewertet_am`. Die beiden fallen im Echtbetrieb auseinander: BC0s
+`save_rating` korrigiert per `ON CONFLICT … SET bewertet_am = excluded.bewertet_am`
+innerhalb derselben Erhebung. Eine Korrektur in einer ALTEN Erhebung hat dann den
+jüngsten Schreibzeitpunkt, ändert aber nicht, welche Erhebung aktuell ist. Die Fixture
+enthält seit Task 10b genau diesen Fall (KP-01.TP-1.I-02, `bewertet_am` 2026-08-01 in
+E-2026-01 bei Stand 2026-01-15).
 
 **Files:**
 - Modify: `bc1_service/bc0_lesepfade.py`
@@ -4303,82 +4819,99 @@ git commit -m "feat(bc1): S-NN-Sweep beim Schreiben inkl. normativer Statusueber
   - `class ErhebungFehltError(RuntimeError)`
   - `erhebung_id(conn, company_id: str, focus_step_id: str) -> str`
 
-**Befund aus dem Rechte-Abgleich (gehört ins Simeon-Bündel):** Wir haben auf
-`ref_erhebungen` **nur `REFERENCES`, kein `SELECT`** (Einspiel-Voraussetzungen I9).
-Die „jüngste" Erhebung lässt sich deshalb **nicht** über `ref_erhebungen.stand`
-bestimmen, sondern nur über die Spalten, die `v_bewertung_aktuell` selbst mitbringt
-(`bewertet_am`, `erhebung_id`). Wenn Simeon „jüngste nach `stand`" bestätigt, brauchen
-wir zusätzlich `SELECT` auf `ref_erhebungen` — das gehört dann ins GRANT-Signal (K-B).
-
 - [ ] **Step 1: Failing tests schreiben**
 
 ```python
-def test_erhebung_id_nimmt_die_juengste_aktuelle():
-    # Fixture: KP-01.TP-1 hat Item 1 aus E-2026-02 (jueng.) und Item 2 aus E-2026-01.
+def test_erhebung_id_nimmt_die_juengste_aktuelle_nach_erhebungsstand():
+    # A/KP-01.TP-1: Item 1 aus E-2026-02 (stand 2026-06-01), Item 2 aus E-2026-01
+    # (stand 2026-01-15) — aber Item 2 wurde am 2026-08-01 KORRIGIERT, sein bewertet_am
+    # ist juenger als alles in E-2026-02. Massgeblich ist der Erhebungs-STAND, wie in
+    # v_bewertung_aktuell selbst: E-2026-02, nicht E-2026-01.
     with verbindung(DSN) as conn:
         assert bc0_lesepfade.erhebung_id(conn, MANDANT_A, "KP-01.TP-1") == "E-2026-02"
 
 
-def test_erhebung_id_filtert_den_mandanten():
+def test_erhebung_id_filtert_den_mandanten_und_bricht_gleichstand_nach_id():
+    # B/KP-01.TP-1: Item 1 aus E-2026-09, Item 2 aus E-2026-10 — BEIDE mit Stand
+    # 2026-03-01. Gleichstand im Stand entscheidet erhebung_id DESC, wie in der Sicht
+    # (Rev. 11a). Und: dieselbe TP-ID wie bei A, andere Antwort — Mandantenfilter.
     with verbindung(DSN) as conn:
-        assert bc0_lesepfade.erhebung_id(conn, MANDANT_B, "KP-01.TP-1") == "E-2026-09"
+        assert bc0_lesepfade.erhebung_id(conn, MANDANT_B, "KP-01.TP-1") == "E-2026-10"
 
 
-def test_teilprozess_ohne_bewertung_meldet_sich_deutlich():
+def test_erhebung_id_einer_einzigen_erhebung():
+    with verbindung(DSN) as conn:
+        assert bc0_lesepfade.erhebung_id(conn, MANDANT_A, "KP-02.TP-1") == "E-2026-01"
+
+
+def test_teilprozess_ohne_aktuelle_bewertung_meldet_sich_deutlich():
+    # KP-01.TP-3 ist bei A nur in der VERWORFENEN Erhebung E-2026-03 bewertet — fuer die
+    # Sicht also unbewertet. Seit Task 10b bietet der Dienst so einen Teilprozess nicht
+    # mehr an; der Fehler bleibt als zweite Verteidigungslinie fuer den Wettlauf
+    # "Bewertung nach Sitzungsstart verworfen".
     with verbindung(DSN) as conn:
         with pytest.raises(bc0_lesepfade.ErhebungFehltError):
-            bc0_lesepfade.erhebung_id(conn, MANDANT_A, "KP-02.TP-1")
+            bc0_lesepfade.erhebung_id(conn, MANDANT_A, "KP-01.TP-3")
 ```
 
 - [ ] **Step 2: RED, dann implementieren**
 
 ```python
 class ErhebungFehltError(RuntimeError):
-    """Zum Teilprozess gibt es keine aktuelle Bewertung (Klaerpunkt K-A, Fall b)."""
+    """Zum Teilprozess gibt es keine aktuelle Bewertung — es kann kein Profil entstehen."""
 
 
 def erhebung_id(conn, company_id: str, focus_step_id: str) -> str:
-    """VORLAEUFIGE Regel (Klaerpunkt K-A, Buendel-Frage #1 an BC0).
+    """Die juengste unter den aktuellen Erhebungen des Teilprozesses (BC0-Antwort 1a,
+    02.09.: "Bau es so"). 'Juengste' = groesster ref_erhebungen.stand, bei Gleichstand
+    die groessere erhebung_id — exakt die Rangfolge, mit der v_bewertung_aktuell selbst
+    rankt. NICHT bewertet_am: eine Korrektur innerhalb einer alten Erhebung setzt
+    bewertet_am neu (save_rating, ON CONFLICT), aendert aber nicht, welche Erhebung
+    aktuell ist.
 
-    Die 30 aktuellen Bewertungen eines Teilprozesses koennen laut BC0s 1.2-Logik
-    aus MEHREREN Erhebungen stammen (je Item die juengste nicht verworfene).
-    Arbeits-Vorschlag bis zur Bestaetigung: die juengste unter den aktuellen.
-    'Juengste' ueber bewertet_am — auf ref_erhebungen.stand haben wir kein
-    SELECT-Recht (nur REFERENCES).
-
-    Fall b (Teilprozess ohne aktuelle Bewertung): unsere Spalte ist NOT NULL,
-    die Sicht liefert null Zeilen => ErhebungFehltError. Der Reconcile legt dann
-    in nicht-terminalen Turns kein Profil an; im Terminal-Turn wird daraus ein
-    503. Sobald K-A beantwortet ist, aendert sich AUSSCHLIESSLICH diese Funktion.
+    Keine aktuelle Bewertung => ErhebungFehltError (unsere Spalte ist NOT NULL). Seit
+    Task 10b bietet der Dienst nur bewertete Teilprozesse an; der Fehler faengt den
+    Wettlauf 'Bewertung nach Sitzungsstart verworfen' und wird im Terminal-Turn zum 503.
     """
     zeile = conn.execute(
-        "SELECT erhebung_id FROM v_bewertung_aktuell "
-        " WHERE company_id = %s AND sub_process_id = %s "
-        " ORDER BY bewertet_am DESC, erhebung_id DESC LIMIT 1",
+        "SELECT v.erhebung_id FROM v_bewertung_aktuell v "
+        "  JOIN ref_erhebungen e ON e.company_id = v.company_id "
+        "                       AND e.erhebung_id = v.erhebung_id "
+        " WHERE v.company_id = %s AND v.sub_process_id = %s "
+        " ORDER BY e.stand DESC, e.erhebung_id DESC LIMIT 1",
         (company_id, focus_step_id)).fetchone()
     if zeile is None:
         raise ErhebungFehltError(
             f"Teilprozess {focus_step_id} hat keine aktuelle Bewertung — "
-            "ohne erhebung_id kann kein Profil entstehen (Klaerpunkt K-A).")
+            "ohne erhebung_id kann kein Profil entstehen.")
     return zeile[0]
 ```
 
+**Gegenprobe, nicht committen:** `ORDER BY v.bewertet_am DESC, v.erhebung_id DESC`
+einsetzen → der erste Test wird rot (liefert E-2026-01). Das ist der Beweis, dass der Test
+die Regel festnagelt und nicht nur die Fixture bestätigt. Ins Review-Paket schreiben.
+
 `ErhebungFehltError` behandelt Task 14 (Writer): in `_einfuegen` **nicht** fangen — der
 generische Fehlerpfad in `reconcile` macht daraus im Terminal-Turn 503 und in
-nicht-terminalen Turns einen Log-Eintrag. Der zugehörige Test gehört zu Task 14:
+nicht-terminalen Turns einen Log-Eintrag. Der zugehörige Test gehört zu Task 14 und
+nutzt seit Rev. 11 den nur-verworfen-bewerteten Teilprozess:
 
 ```python
-def test_teilprozess_ohne_bewertung_erzeugt_im_terminal_turn_503(pool):
+def test_bewertung_nach_sitzungsstart_verworfen_erzeugt_im_terminal_turn_503(pool):
+    # Wettlauf: der State traegt einen Teilprozess, der zur Laufzeit keine aktuelle
+    # Bewertung (mehr) hat. Seit Task 10b ist das im Regelbetrieb nicht mehr waehlbar.
     writer = ProfilWriter(pool, MANDANT_A, PAKET)
     with pytest.raises(ProfilWriteError):
-        writer.reconcile(_state(tp="KP-02.TP-1"), FERTIG)
-    assert writer.reconcile(_state(tp="KP-02.TP-1"), FRAGE) is None   # kein Absturz
+        writer.reconcile(_state(tp="KP-01.TP-3"), FERTIG)
+    assert writer.reconcile(_state(tp="KP-01.TP-3"), FRAGE) is None   # kein Absturz
 ```
 
 - [ ] **Step 3: GREEN + Commit**
 
 ```bash
-git commit -m "feat(bc1): erhebung_id-Lookup (vorlaeufige K-A-Regel, eine Naht)"
+BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" .venv/bin/pytest tests/test_bc0_lesepfade.py -v
+git add bc1-context-discovery/bc1_service/bc0_lesepfade.py bc1-context-discovery/tests/test_bc0_lesepfade.py
+git commit -m "feat(bc1): erhebung_id-Lookup nach Erhebungsstand (BC0-Regel 1a vom 02.09.)"
 ```
 
 ---
@@ -5148,7 +5681,7 @@ def test_recovery_nach_neustart_mit_geaendertem_ctx_holt_den_write_nach(umgebung
         conn.execute("DELETE FROM bc1.prozessprofil WHERE status = 'in_erhebung'")
         conn.commit()
 
-    # Neustart mit zusaetzlichem Teilprozess => anderer ctx-Hash
+    # Neustart mit zusaetzlichem BEWERTETEN Teilprozess => anderer ctx-Hash (Rev. 11)
     neuer_kontext = Bc0Kontext(
         MANDANT_A, KONTEXT.teilprozesse + (("KP-02.TP-1", "Bestellen A"),),
         KONTEXT.system_ids)
@@ -5342,7 +5875,7 @@ git commit -m "feat(bc1): API-Verdrahtung — Reconcile, DB-Overlay, Post-Sweep-
 
 # Phase E — Betrieb und Abschluss
 
-## Task 16: Betriebsdoku, GRANT-Signal-Vorlage, Gesamtverifikation
+## Task 16: Betriebsdoku, Rechte-Ist-Stand, Gesamtverifikation
 
 **Files:**
 - Modify: `bc1_service/n8n/SMOKE.md`
@@ -5351,27 +5884,48 @@ git commit -m "feat(bc1): API-Verdrahtung — Reconcile, DB-Overlay, Post-Sweep-
 - [ ] **Step 1: `bc1_service/db/EINSPIELEN.md` schreiben**
 
 Inhalt (kurz und konkret):
-1. **Voraussetzungen** — die Rechte aus Abschnitt 0 der DDL, wörtlich als Liste
-   (`GRANT REFERENCES` auf companies, ref_prozesse, ref_teilprozesse, mandant_rollen,
-   ref_erhebungen · `GRANT SELECT` auf v_bewertung_aktuell, mandant_systeme,
-   ref_teilprozesse, companies, v_prozesse_lesen) + Hinweis auf `bc1.profil_write_status`
-   (interne Tabelle, kein BC0-Prüfbedarf) — das ist zugleich der **Text fürs
-   GRANT-Signal an BC0** (Bündel-Frage #3).
+1. **Voraussetzungen (Rev. 11: Ist-Stand, von BC0 am 02.09. erteilt — kein Signal mehr):**
+   `REFERENCES` direkt an `bc1_role` auf companies, ref_prozesse, ref_teilprozesse,
+   mandant_rollen, ref_erhebungen · `SELECT` über die Gruppenrolle `bc_leser` (in der
+   `bc1_role` Mitglied ist) auf v_bewertung_aktuell, mandant_systeme, ref_teilprozesse,
+   companies, v_prozesse_lesen · `SELECT` auf ref_erhebungen: zugesagt, Erteilung vor dem
+   Einspielen bestätigen lassen (Abschnitt 0 der DDL prüft es und bricht sonst ab) ·
+   direkt an `bc1_role` nur ref_personen/prozess_personen (in Etappe 1 ungenutzt). Hinweis
+   auf `bc1.profil_write_status` (interne Tabelle, kein BC0-Prüfbedarf).
 2. **Einspielen:** `psql -v ON_ERROR_STOP=1 -1 -f prozessprofil.sql` als `bc1_role`.
 3. **Dreifallregel:** was `NOTICE: Fall 1/2` bedeutet und dass ein `Fall 3`-Abbruch
    nichts verändert hat.
 4. **Sollsignatur:** wie sie erzeugt wird und die Betriebsregel bei
    PostgreSQL-Versionswechsel (Task 4, Step 6).
-5. **Deploy-Gate:** Supabase erst nach K-C (Zahlen-Wertebereiche mit BC2); GRANT-Signal
-   geht erst mit dem Deploy raus.
-6. **Offene Rechte-Naht K-B:** Solange Simeon die Lese-Rollen nicht genannt hat, liest
-   **niemand außer `bc1_role`** die drei Tabellen — inklusive BC0. Das ist bewusst so
-   und muss vor dem Deploy geklärt sein.
+5. **Deploy-Gate (Rev. 11):** Supabase erst nach K-C (Zahlen-Wertebereiche mit BC2, Frist
+   Fr 04.09.). **Vor dem Einspielen zwingend:** die Mitglieder von `bc_leser` in der
+   Zieldatenbank abfragen — **rekursiv**, so wie die Sollsignatur rechnet (Codex Rev. 11a,
+   I2: `pg_auth_members` allein sieht nur direkte Mitglieder, `has_table_privilege` löst
+   aber jede Vererbungskette auf):
+   `SELECT r.rolname FROM pg_roles r WHERE pg_has_role(r.oid, 'bc_leser'::regrole, 'USAGE') AND NOT r.rolsuper AND r.rolname NOT LIKE 'pg\_%' ORDER BY 1;`
+   — und mit dem Gerüst abgleichen (dort genau: bc1_role, bc2_role, bc3_role, bc4_role,
+   bc_leser selbst). Jede weitere Rolle in dieser Menge erzeugt zusätzliche
+   `effektiv|`/`effektiv_spalte|`-Zeilen und damit einen Fall-3-Abbruch; das Gerüst
+   angleichen und die Sollsignatur neu erzeugen, BEVOR eingespielt wird. Dasselbe für die
+   drei weiteren Punkte aus Phase A (kreuzende NO-ACTION-FKs/Trigger in nicht enthaltenen
+   BC0-Tabellen · TOCTOU-Betriebsannahme · Signatur-Umfang mit dem dortigen Rollenbestand).
+6. **Leserollen (Rev. 11, geklärt):** `bc_leser` liest `bc1.prozessprofil` und
+   `bc1.profil_rollen` (BC2–BC4 über ihre Mitgliedschaft); unsere DDL vergibt das Recht
+   selbst — BC0 muss nichts nachziehen. `profil_write_status` liest nur `bc1_role`.
+   Offen: BC0s ausdrückliche Bestätigung für `profil_rollen` (Rückfrage 02.09.).
 
 - [ ] **Step 2: `SMOKE.md` ergänzen**
 
 - Startvariablen: `BC1_COMPANY_ID` ist **Pflicht** (der Dienst startet sonst nicht),
   Beispielzeile mit Demo-UUID.
+- **Zwei Startmeldungen (Rev. 11), wörtlich:** „Für diesen Mandanten sind noch keine
+  Teilprozesse erfasst. Das Interview kann erst geführt werden, wenn die Prozessstruktur
+  steht." (Wortlaut BC0) · „Für diesen Mandanten ist noch kein Teilprozess bewertet. Das
+  Interview kann erst geführt werden, wenn mindestens ein Teilprozess im Self-Rating
+  bewertet ist." Beide beenden den Start; der Dienst läuft nicht an.
+- **Nur bewertete Teilprozesse sind wählbar** (Rev. 11): Die Auswahl im Interview
+  enthält ausschließlich Teilprozesse mit mindestens einer aktuellen Bewertung in BC0.
+  Bewertet wird in BC0s Self-Rating-Maske, nicht im Chat.
 - **K5-Betriebsrezept** (verwaister/fremder Draft), wörtlich zum Kopieren:
 
 ```sql
@@ -5387,7 +5941,8 @@ DELETE FROM bc1.prozessprofil
 
 - **Startmengen-Ehrlichkeit:** Zwischen Dienststart und Interview neu angelegte
   Teilprozesse oder Systeme kennt der Validator nicht (statische Mengen) — Neustart
-  lädt nach; laufende Sessions bekommen dann 409 `paket_konflikt`.
+  lädt nach; laufende Sessions bekommen dann 409 `paket_konflikt`. Gilt seit Rev. 11
+  ebenso für neu BEWERTETE Teilprozesse — sie gehen in den ctx-Fingerprint ein.
 - **503 `profil_write_fehlgeschlagen`:** was es heißt (Antwort wurde bewusst nicht
   ausgeliefert) und dass die Wiederholung derselben `message_id` der richtige Weg ist.
 - **Demo-Snippet nachziehen:** Der `create_app(...)`-Aufruf im Fake-Demo-Block der
@@ -5396,9 +5951,8 @@ DELETE FROM bc1.prozessprofil
 
 - [ ] **Step 3: Gesamtverifikation — erst NACH Task 15** (Codex R5-N5-I1)
 
-Die folgenden Nachweise brauchen den fertigen Writer; vor der K-A-Antwort sind sie
-nicht erbringbar. Steps 1–2 (Betriebsdoku) sind davon unabhängig und können sofort
-laufen.
+Die folgenden Nachweise brauchen den fertigen Writer. Steps 1–2 (Betriebsdoku) sind
+davon unabhängig und können sofort laufen. (K-A ist seit 02.09. beantwortet, Rev. 11.)
 
 ```bash
 BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" .venv/bin/pytest -q -W error
@@ -5417,8 +5971,61 @@ Und die fünf Erfolgskriterien der Spec einzeln durchgehen und im Bericht belege
 
 ```bash
 git add bc1-context-discovery/bc1_service/db/EINSPIELEN.md bc1-context-discovery/bc1_service/n8n/SMOKE.md
-git commit -m "docs(bc1): Einspiel-Anleitung, GRANT-Signal-Vorlage und K5-Betriebsrezept"
+git commit -m "docs(bc1): Einspiel-Anleitung, Rechte-Ist-Stand und K5-Betriebsrezept"
 ```
+
+---
+
+## Anhang A (Rev. 11a): Vorbereitung Use-Case-Testprofile für BC2 bis BC4 — Roadmap, NICHT Teil der ausführbaren Reihenfolge
+
+> **Kein Task, kein RED→GREEN, kein Commit — bewusst.** Dieser Anhang hält Ziel,
+> Abnahmekriterien und offene Designpunkte fest, damit nichts verloren geht (Prinzip 4).
+> Ein ausführbarer Task (mit Tests, Dateien, Commit-Grenze) entsteht erst, wenn
+> `Profilinhalt` (Task 11) und der Writer (Task 14) existieren und ihr Format feststeht —
+> als Rev. 12 dieses Plans oder als eigener kleiner Plan. Richard-Entscheidung 02.09.:
+> BC1 schreibt KI-generierte, gekennzeichnete Testdaten-Profile zu den drei Use Cases —
+> so, dass BC2 bis BC4 damit arbeiten können.
+
+**Ziel:** Je ein Profil in `bc1.prozessprofil` für die drei Team-Use-Cases, die BC0 am
+24.08. als Testdaten angelegt hat (`daten_v1_use_cases_testdaten.sql`, Mandant NoroAI):
+
+| Use Case | Fokus-Teilprozess | BC0-Reifegrad (gesetzt) | Anfrage |
+|---|---|---|---|
+| Reisebuchung | `KP-06.TP-2` Reise- und Einsatzplanung | 2,00 | `A-2026-01` |
+| RAG-Wissensbasis | `KP-05.TP-1` Wissenstransfer | 3,20 | `A-2026-02` |
+| Consultant Placement | `KP-06.TP-1` Neueinstellung und Onboarding | 2,50 | `A-2026-03` |
+
+**Abnahmekriterien:**
+1. Die Zeilen entstehen über den **regulären Schreibweg** (Interview-Skript → `process_turn`
+   → Writer), nicht per Hand-INSERT — sonst beweisen sie nichts über unsere Pipeline.
+2. Die Werte passen zu BC0s Reifegraden und Anfragetexten und zu NoroAI (10 Mitarbeitende);
+   sie sind **als gesetzt gekennzeichnet** (im `profil`-JSON, z. B. `befunde` oder
+   `open_remarks`: „Testdaten Use-Case-Definition 24.08., nicht erhoben"), Quelle =
+   Projektgruppe, **keine Person als Quelle** (ADR-005).
+3. Die Kennzeichnung ist per SQL wiederfindbar (analog BC0: `WHERE beleg LIKE 'Testdaten%'`).
+4. Wiederholbar, präzise gefasst (Codex Rev. 11a): ein zweiter Lauf mit **denselben**
+   `session_id`/`message_id`-Werten erzeugt keine zweite Version (Replay-Weiche des Kerns +
+   Draft-Bindung des Writers); ein Lauf mit neuer `session_id` erzeugt bewusst einen neuen
+   Draft bzw. eine neue Version — das ist gewollt und muss im Skript benannt sein.
+5. Rückweg dokumentiert (K5-Rezept reicht, wenn die Zeilen `in_erhebung` bleiben; für
+   `fertig`-Zeilen ist der Freeze bewusst final — vorher entscheiden, ob die Testprofile
+   eingefroren werden sollen).
+
+**Offene Designpunkte (vor der Ausarbeitung klären):**
+- Kontextquelle für das Skript: echte DB (Projektreferenz nötig) vs. Snapshot v3 —
+  der Writer braucht die DB.
+- Skriptformat: die drei Demo-Durchläufe aus `tests/test_demo_durchlaeufe.py` als
+  Vorlage; deren `process_id`/`focus_step` sind noch Freitext („Geschäftsreisen") und
+  müssen auf `KP-06`/`KP-06.TP-2` usw. umgestellt werden.
+- Zwischenlieferung an BC2, bevor die Tabelle steht: Spalte-zu-Feld-Tabelle (Task 11)
+  plus ein Beispiel-JSON; Ablage in `contracts/bc1-to-bc2/` (existiert auf `main` nicht —
+  anlegen braucht Richards Push-OK).
+- Lieferform mit BC0 bestätigen (Rückfrage im Entwurf 02.09.: reichen Profilzeilen, oder
+  wird zusätzlich eine Doku je Use Case erwartet?).
+
+**Voraussetzungen:** Tasks 11–16 · DDL in der Supabase (nach K-C) · Projektreferenz in
+`ZUGAENGE-LOKAL.env`. Zieltermin laut Antwort an BC0: Freitag 11.09., unter genau diesen
+Voraussetzungen.
 
 ---
 
@@ -5437,15 +6044,96 @@ git commit -m "docs(bc1): Einspiel-Anleitung, GRANT-Signal-Vorlage und K5-Betrie
 | Automatische Auflösung verwaister Drafts | K5 bleibt manuell (YAGNI) |
 | Echt-Gegenprobe gegen Supabase (SMOKE, echter Profil-Write auf den Demo-Mandanten) | sobald Projektreferenz + DSN da sind und K-C entschieden ist |
 | **Mandantenweiter Sitzungsschlüssel `(company_id, session_id)` in `bc1.sessions`** — heute ist `session_id` allein der Schlüssel. Folge: Belegt Mandant A eine `session_id`, bekommt Mandant B für dieselbe ID dauerhaft `409 mandant_konflikt` und kann sie nie verwenden. Fail-closed (keine Daten überschreiten die Mandantengrenze), aber eine **Verfügbarkeitskopplung zwischen Mandanten**. | Vor der n8n-Anbindung entscheiden — **relevant, sobald die `session_id` clientseitig vergeben wird**. Solange BC1 sie selbst erzeugt (kollisionsfrei, z. B. UUID), ist nichts zu tun. Gefunden im Phase-B-Gesamtreview (Naht-Triage). |
+| **Bitkom-30-Items im Chat — ENTFÄLLT** (Richard 02.09.; Team-Beschluss 02.07.: Skalenfragen ins Formular). BC0s Antwort 1b hatte BC1 die Erhebung zugewiesen; BC1 antwortet mit Nein. | Bewertung bleibt in BC0s Self-Rating-Maske / später Frontend-Formular. Team-Frage 07.09.: wer bewertet die ~27 von 50 unbewerteten Teilprozesse |
+| Nachfass-Paket für Fragebogen-LÜCKEN (Klartext, keine Skalen; P3-Spec Etappe 2) | Etappe 2, nach Phase D |
+| Aufruf der BC0-Endpunkte Zuordnung (`zuordnung_quelle = 'interview'`, später `vorschlag_bc1`) und Status (`im_interview`; `am_gate`?) | Etappe 2; braucht Dienst-Anmeldung ohne hinterlegtes Passwort (K-E) |
+| Lesen von `ref_anfragen` + Übergabe der `anfrage_id` beim Interview-Start (Vorbelegung A1/A2) | Etappe 2; Rechte bei BC0 erfragt (Entwurf 02.09., Punkt 4) |
+| Kanten-Art (`prozess_schnittstellen.art`: daten/freigabe/material/information) + Kanten-Ergänzungs-Endpunkt | Etappe 2; Frage „Was fließt zwischen den beiden?" ins Paket, sobald der Endpunkt steht |
+| Eigner/Sponsor 1:n (`eigner_ids`/`sponsor_ids` als Array in `v_prozesse_lesen`) vs. `process_owner_rolle_id` (eine Spalte, in Etappe 1 immer NULL) | Etappe 2 (Rollen), vor Befüllung von `profil_rollen` prüfen |
+| **Dauerregel:** kein FK von `bc1.*` auf `prozess_personen`/`ref_personen` — BC0s `PUT /entitaeten` löscht `prozess_personen` mandantenweit und schreibt neu; BC0 baut das erst um, wenn wir eine Referenz ankündigen | immer; nur mittelbar über `v_prozesse_lesen` lesen |
+| **Use-Case-Testprofile** für BC2–BC4 (drei Zeilen in `bc1.prozessprofil`, gekennzeichnet, über den regulären Writer) — Richard 02.09. | nach Task 16 + Einspielen; Vorbereitung in Anhang A, Ausarbeitung als eigener TDD-Task (Rev. 12) |
+| Einseiter „Was BC1 fragt und was daraus wird" (26 aktive Fragen → Spalte in `bc1.prozessprofil`) für Team und BC0 | wenn wir feststecken oder fertig sind (Richard 02.09.); Basis = Spalte-zu-Feld-Tabelle Task 11 |
 
 # Offene Klärpunkte (blockieren einzelne Tasks, nicht den Plan)
 
 | # | Frage | An | Blockiert |
 |---|---|---|---|
-| K-A | `erhebung_id`-Regel (a: mehrere aktuelle Erhebungen · b: Teilprozess ohne Bewertung) | Simeon, Bündel #1 | **Task 13 — und damit 14 + 15** |
-| K-B | GRANT-Signal inkl. Lese-Rollen für `bc1.prozessprofil` · **neu: brauchen wir `SELECT` auf `ref_erhebungen`?** (s. Task 13) | Simeon, Bündel #3 | Supabase-Deploy, nicht den Bau |
-| K-C | Zahlen-Wertebereiche (0 zulässig? Präzision) | BC2 | finale CHECKs, nicht die DDL-Struktur |
-| K-D | Company-UUID im Snapshot-Export | Simeon, Bündel #2 | nur den Snapshot-Abgleich der Startprüfung |
+| K-A | `erhebung_id`-Regel | **BEANTWORTET 02.09.:** (a) jüngste unter den aktuellen nach `ref_erhebungen.stand` · (b) kein Profil ohne aktuelle Bewertung → Task 10b bietet nur bewertete Teilprozesse an | — (Task 13 entblockt) |
+| K-B | Rechte und Leserollen | **BEANTWORTET 02.09.:** GRANTs erteilt, Leser ist `bc_leser`, `profil_write_status` nur `bc1_role`. **Offen, zwei Rückfragen:** ist `SELECT` auf `ref_erhebungen` erteilt? gilt `bc_leser` auch für `profil_rollen`? (Entwurf 02.09., Punkt 3) | Supabase-Deploy, nicht den Bau |
+| K-C | Zahlen-Wertebereiche (0 zulässig? Präzision) | BC2 — **Frist Fr 04.09.** (Richard); kommt nichts, mit den heutigen CHECKs einspielen und das als Entscheidung dokumentieren (Testdaten; ALTER später vertretbar) | finale CHECKs, nicht die DDL-Struktur |
+| K-D | Company-UUID im Snapshot-Export | zugesagt mit BC0-Issue #141 (Termin offen) | nur den Snapshot-Abgleich der Startprüfung |
+| K-E (neu) | Dienst-Anmeldung an BC0-Endpunkten ohne dauerhaft hinterlegtes Passwort (Token/Dienstschlüssel) | Simeon (Entwurf 02.09., Punkt 4) | Etappe 2 (Zuordnungs-/Status-Endpunkt) — nicht diesen Plan |
+| K-F (neu) | Lieferform der drei Use-Case-Profile (Zeilen reichen? Doku je Use Case?) und Ort möglicher BC0-Ersatzwerte | Simeon (Entwurf 02.09., Punkt 1) | Anhang A (Use-Case-Testprofile) |
+
+# Changelog Rev. 11a (02.09.2026 — Codex-Review von Rev. 11, Job task-mtjzyjii-p7q93c: WITH FIXES, 0 Critical / 3 Important / 4 Minor — alles adjudiziert)
+
+Codex hat den Arbeitsbaumstand mit dem bereits korrigierten `aclexplode`-Test geprüft
+(SHA-256 protokolliert) und A–H beantwortet: Zeilennummern, DDL-Block (Quoting, plpgsql-IF),
+die 18 Signaturzeilen, Testsemantik, Fixture-Gültigkeit gegen alle Constraints, die
+Ranking-Äquivalenz der Task-13-Query zur Sicht, die Prüfreihenfolge in `lade_kontext` und
+die Unberührtheit von `test_ddl_trigger`/`test_store_postgres`/`test_api` sind BESTÄTIGT.
+
+| Fund | Schwere | Entscheidung | Änderung |
+|---|---|---|---|
+| Step 7 nannte nur Deltas; die psycopg-Parameter-Tupel wären beim wörtlichen Ausführen zu kurz gewesen (Platzhalterfehler) | Important | **angenommen** | Step 7 zeigt jetzt jede INSERT-Anweisung vollständig mit Tupel |
+| Deploy-Check in Task 16 fand nur DIREKTE `bc_leser`-Mitglieder; die Signatur rechnet mit `has_table_privilege` über alle Rollen (Vererbungsketten) | Important | **angenommen** | Abfrage auf `pg_has_role(...)` umgestellt — signaturäquivalent |
+| „Task 17" stand als nicht ausführbarer Platzhalter in der Pflichtreihenfolge; Idempotenz-Kriterium ohne Schlüsselfestlegung mehrdeutig | Important | **angenommen** | → Anhang A (Roadmap), aus der Reihenfolge entfernt; Kriterium 4 präzisiert (`session_id`/`message_id`) |
+| Rechnung „347 − 2 = 348" falsch geschrieben | Minor | **angenommen** | „347 − 1 + 2 = 348" |
+| Tie-Breaker `erhebung_id DESC` ohne Test | Minor | **angenommen** | Fixture B: E-2026-10 mit gleichem Stand wie E-2026-09; Task-13-Test erwartet E-2026-10 |
+| Task-15-Kommentar „zusätzlicher Teilprozess" unpräzise | Minor | **angenommen** | „zusätzlicher BEWERTETEN Teilprozess" |
+| Negativtest `test_kontext_enthaelt_keine_unbewerteten_teilprozesse` redundant zum bestehenden Exakt-Test | Minor | **angenommen (YAGNI)** | gestrichen; Teil-2-Erwartung 351 statt 352 |
+
+**Nichts abgelehnt.** Rev. 11a ist die Fassung, gegen die Task 10b gebaut wird.
+
+# Changelog Rev. 11 (02.09.2026 — BC0-Antworten eingearbeitet; Codex-Verdikt siehe Rev. 11a direkt darüber)
+
+**Anlass:** Simeons Antwort auf unser Fragen-Bündel (PDF, 6 Seiten, 02.09.) plus zwei
+Chat-Nachrichten (Rechte sind bereits erteilt; `bc1_role` sieht beide Mandanten; 1290
+Bewertungen: NoroAI 690 auf 23 Teilprozessen, Übungsmandant 600 auf 20). Dazu zwei
+Entscheidungen von Richard am 02.09.: (1) BC1 liefert die drei Use-Case-Profile als
+gekennzeichnete Testdaten (Task 17); (2) **BC1 stellt keine Bitkom-Fragen im Chat** —
+Skalenfragen gehören ins Formular (Team-Beschluss 02.07.), unbewertete Teilprozesse werden
+nicht interviewt.
+
+**Was sich im Plan ändert:**
+- **Neu Task 10b** (vor Phase D): Gerüst `step_no` 1–9 · `ALTER DEFAULT PRIVILEGES`-
+  Simulation raus (BC0 hat keine — Antwort 9) · SELECT-Rechte im Gerüst von `bc1_role` auf
+  `bc_leser` verlegt (BC0 hat 48 Doppel-GRANTs entfernt) · DDL Abschnitt 3: `bc_leser`
+  liest `prozessprofil`/`profil_rollen`, nichts auf `profil_write_status` · Abschnitt 0 prüft
+  `SELECT` auf `ref_erhebungen` · Sollsignatur neu (erwartet +18 Zeilen, zählen!) ·
+  `bewertete_teilprozesse()` und zwei feste Startmeldungen (eine davon BC0-Wortlaut) ·
+  Fixture: KP-01.TP-3 (beide Mandanten), E-2026-03 „verworfen", Bewertungen für
+  KP-01.TP-2/KP-02.TP-1, Korrektur-Zeitstempel an KP-01.TP-1.I-02.
+- **Task 13 neu geschrieben:** Gate weg (K-A beantwortet). **Query korrigiert:** Rev. 10
+  sortierte nach `bewertet_am`; BC0s Sicht rankt nach `ref_erhebungen.stand` — im
+  Echtbetrieb liefert die alte Query bei einer Korrektur in einer alten Erhebung die
+  FALSCHE `erhebung_id`. Jetzt JOIN auf `ref_erhebungen`, `ORDER BY e.stand DESC,
+  e.erhebung_id DESC`, mit einem Test, der genau diesen Fall festnagelt (Gegenprobe
+  beschrieben).
+- **Planfehler gefunden (Rev. 11):** Task 14 bindet Drafts an `KP-01.TP-2` und `KP-02.TP-1`
+  — in der Rev.-10-Fixture unbewertet, `_einfuegen` wäre in `ErhebungFehltError`
+  gelaufen. Behoben durch die Fixture-Erweiterung in Task 10b; `KP-01.TP-3` ist jetzt der
+  gezielte „unbewertet"-Fall (nur in verworfener Erhebung bewertet).
+- **Task 16:** Rechteliste ist Ist-Dokumentation statt Signal · Deploy-Vorbereitung:
+  Mitglieder von `bc_leser` in der Supabase abgleichen (sonst Fall 3 durch zusätzliche
+  `effektiv|`-Zeilen) · zwei Startmeldungen und „nur bewertete Teilprozesse" in SMOKE.md.
+- **Anhang A (in Rev. 11 noch „Task 17"):** Use-Case-Testprofile, Ziel + Abnahme + offene
+  Designpunkte; Ausarbeitung nach Task 15 als eigener TDD-Task.
+- **Klärpunkte:** K-A/K-B beantwortet (zwei Rückfragen bleiben), K-C mit Frist Fr 04.09.,
+  K-E (Dienst-Anmeldung) und K-F (Lieferform Use Cases) neu.
+- **„Nicht gebaut":** 30 Items im Chat ENTFÄLLT · Nachfass für Lücken (Klartext) ·
+  Zuordnungs-/Status-Endpunkt · `ref_anfragen` · Kanten-Art · Eigner 1:n · Dauerregel
+  „kein FK auf `prozess_personen`/`ref_personen`" · Einseiter „Was BC1 fragt".
+- Hinweise an Task 2 und Task 4, dass ihre Code-Blöcke nicht mehr der Dateiinhalt sind.
+
+**Was NICHT geändert wurde, bewusst:** `ErhebungFehltError` → 503 im Terminal-Turn bleibt
+als zweite Verteidigungslinie (Wettlauf „Bewertung nach Sitzungsstart verworfen") · der
+kontextfreie Paketzweig (`1.0`, Freitext) bleibt unangetastet · Task 11/12/14/15 im Code
+unverändert; nur die Fixture-Semantik, auf der ihre Tests stehen, ist jetzt korrekt.
+
+**Zweitmeinung:** Codex-Review erfolgt (Job `task-mtjzyjii-p7q93c`, 02.09.), Ergebnis und
+Adjudikation in Rev. 11a oben. Zusätzlich vor dem Review am Container selbst belegt: CHECK-
+Fehlertext, 18 Signaturzeilen, `DROP SCHEMA` entfernt Default-Rechte, `aclexplode`-Test.
 
 # Changelog Rev. 9 (Bau-Befund Task 3 — am Container gefunden, nicht im Review)
 
@@ -5893,3 +6581,18 @@ einem BEFORE-Trigger · verschachteltes `conn.transaction()` als Savepoint.
   `baue_profilinhalt`/`wende_sweep_an` (Tasks 11/12) → `_abgleich` (Task 14) ·
   `OVERLAY_SCHLUESSEL` (Task 15) deckt genau die Keys, die `profil_payload` +
   `_zaehler_neu` + `befunde` erzeugen.
+- **Rev. 11 (02.09.):** Alle Änderungen gegen den Ist-Code geprüft (nicht gegen die
+  Rev.-10-Codeblöcke): `bc0_geruest.sql` Z. 58/164–172, `prozessprofil.sql` Abschnitt 0
+  und 3 (Z. 40–60, 753–771), `start.py`, `bc0_lesepfade.py`, `db_fixture.py`,
+  `test_start.py`, `test_bc0_lesepfade.py`, `test_db_fixture.py`,
+  `test_ddl_einspielen.py`. `GRANT bc_leser TO bc1_role` existiert im Gerüst-Rollenblock
+  bereits — deshalb keine zweite Zeile. `DROP SCHEMA` entfernt `pg_default_acl`-Einträge
+  (am Container gemessen, PG 16). Phase-D-Tests erwarten für `KP-01.TP-1` weiterhin
+  `E-2026-02` — mit der Stand-Regel korrekt; für `KP-01.TP-2`/`KP-02.TP-1` erwarten sie
+  keinen konkreten Wert. **Am Container ebenfalls belegt (02.09.):** der CHECK-Fehlertext
+  enthält `step_no` (Constraint `ref_teilprozesse_step_no_check`) · die 18 erwarteten
+  Signaturzeilen entstehen exakt so (GRANT an `bc_leser` in einer zurückgerollten
+  Transaktion simuliert; Mitglieder von `bc_leser` im Gerüst: `bc1_role`…`bc4_role`) ·
+  ein erster Entwurf des Fixture-Tests prüfte per Substring auf `bc1_role=` in der ACL —
+  falsch, weil `companies`/`ref_teilprozesse`/`ref_erhebungen` ihr direktes `REFERENCES`
+  behalten; jetzt `aclexplode` nach Privileg.
