@@ -102,13 +102,27 @@ def _testdaten(conn) -> None:
         "INSERT INTO ref_erhebungen (company_id, erhebung_id, bezeichnung, stand, status) "
         "VALUES (%s, 'E-2026-01', 'Erst', '2026-01-15', 'abgeschlossen'), "
         "       (%s, 'E-2026-02', 'Nach',  '2026-06-01', 'abgeschlossen'), "
-        "       (%s, 'E-2026-03', 'Verworfen', '2026-07-01', 'verworfen')",
-        (MANDANT_A, MANDANT_A, MANDANT_A))
+        "       (%s, 'E-2026-03', 'Verworfen', '2026-07-01', 'verworfen'), "
+        # E-2026-04 ist OFFEN und hat den juengsten Stand: die Sicht schliesst nur
+        # 'verworfen' aus, eine laufende Erhebung gilt also als aktuell. Ohne diese
+        # Zeile besteht eine Implementierung mit "AND e.status = 'abgeschlossen'"
+        # alle Erhebungs-Tests (Codex-Review Task 13).
+        "       (%s, 'E-2026-04', 'Offen', '2026-09-01', 'offen'), "
+        # E-2026-05 hat die GROESSTE ID und den KLEINSTEN Stand — die einzige Stelle,
+        # an der ID-Reihenfolge und Stand-Reihenfolge auseinanderfallen. Ohne sie
+        # besteht eine Implementierung, die nur nach erhebung_id sortiert (und damit
+        # den ref_erhebungen-JOIN ganz weglaesst), alle Erhebungs-Tests (Review Task 13).
+        "       (%s, 'E-2026-05', 'Nachgereicht', '2025-11-01', 'abgeschlossen')",
+        (MANDANT_A, MANDANT_A, MANDANT_A, MANDANT_A, MANDANT_A))
     conn.execute(
         "INSERT INTO ref_erhebungen (company_id, erhebung_id, bezeichnung, stand, status) "
         "VALUES (%s, 'E-2026-09', 'B-Erhebung', '2026-03-01', 'abgeschlossen'), "
-        "       (%s, 'E-2026-10', 'B-Gleichstand', '2026-03-01', 'abgeschlossen')",
-        (MANDANT_B, MANDANT_B))
+        "       (%s, 'E-2026-10', 'B-Gleichstand', '2026-03-01', 'abgeschlossen'), "
+        # Dieselbe Erhebungs-ID wie bei A, aber mit spaeterem Stand und OHNE eigene
+        # Bewertungen: die Kollisionsfalle fuer den Verbund-JOIN. Faellt company_id
+        # aus der JOIN-Bedingung, entscheidet Bs Stand ueber As Auswahl (Spec R5-I5).
+        "       (%s, 'E-2026-01', 'B-Kollision', '2026-12-01', 'abgeschlossen')",
+        (MANDANT_B, MANDANT_B, MANDANT_B))
     # A: KP-01.TP-1 wurde in E-2026-01 bewertet und in E-2026-02 teilweise nacherhoben
     # (genau die 1.2-Logik: je Item die juengste nicht verworfene Erhebung).
     # id folgt BC0s Muster '^KP-\d{2}\.TP-\d+\.I-\d{2}$'; beleg ist Pflicht.
@@ -127,8 +141,16 @@ def _testdaten(conn) -> None:
         "(%s, 'E-2026-01', 'KP-02.TP-1.I-01', 'KP-02.TP-1', 1, 2, 'Erstaufnahme TP', "
         " '2026-01-15'), "
         "(%s, 'E-2026-03', 'KP-01.TP-3.I-01', 'KP-01.TP-3', 1, 1, 'nur in verworfener Erhebung', "
-        " '2026-07-01')",
-        (MANDANT_A, MANDANT_A, MANDANT_A, MANDANT_A, MANDANT_A))
+        " '2026-07-01'), "
+        # KP-01.TP-2 bekommt sein zweites Item in der OFFENEN E-2026-04 (juengster
+        # Stand) — damit gewinnt fuer diesen Teilprozess eine laufende Erhebung.
+        "(%s, 'E-2026-04', 'KP-01.TP-2.I-02', 'KP-01.TP-2', 2, 2, 'laufende Erhebung', "
+        " '2026-09-01'), "
+        # KP-02.TP-1 bekommt sein zweites Item in E-2026-05: groessere ID, aelterer
+        # Stand. Massgeblich bleibt E-2026-01 — Stand schlaegt ID.
+        "(%s, 'E-2026-05', 'KP-02.TP-1.I-02', 'KP-02.TP-1', 2, 1, 'nachgereicht, alter Stand', "
+        " '2025-11-01')",
+        (MANDANT_A, MANDANT_A, MANDANT_A, MANDANT_A, MANDANT_A, MANDANT_A, MANDANT_A))
     conn.execute(
         "UPDATE bitkom_bewertungen SET erhebung_id = 'E-2026-02', "
         "       stufe = 4, beleg = 'Nacherhebung', bewertet_am = '2026-06-01' "
