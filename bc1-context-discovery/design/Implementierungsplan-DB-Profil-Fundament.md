@@ -4719,7 +4719,10 @@ def test_ohne_systemnennung_passiert_nichts():
 - [ ] **Step 2: RED**, dann
 
 - [ ] **Step 3: `bc1_core/extractor.py` — `_status_for` → `status_fuer`** (öffentlich,
-      eine Aufrufstelle mitziehen). Dieselbe Statusregel für Extraktion und Sweep.
+      **vier** Aufrufstellen mitziehen — `extractor.py` Z. 35, 45, 53, 60; der Plan sagte
+      fälschlich „eine", korrigiert nach dem Bau 02.09.). Dieselbe Statusregel für
+      Extraktion und Sweep. Der ältere `Implementierungsplan-P3-Discovery.md` nennt die
+      Naht weiterhin `_status_for` — dort beim nächsten Anfassen nachziehen.
 
 - [ ] **Step 4: Sweep in `bc1_service/profil_writer.py`**
 
@@ -4941,6 +4944,29 @@ git commit -m "feat(bc1): erhebung_id-Lookup nach Erhebungsstand (BC0-Regel 1a v
 ---
 
 ## Task 14: Reconcile — Bindung, Draft, Rebind, Freeze, Postcondition
+
+> ⛔ **ZUERST ENTSCHEIDEN: Reihenfolge von Sweep und Spaltenableitung (Task-12-Review 02.09.,
+> gemessen — Richard).** Der Plan ruft unten `baue_profilinhalt` und DANACH `wende_sweep_an`
+> auf `inhalt.profil`. Die typisierten Spalten stehen dann schon fest und werden nicht mehr
+> angefasst. Beide Reviewer haben unabhängig dieselbe Folge gefunden, in zwei Richtungen
+> geprüft:
+> * **Kein Leck:** Es bleibt keine Kennung in einer Spalte hängen. Brute force über alle neun
+>   spaltenspeisenden Felder × 16 tokenhaltige Proben — nur `upstream_process` /
+>   `downstream_process` können mit Token gültig sein, und deren Spalte hängt an
+>   `KP_MUSTER.fullmatch`, das mit Token nie trifft.
+> * **Aber stille Inkonsistenz:** `upstream_process = "KP-02 (S-99)"` ist als Freitext gültig
+>   → Spalte bleibt `NULL` (kein fullmatch) → der Sweep macht daraus im JSON `KP-02`. Danach
+>   nennt das JSON einen kanonischen, bekannten Vorprozess, während die Spalte leer ist.
+>   Gate 0 und BC2 sähen zwei Wahrheiten.
+> * **Wächst mit:** `process_owner_rolle_id` ist heute fester Platzhalter `None`. Sein
+>   Quellfeld ist Freitext und kann mit Token gültig sein — sobald die Spalte befüllt wird,
+>   kippt der heute geschlossene Leck-Pfad auf.
+>
+> Optionen: **(a)** Sweep VOR die Spaltenableitung ziehen, Spalten aus dem bereinigten Payload
+> ableiten (Empfehlung — die Invariante „Spalten werden nie aus ungesweepten Werten abgeleitet"
+> hält dann auch für jede künftige Spalte) · **(b)** Reihenfolge lassen und die Divergenz
+> bewusst dokumentieren. Was auch gewählt wird: die Invariante gehört als Satz in den Plan
+> und als Test in die Suite, sonst bricht sie bei der ersten neuen Spalte.
 
 **Files:**
 - Modify: `bc1_service/profil_writer.py` (Klasse `ProfilWriter`)
