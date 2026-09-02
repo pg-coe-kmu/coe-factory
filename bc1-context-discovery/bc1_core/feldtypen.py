@@ -163,10 +163,23 @@ def _ist_prozent(wert: str) -> bool:
 # (_zahl_aus_token) statt rohem float() — sonst wirft der Validator bei
 # deutscher Tausendergruppierung mit Dezimalstelle ("1.234,5" -> "1.234.5"
 # nach dem naiven Komma-Ersatz) einen ValueError.
-ZAHL = Feldtyp("zahl", lambda w: _nur_zahl(w) and _zahl_aus_token(w.strip()) >= 0,
-               _normalisiere_zahl)
-MINUTEN = Feldtyp("minuten", lambda w: _nur_zahl(w) and _zahl_aus_token(w.strip()) >= 0,
-                  _normalisiere_minuten)
+def _ist_nichtnegative_zahl(wert: str) -> bool:
+    """Gueltig heisst hier auch: in eine `numeric`-Spalte speicherbar (K-J).
+
+    Die Endlichkeit ist zugleich die Stellen-Obergrenze und deshalb die einzige
+    zusaetzliche Bedingung: float laeuft schon ab ~309 Stellen nach inf, waehrend
+    `numeric` 131072 Vorkommastellen traegt. Was endlich ist, passt also sicher in
+    die Spalte — eine zweite, frei gegriffene Ziffernschranke waere redundant und
+    haette der noch offenen BC2-Frage nach den Wertebereichen (K-C) vorgegriffen.
+    """
+    if not _nur_zahl(wert):
+        return False
+    zahl = _zahl_aus_token(wert.strip())
+    return math.isfinite(zahl) and zahl >= 0
+
+
+ZAHL = Feldtyp("zahl", _ist_nichtnegative_zahl, _normalisiere_zahl)
+MINUTEN = Feldtyp("minuten", _ist_nichtnegative_zahl, _normalisiere_minuten)
 SKALA_1_5 = Feldtyp("skala_1_5", _ist_skala, lambda w: w.strip())
 PROZENT_0_100 = Feldtyp("prozent_0_100", _ist_prozent, _normalisiere_prozent)
 JA_NEIN = Feldtyp("ja_nein", lambda w: w in ("ja", "nein"), _normalisiere_ja_nein)
