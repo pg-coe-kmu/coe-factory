@@ -246,8 +246,9 @@ PG-Version gemessen. Task 2 kann starten.
 ## Task 2: BC0-Test-Gerüst mit zwei Mandanten
 
 > ⚠️ **Rev. 11 (02.09.):** Der SQL-Block und die Fixture unten sind NICHT mehr der
-> Dateiinhalt. Task 10b ändert `step_no` auf 1–9, entfernt die
-> `ALTER DEFAULT PRIVILEGES`-Simulation (BC0 hat keine — Antwort 9), verlegt die
+> Dateiinhalt. Task 10b ändert `step_no` auf 1–9, BEHÄLT die
+> `ALTER DEFAULT PRIVILEGES`-Zeile (Rev. 11b: in der Supabase gemessen vorhanden, anders
+> als BC0s Antwort 9), verlegt die
 > SELECT-Rechte von `bc1_role` auf die Gruppenrolle `bc_leser` und erweitert die
 > Testdaten (KP-01.TP-3 in beiden Mandanten, Erhebung E-2026-03 „verworfen",
 > Bewertungen für KP-01.TP-2 und KP-02.TP-1, Korrektur-Zeitstempel an KP-01.TP-1.I-02).
@@ -1490,11 +1491,12 @@ git commit -m "feat(bc1): DDL Profil-Fundament — Vertragstabellen, Version, Fr
 > nichts) ist durch BC0-Antwort 3 überholt: **`bc_leser` ist der Leser** von
 > `bc1.prozessprofil` (BC2–BC4 lesen über ihre Mitgliedschaft), `profil_rollen` wird
 > gleichgestellt (Rückfrage an BC0 läuft), `profil_write_status` bleibt allein bei
-> `bc1_role`. Die Begründung über `ALTER DEFAULT PRIVILEGES` war sachlich falsch (BC0 hat
-> keine, Antwort 9). Task 10b Teil 1 ändert Abschnitt 3 der DDL, dreht den Test
+> `bc1_role`. Die Begründung über `ALTER DEFAULT PRIVILEGES` ist gemessen RICHTIG
+> (`pg_default_acl`, Supabase, 02.09.) — Simeons Antwort 9 war es nicht (Rev. 11b). Task 10b
+> Teil 1 ändert Abschnitt 3 der DDL, dreht den Test
 > `test_fremde_bc_rollen_lesen_nichts_auch_nicht_ueber_bc_leser` und erzeugt die
 > Sollsignatur neu. Der Test `test_default_privileges_reproduzieren_den_bc_leser_automatismus`
-> entfällt — er bewies einen Automatismus, den es in BC0 nie gab.
+> bleibt — er bildet die Produktion ab (Rev. 11b).
 
 **Ziel (Spec K1):** Das Skript läuft in EINER Transaktion und prüft den Ist-Zustand
 **vor** jeder Änderung: (1) nichts da ⇒ Anlage · (2) exakt identisch ⇒ No-op ·
@@ -3756,7 +3758,7 @@ sie HIER geschlossen, vor Task 11 — nicht in Task 11 „mitgenommen".
 | Annahme im Bestand | BC0-Antwort 02.09. | Stelle |
 |---|---|---|
 | `bc_leser` bekommt NICHTS auf `bc1.*` (bis K-B) | `bc_leser` IST der Leser von `bc1.prozessprofil`; BC2–BC4 lesen darüber. `profil_write_status` bleibt bei `bc1_role` | DDL Abschnitt 3 · `tests/test_ddl_einspielen.py` |
-| BC0 vergibt per `ALTER DEFAULT PRIVILEGES` automatisch SELECT an `bc_leser` | Es gibt KEIN `ALTER DEFAULT PRIVILEGES` in BC0s Schemata (Antwort 9; BC0 korrigiert seine Rollen-Doku) | `tests/db/bc0_geruest.sql` Z. 164–166 · `tests/test_db_fixture.py` Positivkontrolle |
+| BC0 vergibt per `ALTER DEFAULT PRIVILEGES` automatisch SELECT an `bc_leser` | Simeons Antwort 9 sagte „gibt es in keinem Schema" — **der Katalog sagt das Gegenteil** (in der Supabase gemessen 02.09.: `pg_default_acl` hat für `bc1_role` im Schema `bc1` den Eintrag `bc_leser=r/bc1_role`, ebenso bc2–bc4). Gerüst-Simulation und Positivkontrolle waren RICHTIG und **bleiben** (Rev. 11b) | `tests/db/bc0_geruest.sql` Z. 164–166 · `tests/test_db_fixture.py` |
 | `step_no BETWEEN 1 AND 5` | seit Schema v2.2 (27.08.) bis 9; ein elfter Kernprozess ist möglich | `tests/db/bc0_geruest.sql` Z. 58 |
 | `bc1_role` liest direkt | `bc1_role` liest über die Gruppenrolle `bc_leser` (BC0 hat 48 direkte Doppel-GRANTs entfernt); direkt nur `ref_personen`/`prozess_personen` (nicht im Gerüst) | `tests/db/bc0_geruest.sql` Z. 168–172 |
 | Mandant ohne Teilprozesse: Dienst startet | regulärer Zustand; nicht starten, BC0 liefert den Wortlaut (Antwort 10; Task-10-Review I1) | `bc1_service/start.py` |
@@ -3789,32 +3791,34 @@ Gate-Regel „27 von 30" prüft das Gate, nicht BC1.
 (bewertete Teilprozesse, Startprüfung). Nicht zusammenlegen — Teil 1 ändert die
 Sollsignatur, Teil 2 das Startverhalten; beides soll einzeln reviewbar sein.
 
-**Vorab wissen (am Container am 02.09. gemessen, PostgreSQL 16):** `ALTER DEFAULT
-PRIVILEGES … IN SCHEMA bc1` legt einen Eintrag in `pg_default_acl` an, der mit
-`DROP SCHEMA bc1 CASCADE` verschwindet. `frische_db` droppt das Schema → nach dem Entfernen
-der Zeile aus dem Gerüst bleibt kein Alt-Eintrag im Test-Container zurück. Bleibt der
-neue Test trotzdem rot, ist die Ursache woanders — nicht raten, `pg_default_acl` abfragen.
+**Vorab wissen (in der Supabase gemessen, 02.09., lesend als `bc1_role`):** Schema `bc1`
+existiert, `bc1_role` darf dort anlegen, noch keine Tabellen. `pg_default_acl` enthält
+`bc1_role` / Schema `bc1` / Tabellen → `bc_leser=r` — **die Rollen-Doku von BC0 war
+richtig, Simeons Antwort 9 nicht.** `bc1_role` hat SELECT und REFERENCES auf
+`ref_erhebungen` (Rückfrage erledigt) und ist Mitglied von `bc_leser`. Rekursive Mitglieder
+von `bc_leser`: bc1_role…bc4_role, bc_leser, **postgres**. `postgres` ist in der Supabase
+KEIN Superuser (`rolsuper = false`) und zugleich Mitglied von `bc1_role` (zweifach, mit
+Admin-Option). Daneben existieren 14 Supabase-Systemrollen (anon, authenticated,
+authenticator, service_role, dashboard_user, pgbouncer, supabase_*), von denen mindestens
+`supabase_read_only_user` über `pg_read_all_data` liest. **Konsequenz für die Sollsignatur
+siehe Step 5 und Klärpunkt K-G.** `beleg_source` = `chat, doc, xlsx, interview, manuell,
+baseline, yaml` (kein `bc1_interview`) — wie auf `main`.
 
 ### Teil 1 — Gerüst auf BC0-Stand 02.09., `bc_leser` als Leser
 
 - [ ] **Step 1: Failing tests schreiben**
 
 `tests/test_db_fixture.py`: `test_default_privileges_reproduzieren_den_bc_leser_automatismus`
-**löschen** (bewies einen Automatismus, den BC0 nicht hat) und ersetzen durch:
+**bleibt** — er bildet die Produktion ab (Rev. 11b, gemessen). NEU dazu:
 
 ```python
-def test_geruest_hat_kein_default_privilege_und_bc1_role_liest_ueber_bc_leser():
-    # BC0-Antwort 9 (02.09.): kein ALTER DEFAULT PRIVILEGES in BC0s Schemata. Zweite
-    # Chat-Nachricht 02.09.: bc1_role liest ueber die Gruppenrolle bc_leser, die
-    # direkten Doppel-GRANTs sind weg. Das Geruest bildet genau das ab.
+def test_bc1_role_liest_bc0_objekte_nur_ueber_bc_leser():
+    # Zweite Chat-Nachricht 02.09.: bc1_role liest ueber die Gruppenrolle bc_leser, die
+    # direkten Doppel-GRANTs sind weg (in der Supabase am 02.09. nachgesehen). Das
+    # Geruest bildet genau das ab. Das ALTER DEFAULT PRIVILEGES bleibt — es existiert
+    # in der Supabase, anders als BC0s Antwort 9 behauptet (pg_default_acl, 02.09.).
     frische_db(DSN, mit_ddl=False)
-    with verbindung(DSN, "bc1_role") as conn:
-        conn.execute("CREATE TABLE bc1.leck_probe (x int)")
-        conn.commit()
     with verbindung(DSN, None) as conn:
-        assert conn.execute(
-            "SELECT has_table_privilege('bc_leser', 'bc1.leck_probe', 'SELECT')"
-        ).fetchone()[0] is False                       # kein Automatismus mehr
         assert conn.execute(
             "SELECT pg_has_role('bc1_role', 'bc_leser', 'USAGE')").fetchone()[0] is True
         for objekt in ("v_bewertung_aktuell", "mandant_systeme", "ref_teilprozesse",
@@ -3884,19 +3888,21 @@ def test_bc_leser_liest_die_vertragstabellen_aber_nie_den_write_status():
 BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" .venv/bin/pytest tests/test_db_fixture.py tests/test_ddl_einspielen.py -v
 ```
 
-Erwartet rot: die zwei neuen Fixture-Tests (Simulation noch da; `step_no` 9 wird
-abgewiesen) und der neue Rechte-Test (`bc_leser` hat noch kein SELECT). Alles andere grün.
+Erwartet rot: die zwei neuen Fixture-Tests (direkte SELECT-GRANTs an `bc1_role` noch da;
+`step_no` 9 wird abgewiesen) und der neue Rechte-Test (`bc_leser` hat noch kein SELECT auf
+die Vertragstabellen). Alles andere grün — auch die Positivkontrolle bleibt grün.
 
 - [ ] **Step 3: Gerüst ändern** (`tests/db/bc0_geruest.sql`)
 
 Z. 58: `step_no integer NOT NULL CHECK (step_no BETWEEN 1 AND 9),  -- v2.2 (27.08.): bis 9`
 
-Z. 164–172 (Kommentar, `ALTER DEFAULT PRIVILEGES`, Rechteblock) **komplett ersetzen** durch:
+Z. 164–166 (Kommentar + `ALTER DEFAULT PRIVILEGES`) **bleiben**; den Kommentar ergänzen um:
+`-- In der Supabase am 02.09.2026 bestaetigt (pg_default_acl: bc1_role / bc1 -> bc_leser=r),`
+`-- anders als BC0s schriftliche Antwort 9 — der Katalog ist massgeblich.`
+
+Z. 168–172 (Rechteblock) **ersetzen** durch:
 
 ```sql
--- BC0 hat KEIN ALTER DEFAULT PRIVILEGES (Antwort 9 vom 02.09.); die Simulation, die hier
--- bis Rev. 10 stand, bildete etwas ab, das es in BC0 nie gab.
---
 -- Rechte wie in BC0 seit 02.09.: REFERENCES direkt an bc1_role (fuer unsere FKs);
 -- Lesen ueber die GRUPPENROLLE bc_leser, in der bc1_role Mitglied ist (siehe Rollenblock
 -- oben — BC0 hat die direkten Doppel-GRANTs entfernt). SELECT auf ref_erhebungen ist von
@@ -3933,8 +3939,9 @@ durch „(von BC0 am 02.09. erteilt — fehlt es hier, stimmt das Ziel nicht)".
     -- ---------- Abschnitt 3: Rechte (Rev. 11, BC0-Antwort 3 vom 02.09.) ----------
     -- bc1_role: voll auf allen drei Tabellen. bc_leser (Gruppenrolle; BC2, BC3, BC4
     -- lesen darueber): SELECT auf die zwei Vertragstabellen, NICHTS auf
-    -- profil_write_status. PUBLIC: nichts. BC0 hat kein ALTER DEFAULT PRIVILEGES
-    -- (Antwort 9) — das explizite REVOKE bleibt trotzdem: Zusicherung statt Annahme.
+    -- profil_write_status. PUBLIC: nichts. BC0s Katalog HAT ein ALTER DEFAULT PRIVILEGES
+    -- fuer bc1_role in bc1 (bc_leser=r, in der Supabase gemessen 02.09.) — ohne das
+    -- explizite REVOKE laese bc_leser auch profil_write_status. Das REVOKE ist Pflicht.
     -- Als plpgsql-IF statt als geschachtelter DO-Block, und in der Klammer steht kein
     -- Tagname im Klartext (auch Kommentare sind dort Rohtext — hier einmal passiert).
     EXECUTE $ddl$ REVOKE ALL ON bc1.prozessprofil, bc1.profil_rollen, bc1.profil_write_status
@@ -3969,11 +3976,15 @@ weil `has_table_privilege` die Mitgliedschaft auflöst) · **KEINE** neue Zeile 
 zählen und im Bericht nennen, nicht diese Erwartung abschreiben. Erscheint etwas anderes:
 anhalten und verstehen, nicht committen.
 
-**Deploy-Konsequenz (gehört in Task 16, hier nur benannt):** Die `effektiv|`-Zeilen hängen
-ab jetzt davon ab, WER in der Zieldatenbank Mitglied von `bc_leser` ist. Sind es in der
-Supabase mehr oder andere Rollen als `bc2_role`…`bc4_role`, weicht der Ist-Bestand von
-der Sollsignatur ab und das Einspielen bricht mit Fall 3 ab. Vor dem Einspielen die
-Mitglieder abfragen und das Gerüst angleichen — siehe Task 16, Step 1, Punkt 5.
+**Deploy-Konsequenz — gemessen, nicht vermutet (02.09.):** Die Sollsignatur wird im
+Container erzeugt, geprüft wird sie in der Supabase. Dort ist `postgres` KEIN Superuser,
+aber Mitglied von `bc1_role` (Admin-Option) und von `bc_leser`. Damit stünden im Ziel
+`mitglied|bc1_role|postgres` plus je 7 `effektiv|`- und 4 `effektiv_spalte|`-Zeilen für
+`postgres` auf allen drei Tabellen, und vermutlich `effektiv|…|supabase_read_only_user|SELECT`
+(Mitglied von `pg_read_all_data`) — alles Zeilen, die die Container-Signatur nicht kennt.
+**Das Einspielen bräche heute mit Fall 3 ab, garantiert.** Das ist kein Task-10b-Problem
+(die 18 Zeilen hier stimmen), sondern eine Design-Entscheidung zum Geltungsbereich der
+Signatur: Klärpunkt **K-G**, zu entscheiden in Task 16 VOR dem Einspielen, nicht hier.
 
 - [ ] **Step 6: GREEN, volle Suite, Commit**
 
@@ -3984,8 +3995,8 @@ git add bc1-context-discovery/tests/db/bc0_geruest.sql bc1-context-discovery/tes
 git commit -m "fix(bc1): bc_leser als Leser der Vertragstabellen, Geruest auf BC0-Stand 02.09."
 ```
 
-Erwartete Suite: 347 − 1 (Positivkontrolle gelöscht) + 2 (neue Fixture-Tests) = **348 passed**,
-4 skipped; der ersetzte Rechte-Test zählt netto null. Momentaufnahme, reale Zahl berichten.
+Erwartete Suite: 347 + 2 (neue Fixture-Tests) = **349 passed**, 4 skipped; die Positivkontrolle
+bleibt, der ersetzte Rechte-Test zählt netto null (Rev. 11b). Momentaufnahme, reale Zahl berichten.
 
 ### Teil 2 — nur bewertete Teilprozesse, Startprüfung mit BC0-Wortlaut
 
@@ -4222,7 +4233,7 @@ git add bc1-context-discovery/tests/db_fixture.py bc1-context-discovery/tests/te
 git commit -m "feat(bc1): Interview nur fuer bewertete Teilprozesse, Startabbruch mit BC0-Wortlaut"
 ```
 
-Erwartet: **351 passed**, 4 skipped (348 + 1 Lesepfad-Test + 2 Start-Tests) — Momentaufnahme.
+Erwartet: **352 passed**, 4 skipped (349 + 1 Lesepfad-Test + 2 Start-Tests) — Momentaufnahme.
 
 **Was Task 10b für Phase D ändert (dort NICHT mehr separat beschrieben):** Task 13 nutzt
 `KP-01.TP-3` als unbewerteten Teilprozess (statt `KP-02.TP-1`, der jetzt bewertet ist) ·
@@ -5903,8 +5914,13 @@ Inhalt (kurz und konkret):
    I2: `pg_auth_members` allein sieht nur direkte Mitglieder, `has_table_privilege` löst
    aber jede Vererbungskette auf):
    `SELECT r.rolname FROM pg_roles r WHERE pg_has_role(r.oid, 'bc_leser'::regrole, 'USAGE') AND NOT r.rolsuper AND r.rolname NOT LIKE 'pg\_%' ORDER BY 1;`
-   — und mit dem Gerüst abgleichen (dort genau: bc1_role, bc2_role, bc3_role, bc4_role,
-   bc_leser selbst). Jede weitere Rolle in dieser Menge erzeugt zusätzliche
+   — **Ergebnis vom 02.09.:** bc1_role, bc2_role, bc3_role, bc4_role, bc_leser, **postgres**.
+   `postgres` ist in der Supabase kein Superuser und außerdem Mitglied von `bc1_role` (mit
+   Admin-Option). Im Ziel entstehen damit `mitglied|bc1_role|postgres` und `effektiv|`-Zeilen
+   für `postgres` (und wohl `supabase_read_only_user` via `pg_read_all_data`), die die im
+   Container erzeugte Sollsignatur nicht enthält → **Fall 3, sicher.** Das ist Klärpunkt
+   **K-G** (Geltungsbereich der Signatur) und MUSS vor dem Einspielen entschieden sein;
+   Optionen dort. Jede weitere Rolle in dieser Menge erzeugt zusätzliche
    `effektiv|`/`effektiv_spalte|`-Zeilen und damit einen Fall-3-Abbruch; das Gerüst
    angleichen und die Sollsignatur neu erzeugen, BEVOR eingespielt wird. Dasselbe für die
    drei weiteren Punkte aus Phase A (kreuzende NO-ACTION-FKs/Trigger in nicht enthaltenen
@@ -6059,11 +6075,43 @@ Voraussetzungen.
 | # | Frage | An | Blockiert |
 |---|---|---|---|
 | K-A | `erhebung_id`-Regel | **BEANTWORTET 02.09.:** (a) jüngste unter den aktuellen nach `ref_erhebungen.stand` · (b) kein Profil ohne aktuelle Bewertung → Task 10b bietet nur bewertete Teilprozesse an | — (Task 13 entblockt) |
-| K-B | Rechte und Leserollen | **BEANTWORTET 02.09.:** GRANTs erteilt, Leser ist `bc_leser`, `profil_write_status` nur `bc1_role`. **Offen, zwei Rückfragen:** ist `SELECT` auf `ref_erhebungen` erteilt? gilt `bc_leser` auch für `profil_rollen`? (Entwurf 02.09., Punkt 3) | Supabase-Deploy, nicht den Bau |
+| K-B | Rechte und Leserollen | **BEANTWORTET 02.09.:** GRANTs erteilt, Leser ist `bc_leser`, `profil_write_status` nur `bc1_role`. `SELECT` auf `ref_erhebungen`: **erteilt (gemessen 02.09.)**. **Offen, eine Rückfrage:** gilt `bc_leser` auch für `profil_rollen`? (Entwurf 02.09., Punkt 3) | Supabase-Deploy, nicht den Bau |
 | K-C | Zahlen-Wertebereiche (0 zulässig? Präzision) | BC2 — **Frist Fr 04.09.** (Richard); kommt nichts, mit den heutigen CHECKs einspielen und das als Entscheidung dokumentieren (Testdaten; ALTER später vertretbar) | finale CHECKs, nicht die DDL-Struktur |
 | K-D | Company-UUID im Snapshot-Export | zugesagt mit BC0-Issue #141 (Termin offen) | nur den Snapshot-Abgleich der Startprüfung |
 | K-E (neu) | Dienst-Anmeldung an BC0-Endpunkten ohne dauerhaft hinterlegtes Passwort (Token/Dienstschlüssel) | Simeon (Entwurf 02.09., Punkt 4) | Etappe 2 (Zuordnungs-/Status-Endpunkt) — nicht diesen Plan |
 | K-F (neu) | Lieferform der drei Use-Case-Profile (Zeilen reichen? Doku je Use Case?) und Ort möglicher BC0-Ersatzwerte | Simeon (Entwurf 02.09., Punkt 1) | Anhang A (Use-Case-Testprofile) |
+| **K-G (neu, Rev. 11b)** | **Geltungsbereich der Sollsignatur vs. Zielumgebung.** Gemessen 02.09.: in der Supabase ist `postgres` kein Superuser, Mitglied von `bc1_role` (Admin-Option) und `bc_leser`; dazu Supabase-Systemrollen (`supabase_read_only_user` via `pg_read_all_data`). Die im Container erzeugte Signatur (`mitglied|`, `effektiv|` über ALLE Rollen) passt damit NICHT zum Ziel → Fall 3 beim Einspielen. Optionen: (a) `effektiv|`/`mitglied|` auf eine normative Rollenmenge begrenzen und Rollen, die ihr Recht nur über `bc1_role`-Mitgliedschaft oder `pg_read_all_data` haben, ausnehmen · (b) Gerüst spiegelt die Supabase (`GRANT bc1_role TO postgres`) — reicht NICHT, weil `postgres` im Container Superuser ist und aus `effektiv|` fällt · (c) Signatur gegen das Ziel erzeugen — braucht ein NICHT-destruktives Werkzeug (`signatur-erzeugen.py` droppt Schemata und darf nie gegen die Supabase laufen). Empfehlung: (a), mit ausdrücklicher Doku, was dann NICHT mehr erkannt wird (Codex N10-C2 wollte genau diese Breite) | Richard, vor Task 16 Step 1 Punkt 5 | Supabase-Deploy, nicht den Bau |
+
+# Changelog Rev. 11b (02.09.2026 — erste Messung in der Supabase, lesend als bc1_role: Simeons Antwort 9 ist falsch, Deploy-Signatur würde scheitern)
+
+Nach dem Eintragen der Projektreferenz verband sich `bc1_role` zum ersten Mal mit der
+Supabase (PostgreSQL 17.6, read-only, `statement_timeout`). Drei Befunde ändern den Plan:
+
+1. **`ALTER DEFAULT PRIVILEGES` existiert** — `pg_default_acl`: `bc1_role` / Schema `bc1` /
+   Tabellen → `bc_leser=r/bc1_role`, ebenso bc2–bc4. Simeons schriftliche Antwort 9 („in
+   keinem unserer Schemata") ist damit widerlegt; BC0s ROLLEN.md hatte recht. **Rev. 11
+   hatte auf Simeons Wort die Gerüst-Simulation und die Positivkontrolle gestrichen — das
+   war falsch und ist zurückgenommen.** Task 10b Teil 1 behält beide; der neue Fixture-Test
+   prüft nur noch, dass `bc1_role` die BC0-Objekte über `bc_leser` liest (kein direktes
+   SELECT). Suite-Erwartung Teil 1 → 349, Teil 2 → 352. Die DDL-Kommentare sagen jetzt:
+   das REVOKE auf `profil_write_status` ist Pflicht, nicht Vorsicht. **Lehre:** Aussagen
+   über den Katalog am Katalog prüfen, nicht am Papier — auch wenn sie von BC0 kommen.
+2. **`SELECT` auf `ref_erhebungen` ist erteilt** (gemessen). K-B: nur noch die
+   `profil_rollen`-Rückfrage offen.
+3. **Die Sollsignatur passt nicht zur Zielumgebung** — `postgres` ist in der Supabase kein
+   Superuser, aber Mitglied von `bc1_role` (Admin-Option) und `bc_leser`; dazu Supabase-
+   Systemrollen. `mitglied|bc1_role|postgres` und `effektiv|`-Zeilen für `postgres`
+   stünden im Ziel, nicht in der Container-Signatur → Fall 3 beim Einspielen, sicher.
+   Neuer Klärpunkt **K-G** mit drei Optionen und Empfehlung (Geltungsbereich begrenzen);
+   Entscheidung Richard vor Task 16 Step 1 Punkt 5. Task 10b selbst ist davon unberührt
+   (die 18 Zeilen stimmen), Phase D ebenfalls.
+
+Weitere Messwerte (ersetzen die Herleitung): NoroAI 50 Teilprozesse, 690 Bewertungen,
+23 bewertet, 27 unbewertet · Übungsmandant 50/600/20/30 · `prozess_schnittstellen` hat
+16 Zeilen (BC0 hat die Kanten diese Woche erhoben — am 02.09. hieß es noch „leer") ·
+`ref_anfragen` ist für `bc1_role` lesbar (5 Zeilen) · Erhebungen NoroAI E-2026-06
+(abgeschlossen) + E-2026-08 (offen) · `beleg_source` ohne `bc1_interview` · Schema `bc1`
+leer, `bc1_role` darf anlegen.
 
 # Changelog Rev. 11a (02.09.2026 — Codex-Review von Rev. 11, Job task-mtjzyjii-p7q93c: WITH FIXES, 0 Critical / 3 Important / 4 Minor — alles adjudiziert)
 
@@ -6097,7 +6145,8 @@ nicht interviewt.
 
 **Was sich im Plan ändert:**
 - **Neu Task 10b** (vor Phase D): Gerüst `step_no` 1–9 · `ALTER DEFAULT PRIVILEGES`-
-  Simulation raus (BC0 hat keine — Antwort 9) · SELECT-Rechte im Gerüst von `bc1_role` auf
+  Simulation raus (BC0 hat keine — Antwort 9) — **in Rev. 11b ZURÜCKGENOMMEN, s. o.** ·
+  SELECT-Rechte im Gerüst von `bc1_role` auf
   `bc_leser` verlegt (BC0 hat 48 Doppel-GRANTs entfernt) · DDL Abschnitt 3: `bc_leser`
   liest `prozessprofil`/`profil_rollen`, nichts auf `profil_write_status` · Abschnitt 0 prüft
   `SELECT` auf `ref_erhebungen` · Sollsignatur neu (erwartet +18 Zeilen, zählen!) ·
