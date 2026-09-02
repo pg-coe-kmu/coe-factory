@@ -3,7 +3,7 @@ from bc1_core.types import Candidate, FieldStatus, FieldValue, SessionState
 from bc1_core.package import UseCasePackage, FieldSpec
 from bc1_core.llm import LLMClient
 
-def _status_for(spec: FieldSpec, value: str) -> FieldStatus:
+def status_fuer(spec: FieldSpec, value: str) -> FieldStatus:
     # Policy: ein werfender Validator macht den Wert UNGUELTIG, bricht aber
     # nie den Turn ab — sonst ginge die Nachricht nach Raw-First-Save (Task 8)
     # beim Idempotenz-Replay dauerhaft verloren.
@@ -32,7 +32,7 @@ def extract_and_merge(state: SessionState, message: str, message_id: str,
         if fv is None or fv.value is None:
             state.values[cand.field_name] = FieldValue(
                 value=wert,
-                status=_status_for(spec, wert),
+                status=status_fuer(spec, wert),
                 source_message_id=message_id,
                 # Nachfrage-Zähler gehört dem Dialog (Task 7) — beim Befüllen
                 # eines angefragten Felds nicht zurücksetzen (Cap-Politik).
@@ -42,7 +42,7 @@ def extract_and_merge(state: SessionState, message: str, message_id: str,
             # Erneute Nennung desselben Werts: für UNKLAR ist das die Klärung
             # (Spec B4 „Nutzer klären lassen"), sonst No-op.
             if fv.status is FieldStatus.UNKLAR:
-                fv.status = _status_for(spec, wert)
+                fv.status = status_fuer(spec, wert)
         elif (fv.status is FieldStatus.UNKLAR
               and any(k.value == wert for k in fv.candidates)):
             # Klärung zugunsten eines Kandidaten (Spec B4): Tausch — der alte
@@ -50,14 +50,14 @@ def extract_and_merge(state: SessionState, message: str, message_id: str,
             fv.candidates = [k for k in fv.candidates if k.value != wert]
             _merke_kandidat(fv, fv.value, fv.source_message_id)
             fv.value = wert
-            fv.status = _status_for(spec, wert)
+            fv.status = status_fuer(spec, wert)
             fv.source_message_id = message_id
         elif fv.status is FieldStatus.UNGUELTIG:
             # Korrektur: UNGUELTIG ist nicht bestätigt → ersetzen, alter Wert
             # bleibt als Kandidat — mit der Quelle, aus der er stammte.
             _merke_kandidat(fv, fv.value, fv.source_message_id)
             fv.value = wert
-            fv.status = _status_for(spec, wert)
+            fv.status = status_fuer(spec, wert)
             fv.source_message_id = message_id
         else:
             _merke_kandidat(fv, wert, message_id)

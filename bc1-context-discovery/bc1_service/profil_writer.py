@@ -15,10 +15,15 @@ from bc1_core.confidence import confidence_check
 from bc1_core.core import profil_payload
 from bc1_core.package import UseCasePackage
 from bc1_core.types import FieldStatus, SessionState
+from bc1_core.extractor import status_fuer
+from bc1_service.paket_feldtypen import entferne_snn, snn_tokens
 
 log = logging.getLogger(__name__)
 
 KP_MUSTER = re.compile(r"^KP-[0-9]{2}$")
+
+# Neue stabile Grund-Konstante neben GRUND_NACHFRAGE_LIMIT / GRUND_RUNDEN_LIMIT.
+GRUND_SNN_ENTFALLEN = "systemreferenz_beim_schreiben_entfallen"
 
 # Spalte -> Feldname. Nur gueltige Werte werden konvertiert.
 _ZAHLENSPALTEN = {
@@ -139,3 +144,106 @@ def baue_profilinhalt(state: SessionState, package: UseCasePackage, *,
         state, "downstream_process", process_id, kp_bekannt)
 
     return Profilinhalt(focus_step_id, process_id, spalten, profil)
+
+
+def _unbekannte(text: str | None, bekannte: frozenset[str]) -> list[str]:
+    return [t for t in snn_tokens(text or "") if t not in bekannte]
+
+
+def _zaehler_neu(profil: dict, package: UseCasePackage) -> None:
+    """vollstaendigkeit, pflicht_erfasst und ungeloeste_felder in Paketreihenfolge neu.
+
+    Ohne das haette der Payload eine zu hohe Vollstaendigkeit — der Sweep kann
+    ein Pflichtfeld gerade offen gemacht haben.
+    """
+    pflicht = package.required_fields()
+    erfasst = sum(1 for s in pflicht
+                  if profil["felder"][s.name]["status"] == FieldStatus.GUELTIG.value)
+    profil["pflicht_erfasst"] = erfasst
+    profil["pflicht_gesamt"] = len(pflicht)
+    profil["vollstaendigkeit"] = erfasst / len(pflicht) if pflicht else 1.0
+    profil["ungeloeste_felder"] = [
+        s.name for s in package.fields
+        if profil["felder"][s.name]["status"] == FieldStatus.UNGELOEST.value]
+
+
+def wende_sweep_an(profil: dict, package: UseCasePackage, *,
+                   bekannte_systeme: frozenset[str], session_id: str) -> dict:
+    """Entfernt vor dem Schreiben JEDE nicht zum Mandanten gehoerende S-NN-Kennung.
+
+    Erfuellt BC0-Auflage 1.4 woertlich ("beim Schreiben pruefen"). Der Validator
+    schuetzt nur gueltige Werte — der Kern exportiert aber Wert UND Kandidaten
+    unabhaengig vom Feldstatus (R5-I3).
+
+    Umfang und Vertrag (im Review 02.09. einzeln nachgemessen, hier festgeschrieben,
+    damit nichts davon stillschweigend gilt):
+    * Geprueft werden `wert` und `kandidaten[].wert` — also die fachlichen Inhalte.
+      `quelle` und `grund` bleiben unangetastet: sie tragen per Vertrag keine
+      Nutzereingabe (`grund` sind Konstanten, `quelle` ist die message_id des
+      Clients). Sie zu bereinigen wuerde Herkunftsangaben verfaelschen, und ein
+      Abbruch waere schaerfer als noetig — die Kennungs-Regex trifft wegen der
+      Wortgrenze auch mitten in technischen IDs.
+    * `anzahl` im Befund zaehlt VORKOMMEN, nicht verschiedene Kennungen; das Log
+      fuehrt die Kennungen entdoppelt. Beide Zahlen koennen daher abweichen.
+    * Bei `GRUND_SNN_ENTFALLEN` entfaellt der Wert, `quelle` bleibt aber auf der
+      urspruenglichen Nennung stehen — anders als bei `ungeloest` aus dem Dialog,
+      das den Wert behaelt.
+    * Erwartet einen Payload aus `baue_profilinhalt` (das `befunde` bereits anlegt).
+    * `identitaetskritisch` kennt der Sweep nicht. Heute unerreichbar, weil die
+      TP-IDs aus BC0 dem Muster `KP-NN.TP-N` folgen und daher nie eine S-NN-Kennung
+      enthalten koennen; faellt diese Annahme, braucht es hier einen Guard.
+    """
+    befunde: list[dict] = []
+    for spec in package.fields:                       # Paket-Feldreihenfolge
+        # Direkter Zugriff, kein .get(): der Payload stammt aus profil_payload, das
+        # ueber dieselben package.fields iteriert — ein fehlendes Feld waere ein
+        # Widerspruch, der laut scheitern soll. Ein .get() hier waere falsch
+        # beruhigend, weil _zaehler_neu zwei Zeilen spaeter ohnehin direkt zugreift
+        # (Review 02.09.: dort gemessen als KeyError).
+        feld = profil["felder"][spec.name]
+        war_gueltig = feld["status"] == FieldStatus.GUELTIG.value
+        entfernt: list[str] = []
+        # Schleife, kein Einmalscan: entferne_snn raeumt leere Klammern weg, dabei
+        # koennen Nachbarn zu einer NEUEN Kennung zusammenruecken ('S-[S-98]42' ->
+        # 'S-42'). Terminiert, weil jede Runde mindestens ein Token loescht und der
+        # Text damit echt kuerzer wird (Review 02.09., gemessen).
+        while True:
+            runde = _unbekannte(feld["wert"], bekannte_systeme)
+            for kandidat in feld["kandidaten"]:
+                runde += _unbekannte(kandidat["wert"], bekannte_systeme)
+            if not runde:
+                break
+            entfernt += runde
+            if feld["wert"] is not None:
+                feld["wert"] = entferne_snn(feld["wert"], runde)
+            feld["kandidaten"] = [
+                {**k, "wert": entferne_snn(k["wert"], runde)}
+                for k in feld["kandidaten"]
+                if entferne_snn(k["wert"], runde)]      # leer => entfaellt
+        if not entfernt:
+            continue
+
+        # Rohe IDs NUR ins Log (R11-I1), nie zurueck ins Profil.
+        log.warning("snn_entfernt session=%s feld=%s ids=%s",
+                    session_id, spec.name, sorted(set(entfernt)))
+
+        if not war_gueltig:
+            continue                                    # still bereinigt, kein Befund
+
+        # Status neu bestimmen — der Extractor wuesste nichts von der Entfernung.
+        neuer_status = (status_fuer(spec, feld["wert"]) if feld["wert"]
+                        else FieldStatus.UNGUELTIG)
+        if neuer_status is FieldStatus.GUELTIG:
+            danach = FieldStatus.GUELTIG.value
+        else:
+            feld["status"] = FieldStatus.UNGELOEST.value
+            feld["grund"] = GRUND_SNN_ENTFALLEN
+            feld["wert"] = None
+            danach = FieldStatus.UNGELOEST.value
+        befunde.append({"feld": spec.name, "anzahl": len(entfernt),
+                        "feld_status_danach": danach})
+
+    if befunde:
+        profil["befunde"]["snn_entfernt"] = befunde
+    _zaehler_neu(profil, package)
+    return profil
