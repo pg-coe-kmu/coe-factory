@@ -834,7 +834,7 @@ git commit -m "feat(bc1): process_turn orchestrator (raw-first, idempotent, vers
 
 **Interfaces:**
 - Consumes: `process_turn` (Task 8), `InMemoryStateStore` (Task 3), `FakeLLM` (Task 5), `UseCasePackage`/`FieldSpec` (Task 2).
-- Produces: `bc1_core/cli.py` mit `run_scripted(package, script: list[tuple[str,str]]) -> list[dict]` (script = Liste `(message_id, message)`), aufrufbar via `python -m bc1_core.cli`. Naht-Test beweist: zwei verschiedene Pakete laufen ohne Kern-Verzweigung auf Namen.
+- Produces: `bc1_core/cli.py` mit `run_scripted(package, llm, script: list[tuple[str,str]], session_id="demo") -> list[dict]` (script = Liste `(message_id, message)`), aufrufbar via `python -m bc1_core.cli`. Naht-Test beweist: zwei verschiedene Pakete laufen ohne Kern-Verzweigung auf Namen.
 
 - [ ] **Step 1: Write the failing seam test** — `tests/test_seam.py`
 
