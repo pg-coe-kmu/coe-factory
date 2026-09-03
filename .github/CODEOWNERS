@@ -1,25 +1,25 @@
-# CODEOWNERS – Wer reviewed welchen Bereich
-# Doku: https://docs.github.com/en/repositories/managing-your-repositories-settings-and-features/customizing-your-repository/about-code-owners
+# Wer muss eine Änderung freigeben.
+#
+# WICHTIG, das war der Fehler bis zum 03.09.2026: GitHub nimmt das ZULETZT
+# passende Muster. Allgemeine Regeln gehören deshalb nach OBEN, spezifische
+# nach UNTEN. Vorher stand /contracts/ unter den drei Vertragsordnern und hat
+# sie alle überstimmt - die Freigabepflicht der beteiligten Teams hat nie
+# gegriffen, alles fiel auf team-platform durch.
 
-# Default: maintainers reviewen alles, was nirgendwo anders matched
 *                               @pg-coe-kmu/maintainers
 
-# Bounded Contexts
+/contracts/                     @pg-coe-kmu/team-platform
+
 /bc1-context-discovery/         @pg-coe-kmu/team-bc1
 /bc2-strategic-advisor/         @pg-coe-kmu/team-bc2
 /bc3-engineering-architect/     @pg-coe-kmu/team-bc3
 /bc4-autonomous-builder/        @pg-coe-kmu/team-bc4
-
-# Platform & Infrastruktur
 /platform/                      @pg-coe-kmu/team-platform
 /infra/                         @pg-coe-kmu/team-platform
+/docs/                          @pg-coe-kmu/maintainers
 /.github/                       @pg-coe-kmu/team-platform @pg-coe-kmu/maintainers
 
-# Contracts: angrenzende BCs müssen BEIDE zustimmen (Schnittstellen-Schutz)
+# Die Verträge zuletzt, damit sie die allgemeine Zeile darüber überstimmen.
 /contracts/bc1-to-bc2/          @pg-coe-kmu/team-bc1 @pg-coe-kmu/team-bc2
 /contracts/bc2-to-bc3/          @pg-coe-kmu/team-bc2 @pg-coe-kmu/team-bc3
 /contracts/bc3-to-bc4/          @pg-coe-kmu/team-bc3 @pg-coe-kmu/team-bc4
-/contracts/                     @pg-coe-kmu/team-platform
-
-# Dokumentation: jeder kann Doku reviewen, default maintainers
-/docs/                          @pg-coe-kmu/maintainers

@@ -1,0 +1,96 @@
+name: Verträge prüfen
+
+# Haelt jede Lieferung gegen ihr Schema, sobald jemand etwas unter contracts/
+# aendert. Bis heute gab es das nicht - eine kaputte Lieferung fiel nur auf,
+# wenn ein Mensch hingeschaut hat.
+
+on:
+  pull_request:
+    paths:
+      - 'contracts/**'
+  push:
+    branches: [main]
+    paths:
+      - 'contracts/**'
+  workflow_dispatch:
+
+jobs:
+  schema:
+    name: Schema und Vollständigkeit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: pip install --quiet jsonschema
+
+      - name: Lieferungen prüfen
+        run: |
+          python - <<'PY'
+          import json, sys, glob, os
+          from jsonschema import Draft202012Validator
+
+          BASIS = "contracts/bc3-to-bc4"
+          PFLICHT = ["ticket_set.json", "blueprint.json", "architecture.md", "api/openapi.yaml"]
+          fehler = []
+
+          schemapfad = f"{BASIS}/tickets.schema.json"
+          if not os.path.exists(schemapfad):
+              print(f"Kein Schema unter {schemapfad} - nichts zu prüfen.")
+              sys.exit(0)
+          schema = json.load(open(schemapfad, encoding="utf-8"))
+          pruefer = Draft202012Validator(schema)
+
+          ordner = sorted(d for d in glob.glob(f"{BASIS}/*") if os.path.isdir(d))
+          if not ordner:
+              print("Keine Lieferungsordner gefunden.")
+              sys.exit(0)
+
+          for o in ordner:
+              name = os.path.basename(o)
+              # mock/ ist das alte Beispiel und folgt der Namensgebung noch nicht
+              tickets = os.path.join(o, "ticket_set.json")
+              if not os.path.exists(tickets):
+                  # Ordner aus der Zeit vor v3.5 halten das Schema nicht ein.
+                  # Sie werden angemerkt, blockieren aber keinen Pull Request -
+                  # sonst waere jede Aenderung an einem NEUEN Ordner rot wegen
+                  # eines alten Beispiels, das niemand mehr anfasst.
+                  if os.path.exists(os.path.join(o, "tickets.json")):
+                      print(f"HINWEIS {name}: noch tickets.json und Schema v3.4, "
+                            f"nicht geprüft. Umstellen, wenn jemand den Ordner anfasst.")
+                  else:
+                      fehler.append(f"{name}: keine ticket_set.json")
+                  continue
+
+              try:
+                  daten = json.load(open(tickets, encoding="utf-8"))
+              except Exception as e:
+                  fehler.append(f"{tickets}: kein gültiges JSON ({e})")
+                  continue
+
+              verstoesse = sorted(pruefer.iter_errors(daten), key=lambda x: list(x.path))
+              for v in verstoesse:
+                  weg = "/".join(str(x) for x in v.path) or "(oberste Ebene)"
+                  fehler.append(f"{tickets}: {weg} — {v.message}")
+
+              fehlend = [d for d in PFLICHT if not os.path.exists(os.path.join(o, d))]
+              if fehlend and os.path.basename(tickets) == "ticket_set.json":
+                  fehler.append(f"{name}: es fehlen {', '.join(fehlend)}")
+
+              if not verstoesse:
+                  epics = len(daten.get("epics", []))
+                  stories = sum(len(e.get("stories", [])) for e in daten.get("epics", []))
+                  kp = (daten.get("konzept_ref") or {}).get("kp_id", "ohne KP")
+                  print(f"OK      {name}: {epics} Epics, {stories} Stories, {kp}, "
+                        f"Schema {daten.get('schema_version')}")
+
+          if fehler:
+              print("\nBeanstandungen:")
+              for f in fehler:
+                  print("  - " + f)
+              sys.exit(1)
+          print("\nAlle Lieferungen in Ordnung.")
+          PY
