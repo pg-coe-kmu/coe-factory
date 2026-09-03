@@ -16,6 +16,7 @@ from bc1_core.core import profil_payload
 from bc1_core.package import UseCasePackage
 from bc1_core.types import FieldStatus, SessionState
 from bc1_core.extractor import status_fuer
+from psycopg.errors import UniqueViolation
 from psycopg.types.json import Jsonb
 
 from bc1_service import bc0_lesepfade
@@ -294,8 +295,30 @@ class ProfilWriter:
         self._pool = pool
         self._company_id = company_id
         self._package = package
+        # Ohne identitaetskritisches Feld gibt es keine Prozess-Identitaet und
+        # damit kein Profil (z. B. Toy-Paket) — der Writer haelt sich raus.
+        self._schreibt = any(s.identitaetskritisch
+                             for s in package.required_fields())
 
     def reconcile(self, state: SessionState, antwort: dict) -> dict | None:
+        if not self._schreibt:
+            return None
+        try:
+            return self._abgleich(state, antwort)
+        except ProfilWriteError:
+            raise
+        except Exception as fehler:                        # noqa: BLE001
+            if antwort["status"] == "fertig":
+                raise ProfilWriteError(
+                    f"Profil-Write im Terminal-Turn fehlgeschlagen: {fehler}"
+                ) from fehler
+            # Nicht-terminale Turns blockieren nicht — der naechste reconcilet.
+            log.warning("profil_write_uebersprungen session=%s grund=%r",
+                        state.session_id, fehler)
+            return None
+
+    # ---- innerhalb EINER Transaktion ------------------------------------
+    def _abgleich(self, state: SessionState, antwort: dict) -> dict | None:
         with self._pool.connection() as conn:          # eine Transaktion
             inhalt = baue_profilinhalt(
                 state, self._package,
@@ -304,8 +327,27 @@ class ProfilWriter:
                 bekannte_systeme=frozenset(
                     bc0_lesepfade.system_ids(conn, self._company_id)))
             bindung = self._bindung(conn, state.session_id)
-            if bindung is None:
-                bindung = self._einfuegen(conn, state, inhalt)
+            if antwort["status"] == "abgebrochen_ohne_identitaet":
+                if bindung is not None:
+                    self._draft_aufraeumen(conn, bindung, state.session_id)
+                return None
+            if inhalt is None:
+                # Keine gueltige Identitaet in diesem Turn. Der Draft bleibt
+                # stehen: eine Klaerung kann den alten Wert bestaetigen (R6-C1).
+                if antwort["status"] == "fertig":
+                    raise ProfilWriteError(
+                        "fertig ohne gueltige Fokus-Schritt-ID "
+                        "(Completion-Guard verletzt)")
+                return None
+            if bindung is not None and bindung.focus_step_id != inhalt.focus_step_id:
+                bindung = self._umbinden(conn, state, inhalt, bindung)
+            elif bindung is None:
+                bindung = self._draft_anlegen(conn, state, inhalt)
+                if bindung is None:                     # fremder Draft
+                    if antwort["status"] == "fertig":
+                        raise ProfilWriteError(
+                            "fremder in_erhebung-Draft belegt den Fokus-Schritt")
+                    return None
             if antwort["status"] != "fertig":
                 return None
             if bindung.status == "fertig":
@@ -330,6 +372,48 @@ class ProfilWriter:
             " WHERE w.session_id = %s AND w.company_id = %s",
             (session_id, self._company_id)).fetchone()
         return Bindung(*zeile) if zeile else None
+
+    def _draft_aufraeumen(self, conn, bindung, session_id: str) -> None:
+        try:
+            with conn.transaction():
+                conn.execute(
+                    "DELETE FROM bc1.prozessprofil WHERE company_id = %s "
+                    "AND focus_step_id = %s AND profil_version = %s",
+                    (self._company_id, bindung.focus_step_id,
+                     bindung.profil_version))
+        except Exception as fehler:                         # noqa: BLE001
+            # Ehrlich (Spec K0): die Antwort geht trotzdem raus — die Session ist
+            # fachlich zu Ende. Zurueck bleibt ein verwaister Draft; er ist fuer
+            # BC0 nicht gate-relevant, belegt aber den UNIQUE-Slot (Betriebsweg K5).
+            log.error("draft_aufraeumen_fehlgeschlagen session=%s schritt=%s grund=%r",
+                      session_id, bindung.focus_step_id, fehler)
+
+    def _draft_anlegen(self, conn, state, inhalt) -> Bindung | None:
+        try:
+            # Savepoint: ein Unique-Konflikt darf die umgebende Transaktion
+            # nicht abschiessen (der Turn laeuft ja weiter).
+            with conn.transaction():
+                return self._einfuegen(conn, state, inhalt)
+        except UniqueViolation:
+            return None
+
+    def _umbinden(self, conn, state, inhalt, alt: Bindung) -> Bindung:
+        """Alten Draft loeschen und neu binden — ganz oder gar nicht.
+
+        Loeschen und Neuanlage liegen in EINEM Savepoint: sonst waere bei einem
+        Zielkonflikt der alte Draft schon geloescht und der Verlust wuerde
+        mitcommittet (Codex R1-C5).
+        """
+        try:
+            with conn.transaction():             # ein gemeinsamer Savepoint
+                conn.execute(
+                    "DELETE FROM bc1.prozessprofil WHERE company_id = %s "
+                    "AND focus_step_id = %s AND profil_version = %s",
+                    (self._company_id, alt.focus_step_id, alt.profil_version))
+                return self._einfuegen(conn, state, inhalt)
+        except UniqueViolation:
+            # Rollback bis zum Savepoint: alter Draft UND Bindung stehen noch.
+            return None
 
     def _einfuegen(self, conn, state, inhalt) -> Bindung:
         """Profilzeile + Bindung im selben Commit (C2)."""
