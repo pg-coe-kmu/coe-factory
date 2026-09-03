@@ -8,7 +8,8 @@ from bc1_core.llm import ExtractionCandidate, FakeLLM
 from bc1_core.package import FieldSpec, TOY_PROZESS, UseCasePackage
 from bc1_core.store import InMemoryStateStore, StaleStateError
 from bc1_core.types import SessionState, SessionStatus
-from bc1_service.api import ABBRUCH_TEXT, create_app
+from bc1_service.api import (ABBRUCH_TEXT, OVERLAY_SCHLUESSEL, _sweep_hinweise,
+                             create_app)
 
 MANDANT = "11111111-1111-1111-1111-111111111111"
 MANDANT_B = "22222222-2222-2222-2222-222222222222"
@@ -387,3 +388,24 @@ def test_recovery_replay_mit_falscher_schema_version_bleibt_409():
     client_neu = TestClient(create_app(store, llm, neues_paket, company_id=MANDANT))
     antwort = _turn(client_neu, "m2", "b", schema_version="1.1+ctx-cccccccccccccccc")
     assert antwort.status_code == 409
+
+
+# Die Post-Sweep-Hinweise haengen an EINEM Feld des gespeicherten Profils. Diese
+# Faelle brauchen keine Datenbank — deshalb hier und nicht in test_api_profil.py,
+# das ohne BC1_TEST_DB_DSN komplett skippt (Codex-Review 03.09.).
+def test_unbekannter_befund_status_erzeugt_keinen_hinweis():
+    # Der Writer schreibt heute nur 'gueltig' oder 'ungeloest'. Kommt je ein
+    # dritter Status dazu, waere ein zugeordneter Text eine falsche Aussage
+    # gegenueber dem Nutzer — dann lieber gar kein Hinweis.
+    payload = {"befunde": {"snn_entfernt": [
+        {"feld": "focus_step_systems", "anzahl": 1, "feld_status_danach": "neu"}]}}
+    assert _sweep_hinweise(payload) == ""
+
+
+def test_overlay_laesst_die_kern_eigenen_schluessel_unangetastet():
+    # Spec K3.3 zieht die Grenze: abschluss_text und schema_version kommen aus
+    # der Kern-Antwort, nie aus der DB. Ein zusaetzlich eingeschleuster
+    # Schluessel waere durch keinen Verhaltenstest zu fangen (beide Werte sind
+    # in Kern und DB gleich, Codex-Review 03.09.) — daher als Vertrag gepinnt.
+    assert "schema_version" not in OVERLAY_SCHLUESSEL
+    assert "abschluss_text" not in OVERLAY_SCHLUESSEL

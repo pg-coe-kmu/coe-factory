@@ -17,6 +17,7 @@ from bc1_service.api import create_app
 from bc1_service.llm_wahl import waehle_llm
 from bc1_service.paket_wahl import waehle_paket
 from bc1_service.postgres_store import PostgresStateStore
+from bc1_service.profil_writer import ProfilWriter
 from bc1_service.snapshot import lade_snapshot
 from bc1_service.start import lade_kontext, lies_company_id
 
@@ -63,11 +64,14 @@ async def _lebenszyklus(app):
     _profil_pool.close()
 
 
+_paket = waehle_paket(os.environ, _prozesse, _kontext)
+
 app = create_app(
     _store,
     waehle_llm(os.environ),
-    waehle_paket(os.environ, _prozesse, _kontext),
+    _paket,
     _snapshot,
     lifespan=_lebenszyklus,
     company_id=_company_id,
+    writer=ProfilWriter(_profil_pool, _company_id, _paket),
 )

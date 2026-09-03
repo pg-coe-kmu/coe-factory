@@ -21,11 +21,34 @@ from bc1_core.core import (MandantKonfliktError, PaketKonfliktError,
 from bc1_core.llm import LLMClient
 from bc1_core.package import UseCasePackage
 from bc1_core.store import StaleStateError, StateStore
+from bc1_service.profil_writer import ProfilWriteError, ProfilWriter
 
 # Fester, LLM-freier Wortlaut (Spec K0): keine Halluzinationsflaeche im
 # Terminalzustand, und der Text bleibt ueber Neustarts identisch.
 ABBRUCH_TEXT = ("Wir konnten den Prozess-Schritt nicht eindeutig zuordnen. "
                 "Bitte starten Sie neu und wählen Sie einen Schritt aus der Liste.")
+
+# Diese Keys kommen bei einer fertig-Antwort aus der DB, nicht aus dem Kern
+# (Spec K3.3): der Sweep kann Werte und Zaehler veraendert haben, nachdem der
+# Kern seine Antwort schon formuliert hatte. Direkter Zugriff, kein `if k in`:
+# baue_profilinhalt setzt alle sechs ausnahmslos, und eine Zeile ohne sie kann
+# es nicht geben (Task 14/15 sind die erste schreibende Version). Ein fehlender
+# Schluessel waere ein Widerspruch und soll laut scheitern — wie im Writer.
+# `pflicht_gesamt` ist heute wirkungslos (Kern und DB liefern dieselbe Zahl),
+# steht aber normativ im Schluesselsatz (Review 03.09.).
+OVERLAY_SCHLUESSEL = ("felder", "vollstaendigkeit", "ungeloeste_felder",
+                      "pflicht_erfasst", "pflicht_gesamt", "befunde")
+
+# Post-Sweep-Hinweise (Spec R9-I1/R10-I1): der Kern laesst den Abschlusstext
+# formulieren, BEVOR der Sweep laeuft. Hat der Sweep etwas veraendert, haengt
+# die API diesen festen Zusatz an — kein zweiter LLM-Aufruf.
+HINWEIS_UNGELOEST = (
+    "Hinweis: Eine genannte System-Angabe ist im Verzeichnis des Mandanten nicht "
+    "(mehr) vorhanden und wurde entfernt; das betroffene Feld gilt damit als offen.")
+HINWEIS_GUELTIG = (
+    "Hinweis: Eine genannte System-Kennung ist im Verzeichnis des Mandanten nicht "
+    "(mehr) vorhanden und wurde aus der Angabe entfernt; die übrige Angabe bleibt "
+    "erhalten.")
 
 
 class TurnRequest(BaseModel):
@@ -44,6 +67,7 @@ def create_app(
     lifespan=None,
     *,
     company_id: str,
+    writer: ProfilWriter | None = None,
 ) -> FastAPI:
     # lifespan: Aufhaenger fuers Hoch-/Herunterfahren (main.py schliesst dort
     # den Store). Die Factory kennt den Inhalt nicht — nur den Durchreicher.
@@ -119,6 +143,26 @@ def create_app(
                 # Verlorener Schreib-Wettlauf: fachlich ein Konflikt, kein
                 # Serverfehler. Der Client darf die Nachricht wiederholen.
                 raise HTTPException(status_code=409, detail="gleichzeitige_anfrage")
+            if writer is not None:
+                stand = store.load(req.session_id)
+                # Nach JEDEM load als Erstes (R12-I1) — auch vor dem Reconcile:
+                # sonst ginge ein fremder Zustand in den Writer, der mit SEINER
+                # company_id schreibt (gemessen: Zeile entsteht, 200 statt 409).
+                try:
+                    pruefe_mandant(stand, company_id)
+                except MandantKonfliktError:
+                    raise HTTPException(status_code=409, detail="mandant_konflikt")
+                try:
+                    db_profil = writer.reconcile(stand, antwort)
+                except ProfilWriteError:
+                    # Terminal-Postcondition (Spec K3.3): die Antwort wird NICHT
+                    # ausgeliefert. Der Retry derselben message_id faehrt den
+                    # kompletten Reconcile erneut und antwortet erst nach Erfolg.
+                    raise HTTPException(status_code=503,
+                                        detail="profil_write_fehlgeschlagen")
+                if db_profil is not None:
+                    antwort["payload"].update(
+                        {k: db_profil[k] for k in OVERLAY_SCHLUESSEL})
             antwort["chat_text"] = _chat_text(antwort)
             return antwort
 
@@ -135,6 +179,26 @@ def _fortschrittszeile(p: dict) -> str:
             "Pflichtfeldern erfasst")
 
 
+def _sweep_hinweise(p: dict) -> str:
+    """Fester Zusatz aus dem persistenten Befund — deterministisch, kein LLM.
+
+    Quelle ist ausschliesslich der ueberlagerte Payload; dadurch identisch nach
+    Neustart und pro Auslieferung genau einmal (R10-I2).
+    """
+    befunde = p.get("befunde", {}).get("snn_entfernt", [])
+    texte: list[str] = []
+    for befund in befunde:                       # Paket-Feldreihenfolge
+        # Ausdrueckliche Zuordnung statt if/else: der Writer schreibt heute nur
+        # diese beiden Werte (profil_writer.wende_sweep_an). Ein spaeter
+        # hinzukommender dritter Status bekaeme sonst still den Gueltig-Text —
+        # eine falsche Aussage gegenueber dem Nutzer (Codex-Review 03.09.).
+        text = {"ungeloest": HINWEIS_UNGELOEST,
+                "gueltig": HINWEIS_GUELTIG}.get(befund.get("feld_status_danach"))
+        if text is not None and text not in texte:   # dedupliziert (R11-I2)
+            texte.append(text)
+    return "".join("\n\n" + text for text in texte)
+
+
 def _chat_text(antwort: dict) -> str:
     if antwort["status"] == "abgebrochen_ohne_identitaet":
         return ABBRUCH_TEXT           # bewusst ohne Fortschrittszeile: fester Text
@@ -145,6 +209,7 @@ def _chat_text(antwort: dict) -> str:
         p = antwort["payload"]
         return ((p.get("abschluss_text")
                  or "Danke! Das Interview ist abgeschlossen.")
+                + _sweep_hinweise(p)
                 + _fortschrittszeile(p))
     return ("Da ist gerade etwas schiefgegangen — "
             "bitte schick deine Nachricht einfach noch einmal.")
