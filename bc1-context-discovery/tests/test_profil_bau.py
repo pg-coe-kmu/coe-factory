@@ -66,6 +66,31 @@ def _bau(state, kp_bekannt=lambda kp: kp in {"KP-01", "KP-02"},
                              bekannte_systeme=bekannte_systeme)
 
 
+def test_auch_zahl_und_textspalten_kommen_aus_dem_gesweepten_wert():
+    # Codex-Review 03.09.: Meine Begruendung "fuer diese Spalten ist ein gueltiger
+    # Wert mit S-NN-Token unerreichbar" gilt nur fuer die Feldtypen des heutigen
+    # Discovery-Pakets. Die Schnittstelle ist aber ausdruecklich generisch — ein
+    # Paket darf dieselben spaltenspeisenden Felder als FREITEXT fuehren, und dann
+    # ist '42 (S-99)' gueltig. Ohne den Sweep davor bekaeme numeric '42 (S-99)'
+    # und die Textspalte 'gemessen (S-99)'.
+    freitext_paket = UseCasePackage(
+        name="discovery", schema_version="1.1+ctx-dddddddddddddddd",
+        fields=(
+            FieldSpec("focus_step", "Welcher Schritt?", typ=AUSWAHL("KP-01.TP-1"),
+                      identitaetskritisch=True),
+            FieldSpec("frequency_per_year", "Wie oft?"),
+            FieldSpec("focus_step_duration_source", "Woher die Dauer?"),
+        ),
+    )
+    st = _state(focus_step=("KP-01.TP-1", FieldStatus.GUELTIG),
+                frequency_per_year=("42 (S-99)", FieldStatus.GUELTIG),
+                focus_step_duration_source=("gemessen (S-99)", FieldStatus.GUELTIG))
+    inhalt = baue_profilinhalt(st, freitext_paket, kp_bekannt=lambda kp: False,
+                               bekannte_systeme=frozenset({"S-01"}))
+    assert inhalt.spalten["frequency_per_year"] == Decimal("42")
+    assert inhalt.spalten["focus_step_duration_source"] == "gemessen"
+
+
 def test_spalten_werden_aus_dem_gesweepten_wert_abgeleitet():
     # Entscheidung Richard 02.09. (Option a): Der S-NN-Sweep laeuft VOR der
     # Spaltenableitung. Sonst entstehen zwei Wahrheiten — gemessen: die Spalte

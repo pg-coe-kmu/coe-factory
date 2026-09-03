@@ -4,8 +4,14 @@ from psycopg_pool import ConnectionPool
 from bc1_core.feldtypen import AUSWAHL
 from bc1_core.package import FieldSpec, UseCasePackage
 from bc1_core.types import FieldStatus, FieldValue, SessionState
+from bc1_service import bc0_lesepfade
 from bc1_service.paket_feldtypen import baue_system_typ
-from bc1_service.profil_writer import ProfilWriteError, ProfilWriter
+from bc1_service.profil_writer import (
+    GRUND_SNN_ENTFALLEN,
+    Bindung,
+    ProfilWriteError,
+    ProfilWriter,
+)
 from tests.db_fixture import DSN, MANDANT_A, MANDANT_B, frische_db, verbindung
 
 pytestmark = pytest.mark.skipif(not DSN, reason="BC1_TEST_DB_DSN nicht gesetzt")
@@ -18,6 +24,10 @@ PAKET = UseCasePackage(
                   identitaetskritisch=True),
         FieldSpec("focus_step_systems", "Welche Systeme?",
                   typ=baue_system_typ(frozenset({"S-01", "S-02"}))),
+        # Ohne dieses Feld war die kp_existiert-Verdrahtung des Writers nicht
+        # pruefbar: _payload_wert findet nur, was im Paket steht (Review 03.09.,
+        # per Mutation belegt — die Assertion lief vorher ins Leere).
+        FieldSpec("upstream_process", "Was kommt davor?", required=False),
     ),
 )
 FERTIG = {"status": "fertig", "payload": {}}
@@ -122,6 +132,36 @@ def test_fremder_draft_wird_einmal_gemeldet_und_nicht_bei_jedem_turn(pool, caplo
     assert caplog.text.count("fremder_draft_konflikt") == 1
 
 
+def test_der_fehlerlog_traegt_keinen_payload_inhalt(pool, caplog):
+    # Review 03.09.: grund=%r trug Postgres' DETAIL-Zeile ins Log, und die enthaelt
+    # einen Ausschnitt der eingefuegten Zeile — inklusive Profil-JSON. Dass darin
+    # heute kein Nutzertext steht, war Zufall der JSON-Schluesselordnung. Nach K-I
+    # wird sowas nicht mit "passt schon" abgehakt.
+    with verbindung(DSN, None) as conn:                # CHECK-Verletzung erzwingen
+        conn.execute("ALTER TABLE bc1.prozessprofil "
+                     "ADD CONSTRAINT tmp_immer_falsch CHECK (false) NOT VALID")
+        conn.commit()
+    writer = ProfilWriter(pool, MANDANT_A, PAKET)
+    with caplog.at_level("WARNING"):
+        assert writer.reconcile(_state(), FRAGE) is None
+    assert "profil_write_uebersprungen" in caplog.text     # gemeldet wird trotzdem
+    assert "Failing row contains" not in caplog.text
+    assert "felder" not in caplog.text
+
+
+def test_erste_konfliktmeldung_kommt_auch_direkt_nach_dem_systemstart(pool, caplog,
+                                                                     monkeypatch):
+    # Der Vergleich lief gegen den Default 0.0. Liegt time.monotonic() noch unter
+    # dem Abstand — also kurz nach dem Systemstart —, galt der allererste Konflikt
+    # als "schon gemeldet" und verschwand (Codex-Review 03.09., gemessen).
+    monkeypatch.setattr("bc1_service.profil_writer.time.monotonic", lambda: 30.0)
+    writer = ProfilWriter(pool, MANDANT_A, PAKET)
+    writer.reconcile(_state(session_id="fremd"), FRAGE)
+    with caplog.at_level("WARNING"):
+        writer.reconcile(_state(session_id="s2"), FRAGE)
+    assert "fremder_draft_konflikt" in caplog.text
+
+
 def test_auch_der_rebind_konflikt_wird_gemeldet(pool, caplog):
     # Zwei Pfade koennen an einem belegten Ziel scheitern — Neuanlage und Rebind.
     # Ohne diesen Test meldet nur einer von beiden, und der Rebind-Konflikt bliebe
@@ -190,11 +230,29 @@ def test_fremder_draft_im_terminal_turn_erzeugt_503(pool):
 def test_abbruch_raeumt_den_gebundenen_draft(pool):
     writer = ProfilWriter(pool, MANDANT_A, PAKET)
     writer.reconcile(_state(), FRAGE)
+    # Ohne diese Zeile war der Test auch mit einem Writer gruen, der gar nichts
+    # tut — "aufgeraeumt" und "nie angelegt" sahen gleich aus (Review 03.09.).
+    assert _zeilen() == [("KP-01.TP-1", 1, "in_erhebung")]
     assert writer.reconcile(_state(), ABBRUCH) is None
     assert _zeilen() == []
     with verbindung(DSN) as conn:
         assert conn.execute("SELECT count(*) FROM bc1.profil_write_status"
                             ).fetchone()[0] == 0            # CASCADE raeumt mit
+
+
+def test_abbruch_raeumt_auch_wenn_der_profilbau_scheitert(pool, monkeypatch):
+    # Review 03.09.: Der Abbruch braucht den Profilinhalt gar nicht — er muss VOR
+    # dem Bau behandelt werden. Lief der Bau zuerst, riss jeder Fehler darin (hier
+    # stellvertretend der BC0-Systemlookup) das Aufraeumen mit: der Draft blieb
+    # verwaist stehen und belegte den UNIQUE-Slot des Fokus-Schritts.
+    writer = ProfilWriter(pool, MANDANT_A, PAKET)
+    writer.reconcile(_state(), FRAGE)
+    assert _zeilen() == [("KP-01.TP-1", 1, "in_erhebung")]      # Draft steht wirklich
+    monkeypatch.setattr(
+        bc0_lesepfade, "system_ids",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("BC0-Systemlookup kaputt")))
+    assert writer.reconcile(_state(), ABBRUCH) is None
+    assert _zeilen() == []
 
 
 def test_unklar_allein_loescht_den_draft_noch_nicht(pool):
@@ -208,21 +266,105 @@ def test_unklar_allein_loescht_den_draft_noch_nicht(pool):
     assert _zeilen() == [("KP-01.TP-1", 1, "in_erhebung")]
 
 
+def test_vom_sweep_entfernte_identitaet_meldet_sauber_statt_abzustuerzen(pool):
+    # Seit der Sweep vor der Ableitung laeuft, kann er die Identitaet selbst
+    # treffen: der Payload traegt danach None, und die Ableitung lief in einen
+    # AttributeError (Review 03.09. gemessen). Mit dem echten Discovery-Paket
+    # unerreichbar — BC0s TP-IDs enthalten keine S-NN-Kennung —, aber der
+    # Sweep-Docstring fordert genau hier einen Guard.
+    ident_ist_system = UseCasePackage(
+        name="discovery", schema_version="1.1+ctx-cccccccccccccccc",
+        fields=(FieldSpec("focus_step", "Welcher Schritt?",
+                          typ=baue_system_typ(frozenset({"S-01", "S-02"})),
+                          identitaetskritisch=True),))
+    writer = ProfilWriter(pool, MANDANT_A, ident_ist_system)
+    with pytest.raises(ProfilWriteError, match="Completion-Guard"):
+        writer.reconcile(_state(tp="S-99"), FERTIG)
+    assert writer.reconcile(_state(tp="S-99"), FRAGE) is None
+    assert _zeilen() == []
+
+
+def test_bc0_verdrahtung_filtert_den_mandanten(pool):
+    # Review 03.09.: Kein Test setzte je focus_step_systems oder upstream_process —
+    # die beiden BC0-Zulieferungen des Writers waren voellig ungedeckt. Ein
+    # Aufruf ohne company_id (oder mit den Systemen ALLER Mandanten) fiel nirgends
+    # auf, ausgerechnet an der Stelle, die BC0-Auflage 1.4 erfuellen soll.
+    # S-03 gehoert nur B, KP-03 gibt es nur bei B.
+    zustand = _state(focus_step_systems=("S-03", FieldStatus.GUELTIG),
+                     upstream_process=("KP-03", FieldStatus.GUELTIG))
+    payload = ProfilWriter(pool, MANDANT_A, PAKET).reconcile(zustand, FERTIG)
+
+    systeme = payload["felder"]["focus_step_systems"]
+    assert systeme["wert"] is None                       # S-03 weggesweept
+    assert systeme["grund"] == GRUND_SNN_ENTFALLEN
+    with verbindung(DSN) as conn:
+        assert conn.execute(
+            "SELECT upstream_process_id FROM bc1.prozessprofil "
+            "WHERE company_id = %s", (MANDANT_A,)).fetchone()[0] is None
+
+
+def test_replay_liefert_das_gespeicherte_profil_nicht_das_frisch_gebaute(pool):
+    # Der Replay-Test nebenan prueft nur "nicht None" — eine Implementierung, die
+    # inhalt.profil zurueckgibt statt der DB-Zeile, bliebe unentdeckt (Review
+    # 03.09.). Deshalb traegt der Replay-Turn einen ZUSAETZLICHEN Feldwert: der
+    # frisch gebaute Payload haette ihn, der eingefrorene nicht. Massgeblich ist
+    # der eingefrorene — spaetere Eingaben duerfen ein fertiges Profil nicht mehr
+    # veraendern.
+    writer = ProfilWriter(pool, MANDANT_A, PAKET)
+    erster = writer.reconcile(_state(), FERTIG)
+    assert erster["felder"]["focus_step_systems"]["wert"] is None
+
+    spaeter = _state(focus_step_systems=("S-01", FieldStatus.GUELTIG))
+    payload = writer.reconcile(spaeter, FERTIG)
+    assert payload["felder"]["focus_step_systems"]["wert"] is None
+
+
+def test_freeze_der_keine_zeile_trifft_ist_ein_503(pool, monkeypatch):
+    # Wettlauf: zwischen Bindungssuche und Freeze friert jemand anderes die Zeile
+    # ein. Der Freeze trifft dann 0 Zeilen. Ohne den rowcount-Wachter ginge der
+    # Payload trotzdem raus — genau der K3.3-Bruch (Review 03.09., dort im echten
+    # Wettlauf gemessen; hier deterministisch ueber einen veralteten Bindungsstand).
+    writer = ProfilWriter(pool, MANDANT_A, PAKET)
+    writer.reconcile(_state(), FERTIG)                    # Zeile steht auf 'fertig'
+    veraltet = Bindung("KP-01.TP-1", 1, "in_erhebung")    # Stand von VOR dem Freeze
+    monkeypatch.setattr(ProfilWriter, "_bindung",
+                        lambda self, conn, session_id: veraltet)
+    with pytest.raises(ProfilWriteError, match="Freeze traf 0 Zeilen"):
+        writer.reconcile(_state(session_id="s2"), FERTIG)
+
+
+def test_fertig_ohne_gueltige_identitaet_ist_ein_503(pool):
+    # Der Completion-Guard war ungetestet: eine Implementierung, die hier None
+    # zurueckgibt statt zu werfen, liess alle Tests gruen (Review 03.09.).
+    writer = ProfilWriter(pool, MANDANT_A, PAKET)
+    writer.reconcile(_state(), FRAGE)
+    unklar = _state()
+    unklar.values["focus_step"].status = FieldStatus.UNKLAR
+    with pytest.raises(ProfilWriteError, match="Completion-Guard"):
+        writer.reconcile(unklar, FERTIG)
+    assert _zeilen() == [("KP-01.TP-1", 1, "in_erhebung")]   # Draft unangetastet
+
+
 def test_gueltig_unklar_abbruch_raeumt_den_draft(pool):
     writer = ProfilWriter(pool, MANDANT_A, PAKET)
     writer.reconcile(_state(), FRAGE)
     unklar = _state()
     unklar.values["focus_step"].status = FieldStatus.UNKLAR
     writer.reconcile(unklar, FRAGE)
+    assert _zeilen() == [("KP-01.TP-1", 1, "in_erhebung")]   # steht wirklich noch
     assert writer.reconcile(unklar, ABBRUCH) is None
     assert _zeilen() == []
 
 
 def test_bewertung_nach_sitzungsstart_verworfen_erzeugt_im_terminal_turn_503(pool):
-    # Wettlauf: der State traegt einen Teilprozess, der zur Laufzeit keine aktuelle
-    # Bewertung (mehr) hat. Seit Task 10b ist das im Regelbetrieb nicht mehr waehlbar;
-    # ErhebungFehltError wird NICHT gefangen, der generische Fehlerpfad macht daraus
-    # im Terminal-Turn einen 503 und in nicht-terminalen Turns einen Log-Eintrag.
+    # Der State traegt einen Teilprozess ohne aktuelle Bewertung. ErhebungFehltError
+    # wird NICHT gefangen: der generische Fehlerpfad macht daraus im Terminal-Turn
+    # einen 503 und sonst einen Log-Eintrag.
+    # ABGEDECKT ist damit nur der Fall OHNE bestehenden Draft — dort laeuft der
+    # Erhebungs-Lookup beim Einfuegen. Steht der Draft schon (Regelbetrieb ab
+    # Turn 1), greift der Schutz NICHT: der Freeze prueft die Erhebung nicht nach,
+    # das Profil wird auf eine inzwischen verworfene Erhebung eingefroren. Im
+    # Review 03.09. gemessen, nachgehalten als Klaerpunkt K-K.
     writer = ProfilWriter(pool, MANDANT_A, PAKET)
     with pytest.raises(ProfilWriteError):
         writer.reconcile(_state(tp="KP-01.TP-3"), FERTIG)
@@ -237,21 +379,22 @@ def test_paket_ohne_identitaetsfeld_schreibt_nichts(pool):
 
 
 def test_bindung_wird_nur_im_eigenen_mandanten_gefunden(pool):
-    # session_id ist globaler Primaerschluessel von profil_write_status — zwei
-    # Mandanten koennen sie sich also nie teilen. Geprueft wird deshalb: der
-    # Writer von B findet die Bindung von A NICHT und legt seine eigene an.
-    ProfilWriter(pool, MANDANT_A, PAKET).reconcile(_state(session_id="s-a"), FRAGE)
+    # Review 03.09.: Die alte Fassung nahm zwei VERSCHIEDENE session_ids — damit
+    # konnte die Bindungssuche die fremde Zeile ohnehin nie finden, der Test war
+    # wirkungslos. Scharf wird es erst so: A haelt die (global vergebene) Sitzung
+    # 's1'. B bekommt einen Abbruch-Turn mit derselben ID, hat aber selbst einen
+    # Draft aus einer ANDEREN Sitzung. Ohne company_id in der Bindungssuche findet
+    # B die Bindung von A, und A's Sitzungszustand entscheidet, welche Zeile von B
+    # geloescht wird.
+    ProfilWriter(pool, MANDANT_A, PAKET).reconcile(_state(session_id="s1"), FRAGE)
     ProfilWriter(pool, MANDANT_B, PAKET).reconcile(
-        _state(session_id="s-b", mandant=MANDANT_B), FRAGE)
-    with verbindung(DSN) as conn:
-        paare = conn.execute(
-            "SELECT w.session_id, w.company_id FROM bc1.profil_write_status w "
-            "ORDER BY w.session_id").fetchall()
-    assert [(z[0], str(z[1])) for z in paare] == [
-        ("s-a", MANDANT_A), ("s-b", MANDANT_B)]
-    with verbindung(DSN) as conn:
-        assert conn.execute("SELECT count(DISTINCT company_id) "
-                            "FROM bc1.prozessprofil").fetchone()[0] == 2
+        _state(session_id="andere", mandant=MANDANT_B), FRAGE)
+    vorher = _zeilen("company_id, focus_step_id")
+    assert len(vorher) == 2
+
+    ProfilWriter(pool, MANDANT_B, PAKET).reconcile(
+        _state(session_id="s1", mandant=MANDANT_B), ABBRUCH)
+    assert _zeilen("company_id, focus_step_id") == vorher     # nichts angefasst
 
 
 def test_zweites_interview_bekommt_version_zwei(pool):

@@ -1,7 +1,9 @@
 """Profil-Writer: baut aus dem SessionState die Profilzeile und gleicht sie mit
 der Datenbank ab (Reconcile-Modell, Spec K3).
 
-Dieser Teil ist DB-frei und rein: Bau der typisierten Spalten und des JSON.
+Zwei Haelften: `baue_profilinhalt` und `wende_sweep_an` sind DB-frei und rein
+(Bau der typisierten Spalten und des JSON); `ProfilWriter` darunter fuehrt den
+Abgleich in einer eigenen Transaktion aus.
 """
 from __future__ import annotations
 
@@ -42,6 +44,17 @@ _ZAHLENSPALTEN = {
 _TEXTSPALTEN = {"focus_step_duration_source": "focus_step_duration_source"}
 _GANZZAHLSPALTEN = {
     "focus_step_duration_confidence_pct": "focus_step_duration_confidence_pct"}
+
+
+def _fehlergrund(fehler: Exception) -> str:
+    """Fehlerkennung fuers Log — ohne Nutzdaten.
+
+    Postgres haengt an einen Constraint-Fehler eine DETAIL-Zeile mit einem
+    Ausschnitt der betroffenen Zeile. Bei uns steht dort das Profil-JSON und
+    damit Nutzertext. Deshalb nur Klasse und erste Meldungszeile: die benennt
+    Tabelle und Constraint und reicht zur Diagnose (R11-I1, wie beim S-NN-Log).
+    """
+    return f"{type(fehler).__name__}: {str(fehler).split(chr(10), 1)[0]}"
 
 
 class ProfilWriteError(RuntimeError):
@@ -137,6 +150,12 @@ def baue_profilinhalt(state: SessionState, package: UseCasePackage, *,
                    session_id=state.session_id)
 
     focus_step_id = _payload_wert(profil, "focus_step")
+    if focus_step_id is None:
+        # Der Sweep hat die Identitaet selbst getroffen. Mit BC0s TP-IDs
+        # unerreichbar (kein S-NN darin), aber genau der Guard, den der
+        # Docstring von wende_sweep_an fordert — ohne ihn liefe die Ableitung
+        # unten in einen AttributeError statt in den Completion-Guard.
+        return None
     # Identitaet allein aus der TP-ID (R4-C1): der DDL-CHECK
     # 'focus_step_id LIKE process_id||".%"' ist damit per Konstruktion erfuellt.
     process_id = focus_step_id.split(".", 1)[0]
@@ -319,24 +338,28 @@ class ProfilWriter:
                     f"Profil-Write im Terminal-Turn fehlgeschlagen: {fehler}"
                 ) from fehler
             # Nicht-terminale Turns blockieren nicht — der naechste reconcilet.
-            log.warning("profil_write_uebersprungen session=%s grund=%r",
-                        state.session_id, fehler)
+            log.warning("profil_write_uebersprungen session=%s grund=%s",
+                        state.session_id, _fehlergrund(fehler))
             return None
 
     # ---- innerhalb EINER Transaktion ------------------------------------
     def _abgleich(self, state: SessionState, antwort: dict) -> dict | None:
         with self._pool.connection() as conn:          # eine Transaktion
+            bindung = self._bindung(conn, state.session_id)
+            # Der Abbruch braucht den Profilinhalt nicht — und er wird VOR dem Bau
+            # behandelt: sonst reisst jeder Fehler beim Bau das Aufraeumen mit, und
+            # ein ProfilWriteError von dort wuerde den Abbruch zum 503 machen. Fuer
+            # abgebrochen_ohne_identitaet gilt die Postcondition ausdruecklich nicht.
+            if antwort["status"] == "abgebrochen_ohne_identitaet":
+                if bindung is not None:
+                    self._draft_aufraeumen(conn, bindung, state.session_id)
+                return None
             inhalt = baue_profilinhalt(
                 state, self._package,
                 kp_bekannt=lambda kp: bc0_lesepfade.kp_existiert(
                     conn, self._company_id, kp),
                 bekannte_systeme=frozenset(
                     bc0_lesepfade.system_ids(conn, self._company_id)))
-            bindung = self._bindung(conn, state.session_id)
-            if antwort["status"] == "abgebrochen_ohne_identitaet":
-                if bindung is not None:
-                    self._draft_aufraeumen(conn, bindung, state.session_id)
-                return None
             if inhalt is None:
                 # Keine gueltige Identitaet in diesem Turn. Der Draft bleibt
                 # stehen: eine Klaerung kann den alten Wert bestaetigen (R6-C1).
@@ -414,7 +437,11 @@ class ProfilWriter:
         # ohne Begrenzung schriebe jeder Turn dieselbe Zeile (Spec K3.2).
         jetzt = time.monotonic()
         schluessel = f"{session_id}|{focus_step_id}"
-        if jetzt - self._konflikt_zuletzt.get(schluessel, 0.0) < KONFLIKT_LOG_ABSTAND_S:
+        # None statt 0.0 als Default: time.monotonic() startet je nach System nahe
+        # null, ein Vergleich gegen 0.0 haette den ERSTEN Konflikt kurz nach dem
+        # Systemstart als "schon gemeldet" verschluckt.
+        zuletzt = self._konflikt_zuletzt.get(schluessel)
+        if zuletzt is not None and jetzt - zuletzt < KONFLIKT_LOG_ABSTAND_S:
             return
         self._konflikt_zuletzt[schluessel] = jetzt
         log.warning("fremder_draft_konflikt session=%s schritt=%s mandant=%s",
