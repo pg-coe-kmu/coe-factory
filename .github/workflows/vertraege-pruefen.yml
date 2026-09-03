@@ -34,7 +34,12 @@ jobs:
           from jsonschema import Draft202012Validator
 
           BASIS = "contracts/bc3-to-bc4"
-          PFLICHT = ["ticket_set.json", "blueprint.json", "architecture.md", "api/openapi.yaml"]
+          # api/openapi.yaml fehlt bewusst: nicht jede Lieferung betrifft eine
+          # Schnittstelle von BC4. Bei UC2 (Wissensbasis) und UC3 (Consultant
+          # Placement) ueberspringt der Slicer die API-Stufen, dort gibt es
+          # keine Spezifikation - das ist richtig und darf nicht rot werden.
+          PFLICHT = ["ticket_set.json", "blueprint.json", "architecture.md"]
+          FREIWILLIG = ["api/openapi.yaml"]
           fehler = []
 
           schemapfad = f"{BASIS}/tickets.schema.json"
@@ -79,6 +84,10 @@ jobs:
               fehlend = [d for d in PFLICHT if not os.path.exists(os.path.join(o, d))]
               if fehlend and os.path.basename(tickets) == "ticket_set.json":
                   fehler.append(f"{name}: es fehlen {', '.join(fehlend)}")
+              ohne = [d for d in FREIWILLIG if not os.path.exists(os.path.join(o, d))]
+              if ohne:
+                  print(f"HINWEIS {name}: ohne {', '.join(ohne)} - "
+                        f"betrifft diese Lieferung keine Schnittstelle von BC4?")
 
               if not verstoesse:
                   epics = len(daten.get("epics", []))
