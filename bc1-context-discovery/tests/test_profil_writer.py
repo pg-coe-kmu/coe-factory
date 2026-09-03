@@ -111,6 +111,55 @@ def test_rebind_konflikt_laesst_den_alten_draft_stehen(pool):
             "WHERE session_id = 's1'").fetchone()[0] == "KP-01.TP-1"
 
 
+def test_fremder_draft_wird_einmal_gemeldet_und_nicht_bei_jedem_turn(pool, caplog):
+    # Spec K3.2: der Konflikt ist STABIL — er besteht in jedem Folgeturn weiter.
+    # Ohne Ratenbegrenzung schriebe jeder Turn dieselbe Zeile ins Log.
+    writer = ProfilWriter(pool, MANDANT_A, PAKET)
+    writer.reconcile(_state(session_id="fremd"), FRAGE)
+    with caplog.at_level("WARNING"):
+        for _ in range(3):
+            writer.reconcile(_state(session_id="s2"), FRAGE)
+    assert caplog.text.count("fremder_draft_konflikt") == 1
+
+
+def test_auch_der_rebind_konflikt_wird_gemeldet(pool, caplog):
+    # Zwei Pfade koennen an einem belegten Ziel scheitern — Neuanlage und Rebind.
+    # Ohne diesen Test meldet nur einer von beiden, und der Rebind-Konflikt bliebe
+    # im Betrieb unsichtbar.
+    writer = ProfilWriter(pool, MANDANT_A, PAKET)
+    writer.reconcile(_state(session_id="s1", tp="KP-01.TP-1"), FRAGE)
+    ProfilWriter(pool, MANDANT_A, PAKET).reconcile(
+        _state(session_id="fremd", tp="KP-01.TP-2"), FRAGE)
+    with caplog.at_level("WARNING"):
+        writer.reconcile(_state(session_id="s1", tp="KP-01.TP-2"), FRAGE)
+    assert "fremder_draft_konflikt" in caplog.text
+    assert "schritt=KP-01.TP-2" in caplog.text
+
+
+def test_fehler_fortsetzbar_schreibt_nichts(pool):
+    # Der Turn ist fachlich nicht zustandegekommen — es gibt nichts abzugleichen,
+    # und ein Draft aus einem frueheren Turn bleibt unangetastet.
+    writer = ProfilWriter(pool, MANDANT_A, PAKET)
+    assert writer.reconcile(_state(), {"status": "fehler_fortsetzbar",
+                                       "payload": {}}) is None
+    assert _zeilen() == []
+
+
+def test_rebind_konflikt_im_terminal_turn_erzeugt_503(pool):
+    # Ohne eigene Bindung auf dem neuen Fokus-Schritt darf keine fertig-Antwort
+    # rausgehen (Postcondition K3.3). Der Meldungstext ist mitgeprueft: sonst
+    # traegt der generische Fehlerpfad einen AttributeError nach aussen, und im
+    # Log stuende nicht, WAS blockiert hat.
+    writer = ProfilWriter(pool, MANDANT_A, PAKET)
+    writer.reconcile(_state(session_id="s1", tp="KP-01.TP-1"), FRAGE)
+    ProfilWriter(pool, MANDANT_A, PAKET).reconcile(
+        _state(session_id="fremd", tp="KP-01.TP-2"), FRAGE)
+    with pytest.raises(ProfilWriteError, match="Rebind-Ziel"):
+        writer.reconcile(_state(session_id="s1", tp="KP-01.TP-2"), FERTIG)
+    assert _zeilen() == [("KP-01.TP-1", 1, "in_erhebung"),
+                         ("KP-01.TP-2", 1, "in_erhebung")]
+
+
 def test_kp_feld_aenderung_loest_keinen_rebind_aus(pool):
     writer = ProfilWriter(pool, MANDANT_A, PAKET)
     writer.reconcile(_state(), FRAGE)

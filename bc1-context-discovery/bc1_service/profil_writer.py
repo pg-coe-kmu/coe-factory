@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
@@ -28,6 +29,8 @@ KP_MUSTER = re.compile(r"^KP-[0-9]{2}$")
 
 # Neue stabile Grund-Konstante neben GRUND_NACHFRAGE_LIMIT / GRUND_RUNDEN_LIMIT.
 GRUND_SNN_ENTFALLEN = "systemreferenz_beim_schreiben_entfallen"
+
+KONFLIKT_LOG_ABSTAND_S = 60.0      # Rate-Limit fuer den stabilen Konflikt-Log
 
 # Spalte -> Feldname. Nur gueltige Werte werden konvertiert.
 _ZAHLENSPALTEN = {
@@ -299,10 +302,13 @@ class ProfilWriter:
         # damit kein Profil (z. B. Toy-Paket) — der Writer haelt sich raus.
         self._schreibt = any(s.identitaetskritisch
                              for s in package.required_fields())
+        self._konflikt_zuletzt: dict[str, float] = {}
 
     def reconcile(self, state: SessionState, antwort: dict) -> dict | None:
         if not self._schreibt:
             return None
+        if antwort["status"] == "fehler_fortsetzbar":
+            return None                # kein zustandegekommener Turn, nichts abzugleichen
         try:
             return self._abgleich(state, antwort)
         except ProfilWriteError:
@@ -341,6 +347,11 @@ class ProfilWriter:
                 return None
             if bindung is not None and bindung.focus_step_id != inhalt.focus_step_id:
                 bindung = self._umbinden(conn, state, inhalt, bindung)
+                if bindung is None:
+                    if antwort["status"] == "fertig":
+                        raise ProfilWriteError(
+                            "Rebind-Ziel ist von einem fremden Draft belegt")
+                    return None                     # alter Draft steht noch
             elif bindung is None:
                 bindung = self._draft_anlegen(conn, state, inhalt)
                 if bindung is None:                     # fremder Draft
@@ -395,9 +406,21 @@ class ProfilWriter:
             with conn.transaction():
                 return self._einfuegen(conn, state, inhalt)
         except UniqueViolation:
+            self._konflikt_melden(state.session_id, inhalt.focus_step_id)
             return None
 
-    def _umbinden(self, conn, state, inhalt, alt: Bindung) -> Bindung:
+    def _konflikt_melden(self, session_id: str, focus_step_id: str) -> None:
+        # Stabiler Konflikt, rate-limitiert: er besteht in JEDEM Folgeturn weiter,
+        # ohne Begrenzung schriebe jeder Turn dieselbe Zeile (Spec K3.2).
+        jetzt = time.monotonic()
+        schluessel = f"{session_id}|{focus_step_id}"
+        if jetzt - self._konflikt_zuletzt.get(schluessel, 0.0) < KONFLIKT_LOG_ABSTAND_S:
+            return
+        self._konflikt_zuletzt[schluessel] = jetzt
+        log.warning("fremder_draft_konflikt session=%s schritt=%s mandant=%s",
+                    session_id, focus_step_id, self._company_id)
+
+    def _umbinden(self, conn, state, inhalt, alt: Bindung) -> Bindung | None:
         """Alten Draft loeschen und neu binden — ganz oder gar nicht.
 
         Loeschen und Neuanlage liegen in EINEM Savepoint: sonst waere bei einem
@@ -413,6 +436,7 @@ class ProfilWriter:
                 return self._einfuegen(conn, state, inhalt)
         except UniqueViolation:
             # Rollback bis zum Savepoint: alter Draft UND Bindung stehen noch.
+            self._konflikt_melden(state.session_id, inhalt.focus_step_id)
             return None
 
     def _einfuegen(self, conn, state, inhalt) -> Bindung:
