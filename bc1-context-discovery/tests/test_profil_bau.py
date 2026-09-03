@@ -60,8 +60,21 @@ def _state(**werte):
     return st
 
 
-def _bau(state, kp_bekannt=lambda kp: kp in {"KP-01", "KP-02"}):
-    return baue_profilinhalt(state, PAKET, kp_bekannt=kp_bekannt)
+def _bau(state, kp_bekannt=lambda kp: kp in {"KP-01", "KP-02"},
+         bekannte_systeme=frozenset({"S-01", "S-02"})):
+    return baue_profilinhalt(state, PAKET, kp_bekannt=kp_bekannt,
+                             bekannte_systeme=bekannte_systeme)
+
+
+def test_spalten_werden_aus_dem_gesweepten_wert_abgeleitet():
+    # Entscheidung Richard 02.09. (Option a): Der S-NN-Sweep laeuft VOR der
+    # Spaltenableitung. Sonst entstehen zwei Wahrheiten — gemessen: die Spalte
+    # bleibt NULL (weil 'KP-02 (S-99)' kein fullmatch ist), waehrend der Sweep
+    # im JSON 'KP-02' daraus macht. Gate 0 und BC2 saehen Verschiedenes.
+    inhalt = _bau(_state(focus_step=("KP-01.TP-1", FieldStatus.GUELTIG),
+                         upstream_process=("KP-02 (S-99)", FieldStatus.GUELTIG)))
+    assert inhalt.profil["felder"]["upstream_process"]["wert"] == "KP-02"
+    assert inhalt.spalten["upstream_process_id"] == "KP-02"
 
 
 def test_ohne_gueltige_tp_id_entsteht_kein_profil():
@@ -200,7 +213,8 @@ def test_jede_spalte_liest_aus_ihrem_eigenen_feld():
         st.values[name] = FieldValue(value=wert, status=FieldStatus.GUELTIG,
                                      source_message_id="m1")
     inhalt = baue_profilinhalt(
-        st, VOLL_PAKET, kp_bekannt=lambda kp: kp in {"KP-02", "KP-03"})
+        st, VOLL_PAKET, kp_bekannt=lambda kp: kp in {"KP-02", "KP-03"},
+        bekannte_systeme=frozenset({"S-01", "S-02"}))
     assert inhalt.spalten == {
         "process_owner_rolle_id": None,
         "frequency_per_year": Decimal("11"), "executions_per_run": Decimal("22"),

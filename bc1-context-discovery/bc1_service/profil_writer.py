@@ -76,9 +76,9 @@ def _ganzzahl(wert: str, feld: str) -> int:
             f"Feld {feld}: gueltiger Wert '{wert}' ist keine ganze Zahl.") from fehler
 
 
-def _fremde_kp(state: SessionState, feld: str, process_id: str,
+def _fremde_kp(profil: dict, feld: str, process_id: str,
                kp_bekannt: Callable[[str], bool]) -> str | None:
-    wert = _gueltiger_wert(state, feld)
+    wert = _payload_wert(profil, feld)
     # fullmatch, nicht match: '$' liesse ein abschliessendes \n durch, der
     # Postgres-CHECK nicht (Review 02.09. an beiden Seiten gemessen).
     if wert is None or not KP_MUSTER.fullmatch(wert):
@@ -88,15 +88,33 @@ def _fremde_kp(state: SessionState, feld: str, process_id: str,
     return wert if kp_bekannt(wert) else None
 
 
-def baue_profilinhalt(state: SessionState, package: UseCasePackage, *,
-                      kp_bekannt: Callable[[str], bool]) -> Profilinhalt | None:
-    focus_step_id = _gueltiger_wert(state, "focus_step")
-    if focus_step_id is None:
-        return None                       # keine Identitaet => kein Profil (Brief)
+def _payload_wert(profil: dict, feld: str) -> str | None:
+    """Wie _gueltiger_wert, aber auf dem BEREINIGTEN Payload (Reihenfolge-Invariante).
 
-    # Identitaet allein aus der TP-ID (R4-C1): der DDL-CHECK
-    # 'focus_step_id LIKE process_id||".%"' ist damit per Konstruktion erfuellt.
-    process_id = focus_step_id.split(".", 1)[0]
+    Fehlt das Feld im Paket, gibt es auch keinen Payload-Eintrag — dann NULL, wie
+    bisher bei einem nicht gueltigen Status. Fuer BC2 aendert das nichts: was nicht
+    im Paket steht, wird ohnehin nicht exportiert.
+    """
+    eintrag = profil["felder"].get(feld)
+    if eintrag is None or eintrag["status"] != FieldStatus.GUELTIG.value:
+        return None
+    return eintrag["wert"]
+
+
+def baue_profilinhalt(state: SessionState, package: UseCasePackage, *,
+                      kp_bekannt: Callable[[str], bool],
+                      bekannte_systeme: frozenset[str]) -> Profilinhalt | None:
+    """Payload bauen, bereinigen, DANN ableiten — in dieser Reihenfolge.
+
+    Invariante (Entscheidung Richard 02.09., Option a): **Spalten werden nie aus
+    ungesweepten Werten abgeleitet.** Lief der Sweep erst hinterher auf dem JSON,
+    entstanden zwei Wahrheiten — `upstream_process = "KP-02 (S-99)"` ist als
+    Freitext gueltig, die Spalte blieb mangels fullmatch NULL, und der Sweep machte
+    im JSON `KP-02` daraus. `bekannte_systeme` ist deshalb ein Pflichtparameter:
+    ein Aufrufer soll die Reihenfolge gar nicht erst drehen koennen.
+    """
+    if _gueltiger_wert(state, "focus_step") is None:
+        return None                       # keine Identitaet => kein Profil (Brief)
 
     conf = confidence_check(state, package)
     profil = profil_payload(state, conf, package)
@@ -106,11 +124,21 @@ def baue_profilinhalt(state: SessionState, package: UseCasePackage, *,
     profil["pflicht_gesamt"] = len(pflicht)
     profil["befunde"] = {}
 
+    # BC0-Auflage 1.4 ("beim Schreiben pruefen") — und ab hier gilt: alles, was
+    # abgeleitet wird, kommt aus dem bereinigten Payload.
+    wende_sweep_an(profil, package, bekannte_systeme=bekannte_systeme,
+                   session_id=state.session_id)
+
+    focus_step_id = _payload_wert(profil, "focus_step")
+    # Identitaet allein aus der TP-ID (R4-C1): der DDL-CHECK
+    # 'focus_step_id LIKE process_id||".%"' ist damit per Konstruktion erfuellt.
+    process_id = focus_step_id.split(".", 1)[0]
+
     # Nur eine kanonische KP-ID kann der abgeleiteten widersprechen. Ohne BC0-Snapshot
     # ist das Feld FREITEXT (main.py: BC1_SNAPSHOT_PFAD ist optional) — dann waere jede
     # normale Antwort ein Befund und das Log schriebe bei jeder Sitzung rohen
     # Nutzertext mit. Abweichung vom Plan (Rev. 11), begruendet im Review 02.09.
-    interview_kp = _gueltiger_wert(state, "process_id")
+    interview_kp = _payload_wert(profil, "process_id")
     if (interview_kp is not None and KP_MUSTER.fullmatch(interview_kp)
             and interview_kp != process_id):
         # Stabiler Befund-Vertrag fuers Gate (R4-C1) — plus strukturiertes Log.
@@ -123,7 +151,7 @@ def baue_profilinhalt(state: SessionState, package: UseCasePackage, *,
     for spalte, feld, konverter, ziel in (
             [(s, f, _dezimal, "numeric") for s, f in _ZAHLENSPALTEN.items()]
             + [(s, f, _ganzzahl, "integer") for s, f in _GANZZAHLSPALTEN.items()]):
-        wert = _gueltiger_wert(state, feld)
+        wert = _payload_wert(profil, feld)
         if wert is None:
             spalten[spalte] = None
             continue
@@ -137,11 +165,11 @@ def baue_profilinhalt(state: SessionState, package: UseCasePackage, *,
                       state.session_id, feld, ziel)
             raise
     for spalte, feld in _TEXTSPALTEN.items():
-        spalten[spalte] = _gueltiger_wert(state, feld)
+        spalten[spalte] = _payload_wert(profil, feld)
     spalten["upstream_process_id"] = _fremde_kp(
-        state, "upstream_process", process_id, kp_bekannt)
+        profil, "upstream_process", process_id, kp_bekannt)
     spalten["downstream_process_id"] = _fremde_kp(
-        state, "downstream_process", process_id, kp_bekannt)
+        profil, "downstream_process", process_id, kp_bekannt)
 
     return Profilinhalt(focus_step_id, process_id, spalten, profil)
 
