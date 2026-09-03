@@ -16,6 +16,9 @@ from bc1_core.core import profil_payload
 from bc1_core.package import UseCasePackage
 from bc1_core.types import FieldStatus, SessionState
 from bc1_core.extractor import status_fuer
+from psycopg.types.json import Jsonb
+
+from bc1_service import bc0_lesepfade
 from bc1_service.paket_feldtypen import entferne_snn, snn_tokens
 
 log = logging.getLogger(__name__)
@@ -275,3 +278,91 @@ def wende_sweep_an(profil: dict, package: UseCasePackage, *,
         profil["befunde"]["snn_entfernt"] = befunde
     _zaehler_neu(profil, package)
     return profil
+
+
+@dataclass(frozen=True)
+class Bindung:
+    focus_step_id: str
+    profil_version: int
+    status: str
+
+
+class ProfilWriter:
+    """Gleicht am Ende jedes zugelassenen Turns Soll und Ist ab (Spec K3)."""
+
+    def __init__(self, pool, company_id: str, package: UseCasePackage) -> None:
+        self._pool = pool
+        self._company_id = company_id
+        self._package = package
+
+    def reconcile(self, state: SessionState, antwort: dict) -> dict | None:
+        with self._pool.connection() as conn:          # eine Transaktion
+            inhalt = baue_profilinhalt(
+                state, self._package,
+                kp_bekannt=lambda kp: bc0_lesepfade.kp_existiert(
+                    conn, self._company_id, kp),
+                bekannte_systeme=frozenset(
+                    bc0_lesepfade.system_ids(conn, self._company_id)))
+            bindung = self._bindung(conn, state.session_id)
+            if bindung is None:
+                bindung = self._einfuegen(conn, state, inhalt)
+            if antwort["status"] != "fertig":
+                return None
+            if bindung.status == "fertig":
+                # Freeze war committet, die Antwort ging verloren (R4-C2).
+                return self._gespeichertes_profil(conn, bindung)
+            return self._einfrieren(conn, bindung, inhalt)
+
+    def _gespeichertes_profil(self, conn, bindung) -> dict:
+        return conn.execute(
+            "SELECT profil FROM bc1.prozessprofil WHERE company_id = %s "
+            "AND focus_step_id = %s AND profil_version = %s",
+            (self._company_id, bindung.focus_step_id,
+             bindung.profil_version)).fetchone()[0]
+
+    def _bindung(self, conn, session_id: str) -> Bindung | None:
+        zeile = conn.execute(
+            "SELECT w.focus_step_id, w.profil_version, p.status "
+            "  FROM bc1.profil_write_status w "
+            "  JOIN bc1.prozessprofil p ON p.company_id = w.company_id "
+            "   AND p.focus_step_id = w.focus_step_id "
+            "   AND p.profil_version = w.profil_version "
+            " WHERE w.session_id = %s AND w.company_id = %s",
+            (session_id, self._company_id)).fetchone()
+        return Bindung(*zeile) if zeile else None
+
+    def _einfuegen(self, conn, state, inhalt) -> Bindung:
+        """Profilzeile + Bindung im selben Commit (C2)."""
+        erhebung = bc0_lesepfade.erhebung_id(
+            conn, self._company_id, inhalt.focus_step_id)
+        spalten = inhalt.spalten
+        namen = ["company_id", "focus_step_id", "profil_version", "process_id",
+                 "status", "erhebung_id", "paket_version", "profil", *spalten]
+        werte = [self._company_id, inhalt.focus_step_id, 1, inhalt.process_id,
+                 "in_erhebung", erhebung, state.schema_version,
+                 Jsonb(inhalt.profil), *spalten.values()]
+        platzhalter = ", ".join(["%s"] * len(namen))
+        version = conn.execute(
+            f"INSERT INTO bc1.prozessprofil ({', '.join(namen)}) "
+            f"VALUES ({platzhalter}) RETURNING profil_version",
+            werte).fetchone()[0]
+        conn.execute(
+            "INSERT INTO bc1.profil_write_status "
+            "(session_id, company_id, focus_step_id, profil_version) "
+            "VALUES (%s, %s, %s, %s)",
+            (state.session_id, self._company_id, inhalt.focus_step_id, version))
+        return Bindung(inhalt.focus_step_id, version, "in_erhebung")
+
+    def _einfrieren(self, conn, bindung, inhalt) -> dict:
+        # Spaltennamen stammen aus unserer eigenen Konstante, nicht aus Eingaben.
+        zuweisungen = ", ".join(f"{spalte} = %s" for spalte in inhalt.spalten)
+        cursor = conn.execute(
+            f"UPDATE bc1.prozessprofil SET status = 'fertig', profil = %s, "
+            f"{zuweisungen} WHERE company_id = %s AND focus_step_id = %s "
+            "AND profil_version = %s AND status = 'in_erhebung'",
+            [Jsonb(inhalt.profil), *inhalt.spalten.values(), self._company_id,
+             bindung.focus_step_id, bindung.profil_version])
+        if cursor.rowcount != 1:
+            raise ProfilWriteError(
+                f"Freeze traf {cursor.rowcount} Zeilen statt einer")
+        return inhalt.profil
