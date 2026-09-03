@@ -192,6 +192,11 @@ python -m pytest tests/ -v
   Datenbankverbindung nach außen.
 - `tests/test_app_zugriff.py` — die vollständige Anwendung über den
   FastAPI-Testclient, mit Middleware, Router und Cookie-Behandlung.
+- `tests/test_anmeldebremse.py` — **19 Tests, seit 02.09.2026.** Sie zielen auf
+  die Umgehungswege, nicht auf den Gutfall: ein Passwort gegen viele Konten
+  (fängt der IP-Zähler), ein Konto von vielen Adressen (fängt der E-Mail-Zähler),
+  unbekannte Adresse und gesperrtes Konto (werden mitgezählt), richtiges Passwort
+  während der Sperre (kommt nicht durch).
 
 Der größere Teil prüft die Fälle, die **scheitern müssen**: falsches Passwort,
 gesperrtes Konto, abgelaufene Sitzung, fremder Mandant, unbekannter API-Pfad,
@@ -250,6 +255,7 @@ Dieselbe Regel gilt bereits für die Datenbankrollen (`ROLLEN.md`).
 | offen | kommt mit |
 |---|---|
 | ~~Mandantenfilter in den Fachendpunkten~~ | ✅ **erledigt 11.08.2026, Etappe 4b** |
+| ~~Kein Schutz gegen wiederholtes Durchprobieren~~ | ✅ **erledigt 02.09.2026** — Zähler je E-Mail und IP, Verzögerung ab 5, Sperre ab 10 für 15 Minuten, selbstlösend. Siehe `schema_v2.5_anmeldebremse.sql` |
 | Löschen ist noch nicht auf Admins beschränkt | **Etappe 4c** |
 | `audit_log` wird weiterhin nicht befüllt (R9) | **Etappe 4c** |
 | Freigabeverwaltung: Status, freigegeben am, freigegeben durch | **Etappe 4d** |

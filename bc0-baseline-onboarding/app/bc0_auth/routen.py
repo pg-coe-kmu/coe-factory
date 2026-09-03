@@ -35,7 +35,7 @@ from .abhaengigkeiten import (
     optionaler_benutzer,
     sitzungsschluessel_aus,
 )
-from .modelle import AnmeldeFehler, Benutzer, Rolle
+from .modelle import AnmeldeFehler, Benutzer, Rolle, ZuVieleVersuche
 
 _log = logging.getLogger("bc0.auth")
 
@@ -152,16 +152,55 @@ def status(benutzer: Optional[Benutzer] = Depends(optionaler_benutzer)) -> dict:
     }
 
 
+def _herkunft(request: Request) -> Optional[str]:
+    """Die IP-Adresse des Aufrufers, wie die Anwendung sie sieht.
+
+    ``request.client.host`` ist seit dem Ausrollen von ``--proxy-headers`` am
+    02.09.2026 die **echte** Adresse des Benutzers: uvicorn setzt sie aus
+    ``X-Forwarded-For``, das Caddy mitschickt. Vorher stand hier Caddys eigene
+    Adresse, und ein Zaehler je IP haette alle Benutzer als einen gezaehlt.
+
+    Es wird **kein** Header selbst gelesen. Wer ``X-Forwarded-For`` hier von
+    Hand auswertete, liesse sich die Adresse vom Aufrufer diktieren — und die
+    Bremse waere mit einer erfundenen Zeile im Kopf zu umgehen. Die Auswertung
+    gehoert an die eine Stelle, an der die Vertrauensgrenze steht: uvicorn.
+    """
+    return request.client.host if request.client else None
+
+
 @router.post("/login")
-def anmelden(daten: AnmeldeDaten, antwort: Response) -> dict:
+def anmelden(daten: AnmeldeDaten, request: Request, antwort: Response) -> dict:
     """Meldet einen Benutzer an und setzt das Sitzungs-Cookie.
 
     Der Sitzungsschlüssel wird ausschließlich im Cookie übertragen und **nicht**
     im Antwortkörper. So kann ihn kein Skript in der Seite auslesen.
+
+    Zwei verschiedene Absagen
+    -------------------------
+    **401** heisst „Adresse oder Passwort falsch" und sagt bewusst nicht, was
+    von beidem — sonst waere die Anmeldemaske ein Verzeichnis der vorhandenen
+    Konten. **429** heisst „zu viele Versuche" und sagt es ausdruecklich, samt
+    Wartezeit: Dieser Fall verraet nichts ueber Konten, weil der Versuch
+    gezaehlt wird und nicht das Konto — und wer nicht erfaehrt, dass er
+    gesperrt ist, haelt die Anwendung fuer kaputt.
+
+    ``Retry-After`` ist die Standardform dieser Auskunft (RFC 9110); die
+    Wartezeit steht zusaetzlich im Text, weil sie sonst nur im Kopf der
+    Antwort stuende und in der Oberflaeche niemand sie saehe.
     """
     dienst = hole_dienst()
     try:
-        benutzer, schluessel, sitzung = dienst.anmelden(daten.email, daten.passwort)
+        benutzer, schluessel, sitzung = dienst.anmelden(
+            daten.email, daten.passwort, herkunft=_herkunft(request))
+    except ZuVieleVersuche as gesperrt:
+        minuten = max(1, round(gesperrt.rest_sekunden / 60))
+        raise HTTPException(
+            status_code=429,
+            detail="Zu viele fehlgeschlagene Anmeldeversuche. "
+                   "Bitte in %d Minute%s erneut versuchen."
+                   % (minuten, "n" if minuten != 1 else ""),
+            headers={"Retry-After": str(gesperrt.rest_sekunden)},
+        )
     except AnmeldeFehler:
         # Einheitliche Meldung — siehe modelle.AnmeldeFehler.
         raise HTTPException(status_code=401, detail="E-Mail-Adresse oder Passwort ist falsch.")

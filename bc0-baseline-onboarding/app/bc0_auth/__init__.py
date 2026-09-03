@@ -43,7 +43,7 @@ Datenbank einsetzen, ohne die Anwendung zu starten.
 Stand: 10.08.2026 · BC0 · Simeon Ehmer
 """
 
-from .modelle import Rolle, Benutzer, Sitzung, AnmeldeFehler, RechteFehler
+from .modelle import Rolle, Benutzer, Sitzung, AnmeldeFehler, RechteFehler, ZuVieleVersuche
 from .dienst import AuthDienst
 
 __all__ = [
@@ -51,6 +51,7 @@ __all__ = [
     "Benutzer",
     "Sitzung",
     "AnmeldeFehler",
+    "ZuVieleVersuche",
     "RechteFehler",
     "AuthDienst",
 ]

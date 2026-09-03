@@ -227,7 +227,26 @@ Es gibt genau eine Stelle, an der Parameter das SQL erreichen.
 Nach Gewicht geordnet. Die Reihenfolge ist meine Einschätzung, nicht die
 Reihenfolge der Umsetzung.
 
-### 3.1 Kein Schutz gegen wiederholte Anmeldeversuche — **hoch**
+### 3.1 Kein Schutz gegen wiederholte Anmeldeversuche — **hoch** · ✅ GESCHLOSSEN 02.09.2026
+
+> **Erledigt am 02.09.2026** (ToDo-Punkt 71), `schema_v2.5_anmeldebremse.sql`.
+> Zähler je E-Mail **und** je IP in `app_anmeldeversuche`, Verzögerung ab dem
+> fünften Fehlversuch (1s, 2s, 4s, 8s — gedeckelt), Sperre ab dem zehnten für
+> **15 Minuten**, gleitendes Fenster von 15 Minuten. Die Sperre läuft von allein
+> ab; eine Entsperrstelle für zwölf Konten wäre an Wochenenden nicht besetzt.
+> Nach außen: **429** mit `Retry-After`, ausdrücklich unterscheidbar von der
+> 401 — der Sperrfall verrät nichts über Konten, weil der **Versuch** gezählt
+> wird und nicht das Konto.
+>
+> **Der Zusammenhang mit 3.2:** Der Zähler je IP wurde erst am selben Tag
+> möglich. Vorher sah die Anwendung Caddys Adresse statt der des Benutzers;
+> eine Begrenzung je IP hätte alle zwölf Nutzer als einen gezählt.
+>
+> **In der Tabelle stehen keine Adressen**, nur ihre SHA-256-Abdrücke: Der
+> Zähler entsteht auch für Adressen, die es nicht gibt, und BC0 hat keinen
+> Grund, die abzulegen. Wer es war, steht im Protokoll. 19 Tests.
+
+Der Befund vom 20.08.2026, unverändert stehen gelassen:
 
 Es gibt weder eine Ratenbegrenzung noch eine Kontosperre nach N Fehlversuchen
 noch eine Verzögerung. Ein Angreifer kann Passwörter so schnell durchprobieren,
@@ -244,7 +263,13 @@ der VM lahm.
 Fehlversuch, Sperre ab dem zehnten. Aufwand ~4 h, Tabelle ist trivial.
 **Vor Freigabe an externe Mandanten.**
 
-### 3.2 Keine Sicherheitskopfzeilen — **hoch, aber billig**
+### 3.2 Keine Sicherheitskopfzeilen — **hoch, aber billig** · ✅ GESCHLOSSEN 02.09.2026
+
+> **Erledigt am 02.09.2026**, ausgerollt und am laufenden System gegengeprüft:
+> CSP, HSTS, `X-Content-Type-Options`, `X-Frame-Options: DENY`,
+> `Referrer-Policy`, `-Server`. Dazu `request_body max_size 20MB`.
+
+Der Befund vom 20.08.2026, unverändert stehen gelassen:
 
 Das Caddyfile umfasst sechs Zeilen: Domain, `encode gzip`, `reverse_proxy`.
 Es fehlen:
@@ -389,8 +414,9 @@ prüfen genau diese Eigenschaften.
 **Nicht belastbar sind vier Dinge**, und ich halte sie für die Bedingungen
 einer Freigabe an externe Mandanten:
 
-1. der fehlende Schutz gegen wiederholte Anmeldeversuche (3.1),
-2. die fehlenden Sicherheitskopfzeilen (3.2) — eine Stunde Arbeit,
+1. ~~der fehlende Schutz gegen wiederholte Anmeldeversuche (3.1)~~ —
+   **geschlossen am 02.09.2026**,
+2. ~~die fehlenden Sicherheitskopfzeilen (3.2)~~ — **geschlossen am 02.09.2026**,
 3. die direkten Tabellenrechte an `bc1_role` (3.8) — sie machen eine Zusicherung
    ungültig, die dieses Papier bis zum 23.08.2026 geführt hat,
 4. der fehlende Nachweis nach DSGVO (3.7) — organisatorisch, nicht technisch.

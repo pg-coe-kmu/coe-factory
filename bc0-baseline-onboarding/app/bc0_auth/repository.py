@@ -81,6 +81,16 @@ DDL_POSTGRES = (
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_sitzung_benutzer ON app_sitzungen(benutzer_id)",
+    """
+    CREATE TABLE IF NOT EXISTS app_anmeldeversuche (
+      abdruck       TEXT PRIMARY KEY,
+      art           TEXT NOT NULL CHECK (art IN ('email','ip')),
+      fehlversuche  INTEGER NOT NULL DEFAULT 0,
+      letzter_am    TIMESTAMPTZ NOT NULL,
+      gesperrt_bis  TIMESTAMPTZ
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_anmeldeversuch_alt ON app_anmeldeversuche(letzter_am)",
 )
 
 DDL_SQLITE = (
@@ -115,6 +125,16 @@ DDL_SQLITE = (
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_sitzung_benutzer ON app_sitzungen(benutzer_id)",
+    """
+    CREATE TABLE IF NOT EXISTS app_anmeldeversuche (
+      abdruck       TEXT PRIMARY KEY,
+      art           TEXT NOT NULL CHECK (art IN ('email','ip')),
+      fehlversuche  INTEGER NOT NULL DEFAULT 0,
+      letzter_am    TEXT NOT NULL,
+      gesperrt_bis  TEXT
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_anmeldeversuch_alt ON app_anmeldeversuche(letzter_am)",
 )
 
 
@@ -607,6 +627,172 @@ class SitzungsRepository(_Basis):
         try:
             jetzt = _jetzt() if self._pg else _jetzt().isoformat()
             zeiger = verbindung.execute("DELETE FROM app_sitzungen WHERE laeuft_ab<=?", (jetzt,))
+            verbindung.commit()
+            return getattr(zeiger, "rowcount", 0) or 0
+        finally:
+            verbindung.close()
+
+
+class AnmeldeversuchRepository(_Basis):
+    """Zaehlt Fehlversuche und haelt die Sperre — je E-Mail und je IP.
+
+    WARUM DIE TABELLE NUR ABDRUECKE FUEHRT
+      Gespeichert wird der SHA-256-Abdruck des Schluessels (``email:<adresse>``
+      oder ``ip:<adresse>``), nicht der Schluessel selbst — dieselbe Regel wie
+      bei ``app_sitzungen``, und hier aus einem zusaetzlichen Grund: Der Zaehler
+      entsteht **auch fuer Adressen, die es nicht gibt**. Wer die Anmeldemaske
+      mit fremden E-Mail-Adressen befuellt, wuerde sonst dafuer sorgen, dass BC0
+      genau diese Adressen dauerhaft ablegt — personenbezogene Daten von
+      Menschen, die mit dem Projekt nichts zu tun haben.
+
+      **Die Tabelle zaehlt, das Protokoll erzaehlt.** Wer wissen will, WER es
+      versucht hat, liest das Serverprotokoll; dort steht die Adresse im
+      Klartext, und dort ist sie nach dem Rotieren wieder weg. Wer zu einer
+      bekannten Adresse nachsehen will, ob sie gerade gesperrt ist, bildet
+      ihren Abdruck und fragt danach.
+
+    WARUM ZWEI ZAEHLER UND NICHT EINER
+      Nur je E-Mail zu zaehlen liesse jemanden EIN Passwort gegen alle zwoelf
+      Konten durchprobieren — kein Zaehler erreicht dabei seine Schwelle. Nur
+      je IP zu zaehlen liesse sich mit wechselnden Adressen umgehen. Beide
+      Zaehler laufen deshalb nebeneinander, und **der strengere entscheidet**.
+    """
+
+    @staticmethod
+    def abdruck(art: str, wert: str) -> str:
+        """Bildet den Ablageschluessel aus Art und Wert.
+
+        E-Mail-Adressen werden vorher kleingeschrieben und beschnitten: Sonst
+        waeren ``A@b.de`` und ``a@b.de`` zwei Zaehler, und die Anmeldung sucht
+        den Benutzer ohnehin unabhaengig von der Schreibweise.
+        """
+        import hashlib
+
+        roh = (wert or "").strip()
+        if art == "email":
+            roh = roh.lower()
+        return hashlib.sha256(("%s:%s" % (art, roh)).encode("utf-8")).hexdigest()
+
+    def stand(self, abdruck: str) -> Tuple[int, Optional[_dt.datetime]]:
+        """Liefert ``(fehlversuche, gesperrt_bis)`` — ohne zu bewerten.
+
+        Ob eine Sperre noch laeuft, entscheidet der Dienst. Hier wird gelesen,
+        nicht entschieden — dieselbe Aufteilung wie bei
+        :meth:`SitzungsRepository.finde_per_abdruck`.
+        """
+        verbindung = self._oeffnen()
+        try:
+            zeile = verbindung.execute(
+                "SELECT fehlversuche, gesperrt_bis FROM app_anmeldeversuche WHERE abdruck=?",
+                (abdruck,),
+            ).fetchone()
+            if not zeile:
+                return 0, None
+            bis = zeile["gesperrt_bis"]
+            return int(zeile["fehlversuche"] or 0), (_als_zeitpunkt(bis) if bis else None)
+        finally:
+            verbindung.close()
+
+    def fehlversuch(
+        self, abdruck: str, art: str, fenster: _dt.timedelta,
+        sperre_ab: int, sperrdauer: _dt.timedelta,
+    ) -> Tuple[int, Optional[_dt.datetime]]:
+        """Zaehlt einen Fehlversuch und sperrt, wenn die Schwelle faellt.
+
+        Das gleitende Fenster ist der Grund, warum ``letzter_am`` mitgefuehrt
+        wird: Ein Zaehler, der **nie** verfaellt, sperrt irgendwann jeden, der
+        sich ueber Monate hinweg fuenfmal vertippt hat. Liegt der letzte
+        Fehlversuch laenger als ``fenster`` zurueck, wird bei 1 neu begonnen.
+
+        Beim Erreichen von ``sperre_ab`` wird die Sperre gesetzt **und der
+        Zaehler auf 0 zurueckgesetzt**. Nach Ablauf der Sperre beginnt das
+        Zaehlen dadurch von vorn — sonst schlaege die naechste Sperre schon
+        beim ersten weiteren Fehlversuch zu, und aus der befristeten Sperre
+        waere eine dauerhafte geworden.
+
+        Returns:
+            ``(fehlversuche_danach, gesperrt_bis)``.
+        """
+        jetzt = _jetzt()
+        verbindung = self._oeffnen()
+        try:
+            zeile = verbindung.execute(
+                "SELECT fehlversuche, letzter_am FROM app_anmeldeversuche WHERE abdruck=?",
+                (abdruck,),
+            ).fetchone()
+            if zeile is None:
+                zaehler = 0
+            else:
+                zaehler = int(zeile["fehlversuche"] or 0)
+                if _als_zeitpunkt(zeile["letzter_am"]) < jetzt - fenster:
+                    zaehler = 0
+            zaehler += 1
+
+            gesperrt_bis = None
+            if zaehler >= sperre_ab:
+                gesperrt_bis = jetzt + sperrdauer
+                zaehler = 0
+
+            werte = (
+                art,
+                zaehler,
+                jetzt if self._pg else jetzt.isoformat(),
+                (gesperrt_bis if self._pg else gesperrt_bis.isoformat()) if gesperrt_bis else None,
+            )
+            if zeile is None:
+                verbindung.execute(
+                    "INSERT INTO app_anmeldeversuche(abdruck,art,fehlversuche,letzter_am,gesperrt_bis) "
+                    "VALUES(?,?,?,?,?)", (abdruck,) + werte)
+            else:
+                verbindung.execute(
+                    "UPDATE app_anmeldeversuche SET art=?, fehlversuche=?, letzter_am=?, "
+                    "gesperrt_bis=? WHERE abdruck=?", werte + (abdruck,))
+            verbindung.commit()
+            return zaehler, gesperrt_bis
+        finally:
+            verbindung.close()
+
+    def zuruecksetzen(self, abdruecke: Iterable[str]) -> None:
+        """Loescht die Zaehler — nach einer erfolgreichen Anmeldung.
+
+        Beide Zaehler zugleich, E-Mail und IP: Wer sich anmelden konnte, hat
+        das Passwort; dann waere es unsinnig, ihn kurz darauf wegen der
+        Tippfehler davor auszusperren.
+        """
+        liste = [a for a in abdruecke if a]
+        if not liste:
+            return
+        verbindung = self._oeffnen()
+        try:
+            for abdruck in liste:
+                verbindung.execute("DELETE FROM app_anmeldeversuche WHERE abdruck=?", (abdruck,))
+            verbindung.commit()
+        finally:
+            verbindung.close()
+
+    def alte_entfernen(self, aelter_als: _dt.timedelta) -> int:
+        """Raeumt Zaehler ab, die nichts mehr aussagen.
+
+        Wird beim Anmelden mitausgefuehrt — dieselbe Loesung wie bei den
+        abgelaufenen Sitzungen, und aus demselben Grund: So bleibt die Tabelle
+        klein, ohne dass ein Hintergrundlauf noetig waere.
+
+        Entfernt wird nur, was **weder gezaehlt noch gesperrt** ist: Eine
+        laufende Sperre bleibt stehen, auch wenn ihr letzter Fehlversuch alt
+        ist. Sonst liesse sie sich durch Abwarten aushebeln.
+        """
+        grenze = _jetzt() - aelter_als
+        jetzt = _jetzt()
+        verbindung = self._oeffnen()
+        try:
+            zeiger = verbindung.execute(
+                "DELETE FROM app_anmeldeversuche WHERE letzter_am<? "
+                "AND (gesperrt_bis IS NULL OR gesperrt_bis<=?)",
+                (
+                    grenze if self._pg else grenze.isoformat(),
+                    jetzt if self._pg else jetzt.isoformat(),
+                ),
+            )
             verbindung.commit()
             return getattr(zeiger, "rowcount", 0) or 0
         finally:

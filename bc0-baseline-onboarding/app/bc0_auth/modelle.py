@@ -165,5 +165,30 @@ class AnmeldeFehler(Exception):
     """
 
 
+class ZuVieleVersuche(AnmeldeFehler):
+    """Die Anmeldebremse hat zugeschlagen — gesperrt, nicht abgelehnt.
+
+    Erbt bewusst von :class:`AnmeldeFehler`: Wer ``except AnmeldeFehler``
+    schreibt, faengt diesen Fall mit. Eine bestehende Behandlung wird durch
+    die Bremse also nicht loechrig.
+
+    Sie ist trotzdem eine **eigene** Klasse, weil sie das Gegenteil von
+    :class:`AnmeldeFehler` verraet: Dort darf die Antwort nicht sagen, was los
+    war; hier **muss** sie es sagen, sonst steht der Benutzer vor einer
+    Anmeldung, die grundlos nicht mehr funktioniert.
+
+    Und sie verraet nichts: Gezaehlt wird der **Versuch**, nicht das Konto.
+    Eine unbekannte Adresse wird genauso gesperrt wie eine bekannte — aus der
+    Sperre laesst sich deshalb nicht ablesen, ob es die Adresse gibt.
+
+    Attributes:
+        rest_sekunden: Verbleibende Sperrzeit, aufgerundet auf ganze Sekunden.
+    """
+
+    def __init__(self, rest_sekunden: int):
+        self.rest_sekunden = int(rest_sekunden)
+        super().__init__("Zu viele Anmeldeversuche.")
+
+
 class RechteFehler(Exception):
     """Der angemeldete Benutzer darf das Angeforderte nicht."""
