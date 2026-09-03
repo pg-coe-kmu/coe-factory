@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://coe-factory/contracts/bc3-to-bc4/tickets.schema.json",
-  "title": "BC3 Tickets-Lieferung an BC4 (v3.4 reduziert)",
-  "description": "Lieferungs-Artefakt von BC3 an BC4. Maximal reduziert: nur Stammdaten, Epics mit Stories, gate2. Compliance liegt komplett in compliance-audit.json (DSB-Audit).",
+  "title": "BC3 Tickets-Lieferung an BC4 (v3.5, mit Prozesskennung)",
+  "description": "Lieferungs-Artefakt von BC3 an BC4. Maximal reduziert: nur Stammdaten, Epics mit Stories, gate2. Compliance liegt komplett in compliance-audit.json (DSB-Audit).\n\nNeu gegenüber v3.4: die Prozesskennung. Simeon hat am 24.08.2026 festgelegt, dass die Kernprozess-ID aus der Datenbank überall mitläuft. In v3.4 hatte sie keinen Platz, weil additionalProperties auf allen Ebenen false steht.",
   "type": "object",
   "required": [
     "lieferung_id",
@@ -20,7 +20,7 @@
     },
     "schema_version": {
       "type": "string",
-      "const": "3.4"
+      "const": "3.5"
     },
     "projekt_kurzname": {
       "type": "string",
@@ -28,28 +28,73 @@
     },
     "konzept_ref": {
       "type": "object",
-      "required": ["konzept_id", "schema_version", "source_file"],
+      "required": [
+        "konzept_id",
+        "schema_version",
+        "source_file",
+        "kp_id"
+      ],
       "additionalProperties": false,
       "properties": {
-        "konzept_id": {"type": "string", "format": "uuid"},
-        "schema_version": {"type": "string"},
-        "prozessprofil_ref": {"type": "string"},
-        "source_file": {"type": "string"}
+        "konzept_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "schema_version": {
+          "type": "string"
+        },
+        "prozessprofil_ref": {
+          "type": "string"
+        },
+        "source_file": {
+          "type": "string"
+        },
+        "kp_id": {
+          "type": "string",
+          "pattern": "^KP-(0[1-9]|10)$",
+          "description": "Der Kernprozess aus der BC0-Baseline, übernommen aus kontext.kp_id des Konzepts."
+        },
+        "teilprozess_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^KP-(0[1-9]|10)\\.TP-[1-9][0-9]?$"
+          },
+          "description": "Alle Teilprozesse, die diese Lieferung berührt. Sammelt sich aus den Potenzialen."
+        },
+        "value_quelle": {
+          "type": "string",
+          "enum": [
+            "berechnet",
+            "default",
+            "annahme"
+          ],
+          "description": "Woher die Zahlen im zugrunde liegenden Konzept stammen. 'annahme' heißt: vorläufige Übergangslieferung, noch nicht bewertet. Wandert von dort in alle abgeleiteten Artefakte mit."
+        }
       }
     },
     "epics": {
       "type": "array",
       "minItems": 1,
-      "items": {"$ref": "#/$defs/epic"}
+      "items": {
+        "$ref": "#/$defs/epic"
+      }
     },
     "gate2": {
       "type": "object",
-      "required": ["status"],
+      "required": [
+        "status"
+      ],
       "additionalProperties": false,
       "properties": {
         "status": {
           "type": "string",
-          "enum": ["pending", "approved", "rejected"]
+          "enum": [
+            "pending",
+            "approved",
+            "rejected"
+          ]
         }
       }
     }
@@ -57,51 +102,102 @@
   "$defs": {
     "epic": {
       "type": "object",
-      "required": ["epic_id", "titel", "ziel", "kategorien", "stories"],
+      "required": [
+        "epic_id",
+        "titel",
+        "ziel",
+        "kategorien",
+        "stories"
+      ],
       "additionalProperties": false,
       "properties": {
         "epic_id": {
           "type": "string",
           "pattern": "^ep-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-          "description": "UUID-Format mit ep-Praefix"
+          "description": "UUID-Format mit ep-Präfix"
         },
-        "titel": {"type": "string", "minLength": 5, "maxLength": 150},
-        "ziel": {"type": "string", "minLength": 20, "maxLength": 600},
+        "titel": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 150
+        },
+        "ziel": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 600
+        },
         "kategorien": {
           "type": "array",
-          "items": {"type": "string", "pattern": "^(it|fin|gov|sec):[a-z0-9-]+$"},
+          "items": {
+            "type": "string",
+            "pattern": "^(it|fin|gov|sec):[a-z0-9-]+$"
+          },
           "minItems": 1,
-          "description": "Worker-Routing fuer BC4 auf Epic-Ebene; gilt fuer alle Stories des Epics"
+          "description": "Worker-Routing für BC4 auf Epic-Ebene; gilt für alle Stories des Epics"
         },
         "stories": {
           "type": "array",
           "minItems": 1,
-          "items": {"$ref": "#/$defs/story"}
+          "items": {
+            "$ref": "#/$defs/story"
+          }
+        },
+        "teilprozess_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^KP-(0[1-9]|10)\\.TP-[1-9][0-9]?$"
+          },
+          "description": "Die Teilprozesse, die dieses Epic betrifft, aus dem zugehörigen Potenzial. Freiwillig: BC0 verlangt die Kennung auf Prozess- ODER Teilprozessebene, und kp_id in konzept_ref ist Pflicht. BC2 liefert Teilprozess-IDs in v2.0 noch nicht."
         }
       }
     },
     "story": {
       "type": "object",
-      "required": ["story_id", "titel", "beschreibung", "akzeptanzkriterien", "abhaengigkeiten"],
+      "required": [
+        "story_id",
+        "titel",
+        "beschreibung",
+        "akzeptanzkriterien",
+        "abhaengigkeiten"
+      ],
       "additionalProperties": false,
       "properties": {
         "story_id": {
           "type": "string",
           "pattern": "^st-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-[0-9]+$",
-          "description": "UUID-Format mit st-Praefix und laufender Nummer"
+          "description": "UUID-Format mit st-Präfix und laufender Nummer"
         },
-        "titel": {"type": "string", "minLength": 5, "maxLength": 150},
-        "beschreibung": {"type": "string", "minLength": 20, "maxLength": 1500},
+        "titel": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 150
+        },
+        "beschreibung": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 1500
+        },
         "akzeptanzkriterien": {
           "type": "array",
           "minItems": 1,
           "items": {
             "type": "object",
-            "required": ["text", "messverfahren"],
+            "required": [
+              "text",
+              "messverfahren"
+            ],
             "additionalProperties": false,
             "properties": {
-              "text": {"type": "string", "minLength": 10},
-              "messverfahren": {"type": "string", "minLength": 5}
+              "text": {
+                "type": "string",
+                "minLength": 10
+              },
+              "messverfahren": {
+                "type": "string",
+                "minLength": 5
+              }
             }
           }
         },
