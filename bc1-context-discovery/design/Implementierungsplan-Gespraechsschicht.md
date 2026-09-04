@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - **Branch:** `bc1-gespraechsschicht`, abgezweigt von `bc1-ollama-adapter` (Stand d43dfac, nach Merge PR #154). Task 1 committet diesen Plan.
-- **TDD.** Pro Task: erst der rote Test, dann Implementierung. pytest IMMER aus `bc1-context-discovery/` und IMMER mit Test-DB: `BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" .venv/bin/pytest` (Container `bc1-test-pg` auf Port 55432; falls er nicht läuft: `docker run -d --rm --name bc1-test-pg -e POSTGRES_PASSWORD=test -p 55432:5432 postgres:16`).
+- **TDD.** Pro Task: erst der rote Test, dann Implementierung. pytest IMMER aus `bc1-context-discovery/` und IMMER mit Test-DB: `BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" .venv/bin/pytest` (Container `bc1-test-pg` auf Port 55432; falls er nicht läuft: `docker run -d --rm --name bc1-test-pg -e POSTGRES_PASSWORD=test -p 55432:5432 postgres:17`).
 - **Verhaltensregeln (BC2-/Nutzer-relevant, wörtlich aus der Spec):**
   1. Antwortstruktur: kurze **Bestätigung nur echter, in diesem Turn erfasster Werte** → ggf. Reaktion/Erklärung → genau eine Frage.
   2. **Erstfragen übernehmen die Kernfrage wörtlich**; Nachfragen dürfen umformulieren, müssen in der Frage enthaltene Optionen vollständig nennen und erklären, dass Offenes offen bleiben darf.

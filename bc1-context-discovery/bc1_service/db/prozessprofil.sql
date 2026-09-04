@@ -81,6 +81,7 @@ INSERT INTO pg_temp.bc1_soll_signatur (zeile) VALUES
 -- << HIER die generierte Sollsignatur einsetzen (Step 7) >>
     ('acl|profil_rollen|bc1_role|DELETE|f'),
     ('acl|profil_rollen|bc1_role|INSERT|f'),
+    ('acl|profil_rollen|bc1_role|MAINTAIN|f'),
     ('acl|profil_rollen|bc1_role|REFERENCES|f'),
     ('acl|profil_rollen|bc1_role|SELECT|f'),
     ('acl|profil_rollen|bc1_role|TRIGGER|f'),
@@ -89,6 +90,7 @@ INSERT INTO pg_temp.bc1_soll_signatur (zeile) VALUES
     ('acl|profil_rollen|bc_leser|SELECT|f'),
     ('acl|profil_write_status|bc1_role|DELETE|f'),
     ('acl|profil_write_status|bc1_role|INSERT|f'),
+    ('acl|profil_write_status|bc1_role|MAINTAIN|f'),
     ('acl|profil_write_status|bc1_role|REFERENCES|f'),
     ('acl|profil_write_status|bc1_role|SELECT|f'),
     ('acl|profil_write_status|bc1_role|TRIGGER|f'),
@@ -96,6 +98,7 @@ INSERT INTO pg_temp.bc1_soll_signatur (zeile) VALUES
     ('acl|profil_write_status|bc1_role|UPDATE|f'),
     ('acl|prozessprofil|bc1_role|DELETE|f'),
     ('acl|prozessprofil|bc1_role|INSERT|f'),
+    ('acl|prozessprofil|bc1_role|MAINTAIN|f'),
     ('acl|prozessprofil|bc1_role|REFERENCES|f'),
     ('acl|prozessprofil|bc1_role|SELECT|f'),
     ('acl|prozessprofil|bc1_role|TRIGGER|f'),
