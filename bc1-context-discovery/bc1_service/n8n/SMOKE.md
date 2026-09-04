@@ -66,6 +66,7 @@ app = create_app(
     _llm,
     TOY_PROZESS,
     lade_snapshot(_snapshot_pfad) if _snapshot_pfad else None,
+    company_id=os.environ["BC1_COMPANY_ID"],   # Pflicht-Argument seit Task 10
 )
 ```
 
@@ -94,6 +95,41 @@ Besitzer-Angaben) sind bewusst entfernt; n8n vergibt sie beim Import neu.
 | Edit Fields (Set) | `output` (String) = `{{ $json.chat_text ?? $json.detail }}` |
 
 Dann **Publish**; Chat-URL steht im Chat-Trigger-Node.
+
+## Betrieb: wenn das Schreiben des Profils klemmt
+
+### `503 profil_write_fehlgeschlagen`
+
+Der Dienst konnte das fertige Profil nicht speichern und hat die Antwort deshalb
+**bewusst nicht ausgeliefert** — nicht „der Server ist kaputt", sondern „lieber keine
+Antwort als eine, die nicht in der Datenbank steht". Der Interview-Zustand ist heil.
+
+**Richtiger Umgang:** dieselbe `message_id` erneut senden. Der Dienst fährt den kompletten
+Abgleich noch einmal und antwortet erst, wenn geschrieben ist. Kommt der 503 wiederholt,
+liegt meist ein fremder Draft auf demselben Fokus-Schritt — dann das Rezept unten.
+
+### K5: verwaister oder fremder `in_erhebung`-Draft
+
+Ein abgebrochener Lauf kann eine Zeile im Zustand `in_erhebung` hinterlassen. Sie belegt
+den Fokus-Schritt, und die nächste Sitzung zu demselben Schritt bekommt 503.
+
+```sql
+-- 1. Nachsehen, was steht (fertige Zeilen sind per Trigger gesperrt und
+--    tauchen hier nicht auf):
+SELECT company_id, focus_step_id, profil_version, erstellt_am
+  FROM bc1.prozessprofil WHERE status = 'in_erhebung';
+
+-- 2. Gezielt EINE Zeile loeschen — nie pauschal:
+DELETE FROM bc1.prozessprofil
+ WHERE company_id = '<UUID>' AND focus_step_id = '<KP-XX.TP-N>'
+   AND profil_version = <n> AND status = 'in_erhebung';
+```
+
+Danach gleicht die aktive Sitzung beim nächsten Turn von selbst wieder ab — es ist kein
+Neustart und kein Eingriff in die Sitzung nötig.
+
+> Einspielen der Tabellen, Rechte-Ist-Stand und Sollsignatur: siehe
+> [`../db/EINSPIELEN.md`](../db/EINSPIELEN.md).
 
 ## Smoke-Checkliste (durchgeführt 05.08.2026, FakeLLM-Verdrahtung, Postgres 16 im Container)
 

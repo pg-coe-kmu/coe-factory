@@ -6041,6 +6041,19 @@ git add bc1-context-discovery/bc1_service/db/EINSPIELEN.md bc1-context-discovery
 git commit -m "docs(bc1): Einspiel-Anleitung, Rechte-Ist-Stand und K5-Betriebsrezept"
 ```
 
+### Gesamtverifikation DURCHGEFÜHRT — 03.09.2026, PostgreSQL 17.11 im Container
+
+| # | Erfolgskriterium der Spec | Beleg (gelaufen, nicht behauptet) |
+|---|---|---|
+| 1 | Suite grün inkl. aller neuen Verträge, Bestandstests unverändert | `pytest -q -W error` → **446 passed, 4 skipped, 0 failed** |
+| 2 | FakeLLM-Interview bis `fertig` ⇒ genau EINE eingefrorene Zeile mit typisierten Spalten, `erhebung_id`, JSON | `test_durchstich_schreibt_genau_eine_eingefrorene_zeile` — prüft `status='fertig'`, `erhebung_id='E-2026-02'`, `frequency_per_year=120`, `focus_step_duration_confidence_pct=70`, `paket_version` mit `1.1+ctx-`, Kanonisierung `s-01`→`S-01` bis in die DB |
+| 3 | 503 beim Abschluss-Write, Replay derselben `message_id` holt ihn nach | `test_write_fehler_erzeugt_503_und_der_replay_holt_ihn_nach` + `test_503_traegt_den_stabilen_detail_string` — beide grün |
+| 4 | Trigger-Nachweise am Container: Freeze, UNIQUE, Versionsfolge, Kaskade | `tests/test_ddl_trigger.py` — **24 Tests grün**, darunter Freeze gegen UPDATE und DELETE, ein Draft je Fokus-Schritt, parallele Inserts mit getrennten Versionen, DSGVO-Kaskade über ein voll befülltes Profil, triggerinduziertes UPDATE/DELETE prallt am Freeze |
+| 5 | DDL identisch einspielbar (Dreifallregel) | `tests/test_ddl_einspielen.py` — **21 Tests grün**, darunter Fall 1/2/3, fünf semantische Abweichungen einzeln, Spaltenrecht an fremde Rolle, Mitgliedschaft in `bc1_role`, neue Umgebungsrollen-Toleranz |
+
+**Damit ist Phase E abgeschlossen.** Offen bleibt allein das Deploy-Gate **K-I** (BC0 muss
+das `ALTER DEFAULT PRIVILEGES` entfernen) — dokumentiert in `EINSPIELEN.md`, Abschnitt 8.
+
 ---
 
 ## Anhang A (Rev. 11a): Vorbereitung Use-Case-Testprofile für BC2 bis BC4 — Roadmap, NICHT Teil der ausführbaren Reihenfolge
