@@ -77,6 +77,25 @@ END $$;
 -- zweiter Lauf in DERSELBEN Session an 'relation already exists'.
 CREATE TEMP TABLE bc1_soll_signatur (zeile text PRIMARY KEY) ON COMMIT DROP;
 
+-- BEKANNTE UMGEBUNGSROLLEN (Klaerpunkt K-G, Entscheidung Richard 03.09.).
+-- Die Signatur betrachtet weiter ALLE Rollen — nur diese namentlich genannten
+-- sind ausgenommen, weil sie zur Zielumgebung gehoeren und nicht zu unserem
+-- Schema. Wirkung: 'mitglied|', 'effektiv|' und 'effektiv_spalte|' zaehlen sie
+-- nicht mit, das Einspielen scheitert also nicht an der Umgebung. JEDE andere
+-- fremde Rolle mit Zugriff bricht weiter mit Fall 3 ab — insbesondere ein
+-- 'GRANT bc1_role TO <irgendwer>' (Codex N10-C2, per Test gepinnt).
+--
+-- Jeder Eintrag ist am 03.09.2026 in der Ziel-Supabase GEMESSEN, nicht vermutet
+-- (Abfrage und Ergebnis in EINSPIELEN.md). Wer hier etwas ergaenzt, misst vorher
+-- nach und begruendet es in derselben Zeile.
+CREATE TEMP TABLE bc1_umgebungsrollen (rolname text PRIMARY KEY) ON COMMIT DROP;
+
+INSERT INTO pg_temp.bc1_umgebungsrollen (rolname) VALUES
+    ('postgres'),                 -- Supabase-Administration; dort KEIN Superuser,
+                                  -- Mitglied von bc1_role und bc_leser
+    ('supabase_read_only_user'),  -- Supabase-Lesekonto, kommt ueber pg_read_all_data
+    ('supabase_etl_admin');       -- Supabase-ETL, kommt ueber pg_read_all_data
+
 INSERT INTO pg_temp.bc1_soll_signatur (zeile) VALUES
 -- << HIER die generierte Sollsignatur einsetzen (Step 7) >>
     ('acl|profil_rollen|bc1_role|DELETE|f'),
@@ -364,6 +383,7 @@ UNION ALL
 SELECT format('mitglied|bc1_role|%s', pg_get_userbyid(m.member))
   FROM pg_auth_members m
  WHERE m.roleid = (SELECT oid FROM pg_roles WHERE rolname = 'bc1_role')
+   AND pg_get_userbyid(m.member) NOT IN (SELECT rolname FROM pg_temp.bc1_umgebungsrollen)
 UNION ALL
 -- Codex N10-I3: RLS-Zustand und Policies — eine nachtraeglich aktivierte Policy
 -- aenderte die Sichtbarkeit, ohne eine der obigen Zeilen zu beruehren.
@@ -408,6 +428,7 @@ SELECT format('effektiv|%s|%s|%s', c.relname, r.rolname, priv)
        unnest(ARRAY['SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER']) AS priv
  WHERE n.nspname = 'bc1' AND c.relname IN ('prozessprofil', 'profil_rollen', 'profil_write_status')
    AND NOT r.rolsuper AND r.rolname NOT LIKE 'pg\_%'
+   AND r.rolname NOT IN (SELECT rolname FROM pg_temp.bc1_umgebungsrollen)
    AND has_table_privilege(r.oid, c.oid, priv)
 UNION ALL
 -- Und dasselbe auf SPALTENEBENE (Codex N10-C1): has_any_column_privilege sieht
@@ -419,6 +440,7 @@ SELECT format('effektiv_spalte|%s|%s|%s', c.relname, r.rolname, priv)
        unnest(ARRAY['SELECT','INSERT','UPDATE','REFERENCES']) AS priv
  WHERE n.nspname = 'bc1' AND c.relname IN ('prozessprofil', 'profil_rollen', 'profil_write_status')
    AND NOT r.rolsuper AND r.rolname NOT LIKE 'pg\_%'
+   AND r.rolname NOT IN (SELECT rolname FROM pg_temp.bc1_umgebungsrollen)
    AND has_any_column_privilege(r.oid, c.oid, priv);
 
 -- ============================================================

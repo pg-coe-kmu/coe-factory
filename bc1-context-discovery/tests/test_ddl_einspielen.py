@@ -202,6 +202,30 @@ def test_mitgliedschaft_in_bc1_role_wird_erkannt():
             conn.commit()
 
 
+def test_bekannte_umgebungsrolle_bricht_das_einspielen_nicht_ab():
+    # K-G (Entscheidung Richard, 03.09.): In der Zielumgebung kommen drei fremde
+    # Rollen an unsere Tabellen — am 03.09. in der Supabase gemessen: postgres
+    # (Mitglied von bc1_role und bc_leser), supabase_read_only_user und
+    # supabase_etl_admin (beide ueber pg_read_all_data). Sie sind namentlich
+    # ausgenommen, sonst braeche das Einspielen an der Umgebung ab. Dass JEDE
+    # andere fremde Rolle weiter auffaellt, pinnt der Test darueber.
+    frische_db(DSN)
+    with verbindung(DSN, None) as conn:
+        conn.execute("DROP ROLE IF EXISTS supabase_read_only_user")
+        conn.execute("CREATE ROLE supabase_read_only_user NOLOGIN")
+        conn.execute("GRANT bc1_role TO supabase_read_only_user")
+        conn.commit()
+    try:
+        spiele_ddl_ein(DSN)                      # darf NICHT abbrechen
+        with verbindung(DSN, None) as conn:
+            assert _tabellen(conn), "Fall 1 haette die Tabellen anlegen muessen"
+    finally:
+        with verbindung(DSN, None) as conn:
+            conn.execute("REVOKE bc1_role FROM supabase_read_only_user")
+            conn.execute("DROP ROLE IF EXISTS supabase_read_only_user")
+            conn.commit()
+
+
 def test_deaktivierter_interner_fk_trigger_wird_erkannt():
     # Codex N10-I3: tgisinternal wird ausgeschlossen — ein deaktivierter RI-Trigger
     # laesst die Constraint-Definition unveraendert, der FK wird aber nicht mehr
