@@ -52,7 +52,17 @@
 --
 --   **Die Tabelle zählt, das Protokoll erzählt.** Wer wissen will, WER es
 --   versucht hat, liest das Serverprotokoll: dort steht die Adresse im
---   Klartext, und dort verschwindet sie beim Rotieren wieder. Wer zu einer
+--   Klartext, und dort verschwindet sie beim Rotieren wieder.
+--
+--   **Nachtrag vom 02.09.2026, noch am Tag des Ausrollens:** Dieser Satz war
+--   bei seiner Niederschrift falsch. Die Ablehnungsmeldungen standen auf
+--   `info`, der Logger `bc0.auth` hat keine eigene Einstellung, und damit galt
+--   die Vorbelegung WARNING — elf Fehlversuche gegen die Live-Anwendung
+--   erzeugten null Protokollzeilen. Der erzählende Teil fehlte also, und die
+--   Begründung für die Abdrücke stand auf einer Zusicherung, die niemand
+--   eingelöst hatte. Behoben: Die drei Ablehnungsmeldungen stehen jetzt auf
+--   WARNING (ToDo-Punkt 114). **Wer sie zurückstellt, muss diesen Absatz
+--   streichen.** Wer zu einer
 --   bekannten Adresse nachsehen will, ob sie gerade gesperrt ist, bildet ihren
 --   Abdruck und fragt danach (Beispiel unten).
 --

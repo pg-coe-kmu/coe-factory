@@ -770,9 +770,70 @@ async function anfListeLaden(){
                        : '<span style="color:#8a6100">ohne Prozessbezug</span>')+'</span></div>'
         +'<div style="margin-top:6px;font-size:13px">'+esc(a.originaltext||'')+'</div>'
         +(a.erhofftes_ziel?'<div class="mut" style="margin-top:4px;font-size:12px">Ziel: '+esc(a.erhofftes_ziel)+'</div>':'')
+        +(a.process_id?'':'<div style="margin-top:8px"><button class="btn sm sec" data-vorschlag="'
+          +esc(a.anfrage_id)+'">Vorschlag holen</button>'
+          +'<span class="mut" style="margin-left:8px;font-size:11.5px">Stichwortabgleich, kein Sprachmodell</span></div>'
+          +'<div id="anfv_'+esc(a.anfrage_id)+'"></div>')
         +'</div>';
     }).join('');
+    $('anfListe').onclick=anfListeKlick;
   }catch(e){ $('anfListe').innerHTML='<div class="mut">Die Anfragen konnten nicht geladen werden.</div>'; }
+}
+
+/* ---- Trichter 3: Vorschlag holen, von Hand quittieren ---------------------
+   ToDo-Punkt 61. Der Knopf steht NUR an Anfragen ohne Prozessbezug — an einer
+   zugeordneten Anfrage waere er eine Einladung, eine Entscheidung zu
+   ueberschreiben, die jemand bereits getroffen hat.
+
+   **Der Vorschlag wird angezeigt, nicht gesetzt.** Erst ein Klick auf
+   „Übernehmen" schreibt, und dann mit `zuordnung_quelle='vorschlag_bc0'` —
+   die Herkunft sagt hinterher, dass hier der Abgleich vorgeschlagen und ein
+   Mensch quittiert hat. Eine Vorbelegung, die sich selbst bestaetigt, waere
+   keine Erhebung mehr (dieselbe Regel wie bei der Bitkom-Vorlage im
+   Anlageassistenten und bei den Prozessnamen).
+
+   **Die Treffer stehen dabei.** Ohne sie liesse sich ein Vorschlag nur
+   glauben — und `vorschlag_bc0` stuende in der Datenbank fuer etwas, das
+   niemand geprueft hat. */
+async function anfListeKlick(ev){
+  var hol=ev.target.closest?ev.target.closest('[data-vorschlag]'):null;
+  if(hol){ await anfVorschlagHolen(hol.dataset.vorschlag); return; }
+  var ueb=ev.target.closest?ev.target.closest('[data-uebernehmen]'):null;
+  if(ueb){ await anfVorschlagUebernehmen(ueb.dataset.uebernehmen, ueb.dataset.kp, ueb.dataset.tp); }
+}
+
+async function anfVorschlagHolen(aid){
+  var ziel=$('anfv_'+aid); if(!ziel) return;
+  ziel.innerHTML='<div class="mut" style="margin-top:6px;font-size:12px">wird gesucht …</div>';
+  try{
+    var r=await api('/api/companies/'+ANF.cid+'/anfragen/'+aid+'/vorschlaege');
+  }catch(e){ ziel.innerHTML='<div class="mut" style="margin-top:6px;font-size:12px">Der Abgleich ist fehlgeschlagen.</div>'; return; }
+  var vs=r.vorschlaege||[];
+  if(!vs.length){
+    /* Kein Vorschlag ist eine gueltige Antwort. Sie hier auszusprechen ist
+       wichtiger, als sie zu verschweigen: Sonst sucht jemand den Fehler. */
+    ziel.innerHTML='<div class="mut" style="margin-top:6px;font-size:12px">'
+      +'Kein Vorschlag — im Text steht kein Wort, das auf einen erfassten Prozess führt. '
+      +'Der Bezug entsteht dann im Interview.</div>';
+    return;
+  }
+  ziel.innerHTML='<div style="margin-top:6px">'+vs.map(function(v){
+    return '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;margin:4px 0">'
+      +'<span class="g0feld">'+esc((v.sub_process_id||v.process_id)+' · '
+        +(v.sub_process_name||v.process_name||''))+'</span>'
+      +'<span class="mut" style="font-size:11.5px">wegen '+esc(v.treffer.join(', '))+'</span>'
+      +'<button class="btn sm" data-uebernehmen="'+esc(aid)+'" data-kp="'+esc(v.process_id)
+      +'" data-tp="'+esc(v.sub_process_id||'')+'">Übernehmen</button></div>';
+  }).join('')+'</div>';
+}
+
+async function anfVorschlagUebernehmen(aid, kp, tp){
+  try{
+    await api('/api/companies/'+ANF.cid+'/anfragen/'+aid+'/zuordnung','PUT',
+              {process_id:kp, sub_process_id:tp||null, zuordnung_quelle:'vorschlag_bc0'});
+    toast('Zuordnung übernommen — Herkunft: Vorschlag BC0.');
+    await anfListeLaden();
+  }catch(e){ toast('Die Zuordnung konnte nicht gespeichert werden.',true); }
 }
 
 /* ---- Anlageassistent ------------------------------------------------------
@@ -1374,13 +1435,54 @@ function renderRA(){var keys=Object.keys(cur.processes).sort();if(!keys.length){
   var tpopt=p.tps.map(function(tp,n){return '<option value="'+(n+1)+'">TP-'+(n+1)+' · '+esc(tp.sub_process_name)+'</option>';}).join('');
   var kpopt=keys.map(function(k){return '<option value="'+k+'" '+(k===curKP?'selected':'')+'>'+k+' — '+esc(cur.processes[k].process_name)+'</option>';}).join('');
   $('ra').innerHTML='<div class="crumb">'+cr()+'Self-Rating</div><h1>Self-Rating</h1><p class="lead">30 Bitkom-Items je Teilprozess · <span class="reqstar">Beleg Pflicht</span></p>'+
+   '<div class="panel" id="raErh"><b>Erhebung</b> <span class="mut">wird geladen …</span></div>'+
    '<div class="panel"><div class="row"><div><label>Kernprozess</label><select id="kpSel">'+kpopt+'</select></div><div><label>Teilprozess</label><select id="tpSel">'+tpopt+'</select></div><div class="progresswrap"><label>Fortschritt: <span id="pT">0/30</span></label><div class="bar"><i id="pB"></i></div></div><div><label>Ø</label><div style="font-size:22px;font-weight:700;color:var(--navy)" id="aB">–</div></div></div></div>'+
-   '<div class="panel"><label>&#128206; Belege (Dateien) f&uuml;r <b id="docRef"></b> <span class="mut">&mdash; PDF/Bilder je Teilprozess (Stufe 1: Ablage; OCR folgt)</span></label><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0"><input type="file" id="docFile" accept="application/pdf,image/*" capture="environment"><button class="btn sec" id="docUp">Hochladen</button></div><div id="docsList" class="mut">&ndash;</div></div>'+
+   '<div class="panel"><label>&#128206; Belege (Dateien) f&uuml;r <b id="docRef"></b> <span class="mut">&mdash; Text aus Office-Dateien und PDFs mit Textebene wird beim Hochladen verlustfrei ausgelesen</span></label><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0"><input type="file" id="docFile" accept="application/pdf,image/*" capture="environment"><button class="btn sec" id="docUp">Hochladen</button></div><div id="docsList" class="mut">&ndash;</div><div style="border-top:1px solid #e6e6e6;margin-top:12px;padding-top:10px"><label>&#128269; In allen Belegen dieses Mandanten suchen</label><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0"><input id="belegQ" style="flex:1;min-width:260px" placeholder="z. B. DATEV, Freigabe, CRM-Auszug"><button class="btn sec" id="belegSuch">Suchen</button></div><div id="belegTreffer" class="mut"></div></div></div>'+
    '<div id="items"></div><div class="actionbar"><button class="btn" id="saveR">Speichern</button><button class="btn sec" id="fillR">Beispiel ausfüllen</button><span class="mut" id="sh"></span></div>';
   $('kpSel').onchange=function(){curKP=$('kpSel').value;renderRA();};
   curTP=1;$('tpSel').onchange=function(){curTP=+$('tpSel').value;drawItems();};
   $('docUp').onclick=uploadDoc;
-  drawItems();show('ra');}
+  /* Suchen auf Klick und auf Enter — wer in ein Suchfeld tippt, drueckt Enter. */
+  if($('belegSuch')) $('belegSuch').onclick=belegeSuchen;
+  if($('belegQ')) $('belegQ').onkeydown=function(e){ if(e.key==='Enter'){ e.preventDefault(); belegeSuchen(); } };
+  drawItems();show('ra');zeichneErhebung();}
+/* ---- Erhebung: Stand, abschliessen, neu (v2.8, 04.09.2026) --------------------
+   Eine Erhebung ist der Name einer Messkampagne, kein Einfrierpunkt mehr — den
+   liefert seit v2.6 die Historie. Abschliessen ist eine bewusste Handlung von
+   BC0 (Admin): "die Kampagne ist zu Ende". Danach legt die naechste Bewertung
+   automatisch die naechste Erhebung an (E-JJJJ-MM-2, -3 …); die abgeschlossene
+   bleibt unveraendert. Was gilt: je Item der juengste Wert ueber alle nicht
+   verworfenen Erhebungen. Ab dem Paket gilt fuer BC2 das Paketdatum. */
+async function zeichneErhebung(){
+  var box=$('raErh'); if(!box) return;
+  var d; try{ d=await api('/api/companies/'+cur.company.id+'/erhebungen'); }
+  catch(e){ box.innerHTML='<b>Erhebung</b> <span class="mut">'+esc(e.detail||'nicht verfügbar')+'</span>'; return; }
+  var admin=BENUTZER&&BENUTZER.ist_admin, h='';
+  var offen=null; d.erhebungen.forEach(function(e){ if(e.erhebung_id===d.offen) offen=e; });
+  if(offen){
+    h+='<div class="row" style="align-items:center;gap:10px;flex-wrap:wrap"><div><b>Erhebung '+esc(offen.erhebung_id)+'</b> · '+esc(offen.bezeichnung)+' · <span class="ok">offen</span> seit '+esc(offen.stand||'')+' · '+offen.bewertungen+(offen.bewertungen===1?' Bewertung':' Bewertungen')+'</div>'
+      +(admin?'<button class="btn sm sec" id="erhAbschluss">Erhebung abschließen</button>':'')+'</div>'
+      +'<div class="mut" style="margin-top:4px">Neue Bewertungen gehen in diese Erhebung. Abschließen heißt: die Kampagne ist zu Ende — die Werte bleiben, wie sie sind; die nächste Bewertung beginnt automatisch '+esc(d.naechste||'die nächste Erhebung')+'.</div>';
+  } else {
+    h+='<div class="row" style="align-items:center;gap:10px;flex-wrap:wrap"><div><b>Keine Erhebung offen.</b> Die nächste Bewertung legt <b>'+esc(d.naechste||'—')+'</b> an'+(d.massgeblich?' — maßgeblich bis dahin: '+esc(d.massgeblich):'')+'.</div>'
+      +(admin?'<input id="erhBez" placeholder="Bezeichnung der neuen Erhebung (optional)" style="flex:1;min-width:220px"><button class="btn sm sec" id="erhNeu">Neue Erhebung beginnen</button>':'')+'</div>';
+  }
+  if(d.erhebungen.length){
+    h+='<details style="margin-top:8px"><summary class="mut">Alle Erhebungen ('+d.erhebungen.length+')</summary><table style="margin-top:6px"><tr><th>Kennung</th><th>Bezeichnung</th><th>Stand</th><th>Status</th><th>Bewertungen</th></tr>';
+    d.erhebungen.forEach(function(e){ h+='<tr><td>'+esc(e.erhebung_id)+'</td><td>'+esc(e.bezeichnung)+(e.hinweis?' <span class="mut">— '+esc(e.hinweis)+'</span>':'')+'</td><td>'+esc(e.stand||'')+'</td><td>'+esc(e.status)+'</td><td>'+e.bewertungen+'</td></tr>'; });
+    h+='</table></details>';
+  }
+  box.innerHTML='<b>Erhebung</b>'+h;
+  var ab=$('erhAbschluss'); if(ab) ab.onclick=async function(){ ab.disabled=true;
+    try{ var r=await api('/api/companies/'+cur.company.id+'/erhebungen','POST',{aktion:'abschliessen'}); toast('Erhebung '+r.erhebung_id+' abgeschlossen.'); }
+    catch(e){ toast('Fehler: '+(e.detail||e),true); }
+    zeichneErhebung(); };
+  var nb=$('erhNeu'); if(nb) nb.onclick=async function(){ nb.disabled=true;
+    try{ var r=await api('/api/companies/'+cur.company.id+'/erhebungen','POST',{aktion:'neu',bezeichnung:($('erhBez')||{}).value||''}); toast('Erhebung '+r.erhebung_id+' begonnen.'); }
+    catch(e){ toast('Fehler: '+(e.detail||e),true); }
+    zeichneErhebung(); };
+}
+/* Die naechste Kennung sagt der Server (GET …/erhebungen: naechste) — sie haengt am Monat der Anlage, nicht an der offenen Kennung. */
 /* ---- Erfassungsmaske der 30 Bitkom-Items ----------------------------------
    Der Kern der Anwendung. Bewertet wird je TEILPROZESS, nicht je Kernprozess:
    30 Items, fünf Dimensionen zu je sechs Fragen.
@@ -1416,7 +1518,7 @@ $('saveR')&&0;
 document.addEventListener('click',async function(ev){
   if(ev.target&&ev.target.id==='saveR'){var k=rkey();var rg=curRatings();var items={};Object.keys(rg).forEach(function(n){if(rg[n].stufe)items[n]={stufe:rg[n].stufe,beleg:(rg[n].beleg||'')};});
     if(!Object.keys(items).length){toast('Nichts zu speichern.',true);return;}
-    try{var r=await api('/api/companies/'+cur.company.id+'/rating','POST',{key:k,items:items});toast('✓ '+r.saved+' Bewertungen gespeichert.');cur.company.status='laeuft';}
+    try{var r=await api('/api/companies/'+cur.company.id+'/rating','POST',{key:k,items:items});toast('✓ '+r.saved+' Bewertungen gespeichert'+(r.erhebung_id?(r.erhebung_neu?' — neue Erhebung '+r.erhebung_id+' begonnen.':' ('+r.erhebung_id+').'):'.'));cur.company.status='laeuft';if(r.erhebung_neu)zeichneErhebung();}
     catch(e){toast('Blockiert: '+e.detail,true);document.querySelectorAll('.item').forEach(function(x){x.classList.remove('missing');});var m=(''+e.detail).match(/I-?(\d+)|Item\(s\):\s*([\d, ]+)/);}
   }
   if(ev.target&&ev.target.id==='fillR'){var k=rkey();cur.ratings[k]=cur.ratings[k]||{};META.items.forEach(function(it){var s=3+Math.round(Math.random());cur.ratings[k][it.item_nr]={stufe:Math.min(5,s),beleg:'Beleg '+it.kriterium};});drawItems();toast('Beispiel eingefüllt.');}
@@ -1443,6 +1545,46 @@ async function renderDocs(){var el=$('docsList');if(!el)return;var ref=rkey();va
     el.querySelectorAll('[data-docdel]').forEach(function(b){b.onclick=async function(){if(!confirm('Datei l\u00f6schen?'))return;
       try{await api('/api/companies/'+cur.company.id+'/documents/'+b.dataset.docdel,'DELETE');toast('Gel\u00f6scht.');renderDocs();}catch(e){toast('Fehler: '+(e.detail||e),true);}};});
   }catch(e){el.innerHTML='<span class="mut">Belege nicht ladbar: '+esc(e.detail||e)+'</span>';}}
+
+/* ---- Volltextsuche über die Belege (Stufe 2, Schritt 6) --------------------
+   ToDo-Punkt 139. Sie beantwortet die Frage, die das Konzept vom 18.08.2026 in
+   Abschnitt 1 stellt: „Welche Bewertungen stützen sich auf den CRM-Auszug vom
+   Mai?" — bis hierher bekam man darauf keine Antwort, weil der Inhalt der
+   Belege nicht durchsuchbar war.
+
+   DREI DINGE STEHEN BEWUSST IN DER ANZEIGE:
+
+   1. **Die Fundstelle**, nicht nur der Dateiname. Ohne sie wäre die Suche eine
+      Dateiliste — man sähe, DASS etwas gefunden wurde, aber nicht was.
+   2. **Die Belastbarkeit** im Wortlaut der Sicht `v_beleg_lesen`: „verlustfrei
+      ausgelesen" gegenüber „erkannt, unsicher — bitte prüfen". Ein Beleg, der
+      eine Reifegradbewertung stützt, muss seine eigene Güte mitführen.
+   3. **Wie viele Belege noch keinen Text haben.** Sonst hält man ein
+      unvollständiges Ergebnis für ein vollständiges: Der gesuchte Satz könnte
+      in einem Scan stehen, den noch niemand ausgelesen hat. */
+async function belegeSuchen(){
+  var feld=$('belegQ'), ziel=$('belegTreffer');
+  if(!feld||!ziel) return;
+  var q=(feld.value||'').trim();
+  ziel.innerHTML='<span class="mut">wird gesucht …</span>';
+  try{
+    var r=await api('/api/companies/'+cur.company.id+'/documents/suche?q='+encodeURIComponent(q));
+  }catch(e){ ziel.innerHTML='<span class="mut">Die Suche ist fehlgeschlagen.</span>'; return; }
+  var offen = r.ohne_text ? ('<div class="mut" style="margin-top:8px;font-size:11.5px">'
+      +r.ohne_text+' Beleg'+(r.ohne_text===1?'':'e')+' ohne ausgelesenen Text — '
+      +'darin wurde nicht gesucht.</div>') : '';
+  if(!q){ ziel.innerHTML='<span class="mut">Suchbegriff eingeben.</span>'+offen; return; }
+  if(!r.treffer.length){
+    ziel.innerHTML='<span class="mut">Kein Treffer für „'+esc(q)+'".</span>'+offen; return; }
+  ziel.innerHTML='<div style="margin-top:6px">'+r.treffer.map(function(x){
+    return '<div style="margin:8px 0;padding-left:8px;border-left:3px solid #d8d8d8">'
+      +'<a href="/api/companies/'+cur.company.id+'/documents/'+x.doc_id+'/file" target="_blank" rel="noopener">&#128206; '+esc(x.filename)+'</a> '
+      +'<span class="mut" style="font-size:11.5px">'+esc(x.ref_id)+' · '+esc(x.belastbarkeit)+'</span>'
+      +(x.fundstelle?'<div style="font-size:12.5px;margin-top:3px">'+esc(x.fundstelle)+'</div>'
+                    :'<div class="mut" style="font-size:12px;margin-top:3px">über den Dateinamen gefunden</div>')
+      +'</div>';
+  }).join('')+'</div>'+offen;
+}
 async function uploadDoc(){var inp=$('docFile');var f=inp&&inp.files&&inp.files[0];if(!f){toast('Keine Datei gew\u00e4hlt.',true);return;}
   if(f.size>15*1024*1024){toast('Max. 15 MB.',true);return;}
   var fd=new FormData();fd.append('ref_id',rkey());fd.append('file',f);
@@ -1474,7 +1616,7 @@ function renderGR(){var rows='';var keys=Object.keys(cur.ratings).sort();keys.fo
    Bausteine B-11 und B-12.
 =========================================================================== */
 
-var RB=null, RB_ANHANG=false, RB_MODUS='arbeit';
+var RB=null, RB_ANHANG=false, RB_MODUS='arbeit', RB_BIS=null, RB_ERH=[];   /* RB_BIS: Stand nach Erhebung (v2.9) */
 function rbModus(m){
   /* Nur umschalten, nicht neu laden — die Daten sind dieselben. */
   RB_MODUS=m;
@@ -1877,8 +2019,51 @@ function kapitel(nr,titel,inhalt){
   return '<section class="kap"><h2><span class="nr">'+nr+'</span>'+titel+'</h2>'+inhalt+'</section>';
 }
 
+/* ---- Stand und Vorher/Nachher (v2.9, 04.09.2026) -------------------------
+   Simeon: "Werden die Items geaendert, aendert sich der Reifegrad je Prozess.
+   Wie machen wir eine Vor-/Nachher-Betrachtung?" — Der Stand nach einer
+   Erhebung ist reproduzierbar, sobald sie und alle davor abgeschlossen sind.
+   Der Vergleich rechnet je Teilprozess, je Dimension und je Item. */
+function rbStandLeiste(rep){
+  if(!RB_ERH.length) return '';
+  var opt='<option value="">aktuell (alle Erhebungen)</option>';
+  RB_ERH.forEach(function(e){ opt+='<option value="'+esc(e.erhebung_id)+'" '+(RB_BIS===e.erhebung_id?'selected':'')+'>nach '+esc(e.erhebung_id)+' · '+esc(e.bezeichnung||'')+(e.fest?' 🔒':' (offen)')+'</option>'; });
+  var von=RB_ERH[0], bis=RB_ERH[RB_ERH.length-1];
+  var sel=function(id,vor){ return '<select id="'+id+'">'+RB_ERH.map(function(e){return '<option value="'+esc(e.erhebung_id)+'" '+(vor===e.erhebung_id?'selected':'')+'>'+esc(e.erhebung_id)+(e.fest?' 🔒':'')+'</option>';}).join('')+'</select>'; };
+  return '<div class="panel noprint" id="rbStandPanel"><div class="row" style="align-items:center;gap:12px;flex-wrap:wrap">'
+    +'<label>Stand des Berichts <select id="rbStand" onchange="RB_BIS=this.value||null;renderRB()">'+opt+'</select></label>'
+    +'<span class="mut">🔒 = fest: diese und alle früheren Erhebungen sind abgeschlossen; der Stand kann sich nicht mehr ändern.</span></div>'
+    +(RB_ERH.length>1?'<div class="row" style="align-items:center;gap:12px;flex-wrap:wrap;margin-top:8px"><b>Vorher / Nachher</b>'
+      +'<label>vorher: Stand nach '+sel('rbVon',von.erhebung_id)+'</label><label>nachher: Stand nach '+sel('rbBis',bis.erhebung_id)+'</label>'
+      +'<button class="btn sm sec" onclick="rbVergleich()">Vergleichen</button></div><div id="rbVNErg"></div>':'<div class="mut" style="margin-top:6px">Vorher / Nachher braucht zwei Erhebungen — bisher gibt es eine.</div>')
+    +'</div>';
+}
+function rbDelta(d){ if(d===null||d===undefined) return '<td class="mut">—</td>'; var f=d>0?'color:#1a7f37;font-weight:700':(d<0?'color:#b42318;font-weight:700':'color:#888'); return '<td style="'+f+'">'+(d>0?'+':'')+String(d).replace('.',',')+'</td>'; }
+function rbNum(v){ return v===null||v===undefined?'—':String(v).replace('.',','); }
+async function rbVergleich(){
+  var von=$('rbVon').value, bis=$('rbBis').value, box=$('rbVNErg');
+  box.innerHTML='<span class="mut">wird gerechnet …</span>';
+  var v; try{ v=await api('/api/companies/'+cur.company.id+'/report/vergleich?von='+encodeURIComponent(von)+'&bis='+encodeURIComponent(bis)); }
+  catch(e){ box.innerHTML='<span style="color:#b42318">'+esc(e.detail||e)+'</span>'; return; }
+  var h='<div class="mut" style="margin:6px 0">Stand nach <b>'+esc(v.von.erhebung_id)+'</b> ('+esc(v.von.stand)+(v.von.fest?', fest':', offen')+') gegen Stand nach <b>'+esc(v.bis.erhebung_id)+'</b> ('+esc(v.bis.stand)+(v.bis.fest?', fest':', offen')+') · '+v.n_geaendert+(v.n_geaendert===1?' Item geändert, ':' Items geändert, ')+v.n_neu_bewertet+' erstmals bewertet'+(v.fest?'':' · <b>Vorsicht:</b> mindestens ein Stand ist noch offen und kann sich ändern')+'</div>';
+  h+='<table><tr><th>Gesamt / Dimension</th><th>vorher</th><th>nachher</th><th>Δ</th></tr>';
+  h+='<tr><td><b>Gesamt</b></td><td>'+rbNum(v.gesamt.vorher)+'</td><td>'+rbNum(v.gesamt.nachher)+'</td>'+rbDelta(v.gesamt.delta)+'</tr>';
+  v.dimensionen.forEach(function(d){ h+='<tr><td>'+esc(d.dimension)+'</td><td>'+rbNum(d.vorher)+'</td><td>'+rbNum(d.nachher)+'</td>'+rbDelta(d.delta)+'</tr>'; });
+  h+='</table><table style="margin-top:8px"><tr><th>Teilprozess</th><th>vorher</th><th>nachher</th><th>Δ</th><th>geänderte Items</th><th>erstmals bewertet</th></tr>';
+  v.teilprozesse.forEach(function(t){ var still=(t.delta===0||t.delta===null)&&!t.neu_bewertet; h+='<tr'+(still?' class="mut"':'')+'><td>'+esc(t.sub_process_id)+' · '+esc(t.name||'')+'</td><td>'+rbNum(t.vorher)+'</td><td>'+rbNum(t.nachher)+'</td>'+rbDelta(t.delta)+'<td>'+t.geaendert+'</td><td>'+t.neu_bewertet+'</td></tr>'; });
+  h+='</table>';
+  if(v.items.length){ h+='<details style="margin-top:8px"><summary class="mut">Geänderte und neu bewertete Items ('+v.items.length+')</summary><table style="margin-top:6px"><tr><th>Teilprozess</th><th>Item</th><th>alt</th><th>neu</th><th>aus Erhebung</th><th>Beleg (neu)</th></tr>';
+    v.items.forEach(function(i){ h+='<tr><td>'+esc(i.sub_process_id)+'</td><td>I-'+('0'+i.item_nr).slice(-2)+' · '+esc(i.kriterium||'')+'</td><td>'+(i.alt===null?'<span class="mut">—</span>':i.alt)+'</td><td><b>'+i.neu+'</b></td><td>'+esc(i.erhebung_neu)+'</td><td class="mut">'+esc((i.beleg_neu||'').slice(0,80))+'</td></tr>'; });
+    h+='</table></details>'; }
+  box.innerHTML=h;
+}
 async function renderRB(){
-  var rep=await api('/api/companies/'+cur.company.id+'/report'); RB=rep;
+  /* v2.9: Der Bericht hat einen Stand. Ohne Auswahl der aktuelle (alle nicht
+     verworfenen Erhebungen); mit RB_BIS der Stand NACH dieser Erhebung — dieselbe
+     Zusammensetzung, nur bis dahin. "fest" heisst: sie und alle davor sind
+     abgeschlossen, der Stand kann sich nicht mehr aendern. */
+  var rep=await api('/api/companies/'+cur.company.id+'/report'+(RB_BIS?'?bis='+encodeURIComponent(RB_BIS):'')); RB=rep;
+  try{ RB_ERH=(await api('/api/companies/'+cur.company.id+'/erhebungen')).erhebungen.filter(function(e){return e.status!=='verworfen';}).sort(function(a,b){return (a.rang||0)-(b.rang||0);}); }catch(e){ RB_ERH=[]; }
   baueKritZuordnung();
   var h='<div class="crumb noprint">'+cr()+'Reifegradbericht</div>';
   /* Zwei Ansichten, ein Reiter. Die Arbeitsansicht ist der Normalfall; die
@@ -1895,6 +2080,7 @@ async function renderRB(){
     +' onchange="RB_ANHANG=this.checked;renderRB()"> Anhang mit allen Einzelbewertungen mitdrucken</label>'
     +'<span class="mut">Gedruckt wird immer die Berichtsfassung. Für Seitenzahlen im '
     +'Druckdialog „Kopf- und Fußzeilen" anhaken.</span></div>';
+  h+=rbStandLeiste(rep);
 
   h+='<div id="rbArbeit">'+rbArbeit(rep)+'</div>';
 
@@ -1910,6 +2096,7 @@ async function renderRB(){
     +'<div class="tb-unter">'+bs(rep,'B-01')+'</div>'
     +'<table class="tb-tab"><tbody>'
     +'<tr><th>Erhebung</th><td>'+esc(erh)+'</td></tr>'
+    +(rep.bis?'<tr><th>Stand</th><td>nach '+esc(rep.bis.erhebung_id)+' · '+esc(rep.bis.bezeichnung||'')+' ('+(rep.bis.fest?'fest — kann sich nicht mehr ändern':'kann sich noch ändern, eine Erhebung bis hierhin ist offen')+')</td></tr>':'')
     +'<tr><th>Bericht erstellt</th><td>'+esc(rep.erstellt_am||'')+'</td></tr>'
     +'<tr><th>Erhobene Kernprozesse</th><td>'+rep.kp_rows.filter(function(r){return r.avg;}).length
         +' von '+rep.kp_rows.length+'</td></tr>'
@@ -2348,11 +2535,115 @@ function zeichneG0Liste(){
     +'<h2 style="font-size:17px;margin:0 0 8px">Zu entscheiden</h2>'+oben+g0Hindernisse()+bc1
     +'<details class="g0alle panel" style="margin-top:18px"><summary>Sachstand aller Teilprozesse ('
     +G0.teilprozesse.length+')</summary>'
-    +'<div style="margin-top:12px;overflow:auto">'+g0Tabelle(G0.teilprozesse,true)+'</div></details>';
+    +'<div style="margin-top:12px;overflow:auto">'+g0Tabelle(G0.teilprozesse,true)+'</div></details>'
+    +'<div id="g0ueb" class="panel" style="margin-top:18px"><span class="mut">Übergabe an BC2 wird geladen …</span></div>';
   $('g0').querySelectorAll('[data-bogen]').forEach(function(b){
     b.onclick=function(){oeffneG0Bogen(b.dataset.bogen);};});
   $('g0').querySelectorAll('[data-reiter]').forEach(function(a){
     a.onclick=function(){gehZuReiter(a.dataset.reiter);};});
+  zeichneG0Uebergabe();
+}
+
+/* ================= Übergabe an BC2 (Schema v2.6, 04.09.2026) ==================
+   Der zweite Schritt des Gates (Beschluss 10.08.): Freigabe je Teilprozess, dann
+   Übergabe je Unternehmen als PAKET. Das Paket ist eine Liste mit Datum — was
+   BC2 bekommen hat. Wie es zu diesem Datum aussah, sagt die Historie (R9):
+   „Stand vom …" rechnet den Reifegrad je Teilprozess zum Paketdatum zurück.
+   Keine Sammelübergabe ohne Blick: Die Kandidaten stehen vor dem Knopf. */
+function g0Datum(s){return esc((s||'').slice(0,16).replace('T',' '));}
+async function zeichneG0Uebergabe(){
+  var box=$('g0ueb'); if(!box) return;
+  var u, ver={teilprozesse:[]};
+  try{ u=await api('/api/companies/'+cur.company.id+'/uebergabe'); }
+  catch(e){ box.innerHTML='<b>Übergabe an BC2</b><div class="mut" style="margin-top:6px">'+esc(e.detail||'nicht verfügbar')+'</div>'; return; }
+  try{ ver=await api('/api/companies/'+cur.company.id+'/uebergabe/veraltet'); }catch(e){}
+  var verMap={}; (ver.teilprozesse||[]).forEach(function(v){verMap[v.sub_process_id]=v;});
+  function seitFreigabe(sid){var v=verMap[sid]||{};var n=v.aenderungen_tp_seit_freigabe||0;
+    return (n?('<span class="pill no">'+n+' Änderung'+(n===1?'':'en')+'</span> <span class="mut">'+esc(v.geaenderte_tabellen||'')+'</span>'):'<span class="pill gut">unverändert</span>')+(v.stillgelegt?' <span class="mut">stillgelegt</span>':'');}
+  var h='<b>Übergabe an BC2</b><div class="mut" style="margin:4px 0 10px">Übergeben wird eine <b>Anfrage nur vollständig</b> — alle Teilprozesse, die zu ihr gehören, sind freigegeben; sonst gibt es kein Paket. Das Paket ist eine Liste mit Datum; BC2 liest den Stand zu diesem Datum aus der Historie und entscheidet selbst, was er darüber hinaus einliest. Ändert sich der Umfang später, entsteht ein neues Paket der ganzen Anfrage.</div>';
+  /* --- je Anfrage: soll / freigegeben / fehlend --- */
+  var anfr=(u.anfragen||[]).filter(function(a){return a.soll>0 || a.status!=='eingegangen';});
+  if(anfr.length){
+    h+='<table><tr><th style="width:110px">Anfrage</th><th style="width:110px">Status</th><th style="width:150px">freigegeben</th><th>es fehlen</th><th style="width:170px">letzte Übergabe</th><th style="width:230px"></th></tr>';
+    anfr.forEach(function(a){
+      var frei=a.soll?('<b>'+a.freigegeben+' von '+a.soll+'</b> '+(a.vollstaendig?'<span class="pill gut">vollständig</span>':'<span class="pill no">unvollständig</span>')):'<span class="mut">kein Teilprozess zugeordnet</span>';
+      var fehlt=a.fehlend.length?a.fehlend.map(esc).join(', '):'<span class="mut">—</span>';
+      var letzte=a.letzte_uebergabe_am?g0Datum(a.letzte_uebergabe_am)+'<div class="mut">'+esc((a.letztes_paket_id||'').slice(0,8))+'</div>':'<span class="mut">noch nie</span>';
+      var knopf=a.uebergabefaehig?'<button class="btn sm" data-ueb-anfrage="'+esc(a.anfrage_id)+'">Paket für '+esc(a.anfrage_id)+' übergeben</button>'
+        :(a.vollstaendig&&a.letzte_uebergabe_am?'<span class="mut">übergeben, unverändert</span>':'<span class="mut">erst alle freigeben</span>');
+      h+='<tr><td>'+esc(a.anfrage_id)+'</td><td>'+esc(a.status)+'</td><td>'+frei+'</td><td>'+fehlt+'</td><td>'+letzte+'</td><td>'+knopf+'</td></tr>';
+    });
+    h+='</table>';
+  } else {
+    h+='<div class="g0nichts">Keine Anfrage mit Prozessbezug — nichts, was als Ganzes übergeben werden könnte.</div>';
+  }
+  /* --- Portfolio-Weg: freigegeben ohne Anfrage, ausdrückliche Auswahl --- */
+  var pf=u.portfolio||[];
+  h+='<h2 style="font-size:15px;margin:16px 0 6px">Portfolio-Weg — freigegeben ohne Anfrage ('+pf.length+')</h2>';
+  if(pf.length){
+    h+='<table><tr><th style="width:34px"></th><th style="width:130px">Teilprozess</th><th>freigegeben am</th><th>Hinweis an BC2</th><th style="width:230px">seit der Freigabe</th><th style="width:110px"></th></tr>';
+    pf.forEach(function(k){
+      h+='<tr><td><input type="checkbox" data-pf="'+esc(k.sub_process_id)+'"></td><td>'+esc(k.sub_process_id)+'</td><td>'+g0Datum(k.entschieden_am)+'</td><td class="mut">'+esc(k.hinweis_an_bc2||'')+'</td><td>'+seitFreigabe(k.sub_process_id)+'</td>'
+        +'<td><button class="btn sm sec" data-widerruf="'+esc(k.sub_process_id)+'">widerrufen</button></td></tr>';
+    });
+    h+='</table><div class="row" style="margin-top:8px;gap:8px;align-items:center"><input id="g0uebHinweis" placeholder="Hinweis an BC2 (optional)" style="flex:1"><button class="btn" id="g0uebPortfolio">Ausgewählte als Paket übergeben</button></div>';
+  } else {
+    h+='<div class="mut">Kein freigegebener Teilprozess außerhalb einer Anfrage und außerhalb eines Pakets.</div>';
+  }
+  /* --- Widerruf auch für Teilprozesse einer Anfrage --- */
+  var kandAnfr=(u.kandidaten||[]).filter(function(k){return k.anfrage_id;});
+  if(kandAnfr.length){
+    h+='<div class="mut" style="margin-top:10px">Freigegeben, noch nicht übergeben (Anfrage): '+kandAnfr.map(function(k){return esc(k.sub_process_id)+' <span class="mut">('+esc(k.anfrage_id)+')</span> <a data-widerruf="'+esc(k.sub_process_id)+'">widerrufen</a>';}).join(' · ')+'</div>';
+  }
+  h+='<div id="g0uebWiderruf" style="margin-top:8px"></div>';
+  /* --- Pakete --- */
+  if(u.pakete.length){
+    h+='<h2 style="font-size:15px;margin:16px 0 6px">Bisherige Pakete ('+u.pakete.length+')</h2><table><tr><th>übergeben am</th><th>Anfrage</th><th>Teilprozesse</th><th>Hinweis</th><th style="width:150px"></th></tr>';
+    u.pakete.forEach(function(p){
+      var anf={}; p.teilprozesse.forEach(function(t){anf[t.anfrage_id||'Portfolio']=1;});
+      h+='<tr><td>'+g0Datum(p.uebergeben_am)+(p.rang===1?' <span class="pill gut">jüngstes</span>':'')+'<div class="mut">'+esc(p.paket_id.slice(0,8))+'</div></td>'
+        +'<td>'+Object.keys(anf).map(esc).join(', ')+'</td>'
+        +'<td>'+p.teilprozesse.map(function(t){return esc(t.sub_process_id);}).join('<br>')+'</td>'
+        +'<td class="mut">'+esc(p.hinweis||'')+'</td>'
+        +'<td><button class="btn sm sec" data-stand="'+esc(p.uebergeben_am)+'">Stand vom Paketdatum</button></td></tr>';
+    });
+    h+='</table><div id="g0standBox" style="margin-top:8px"></div>';
+  }
+  box.innerHTML=h;
+  async function schnueren(body){
+    try{ var r=await api('/api/companies/'+cur.company.id+'/uebergabe','POST',body);
+      toast('✓ Paket übergeben: '+r.paket_id.slice(0,8)+' …'); await renderG0(); }
+    catch(e){ toast('Fehler: '+(e.detail||e),true); }
+  }
+  box.querySelectorAll('[data-ueb-anfrage]').forEach(function(b){
+    b.onclick=function(){b.disabled=true;schnueren({anfrage_id:b.dataset.uebAnfrage});};});
+  var pfKnopf=$('g0uebPortfolio');
+  if(pfKnopf) pfKnopf.onclick=function(){
+    var tps=[];box.querySelectorAll('[data-pf]:checked').forEach(function(x){tps.push(x.dataset.pf);});
+    if(!tps.length){toast('Nichts ausgewählt.',true);return;}
+    pfKnopf.disabled=true;schnueren({teilprozesse:tps,hinweis:($('g0uebHinweis')||{}).value||''});
+  };
+  box.querySelectorAll('[data-widerruf]').forEach(function(b){
+    b.onclick=function(){
+      var sid=b.dataset.widerruf;
+      $('g0uebWiderruf').innerHTML='<div class="row" style="gap:8px;align-items:center"><span>'+esc(sid)+' widerrufen — Grund:</span><input id="g0wGrund" style="flex:1" placeholder="Pflicht, ein Satz"><button class="btn sm" id="g0wOk">Widerrufen</button><button class="btn sm sec" id="g0wNein">abbrechen</button></div>';
+      $('g0wNein').onclick=function(){$('g0uebWiderruf').innerHTML='';};
+      $('g0wOk').onclick=async function(){
+        try{ await api('/api/companies/'+cur.company.id+'/gate/'+encodeURIComponent(sid)+'/widerrufen','POST',{grund:$('g0wGrund').value});
+          toast('Freigabe widerrufen: '+sid); await renderG0(); }
+        catch(e){ toast('Fehler: '+(e.detail||e),true); }
+      };
+    };
+  });
+  box.querySelectorAll('[data-stand]').forEach(function(b){
+    b.onclick=async function(){
+      try{ var r=await api('/api/companies/'+cur.company.id+'/stand?datum='+encodeURIComponent(b.dataset.stand));
+        var t='<div class="mut">Reifegrad je Teilprozess zum '+g0Datum(r.datum)+' — aus der Historie zurückgerechnet (Beginn '+g0Datum(r.historie_beginn)+')</div><table><tr><th style="width:130px">Teilprozess</th><th style="width:110px">Ø Stufe</th><th>Items</th></tr>';
+        r.teilprozesse.forEach(function(z){t+='<tr><td>'+esc(z.sub_process_id)+'</td><td>'+fmt(z.avg_stufe)+'</td><td>'+z.n_items+'</td></tr>';});
+        $('g0standBox').innerHTML=t+'</table>'; }
+      catch(e){ toast('Fehler: '+(e.detail||e),true); }
+    };
+  });
 }
 
 async function oeffneG0Bogen(sid){

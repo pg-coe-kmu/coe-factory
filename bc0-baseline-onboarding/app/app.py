@@ -227,6 +227,26 @@ CREATE TABLE IF NOT EXISTS beleg_dokumente (
   ocr_text TEXT,
   ocr_confidence NUMERIC(4,3),
   extrakt JSONB,
+  -- Herkunft des Belegtextes (Schema v1.6, 18.08.2026). Hier mitgefuehrt, damit
+  -- eine FRISCHE Installation dieselbe Tabelle bekommt wie eine gewachsene —
+  -- dieselbe Luecke wie bei ref_anfragen am 27.08.: Die Pflicht stand im Schema,
+  -- der Schreibweg kannte sie nicht.
+  --
+  -- WOFUER: Ein verlustfrei aus einer Word-Datei gelesener Text und ein nur zu
+  -- 87 Hundertstel erkannter Scan sehen in ocr_text gleich aus. Nach ADR-005 R2
+  -- muss erkennbar bleiben, wie ein Wert entstanden ist.
+  --
+  -- KEIN PROZENTZEICHEN IN DIESEM TEXT, auch nicht im Kommentar. Der DDL-Text
+  -- geht durch cur.execute(sql, params); psycopg2 liest das Zeichen als
+  -- Platzhalter und bricht mit IndexError ab, auch wenn params leer ist.
+  -- Am 03.09.2026 hat genau ein solches Zeichen — in einem KOMMENTAR — die
+  -- Anwendung in eine Neustartschleife geschickt. Beim Berichtigen stand es
+  -- dann im Warnhinweis selbst und haette es ein zweites Mal getan.
+  erkannt_durch TEXT,
+  geprueft_von TEXT,
+  geprueft_am TIMESTAMPTZ,
+  extrakt_durch TEXT,
+  extrakt_am TIMESTAMPTZ,
   status doc_status NOT NULL DEFAULT 'hochgeladen',
   uploaded_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -245,6 +265,8 @@ CREATE TABLE IF NOT EXISTS beleg_dokumente(
   doc_id TEXT PRIMARY KEY, company_id INTEGER NOT NULL, ref_id TEXT NOT NULL,
   filename TEXT NOT NULL, storage_key TEXT NOT NULL, mime_type TEXT, seiten INTEGER,
   ocr_text TEXT, ocr_confidence REAL, extrakt TEXT,
+  erkannt_durch TEXT, geprueft_von TEXT, geprueft_am TEXT,
+  extrakt_durch TEXT, extrakt_am TEXT,
   status TEXT NOT NULL DEFAULT 'hochgeladen', uploaded_at TEXT,
   FOREIGN KEY(company_id) REFERENCES companies(id) ON DELETE CASCADE);
 CREATE INDEX IF NOT EXISTS idx_belegdoc_company_ref ON beleg_dokumente(company_id, ref_id);
@@ -469,6 +491,23 @@ CREATE TABLE IF NOT EXISTS ref_anfragen (
   CHECK (process_id IS NOT NULL OR status = 'eingegangen'),
   CHECK ((process_id IS NULL) = (zuordnung_quelle IS NULL))
 );
+CREATE TABLE IF NOT EXISTS anfrage_prozesse (
+  bezug_id         BIGSERIAL PRIMARY KEY,
+  company_id       UUID        NOT NULL,
+  anfrage_id       TEXT        NOT NULL,
+  process_id       VARCHAR(8)  NOT NULL,
+  sub_process_id   VARCHAR(16),
+  rolle            TEXT        NOT NULL DEFAULT 'beteiligt' CHECK (rolle IN ('haupt','beteiligt')),
+  zuordnung_quelle TEXT        NOT NULL
+                   CHECK (zuordnung_quelle IN ('anfrage','vorschlag_bc0','vorschlag_bc1','interview')),
+  angelegt_am      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  FOREIGN KEY (company_id, anfrage_id) REFERENCES ref_anfragen (company_id, anfrage_id) ON DELETE CASCADE,
+  CHECK (sub_process_id IS NULL OR substr(sub_process_id, 1, length(process_id) + 1) = process_id || '.')
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_ap_bezug
+  ON anfrage_prozesse (company_id, anfrage_id, process_id, coalesce(sub_process_id, ''));
+CREATE UNIQUE INDEX IF NOT EXISTS ux_ap_haupt
+  ON anfrage_prozesse (company_id, anfrage_id) WHERE rolle = 'haupt';
 CREATE TABLE IF NOT EXISTS ref_gate_pruefpunkte (
   pruefpunkt     TEXT        PRIMARY KEY CHECK (pruefpunkt ~ '^[a-z_]{3,30}$'),
   bezeichnung    TEXT        NOT NULL,
@@ -544,6 +583,17 @@ CREATE TABLE IF NOT EXISTS ref_anfragen(
   PRIMARY KEY(company_id, anfrage_id),
   CHECK (process_id IS NOT NULL OR status = 'eingegangen'),
   CHECK ((process_id IS NULL) = (zuordnung_quelle IS NULL)));
+CREATE TABLE IF NOT EXISTS anfrage_prozesse(
+  bezug_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  company_id INTEGER NOT NULL, anfrage_id TEXT NOT NULL,
+  process_id TEXT NOT NULL, sub_process_id TEXT,
+  rolle TEXT NOT NULL DEFAULT 'beteiligt' CHECK (rolle IN ('haupt','beteiligt')),
+  zuordnung_quelle TEXT NOT NULL, angelegt_am TEXT,
+  CHECK (sub_process_id IS NULL OR substr(sub_process_id, 1, length(process_id) + 1) = process_id || '.'));
+CREATE UNIQUE INDEX IF NOT EXISTS ux_ap_bezug
+  ON anfrage_prozesse (company_id, anfrage_id, process_id, coalesce(sub_process_id, ''));
+CREATE UNIQUE INDEX IF NOT EXISTS ux_ap_haupt
+  ON anfrage_prozesse (company_id, anfrage_id) WHERE rolle = 'haupt';
 CREATE TABLE IF NOT EXISTS ref_gate_pruefpunkte(
   pruefpunkt TEXT PRIMARY KEY, bezeichnung TEXT NOT NULL, erlaeuterung TEXT,
   quelle_bc TEXT NOT NULL CHECK (quelle_bc IN ('BC0','BC1','BC0/BC1')),
@@ -770,8 +820,8 @@ ZUORDNUNG_QUELLEN = ("anfrage","vorschlag_bc0","vorschlag_bc1","interview")
 
 # Die Kette, wie sie in v2.2 als CHECK steht. Gate 0 sitzt ZWISCHEN Interview
 # und ROI-Rechnung, nicht dahinter.
-ANFRAGE_STATUS = ("eingegangen","zugeordnet","im_interview","am_gate",
-                  "bewertet","beauftragt","erledigt","abgelehnt")
+ANFRAGE_STATUS = ("eingegangen","zugeordnet","im_interview","am_gate","uebergeben",
+                  "bewertet","beauftragt","erledigt","abgelehnt")   # uebergeben: v2.7
 
 # ---------------------------------------------------------------------------
 # Fehlerbehandlung (Punkt 45, Befund A4)
@@ -862,6 +912,17 @@ class _Cx:
         """
         if PG:
             self.c = psycopg2.connect(DATABASE_URL)
+            # v2.6: Wer schreibt, steht in der Historie (trg_historie liest
+            # bc0.benutzer). Nur wenn eine Anfrage einen Benutzer hat — Skripte
+            # und Tests ohne Sitzung erscheinen als Datenbankbenutzer.
+            try:
+                from bc0_auth.middleware import AKTUELLER_BENUTZER
+                b = AKTUELLER_BENUTZER.get(None)
+            except Exception:  # noqa: BLE001 — ohne Kontext keine Herkunft, kein Abbruch
+                b = None
+            if b is not None:
+                self.c.cursor().execute("SELECT set_config('bc0.benutzer', %s, false)",
+                                        (str(b.benutzer_id),))
         else:
             self.c = sqlite3.connect(DB)
             self.c.row_factory = sqlite3.Row
@@ -941,7 +1002,7 @@ def db():
 #
 # Entspricht der View v_bewertung_aktuell in schema_v1.3_teil_c_erhebungen.sql.
 # Hier als Unterabfrage, damit auch der SQLite-Entwicklungsmodus sie hat.
-def _bew_aktuell(spalten: str) -> str:
+def _bew_aktuell(spalten: str, grenze=None) -> str:
     """Baut die Unterabfrage auf den **maßgeblichen Stand** der Bewertungen.
 
     Die zentrale Regel des Datenmodells, ausgedrückt als Fensterfunktion: je
@@ -974,12 +1035,25 @@ def _bew_aktuell(spalten: str) -> str:
         Stelle des Tabellennamens und ist deshalb in jedes ``FROM``
         einsetzbar.
     """
+    # v2.9: grenze = (stand, erhebung_id) — nur Erhebungen bis einschliesslich
+    # dieser (dieselbe Ordnung wie die Fensterfunktion). Der "Stand nach X".
+    # Beide Werte kommen aus ref_erhebungen (_erhebung_grenze) und werden hier
+    # nach Form geprueft, bevor sie als Literal in den Text gehen — das Fragment
+    # steht in Abfragen mit eigenen Parametern, ein Platzhalter mittendrin
+    # verschoebe deren Reihenfolge.
+    filter_ = ""
+    if grenze:
+        stand, kennung = grenze
+        if not (re.match(r"^\d{4}-\d{2}-\d{2}$", str(stand)) and re.match(r"^E-\d{4}-\d{2}(-\d+)?$", kennung)):
+            raise ValueError("Grenze hat nicht die erwartete Form: %r" % (grenze,))
+        filter_ = (" AND (e.stand < '%s' OR (e.stand = '%s' AND e.erhebung_id <= '%s'))"
+                   % (stand, stand, kennung))
     return ("(SELECT " + spalten + " FROM (SELECT bb.*, row_number() OVER ("
             "PARTITION BY bb.company_id, bb.sub_process_id, bb.item_nr "
             "ORDER BY e.stand DESC, e.erhebung_id DESC) AS rang "
             "FROM bitkom_bewertungen bb JOIN ref_erhebungen e "
             "ON e.company_id = bb.company_id AND e.erhebung_id = bb.erhebung_id "
-            "WHERE e.status <> 'verworfen') t WHERE rang = 1) AS bitkom_bewertungen")
+            "WHERE e.status <> 'verworfen'" + filter_ + ") t WHERE rang = 1) AS bitkom_bewertungen")
 
 
 if PG:
@@ -1010,6 +1084,45 @@ else:
                                "stufe,beleg,quelle,bewertet_am"))
     SEL_DOC  = ("SELECT doc_id,company_id,ref_id,filename,storage_key,mime_type,seiten,"
                 "ocr_confidence,status,uploaded_at FROM beleg_dokumente")
+
+def _sel_bew(grenze=None) -> str:
+    """SEL_BEW, wahlweise auf den Stand nach einer Erhebung begrenzt (v2.9).
+    Ohne Grenze wortgleich mit SEL_BEW — test_v29 prueft das."""
+    if PG:
+        return ("SELECT company_id::text AS company_id,erhebung_id,id,sub_process_id,"
+                "left(sub_process_id,5) AS process_id,"
+                "item_nr,stufe,beleg,quelle::text AS quelle,bewertet_am::text AS bewertet_am FROM "
+                + _bew_aktuell("company_id,erhebung_id,id,sub_process_id,item_nr,stufe,beleg,"
+                               "quelle,bewertet_am", grenze))
+    return ("SELECT * FROM "
+            + _bew_aktuell("company_id,erhebung_id,id,sub_process_id,process_id,item_nr,"
+                           "stufe,beleg,quelle,bewertet_am", grenze))
+
+
+def _erhebung_grenze(c, cid: str, kennung: str, was: str = "bis"):
+    """Die Erhebung als Grenze eines Standes — geprueft, mit `fest` (v2.9).
+
+    fest = diese und alle frueheren Erhebungen sind nicht mehr offen; dann
+    kann sich der Stand nach ihr nicht mehr aendern. Verworfene tragen keinen
+    Stand und sind keine Grenze.
+    """
+    kennung = (kennung or "").strip()
+    if not kennung:
+        raise HTTPException(400, "Parameter %s: eine Erhebungskennung (E-JJJJ-MM oder E-JJJJ-MM-N)." % was)
+    zeilen = [dict(r) for r in c.execute(
+        "SELECT erhebung_id, bezeichnung, status, " + ("stand::text AS stand" if PG else "stand") +
+        " FROM ref_erhebungen WHERE " + W_CO + " ORDER BY stand, erhebung_id", (cid,)).fetchall()]
+    treffer = [z for z in zeilen if z["erhebung_id"] == kennung]
+    if not treffer:
+        raise HTTPException(400, "Unbekannte Erhebung: %s" % kennung)
+    z = treffer[0]
+    if z["status"] == "verworfen":
+        raise HTTPException(400, "Erhebung %s ist verworfen und traegt keinen Stand." % kennung)
+    bis_hier = [x for x in zeilen if (x["stand"], x["erhebung_id"]) <= (z["stand"], z["erhebung_id"])]
+    z["fest"] = all(x["status"] != "offen" for x in bis_hier)
+    z["rang"] = len(bis_hier)
+    return z
+
 
 def init_db():
     """Richtet die Datenbank ein. Wiederholbar, läuft bei jedem Start.
@@ -1124,6 +1237,13 @@ def init_db():
     # wie oben bei ref_teilprozesse. In PostgreSQL steht der Nachzug im DDL-Text.
     for col in ("email", "telefon"):
         try: c.execute("ALTER TABLE ref_personen ADD COLUMN %s TEXT" % col)
+        except Exception: pass
+    # Nachtrag: Herkunft des Belegtextes (Schema v1.6, 18.08.2026). Gleiche
+    # Bauart wie oben. In PostgreSQL steht der Nachzug im Schemaskript
+    # `schema_v1.6_ocr.sql`; hier geht es um bestehende SQLite-Dateien.
+    for col in ("erkannt_durch", "geprueft_von", "geprueft_am",
+                "extrakt_durch", "extrakt_am"):
+        try: c.execute("ALTER TABLE beleg_dokumente ADD COLUMN %s TEXT" % col)
         except Exception: pass
     c.executemany("INSERT OR IGNORE INTO ref_systeme_katalog(katalog_id,bezeichnung,"
                   "kategorie,hersteller,quelloffen) VALUES(?,?,?,?,?)",
@@ -1549,7 +1669,10 @@ async def save_rating(cid:str, req:Request, benutzer: Benutzer = Depends(angemel
         raise HTTPException(400, "Beleg fehlt für Item(s): "+", ".join(missing))
     pid=key.split(".")[0]; c=db()
     # In welche Erhebung wird geschrieben? Legt beim ersten Mal eine an.
+    vorher = c.execute("SELECT erhebung_id FROM ref_erhebungen WHERE " + W_CO +
+                       " AND status='offen' LIMIT 1", (cid,)).fetchone()
     eid = _erhebung_offen(c, cid)
+    erhebung_neu = vorher is None   # v2.8: dieser Aufruf hat die Erhebung angelegt
     for nr,v in items.items():
         if not v.get("stufe"): continue
         rid="%s.I-%02d"%(key,int(nr))
@@ -1564,7 +1687,9 @@ async def save_rating(cid:str, req:Request, benutzer: Benutzer = Depends(angemel
                          ON CONFLICT(company_id,erhebung_id,id) DO UPDATE SET stufe=excluded.stufe,beleg=excluded.beleg,quelle=excluded.quelle,bewertet_am=excluded.bewertet_am""",
                 (cid,eid,rid,key,pid,int(nr),int(v["stufe"]),v.get("beleg","").strip(),v.get("quelle","manuell"),now()))
     c.execute("UPDATE companies SET status='laeuft' WHERE "+KEY_CO+" AND status='neu'", (cid,))
-    c.commit(); c.close(); return {"ok":True,"saved":len([1 for v in items.values() if v.get('stufe')])}
+    c.commit(); c.close()
+    return {"ok": True, "saved": len([1 for v in items.values() if v.get('stufe')]),
+            "erhebung_id": eid, "erhebung_neu": erhebung_neu}   # v2.8
 
 def _avg(rows):
     """Mittelwert über die gesetzten Werte, auf zwei Stellen gerundet.
@@ -2028,7 +2153,7 @@ REGELFASSUNG = _regelfassung()
 
 
 @app.get("/api/companies/{cid}/report")
-def report(cid:str, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+def report(cid:str, bis: str = None, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
     """Rechnet den vollständigen Reifegradbericht und gibt ihn als JSON zurück.
 
     Der umfangreichste Endpunkt der Anwendung, und der einzige, der aus den
@@ -2076,7 +2201,16 @@ def report(cid:str, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
     co=c.execute(SEL_CO+" WHERE "+KEY_CO, (cid,)).fetchone()
     if not co: c.close(); raise HTTPException(404)
     dim_of={r["item_nr"]:r["dimension"] for r in c.execute("SELECT item_nr,dimension FROM ref_items").fetchall()}
-    bew=[dict(r) for r in c.execute(SEL_BEW+" WHERE "+W_CO, (cid,)).fetchall()]
+    # v2.9: ?bis=E-… rechnet den Bericht auf den Stand NACH dieser Erhebung —
+    # dieselbe Zusammensetzung, nur ueber die Erhebungen bis einschliesslich ihr.
+    grenze = None
+    if bis:
+        try:
+            grenze = _erhebung_grenze(c, cid, bis)
+        except HTTPException:
+            c.close(); raise
+    sel = _sel_bew((grenze["stand"], grenze["erhebung_id"])) if grenze else SEL_BEW
+    bew=[dict(r) for r in c.execute(sel+" WHERE "+W_CO, (cid,)).fetchall()]
     procs=[dict(r) for r in c.execute(SEL_PROC+" WHERE "+W_CO+" ORDER BY process_id", (cid,)).fetchall()]
     # Dimension-Ø (Spider 5)
     dim_avg={d:_avg([b["stufe"] for b in bew if dim_of.get(b["item_nr"])==d]) for d in DIMS}
@@ -2214,7 +2348,10 @@ def report(cid:str, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
          "cf_items":{name:["I-%02d"%n for n in its] for name,its in CF_CRIT},
          "kette":kette,"cockpit":cockpit,"kategorien":list(KATEGORIEN),
          "cf_delta":CF_DELTA,"cockpit_stufen":[t for _,t in COCKPIT_STUFEN],
-         "schwelle":SCHWELLE,"erstellt_am":datetime.date.today().isoformat()}
+         "schwelle":SCHWELLE,"erstellt_am":datetime.date.today().isoformat(),
+         "bis":({"erhebung_id":grenze["erhebung_id"],"bezeichnung":grenze["bezeichnung"],
+                 "stand":str(grenze["stand"]),"status":grenze["status"],"fest":bool(grenze["fest"])}
+                if grenze else None)}   # v2.9
 
     # ---- Text: feste Bausteine und regelbasierte Befundsaetze -----------
     texte, fassung = berichtstexte()
@@ -2228,6 +2365,79 @@ def report(cid:str, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
     rep["texte"]=texte; rep["textfassung"]=fassung; rep["regelfassung"]=REGELFASSUNG
     rep["befund"]=befund
     return rep
+
+
+@app.get("/api/companies/{cid}/report/vergleich")
+def report_vergleich(cid: str, von: str = None, bis: str = None,
+                     benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+    """Vorher / Nachher (v2.9): der Stand nach `von` gegen den Stand nach `bis`.
+
+    Je Teilprozess und je Dimension Mittelwert vorher, nachher, Differenz; dazu
+    die Items, die sich geaendert haben, mit altem und neuem Wert. Ein Item, das
+    im Vorher nicht bewertet war, zaehlt als "neu bewertet", nicht als geaendert.
+    Dieselbe Rechnung liegt als reifegrad_vergleich() in der Datenbank
+    (schema_v2.9) — dort die Regel fuer BC1–BC4, hier fuer den Bericht.
+    """
+    pruefe_mandant(benutzer, cid)
+    c = db()
+    try:
+        g_von = _erhebung_grenze(c, cid, von, "von")
+        g_bis = _erhebung_grenze(c, cid, bis, "bis")
+        if (g_von["stand"], g_von["erhebung_id"]) >= (g_bis["stand"], g_bis["erhebung_id"]):
+            raise HTTPException(400, "Vorher muss vor Nachher liegen: %s ist nicht vor %s."
+                                     % (g_von["erhebung_id"], g_bis["erhebung_id"]))
+        dim_of = {r["item_nr"]: r["dimension"] for r in c.execute("SELECT item_nr,dimension FROM ref_items").fetchall()}
+        krit_of = {r["item_nr"]: r["kriterium"] for r in c.execute("SELECT item_nr,kriterium FROM ref_items").fetchall()}
+        alt = {(r["sub_process_id"], r["item_nr"]): dict(r) for r in c.execute(
+            _sel_bew((g_von["stand"], g_von["erhebung_id"])) + " WHERE " + W_CO, (cid,)).fetchall()}
+        neu = {(r["sub_process_id"], r["item_nr"]): dict(r) for r in c.execute(
+            _sel_bew((g_bis["stand"], g_bis["erhebung_id"])) + " WHERE " + W_CO, (cid,)).fetchall()}
+        tps = {r["sub_process_id"]: dict(r) for r in c.execute(
+            SEL_TP + " WHERE " + W_CO, (cid,)).fetchall()}
+    finally:
+        c.close()
+
+    def _d(a, b):
+        return round(b - a, 2) if (a is not None and b is not None) else None
+
+    def _m(werte):
+        # Kein Wert -> None, nicht 0: "vorher 0, Delta +3,2" taeuschte eine
+        # Verbesserung vor, wo erstmals bewertet wurde (Befund NoroAI 04.09.).
+        return _avg(werte) if werte else None
+
+    tp_rows = []
+    for sid in sorted(tps):
+        va = [v["stufe"] for (s_, _n), v in alt.items() if s_ == sid]
+        vn = [v["stufe"] for (s_, _n), v in neu.items() if s_ == sid]
+        if not va and not vn:
+            continue
+        ge = sum(1 for k, v in neu.items() if k[0] == sid and k in alt and alt[k]["stufe"] != v["stufe"])
+        nb = sum(1 for k in neu if k[0] == sid and k not in alt)
+        tp_rows.append({"sub_process_id": sid, "process_id": tps[sid]["process_id"],
+                        "name": tps[sid]["sub_process_name"],
+                        "vorher": _m(va), "nachher": _m(vn), "delta": _d(_m(va), _m(vn)),
+                        "geaendert": ge, "neu_bewertet": nb, "n_vorher": len(va), "n_nachher": len(vn)})
+    dims = []
+    for d in DIMS:
+        va = [v["stufe"] for (_s, n), v in alt.items() if dim_of.get(n) == d]
+        vn = [v["stufe"] for (_s, n), v in neu.items() if dim_of.get(n) == d]
+        dims.append({"dimension": d, "vorher": _m(va), "nachher": _m(vn), "delta": _d(_m(va), _m(vn))})
+    ga, gn = _m([v["stufe"] for v in alt.values()]), _m([v["stufe"] for v in neu.values()])
+    items = []
+    for k in sorted(neu, key=lambda x: (x[0], x[1])):
+        a = alt.get(k)
+        if a is None or a["stufe"] != neu[k]["stufe"]:
+            items.append({"sub_process_id": k[0], "item_nr": k[1], "kriterium": krit_of.get(k[1]),
+                          "alt": a["stufe"] if a else None, "neu": neu[k]["stufe"],
+                          "erhebung_alt": a["erhebung_id"] if a else None,
+                          "erhebung_neu": neu[k]["erhebung_id"], "beleg_neu": neu[k]["beleg"]})
+    grenz = lambda g: {"erhebung_id": g["erhebung_id"], "bezeichnung": g["bezeichnung"],
+                       "stand": str(g["stand"]), "status": g["status"], "fest": bool(g["fest"])}
+    return {"von": grenz(g_von), "bis": grenz(g_bis), "fest": bool(g_von["fest"] and g_bis["fest"]),
+            "gesamt": {"vorher": ga, "nachher": gn, "delta": _d(ga, gn)},
+            "dimensionen": dims, "teilprozesse": tp_rows, "items": items,
+            "n_geaendert": sum(1 for i in items if i["alt"] is not None),
+            "n_neu_bewertet": sum(1 for i in items if i["alt"] is None)}
 
 # =====================================================================
 # KI-READINESS UND PROZESSDOKUMENTATION, seit 19.08.2026
@@ -2600,6 +2810,243 @@ def _doc_public(d):
     """
     d = dict(d); d.pop("storage_key", None); return d
 
+# --------------------------------------------------------------------------- #
+# Beleg-Ingestion Stufe 2, Schritt 4 — der Extraktionsweg (ToDo #139)
+# --------------------------------------------------------------------------- #
+# Grundlage: `13_Konzepte_Architektur/BC0_OCR_Konzept_Stufe2.md` vom 18.08.2026,
+# Abschnitt 3 („Die Weiche: das meiste braucht kein OCR").
+#
+# **OCR ist Bilderkennung. Sie wird nur gebraucht, wenn Text als Pixel vorliegt.**
+# Ein Word-Dokument ist eine ZIP-Datei mit XML; ein aus Word oder einem Browser
+# exportiertes PDF traegt eine Textebene. Beides ist verlustfrei und in
+# Millisekunden ausgelesen.
+#
+#   **Das ist keine Abkuerzung, sondern eine Frage der Richtigkeit.** Direktes
+#   Auslesen ist hundertprozentig genau. OCR hat immer eine Fehlerquote, auch
+#   das beste Modell bei sauberem Scan — aus einer 3 wird gelegentlich eine 8,
+#   aus „rn" ein „m". Fuer einen Beleg, der eine Reifegradbewertung stuetzt, ist
+#   der Unterschied wesentlich. **Wo direkt ausgelesen werden kann, darf niemals
+#   OCR laufen.**
+#
+# Deshalb steht hier eine Weiche und kein Wasserfall: Erst wird gefragt, ob es
+# ueberhaupt ein Bild ist.
+#
+# WAS HIER NICHT STEHT
+#   Die Zeichenerkennung selbst. Sie ist Schritt 5 und laeuft nach der
+#   Entscheidung vom 18.08. in einem **eigenen Container** (PaddleOCR, 1 GB,
+#   ein Kern, eine Warteschlange) — nicht in diesem Prozess. Findet diese
+#   Funktion kein verlustfreies Verfahren, gibt sie `None` zurueck und der
+#   Beleg bleibt auf `hochgeladen`. Das ist der Arbeitsvorrat fuer den Worker,
+#   und es ist ein gueltiger Zustand, kein Fehler.
+
+#: Office-Formate, deren Text als XML in einer ZIP-Datei liegt.
+OFFICE_MIME = {
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+        ("word/document.xml",),
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+        ("xl/sharedStrings.xml",),
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+        ("ppt/slides/",),
+}
+
+#: Ab wie vielen Zeichen je Seite eine Textebene als vorhanden gilt.
+#: Aus dem Konzept, Abschnitt 3. Unterhalb davon traegt ein PDF meist nur
+#: Kopfzeilen oder Seitenzahlen ueber einem eingescannten Bild.
+TEXTEBENE_ZEICHEN_JE_SEITE = 100
+
+#: Wie viele Seiten die Probe liest. Drei genuegen: Ein Dokument mit Textebene
+#: hat sie ueberall, ein Scan nirgends.
+PROBE_SEITEN = 3
+
+
+def _text_aus_office(pfad):
+    """Liest den Text aus einer Office-Datei — verlustfrei, ohne Fremdpaket.
+
+    Eine `.docx`, `.xlsx` oder `.pptx` ist eine ZIP-Datei mit XML darin. Der
+    Text steht dort Buchstabe fuer Buchstabe; ausgelesen wird er ueber
+    `zipfile` und `re`, beide aus der Standardbibliothek.
+
+    **Bewusst kein `python-docx`.** Es waere eine neue Laufzeitabhaengigkeit
+    fuer eine Aufgabe, die in fuenf Zeilen erledigt ist — und es kann nur
+    `.docx`, waehrend hier drei Formate anfallen.
+
+    Zurueck kommt der reine Text ohne Auszeichnung. Fuer die Volltextsuche ist
+    genau das gewollt: Wer nach einem Wort sucht, sucht nicht nach seiner
+    Formatierung.
+    """
+    import re as _re
+    import zipfile
+
+    stuecke = []
+    with zipfile.ZipFile(pfad) as z:
+        namen = [n for n in z.namelist()
+                 if n.endswith(".xml") and (
+                     n.startswith("word/document") or n.startswith("xl/sharedStrings")
+                     or n.startswith("xl/worksheets/") or n.startswith("ppt/slides/slide"))]
+        for name in sorted(namen):
+            roh = z.read(name).decode("utf-8", "ignore")
+            # Absatz- und Zeilenenden vor dem Entfernen der Auszeichnung in
+            # Leerzeichen wandeln — sonst klebt das letzte Wort eines Absatzes
+            # am ersten des naechsten und beide sind unauffindbar.
+            roh = _re.sub(r"</w:p>|</a:p>|<w:br/>|</text:p>", " ", roh)
+            stuecke.append(_re.sub(r"<[^>]+>", " ", roh))
+    text = " ".join(stuecke)
+    return _re.sub(r"\s+", " ", text).strip()
+
+
+def _pdftotext(pfad, bis_seite=None):
+    """Ruft `pdftotext` (Poppler) und gibt den Text zurueck.
+
+    Args:
+        pfad: Datei.
+        bis_seite: Nur die ersten n Seiten lesen — fuer die Probe.
+
+    Returns:
+        str: Der ausgelesene Text, oder ``""`` wenn `pdftotext` fehlt oder
+        scheitert. **Ein fehlendes Poppler ist kein Fehler der Anwendung** —
+        sie laeuft dann ohne Extraktionsweg weiter, und die Belege warten auf
+        den Worker. Genau dieser Zustand herrscht auf jedem
+        Entwicklungsrechner.
+    """
+    import subprocess
+
+    befehl = ["pdftotext", "-q"]
+    if bis_seite:
+        befehl += ["-l", str(bis_seite)]
+    befehl += [pfad, "-"]
+    try:
+        fertig = subprocess.run(befehl, capture_output=True, timeout=60)
+        return fertig.stdout.decode("utf-8", "ignore")
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+def text_holen(pfad, mime, seiten=None):
+    """Die Weiche: verlustfrei auslesen, oder dem Worker ueberlassen.
+
+    Args:
+        pfad: Datei im Ablageverzeichnis.
+        mime: Gemeldeter Inhaltstyp. **Er ist eine Behauptung des
+            Hochladenden**, keine Feststellung — deshalb entscheidet bei PDFs
+            nicht er, sondern die Messung.
+        seiten: Bekannte Seitenzahl, sofern vorhanden.
+
+    Returns:
+        tuple: ``(text, confidence, erkannt_durch)`` — oder
+        ``(None, None, None)``, wenn nur echte Zeichenerkennung hilft.
+
+        ``confidence`` ist bei verlustfreiem Auslesen **1.000**. Das ist keine
+        Schoenfaerbung: Der Text stand so in der Datei. Schema v1.6 stuetzt
+        genau darauf die Auskunft „verlustfrei ausgelesen" gegenueber
+        „erkannt, unsicher — bitte pruefen".
+    """
+    if mime in OFFICE_MIME:
+        try:
+            text = _text_aus_office(pfad)
+        except Exception as ausnahme:
+            LOG.info("Office-Auslesen fehlgeschlagen (%s): %s", pfad, ausnahme)
+            return None, None, None
+        return (text, 1.000, "office") if text else (None, None, None)
+
+    if mime == "application/pdf":
+        probe = _pdftotext(pfad, bis_seite=PROBE_SEITEN)
+        grenze = TEXTEBENE_ZEICHEN_JE_SEITE * min(seiten or PROBE_SEITEN, PROBE_SEITEN)
+        if len(probe.strip()) > grenze:
+            voll = _pdftotext(pfad)
+            if voll.strip():
+                return voll, 1.000, "pdftotext"
+        # Zu wenig Text: Das PDF ist ein Bild. Nichts zurueckgeben ist hier die
+        # richtige Antwort — ein halb ausgelesener Scan waere schlechter als
+        # keiner, weil er belastbar aussieht.
+        return None, None, None
+
+    if mime in ("text/plain", "text/markdown", "text/csv"):
+        try:
+            with open(pfad, encoding="utf-8", errors="ignore") as f:
+                text = f.read()
+        except OSError:
+            return None, None, None
+        return (text, 1.000, "text") if text.strip() else (None, None, None)
+
+    return None, None, None
+
+
+def beleg_text_nachtragen(c, doc_id, key, mime, seiten=None):
+    """Traegt den Belegtext nach, wenn er sich verlustfrei lesen laesst.
+
+    Wird beim Hochladen aufgerufen. **Nicht im Hintergrund:** Der
+    Extraktionsweg braucht Millisekunden, nicht Minuten — ein Hintergrundlauf
+    waere hier nur eine Stelle mehr, an der etwas unbemerkt scheitert. Der
+    Hintergrundlauf gehoert zu Schritt 5, wo eine Seite Zeichenerkennung
+    Sekunden kostet.
+
+    Schlaegt das Auslesen fehl oder ist die Datei ein Bild, bleibt die Zeile
+    unveraendert auf ``hochgeladen`` — das ist der Arbeitsvorrat fuer den
+    Worker und kein Fehlerzustand.
+
+    Returns:
+        str | None: Das verwendete Verfahren, oder ``None``.
+    """
+    pfad = os.path.join(BELEGE_DIR, *key.split("/"))
+    if not os.path.exists(pfad):
+        return None
+    text, guete, verfahren = text_holen(pfad, mime, seiten)
+    if not verfahren:
+        return None
+    c.execute("UPDATE beleg_dokumente SET ocr_text=?, ocr_confidence=?, "
+              "erkannt_durch=?, status=? WHERE doc_id" + ("::text" if PG else "") + "=?",
+              (text, guete, verfahren, "ocr_fertig", doc_id))
+    LOG.info("Belegtext nachgetragen: %s ueber %s, %d Zeichen",
+             doc_id[:8], verfahren, len(text))
+    return verfahren
+
+
+#: Wie viele Zeichen um einen Treffer herum die Fundstelle zeigt.
+FUNDSTELLE_UMFELD = 90
+
+
+def _belastbarkeit(ocr_text, guete):
+    """Wie belastbar ist dieser Belegtext? — derselbe Wortlaut wie in v_beleg_lesen.
+
+    Die Sicht `v_beleg_lesen` aus Schema v1.6 bildet diese Auskunft in SQL.
+    Hier steht sie ein zweites Mal, weil die Suche auch im SQLite-Modus
+    antworten muss, wo es die Sicht nicht gibt. **Die Wortlaute muessen gleich
+    bleiben** — sonst nennt dieselbe Datei in der Suche etwas anderes als im
+    Bericht.
+    """
+    if ocr_text is None:
+        return "kein Text"
+    if guete is not None and float(guete) >= 1.0:
+        return "verlustfrei ausgelesen"
+    if guete is not None and float(guete) >= 0.8:
+        return "erkannt"
+    return "erkannt, unsicher — bitte pruefen"
+
+
+def _fundstelle(ocr_text, begriff):
+    """Der Textausschnitt um den ersten Treffer.
+
+    **Warum ueberhaupt:** Ohne Fundstelle waere die Suche eine Dateiliste. Man
+    saehe, DASS etwas gefunden wurde, aber nicht was — und muesste jedes
+    Dokument oeffnen, um zu entscheiden, ob es das richtige ist.
+
+    Gesucht wird hier bewusst einfach (Kleinschreibung, erste Fundstelle).
+    PostgreSQL koennte das ueber `ts_headline` genauer; das haette aber zur
+    Folge, dass die Fundstelle im Betrieb anders aussieht als in der
+    Entwicklung. **Eine Anzeige, die sich je nach Backend unterscheidet, ist
+    schwerer zu pruefen als eine, die etwas weniger kann.**
+    """
+    if not ocr_text or not begriff:
+        return None
+    text = " ".join(ocr_text.split())
+    stelle = text.lower().find(begriff.lower().split()[0] if begriff.split() else "")
+    if stelle < 0:
+        return text[:FUNDSTELLE_UMFELD * 2] + ("…" if len(text) > FUNDSTELLE_UMFELD * 2 else "")
+    von = max(0, stelle - FUNDSTELLE_UMFELD)
+    bis = min(len(text), stelle + len(begriff) + FUNDSTELLE_UMFELD)
+    return ("…" if von else "") + text[von:bis] + ("…" if bis < len(text) else "")
+
+
 @app.post("/api/companies/{cid}/documents")
 async def upload_document(cid: str, ref_id: str = Form(...), file: UploadFile = File(...),
                           benutzer: Benutzer = Depends(angemeldeter_benutzer)):
@@ -2656,10 +3103,95 @@ async def upload_document(cid: str, ref_id: str = Form(...), file: UploadFile = 
                       "Die Datei konnte nicht abgelegt werden.")
     c.execute("INSERT INTO beleg_dokumente(doc_id,company_id,ref_id,filename,storage_key,mime_type,status,uploaded_at) VALUES(?,?,?,?,?,?,?,?)",
         (doc_id, cid, ref_id, safe, key, file.content_type, "hochgeladen", now()))
+    # Stufe 2, Schritt 4: Laesst sich der Text verlustfrei lesen, geschieht das
+    # jetzt — es kostet Millisekunden. Ein Bild bleibt auf `hochgeladen` und
+    # wartet auf den Worker aus Schritt 5. Ein Fehlschlag hier darf das
+    # Hochladen nicht scheitern lassen: Die Datei liegt bereits, und ein Beleg
+    # ohne Text ist brauchbar, ein verlorener Beleg nicht.
+    try:
+        beleg_text_nachtragen(c, doc_id, key, file.content_type)
+    except Exception as ausnahme:
+        LOG.info("Textextraktion uebersprungen (%s): %s", doc_id[:8], ausnahme)
     c.commit()
     d = dict(c.execute(SEL_DOC + " WHERE doc_id" + ("::text" if PG else "") + "=?", (doc_id,)).fetchone())
     c.close()
     return _doc_public(d)
+
+@app.get("/api/companies/{cid}/documents/suche")
+def suche_belege(cid: str, q: str = "",
+                 benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+    """Volltextsuche ueber die Belege eines Mandanten (Stufe 2, Schritt 6).
+
+    **Wofuer.** BC0 erzwingt eine Belegpflicht — keine Bewertung ohne
+    Begruendung. Die Belege liegen als Dateien im Volume; ihr Inhalt war bisher
+    nicht durchsuchbar. Wer fragt *„welche Bewertungen stuetzen sich auf den
+    CRM-Auszug vom Mai?"*, bekam keine Antwort.
+
+    **Zwei Wege, ein Verhalten — soweit es geht.** In PostgreSQL laeuft die
+    Suche ueber die erzeugte Spalte ``such_vektor`` (Schema v1.6): deutsche
+    Konfiguration mit Stammformenreduktion, Dateiname mit Gewicht A, Belegtext
+    mit Gewicht B. **Der Dateiname wiegt schwerer, weil er meist absichtlich
+    vergeben wurde und der Belegtext auch Beiwerk enthaelt.** In SQLite gibt es
+    das nicht; dort wird mit ``LIKE`` gesucht.
+
+    Der Unterschied ist ausdruecklich benannt und nicht versteckt: Die Antwort
+    fuehrt ``verfahren`` mit. Wer im Entwicklungsmodus weniger findet als auf
+    dem Server, soll das sehen und nicht suchen, woran es liegt.
+
+    **Ohne Text kein Treffer.** Belege, deren Inhalt noch nicht ausgelesen ist
+    (Bilder, Scans — Arbeitsvorrat fuer den Worker aus Schritt 5), tauchen hier
+    nicht auf. Das Feld ``ohne_text`` sagt, wie viele das sind — sonst hielte
+    man ein unvollstaendiges Ergebnis fuer ein vollstaendiges.
+
+    Args:
+        cid: Mandant.
+        q: Suchbegriff. Leer ergibt eine leere Trefferliste, keinen Fehler.
+
+    Returns:
+        Treffer mit ``doc_id``, ``ref_id``, ``filename``, ``erkannt_durch``,
+        ``belastbarkeit`` und einer **Fundstelle** — dem Textausschnitt um den
+        Treffer. Ohne ihn waere die Suche eine Dateiliste: Man saehe, DASS
+        etwas gefunden wurde, aber nicht was.
+    """
+    pruefe_mandant(benutzer, cid)
+    begriff = (q or "").strip()
+    c = db()
+    try:
+        ohne_text = c.execute(
+            "SELECT count(*) AS n FROM beleg_dokumente WHERE " + W_CO +
+            " AND ocr_text IS NULL", (cid,)).fetchone()["n"]
+        if not begriff:
+            return {"suchbegriff": "", "treffer": [], "ohne_text": ohne_text,
+                    "verfahren": "tsvector/german" if PG else "LIKE"}
+
+        if PG:
+            zeilen = c.execute(
+                "SELECT doc_id::text AS doc_id, ref_id, filename, mime_type, "
+                "ocr_text, ocr_confidence, erkannt_durch "
+                "FROM beleg_dokumente WHERE " + W_CO +
+                " AND such_vektor @@ plainto_tsquery('german', ?) "
+                "ORDER BY ts_rank(such_vektor, plainto_tsquery('german', ?)) DESC, "
+                "uploaded_at DESC LIMIT 50", (cid, begriff, begriff)).fetchall()
+        else:
+            muster = "%" + begriff.replace("%", "").replace("_", "") + "%"
+            zeilen = c.execute(
+                "SELECT doc_id, ref_id, filename, mime_type, ocr_text, "
+                "ocr_confidence, erkannt_durch FROM beleg_dokumente WHERE " + W_CO +
+                " AND (ocr_text LIKE ? OR filename LIKE ?) "
+                "ORDER BY uploaded_at DESC LIMIT 50",
+                (cid, muster, muster)).fetchall()
+    finally:
+        c.close()
+
+    treffer = [{"doc_id": z["doc_id"], "ref_id": z["ref_id"],
+                "filename": z["filename"], "mime_type": z["mime_type"],
+                "erkannt_durch": z["erkannt_durch"],
+                "belastbarkeit": _belastbarkeit(z["ocr_text"], z["ocr_confidence"]),
+                "fundstelle": _fundstelle(z["ocr_text"], begriff)}
+               for z in zeilen]
+    return {"suchbegriff": begriff, "treffer": treffer, "ohne_text": ohne_text,
+            "verfahren": "tsvector/german" if PG else "LIKE"}
+
 
 @app.get("/api/companies/{cid}/documents")
 def list_documents(cid: str, ref_id: str = None,
@@ -2771,20 +3303,73 @@ def _erhebung_offen(c, cid: str) -> str:
     diesen Bezug waere eine Gate-Freigabe nicht reproduzierbar, weil sich der
     Datenstand, auf den sie sich bezog, spaeter nicht mehr herstellen laesst.
     """
+    # v2.6: Nur eine OFFENE Erhebung nimmt neue Bewertungen an. Vorher wurde die
+    # juengste nicht verworfene gewaehlt — auch eine abgeschlossene, und damit war
+    # "abgeschlossen" keine Sperre. Seit schema_v2.6 weist die Datenbank das
+    # ohnehin ab; hier steht die verstaendliche Antwort davor.
+    zeile = c.execute(
+        "SELECT erhebung_id FROM ref_erhebungen WHERE " + W_CO +
+        " AND status='offen' ORDER BY stand DESC, erhebung_id DESC LIMIT 1",
+        (cid,)).fetchone()
+    if zeile:
+        return zeile["erhebung_id"]
+    # v2.8: Keine offene Erhebung — die naechste Bewertung legt die naechste an.
+    # Nach einem Abschluss ist das eine Nacherhebung (E-JJJJ-MM-2, -3 …); die
+    # abgeschlossene bleibt, wie sie war. Das ist die Sperre: nicht "niemand darf
+    # bewerten", sondern "das Alte wird nicht ueberschrieben".
+    erhebung_id, vorgaenger = _erhebung_kennung_neu(c, cid)
+    heute = datetime.date.today()
+    if vorgaenger:
+        bezeichnung = "Nacherhebung %02d/%04d" % (heute.month, heute.year)
+        hinweis = ("Automatisch angelegt: Bewertung nach Abschluss von %s. "
+                   "Nur die hier bewerteten Items aendern den Stand." % vorgaenger)
+    else:
+        bezeichnung, hinweis = "Erhebung %02d/%04d" % (heute.month, heute.year), None
+    c.execute("INSERT INTO ref_erhebungen(company_id,erhebung_id,bezeichnung,stand,status,methode,hinweis) "
+              "VALUES(?,?,?,?,?,?,?)",
+              (cid, erhebung_id, bezeichnung, _heute(), "offen",
+               "Self-Rating je Teilprozess, 30 Bitkom-Items, Belegpflicht", hinweis))
+    return erhebung_id
+
+
+def _erhebung_kennung_neu(c, cid: str):
+    """Die naechste freie Erhebungskennung — und die Kennung der juengsten
+    vorhandenen Erhebung dieses Monats (oder None).
+
+    Regel (Schema v2.8, erhebung_naechste_kennung()): E-JJJJ-MM fuer die erste
+    Erhebung des Monats, danach E-JJJJ-MM-2, -3 … Verworfene zaehlen mit — eine
+    Kennung wird nie ein zweites Mal vergeben. Hier in Python, damit SQLite
+    dieselbe Regel hat.
+    """
+    heute = datetime.date.today()
+    basis = "E-%04d-%02d" % (heute.year, heute.month)
+    zeilen = c.execute("SELECT erhebung_id FROM ref_erhebungen WHERE " + W_CO +
+                       " AND (erhebung_id=? OR erhebung_id LIKE ?)",
+                       (cid, basis, basis + "-%")).fetchall()
+    if not zeilen:
+        return basis, None
+    hoechste, juengste = 1, basis
+    for z in zeilen:
+        rest = z["erhebung_id"][len(basis) + 1:]
+        n = int(rest) if rest.isdigit() else 1
+        if n >= hoechste:
+            hoechste, juengste = n, z["erhebung_id"]
+    return "%s-%d" % (basis, hoechste + 1), juengste
+
+
+def _erhebung_massgeblich(c, cid: str):
+    """Die juengste nicht verworfene Erhebung — lesend, ohne Nebenwirkung.
+
+    Fuer das Gate: Eine Freigabe haelt den Stand fest, sie beginnt keine
+    Erhebung. (_erhebung_offen legt an; das darf eine Freigabe nicht.) Seit v2.6
+    liefert die Historie den vollstaendigen Stand zum Zeitpunkt der Entscheidung;
+    diese Kennung ist die Kurzform dazu.
+    """
     zeile = c.execute(
         "SELECT erhebung_id FROM ref_erhebungen WHERE " + W_CO +
         " AND status<>'verworfen' ORDER BY stand DESC, erhebung_id DESC LIMIT 1",
         (cid,)).fetchone()
-    if zeile:
-        return zeile["erhebung_id"]
-    heute = datetime.date.today()
-    erhebung_id = "E-%04d-%02d" % (heute.year, heute.month)
-    c.execute("INSERT INTO ref_erhebungen(company_id,erhebung_id,bezeichnung,stand,status,methode) "
-              "VALUES(?,?,?,?,?,?)",
-              (cid, erhebung_id, "Erhebung %02d/%04d" % (heute.month, heute.year),
-               _heute(), "offen",
-               "Self-Rating je Teilprozess, 30 Bitkom-Items, Belegpflicht"))
-    return erhebung_id
+    return zeile["erhebung_id"] if zeile else None
 
 
 @app.get("/api/companies/{cid}/erhebungen")
@@ -2801,17 +3386,32 @@ def erhebungen(cid: str, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
             " AND b.erhebung_id=e.erhebung_id) AS bewertungen "
             "FROM ref_erhebungen e WHERE e." + W_CO +
             " ORDER BY e.stand DESC, e.erhebung_id DESC", (cid,)).fetchall()]
+        # v2.9: Reihenfolge und "fest" (Stand nach dieser Erhebung unveraenderlich)
+        reihe = sorted(zeilen, key=lambda z: (str(z["stand"]), z["erhebung_id"]))
+        noch_offen = False
+        for i, z in enumerate(reihe):
+            noch_offen = noch_offen or z["status"] == "offen"
+            z["rang"] = i + 1
+            z["fest"] = (not noch_offen) and z["status"] != "verworfen"
+        offen = [z["erhebung_id"] for z in zeilen if z["status"] == "offen"]
+        # v2.8: die Kennung, die die naechste Erhebung bekaeme — immer berechnet,
+        # auch bei offener; die Oberflaeche rechnet nichts selbst (Monat der
+        # Anlage, nicht der offenen Kennung: E-2026-08 offen -> naechste E-2026-09).
+        naechste = _erhebung_kennung_neu(c, cid)[0]
     finally:
         c.close()
-    massgeblich = zeilen[0]["erhebung_id"] if zeilen else None
+    # v2.8: massgeblich = juengste NICHT verworfene — wie _erhebung_massgeblich().
+    # Vorher stand hier zeilen[0], also auch eine verworfene.
+    massgeblich = next((z["erhebung_id"] for z in zeilen if z["status"] != "verworfen"), None)
     for z in zeilen:
         z["bewertungen"] = int(z["bewertungen"])
-    return {"erhebungen": zeilen, "massgeblich": massgeblich, "status_werte": ERHEBUNG_STATUS}
+    return {"erhebungen": zeilen, "massgeblich": massgeblich, "status_werte": ERHEBUNG_STATUS,
+            "offen": offen[0] if offen else None, "naechste": naechste}
 
 
 @app.post("/api/companies/{cid}/erhebungen")
 async def erhebung_steuern(cid: str, req: Request,
-                           benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+                           benutzer: Benutzer = Depends(admin)):   # v2.8: BC0 entscheidet
     """Erhebung abschliessen oder eine neue beginnen.
 
     `abschliessen` setzt die offene Erhebung auf `abgeschlossen`. `neu` legt eine
@@ -2829,12 +3429,15 @@ async def erhebung_steuern(cid: str, req: Request,
     try:
         if aktion == "neu":
             heute = datetime.date.today()
-            erhebung_id = "E-%04d-%02d" % (heute.year, heute.month)
-            vorhanden = c.execute("SELECT status FROM ref_erhebungen WHERE " + W_CO +
-                                  " AND erhebung_id=?", (cid, erhebung_id)).fetchone()
-            if vorhanden:
-                raise HTTPException(400, "Fuer diesen Monat gibt es bereits die Erhebung %s"
-                                         % erhebung_id)
+            offen = c.execute("SELECT erhebung_id FROM ref_erhebungen WHERE " + W_CO +
+                              " AND status='offen' ORDER BY stand DESC, erhebung_id DESC LIMIT 1",
+                              (cid,)).fetchone()
+            if offen:
+                raise HTTPException(400, "Die Erhebung %s ist noch offen — erst abschliessen "
+                                         "(oder verwerfen), dann eine neue beginnen. Zwei offene "
+                                         "Erhebungen haetten keinen eindeutigen Empfaenger."
+                                         % offen["erhebung_id"])
+            erhebung_id = _erhebung_kennung_neu(c, cid)[0]   # v2.8: E-JJJJ-MM oder -N
             c.execute("INSERT INTO ref_erhebungen(company_id,erhebung_id,bezeichnung,stand,"
                       "status,methode,hinweis) VALUES(?,?,?,?,?,?,?)",
                       (cid, erhebung_id,
@@ -3653,7 +4256,7 @@ async def gate_entscheiden(cid: str, sub_process_id: str, req: Request,
                                         " AND anfrage_id=?", (cid, anfrage_id)).fetchone():
             raise HTTPException(400, "Unbekannte Anfrage: %s" % anfrage_id)
 
-        erhebung_id = _erhebung_offen(c, cid)
+        erhebung_id = _erhebung_massgeblich(c, cid)
         felder = ("gate,company_id,objekt_typ,objekt_id,ereignis,benutzer_id,am,anfrage_id,"
                   "erhebung_id,kette_bestaetigt,kette_ergaenzung,grund,massnahme")
         daten = ("bc0-bc2", cid, "teilprozess", sub_process_id, ereignis,
@@ -3678,6 +4281,299 @@ async def gate_entscheiden(cid: str, sub_process_id: str, req: Request,
             "stand": ereignis}
 
 
+
+# ---------------- v2.6: Uebergabe, Widerruf, Zeitreise (03./04.09.2026) ----------------
+# Die Datenbank haelt die Regeln (schema_v2.6_historie_und_paket.sql): Pakete sind
+# append-only, die Historie schreibt sich selbst, stand_zum() rechnet zurueck.
+# Diese Endpunkte reichen durch und uebersetzen Fehler in lesbare Saetze.
+# Alles ausser dem Widerruf braucht PostgreSQL — im SQLite-Modus antworten sie
+# mit 501 und sagen es.
+
+def _nur_pg(was):
+    if not PG:
+        raise HTTPException(501, "%s gibt es nur im PostgreSQL-Betrieb (schema_v2.6)." % was)
+
+
+def _db_fehler_lesbar(e):
+    """Ein Trigger-Fehler aus v2.6 traegt schon den richtigen Satz — durchreichen."""
+    text = str(getattr(e, "diag", None) and e.diag.message_primary or e).strip()
+    return HTTPException(400, text.split("\n")[0][:400])
+
+
+@app.get("/api/companies/{cid}/uebergabe")
+def uebergabe_lesen(cid: str, benutzer: Benutzer = Depends(admin)):
+    """Vorschau und Bestand: Was wuerde ein Paket enthalten, welche Pakete gibt es.
+
+    Keine Sammeluebergabe ohne Blick (Sicherheit 4 vom 11.08.): Die Kandidaten
+    stehen hier, bevor der Knopf gedrueckt wird. Nach der ersten Uebergabe ist
+    dieselbe Liste die Nachzuegler-Liste.
+    """
+    pruefe_mandant(benutzer, cid)
+    _nur_pg("Die Uebergabe an BC2")
+    c = db()
+    try:
+        _gate_mandant(c, cid)
+        kandidaten = [dict(r) for r in c.execute(
+            "SELECT sub_process_id, process_id, freigabe_ereignis_id, entschieden_am::text AS entschieden_am, "
+            "anfrage_id, bc0_stand, bc1_profil_stand, hinweis_an_bc2 FROM v_uebergabe_kandidaten "
+            "WHERE company_id=? ORDER BY sub_process_id", (cid,)).fetchall()]
+        pakete = {}
+        for r in c.execute(
+                "SELECT paket_id::text AS paket_id, uebergeben_am::text AS uebergeben_am, uebergeben_von, "
+                "hinweis, sub_process_id, anfrage_id, bc1_profil_stand, hinweis_an_bc2, paket_rang "
+                "FROM v_uebergabe_offen WHERE company_id=? ORDER BY uebergeben_am DESC, sub_process_id",
+                (cid,)).fetchall():
+            p = pakete.setdefault(r["paket_id"], {
+                "paket_id": r["paket_id"], "uebergeben_am": r["uebergeben_am"],
+                "uebergeben_von": r["uebergeben_von"], "hinweis": r["hinweis"],
+                "rang": int(r["paket_rang"]), "teilprozesse": []})
+            p["teilprozesse"].append({"sub_process_id": r["sub_process_id"], "anfrage_id": r["anfrage_id"],
+                                      "bc1_profil_stand": r["bc1_profil_stand"],
+                                      "hinweis_an_bc2": r["hinweis_an_bc2"]})
+        anfragen = [dict(r) for r in c.execute(                    # v2.7
+            "SELECT anfrage_id, status, soll, freigegeben, fehlend, vollstaendig, uebergabefaehig, "
+            "letztes_paket_id::text AS letztes_paket_id, letzte_uebergabe_am::text AS letzte_uebergabe_am "
+            "FROM v_anfrage_uebergabe_stand WHERE company_id=? AND status NOT IN ('erledigt','abgelehnt') "
+            "ORDER BY anfrage_id", (cid,)).fetchall()]
+    finally:
+        c.close()
+    for a in anfragen:
+        a["soll"] = int(a["soll"]); a["freigegeben"] = int(a["freigegeben"])
+        a["fehlend"] = list(a["fehlend"] or [])
+        a["vollstaendig"] = bool(a["vollstaendig"]); a["uebergabefaehig"] = bool(a["uebergabefaehig"])
+    # Portfolio-Kandidaten: freigegeben, in keinem Paket, ohne Anfrage.
+    portfolio = [k for k in kandidaten if not k["anfrage_id"]]
+    return {"anfragen": anfragen, "kandidaten": kandidaten, "portfolio": portfolio,
+            "pakete": list(pakete.values())}
+
+
+@app.post("/api/companies/{cid}/uebergabe")
+async def uebergabe_schnueren(cid: str, req: Request, benutzer: Benutzer = Depends(admin)):
+    """Paket an BC2 uebergeben — eine Transaktion in der Datenbank.
+
+    gate_paket_schnueren() schreibt das Ereignis `uebergeben` am Unternehmen, das
+    Paket und seinen Inhalt. Ohne Kandidaten gibt es kein leeres Paket. Das
+    Datum am Paket ist der Zeitpunkt, fuer den BC2 mit stand_zum() liest.
+    """
+    pruefe_mandant(benutzer, cid)
+    _nur_pg("Die Uebergabe an BC2")
+    b = await req.json() if req.headers.get("content-length", "0") not in ("0", "") else {}
+    hinweis = (b.get("hinweis") or "").strip() or None
+    anfrage_id = (b.get("anfrage_id") or "").strip() or None
+    teilprozesse = [str(x).strip() for x in (b.get("teilprozesse") or []) if str(x).strip()]
+    if not anfrage_id and not teilprozesse:
+        raise HTTPException(400, "Entweder eine Anfrage (vollstaendig) oder eine ausdrueckliche "
+                                 "Liste von Teilprozessen (Portfolio-Weg).")
+    if anfrage_id and teilprozesse:
+        raise HTTPException(400, "Entweder Anfrage oder Liste — nicht beides.")
+    c = db()
+    try:
+        _gate_mandant(c, cid)
+        try:
+            # v2.7: je Anfrage nur vollstaendig; Portfolio mit Liste.
+            paket = c.execute("SELECT gate_paket_schnueren(?, ?, ?, ?, ?)::text AS paket_id",
+                              (cid, benutzer.benutzer_id, hinweis, anfrage_id,
+                               teilprozesse or None)).fetchone()["paket_id"]
+        except HTTPException:
+            raise
+        except Exception as e:  # noqa: BLE001 — die Datenbank hat den Satz, wir reichen ihn durch
+            c.close()
+            raise _db_fehler_lesbar(e)
+        c.commit()
+    finally:
+        try: c.close()
+        except Exception: pass
+    return {"ok": True, "paket_id": paket}
+
+
+@app.post("/api/companies/{cid}/gate/{sub_process_id}/widerrufen")
+async def gate_widerrufen(cid: str, sub_process_id: str, req: Request,
+                          benutzer: Benutzer = Depends(admin)):
+    """Eine Freigabe zuruecknehmen — die menschliche Form des Einfrierens.
+
+    Nicht der Prozess wird gesperrt, die Freigabe wird widerrufen: neues
+    Ereignis, append-only, Grund Pflicht. Der Teilprozess faellt damit aus
+    v_uebergabe_kandidaten heraus und kann neu entschieden werden. Ein bereits
+    uebergebenes Paket bleibt unveraendert — BC2 sieht den Widerruf ueber
+    v_gate_freigabe_aktuell.
+    """
+    pruefe_mandant(benutzer, cid)
+    b = await req.json()
+    grund = (b.get("grund") or "").strip()
+    if not grund:
+        raise HTTPException(400, "Ein Widerruf braucht einen Grund.")
+    c = db()
+    try:
+        _gate_mandant(c, cid)
+        stand = _gate_letzter_stand(c, cid, sub_process_id).get(sub_process_id)
+        if not stand or stand["stand"] != "freigegeben":
+            c.close()
+            raise HTTPException(400, "%s ist nicht freigegeben — nichts zu widerrufen." % sub_process_id)
+        felder = "gate,company_id,objekt_typ,objekt_id,ereignis,benutzer_id,am,anfrage_id,erhebung_id,grund"
+        daten = ("bc0-bc2", cid, "teilprozess", sub_process_id, "widerrufen",
+                 benutzer.benutzer_id, _jetzt(), stand.get("anfrage_id"), stand.get("erhebung_id"), grund)
+        sql = "INSERT INTO gate_ereignisse(" + felder + ") VALUES(" + ",".join(["?"] * 10) + ")"
+        if PG:
+            ereignis_id = c.execute(sql + " RETURNING ereignis_id", daten).fetchone()["ereignis_id"]
+        else:
+            ereignis_id = c.execute(sql, daten).lastrowid
+        c.commit()
+    finally:
+        try: c.close()
+        except Exception: pass
+    return {"ok": True, "ereignis_id": ereignis_id, "stand": "widerrufen"}
+
+
+@app.get("/api/companies/{cid}/uebergabe/veraltet")
+def uebergabe_veraltet(cid: str, benutzer: Benutzer = Depends(admin)):
+    """Was sich seit Freigabe bzw. Uebergabe geaendert hat — aus der Historie gezaehlt.
+
+    v_stand_veraltet verbietet nichts. Sie sagt je freigegebenem Teilprozess, ob
+    eine Frage ansteht: widerrufen, neu freigeben, oder BC2 rechnet weiter.
+    """
+    pruefe_mandant(benutzer, cid)
+    _nur_pg("Der Abgleich mit der Historie")
+    c = db()
+    try:
+        _gate_mandant(c, cid)
+        zeilen = [dict(r) for r in c.execute(
+            "SELECT sub_process_id, process_id, freigegeben_am::text AS freigegeben_am, "
+            "uebergeben_am::text AS uebergeben_am, paket_id::text AS paket_id, "
+            "aenderungen_tp_seit_freigabe, aenderungen_kp_seit_freigabe, aenderungen_tp_seit_paket, "
+            "geaenderte_tabellen, stillgelegt, struktur_geaendert FROM v_stand_veraltet "
+            "WHERE company_id=? ORDER BY sub_process_id", (cid,)).fetchall()]
+    finally:
+        c.close()
+    for z in zeilen:
+        for k in ("aenderungen_tp_seit_freigabe", "aenderungen_kp_seit_freigabe", "aenderungen_tp_seit_paket"):
+            z[k] = int(z[k] or 0)
+    return {"teilprozesse": zeilen}
+
+
+@app.get("/api/companies/{cid}/stand")
+def stand_zum_datum(cid: str, datum: str, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+    """Der Reifegrad je Teilprozess, wie er zu einem Zeitpunkt war (Zeitreise, R9).
+
+    `datum` ist ISO-8601 (z. B. 2026-09-04T09:00:00+02:00 oder ein Paketdatum aus
+    /uebergabe). Vor Beginn der Historie gibt es keine Antwort — und keine
+    geratene; die Datenbank sagt, ab wann sie rekonstruieren kann.
+    """
+    pruefe_mandant(benutzer, cid)
+    _nur_pg("Die Zeitreise")
+    c = db()
+    try:
+        _gate_mandant(c, cid)
+        try:
+            zeilen = [dict(r) for r in c.execute(
+                "SELECT sub_process_id, avg_stufe, n_items FROM reifegrad_tp_zum(?, ?::timestamptz) "
+                "ORDER BY sub_process_id", (cid, datum)).fetchall()]
+            beginn = c.execute("SELECT historie_beginn()::text AS b").fetchone()["b"]
+        except Exception as e:  # noqa: BLE001
+            c.close()
+            raise _db_fehler_lesbar(e)
+    finally:
+        try: c.close()
+        except Exception: pass
+    for z in zeilen:
+        z["avg_stufe"] = float(z["avg_stufe"]) if z["avg_stufe"] is not None else None
+        z["n_items"] = int(z["n_items"])
+    return {"datum": datum, "historie_beginn": beginn, "teilprozesse": zeilen}
+
+
+@app.get("/api/companies/{cid}/historie")
+def historie_lesen(cid: str, tp: str = None, seit: str = None, limit: int = 200,
+                   benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+    """Die Aenderungshistorie eines Mandanten, optional je Teilprozess und ab Datum.
+
+    Ohne Zeilenbilder — wer die braucht, liest audit_log direkt. Klarnamen
+    stehen ohnehin nicht darin (historie_pii_entfernen).
+    """
+    pruefe_mandant(benutzer, cid)
+    _nur_pg("Die Historie")
+    limit = max(1, min(int(limit), 1000))
+    sql = ("SELECT audit_id, at::text AS at, actor, entity, action, pk::text AS pk, process_id, "
+           "sub_process_id FROM v_historie WHERE company_id=? AND action<>'bestand'")
+    werte = [cid]
+    if tp:
+        sql += " AND sub_process_id=?"; werte.append(tp)
+    if seit:
+        sql += " AND at > ?::timestamptz"; werte.append(seit)
+    sql += " ORDER BY at DESC, audit_id DESC LIMIT %d" % limit
+    c = db()
+    try:
+        _gate_mandant(c, cid)
+        zeilen = [dict(r) for r in c.execute(sql, tuple(werte)).fetchall()]
+    finally:
+        c.close()
+    return {"eintraege": zeilen}
+
+
+
+# ---------------- v2.7: Prozessbezuege n:m (anfrage_prozesse) ----------------
+def _bezuege_lesen(c, cid, anfrage_id=None):
+    """Die Bezuege je Anfrage, aus anfrage_prozesse. {anfrage_id: [ {...}, ... ]}"""
+    sql = ("SELECT anfrage_id, process_id, sub_process_id, rolle, zuordnung_quelle "
+           "FROM anfrage_prozesse WHERE " + W_CO)
+    werte = [cid]
+    if anfrage_id:
+        sql += " AND anfrage_id=?"; werte.append(anfrage_id)
+    sql += " ORDER BY anfrage_id, (rolle='haupt') DESC, process_id, sub_process_id"
+    ergebnis = {}
+    for r in c.execute(sql, tuple(werte)).fetchall():
+        ergebnis.setdefault(r["anfrage_id"], []).append(
+            {"process_id": r["process_id"], "sub_process_id": r["sub_process_id"],
+             "rolle": r["rolle"], "zuordnung_quelle": r["zuordnung_quelle"]})
+    return ergebnis
+
+
+def _bezuege_schreiben(c, cid, anfrage_id, bezuege):
+    """Ersetzt die Bezuege einer Anfrage. Genau ein Hauptbezug; er spiegelt sich in
+    ref_anfragen (im PostgreSQL-Betrieb tut das auch der Trigger — doppelt haelt
+    besser, und im SQLite-Modus gibt es den Trigger nicht).
+
+    Prueft jeden Bezug gegen die Landkarte und sagt bei Fehlern, welcher.
+    Gibt den Hauptbezug zurueck.
+    """
+    if not bezuege:
+        raise HTTPException(400, "Mindestens ein Bezug ist noetig.")
+    haupt = [b for b in bezuege if b.get("rolle") == "haupt"]
+    if len(haupt) > 1:
+        raise HTTPException(400, "Genau ein Hauptbezug je Anfrage — es sind %d." % len(haupt))
+    if not haupt:
+        bezuege[0]["rolle"] = "haupt"
+    gesehen = set()
+    for b in bezuege:
+        pid = (b.get("process_id") or "").strip()
+        sid = (b.get("sub_process_id") or "").strip() or None
+        quelle = (b.get("zuordnung_quelle") or "").strip()
+        if not pid:
+            raise HTTPException(400, "Ein Bezug ohne Kernprozess ist keiner.")
+        if quelle not in ZUORDNUNG_QUELLEN:
+            raise HTTPException(400, "Unbekannte Zuordnungsquelle: %s" % (quelle or "(leer)"))
+        if not c.execute("SELECT 1 AS da FROM ref_prozesse WHERE " + W_CO + " AND process_id=?",
+                         (cid, pid)).fetchone():
+            raise HTTPException(400, "Unbekannter Kernprozess: %s" % pid)
+        if sid and not c.execute("SELECT 1 AS da FROM ref_teilprozesse WHERE " + W_CO +
+                                 " AND sub_process_id=? AND process_id=?", (cid, sid, pid)).fetchone():
+            raise HTTPException(400, "%s gehoert nicht zu %s." % (sid, pid))
+        if (pid, sid) in gesehen:
+            raise HTTPException(400, "Bezug doppelt: %s %s" % (pid, sid or ""))
+        gesehen.add((pid, sid))
+        b["process_id"], b["sub_process_id"], b["zuordnung_quelle"] = pid, sid, quelle
+        b["rolle"] = "haupt" if b.get("rolle") == "haupt" else "beteiligt"
+    c.execute("DELETE FROM anfrage_prozesse WHERE " + W_CO + " AND anfrage_id=?", (cid, anfrage_id))
+    for b in bezuege:
+        c.execute("INSERT INTO anfrage_prozesse(company_id,anfrage_id,process_id,sub_process_id,"
+                  "rolle,zuordnung_quelle,angelegt_am) VALUES(?,?,?,?,?,?,?)",
+                  (cid, anfrage_id, b["process_id"], b["sub_process_id"], b["rolle"],
+                   b["zuordnung_quelle"], _jetzt()))
+    h = [b for b in bezuege if b["rolle"] == "haupt"][0]
+    c.execute("UPDATE ref_anfragen SET process_id=?,sub_process_id=?,zuordnung_quelle=? "
+              "WHERE " + W_CO + " AND anfrage_id=?",
+              (h["process_id"], h["sub_process_id"], h["zuordnung_quelle"], cid, anfrage_id))
+    return h
+
+
 @app.get("/api/companies/{cid}/anfragen")
 def anfragen(cid: str, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
     """Die externen Anfragen an das CoE — der Ausloeser der Kette."""
@@ -3693,8 +4589,11 @@ def anfragen(cid: str, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
             ", erhofftes_ziel, ausloeser, umfang_geschaetzt"
             " FROM ref_anfragen WHERE " + W_CO +
             " ORDER BY anfrage_id DESC", (cid,)).fetchall()]
+        bezuege = _bezuege_lesen(c, cid)                       # v2.7
     finally:
         c.close()
+    for z in zeilen:
+        z["bezuege"] = bezuege.get(z["anfrage_id"], [])
     return {"anfragen": zeilen}
 
 
@@ -3794,6 +4693,10 @@ async def anfrage_anlegen(cid: str, req: Request, benutzer: Benutzer = Depends(a
                    (b.get("erhofftes_ziel") or "").strip() or None,
                    (b.get("ausloeser") or "").strip() or None,
                    (b.get("umfang_geschaetzt") or "").strip() or None))
+        if process_id:                                          # v2.7: Hauptbezug n:m
+            c.execute("INSERT INTO anfrage_prozesse(company_id,anfrage_id,process_id,sub_process_id,"
+                      "rolle,zuordnung_quelle,angelegt_am) VALUES(?,?,?,?,?,?,?)",
+                      (cid, anfrage_id, process_id, sub_process_id, "haupt", quelle, _jetzt()))
         c.commit()
     finally:
         c.close()
@@ -3813,6 +4716,312 @@ async def anfrage_anlegen(cid: str, req: Request, benutzer: Benutzer = Depends(a
 #
 # Diese Endpunkte sind die Gegenleistung fuer diese Haltung. Wer eine Regel
 # durchsetzt, muss den Weg bauen, der sie einhaltbar macht.
+
+
+# --------------------------------------------------------------------------- #
+# Trichter 3 — der regelbasierte Stichwortabgleich (ToDo-Punkt 61, 03.09.2026)
+# --------------------------------------------------------------------------- #
+# WOFUER
+#   Eine Anfrage darf ohne Prozessbezug entstehen (v2.3). Sie kommt dann aber
+#   keinen Schritt weiter. Bis hierher gab es zwei Wege, den Bezug zu setzen:
+#   der Anfragende waehlt ihn selbst (Trichter 1) oder er entsteht im Interview
+#   (Trichter 4). Dazwischen fehlte der billigste: **Der Text der Anfrage sagt
+#   oft schon, worum es geht.**
+#
+#   Belegt am 30.08.2026 im Feldversuch. `A-2026-04` lautete
+#   „reisekostenabrechnung automatisieren" und blieb ohne Bezug. Zwei Zeilen
+#   darunter stand `A-2026-01` — „End-to-End Reisebuchungsprozess
+#   automatisieren" — bereits zugeordnet zu **KP-06.TP-2 Reise- und
+#   Einsatzplanung**. Dieselbe Sache, einmal zugeordnet und einmal nicht.
+#
+# WAS ES AUSDRUECKLICH NICHT IST
+#   **Kein Sprachmodell.** Das ist keine Sparmassnahme, sondern die Bedingung
+#   dafuer, dass das Ergebnis dokumentierbar bleibt: Jeder Vorschlag nennt die
+#   Woerter, auf denen er beruht, und laesst sich damit von Hand nachpruefen.
+#   BC0 arbeitet deterministisch — derselbe Text ergibt morgen denselben
+#   Vorschlag.
+#
+#   **Und es setzt nichts.** Die Funktion schlaegt vor, der Endpunkt liefert
+#   den Vorschlag aus, geschrieben wird er ueber `PUT .../zuordnung` mit
+#   `zuordnung_quelle='vorschlag_bc0'` — von einem Menschen quittiert. Eine
+#   Vorbelegung, die sich selbst bestaetigt, waere keine Erhebung mehr.
+#
+# NUR DIESER MANDANT
+#   Verglichen wird ausschliesslich gegen die Prozesse des eigenen Mandanten.
+#   Ein Abgleich ueber Mandantengrenzen waere ein Leseweg an `pruefe_mandant`
+#   vorbei — und fachlich falsch: Wie ein Unternehmen seine Prozesse nennt,
+#   ist Teil seiner Erhebung.
+
+#: Woerter, die in jedem zweiten Anliegen stehen und nichts unterscheiden.
+#: Bewusst kurz gehalten: Eine lange Liste sieht gruendlich aus, verschiebt
+#: aber nur die Willkuer von der Auswertung in die Pflege der Liste.
+STOPWORTE = frozenset("""
+automatisieren automatisierung prozess prozesse ablauf abläufe aufgabe aufgaben
+arbeit arbeiten schneller besser einfacher weniger mehr moeglich sollte koennte
+unser unsere unserem unseren firma unternehmen mitarbeiter mitarbeitende kollege
+kollegin kunde kunden gerne bitte danke aktuell derzeit momentan immer wieder
+jeden jede jedes viel viele sehr schon noch dann wenn aber oder und der die das
+den dem des ein eine einer eines fuer mit von bei nach vor ueber unter durch
+""".split())
+
+#: Wie schwer ein Treffer in dem jeweiligen Feld wiegt. Die Reihenfolge ist
+#: eine Aussage: Der **Name** eines Teilprozesses ist das, was ein Mensch
+#: wiedererkennt; der `trigger_text` beschreibt, was ihn ausloest, und liegt
+#: damit nah an der Formulierung eines Anliegens. `beschreibung` ist Fliesstext
+#: und trifft haeufiger zufaellig.
+GEWICHTE = (("sub_process_name", 3), ("process_name", 3),
+            ("trigger_text", 2), ("beschreibung", 1))
+
+#: Ab dieser Punktzahl wird ein Vorschlag ueberhaupt gezeigt. **Zwei** heisst:
+#: ein einzelnes Wort aus einer `beschreibung` (Gewicht 1) genuegt nicht, ein
+#: Treffer im `trigger_text` oder in einem Namen schon. Sonst schluege der
+#: Trichter bei jeder Anfrage irgendetwas vor, und wer immer etwas vorschlaegt,
+#: wird nicht mehr gelesen.
+#:
+#: **Berichtigt am 03.09.2026, gleich beim ersten Testlauf.** Der Wert stand
+#: zuerst auf 3, mit derselben Begruendung — und die trug ihn nicht: Um „ein
+#: Wort aus einer Beschreibung genuegt nicht" durchzusetzen, reicht 2, weil
+#: `beschreibung` mit 1 gewichtet ist. Bei 3 fiel dagegen ein Fall heraus, den
+#: der Trichter treffen soll: ein Mandant **ohne Teilprozesse**, bei dem
+#: „Reiseanfrage" woertlich im `trigger_text` steht. Getroffen haette es
+#: ausgerechnet die Mandanten mit den wenigsten Daten. Die Schwelle war also
+#: strenger als ihre eigene Begruendung.
+MINDESTPUNKTE = 2
+
+#: Hoechstens so viele Vorschlaege. Wer fuenf Moeglichkeiten anbietet, hat
+#: keine Empfehlung gegeben, sondern die Arbeit weitergereicht.
+HOECHSTENS = 3
+
+#: Kuerzeste Zeichenfolge, die als Wortstamm eines Kompositums gelten darf.
+#: Bei vier Zeichen trifft „rate" in „Beratung"; bei fuenf faengt es an,
+#: bedeutungstragend zu sein. Der Wert ist gemessen, nicht geraten: Mit 4
+#: entstanden im Bestand von NoroAI drei Fehltreffer, mit 5 keiner.
+STAMM_MINDESTLAENGE = 5
+
+
+def _falten(text):
+    """Macht zwei Schreibweisen desselben Wortes vergleichbar.
+
+    Kleinschreibung und Umlautfaltung. **Das ist keine Kosmetik:** In den
+    Erhebungsbogen steht „Rueckfrage" neben „Rückfrage", je nachdem, wer
+    getippt hat. Ohne Faltung waeren das zwei Woerter.
+    """
+    text = (text or "").lower()
+    for a, b in (("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss")):
+        text = text.replace(a, b)
+    return text
+
+
+def worte(text):
+    """Zerlegt einen Text in vergleichbare Woerter ohne Fuellwoerter.
+
+    Getrennt wird an allem, was kein Buchstabe ist — Ziffern und Bindestriche
+    inbegriffen. „Reise- und Einsatzplanung" ergibt damit ``reise``,
+    ``einsatzplanung``; der Bindestrich haelt das Kompositum nicht zusammen,
+    und genau das ist hier erwuenscht.
+
+    Returns:
+        set: Woerter ab vier Zeichen, ohne :data:`STOPWORTE`.
+    """
+    gefaltet = _falten(text)
+    roh = "".join(z if z.isalpha() else " " for z in gefaltet).split()
+    return {w for w in roh if len(w) >= 4 and w not in STOPWORTE}
+
+
+def passt(wort_a, wort_b):
+    """Gilt zwischen diesen beiden Woertern ein Treffer?
+
+    Gleichheit, oder das kuerzere steht am Anfang oder am Ende des laengeren
+    und ist mindestens :data:`STAMM_MINDESTLAENGE` Zeichen lang.
+
+    **Beide Richtungen sind noetig, und zwar wegen des Deutschen.** Im
+    Kompositum steht das Bestimmungswort vorn und das Grundwort hinten:
+
+        ``reise`` + ``reisekostenabrechnung``   -> Anfang  (Bestimmungswort)
+        ``rechnung`` + ``abrechnung``           -> Ende    (Grundwort)
+
+    Wer nur den Anfang prueft, findet die Haelfte der Faelle nicht. Genau
+    daran haengt der Feldversuch vom 30.08.: ``reisekostenabrechnung`` trifft
+    ``reise`` aus „Reise- und Einsatzplanung" ueber den Anfang.
+    """
+    if wort_a == wort_b:
+        return True
+    kurz, lang = (wort_a, wort_b) if len(wort_a) <= len(wort_b) else (wort_b, wort_a)
+    if len(kurz) < STAMM_MINDESTLAENGE:
+        return False
+    return lang.startswith(kurz) or lang.endswith(kurz)
+
+
+def _feldtreffer(anfrageworte, feldtext):
+    """Die Woerter der Anfrage, die in diesem Feld vorkommen."""
+    if not feldtext:
+        return set()
+    feldworte = worte(feldtext)
+    return {a for a in anfrageworte if any(passt(a, f) for f in feldworte)}
+
+
+def vorschlaege_bc0(anfragetext, prozesse, teilprozesse,
+                    mindestpunkte=MINDESTPUNKTE, hoechstens=HOECHSTENS):
+    """Schlaegt Prozesse zu einem Anliegen vor — regelbasiert, nachvollziehbar.
+
+    Args:
+        anfragetext: Originaltext der Anfrage, gern zusammen mit dem erhofften
+            Ziel und dem Ausloeser. Was ein Mensch geschrieben hat, zaehlt;
+            welches Feld es war, nicht.
+        prozesse: Zeilen aus ``ref_prozesse`` dieses Mandanten (Mapping mit
+            ``process_id``, ``process_name``, ``trigger_text``, ``beschreibung``).
+        teilprozesse: Zeilen aus ``ref_teilprozesse`` (``sub_process_id``,
+            ``process_id``, ``sub_process_name``).
+        mindestpunkte: Schwelle, ab der ein Vorschlag gezeigt wird.
+        hoechstens: Obergrenze der Vorschlaege.
+
+    Returns:
+        list: Absteigend nach Punkten, je Eintrag ein Mapping mit
+        ``process_id``, ``process_name``, ``sub_process_id``,
+        ``sub_process_name``, ``punkte``, ``treffer`` (die Woerter, sortiert)
+        und ``fundstellen`` (die Felder, in denen sie standen).
+
+        **Die Begruendung faehrt mit.** Ein Vorschlag ohne sichtbaren Grund
+        laesst sich nicht quittieren, sondern nur glauben — und dann waere
+        `vorschlag_bc0` in der Herkunftsspalte eine Behauptung ueber etwas,
+        das niemand geprueft hat.
+
+    Bei Punktgleichstand entscheidet die ID. Nicht aus Ordnungsliebe: Zwei
+    Laeufe auf demselben Datenstand muessen dieselbe Reihenfolge ergeben,
+    sonst waere der Vorschlag von der Zeilenreihenfolge der Datenbank
+    abhaengig — dieselbe Zusicherung wie beim Reifegradbericht und beim
+    Snapshot-Export.
+    """
+    gesucht = worte(anfragetext)
+    if not gesucht:
+        return []
+
+    nach_kp = {}
+    for p in prozesse:
+        nach_kp[p.get("process_id")] = p
+
+    kandidaten = []
+
+    # Teilprozesse: der Name des Teilprozesses plus alles, was am Kernprozess haengt.
+    for tp in teilprozesse:
+        kp = nach_kp.get(tp.get("process_id")) or {}
+        felder = {"sub_process_name": tp.get("sub_process_name"),
+                  "process_name": kp.get("process_name"),
+                  "trigger_text": kp.get("trigger_text"),
+                  "beschreibung": kp.get("beschreibung")}
+        punkte, treffer, fundstellen = 0, set(), []
+        for feld, gewicht in GEWICHTE:
+            gefunden = _feldtreffer(gesucht, felder.get(feld))
+            if gefunden:
+                punkte += gewicht * len(gefunden)
+                treffer |= gefunden
+                fundstellen.append(feld)
+        if punkte >= mindestpunkte:
+            kandidaten.append({
+                "process_id": tp.get("process_id"),
+                "process_name": kp.get("process_name"),
+                "sub_process_id": tp.get("sub_process_id"),
+                "sub_process_name": tp.get("sub_process_name"),
+                "punkte": punkte, "treffer": sorted(treffer),
+                "fundstellen": fundstellen})
+
+    # Kernprozesse ohne Teilprozessbezug — fuer Mandanten, deren Landkarte
+    # noch keine Teilprozesse hat. Ein Vorschlag auf Kernprozessebene ist
+    # brauchbar: Der Fokus-Schritt ist ohnehin Ergebnis des Interviews.
+    mit_tp = {tp.get("process_id") for tp in teilprozesse}
+    for pid, p in nach_kp.items():
+        if pid in mit_tp:
+            continue
+        punkte, treffer, fundstellen = 0, set(), []
+        for feld, gewicht in GEWICHTE:
+            if feld == "sub_process_name":
+                continue
+            gefunden = _feldtreffer(gesucht, p.get(feld))
+            if gefunden:
+                punkte += gewicht * len(gefunden)
+                treffer |= gefunden
+                fundstellen.append(feld)
+        if punkte >= mindestpunkte:
+            kandidaten.append({
+                "process_id": pid, "process_name": p.get("process_name"),
+                "sub_process_id": None, "sub_process_name": None,
+                "punkte": punkte, "treffer": sorted(treffer),
+                "fundstellen": fundstellen})
+
+    kandidaten.sort(key=lambda k: (-k["punkte"], k["process_id"] or "",
+                                   k["sub_process_id"] or ""))
+    return kandidaten[:hoechstens]
+
+
+@app.get("/api/companies/{cid}/anfragen/{anfrage_id}/vorschlaege")
+def anfrage_vorschlaege(cid: str, anfrage_id: str,
+                        benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+    """Trichter 3 — schlaegt Prozesse zu einer Anfrage vor (ToDo-Punkt 61).
+
+    **Wofuer.** Zwischen „der Anfragende waehlt selbst" (Trichter 1) und „es
+    klaert sich im Interview" (Trichter 4) fehlte der billigste Weg: Der Text
+    der Anfrage sagt oft schon, worum es geht. Der Wert ``vorschlag_bc0``
+    steht seit dem 27.08.2026 im Schema; bis heute schrieb ihn nichts.
+
+    **Warum GET und nicht PUT.** Der Endpunkt **aendert nichts**. Er rechnet,
+    liefert das Ergebnis samt Begruendung, und dabei bleibt es. Geschrieben
+    wird ueber ``PUT .../zuordnung`` mit ``zuordnung_quelle='vorschlag_bc0'``,
+    von einem Menschen quittiert.
+
+    Das ist keine Formsache: Ein Vorschlag, der sich selbst eintraegt, waere
+    eine Erhebung, die niemand vorgenommen hat — und in der Herkunftsspalte
+    stuende, sie sei geprueft worden. **Das ist genau die zweite Wahrheit, die
+    ADR-005 ausschliesst.**
+
+    **Warum die Anfrage geladen wird, statt den Text mitzuschicken.** Wer den
+    Text im Aufruf mitgibt, kann einen anderen mitgeben als den gespeicherten
+    — und der Vorschlag begruendete sich dann auf etwas, das in der Datenbank
+    nicht steht.
+
+    Args:
+        cid: Mandant.
+        anfrage_id: Anfrage, z. B. ``A-2026-04``.
+
+    Returns:
+        ``{"anfrage_id", "grundlage", "vorschlaege": [...]}``. ``grundlage``
+        nennt die Felder, aus denen der Text stammt — ohne sie waere nicht
+        nachvollziehbar, worauf ein Treffer beruht. Ist die Liste leer, ist das
+        eine gueltige Antwort und kein Fehler: **Es gibt Anliegen, zu denen
+        sich nichts sagen laesst**, und das offen zu lassen ist besser, als
+        den erstbesten Prozess anzubieten.
+    """
+    pruefe_mandant(benutzer, cid)
+    c = db()
+    try:
+        _gate_mandant(c, cid)
+        anfrage = c.execute(
+            "SELECT originaltext, erhofftes_ziel, ausloeser, process_id "
+            "FROM ref_anfragen WHERE " + W_CO + " AND anfrage_id=?",
+            (cid, anfrage_id)).fetchone()
+        if not anfrage:
+            raise HTTPException(404, "Unbekannte Anfrage: %s" % anfrage_id)
+
+        prozesse = [dict(r) for r in c.execute(
+            SEL_PROC + " WHERE " + W_CO, (cid,)).fetchall()]
+        teilprozesse = [dict(r) for r in c.execute(
+            SEL_TP + " WHERE " + W_CO, (cid,)).fetchall()]
+    finally:
+        c.close()
+
+    quellfelder = ("originaltext", "erhofftes_ziel", "ausloeser")
+    text = " ".join((anfrage[f] or "") for f in quellfelder)
+    treffer = vorschlaege_bc0(text, prozesse, teilprozesse)
+
+    if treffer:
+        # Auf `info`, nicht auf `warning`: Das ist der Normalfall und keine
+        # Auffaelligkeit. Die Begruendung zur Stufenwahl steht in bc0_auth/dienst.py.
+        LOG.info("Trichter 3 fuer %s: %d Vorschlaege, bester %s (%d Punkte)",
+                 anfrage_id, len(treffer), treffer[0].get("sub_process_id")
+                 or treffer[0].get("process_id"), treffer[0]["punkte"])
+    return {"anfrage_id": anfrage_id,
+            "bereits_zugeordnet": anfrage["process_id"],
+            "grundlage": [f for f in quellfelder if anfrage[f]],
+            "vorschlaege": treffer}
 
 
 @app.put("/api/companies/{cid}/anfragen/{anfrage_id}/zuordnung")
@@ -3853,6 +5062,26 @@ async def anfrage_zuordnen(cid: str, anfrage_id: str, req: Request,
     """
     pruefe_mandant(benutzer, cid)
     b = await req.json()
+    # v2.7: eine Anfrage betrifft x Kernprozesse und y Teilprozesse. Kommt eine
+    # Liste `bezuege`, ersetzt sie alle Bezuege der Anfrage (genau ein Hauptbezug).
+    # Die alte Einzelform setzt den Hauptbezug und laesst Beteiligte stehen.
+    if isinstance(b.get("bezuege"), list):
+        c = db()
+        try:
+            _gate_mandant(c, cid)
+            if not c.execute("SELECT 1 AS da FROM ref_anfragen WHERE " + W_CO +
+                             " AND anfrage_id=?", (cid, anfrage_id)).fetchone():
+                raise HTTPException(404, "Unbekannte Anfrage: %s" % anfrage_id)
+            haupt = _bezuege_schreiben(c, cid, anfrage_id, [dict(x) for x in b["bezuege"]])
+            c.commit()
+            zeile = c.execute("SELECT status FROM ref_anfragen WHERE " + W_CO +
+                              " AND anfrage_id=?", (cid, anfrage_id)).fetchone()
+            bezuege = _bezuege_lesen(c, cid, anfrage_id).get(anfrage_id, [])
+        finally:
+            c.close()
+        return {"ok": True, "anfrage_id": anfrage_id, "process_id": haupt["process_id"],
+                "sub_process_id": haupt["sub_process_id"], "zuordnung_quelle": haupt["zuordnung_quelle"],
+                "bezuege": bezuege, "status": zeile["status"] if zeile else None}
     process_id = (b.get("process_id") or "").strip() or None
     sub_process_id = (b.get("sub_process_id") or "").strip() or None
     quelle = (b.get("zuordnung_quelle") or "").strip() or None
@@ -3882,6 +5111,14 @@ async def anfrage_zuordnen(cid: str, anfrage_id: str, req: Request,
         c.execute("UPDATE ref_anfragen SET process_id=?,sub_process_id=?,zuordnung_quelle=? "
                   "WHERE " + W_CO + " AND anfrage_id=?",
                   (process_id, sub_process_id, quelle, cid, anfrage_id))
+        # v2.7: der Hauptbezug in anfrage_prozesse; Beteiligte bleiben stehen.
+        c.execute("DELETE FROM anfrage_prozesse WHERE " + W_CO + " AND anfrage_id=? AND rolle='haupt'",
+                  (cid, anfrage_id))
+        c.execute("DELETE FROM anfrage_prozesse WHERE " + W_CO + " AND anfrage_id=? AND process_id=? "
+                  "AND coalesce(sub_process_id,'')=coalesce(?,'')", (cid, anfrage_id, process_id, sub_process_id))
+        c.execute("INSERT INTO anfrage_prozesse(company_id,anfrage_id,process_id,sub_process_id,"
+                  "rolle,zuordnung_quelle,angelegt_am) VALUES(?,?,?,?,?,?,?)",
+                  (cid, anfrage_id, process_id, sub_process_id, "haupt", quelle, _jetzt()))
         c.commit()
         zeile = c.execute("SELECT status FROM ref_anfragen WHERE " + W_CO +
                           " AND anfrage_id=?", (cid, anfrage_id)).fetchone()

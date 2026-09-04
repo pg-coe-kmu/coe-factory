@@ -417,3 +417,67 @@ def test_route_antwortet_mit_429_und_retry_after(bremse_frei, monkeypatch):
     # Die Wartezeit steht auch im Text — im Kopf allein saehe sie in der
     # Oberflaeche niemand.
     assert "Minute" in gesperrt.json()["detail"]
+
+
+# --------------------------------------------------------------------------- #
+# 8 — Dass ueberhaupt etwas im Protokoll landet
+# --------------------------------------------------------------------------- #
+# Gefunden am 02.09.2026 beim Ausrollen: Elf Fehlversuche gegen die Live-Anwendung
+# erzeugten NULL Protokollzeilen. Der Logger `bc0.auth` hat keine eigene
+# Einstellung, es gilt die Vorbelegung WARNING — alles auf `info` fiel lautlos weg.
+#
+# Der Test unten prueft nicht, DASS protokolliert wird (das tat es vorher auch),
+# sondern **auf welcher Stufe**. Das ist der Unterschied zwischen einer Zeile, die
+# geschrieben wird, und einer, die jemand lesen kann.
+
+
+def test_abgelehnte_anmeldung_wird_sichtbar_protokolliert(dienst, caplog):
+    """Die drei Ablehnungsgruende muessen mindestens WARNING sein.
+
+    Sie sind fachlich Alltag und gehoerten damit auf `info`. Sie stehen trotzdem
+    hoeher, weil zwei Zusicherungen daran haengen: `modelle.py` sagt seit dem
+    10.08.2026, der Grund einer Ablehnung stehe **ausschliesslich** im
+    Serverprotokoll, und `schema_v2.5` begruendet damit, dass
+    `app_anmeldeversuche` nur Abdruecke fuehrt.
+
+    **Wer die Meldungen auf `info` zuruecksetzt, ohne dem Logger eine eigene
+    Einstellung zu geben, macht beide Zusicherungen leer** — und dieser Test
+    schlaegt dann an, statt dass es erst beim naechsten Angriff auffaellt.
+    """
+    import logging
+
+    faelle = [
+        ("gibt-es-nicht@b.de", FALSCH, "unbekannte Adresse"),
+        ("a@b.de", FALSCH, "falsches Passwort"),
+    ]
+    dienst.benutzer_anlegen(email="zu@b.de", name="Z", passwort=PASSWORT, rolle=Rolle.BENUTZER)
+    dienst.benutzer_sperren(dienst.benutzer.finde_per_email("zu@b.de")[0].benutzer_id)
+    faelle.append(("zu@b.de", PASSWORT, "Konto gesperrt"))
+
+    for email, passwort, erwarteter_text in faelle:
+        caplog.clear()
+        # WARNING als Schwelle: Der Test darf nicht dadurch gruen werden, dass
+        # caplog den Pegel kurzerhand auf DEBUG stellt.
+        with caplog.at_level(logging.WARNING, logger="bc0.auth"):
+            with pytest.raises(AnmeldeFehler):
+                dienst.anmelden(email, passwort, herkunft="10.0.0.5")
+        treffer = [s for s in caplog.records if erwarteter_text in s.getMessage()]
+        assert treffer, "keine WARNING-Zeile fuer %r" % erwarteter_text
+        assert treffer[0].levelno >= logging.WARNING, erwarteter_text
+
+
+def test_die_verzoegerung_bleibt_auf_info(dienst, caplog):
+    """Gegenprobe: Nicht alles wandert nach oben.
+
+    Dass gebremst wurde, steht ohnehin in der Sperrmeldung. Die
+    Verzoegerungsmeldung ist keine Auskunft ueber einen Versuch und bleibt
+    deshalb `info` — der Ausnahmecharakter der drei Ablehnungen soll erkennbar
+    bleiben und nicht zur neuen Gewohnheit werden.
+    """
+    import logging
+
+    with caplog.at_level(logging.DEBUG, logger="bc0.auth"):
+        _fehlversuche(dienst, dienst_modul.VERZOEGERUNG_AB + 1)
+    verzoegert = [s for s in caplog.records if "verzoegert" in s.getMessage()]
+    assert verzoegert, "es muss verzoegert worden sein"
+    assert all(s.levelno == logging.INFO for s in verzoegert)

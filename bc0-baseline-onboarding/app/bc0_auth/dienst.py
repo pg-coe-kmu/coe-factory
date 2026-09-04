@@ -29,6 +29,33 @@ from .repository import (
 
 _log = logging.getLogger("bc0.auth")
 
+# --------------------------------------------------------------------------- #
+# WARUM DREI MELDUNGEN AUF `warning` STEHEN UND NICHT AUF `info`
+# --------------------------------------------------------------------------- #
+# Die abgelehnten Anmeldungen (unbekannte Adresse, falsches Passwort, gesperrtes
+# Konto) sind fachlich `info` — es ist der erwartbare Alltag, kein Stoerfall.
+# Sie stehen trotzdem auf `warning`, und das ist kein Versehen:
+#
+#   Der Logger `bc0.auth` bekommt keine eigene Einstellung; es gilt die
+#   Vorbelegung der Standardbibliothek, und die ist WARNING. Alles auf `info`
+#   faellt damit lautlos weg. **Am 02.09.2026 gemessen:** elf Fehlversuche
+#   gegen die Live-Anwendung erzeugten NULL Protokollzeilen.
+#
+#   Daran hingen zwei Zusicherungen. `modelle.py` sagt seit dem 10.08.2026 ueber
+#   die absichtlich einheitliche 401: *„Welcher Fall vorlag, steht ausschliesslich
+#   im Serverprotokoll."* Und `schema_v2.5` begruendet damit, dass
+#   `app_anmeldeversuche` nur Abdruecke fuehrt: *„Die Tabelle zaehlt, das
+#   Protokoll erzaehlt."* Beide waren leer, solange nichts geschrieben wurde.
+#
+# **Wer diese drei Zeilen auf `info` zurueckstellt, weil sie dort systematisch
+# hingehoeren, nimmt beide Zusicherungen mit.** Dann gehoeren sie zuerst aus
+# `modelle.py` und `schema_v2.5` heraus — oder der Logger bekommt eine eigene
+# Einstellung, und dann duerfen sie zurueck. Der Test
+# `test_abgelehnte_anmeldung_wird_sichtbar_protokolliert` haelt das fest.
+#
+# Die Verzoegerungsmeldung bleibt auf `info`: Dass gebremst wurde, steht
+# ohnehin in der Sperrmeldung, und sie ist keine Auskunft ueber einen Versuch.
+
 #: Standard-Gültigkeit einer Sitzung. Acht Stunden entsprechen einem Arbeitstag:
 #: lang genug, um nicht zu stören, kurz genug, dass ein vergessener Rechner am
 #: Folgetag nicht mehr angemeldet ist.
@@ -241,18 +268,18 @@ class AuthDienst:
             # Auch ohne Treffer wird ein Hash berechnet. Sonst wäre an der
             # Antwortdauer ablesbar, ob eine Adresse existiert.
             passwoerter.hash_pruefen(passwort or "", _BLINDHASH)
-            _log.info("Anmeldung abgelehnt: unbekannte Adresse %r", email)
+            _log.warning("Anmeldung abgelehnt: unbekannte Adresse %r", email)
             self._bremse_fehlversuch(bremse, email)
             raise AnmeldeFehler("Anmeldung fehlgeschlagen.")
 
         benutzer, gespeicherter_hash = treffer
         if not passwoerter.hash_pruefen(passwort or "", gespeicherter_hash):
-            _log.info("Anmeldung abgelehnt: falsches Passwort für %s", benutzer.email)
+            _log.warning("Anmeldung abgelehnt: falsches Passwort für %s", benutzer.email)
             self._bremse_fehlversuch(bremse, email)
             raise AnmeldeFehler("Anmeldung fehlgeschlagen.")
 
         if not benutzer.aktiv:
-            _log.info("Anmeldung abgelehnt: Konto gesperrt (%s)", benutzer.email)
+            _log.warning("Anmeldung abgelehnt: Konto gesperrt (%s)", benutzer.email)
             # Ein gesperrtes Konto zaehlt mit. Sonst waere es der eine Weg,
             # auf dem sich beliebig oft probieren laesst, sobald ein Angreifer
             # eine gesperrte Adresse kennt.

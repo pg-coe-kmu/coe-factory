@@ -5,6 +5,24 @@
 
 Gesamtlauf am 20.08.2026: **130 Tests, alle grün, 19,3 s.**
 
+> **Nachtrag 04.09.2026:** Gesamtlauf **286 Tests, alle grün, 44 s** (SQLite-Modus). Seit dem 20.08. dazugekommen (die Beschreibung unten ist der Stand vom 20.08. und beschreibt die ersten 130):
+>
+> | Datei | Prüfgegenstand | Tests |
+> |---|---|---|
+> | `test_anfrage_weitergabe.py` | Anfrage-PWA, drei Endpunkte für BC1 | 15 |
+> | `test_anfrage_maske.py` | Anfragemaske in der Arbeitsansicht | 12 |
+> | `test_landkarte.py` | Landkarte, `aktiv`, `prozess_herkunft` (v2.2) | 10 |
+> | `test_anmeldebremse.py` | Anmeldebremse (v2.5) — Nr. 8: Ablehnungen stehen auf WARNING | 21 |
+> | `test_trichter3.py` | Trichter 3, regelbasierte Vorschläge zur Anfrage | 20 |
+> | `test_beleg_stufe2.py` | Beleg-Ingestion Stufe 2: Textauslesen, Volltextsuche | 18 |
+> | `test_oberflaeche_bedienbar.py` | Oberfläche bedienbar; Hüllen-Prüfsumme in `sw.js` | 16 |
+> | `test_v26_einfrieren.py` | Erhebungssperre in der App, Widerruf, 501 im SQLite-Modus (v2.6) | 11 |
+> | `test_v27_anfrage_klammer.py` | Anfrage als Klammer: `bezuege` n:m, Übergabe nur vollständig (v2.7) | 12 |
+> | `test_v28_nacherhebung.py` | Nacherhebung `E-JJJJ-MM-N`, Abschließen ist Admin-Sache (v2.8) | 8 |
+> | `test_v29_vorher_nachher.py` | Stand nach einer Erhebung, Vorher / Nachher (v2.9) | 12 |
+>
+> Drei Tests vom 20.08. sagen seit v2.8 das Gegenteil von damals — mit Begründung im Docstring: `test_erhebungen.py` (zweite Erhebung im Monat bekommt eine Nummer; Abschließen ist Admin-Sache) und `test_v26_einfrieren.py` Nr. 1 (nach dem Abschluss kein 400 mehr, sondern die nächste Erhebung). **Die Datenbankseite** (Trigger, Historie, Zeitreise, Paket, Kennungsregel, Stand nach Erhebung) läuft nur auf PostgreSQL und ist in `pruefung_v2.6_…`, `pruefung_v2.7_…`, `pruefung_v2.8_…`, `pruefung_v2.9_….sql` mit Erwartungswerten belegt (20 + 17 + 7 + 7 Proben, alle getroffen am 03./04.09.2026).
+
 ---
 
 ## 1. Verfahren

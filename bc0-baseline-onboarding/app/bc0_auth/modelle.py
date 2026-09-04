@@ -161,7 +161,14 @@ class AnmeldeFehler(Exception):
     Wird für *alle* Fehlerursachen verwendet — unbekannte E-Mail, falsches
     Passwort, deaktiviertes Konto. Absicht: Die Antwort nach außen darf nicht
     verraten, ob eine Adresse existiert. Die genaue Ursache steht ausschließlich
-    im Serverprotokoll.
+    im Serverprotokoll — **auf Stufe WARNING**, und zwar absichtlich.
+
+    Der Zusatz ist nachgetragen am 02.09.2026, weil dieser Satz zwischen dem
+    10.08. und dem 02.09. **nicht zutraf**: Die Meldungen standen auf ``info``,
+    der Logger ``bc0.auth`` hat keine eigene Einstellung, und die Vorbelegung
+    der Standardbibliothek ist WARNING. Elf Fehlversuche gegen die
+    Live-Anwendung erzeugten null Zeilen. Wer die Stufe wieder senkt, nimmt
+    diesen Satz mit — siehe die Begründung in ``dienst.py``.
     """
 
 

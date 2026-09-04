@@ -75,8 +75,17 @@ DB-Pfad überschreibbar: Umgebungsvariable `BC0_DB` setzen.
 | POST | `/api/companies/{id}/process/add` | Kernprozess hinzufügen |
 | POST | `/api/companies/{id}/rating` | Self-Rating speichern (Beleg-Pflicht) |
 | GET | `/api/companies/{id}/report` | Reifegrad + Matrizen + Spinnennetz-Daten |
+| GET | `/api/companies/{id}/report?bis=E-…` | derselbe Bericht auf den **Stand nach einer Erhebung** (v2.9) |
+| GET | `/api/companies/{id}/report/vergleich?von=&bis=` | **Vorher / Nachher** je Teilprozess, Dimension, Item (v2.9) |
+| GET/POST | `/api/companies/{id}/erhebungen` | Erhebungen lesen (`offen`, `naechste`, `rang`, `fest`) · abschließen / neu / verwerfen (Admin, v2.8) |
+| GET/POST | `/api/companies/{id}/uebergabe` | Paket an BC2 — je Anfrage nur vollständig oder Portfolio-Liste (Admin, v2.6/v2.7) |
+| GET | `/api/companies/{id}/uebergabe/veraltet` | was sich seit Freigabe / Paket bewegt hat (v2.6) |
+| POST | `/api/companies/{id}/gate/{tp}/widerrufen` | Freigabe widerrufen, Grund Pflicht (v2.6) |
+| GET | `/api/companies/{id}/stand?datum=` | Reifegrad je Teilprozess zum Zeitpunkt, aus der Historie (v2.6) |
+| GET | `/api/companies/{id}/historie` | Änderungshistorie des Mandanten (v2.6) |
+| PUT | `/api/companies/{id}/anfragen/{a}/zuordnung` | Prozessbezüge einer Anfrage, `bezuege` n:m (v2.7) |
 
-*Stand: 13.06.2026 · BC0-interne Wahl (jedes BC entscheidet seine DB selbst).*
+*Stand: 13.06.2026, Endpunkte ergänzt 04.09.2026 (Schema v2.6–v2.9) · BC0-interne Wahl (jedes BC entscheidet seine DB selbst). Maßgeblich ist der Quelltext; die Datenbankseite steht in `schema_v*.sql` und in der Datenbankdokumentation (Nachtrag v2.1–v2.9).*
 
 ---
 

@@ -81,6 +81,7 @@ class AnmeldepflichtMiddleware(BaseHTTPMiddleware):
             # auflösen, falls eine Sitzung besteht. Endpunkte wie /api/auth/status
             # können ihn dann verwenden.
             request.state.benutzer = _sicher_aufloesen(request)
+            AKTUELLER_BENUTZER.set(request.state.benutzer)
             return await call_next(request)
 
         benutzer = _sicher_aufloesen(request)
@@ -92,7 +93,17 @@ class AnmeldepflichtMiddleware(BaseHTTPMiddleware):
             )
 
         request.state.benutzer = benutzer
+        AKTUELLER_BENUTZER.set(benutzer)
         return await call_next(request)
+
+
+import contextvars
+
+#: Der Benutzer der laufenden Anfrage — fuer die Aenderungshistorie (R9, v2.6).
+#: Die Datenbankverbindung liest ihn und setzt `bc0.benutzer`; der Trigger
+#: trg_historie() traegt ihn als `actor` ein. Ohne Anmeldung bleibt er None,
+#: und die Historie zeigt den Datenbankbenutzer.
+AKTUELLER_BENUTZER = contextvars.ContextVar("bc0_aktueller_benutzer", default=None)
 
 
 def _sicher_aufloesen(request):

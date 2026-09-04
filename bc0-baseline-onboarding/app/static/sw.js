@@ -9,12 +9,36 @@
    der Name gleich, ueberlebte der beim ERSTEN Besuch abgelegte Stand von
    /static/index.html beliebig lange und wurde offline weiter ausgeliefert
    — am 28.08.2026 nachgemessen: 41.292 Zeichen gegenueber 158.706 live. */
-/* HUELLE 535a45f0 — Pruefsumme (SHA-256, acht Stellen) von static/index.html.
+/* HUELLE c72eba15 — Pruefsumme (SHA-256, acht Stellen) von static/index.html.
    Aendert sich die Huelle, aendert sich dieser Wert. Der Test
    test_cache_name_haengt_an_der_huelle schlaegt dann fehl und zwingt zu der
    Entscheidung, die am 01.09.2026 unterblieben ist: CACHE erhoehen — ja oder nein?
    Am 02.09.2026 nachgeruestet, weil kein Test den vergessenen Namenswechsel sah. */
-const CACHE = "bc0-pwa-v6";   /* 02.09.2026, ein Sprung von v5 aus, mit zwei
+const CACHE = "bc0-pwa-v11";  /* 04.09.2026, dritte Aenderung: Stand des Berichts und
+                                 Vorher/Nachher im Reifegradbericht (v2.9). Davor v10:
+                                 04.09.2026, zweite Aenderung: Block "Erhebung" im Self-Rating
+                                 (Stand, abschliessen, neu — v2.8 Nacherhebung). Davor v9:
+                                 04.09.2026: Uebergabe an BC2 je Anfrage, vollstaendig (v2.7), Widerruf,
+                                 Stand vom Paketdatum) im Gate-0-Reiter — Schema v2.6.
+                                 Davor v8 — 03.09.2026, zweite Aenderung des Tages:
+                                 Volltextsuche ueber die Belege im Self-Rating
+                                 (Beleg-Ingestion Stufe 2, Punkt 139). Ein
+                                 Suchfeld, Treffer mit Fundstelle und
+                                 Belastbarkeit. **Ausgerollt ist v7** — und der
+                                 Name muss sich gegenueber dem AUSGELIEFERTEN
+                                 Stand unterscheiden, deshalb v8 und nicht
+                                 stehenbleiben.
+
+                                 v7 (03.09.2026): Trichter 3 in der Anfrageliste —
+                                 ein Knopf „Vorschlag holen" an jeder Anfrage
+                                 ohne Prozessbezug, die Treffer daneben, und
+                                 „Übernehmen" schreibt mit Herkunft
+                                 vorschlag_bc0. Das ist Bedienung, nicht
+                                 Kosmetik: Wer offline den alten Stand behielte,
+                                 saehe den Knopf nicht und hielte den Trichter
+                                 fuer nicht ausgerollt. Deshalb JA — erhoeht.
+
+                                 v6 (02.09.2026) war ein Sprung von v5 aus, mit zwei
                                  Aenderungen an der Huelle: die Eignerspalte
                                  liest prozess_personen statt des leeren Feldes
                                  owner_name (die zwei Eingabefelder sind durch

@@ -3,6 +3,22 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# poppler-utils liefert `pdftotext` — den verlustfreien Weg aus Stufe 2
+# (Beleg-Ingestion, Konzept vom 18.08.2026, Abschnitt 3). Rund 15 MB.
+#
+# WARUM DAS HIER STEHT UND NICHT IM OCR-CONTAINER: Es ist KEINE
+# Zeichenerkennung. `pdftotext` liest eine vorhandene Textebene aus, Buchstabe
+# fuer Buchstabe, in Millisekunden und hundertprozentig genau. Die eigentliche
+# Erkennung (PaddleOCR) bekommt nach der Entscheidung vom 18.08. einen eigenen
+# Container mit Speicherlimit und Warteschlange — die gehoert nicht hierher.
+#
+# Fehlt das Paket, laeuft die Anwendung weiter: `_pdftotext` faengt den
+# OSError und der Beleg wartet auf den Worker. Genau dieser Zustand herrscht
+# auf jedem Entwicklungsrechner.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends poppler-utils \
+ && rm -rf /var/lib/apt/lists/*
+
 # Abhängigkeiten zuerst (besseres Layer-Caching)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

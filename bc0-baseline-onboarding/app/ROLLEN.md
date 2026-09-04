@@ -223,4 +223,19 @@ Betrifft nur diese eine Rolle — die anderen BCs und BC0 bleiben davon unberüh
 
 **Direkte Grants bereinigen.** Sieben Tabellen sind doppelt vergeben, zwei ausschließlich direkt. Solange das so ist, ist die Gruppenrolle Dokumentation und keine Steuerung. Eigenes Skript, zusammen mit der Korrektur an `schema_v1.3_teil_a2`, dessen Kopfkommentar („Wer den Namen zu einer `person_id` braucht, fragt in BC0 nach") das Gegenteil des eingerichteten Zustands behauptet.
 
-**Änderungsprotokoll.** `audit_log` ist angelegt, wird aber nicht befüllt. Mit vier schreibenden Rollen wird das dringlicher — siehe R9 in #148.
+**Änderungsprotokoll.** ~~`audit_log` ist angelegt, wird aber nicht befüllt.~~ **Erledigt am 04.09.2026 (Schema v2.6, R9 aus #148):** `audit_log` hält seit 04:28 UTC jede Änderung an allen Fachtabellen mit Zeitstempel, Zeilenbild (`alt`/`neu`) und Akteur (`benutzer_id` aus der Anmeldung, sonst der Datenbankbenutzer). Klarnamen aus `ref_personen` werden vor dem Schreiben entfernt. Siehe Abschnitt „Seit 04.09.2026" unten.
+
+## Seit 04.09.2026 — was `bc_leser` zusätzlich liest (Schema v2.6 bis v2.9)
+
+| Objekt | Zweck für BC1–BC4 |
+|---|---|
+| `audit_log`, `v_historie` | die Änderungshistorie (R9); `v_historie` ohne Zeilenbilder, mit Akteur |
+| `stand_zum(tabelle, datum, company_id)` · `bewertung_aktuell_zum()` · `reifegrad_tp_zum()` | **Zeitreise:** jeder Stand zu jedem Datum. BC2 liest den Stand zum Paketdatum |
+| `gate_pakete`, `gate_paket_inhalt`, `v_uebergabe_offen`, `v_uebergabe_kandidaten`, `v_stand_veraltet` | das Paket an BC2 (Datum + Liste), append-only; was sich seit Freigabe oder Paket bewegt hat |
+| `anfrage_prozesse`, `v_anfrage_teilprozesse`, `v_anfrage_uebergabe_stand` | welche Kernprozesse und Teilprozesse eine Anfrage betrifft (n:m, genau ein Hauptbezug); Sollstand je Anfrage — **übergeben wird nur vollständig** |
+| `erhebung_naechste_kennung(company_id, datum)` | die nächste Erhebungskennung (`E-JJJJ-MM` oder `E-JJJJ-MM-N`) |
+| `v_erhebung_reihenfolge` · `bewertung_aktuell_bis()` · `reifegrad_tp_bis()` · `reifegrad_vergleich()` | der Stand **nach einer Erhebung** und der Vergleich zweier Stände (Vorher / Nachher) |
+
+Alles lesend. Schreiben bleibt bei BC0 — `gate_paket_schnueren()` läuft unter dem Anwendungskonto; die Pakettabellen lassen nur Anhängen zu (`trg_nur_anhaengen`). Die Erhebungssperre (`erhebung_eingefroren`) und die Löschsperre auf Prozessen (`stilllegen_statt_loeschen`) gelten für jeden, auch für den Eigentümer.
+
+**Noch nicht erteilt:** `GRANT REFERENCES` an `bc2_role` bis `bc4_role` (v2.4 hat es nur `bc1_role` gegeben) — ToDo 121.

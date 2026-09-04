@@ -20,6 +20,7 @@ nicht verfälschen, aber auch nicht gelöscht werden müssen.
 
 from __future__ import annotations
 
+import datetime
 import os
 import sys
 
@@ -106,12 +107,23 @@ def test_erhebung_abschliessen(client, mandant):
         .json()["erhebungen"][0]["status"] == "abgeschlossen"
 
 
-def test_zweite_erhebung_im_selben_monat_wird_abgelehnt(client, mandant):
-    """Die Kennung ist `E-JJJJ-MM`. Zwei Erhebungen im selben Monat kann sie nicht
-    unterscheiden — der Endpunkt sagt das, statt eine Dublette zu erzeugen."""
-    antwort = client.post("/api/companies/" + mandant + "/erhebungen", json={"aktion": "neu"})
-    assert antwort.status_code == 400
-    assert "bereits" in antwort.json()["detail"]
+def test_zweite_erhebung_im_selben_monat_bekommt_eine_nummer(client, mandant):
+    """Bis v2.7: 400, weil `E-JJJJ-MM` nur eine Erhebung je Monat kannte. Seit v2.8
+    heisst die zweite `E-JJJJ-MM-2` — alt bleibt, neu kommt dazu (wie beim Paket)."""
+    heute = datetime.date.today()
+    antwort = client.post("/api/companies/" + mandant + "/erhebungen",
+                          json={"aktion": "neu", "bezeichnung": "Zweiter Anlauf"})
+    assert antwort.status_code == 200, antwort.text
+    assert antwort.json()["erhebung_id"] == "E-%04d-%02d-2" % (heute.year, heute.month)
+    daten = client.get("/api/companies/" + mandant + "/erhebungen").json()
+    assert daten["offen"] == antwort.json()["erhebung_id"]
+    assert daten["erhebungen"][0]["bezeichnung"] == "Zweiter Anlauf"
+    # Aufraeumen fuer die folgenden Tests: die Nummer 2 wird verworfen, die Zaehlung
+    # geht trotzdem weiter — eine Kennung wird nie ein zweites Mal vergeben.
+    assert client.post("/api/companies/" + mandant + "/erhebungen",
+                       json={"aktion": "verwerfen"}).status_code == 200
+    assert client.get("/api/companies/" + mandant + "/erhebungen").json()["naechste"] \
+        == "E-%04d-%02d-3" % (heute.year, heute.month)
 
 
 def test_unbekannte_aktion_wird_abgelehnt(client, mandant):
@@ -239,5 +251,9 @@ def test_fremder_mandant_bleibt_gesperrt(client, mandant):
                 json={"email": "erh-nutzer@bc0.test", "passwort": "erh-nutzer-passwort"})
     assert client.get("/api/companies/" + mandant + "/erhebungen").status_code == 200
     assert client.get("/api/companies/" + fremd + "/erhebungen").status_code == 404
+    # v2.8: Abschliessen/Beginnen ist BC0 (Admin) vorbehalten — ein Benutzer
+    # scheitert schon an der Rolle (403), bevor der Mandant geprueft wird.
     assert client.post("/api/companies/" + fremd + "/erhebungen",
-                       json={"aktion": "abschliessen"}).status_code == 404
+                       json={"aktion": "abschliessen"}).status_code == 403
+    assert client.post("/api/companies/" + mandant + "/erhebungen",
+                       json={"aktion": "abschliessen"}).status_code == 403
