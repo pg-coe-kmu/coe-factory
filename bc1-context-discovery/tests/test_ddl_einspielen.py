@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import pytest
@@ -223,6 +224,136 @@ def test_bekannte_umgebungsrolle_bricht_das_einspielen_nicht_ab():
         with verbindung(DSN, None) as conn:
             conn.execute("REVOKE bc1_role FROM supabase_read_only_user")
             conn.execute("DROP ROLE IF EXISTS supabase_read_only_user")
+            conn.commit()
+
+
+def test_set_mitgliedschaft_in_ausgenommener_rolle_wird_erkannt():
+    # CRITICAL aus dem Review 03.09., von beiden Reviewern unabhaengig gefunden:
+    # Eine Fremdrolle braucht nur SET-Mitgliedschaft (ohne INHERIT) in einer
+    # ausgenommenen Umgebungsrolle. has_table_privilege loest nur VERERBBARE
+    # Mitgliedschaften auf, sieht sie also nicht — und die mitglied|-Zeile, die
+    # den Zwischenschritt gemeldet haette, war fuer genau diese Namen gefiltert.
+    # Gemessen: der Angreifer konnte sich anmelden, per 'SET ROLE ...; SET ROLE
+    # bc1_role;' lesen UND schreiben, und das Einspielen lief durch.
+    frische_db(DSN)
+    with verbindung(DSN, None) as conn:
+        conn.execute("DROP ROLE IF EXISTS angreifer")
+        conn.execute("DROP ROLE IF EXISTS supabase_read_only_user")
+        conn.execute("CREATE ROLE supabase_read_only_user NOLOGIN")
+        conn.execute("CREATE ROLE angreifer NOLOGIN")
+        conn.execute("GRANT supabase_read_only_user TO angreifer "
+                     "WITH INHERIT FALSE, SET TRUE")
+        conn.commit()
+    try:
+        with verbindung(DSN, None) as conn:      # Vorbedingung: unsichtbar fuer die Effektiv-Sicht
+            assert not conn.execute(
+                "SELECT pg_has_role('angreifer', 'supabase_read_only_user', 'USAGE')"
+            ).fetchone()[0], "Vorbedingung: kein vererbtes Recht"
+            assert conn.execute(
+                "SELECT pg_has_role('angreifer', 'supabase_read_only_user', 'MEMBER')"
+            ).fetchone()[0], "Vorbedingung: SET ROLE waere moeglich"
+        with pytest.raises(Exception) as fehler:
+            spiele_ddl_ein(DSN)
+        assert "Sollsignatur" in str(fehler.value)
+        assert "angreifer" in str(fehler.value)
+    finally:
+        with verbindung(DSN, None) as conn:
+            conn.execute("REVOKE supabase_read_only_user FROM angreifer")
+            conn.execute("DROP ROLE IF EXISTS angreifer")
+            conn.execute("DROP ROLE IF EXISTS supabase_read_only_user")
+            conn.commit()
+
+
+def test_ausnahmeliste_enthaelt_genau_die_drei_gemessenen_rollen():
+    # I2 aus dem Review: Der INHALT der Ausnahmeliste war durch keinen Test
+    # geschuetzt. Gemessen blieben drei Fehlimplementierungen gruen — die Liste
+    # per LIKE 'supabase%' aufweichen, sie um fuenf beliebige Namen erweitern,
+    # oder die Ausnahme zusaetzlich auf acl| anwenden. Die drei Namen sind am
+    # 03.09. in der Ziel-Supabase gemessen (EINSPIELEN.md, Abschnitt 5); wer sie
+    # aendert, misst dort neu nach und begruendet den Eintrag in der DDL.
+    ddl = (Path(__file__).parents[1] / "bc1_service" / "db" / "prozessprofil.sql"
+           ).read_text(encoding="utf-8")
+    block = ddl.split("INSERT INTO pg_temp.bc1_umgebungsrollen (rolname) VALUES", 1)[1]
+    block = block.split(";", 1)[0]
+    namen = set(re.findall(r"\('([^']+)'\)", block))
+    assert namen == {"postgres", "supabase_read_only_user", "supabase_etl_admin"}
+
+
+def test_aehnlich_benannte_fremdrolle_ist_nicht_ausgenommen():
+    # I2, zweiter Teil: Der Inhalts-Test oben pinnt die Liste, aber nicht, dass
+    # sie auch BENUTZT wird. Gemessen: die Mutation "NOT LIKE 'supabase%'" statt
+    # der Namensliste blieb gruen. Eine neue Supabase-Rolle waere damit still
+    # ausgenommen. Dieser Test unterscheidet beides.
+    frische_db(DSN)
+    with verbindung(DSN, None) as conn:
+        conn.execute("DROP ROLE IF EXISTS supabase_neuer_dienst")
+        conn.execute("CREATE ROLE supabase_neuer_dienst NOLOGIN")
+        conn.execute("GRANT bc1_role TO supabase_neuer_dienst")
+        conn.commit()
+    try:
+        with pytest.raises(Exception) as fehler:
+            spiele_ddl_ein(DSN)
+        assert "supabase_neuer_dienst" in str(fehler.value)
+    finally:
+        with verbindung(DSN, None) as conn:
+            conn.execute("REVOKE bc1_role FROM supabase_neuer_dienst")
+            conn.execute("DROP ROLE IF EXISTS supabase_neuer_dienst")
+            conn.commit()
+
+
+def test_direktes_grant_an_eine_ausgenommene_rolle_bricht_trotzdem_ab():
+    # I2: Die Ausnahme darf NUR fuer Mitgliedschaften und effektive Rechte
+    # gelten, niemals fuer die ACL selbst — sonst waere ein direktes GRANT an
+    # postgres & Co. unsichtbar. Heute korrekt, aber bisher ungeschuetzt: die
+    # Mutation "Ausnahme zusaetzlich auf acl| anwenden" blieb im Review gruen.
+    frische_db(DSN)
+    with verbindung(DSN, None) as conn:
+        conn.execute("DROP ROLE IF EXISTS supabase_etl_admin")
+        conn.execute("CREATE ROLE supabase_etl_admin NOLOGIN")
+        conn.commit()
+    try:
+        with verbindung(DSN) as conn:
+            conn.execute("GRANT SELECT ON bc1.prozessprofil TO supabase_etl_admin")
+            conn.commit()
+        with pytest.raises(Exception) as fehler:
+            spiele_ddl_ein(DSN)
+        assert "acl|prozessprofil|supabase_etl_admin|SELECT" in str(fehler.value)
+    finally:
+        with verbindung(DSN, None) as conn:
+            # Das GRANT haengt an der Rolle und ueberlebt den Rollback des
+            # Einspielversuchs — ohne DROP OWNED BY scheitert das DROP ROLE.
+            conn.execute("DROP OWNED BY supabase_etl_admin")
+            conn.execute("DROP ROLE IF EXISTS supabase_etl_admin")
+            conn.commit()
+
+
+def test_mitgliedschaft_in_pg_maintain_wird_erkannt():
+    # I3 aus dem Review 03.09.: PostgreSQL 17 bringt die Systemrolle pg_maintain.
+    # Ein GRANT darauf gibt MAINTAIN auf unseren Tabellen (VACUUM, REINDEX,
+    # CLUSTER, LOCK), ohne dass sich eine ACL aendert. Die frueher notierte
+    # Begruendung "MAINTAIN entsteht nur durch ein direktes GRANT" war damit
+    # falsch — belegt durch Messung: has_table_privilege(...,'MAINTAIN') = True,
+    # SELECT und UPDATE = False. Kein Datenzugriff, aber ein Recht auf unseren
+    # Tabellen, das die Pruefung sehen muss.
+    frische_db(DSN)
+    with verbindung(DSN, None) as conn:
+        conn.execute("DROP ROLE IF EXISTS wartungs_rolle")
+        conn.execute("CREATE ROLE wartungs_rolle NOLOGIN")
+        conn.execute("GRANT pg_maintain TO wartungs_rolle")
+        conn.commit()
+    try:
+        with verbindung(DSN, None) as conn:
+            assert conn.execute(
+                "SELECT has_table_privilege('wartungs_rolle', 'bc1.prozessprofil', "
+                "'MAINTAIN')").fetchone()[0], "Vorbedingung: das Recht wirkt wirklich"
+        with pytest.raises(Exception) as fehler:
+            spiele_ddl_ein(DSN)
+        assert "Sollsignatur" in str(fehler.value)
+        assert "wartungs_rolle" in str(fehler.value)
+    finally:
+        with verbindung(DSN, None) as conn:
+            conn.execute("REVOKE pg_maintain FROM wartungs_rolle")
+            conn.execute("DROP ROLE IF EXISTS wartungs_rolle")
             conn.commit()
 
 

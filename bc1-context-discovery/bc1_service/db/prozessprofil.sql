@@ -71,10 +71,13 @@ END $$;
 -- 'DROP TABLE IF EXISTS bc1_soll_signatur' koennte eine gleichnamige PERMANENTE
 -- Tabelle aus dem Suchpfad loeschen — also eine Aenderung VOR der Pruefung, genau
 -- das, was die Dreifallregel verbietet.
--- Lebensdauer: die beiden TEMP-TABELLEN verschwinden mit dem Commit
--- (ON COMMIT DROP), die TEMP VIEW erst mit der Session — Views kennen kein
--- ON COMMIT DROP. Deshalb OR REPLACE (Codex N10-I4): ohne das scheiterte ein
--- zweiter Lauf in DERSELBEN Session an 'relation already exists'.
+-- Lebensdauer: die TEMP-TABELLEN verschwinden mit dem Commit (ON COMMIT DROP).
+-- Die TEMP VIEW kennt kein ON COMMIT DROP, wird seit K-G aber trotzdem beim
+-- Commit mitentfernt — sie greift auf bc1_umgebungsrollen zu, und deren Drop
+-- kaskadiert (Review 03.09., an beiden Dateiversionen gemessen: vorher blieb
+-- die View stehen, jetzt nicht mehr). OR REPLACE bleibt trotzdem noetig
+-- (Codex N10-I4): ohne das scheiterte ein zweiter Lauf in DERSELBEN Session,
+-- wenn die View aus einer aelteren Skriptfassung noch steht.
 CREATE TEMP TABLE bc1_soll_signatur (zeile text PRIMARY KEY) ON COMMIT DROP;
 
 -- BEKANNTE UMGEBUNGSROLLEN (Klaerpunkt K-G, Entscheidung Richard 03.09.).
@@ -91,7 +94,9 @@ CREATE TEMP TABLE bc1_soll_signatur (zeile text PRIMARY KEY) ON COMMIT DROP;
 CREATE TEMP TABLE bc1_umgebungsrollen (rolname text PRIMARY KEY) ON COMMIT DROP;
 
 INSERT INTO pg_temp.bc1_umgebungsrollen (rolname) VALUES
-    ('postgres'),                 -- Supabase-Administration; dort KEIN Superuser,
+    -- Keine Semikolons in diesen Begruendungen: ein Test liest den Block hier
+    -- bis zum ersten Semikolon aus und pinnt die Namen (Review 03.09.).
+    ('postgres'),                 -- Supabase-Administration, dort KEIN Superuser,
                                   -- Mitglied von bc1_role und bc_leser
     ('supabase_read_only_user'),  -- Supabase-Lesekonto, kommt ueber pg_read_all_data
     ('supabase_etl_admin');       -- Supabase-ETL, kommt ueber pg_read_all_data
@@ -221,6 +226,10 @@ INSERT INTO pg_temp.bc1_soll_signatur (zeile) VALUES
     ('kommentar|profil_rollen|1378f4711b6e6f58a59cffb1b7392dd3'),
     ('kommentar|profil_write_status|75c6e87e6d74711c6b16fd790e298dee'),
     ('kommentar|prozessprofil|6be0061585449300b03b396462ce68c5'),
+    ('mitglied|bc_leser|bc1_role'),
+    ('mitglied|bc_leser|bc2_role'),
+    ('mitglied|bc_leser|bc3_role'),
+    ('mitglied|bc_leser|bc4_role'),
     ('rls|profil_rollen|f|f'),
     ('rls|profil_write_status|f|f'),
     ('rls|prozessprofil|f|f'),
@@ -380,9 +389,22 @@ SELECT format('spalte_acl|%s|%s|%s|%s|%s', c.relname, a.attname,
 UNION ALL
 -- Codex N10-C2: 'GRANT bc1_role TO <irgendwer>' gibt volle Rechte, OHNE dass sich
 -- eine Tabellen-ACL aendert. Die Mitgliederliste gehoert deshalb in die Signatur.
-SELECT format('mitglied|bc1_role|%s', pg_get_userbyid(m.member))
+-- Signiert werden die Kanten in JEDE Rolle, ueber die man an unsere Tabellen
+-- kaeme — nicht nur bc1_role (CRITICAL aus dem Review 03.09., von beiden
+-- Reviewern gefunden und im Container nachgestellt): Eine Mitgliedschaft MIT
+-- 'SET', aber OHNE 'INHERIT' gibt per 'SET ROLE' vollen Zugriff, ist fuer
+-- has_table_privilege aber unsichtbar. Die Effektiv-Sicht kann sie deshalb
+-- nicht melden — nur diese Kante kann es.
+-- Ausgenommen bleibt, wer ALS MITGLIED eine Umgebungsrolle ist; am 03.09. in
+-- der Ziel-Supabase gemessen sind das genau fuenf Kanten (postgres in bc1_role,
+-- bc_leser und pg_read_all_data; die beiden supabase-Konten in pg_read_all_data).
+-- Uebrig bleiben dort die vier Kanten bc_leser <- bc1..bc4_role, die das
+-- Test-Geruest genauso anlegt.
+SELECT format('mitglied|%s|%s', pg_get_userbyid(m.roleid), pg_get_userbyid(m.member))
   FROM pg_auth_members m
- WHERE m.roleid = (SELECT oid FROM pg_roles WHERE rolname = 'bc1_role')
+ WHERE (pg_get_userbyid(m.roleid) IN ('bc1_role', 'bc_leser', 'pg_read_all_data',
+                                      'pg_write_all_data', 'pg_maintain')
+        OR pg_get_userbyid(m.roleid) IN (SELECT rolname FROM pg_temp.bc1_umgebungsrollen))
    AND pg_get_userbyid(m.member) NOT IN (SELECT rolname FROM pg_temp.bc1_umgebungsrollen)
 UNION ALL
 -- Codex N10-I3: RLS-Zustand und Policies — eine nachtraeglich aktivierte Policy

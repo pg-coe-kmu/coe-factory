@@ -6054,6 +6054,29 @@ git commit -m "docs(bc1): Einspiel-Anleitung, Rechte-Ist-Stand und K5-Betriebsre
 **Damit ist Phase E abgeschlossen.** Offen bleibt allein das Deploy-Gate **K-I** (BC0 muss
 das `ALTER DEFAULT PRIVILEGES` entfernen) — dokumentiert in `EINSPIELEN.md`, Abschnitt 8.
 
+### Review zu K-G/K-H/Task 16 — adjudiziert am 03.09.2026
+
+Zweigleisig (Claude messend, Codex statisch). **Beide fanden unabhängig denselben
+Critical**, den meine K-G-Umsetzung verursacht hatte.
+
+| Befund | Entscheidung |
+|---|---|
+| **Critical — Ausgenommene Rolle als SET-ROLE-Sprungbrett.** `GRANT supabase_read_only_user TO x WITH INHERIT FALSE, SET TRUE` → x kommt per `SET ROLE` an Lesen UND Schreiben, Einspielen läuft durch. `has_table_privilege` löst nur VERERBBARE Mitgliedschaften auf; die `mitglied\|`-Zeile, die den Zwischenschritt gemeldet hätte, war für die drei Namen gefiltert | **GEFIXT.** `mitglied\|` signiert jetzt die Kanten in **jede** Rolle, über die man hereinkäme (`bc1_role`, `bc_leser`, `pg_read_all_data`, `pg_write_all_data`, `pg_maintain` und die drei ausgenommenen), ausgenommen bleibt nur, wer als MITGLIED eine Umgebungsrolle ist. In der Supabase gemessen: dort bleiben genau die vier Kanten `bc_leser ← bc1..bc4_role`, die das Test-Gerüst genauso anlegt. Signatur 172 → **176**. Test `test_set_mitgliedschaft_in_ausgenommener_rolle_wird_erkannt` (RED gesehen) |
+| **Important — `pg_maintain` widerlegt die MAINTAIN-Begründung.** Gemessen: `GRANT pg_maintain TO x` → `has_table_privilege(x,…,'MAINTAIN')` = true, kein Fall 3 | **GEFIXT** durch dieselbe Kanten-Signatur. `MAINTAIN` NICHT in die Effektiv-Liste aufgenommen — das wäre nach dem Fix redundant (YAGNI). Test `test_mitgliedschaft_in_pg_maintain_wird_erkannt`, per Mutation belegt |
+| **Important — Ausnahme gilt unbedingt, nicht nur fürs Lesen** | **Doku korrigiert** (`EINSPIELEN.md` Abschnitt 5 benennt den Preis jetzt ungeschönt, inklusive Schreibzugriff) |
+| **Important — Listeninhalt und -verwendung ungeschützt** | **Drei Tests ergänzt:** Inhalt der Liste, ähnlich benannte Fremdrolle, direktes `GRANT` an eine ausgenommene Rolle. **Messung dazu:** die vom Reviewer gemeldete LIKE-Mutation ist nach dem Critical-Fix **kein Loch mehr** — es gibt drei sich deckende Filter (Kanten, Effektiv, Effektiv-Spalte); erst wenn ALLE DREI aufgeweicht werden, entsteht die Lücke, und genau dann fällt `test_aehnlich_benannte_fremdrolle_ist_nicht_ausgenommen` |
+| **Important — `postgres`-Fall im Container nicht nachstellbar** (dort Superuser) | **Als Restrisiko dokumentiert** in `EINSPIELEN.md` Abschnitt 5. K-G ist damit „erledigt mit benanntem Restrisiko", nicht blind erledigt |
+| **Important — Ermittlungsabfrage benutzte `USAGE`** und übersieht damit genau die SET-Klasse | **Korrigiert** auf `MEMBER`, mit Begründung im SQL-Kommentar |
+| Minor — Kommentar zur TEMP-VIEW-Lebensdauer · SMOKE-Betriebsabschnitt gilt nur produktiv · 503 kommt erst im Abschluss-Turn · Fall 3 vs. Nachprüfungsfehler · Anhang verspricht mehr als die Signatur hält | **Alle korrigiert.** Der Anhang benennt jetzt ausdrücklich, was die Signatur NICHT abdeckt: neue Views und `SECURITY DEFINER`-Funktionen auf unsere Tabellen sowie `pg_default_acl` |
+| Minor (Bestand) — `signatur-erzeugen.py` bäckt stehengebliebene Cluster-Rollen ein | **GEFIXT:** der Generator bricht jetzt ab, wenn der Cluster nicht genau die sechs erwarteten Rollen enthält. Mit einer Proberolle nachgestellt |
+
+**Nicht gefixt, bewusst:** Views und `SECURITY DEFINER`-Funktionen, die auf unsere Tabellen
+zeigen, sind nicht Teil der Signatur (beide Reviewer, Critical bzw. Minor). Der ehrliche
+Grund: Das wäre eine Inventarisierung des ganzen Schemas und damit ein eigener Task. **Ziel
+und nächster Schritt:** in `EINSPIELEN.md` steht jetzt ausdrücklich, dass die Prüfung die
+Frage „wer darf `CREATE` in `bc1`?" nicht ersetzt; sobald BC0 die Standardrechte entfernt
+(K-I), gehört diese Frage mit auf den Tisch.
+
 ---
 
 ## Anhang A (Rev. 11a): Vorbereitung Use-Case-Testprofile für BC2 bis BC4 — Roadmap, NICHT Teil der ausführbaren Reihenfolge

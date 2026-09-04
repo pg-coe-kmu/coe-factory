@@ -98,6 +98,10 @@ Dann **Publish**; Chat-URL steht im Chat-Trigger-Node.
 
 ## Betrieb: wenn das Schreiben des Profils klemmt
 
+> Gilt für die **Produktivverdrahtung** (`bc1_service.main`), nicht für den Demo-Block
+> oben: der ruft `create_app(...)` ohne `writer=` auf, schreibt also nie ein Profil und
+> kann diese Lagen gar nicht erzeugen.
+
 ### `503 profil_write_fehlgeschlagen`
 
 Der Dienst konnte das fertige Profil nicht speichern und hat die Antwort deshalb
@@ -111,7 +115,12 @@ liegt meist ein fremder Draft auf demselben Fokus-Schritt — dann das Rezept un
 ### K5: verwaister oder fremder `in_erhebung`-Draft
 
 Ein abgebrochener Lauf kann eine Zeile im Zustand `in_erhebung` hinterlassen. Sie belegt
-den Fokus-Schritt, und die nächste Sitzung zu demselben Schritt bekommt 503.
+den Fokus-Schritt für alle anderen Sitzungen.
+
+> **Wichtig fürs Verständnis:** Der 503 kommt **erst im Abschluss-Turn**, nicht sofort. Eine
+> neue Sitzung zu demselben Schritt führt das ganze Interview scheinbar normal — der
+> Writer meldet den fremden Draft in allen Turns davor still zurück — und fällt erst am
+> Ende um. Wer einen 503 sieht, sucht die Ursache also nicht im letzten Turn.
 
 ```sql
 -- 1. Nachsehen, was steht (fertige Zeilen sind per Trigger gesperrt und

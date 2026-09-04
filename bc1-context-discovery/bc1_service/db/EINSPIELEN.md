@@ -45,7 +45,11 @@ zurückrollt.
 |---|---|---|
 | `NOTICE: Fall 1` | Datenbank war leer, alles wurde angelegt | fertig |
 | `NOTICE: Fall 2` | Bestand entspricht exakt der Sollsignatur | fertig, nichts passiert |
-| `Fall 3 … Nachpruefung fehlgeschlagen` | Bestand weicht ab | **nichts wurde geändert.** Die Meldung listet jede Abweichung als `+ zuviel:` oder `- fehlt:` — Zeile für Zeile lesen und verstehen, **nie** die Prüfung abschalten |
+| `Fall 3: Bestand weicht von der Sollsignatur ab` | **Vorprüfung**: es war schon etwas da, das nicht passt | **nichts wurde geändert.** Abweichungen stehen als `+ zuviel:` / `- fehlt:` |
+| `Nachpruefung fehlgeschlagen — Rollback` | **Nachprüfung**: wir haben angelegt, aber das Ergebnis passt nicht zur Sollsignatur | ebenfalls **nichts geändert** (Rollback). Häufigster Grund: zusätzliche `acl\|…\|SELECT`-Zeilen ⇒ es gibt **Standardrechte im Schema** (`ALTER DEFAULT PRIVILEGES`), siehe Abschnitt 8 |
+
+In beiden Fällen gilt: jede Abweichung Zeile für Zeile lesen und verstehen — **nie** die
+Prüfung abschalten.
 
 ## 4. Sollsignatur: wann und wie neu erzeugen
 
@@ -75,15 +79,20 @@ bräche das Einspielen an der Umgebung ab, obwohl mit unserem Schema alles stimm
 Mitgliedschaft oder `pg_read_all_data` an unsere Tabellen kämen:
 
 ```sql
+-- 'MEMBER' ist Absicht und NICHT durch 'USAGE' ersetzbar: eine Mitgliedschaft
+-- mit SET, aber ohne INHERIT liefert USAGE = false — per 'SET ROLE' bekommt die
+-- Rolle den Zugriff aber trotzdem. Genau diese Klasse uebersieht eine reine
+-- USAGE-Abfrage (Review 03.09., im Container bis zum Schreibzugriff nachgestellt).
 SELECT r.rolname,
-       pg_has_role(r.oid, 'bc1_role'::regrole, 'USAGE')         AS via_bc1_role,
-       pg_has_role(r.oid, 'bc_leser'::regrole, 'USAGE')         AS via_bc_leser,
-       pg_has_role(r.oid, 'pg_read_all_data'::regrole, 'USAGE') AS via_read_all
+       pg_has_role(r.oid, 'bc1_role'::regrole, 'MEMBER')         AS via_bc1_role,
+       pg_has_role(r.oid, 'bc_leser'::regrole, 'MEMBER')         AS via_bc_leser,
+       pg_has_role(r.oid, 'pg_read_all_data'::regrole, 'MEMBER') AS via_read_all,
+       pg_has_role(r.oid, 'bc1_role'::regrole, 'USAGE')          AS erbt_bc1_role
   FROM pg_roles r
  WHERE NOT r.rolsuper AND r.rolname NOT LIKE 'pg\_%'
-   AND (pg_has_role(r.oid, 'bc1_role'::regrole, 'USAGE')
-     OR pg_has_role(r.oid, 'bc_leser'::regrole, 'USAGE')
-     OR pg_has_role(r.oid, 'pg_read_all_data'::regrole, 'USAGE'))
+   AND (pg_has_role(r.oid, 'bc1_role'::regrole, 'MEMBER')
+     OR pg_has_role(r.oid, 'bc_leser'::regrole, 'MEMBER')
+     OR pg_has_role(r.oid, 'pg_read_all_data'::regrole, 'MEMBER'))
  ORDER BY 1;
 ```
 
@@ -96,15 +105,34 @@ SELECT r.rolname,
 | `supabase_read_only_user` | `pg_read_all_data` | **ja** |
 | `supabase_etl_admin` | `pg_read_all_data` | **ja** |
 
-**Was das kostet und was es nicht kostet:** Diese drei Rollen können unsere Tabellen lesen,
-ohne dass die Prüfung anschlägt — das ist der bewusst bezahlte Preis. **Jede andere fremde
-Rolle bricht weiter mit Fall 3 ab**, insbesondere ein `GRANT bc1_role TO <irgendwer>`; zwei
-Tests halten beide Seiten fest (`test_bekannte_umgebungsrolle_bricht_das_einspielen_nicht_ab`
-und `test_mitgliedschaft_in_bc1_role_wird_erkannt`).
+**Was die Ausnahme kostet — genau und ungeschönt:** Für diese drei Namen prüfen wir
+Mitgliedschaften und effektive Rechte nicht. Bekäme eine von ihnen zusätzliche Rechte auf
+unseren Tabellen — auch **schreibende** —, fiele das nicht auf. Das ist der bewusst bezahlte
+Preis; die Ausnahme gilt unbedingt, nicht nur fürs Lesen.
+
+**Was sie nicht kostet:** Für alle anderen Rollen bleibt die Prüfung scharf, und zwar auf
+drei sich gegenseitig deckenden Wegen: die ACL der Tabellen (`acl|`, gilt **auch** für die
+drei ausgenommenen Rollen — ein direktes `GRANT` an sie bricht ab), die effektiven Rechte
+(`effektiv|`, `effektiv_spalte|`) und die **Mitgliedschafts-Kanten** (`mitglied|`) in jede
+Rolle, über die man hereinkäme. Der letzte Weg ist der wichtigste: Eine Mitgliedschaft mit
+`SET`, aber ohne `INHERIT`, ist für die Effektiv-Sicht unsichtbar — `SET ROLE` funktioniert
+trotzdem. Fünf Tests halten das fest, darunter
+`test_set_mitgliedschaft_in_ausgenommener_rolle_wird_erkannt` und
+`test_aehnlich_benannte_fremdrolle_ist_nicht_ausgenommen`.
 
 **Vor dem Einspielen in eine neue Umgebung:** die Abfrage oben dort ausführen. Erscheint
 eine Rolle, die hier nicht steht, **erst klären, dann entscheiden** — nicht blind
-nachtragen. Jeder Eintrag braucht eine Begründung in derselben Zeile der DDL.
+nachtragen. Jeder Eintrag braucht eine Begründung in derselben Zeile der DDL, und der Test
+`test_ausnahmeliste_enthaelt_genau_die_drei_gemessenen_rollen` erzwingt, dass die Liste
+bewusst geändert wird.
+
+> **Restrisiko, ehrlich benannt:** Der Fall, der K-G ausgelöst hat — `postgres` als
+> Nicht-Superuser mit Mitgliedschaft in `bc1_role` — ist im Test-Container **nicht**
+> nachstellbar: dort ist `postgres` Superuser und fällt schon vorher aus der Prüfung. Dass
+> das Einspielen in der Ziel-Supabase nach dieser Änderung durchläuft, ist damit
+> hergeleitet und an den gemessenen Rollen geprüft, **aber nicht dort ausgeführt**. Der
+> erste echte Einspiel-Lauf ist deshalb mit wachem Auge zu fahren — Fall 3 dort bedeutet
+> zuerst: die Abfrage oben erneut ausführen und mit dieser Tabelle vergleichen.
 
 ## 6. Als welche Rolle verbindet der Dienst?
 
@@ -141,9 +169,24 @@ ausdrückliche Bestätigung, dass `bc_leser` auch für `profil_rollen` gilt (Rü
 ## Anhang: Warum die Prüfung so streng ist
 
 Die drei Tabellen stehen in einer Datenbank, die sich mehrere Bounded Contexts teilen, und
-sie enthalten personenbezogene Angaben aus Interviews. Ein still hinzugefügtes Leserecht,
-eine geänderte Spalte oder ein deaktivierter Trigger fiele ohne diese Prüfung niemandem
-auf. Deshalb umfasst die Signatur nicht nur Tabellen und Spalten, sondern auch: ACLs
-einschließlich Spaltenrechten, Mitgliedschaften in `bc1_role`, die **effektiven** Rechte
-jeder Rolle (also auch geerbte), RLS-Zustand und Policies, Rewrite-Regeln, Trigger
-einschließlich der internen FK-Trigger, Funktionsrechte und die Tabellenkommentare.
+sie enthalten personenbezogene Angaben aus Interviews. Ein still hinzugefügtes Leserecht
+**auf einer dieser drei Tabellen**, eine geänderte Spalte oder ein deaktivierter Trigger
+fiele ohne diese Prüfung niemandem auf. Deshalb umfasst die Signatur: ACLs einschließlich
+Spaltenrechten, Mitgliedschafts-Kanten in jede Rolle, über die man an die Tabellen käme,
+die **effektiven** Rechte jeder Rolle (also auch geerbte), RLS-Zustand und Policies,
+Rewrite-Regeln, Trigger einschließlich der internen FK-Trigger, Funktionsrechte und die
+Tabellenkommentare.
+
+**Was sie ausdrücklich NICHT abdeckt** (Review 03.09., jeder Punkt im Container
+nachgestellt — kein Fall 3, Zugriff funktionierte):
+
+- **Neue Objekte, die auf unsere Tabellen zeigen.** Eine View `bc1.export AS SELECT * FROM
+  bc1.prozessprofil`, die `bc1_role` gehört, vermittelt Lesezugriff, ohne eine der drei
+  Tabellen-ACLs zu berühren. Dasselbe gilt für eine `SECURITY DEFINER`-Funktion. Die
+  Signatur inventarisiert nur die drei Tabellen und die drei Triggerfunktionen.
+- **Standardrechte** (`pg_default_acl`) — sie wirken erst auf *künftige* Objekte, siehe
+  Abschnitt 8 (K-I).
+
+Wer im Schema `bc1` etwas anlegen darf, kann daran vorbei. Die Prüfung ersetzt also nicht
+die Frage, **wer `CREATE` in diesem Schema hat** — sie sichert, dass die drei
+Vertragstabellen selbst so stehen, wie wir sie angelegt haben.
