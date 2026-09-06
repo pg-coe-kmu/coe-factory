@@ -1,0 +1,307 @@
+{
+  "lieferung_id": "del-uc2-wissensbasis-2026-09-06-073831",
+  "schema_version": "3.5",
+  "projekt_kurzname": "uc2-wissensbasis",
+  "konzept_ref": {
+    "konzept_id": "b2000000-0000-4000-8000-0000000000c2",
+    "schema_version": "2.1-bc3",
+    "source_file": "konzept_uc2_wissensbasis.json",
+    "kp_id": "KP-05",
+    "teilprozess_ids": [
+      "KP-05.TP-1"
+    ],
+    "value_quelle": "annahme"
+  },
+  "epics": [
+    {
+      "epic_id": "ep-1419-f870-10a8-6c3c69e6379c",
+      "titel": "Wissensquellen automatisch indexieren und aktuell halten",
+      "ziel": "Einen durchsuchbaren Index aller freigegebenen Wissensquellen erstellen und bei Änderungen automatisch aktualisieren, um manuelle Suche zu ersetzen.",
+      "kategorien": [
+        "it:backend",
+        "it:integration",
+        "it:ai-pipeline"
+      ],
+      "stories": [
+        {
+          "story_id": "st-1419-f870-10a8-6c3c69e6379c-1",
+          "titel": "Freigegebene Ordner identifizieren und überwachen",
+          "beschreibung": "Als System möchte ich die freigegebenen Google-Drive-Ordner ermitteln und überwachen, damit nur ausdrücklich freigegebene Inhalte indexiert werden.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given das Freigaberegister, When die Ordnerliste abgerufen wird, Then sind nur freigegebene Ordner enthalten.",
+              "messverfahren": "Manuelle Prüfung der zurückgegebenen Ordnerliste gegen das Freigaberegister."
+            },
+            {
+              "text": "Given ein Ordner ohne Freigabe, When der Abgleich läuft, Then wird kein Inhalt daraus indexiert.",
+              "messverfahren": "Automatisierter Test mit nicht freigegebenem Ordner, der nach Abgleich nicht im Index erscheint."
+            },
+            {
+              "text": "Given mandanten- oder personenbezogene Ablagen, When die Ordnerliste erstellt wird, Then sind diese ausgeschlossen.",
+              "messverfahren": "Manuelle Prüfung der Ordnerliste auf Ausschluss dieser Kategorien."
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-1419-f870-10a8-6c3c69e6379c-2",
+          "titel": "Dokumente aus freigegebenen Ordnern abrufen und verarbeiten",
+          "beschreibung": "Als System möchte ich Dokumente aus den freigegebenen Ordnern abrufen, zerlegen und für die Indexierung vorbereiten, damit sie durchsuchbar werden.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein neues Dokument in einem freigegebenen Ordner, When der Abgleich läuft, Then ist es am nächsten Tag durchsuchbar.",
+              "messverfahren": "Automatisierter Test mit neuem Dokument, das nach spätestens 24 Stunden im Index erscheint."
+            },
+            {
+              "text": "Given ein Dokument mit auslesbarem Text, When es verarbeitet wird, Then werden Abschnitte mit Dokument, Fassung, Änderungsdatum und Ordner im Index gespeichert.",
+              "messverfahren": "Manuelle Prüfung eines indexierten Abschnitts auf Metadaten."
+            },
+            {
+              "text": "Given ein gescanntes PDF ohne Textebene, When es verarbeitet wird, Then steht es mit Grund in der Fehlerliste.",
+              "messverfahren": "Automatisierter Test mit nicht auslesbarem Dokument, das in der Fehlerliste erscheint."
+            },
+            {
+              "text": "Given ein sehr großes Dokument, When es verarbeitet wird, Then wird es abschnittsweise indexiert.",
+              "messverfahren": "Manuelle Prüfung der Indexeinträge auf Abschnittsbildung."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-1419-f870-10a8-6c3c69e6379c-1"
+          ]
+        },
+        {
+          "story_id": "st-1419-f870-10a8-6c3c69e6379c-3",
+          "titel": "Index bei Änderungen aktualisieren",
+          "beschreibung": "Als System möchte ich geänderte oder gelöschte Dokumente erkennen und den Index entsprechend aktualisieren, damit keine veralteten Inhalte bestehen bleiben.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein geändertes Dokument, When der Abgleich läuft, Then ist die aktualisierte Fassung spätestens am nächsten Tag im Index.",
+              "messverfahren": "Automatisierter Test mit geändertem Dokument, das nach spätestens 24 Stunden aktualisiert im Index erscheint."
+            },
+            {
+              "text": "Given ein gelöschtes Dokument, When der Abgleich läuft, Then liefert der Index keine Abschnitte daraus mehr.",
+              "messverfahren": "Automatisierter Test mit gelöschtem Dokument, das nach Abgleich nicht mehr im Index erscheint."
+            },
+            {
+              "text": "Given ein ersetzes Dokument, When der Abgleich läuft, Then ist nur die neue Fassung im Index enthalten.",
+              "messverfahren": "Manuelle Prüfung des Index auf ausschließliche Präsenz der neuen Fassung."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-1419-f870-10a8-6c3c69e6379c-2"
+          ]
+        },
+        {
+          "story_id": "st-1419-f870-10a8-6c3c69e6379c-4",
+          "titel": "Fehlerliste für nicht verarbeitbare Dokumente pflegen",
+          "beschreibung": "Als System möchte ich nicht auslesbare Dokumente in einer Fehlerliste erfassen, damit Wissensträger über Probleme informiert werden können.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein Dokument ohne auslesbaren Text, When es verarbeitet wird, Then steht es mit Grund in der Fehlerliste.",
+              "messverfahren": "Automatisierter Test mit nicht auslesbarem Dokument, das in der Fehlerliste erscheint."
+            },
+            {
+              "text": "Given ein Eintrag in der Fehlerliste, When er geprüft wird, Then sind Dokumentname, Grund und Ordnerpfad erkennbar.",
+              "messverfahren": "Manuelle Prüfung der Fehlerliste auf Vollständigkeit der Metadaten."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-1419-f870-10a8-6c3c69e6379c-2"
+          ]
+        },
+        {
+          "story_id": "st-1419-f870-10a8-6c3c69e6379c-5",
+          "titel": "Metadaten für indexierte Abschnitte speichern",
+          "beschreibung": "Als System möchte ich für jeden indexierten Abschnitt Metadaten wie Dokument, Fassung, Änderungsdatum und Ordner speichern, damit die Herkunft nachvollziehbar ist.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein indexierter Abschnitt, When er geprüft wird, Then sind Dokument, Fassung, Änderungsdatum und Ordner erkennbar.",
+              "messverfahren": "Manuelle Prüfung eines indexierten Abschnitts auf vollständige Metadaten."
+            },
+            {
+              "text": "Given ein Abschnitt aus einem Dokument, When er im Index erscheint, Then ist die Teilprozess-ID KP-05.TP-1 hinterlegt.",
+              "messverfahren": "Automatisierte Abfrage des Index auf Vorhandensein der Teilprozess-ID."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-1419-f870-10a8-6c3c69e6379c-2"
+          ]
+        }
+      ],
+      "teilprozess_ids": [
+        "KP-05.TP-1"
+      ]
+    },
+    {
+      "epic_id": "ep-9f05-a08d-e2b8-c7d19d3681b9",
+      "titel": "Interne Fragen mit Quellenangabe automatisiert beantworten",
+      "ziel": "Automatisiertes Auffinden und Formulieren von belegten Antworten auf interne Fragen mit Quellenangabe, um Recherchezeit zu reduzieren und Wissen nachvollziehbar zu machen.",
+      "kategorien": [
+        "it:backend",
+        "it:integration",
+        "it:ai-pipeline"
+      ],
+      "stories": [
+        {
+          "story_id": "st-9f05-a08d-e2b8-c7d19d3681b9-1",
+          "titel": "Frage entgegennehmen und auf Mandantenbezug prüfen",
+          "beschreibung": "Als Mitarbeitender möchte ich eine interne Frage stellen, damit das System prüft, ob sie mandantenbezogene Inhalte betrifft und sie gegebenenfalls ablehnt.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine Frage zu einem Mandantenprojekt, When die Frage gestellt wird, Then wird sie abgelehnt und der Nutzer erhält eine entsprechende Rückmeldung.",
+              "messverfahren": "Manuelle Prüfung der Systemantwort auf eine Testfrage mit mandantenbezogenem Inhalt."
+            },
+            {
+              "text": "Given eine Frage ohne Mandantenbezug, When die Frage gestellt wird, Then wird sie zur weiteren Verarbeitung angenommen.",
+              "messverfahren": "Manuelle Prüfung der Systemantwort auf eine Testfrage ohne mandantenbezogenen Inhalt."
+            },
+            {
+              "text": "Given eine Frage mit vollständigen Angaben, When die Prüfung auf Mandantenbezug läuft, Then ist sie in unter 2 Sekunden abgeschlossen.",
+              "messverfahren": "Automatisierte Zeitmessung der Prüfroutine mit Testdaten."
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-9f05-a08d-e2b8-c7d19d3681b9-2",
+          "titel": "Frage im Vektorindex suchen und relevante Quellen identifizieren",
+          "beschreibung": "Als System möchte ich die gestellte Frage im Vektorindex durchsuchen, damit relevante Quellen für die Antwort identifiziert werden.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine Frage mit passenden Quellen im Index, When die Suche durchgeführt wird, Then werden mindestens eine relevante Quelle gefunden und zurückgegeben.",
+              "messverfahren": "Automatisierter Test mit vordefinierten Fragen und bekannten Quellen im Index."
+            },
+            {
+              "text": "Given eine Frage ohne passende Quellen im Index, When die Suche durchgeführt wird, Then wird keine Quelle zurückgegeben.",
+              "messverfahren": "Automatisierter Test mit einer Frage, für die keine Quellen im Index existieren."
+            },
+            {
+              "text": "Given eine Frage mit vollständigen Angaben, When die Suche im Index läuft, Then ist sie in unter 5 Sekunden abgeschlossen.",
+              "messverfahren": "Automatisierte Zeitmessung der Suchroutine mit Testdaten."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-9f05-a08d-e2b8-c7d19d3681b9-1"
+          ]
+        },
+        {
+          "story_id": "st-9f05-a08d-e2b8-c7d19d3681b9-3",
+          "titel": "Antwort mit Quellenangabe je Aussage formulieren",
+          "beschreibung": "Als System möchte ich aus den identifizierten Quellen eine Antwort mit Quellenangabe je Aussage formulieren, damit die Antwort nachvollziehbar und belegt ist.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine Frage mit passenden Quellen, When die Antwort formuliert wird, Then enthält die Antwort je Aussage die Quelle mit Dokument, Fassung und Abschnitt.",
+              "messverfahren": "Manuelle Prüfung der generierten Antwort auf korrekte Quellenangaben."
+            },
+            {
+              "text": "Given zwei widersprüchliche Quellen, When die Antwort formuliert wird, Then werden beide Quellen genannt und der Widerspruch benannt.",
+              "messverfahren": "Manuelle Prüfung der generierten Antwort auf widersprüchliche Quellen mit Testdaten."
+            },
+            {
+              "text": "Given eine Frage mit vollständigen Angaben, When die Antwortformulierung läuft, Then ist sie in unter 3 Sekunden abgeschlossen.",
+              "messverfahren": "Automatisierte Zeitmessung der Antwortformulierung mit Testdaten."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-9f05-a08d-e2b8-c7d19d3681b9-2"
+          ]
+        },
+        {
+          "story_id": "st-9f05-a08d-e2b8-c7d19d3681b9-4",
+          "titel": "Antwort ohne ausreichende Quellen ablehnen",
+          "beschreibung": "Als System möchte ich Fragen ohne ausreichend passende Quellen ablehnen, damit keine unbelegten Antworten erzeugt werden.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine Frage ohne passende Quelle, When die Antwort generiert werden soll, Then sagt das System, dass es keine Grundlage hat, und erfindet keine Antwort.",
+              "messverfahren": "Manuelle Prüfung der Systemantwort auf eine Frage ohne passende Quellen."
+            },
+            {
+              "text": "Given eine Frage ohne ausreichende Quellen, When die Ablehnung erfolgt, Then wird ein Vorschlag gemacht, wen man fragen könnte.",
+              "messverfahren": "Manuelle Prüfung der Systemantwort auf eine Testfrage ohne Quellen."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-9f05-a08d-e2b8-c7d19d3681b9-2"
+          ]
+        },
+        {
+          "story_id": "st-9f05-a08d-e2b8-c7d19d3681b9-5",
+          "titel": "Frage, Antwort und Quellen protokollieren",
+          "beschreibung": "Als System möchte ich jede Frage, die generierte Antwort und die verwendeten Quellen protokollieren, damit häufige Fragen identifiziert und die Wissensbasis erweitert werden kann.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine beantwortete Frage, When das Protokoll geschrieben wird, Then sind Frage, Antwort und Quellen nachvollziehbar gespeichert.",
+              "messverfahren": "Manuelle Prüfung des Protokolleintrags nach einer Testfrage."
+            },
+            {
+              "text": "Given eine abgelehnte Frage, When das Protokoll geschrieben wird, Then sind Frage und Ablehnungsgrund nachvollziehbar gespeichert.",
+              "messverfahren": "Manuelle Prüfung des Protokolleintrags nach einer abgelehnten Testfrage."
+            },
+            {
+              "text": "Given eine Frage mit vollständigen Angaben, When die Protokollierung läuft, Then ist sie in unter 1 Sekunde abgeschlossen.",
+              "messverfahren": "Automatisierte Zeitmessung der Protokollierung mit Testdaten."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-9f05-a08d-e2b8-c7d19d3681b9-1",
+            "st-9f05-a08d-e2b8-c7d19d3681b9-3",
+            "st-9f05-a08d-e2b8-c7d19d3681b9-4"
+          ]
+        },
+        {
+          "story_id": "st-9f05-a08d-e2b8-c7d19d3681b9-6",
+          "titel": "Antwort an den Fragenden zurückgeben",
+          "beschreibung": "Als System möchte ich die generierte oder abgelehnte Antwort an den Fragenden zurückgeben, damit dieser die Information erhält.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine generierte Antwort, When sie zurückgegeben wird, Then erhält der Fragende die Antwort mit Quellenangaben.",
+              "messverfahren": "Manuelle Prüfung der Antwortdarstellung in der Chat-Oberfläche."
+            },
+            {
+              "text": "Given eine abgelehnte Frage, When die Rückmeldung erfolgt, Then erhält der Fragende eine klare Ablehnungsmeldung.",
+              "messverfahren": "Manuelle Prüfung der Ablehnungsmeldung in der Chat-Oberfläche."
+            },
+            {
+              "text": "Given eine Frage mit vollständigen Angaben, When die Antwort zurückgegeben wird, Then ist die gesamte Verarbeitung in unter 10 Sekunden abgeschlossen.",
+              "messverfahren": "Automatisierte End-to-End-Zeitmessung mit Testdaten."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-9f05-a08d-e2b8-c7d19d3681b9-3",
+            "st-9f05-a08d-e2b8-c7d19d3681b9-4"
+          ]
+        },
+        {
+          "story_id": "st-9f05-a08d-e2b8-c7d19d3681b9-7",
+          "titel": "Transparenzhinweis in Antwort integrieren",
+          "beschreibung": "Als System möchte ich in jede generierte Antwort einen Hinweis einfügen, dass die Antwort auf Basis eines KI-Systems erstellt wurde und die Quellenangaben zu prüfen sind, um Artikel 50 AI-Act zu erfüllen.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine generierte Antwort, When sie zurückgegeben wird, Then enthält sie einen sichtbaren Transparenzhinweis.",
+              "messverfahren": "Manuelle Prüfung der Antwort auf Vorhandensein des Hinweises."
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-9f05-a08d-e2b8-c7d19d3681b9-8",
+          "titel": "E-Mail-Adresse vor Protokollierung pseudonymisieren",
+          "beschreibung": "Als System möchte ich die E-Mail-Adresse des Fragenden vor der Protokollierung durch eine laufende Nummer ersetzen, um Datenschutz durch Technikgestaltung nach Artikel 25 DSGVO zu gewährleisten.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine Frage mit E-Mail-Adresse, When die Protokollierung erfolgt, Then ist im Protokoll nur eine laufende Nummer gespeichert.",
+              "messverfahren": "Manuelle Prüfung des Protokolleintrags auf Fehlen der E-Mail-Adresse."
+            }
+          ],
+          "abhaengigkeiten": []
+        }
+      ],
+      "teilprozess_ids": [
+        "KP-05.TP-1"
+      ]
+    }
+  ],
+  "gate2": {
+    "status": "approved"
+  }
+}
