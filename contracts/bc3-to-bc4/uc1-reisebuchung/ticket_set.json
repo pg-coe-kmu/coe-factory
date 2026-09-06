@@ -1,0 +1,317 @@
+{
+  "lieferung_id": "del-uc1-reisebuchung-2026-09-06-070613",
+  "schema_version": "3.5",
+  "projekt_kurzname": "uc1-reisebuchung",
+  "konzept_ref": {
+    "konzept_id": "b1000000-0000-4000-8000-0000000000c1",
+    "schema_version": "2.1-bc3",
+    "source_file": "konzept_uc1_reisebuchung.json",
+    "kp_id": "KP-06",
+    "teilprozess_ids": [
+      "KP-06.TP-2"
+    ],
+    "value_quelle": "annahme"
+  },
+  "epics": [
+    {
+      "epic_id": "ep-7f86-9601-99bb-d235c7490f7d",
+      "titel": "Reiseanfrage automatisch erfassen und Verfügbarkeit prüfen",
+      "ziel": "Automatisierte Erfassung und Verfügbarkeitsprüfung von Reiseanfragen innerhalb von zwei Minuten mit strukturierter Rückmeldung und Protokollierung.",
+      "kategorien": [
+        "it:backend",
+        "it:integration"
+      ],
+      "stories": [
+        {
+          "story_id": "st-7f86-9601-99bb-d235c7490f7d-1",
+          "titel": "Anfragen aus Mail und Web-Formular einheitlich erfassen",
+          "beschreibung": "Als Backoffice-Mitarbeiter möchte ich, dass Reiseanfragen aus E-Mails und dem Web-Formular in einem einheitlichen Datensatz zusammengeführt werden, damit sie zentral verarbeitet werden können.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine Reiseanfrage per Mail oder Web-Formular, When sie im Postfach oder Formular eingeht, Then wird sie in einen einheitlichen Datensatz überführt.",
+              "messverfahren": "Prüfung des Datensatzes in der Vorgangsablage auf Vollständigkeit und Formatkonformität."
+            },
+            {
+              "text": "Given eine unvollständige Anfrage (z. B. fehlendes Reisedatum), When sie verarbeitet wird, Then wird eine strukturierte Rückfrage an die anfragende Person gesendet.",
+              "messverfahren": "Prüfung der Rückfrage-E-Mail auf korrekte Angabe der fehlenden Felder."
+            },
+            {
+              "text": "Given eine Anfrage ohne Projekt- oder Kostenstellenzuordnung, When die Verarbeitung startet, Then wird keine Verfügbarkeitsprüfung durchgeführt.",
+              "messverfahren": "Prüfung des Vorgangsstatus in der Ablage auf 'wartend' oder 'Rückfrage'."
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-7f86-9601-99bb-d235c7490f7d-2",
+          "titel": "Pflichtfelder extrahieren und Projekt/Kostenstelle zuordnen",
+          "beschreibung": "Als System möchte ich Reiseziel, Hin- und Rückreisedatum, Anzahl Reisender und Budgetrahmen aus der Anfrage extrahieren und einem Projekt oder einer Kostenstelle zuordnen, damit die Verfügbarkeitsprüfung starten kann.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine vollständige Reiseanfrage, When die Feldextraktion läuft, Then sind Reiseziel, Hin- und Rückreisedatum, Anzahl Reisender und Budgetrahmen im Datensatz enthalten.",
+              "messverfahren": "Prüfung des extrahierten Datensatzes auf Vorhandensein aller Pflichtfelder."
+            },
+            {
+              "text": "Given eine Anfrage mit Projekt- oder Kostenstellenzuordnung, When die Extraktion abgeschlossen ist, Then ist die Zuordnung im Datensatz hinterlegt.",
+              "messverfahren": "Prüfung des Datensatzes auf korrekte Projekt- oder Kostenstellenzuordnung."
+            },
+            {
+              "text": "Given eine Extraktion mit Konfidenz unter dem Schwellwert, When der Vorgang angelegt wird, Then wird er als prüfbedürftig markiert und einem Menschen zugewiesen.",
+              "messverfahren": "Prüfung des Vorgangsstatus auf 'prüfbedürftig' und Zuweisung an einen Bearbeiter."
+            },
+            {
+              "text": "Given eine Anfrage mit vollständigen Angaben, When die Extraktion läuft, Then ist sie in unter zwei Minuten abgeschlossen.",
+              "messverfahren": "Messung der Verarbeitungszeit vom Eingang bis zur Fertigstellung der Extraktion."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-7f86-9601-99bb-d235c7490f7d-1"
+          ]
+        },
+        {
+          "story_id": "st-7f86-9601-99bb-d235c7490f7d-3",
+          "titel": "Verfügbarkeitsprüfung in Reise-API durchführen",
+          "beschreibung": "Als Backoffice-Mitarbeiter möchte ich, dass die Verfügbarkeit von Flug, Hotel und Mietwagen automatisch geprüft wird, damit mindestens drei Optionen je Kategorie vorgeschlagen werden.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein vollständiger Anfragedatensatz, When die Verfügbarkeitsprüfung startet, Then werden mindestens drei Optionen je Kategorie (Flug, Hotel, Mietwagen) zurückgeliefert, sofern vorhanden.",
+              "messverfahren": "Prüfung der Optionsliste auf Vorhandensein von mindestens drei Einträgen je Kategorie."
+            },
+            {
+              "text": "Given eine Anfrage über dem hinterlegten Budgetrahmen, When die Prüfung abgeschlossen ist, Then wird sie der Teamleitung zur Freigabe vorgelegt und nicht weiterverarbeitet.",
+              "messverfahren": "Prüfung des Vorgangsstatus auf 'Freigabe erforderlich' und Zuweisung an die Teamleitung."
+            },
+            {
+              "text": "Given eine Anfrage mit vollständigen Angaben, When die Verfügbarkeitsprüfung läuft, Then ist sie in unter fünf Minuten abgeschlossen.",
+              "messverfahren": "Messung der Verarbeitungszeit vom Start der Prüfung bis zur Rückgabe der Optionsliste."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-7f86-9601-99bb-d235c7490f7d-2"
+          ]
+        },
+        {
+          "story_id": "st-7f86-9601-99bb-d235c7490f7d-4",
+          "titel": "Eingangsbestätigung und Rückfragen automatisiert versenden",
+          "beschreibung": "Als anfragende Person möchte ich unmittelbar nach Eingang der Reiseanfrage eine Bestätigung mit Vorgangsnummer und erkannten Eckdaten erhalten, damit Missverständnisse sofort auffallen.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine vollständige Reiseanfrage, When sie verarbeitet wird, Then erhält die anfragende Person binnen zwei Minuten eine Eingangsbestätigung mit Vorgangsnummer und erkannten Eckdaten.",
+              "messverfahren": "Prüfung des E-Mail-Eingangs auf Vorhandensein der Bestätigung mit korrekten Daten."
+            },
+            {
+              "text": "Given eine unvollständige Anfrage, When die Rückfrage versendet wird, Then wird sie demselben Vorgang zugeordnet und enthält eine genaue Benennung der fehlenden Felder.",
+              "messverfahren": "Prüfung der Rückfrage-E-Mail auf korrekte Vorgangs-ID und fehlende Felder."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-7f86-9601-99bb-d235c7490f7d-1"
+          ]
+        },
+        {
+          "story_id": "st-7f86-9601-99bb-d235c7490f7d-5",
+          "titel": "Vorgang mit Protokoll und Zeitstempeln in Ablage speichern",
+          "beschreibung": "Als Backoffice-Mitarbeiter möchte ich, dass jeder Verarbeitungsschritt mit Vorgangs-ID, Teilprozess-ID und Zeitstempel protokolliert wird, damit die Nachvollziehbarkeit gewährleistet ist.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein abgeschlossener Vorgang, When das Protokoll gelesen wird, Then sind Vorgangs-ID, Teilprozess-ID und Zeitstempel je Schritt enthalten.",
+              "messverfahren": "Prüfung des Protokolls auf Vollständigkeit der Metadaten."
+            },
+            {
+              "text": "Given jede Verarbeitung, When sie durchgeführt wird, Then wird sie mit KP-06.TP-2 protokolliert.",
+              "messverfahren": "Prüfung des Protokolls auf Vorhandensein des Teilprozess-IDs KP-06.TP-2."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-7f86-9601-99bb-d235c7490f7d-1",
+            "st-7f86-9601-99bb-d235c7490f7d-2",
+            "st-7f86-9601-99bb-d235c7490f7d-3"
+          ]
+        },
+        {
+          "story_id": "st-7f86-9601-99bb-d235c7490f7d-6",
+          "titel": "Transparenzhinweis in automatisierten E-Mails einbauen",
+          "beschreibung": "Als reisende Person möchte ich in der Eingangsbestätigung und im Angebot einen Hinweis erhalten, dass die Reiseplanung automatisiert erfolgt und ein Mensch die Entscheidung freigibt, damit ich über die Verarbeitung informiert bin. Dies erfüllt die Transparenzpflicht aus Artikel 50 AI-Act.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine Eingangsbestätigung, When sie versendet wird, Then enthält sie den Hinweis: 'Diese Reiseplanung erfolgt automatisiert. Die finale Entscheidung trifft ein Mensch.'",
+              "messverfahren": "Prüfung der versendeten E-Mail auf Vorhandensein des Hinweises."
+            },
+            {
+              "text": "Given ein Angebot, When es versendet wird, Then enthält es den Hinweis: 'Diese Reiseoptionen wurden automatisiert erstellt. Die finale Entscheidung trifft ein Mensch.'",
+              "messverfahren": "Prüfung der versendeten E-Mail auf Vorhandensein des Hinweises."
+            }
+          ],
+          "abhaengigkeiten": []
+        }
+      ],
+      "teilprozess_ids": [
+        "KP-06.TP-2"
+      ]
+    },
+    {
+      "epic_id": "ep-9539-ba84-470c-dc60f3f7c980",
+      "titel": "Automatisierte Angebotserstellung und Buchungsauslösung nach Freigabe",
+      "ziel": "Automatisierte Erstellung, Versand und Verwaltung von Reiseangeboten mit anschließender Buchungsauslösung nach menschlicher Freigabe, inklusive Sonderfallbehandlung.",
+      "kategorien": [
+        "it:backend",
+        "it:integration"
+      ],
+      "stories": [
+        {
+          "story_id": "st-9539-ba84-470c-dc60f3f7c980-1",
+          "titel": "Angebot aus geprüften Optionen generieren",
+          "beschreibung": "Als Backoffice-Mitarbeiter möchte ich, dass aus den geprüften Reiseoptionen automatisch ein Angebot mit drei vergleichbaren Varianten erzeugt wird, damit der manuelle Aufwand entfällt.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein Vorgang mit geprüften Optionen, When das Angebot erzeugt wird, Then enthält es drei Varianten mit Einzelpreis, Rabatt, Gesamtsumme und offenem Betrag und liegt in der Vorgangsablage vor.",
+              "messverfahren": "Manuelle Prüfung des generierten Angebots in der Vorgangsablage auf Vollständigkeit der Varianten und Preisinformationen."
+            },
+            {
+              "text": "Given ein Vorgang mit geprüften Optionen, When die Angebotserstellung läuft, Then ist sie in unter fünf Minuten abgeschlossen.",
+              "messverfahren": "Zeitmessung vom Start der Angebotserstellung bis zur Verfügbarkeit in der Vorgangsablage."
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-9539-ba84-470c-dc60f3f7c980-2",
+          "titel": "Angebot mit Vorgangs-ID versenden und Antwort zuordnen",
+          "beschreibung": "Als reisende Person möchte ich ein Angebot mit eindeutiger Vorgangs-ID erhalten, damit meine Antwort automatisch dem richtigen Vorgang zugeordnet wird.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein fertiges Angebot, When es versendet wird, Then trägt die E-Mail die Vorgangs-ID im Betreff und im Text, sodass die Antwort automatisch zugeordnet werden kann.",
+              "messverfahren": "Prüfung der versendeten E-Mail auf Vorhandensein der Vorgangs-ID im Betreff und Text."
+            },
+            {
+              "text": "Given eine Antwort-E-Mail mit Vorgangs-ID, When sie eingeht, Then wird sie dem korrekten Vorgang zugeordnet und der Status auf 'freigabebereit' gesetzt.",
+              "messverfahren": "Manuelle Prüfung der Vorgangsablage nach E-Mail-Eingang auf Statuswechsel und korrekte Zuordnung."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-9539-ba84-470c-dc60f3f7c980-1"
+          ]
+        },
+        {
+          "story_id": "st-9539-ba84-470c-dc60f3f7c980-3",
+          "titel": "Erneute Prüfung bei abgelaufenen Optionen durchführen",
+          "beschreibung": "Als Backoffice-Mitarbeiter möchte ich, dass bei abgelaufenen Optionen automatisch eine erneute Prüfung durchgeführt und ein aktualisiertes Angebot erzeugt wird, damit der Vorgang nicht scheitert.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine abgelaufene Option im Vorgang, When eine Zusage eintrifft, Then wird die Verfügbarkeit erneut geprüft und ein aktualisiertes Angebot mit drei Varianten erzeugt und versendet.",
+              "messverfahren": "Simulierter Ablauf einer abgelaufenen Option und Prüfung auf erneute Angebotserstellung."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-9539-ba84-470c-dc60f3f7c980-1",
+            "st-9539-ba84-470c-dc60f3f7c980-2"
+          ]
+        },
+        {
+          "story_id": "st-9539-ba84-470c-dc60f3f7c980-4",
+          "titel": "Erinnerungen bei ausbleibender Zusage versenden und Vorgang schließen",
+          "beschreibung": "Als Backoffice-Mitarbeiter möchte ich, dass bei ausbleibender Zusage automatisch Erinnerungen versendet und der Vorgang nach der zweiten Erinnerung geschlossen wird, damit keine offenen Vorgänge bestehen bleiben.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine ausbleibende Antwort, When 48 Stunden vergangen sind, Then wird eine Erinnerung an die reisende Person versendet.",
+              "messverfahren": "Zeitgesteuerter Test: Prüfung auf Erinnerungs-E-Mail nach 48 Stunden."
+            },
+            {
+              "text": "Given zwei versendete Erinnerungen, When weitere 48 Stunden vergangen sind, Then wird der Vorgang mit der Begründung 'Keine Rückmeldung' geschlossen.",
+              "messverfahren": "Zeitgesteuerter Test: Prüfung auf Statuswechsel und Begründung nach zweiter Erinnerung."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-9539-ba84-470c-dc60f3f7c980-2"
+          ]
+        },
+        {
+          "story_id": "st-9539-ba84-470c-dc60f3f7c980-5",
+          "titel": "Buchung nach Freigabe auslösen und Buchungsnummern speichern",
+          "beschreibung": "Als Teamleitung möchte ich, dass nach meiner Freigabe die Buchung automatisch ausgelöst und die Buchungsnummern in die Vorgangsablage geschrieben werden, damit der manuelle Aufwand entfällt.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine erteilte Freigabe, When die Buchung ausgelöst wird, Then werden Flug, Hotel und Mietwagen in der Reise-API gebucht und die Buchungsnummern binnen fünf Minuten in die Vorgangsablage geschrieben.",
+              "messverfahren": "Manuelle Prüfung der Vorgangsablage nach Freigabe auf Vorhandensein der Buchungsnummern."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-9539-ba84-470c-dc60f3f7c980-2"
+          ]
+        },
+        {
+          "story_id": "st-9539-ba84-470c-dc60f3f7c980-6",
+          "titel": "Stornierung als Statuswechsel mit Protokolleintrag abbilden",
+          "beschreibung": "Als Backoffice-Mitarbeiter möchte ich, dass eine Stornierung nach Buchung als Statuswechsel mit Protokolleintrag erfasst wird, damit der Vorgang nachvollziehbar bleibt.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine Stornierung nach Buchung, When sie erfasst wird, Then bleibt der Vorgang bestehen, trägt den Status 'storniert' und einen Zeitstempel im Protokoll.",
+              "messverfahren": "Manuelle Prüfung der Vorgangsablage nach Stornierung auf Status und Protokolleintrag."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-9539-ba84-470c-dc60f3f7c980-5"
+          ]
+        },
+        {
+          "story_id": "st-9539-ba84-470c-dc60f3f7c980-7",
+          "titel": "Freigabeprozess für Reisebuchungen einbauen",
+          "beschreibung": "Als Teamleitung möchte ich die vorgeschlagenen Reiseoptionen und Kosten vor der Buchung prüfen und freigeben können, damit keine automatischen Buchungen ohne menschliche Kontrolle erfolgen. Dies erfüllt die Anforderung aus Artikel 14 AI-Act, menschliche Aufsicht über Hochrisiko-KI-Systeme zu gewährleisten.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein fertiges Angebot, When die Teamleitung es prüft, Then kann sie die Optionen freigeben, ändern oder verwerfen.",
+              "messverfahren": "Manuelle Prüfung der Freigabeoberfläche auf Vorhandensein der Optionen Freigeben/Ändern/Verwerfen."
+            },
+            {
+              "text": "Given eine Freigabe oder Ablehnung, When sie erteilt wird, Then wird sie mit Zeitstempel, Freigebendem und Begründung im Protokoll gespeichert.",
+              "messverfahren": "Prüfung des Protokolls auf Vorhandensein der Freigabeinformationen."
+            },
+            {
+              "text": "Given keine Freigabe, When die Buchung versucht wird, Then wird sie nicht ausgelöst.",
+              "messverfahren": "Prüfung der Buchungs-API auf Ausbleiben des Aufrufs ohne Freigabe-Flag."
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-9539-ba84-470c-dc60f3f7c980-8",
+          "titel": "Manuelle Übersteuerung der Reiseoptionen ermöglichen",
+          "beschreibung": "Als Backoffice-Mitarbeiter möchte ich die vom System vorgeschlagenen Reiseoptionen vor dem Versand manuell ändern oder verwerfen können, damit ich die Kontrolle über die Ausgabe behalte. Dies erfüllt die Anforderung aus Artikel 14 AI-Act, die Ausgabe des Systems beaufsichtigen zu können.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein generiertes Angebot, When ein Backoffice-Mitarbeiter es prüft, Then kann er Varianten ändern, löschen oder neue hinzufügen.",
+              "messverfahren": "Manuelle Prüfung der Bearbeitungsoberfläche auf Änderungsmöglichkeiten."
+            },
+            {
+              "text": "Given eine manuelle Änderung, When sie gespeichert wird, Then wird sie im Protokoll mit Zeitstempel und Bearbeiter vermerkt.",
+              "messverfahren": "Prüfung des Protokolls auf Vorhandensein der Änderungsinformationen."
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-9539-ba84-470c-dc60f3f7c980-9",
+          "titel": "Notfall-Anhaltefunktion für das KI-System einbauen",
+          "beschreibung": "Als Compliance-Verantwortlicher möchte ich eine Funktion haben, mit der ich den Betrieb des KI-Systems sofort anhalten kann, falls systematische Fehler oder Risiken erkannt werden. Dies erfüllt die Anforderung aus Artikel 14 AI-Act, den Betrieb beaufsichtigen und anhalten zu können.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein kritischer Fehler, When die Anhaltefunktion ausgelöst wird, Then werden keine weiteren Anfragen verarbeitet.",
+              "messverfahren": "Prüfung des Systemstatus nach Auslösen der Anhaltefunktion auf 'angehalten'."
+            },
+            {
+              "text": "Given ein angehaltener Betrieb, When er wieder aufgenommen wird, Then wird dies im Protokoll mit Zeitstempel und Verantwortlichem vermerkt.",
+              "messverfahren": "Prüfung des Protokolls auf Vorhandensein des Wiederaufnahme-Eintrags."
+            }
+          ],
+          "abhaengigkeiten": []
+        }
+      ],
+      "teilprozess_ids": [
+        "KP-06.TP-2"
+      ]
+    }
+  ],
+  "gate2": {
+    "status": "approved"
+  }
+}

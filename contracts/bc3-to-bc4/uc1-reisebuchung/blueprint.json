@@ -1,0 +1,183 @@
+{
+  "projekt_kurzname": "uc1-reisebuchung",
+  "lieferung_id": "del-uc1-reisebuchung-2026-09-06-070613",
+  "kp_id": "KP-06",
+  "teilprozess_ids": [
+    "KP-06.TP-2"
+  ],
+  "erzeugt_am": "2026-09-06T07:06:13.488Z",
+  "erzeugt_von": "BC3-50 Bauplan erzeugen",
+  "komponenten": [
+    {
+      "name": "Outlook-Postfach reisen@noroai",
+      "anbindung": "Email",
+      "rollen": [
+        "Quelle",
+        "Quelle+Ziel"
+      ],
+      "verwendet_in": [
+        "Reiseanfrage automatisch erfassen und Verfügbarkeit prüfen",
+        "Angebot erstellen und Buchung nach Freigabe auslösen"
+      ]
+    },
+    {
+      "name": "Web-Formular Reiseanfrage",
+      "anbindung": "API",
+      "rollen": [
+        "Quelle"
+      ],
+      "verwendet_in": [
+        "Reiseanfrage automatisch erfassen und Verfügbarkeit prüfen"
+      ]
+    },
+    {
+      "name": "Reise-API (travel-mock-api)",
+      "anbindung": "API",
+      "rollen": [
+        "Quelle+Ziel",
+        "Ziel"
+      ],
+      "verwendet_in": [
+        "Reiseanfrage automatisch erfassen und Verfügbarkeit prüfen",
+        "Angebot erstellen und Buchung nach Freigabe auslösen"
+      ]
+    },
+    {
+      "name": "Vorgangsablage",
+      "anbindung": "DB",
+      "rollen": [
+        "Ziel",
+        "Quelle+Ziel"
+      ],
+      "verwendet_in": [
+        "Reiseanfrage automatisch erfassen und Verfügbarkeit prüfen",
+        "Angebot erstellen und Buchung nach Freigabe auslösen"
+      ]
+    }
+  ],
+  "datenfluesse": [
+    {
+      "von": "Outlook-Postfach reisen@noroai",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Outlook-Postfach reisen@noroai",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Prozess",
+      "nach": "Outlook-Postfach reisen@noroai",
+      "art": "schreibt"
+    },
+    {
+      "von": "Web-Formular Reiseanfrage",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Reise-API (travel-mock-api)",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Prozess",
+      "nach": "Reise-API (travel-mock-api)",
+      "art": "schreibt"
+    },
+    {
+      "von": "Prozess",
+      "nach": "Reise-API (travel-mock-api)",
+      "art": "schreibt"
+    },
+    {
+      "von": "Prozess",
+      "nach": "Vorgangsablage",
+      "art": "schreibt"
+    },
+    {
+      "von": "Vorgangsablage",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Prozess",
+      "nach": "Vorgangsablage",
+      "art": "schreibt"
+    }
+  ],
+  "menschliche_entscheidungspunkte": [
+    {
+      "story_id": "st-7f86-9601-99bb-d235c7490f7d-2",
+      "epic_id": "ep-7f86-9601-99bb-d235c7490f7d",
+      "titel": "Pflichtfelder extrahieren und Projekt/Kostenstelle zuordnen"
+    },
+    {
+      "story_id": "st-7f86-9601-99bb-d235c7490f7d-3",
+      "epic_id": "ep-7f86-9601-99bb-d235c7490f7d",
+      "titel": "Verfügbarkeitsprüfung in Reise-API durchführen"
+    },
+    {
+      "story_id": "st-7f86-9601-99bb-d235c7490f7d-4",
+      "epic_id": "ep-7f86-9601-99bb-d235c7490f7d",
+      "titel": "Eingangsbestätigung und Rückfragen automatisiert versenden"
+    },
+    {
+      "story_id": "st-7f86-9601-99bb-d235c7490f7d-6",
+      "epic_id": "ep-7f86-9601-99bb-d235c7490f7d",
+      "titel": "Transparenzhinweis in automatisierten E-Mails einbauen"
+    },
+    {
+      "story_id": "st-9539-ba84-470c-dc60f3f7c980-1",
+      "epic_id": "ep-9539-ba84-470c-dc60f3f7c980",
+      "titel": "Angebot aus geprüften Optionen generieren"
+    },
+    {
+      "story_id": "st-9539-ba84-470c-dc60f3f7c980-3",
+      "epic_id": "ep-9539-ba84-470c-dc60f3f7c980",
+      "titel": "Erneute Prüfung bei abgelaufenen Optionen durchführen"
+    },
+    {
+      "story_id": "st-9539-ba84-470c-dc60f3f7c980-5",
+      "epic_id": "ep-9539-ba84-470c-dc60f3f7c980",
+      "titel": "Buchung nach Freigabe auslösen und Buchungsnummern speichern"
+    },
+    {
+      "story_id": "st-9539-ba84-470c-dc60f3f7c980-7",
+      "epic_id": "ep-9539-ba84-470c-dc60f3f7c980",
+      "titel": "Freigabeprozess für Reisebuchungen einbauen"
+    },
+    {
+      "story_id": "st-9539-ba84-470c-dc60f3f7c980-8",
+      "epic_id": "ep-9539-ba84-470c-dc60f3f7c980",
+      "titel": "Manuelle Übersteuerung der Reiseoptionen ermöglichen"
+    }
+  ],
+  "tech_stack": [
+    "n8n",
+    "Mistral Large",
+    "PostgreSQL",
+    "travel-mock-api"
+  ],
+  "epics": [
+    {
+      "epic_id": "ep-7f86-9601-99bb-d235c7490f7d",
+      "titel": "Reiseanfrage automatisch erfassen und Verfügbarkeit prüfen",
+      "kategorien": [
+        "it:backend",
+        "it:integration"
+      ],
+      "anzahl_stories": 6
+    },
+    {
+      "epic_id": "ep-9539-ba84-470c-dc60f3f7c980",
+      "titel": "Automatisierte Angebotserstellung und Buchungsauslösung nach Freigabe",
+      "kategorien": [
+        "it:backend",
+        "it:integration"
+      ],
+      "anzahl_stories": 9
+    }
+  ]
+}
