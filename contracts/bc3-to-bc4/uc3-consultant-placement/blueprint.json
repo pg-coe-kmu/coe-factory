@@ -1,0 +1,161 @@
+{
+  "projekt_kurzname": "uc3-consultant-placement",
+  "lieferung_id": "del-uc3-consultant-placement-2026-09-06-074930",
+  "kp_id": "KP-06",
+  "teilprozess_ids": [
+    "KP-06.TP-1"
+  ],
+  "erzeugt_am": "2026-09-06T07:49:30.935Z",
+  "erzeugt_von": "BC3-50 Bauplan erzeugen",
+  "komponenten": [
+    {
+      "name": "Bewerbungspostfach",
+      "anbindung": "Email",
+      "rollen": [
+        "Quelle"
+      ],
+      "verwendet_in": [
+        "Lebensläufe strukturiert erfassen und Kompetenzprofil aufbauen"
+      ]
+    },
+    {
+      "name": "Dokumentenablage Lebensläufe",
+      "anbindung": "Datei",
+      "rollen": [
+        "Quelle"
+      ],
+      "verwendet_in": [
+        "Lebensläufe strukturiert erfassen und Kompetenzprofil aufbauen"
+      ]
+    },
+    {
+      "name": "Profilregister",
+      "anbindung": "DB",
+      "rollen": [
+        "Ziel",
+        "Quelle"
+      ],
+      "verwendet_in": [
+        "Lebensläufe strukturiert erfassen und Kompetenzprofil aufbauen",
+        "Projektanforderung mit Profilen abgleichen und Vorschlagsliste erzeugen"
+      ]
+    },
+    {
+      "name": "Projektausschreibung",
+      "anbindung": "Datei",
+      "rollen": [
+        "Quelle"
+      ],
+      "verwendet_in": [
+        "Projektanforderung mit Profilen abgleichen und Vorschlagsliste erzeugen"
+      ]
+    },
+    {
+      "name": "Outlook",
+      "anbindung": "Email",
+      "rollen": [
+        "Ziel"
+      ],
+      "verwendet_in": [
+        "Projektanforderung mit Profilen abgleichen und Vorschlagsliste erzeugen"
+      ]
+    },
+    {
+      "name": "Entscheidungsprotokoll",
+      "anbindung": "DB",
+      "rollen": [
+        "Ziel"
+      ],
+      "verwendet_in": [
+        "Projektanforderung mit Profilen abgleichen und Vorschlagsliste erzeugen"
+      ]
+    }
+  ],
+  "datenfluesse": [
+    {
+      "von": "Bewerbungspostfach",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Dokumentenablage Lebensläufe",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Prozess",
+      "nach": "Profilregister",
+      "art": "schreibt"
+    },
+    {
+      "von": "Profilregister",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Projektausschreibung",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Prozess",
+      "nach": "Outlook",
+      "art": "schreibt"
+    },
+    {
+      "von": "Prozess",
+      "nach": "Entscheidungsprotokoll",
+      "art": "schreibt"
+    }
+  ],
+  "menschliche_entscheidungspunkte": [
+    {
+      "story_id": "st-1732-a36b-78d2-83970c030237-1",
+      "epic_id": "ep-1732-a36b-78d2-83970c030237",
+      "titel": "Lebenslauf-Dateien aus Postfach abrufen und Einwilligung prüfen"
+    },
+    {
+      "story_id": "st-6880-f9da-611f-5bee0478c626-3",
+      "epic_id": "ep-6880-f9da-611f-5bee0478c626",
+      "titel": "Vorschlagsliste mit Begründung und Profilfeld-Verweisen erstellen"
+    },
+    {
+      "story_id": "st-6880-f9da-611f-5bee0478c626-4",
+      "epic_id": "ep-6880-f9da-611f-5bee0478c626",
+      "titel": "Technische Sperre für Ablehnungen ohne menschliche Entscheidung implementieren"
+    },
+    {
+      "story_id": "st-6880-f9da-611f-5bee0478c626-7",
+      "epic_id": "ep-6880-f9da-611f-5bee0478c626",
+      "titel": "Menschliche Entscheidung vor Versand der Vorschlagsliste erzwingen"
+    }
+  ],
+  "tech_stack": [
+    "n8n",
+    "Mistral Large",
+    "PostgreSQL",
+    "OCR-Service"
+  ],
+  "epics": [
+    {
+      "epic_id": "ep-1732-a36b-78d2-83970c030237",
+      "titel": "Lebensläufe strukturiert erfassen und Kompetenzprofil aufbauen",
+      "kategorien": [
+        "it:backend",
+        "it:integration",
+        "it:ai-pipeline"
+      ],
+      "anzahl_stories": 7
+    },
+    {
+      "epic_id": "ep-6880-f9da-611f-5bee0478c626",
+      "titel": "Projektanforderungen mit Profilen abgleichen und Vorschlagsliste automatisiert erzeugen",
+      "kategorien": [
+        "it:backend",
+        "it:integration",
+        "it:ai-pipeline"
+      ],
+      "anzahl_stories": 7
+    }
+  ]
+}
