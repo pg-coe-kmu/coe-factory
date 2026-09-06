@@ -1,0 +1,617 @@
+# Erzeugt von BC3-60. Nicht von Hand ändern - der naechste Lauf ueberschreibt es.
+openapi: "3.0.3"
+info:
+  title: Reise-Schnittstelle BC4 - Bedarf aus KP-06
+  version: 0.1.0-2026-09-06
+  description: |-
+    Von BC3 erzeugt, nicht von Hand geschrieben.
+
+    Endpunkte mit `x-bc3-stand: vorhanden` stehen so in `pg-coe-kmu/travel-mock-api`, Zweig `master`; Pfade und Parameter sind Feld für Feld aus dem Java-Quelltext gelesen. Endpunkte mit `x-bc3-stand: vorschlag` fehlen dort und werden von den Tickets gebraucht - sie sind ein Vorschlag von BC3, kein Beschluss.
+
+    BC3 beschreibt die Anfrage-Seite. Die Gestalt der Antworten gehört BC4: die Java-Modelle im Repository sind verbindlich, die Schemata hier verweisen darauf und lassen weitere Felder ausdrücklich zu.
+
+    Stand 2026-09-06. Deckung 33% - 3 vorhandene, 6 vorgeschlagene Operationen.
+servers:
+  - url: https://travel-mock-api.onrender.com
+    description: Von BC4 bereitgestellt.
+tags:
+  - name: cars
+  - name: flights
+  - name: hotels
+paths:
+  "/api/cars/search":
+    get:
+      summary: Mietwagen suchen
+      description: Liest verfügbare Mietwagen. Vorhanden in pg-coe-kmu/travel-mock-api, Zweig master.
+      operationId: get_cars_search
+      tags:
+        - cars
+      x-bc3-stand: vorhanden
+      x-bc3-quelle: src/main/java/com/coe/b04/server/controller/CarController.java
+      parameters:
+        - name: location
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: returnLocation
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: providerName
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: minRating
+          in: query
+          required: false
+          schema:
+            type: number
+        - name: driverAge
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: vehicleClass
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: categoryCode
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: brand
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: model
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: transmission
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: fuelType
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: driveType
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: airCondition
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: seats
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: doors
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: largeBags
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: smallBags
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: minPrice
+          in: query
+          required: false
+          schema:
+            type: number
+        - name: maxPrice
+          in: query
+          required: false
+          schema:
+            type: number
+        - name: freeCancellation
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: includedServices
+          in: query
+          required: false
+          schema:
+            type: array
+            items:
+              type: string
+        - name: baseCurrency
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Treffer, möglicherweise eine leere Liste.
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/CarProviderSucheAntwort"
+        "400":
+          description: Eine Pflichtangabe fehlt oder ein Wert ist unzulaessig.
+  "/api/flights/search":
+    get:
+      summary: Flüge suchen
+      description: Liest verfügbare Flüge. Vorhanden in pg-coe-kmu/travel-mock-api, Zweig master.
+      operationId: get_flights_search
+      tags:
+        - flights
+      x-bc3-stand: vorhanden
+      x-bc3-quelle: src/main/java/com/coe/b04/server/controller/FlightController.java
+      parameters:
+        - name: origin
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: originIataCode
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: destination
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: destinationIataCode
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: departureDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Format yyyy-MM-dd.
+        - name: departureDateFrom
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Format yyyy-MM-dd.
+        - name: departureDateTo
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Format yyyy-MM-dd.
+        - name: numberOfAdults
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: numberOfChildren
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: numberOfInfants
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: travelClass
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - Economy
+              - Premium Economy
+              - Business
+              - First
+            x-bc3-java-typ: TravelClass
+            description: >-
+              Nach aussen gilt der Anzeigename. Die Konstanten ECONOMY, PREMIUM_ECONOMY, BUSINESS, FIRST
+              werden ebenfalls angenommen.
+        - name: maxPrice
+          in: query
+          required: false
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Treffer, möglicherweise eine leere Liste.
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/FlightSucheAntwort"
+        "400":
+          description: Eine Pflichtangabe fehlt oder ein Wert ist unzulaessig.
+  "/api/hotels/search":
+    get:
+      summary: Hotels suchen
+      description: Liest verfügbare Hotels. Vorhanden in pg-coe-kmu/travel-mock-api, Zweig master.
+      operationId: get_hotels_search
+      tags:
+        - hotels
+      x-bc3-stand: vorhanden
+      x-bc3-quelle: src/main/java/com/coe/b04/server/controller/HotelController.java
+      parameters:
+        - name: destination
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: stars
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: minRating
+          in: query
+          required: false
+          schema:
+            type: number
+        - name: hotelAmenities
+          in: query
+          required: false
+          schema:
+            type: array
+            items:
+              type: string
+        - name: roomType
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: board
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: bedType
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: roomAmenities
+          in: query
+          required: false
+          schema:
+            type: array
+            items:
+              type: string
+        - name: numberOfAdults
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: numberOfChildren
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: minPrice
+          in: query
+          required: false
+          schema:
+            type: number
+        - name: maxPrice
+          in: query
+          required: false
+          schema:
+            type: number
+        - name: freeCancellation
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Treffer, möglicherweise eine leere Liste.
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/HotelSucheAntwort"
+        "400":
+          description: Eine Pflichtangabe fehlt oder ein Wert ist unzulaessig.
+  "/api/flights/bookings":
+    post:
+      summary: Buchung anlegen - Flüge
+      description: >-
+        **Fehlt in pg-coe-kmu/travel-mock-api.** Buchung anlegen. Gebraucht für "Reiseanfrage
+        automatisch erfassen und Verfügbarkeit prüfen". Vorschlag von BC3, kein Beschluss - Methode
+        und Pfad sind verhandelbar, der Bedarf nicht.
+      operationId: booking_flights
+      tags:
+        - flights
+      x-bc3-stand: vorschlag
+      x-bc3-bedarf: flights/booking
+      responses:
+        "201":
+          description: Angelegt.
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Buchung"
+        "400":
+          description: Eine Pflichtangabe fehlt oder ein Wert ist unzulaessig.
+        "409":
+          description: Das Angebot ist nicht mehr verfuegbar.
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              "$ref": "#/components/schemas/Buchungswunsch"
+  "/api/hotels/bookings":
+    post:
+      summary: Buchung anlegen - Hotels
+      description: >-
+        **Fehlt in pg-coe-kmu/travel-mock-api.** Buchung anlegen. Gebraucht für "Reiseanfrage
+        automatisch erfassen und Verfügbarkeit prüfen". Vorschlag von BC3, kein Beschluss - Methode
+        und Pfad sind verhandelbar, der Bedarf nicht.
+      operationId: booking_hotels
+      tags:
+        - hotels
+      x-bc3-stand: vorschlag
+      x-bc3-bedarf: hotels/booking
+      responses:
+        "201":
+          description: Angelegt.
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Buchung"
+        "400":
+          description: Eine Pflichtangabe fehlt oder ein Wert ist unzulaessig.
+        "409":
+          description: Das Angebot ist nicht mehr verfuegbar.
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              "$ref": "#/components/schemas/Buchungswunsch"
+  "/api/cars/bookings":
+    post:
+      summary: Buchung anlegen - Mietwagen
+      description: >-
+        **Fehlt in pg-coe-kmu/travel-mock-api.** Buchung anlegen. Gebraucht für "Reiseanfrage
+        automatisch erfassen und Verfügbarkeit prüfen". Vorschlag von BC3, kein Beschluss - Methode
+        und Pfad sind verhandelbar, der Bedarf nicht.
+      operationId: booking_cars
+      tags:
+        - cars
+      x-bc3-stand: vorschlag
+      x-bc3-bedarf: cars/booking
+      responses:
+        "201":
+          description: Angelegt.
+          content:
+            "application/json":
+              schema:
+                "$ref": "#/components/schemas/Buchung"
+        "400":
+          description: Eine Pflichtangabe fehlt oder ein Wert ist unzulaessig.
+        "409":
+          description: Das Angebot ist nicht mehr verfuegbar.
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            schema:
+              "$ref": "#/components/schemas/Buchungswunsch"
+  "/api/flights/bookings/{bookingId}":
+    delete:
+      summary: Buchung stornieren - Flüge
+      description: >-
+        **Fehlt in pg-coe-kmu/travel-mock-api.** Buchung stornieren. Gebraucht für "Angebot
+        erstellen und Buchung nach Freigabe auslösen". Vorschlag von BC3, kein Beschluss - Methode
+        und Pfad sind verhandelbar, der Bedarf nicht.
+      operationId: cancel_flights
+      tags:
+        - flights
+      x-bc3-stand: vorschlag
+      x-bc3-bedarf: flights/cancel
+      responses:
+        "204":
+          description: Storniert.
+        "400":
+          description: Eine Pflichtangabe fehlt oder ein Wert ist unzulaessig.
+        "404":
+          description: Unbekannte Buchung.
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Kennung aus der Antwort beim Buchen.
+  "/api/hotels/bookings/{bookingId}":
+    delete:
+      summary: Buchung stornieren - Hotels
+      description: >-
+        **Fehlt in pg-coe-kmu/travel-mock-api.** Buchung stornieren. Gebraucht für "Angebot
+        erstellen und Buchung nach Freigabe auslösen". Vorschlag von BC3, kein Beschluss - Methode
+        und Pfad sind verhandelbar, der Bedarf nicht.
+      operationId: cancel_hotels
+      tags:
+        - hotels
+      x-bc3-stand: vorschlag
+      x-bc3-bedarf: hotels/cancel
+      responses:
+        "204":
+          description: Storniert.
+        "400":
+          description: Eine Pflichtangabe fehlt oder ein Wert ist unzulaessig.
+        "404":
+          description: Unbekannte Buchung.
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Kennung aus der Antwort beim Buchen.
+  "/api/cars/bookings/{bookingId}":
+    delete:
+      summary: Buchung stornieren - Mietwagen
+      description: >-
+        **Fehlt in pg-coe-kmu/travel-mock-api.** Buchung stornieren. Gebraucht für "Angebot
+        erstellen und Buchung nach Freigabe auslösen". Vorschlag von BC3, kein Beschluss - Methode
+        und Pfad sind verhandelbar, der Bedarf nicht.
+      operationId: cancel_cars
+      tags:
+        - cars
+      x-bc3-stand: vorschlag
+      x-bc3-bedarf: cars/cancel
+      responses:
+        "204":
+          description: Storniert.
+        "400":
+          description: Eine Pflichtangabe fehlt oder ein Wert ist unzulaessig.
+        "404":
+          description: Unbekannte Buchung.
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Kennung aus der Antwort beim Buchen.
+components:
+  schemas:
+    CarProviderSucheAntwort:
+      type: object
+      description: Umschlag der Suchantwort. Aus io/CarResponse.java.
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        totalCount:
+          type: integer
+          description: Anzahl der Treffer.
+        providers:
+          type: array
+          items:
+            "$ref": "#/components/schemas/CarProvider"
+    CarProvider:
+      type: object
+      description: >-
+        Datenmodell von BC4. Verbindlich ist model/CarProvider.java im Repository
+        pg-coe-kmu/travel-mock-api; BC3 baut es hier nicht nach.
+      additionalProperties: true
+    FlightSucheAntwort:
+      type: object
+      description: Umschlag der Suchantwort. Aus io/FlightResponse.java.
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        totalCount:
+          type: integer
+          description: Anzahl der Treffer.
+        flights:
+          type: array
+          items:
+            "$ref": "#/components/schemas/Flight"
+    Flight:
+      type: object
+      description: >-
+        Datenmodell von BC4. Verbindlich ist model/Flight.java im Repository
+        pg-coe-kmu/travel-mock-api; BC3 baut es hier nicht nach.
+      additionalProperties: true
+    HotelSucheAntwort:
+      type: object
+      description: Umschlag der Suchantwort. Aus io/HotelResponse.java.
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        totalCount:
+          type: integer
+          description: Anzahl der Treffer.
+        hotels:
+          type: array
+          items:
+            "$ref": "#/components/schemas/Hotel"
+    Hotel:
+      type: object
+      description: >-
+        Datenmodell von BC4. Verbindlich ist model/Hotel.java im Repository
+        pg-coe-kmu/travel-mock-api; BC3 baut es hier nicht nach.
+      additionalProperties: true
+    Buchungswunsch:
+      type: object
+      description: >-
+        Was BC3 beim Buchen mitgeben kann. Alle Angaben stammen aus dem eigenen Vorgang, nichts
+        davon muss BC4 erst nachschlagen.
+      required:
+        - angebotId
+        - vorgangId
+        - freigegebenVon
+        - freigegebenAm
+      properties:
+        angebotId:
+          type: string
+          description: Kennung des Treffers aus der Suche.
+        vorgangId:
+          type: string
+          description: Kennung unseres Vorgangs, für die Zuordnung.
+        reisende:
+          type: array
+          description: Nur so viele Angaben wie für die Buchung nötig.
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              geburtsdatum:
+                type: string
+                format: date
+        freigegebenVon:
+          type: string
+          description: "Wer freigegeben hat. Pflicht: ohne menschliche Freigabe wird nicht gebucht."
+        freigegebenAm:
+          type: string
+          format: date-time
+    Buchung:
+      type: object
+      properties:
+        buchungId:
+          type: string
+        status:
+          type: string
+          enum:
+            - bestätigt
+            - wartet
+            - abgelehnt
+            - storniert
+        angebotId:
+          type: string
+        vorgangId:
+          type: string
+        belegnummer:
+          type: string
+          description: Nummer des Anbieters, falls vorhanden.
+        erstelltAm:
+          type: string
+          format: date-time
