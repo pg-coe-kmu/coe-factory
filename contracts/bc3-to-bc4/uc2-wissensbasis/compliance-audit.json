@@ -1,0 +1,157 @@
+{
+  "lieferung_id": "del-uc2-wissensbasis-2026-09-06-073831",
+  "schema_version": "3.5",
+  "projekt_kurzname": "uc2-wissensbasis",
+  "erzeugt_am": "2026-09-06T07:38:31.129Z",
+  "konzept_ref": {
+    "konzept_id": "b2000000-0000-4000-8000-0000000000c2",
+    "schema_version": "2.1-bc3",
+    "source_file": "konzept_uc2_wissensbasis.json",
+    "kp_id": "KP-05",
+    "teilprozess_ids": [
+      "KP-05.TP-1"
+    ],
+    "value_quelle": "annahme"
+  },
+  "prozess_kurzbeschreibung": "Wissenstransfer bei NoroAI Consulting: Frage entsteht, Mitarbeitende durchsuchen Google-Drive-Ordner manuell, Dokumente werden einzeln geöffnet und gelesen, die Antwort wird zusammengetragen und mündlich oder per Mail weitergegeben.",
+  "vorpruefung": {
+    "ampel": "green",
+    "ai_act_klasse": "minimal",
+    "anhang_iii_kategorie": null,
+    "dsgvo_rechtsgrundlage": "Artikel 6 Absatz 1 Buchstabe f (berechtigtes Interesse)",
+    "betroffene_datenarten": [
+      "E-Mail-Adresse (gering)"
+    ],
+    "begruendung_ampel": "Der Prozess fällt nicht unter Anhang III AI-Act und enthält keine verbotenen Praktiken nach Artikel 5. Die Maßnahmen zur Pseudonymisierung, Transparenz und Qualitätsmanagement erfüllen die Anforderungen der DSGVO und des AI-Act für minimale Risiken. Die Ampel steht auf grün, da alle Pflichten durch technische und organisatorische Maßnahmen abgedeckt sind."
+  },
+  "pflichten": [
+    {
+      "id": "p1",
+      "tag": "[AI-Act Art. 50]",
+      "text": "Transparenzhinweis in der Antwort geben, dass die Antwort auf Basis eines KI-Systems generiert wurde und die Quellenangaben prüfen sind.",
+      "massnahme": "hinweis_geben",
+      "datenkategorie": "gering",
+      "stelle": "Antwort an den Fragenden zurückgeben",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3"
+    },
+    {
+      "id": "p2",
+      "tag": "[DSGVO Art. 25]",
+      "text": "E-Mail-Adresse des Fragenden vor der Protokollierung durch eine laufende Nummer ersetzen, um die Identifizierbarkeit zu minimieren.",
+      "massnahme": "pseudonymisieren",
+      "datenkategorie": "gering",
+      "stelle": "Frage, Antwort und Quellen protokollieren",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3"
+    },
+    {
+      "id": "p3",
+      "tag": "[DSGVO Art. 5 Absatz 1 Buchstabe e]",
+      "text": "Aufbewahrungsfrist für das Frageprotokoll festlegen und nach Ablauf automatisch löschen.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "gering",
+      "stelle": "Frage, Antwort und Quellen protokollieren",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3"
+    },
+    {
+      "id": "p4",
+      "tag": "[AI-Act Art. 17]",
+      "text": "Qualitätsmanagement durch regelmäßige Prüfung der Fehlerliste auf nicht verarbeitbare Dokumente und Information der Wissensträger.",
+      "massnahme": "protokollieren",
+      "datenkategorie": "gering",
+      "stelle": "Fehlerliste für nicht verarbeitbare Dokumente pflegen",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3"
+    },
+    {
+      "id": "p5",
+      "tag": "[DSGVO Art. 32]",
+      "text": "Sicherstellen, dass der Index und das Frageprotokoll verschlüsselt gespeichert werden.",
+      "massnahme": "eu_modell",
+      "datenkategorie": "gering",
+      "stelle": "Dokumente aus freigegebenen Ordnern abrufen und verarbeiten; Frage, Antwort und Quellen protokollieren",
+      "adressat": "plattform",
+      "wird_zu_story": false,
+      "owner": "BC3"
+    },
+    {
+      "id": "p6",
+      "tag": "[AI-Act Art. 9]",
+      "text": "Freigaberegister als Positivliste führen und sicherstellen, dass nur ausdrücklich freigegebene Inhalte indexiert werden, um versehentliche Aufnahme personenbezogener Dokumente zu verhindern.",
+      "massnahme": "feld_weglassen",
+      "datenkategorie": "gering",
+      "stelle": "Freigegebene Ordner identifizieren und überwachen",
+      "adressat": "bc4",
+      "wird_zu_story": false,
+      "owner": "BC3"
+    }
+  ],
+  "pflichten_nach_adressat": {
+    "bc4": [
+      "p1",
+      "p2",
+      "p6"
+    ],
+    "organisation": [
+      "p3",
+      "p4"
+    ],
+    "plattform": [
+      "p5"
+    ],
+    "ohne_angabe": []
+  },
+  "nicht_an_bc4": [],
+  "plattform_standards": [
+    "Verschlüsselung des Index und des Frageprotokolls",
+    "PII-Filter für Kontaktdaten vor Protokollierung",
+    "Audit-Log für Zugriffe auf den Index"
+  ],
+  "zuordnung": [
+    {
+      "epic_id": "ep-1419-f870-10a8-6c3c69e6379c",
+      "use_case_id_ref": "b2000000-0000-4000-8000-000000000001",
+      "titel": "Wissensquellen automatisch indexieren und aktuell halten"
+    },
+    {
+      "epic_id": "ep-9f05-a08d-e2b8-c7d19d3681b9",
+      "use_case_id_ref": "b2000000-0000-4000-8000-000000000002",
+      "titel": "Interne Fragen mit Quellenangabe automatisiert beantworten"
+    },
+    {
+      "story_id": "st-9f05-a08d-e2b8-c7d19d3681b9-7",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p1"
+      ]
+    },
+    {
+      "story_id": "st-9f05-a08d-e2b8-c7d19d3681b9-8",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p2"
+      ]
+    }
+  ],
+  "nicht_zugeordnete_compliance_stories": [],
+  "pflichten_ohne_story": [],
+  "pflichten_mit_story_ohne_vermerk": [],
+  "befunde_adressat": [],
+  "pruefung_bc3": {
+    "geprueft_gegen": "tickets.schema.json 3.5",
+    "ergebnis": "bestanden",
+    "befunde": [],
+    "epics": 2,
+    "stories": 11,
+    "potenziale": 2,
+    "anforderungen_im_eingang": 14,
+    "akzeptanzkriterien_im_eingang": 10,
+    "stories_ohne_kriterium": 0
+  }
+}
