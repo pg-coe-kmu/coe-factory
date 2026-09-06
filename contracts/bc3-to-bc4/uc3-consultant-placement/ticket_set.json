@@ -1,0 +1,296 @@
+{
+  "lieferung_id": "del-uc3-consultant-placement-2026-09-06-074930",
+  "schema_version": "3.5",
+  "projekt_kurzname": "uc3-consultant-placement",
+  "konzept_ref": {
+    "konzept_id": "b3000000-0000-4000-8000-0000000000c3",
+    "schema_version": "2.1-bc3",
+    "source_file": "konzept_uc3_consultant_placement.json",
+    "kp_id": "KP-06",
+    "teilprozess_ids": [
+      "KP-06.TP-1"
+    ],
+    "value_quelle": "annahme"
+  },
+  "epics": [
+    {
+      "epic_id": "ep-1732-a36b-78d2-83970c030237",
+      "titel": "Lebensläufe strukturiert erfassen und Kompetenzprofil aufbauen",
+      "ziel": "Automatisierte Extraktion und strukturierte Speicherung von Lebenslaufdaten in ein einheitliches Kompetenzprofil mit Belegstellen und Markierung unsicherer Angaben.",
+      "kategorien": [
+        "it:backend",
+        "it:integration",
+        "it:ai-pipeline"
+      ],
+      "stories": [
+        {
+          "story_id": "st-1732-a36b-78d2-83970c030237-1",
+          "titel": "Lebenslauf-Dateien aus Postfach abrufen und Einwilligung prüfen",
+          "beschreibung": "Als Personalverantwortliche möchte ich, dass eingehende Lebensläufe (PDF/Word) aus dem Bewerbungspostfach abgerufen und auf das Vorliegen einer dokumentierten Einwilligung geprüft werden, damit nur berechtigte Dokumente weiterverarbeitet werden.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein Lebenslauf im Postfach, When die Abfrage startet, Then wird geprüft, ob eine dokumentierte Einwilligung vorliegt.",
+              "messverfahren": "Manuelle Prüfung der Log-Einträge auf Einwilligungsprüfung"
+            },
+            {
+              "text": "Given ein Lebenslauf ohne dokumentierte Einwilligung, When die Prüfung läuft, Then wird der Lebenslauf nicht weiterverarbeitet und der Vorgang wird gemeldet.",
+              "messverfahren": "Manuelle Prüfung der Meldung und des Verarbeitungsstatus"
+            },
+            {
+              "text": "Given ein Lebenslauf mit dokumentierter Einwilligung, When die Prüfung läuft, Then wird der Lebenslauf zur weiteren Verarbeitung freigegeben.",
+              "messverfahren": "Manuelle Prüfung des Verarbeitungsstatus"
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-1732-a36b-78d2-83970c030237-2",
+          "titel": "Lebenslauf-Inhalte extrahieren und strukturieren",
+          "beschreibung": "Als System möchte ich die Inhalte von PDF- und Word-Lebensläufen extrahieren und in das vorgegebene Profilschema überführen, damit Kompetenzen, Erfahrungsjahre, Branchen, Sprachen und Verfügbarkeit einheitlich erfasst werden.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein PDF- oder Word-Lebenslauf mit vollständigen Angaben, When die Extraktion läuft, Then liegen alle Felder (Kompetenzen, Erfahrungsjahre, Branchen, Sprachen, Verfügbarkeit) im Profilschema vor.",
+              "messverfahren": "Automatisierter Abgleich der extrahierten Daten mit dem Profilschema"
+            },
+            {
+              "text": "Given ein Lebenslauf mit unklaren oder widersprüchlichen Angaben, When die Extraktion läuft, Then sind die betroffenen Felder als unsicher markiert und leer statt geschätzt.",
+              "messverfahren": "Manuelle Prüfung der markierten Felder im Profil"
+            },
+            {
+              "text": "Given eine Angabe im Lebenslauf, When die Extraktion läuft, Then wird die Belegstelle im Ausgangsdokument mitgeführt.",
+              "messverfahren": "Manuelle Prüfung der Belegstellen im Profil"
+            },
+            {
+              "text": "Given eine Anfrage mit vollständigen Angaben, When die Extraktion läuft, Then ist sie in unter fünf Minuten abgeschlossen.",
+              "messverfahren": "Automatisierte Zeitmessung der Verarbeitung"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-1732-a36b-78d2-83970c030237-1"
+          ]
+        },
+        {
+          "story_id": "st-1732-a36b-78d2-83970c030237-3",
+          "titel": "Strukturiertes Kompetenzprofil im Register speichern",
+          "beschreibung": "Als System möchte ich das extrahierte Kompetenzprofil im Profilregister speichern, damit es für spätere Abfragen und Korrekturen verfügbar ist.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein extrahiertes Profil, When die Speicherung erfolgt, Then ist es im Profilregister mit der Teilprozess-ID KP-06.TP-1 abgelegt.",
+              "messverfahren": "Manuelle Prüfung des Registereintrags"
+            },
+            {
+              "text": "Given ein Profil mit unsicheren Angaben, When die Speicherung erfolgt, Then sind die unsicheren Felder als solche markiert.",
+              "messverfahren": "Manuelle Prüfung der Markierungen im Register"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-1732-a36b-78d2-83970c030237-2"
+          ]
+        },
+        {
+          "story_id": "st-1732-a36b-78d2-83970c030237-4",
+          "titel": "Profil für betroffene Person zur Einsicht und Korrektur bereitstellen",
+          "beschreibung": "Als betroffene Person möchte ich mein Kompetenzprofil einsehen und Korrekturen verlangen können, damit meine Daten korrekt und aktuell sind.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein erzeugtes Profil, When die betroffene Person Auskunft verlangt, Then ist das Profil vollständig mit Belegstellen ausgebbar.",
+              "messverfahren": "Manuelle Prüfung der Auskunftsfunktion"
+            },
+            {
+              "text": "Given eine Korrekturanfrage der betroffenen Person, When die Änderung erfolgt, Then ist die Änderung im Profil nachvollziehbar dokumentiert.",
+              "messverfahren": "Manuelle Prüfung der Änderungsprotokolle"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-1732-a36b-78d2-83970c030237-3"
+          ]
+        },
+        {
+          "story_id": "st-1732-a36b-78d2-83970c030237-5",
+          "titel": "Profile nach Ablauf der Aufbewahrungsfrist löschen",
+          "beschreibung": "Als System möchte ich Profile nach Ablauf der Aufbewahrungsfrist automatisch löschen und die Löschung protokollieren, damit die Daten nicht länger als nötig gespeichert werden.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein Profil nach Ablauf der Aufbewahrungsfrist, When der Löschlauf erfolgt, Then ist es aus dem Register entfernt und die Löschung protokolliert.",
+              "messverfahren": "Manuelle Prüfung des Löschprotokolls und des Registers"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-1732-a36b-78d2-83970c030237-3"
+          ]
+        },
+        {
+          "story_id": "st-1732-a36b-78d2-83970c030237-6",
+          "titel": "Transparenzhinweis bei Einwilligungserfassung integrieren",
+          "beschreibung": "Als System möchte ich betroffene Personen bei der ersten Datenerhebung über den Einsatz des KI-Systems, die verarbeiteten Datenkategorien, den Zweck und ihre Rechte (Auskunft, Korrektur, Löschung) informieren, um die Transparenzanforderungen nach Artikel 50 KI-VO und Artikel 13 DSGVO zu erfüllen.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein Lebenslauf mit dokumentierter Einwilligung, When die Verarbeitung startet, Then ist der Transparenzhinweis in der Einwilligungserklärung enthalten.",
+              "messverfahren": "Manuelle Prüfung der Einwilligungserklärung auf Vollständigkeit des Hinweises."
+            },
+            {
+              "text": "Given eine betroffene Person, When sie Auskunft verlangt, Then sind die Informationen zum KI-System und ihren Rechten darstellbar.",
+              "messverfahren": "Testanfrage einer betroffenen Person; Prüfung der bereitgestellten Informationen."
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-1732-a36b-78d2-83970c030237-7",
+          "titel": "Protokollierung der Extraktion und des Abgleichs implementieren",
+          "beschreibung": "Als System möchte ich jede Extraktion und jeden Abgleich mit Zeitstempel, beteiligten Systemkomponenten und Eingabedaten protokollieren, um die Rückverfolgbarkeit nach Artikel 17 KI-VO sicherzustellen.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine Extraktion oder ein Abgleich, When der Prozess läuft, Then wird ein Protokolleintrag mit Zeitstempel, Systemkomponenten und Eingabedaten erzeugt.",
+              "messverfahren": "Manuelle Prüfung der Protokolleinträge auf Vollständigkeit der Angaben."
+            },
+            {
+              "text": "Given ein Protokolleintrag, When er gelesen wird, Then sind alle relevanten Informationen (z. B. unsichere Felder, Belegstellen) nachvollziehbar.",
+              "messverfahren": "Manuelle Prüfung der Protokolleinträge auf Detailtiefe."
+            }
+          ],
+          "abhaengigkeiten": []
+        }
+      ],
+      "teilprozess_ids": [
+        "KP-06.TP-1"
+      ]
+    },
+    {
+      "epic_id": "ep-6880-f9da-611f-5bee0478c626",
+      "titel": "Projektanforderungen mit Profilen abgleichen und Vorschlagsliste automatisiert erzeugen",
+      "ziel": "Automatisiertes Auffinden und Vorsortieren passender Profile für Projektausschreibungen binnen Minuten, um die manuelle Sichtung zu ersetzen und eine begründete Vorschlagsliste zu liefern.",
+      "kategorien": [
+        "it:backend",
+        "it:integration",
+        "it:ai-pipeline"
+      ],
+      "stories": [
+        {
+          "story_id": "st-6880-f9da-611f-5bee0478c626-1",
+          "titel": "Anforderungen aus Projektausschreibung strukturiert erfassen",
+          "beschreibung": "Als Personalverantwortung möchte ich die Anforderungen aus einer Projektausschreibung strukturiert erfassen, damit sie für den automatisierten Abgleich mit Profilen genutzt werden können.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine Projektausschreibung mit unstrukturierten Anforderungen, When die Anforderungen erfasst werden, Then sind sie in strukturierter Form (z. B. Kompetenzkatalog) verfügbar und mit der Teilprozess-ID KP-06.TP-1 verknüpft.",
+              "messverfahren": "Manuelle Prüfung der strukturierten Ausgabe gegen die Eingabe; Abgleich mit Kompetenzkatalog."
+            },
+            {
+              "text": "Given eine Projektausschreibung, When die Anforderungen nicht klar formuliert sind, Then wird eine Fehlermeldung ausgegeben und der Prozess abgebrochen.",
+              "messverfahren": "Test mit unklaren Anforderungen und Prüfung der Fehlermeldung."
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-6880-f9da-611f-5bee0478c626-2",
+          "titel": "Profile mit Anforderungen abgleichen und Matching-Ergebnis erzeugen",
+          "beschreibung": "Als System möchte ich die strukturierten Anforderungen mit den Profilen aus dem Profilregister abgleichen, damit eine Vorschlagsliste mit erfüllten und fehlenden Anforderungen je Person erzeugt wird.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given strukturierte Anforderungen und gefüllte Profile, When der Abgleich läuft, Then liegt binnen zehn Minuten eine Vorschlagsliste vor, die je Person erfüllte und fehlende Anforderungen mit Bezug auf das Profilfeld benennt.",
+              "messverfahren": "Automatisierter Test mit vordefinierten Profilen und Anforderungen; Zeitmessung des Abgleichs."
+            },
+            {
+              "text": "Given eine Ausschreibung, die niemand erfüllt, When der Abgleich läuft, Then bleibt die Liste leer und der Grund (keine passenden Profile) wird genannt.",
+              "messverfahren": "Test mit Anforderungen, die kein Profil erfüllt; Prüfung der leeren Liste und der Begründung."
+            },
+            {
+              "text": "Given eine Anfrage mit vollständigen Angaben, When die Extraktion läuft, Then ist sie in unter zehn Minuten abgeschlossen.",
+              "messverfahren": "Zeitmessung des Abgleichsprozesses in mehreren Testläufen."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-6880-f9da-611f-5bee0478c626-1"
+          ]
+        },
+        {
+          "story_id": "st-6880-f9da-611f-5bee0478c626-3",
+          "titel": "Vorschlagsliste mit Begründung und Profilfeld-Verweisen erstellen",
+          "beschreibung": "Als Personalverantwortung möchte ich eine Vorschlagsliste erhalten, in der je Person die erfüllten und fehlenden Anforderungen mit Verweis auf das zugrunde liegende Profilfeld dargestellt sind, damit ich eine begründete Entscheidung treffen kann.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine Person auf der Vorschlagsliste, When der Vorschlag geprüft wird, Then ist je Anforderung erkennbar, welches Profilfeld sie stützt.",
+              "messverfahren": "Manuelle Prüfung der Vorschlagsliste auf Verweise zu Profilfeldern."
+            },
+            {
+              "text": "Given eine Vorschlagsliste, When sie generiert wird, Then ist die Reihenfolge als Vorschlag gekennzeichnet und keine verbindliche Entscheidung.",
+              "messverfahren": "Prüfung der Ausgabe auf Kennzeichnung als Vorschlag."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-6880-f9da-611f-5bee0478c626-2"
+          ]
+        },
+        {
+          "story_id": "st-6880-f9da-611f-5bee0478c626-4",
+          "titel": "Technische Sperre für Ablehnungen ohne menschliche Entscheidung implementieren",
+          "beschreibung": "Als System möchte ich sicherstellen, dass eine Ablehnung nur mit dokumentierter menschlicher Entscheidung möglich ist, damit die Vorschlagsliste nicht als alleinige Entscheidungsgrundlage genutzt wird.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine Vorschlagsliste, When eine Absage erteilt werden soll, Then ist dies ohne dokumentierte menschliche Entscheidung nicht möglich.",
+              "messverfahren": "Testversuch einer Absage ohne Dokumentation; Prüfung der Systemreaktion (z. B. Fehlermeldung)."
+            },
+            {
+              "text": "Given eine getroffene Auswahl, When das Protokoll gelesen wird, Then sind Entscheidende, Zeitpunkt und Begründung nachvollziehbar.",
+              "messverfahren": "Manuelle Prüfung des Protokolls auf Vollständigkeit der Angaben."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-6880-f9da-611f-5bee0478c626-3"
+          ]
+        },
+        {
+          "story_id": "st-6880-f9da-611f-5bee0478c626-5",
+          "titel": "Transparenzhinweis für Betroffene bereitstellen",
+          "beschreibung": "Als System möchte ich betroffene Personen über den Einsatz des Verfahrens und die Datengrundlage informieren, damit die Anforderungen der EU-KI-Verordnung erfüllt sind.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine betroffene Person, When sie Auskunft verlangt, Then ist der Einsatz des Verfahrens und die Datengrundlage darstellbar.",
+              "messverfahren": "Testanfrage einer betroffenen Person; Prüfung der bereitgestellten Informationen."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-6880-f9da-611f-5bee0478c626-2"
+          ]
+        },
+        {
+          "story_id": "st-6880-f9da-611f-5bee0478c626-6",
+          "titel": "Vorschlagsliste an Outlook für Versand vorbereiten",
+          "beschreibung": "Als Personalverantwortung möchte ich die Vorschlagsliste in ein versandfertiges Format überführen, damit sie per Outlook an das Team gesendet werden kann.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine fertige Vorschlagsliste, When sie für den Versand vorbereitet wird, Then ist sie in einem mit Outlook kompatiblen Format (z. B. E-Mail-Entwurf) verfügbar.",
+              "messverfahren": "Manuelle Prüfung des Ausgabeformats auf Kompatibilität mit Outlook."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-6880-f9da-611f-5bee0478c626-3"
+          ]
+        },
+        {
+          "story_id": "st-6880-f9da-611f-5bee0478c626-7",
+          "titel": "Menschliche Entscheidung vor Versand der Vorschlagsliste erzwingen",
+          "beschreibung": "Als Personalverantwortung möchte ich sicherstellen, dass vor dem Versand der Vorschlagsliste eine dokumentierte menschliche Entscheidung getroffen wird, um die Anforderungen der EU-KI-Verordnung (Artikel 14) und DSGVO (Artikel 22) zu erfüllen. Das System muss die Entscheidung protokollieren und ohne diese keine Ablehnung zulassen.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine fertige Vorschlagsliste, When sie für den Versand vorbereitet wird, Then ist eine dokumentierte menschliche Entscheidung (Freigabe oder Ablehnung mit Begründung) erforderlich.",
+              "messverfahren": "Testversuch des Versands ohne Dokumentation; Prüfung der Systemreaktion (z. B. Fehlermeldung)."
+            },
+            {
+              "text": "Given eine getroffene Entscheidung, When das Protokoll gelesen wird, Then sind Entscheidende, Zeitpunkt, Begründung und betroffene Profile nachvollziehbar.",
+              "messverfahren": "Manuelle Prüfung des Protokolls auf Vollständigkeit der Angaben."
+            }
+          ],
+          "abhaengigkeiten": []
+        }
+      ],
+      "teilprozess_ids": [
+        "KP-06.TP-1"
+      ]
+    }
+  ],
+  "gate2": {
+    "status": "approved"
+  }
+}
