@@ -7,7 +7,7 @@ from bc1_core.package import TOY_PROZESS, FieldSpec, UseCasePackage
 from bc1_core.dialog import MAX_ROUNDS
 from bc1_core.store import InMemoryStateStore
 from bc1_core.llm import FakeLLM, ExtractionCandidate
-from bc1_core.core import process_turn
+from bc1_core.core import PaketKonfliktError, process_turn
 
 def test_first_turn_asks_first_open_field():
     store = InMemoryStateStore()
@@ -234,6 +234,20 @@ def test_paketwechsel_wird_auch_bei_gleicher_schema_version_abgelehnt():
     with pytest.raises(ValueError):
         process_turn(store, FakeLLM(), anderes, "s1", "m2", "hallo")
 
+# Der Paket-Guard wirft eine EIGENE Exception-Klasse (Subklasse von
+# ValueError): die Transportschicht muss ihn von beliebigen ValueErrors
+# aus der Verarbeitung unterscheiden können, ohne auf Text zu prüfen.
+def test_paket_guard_wirft_paketkonfliktfehler():
+    anderes = UseCasePackage(
+        name="anderes", schema_version="0.1",
+        fields=(FieldSpec("lieferant", "Wer?"),),
+    )
+    store = InMemoryStateStore()
+    process_turn(store, FakeLLM(), TOY_PROZESS, "s1", "m1", "hallo")
+    with pytest.raises(PaketKonfliktError):
+        process_turn(store, FakeLLM(), anderes, "s1", "m2", "hallo")
+
+
 def test_zwei_sessions_bleiben_getrennt_auch_bei_gleicher_message_id():
     store = InMemoryStateStore()
     llm = FakeLLM({"a": [ExtractionCandidate("prozess_name", "Freigabe")]})
@@ -244,7 +258,9 @@ def test_zwei_sessions_bleiben_getrennt_auch_bei_gleicher_message_id():
     assert store.load("s2").values["prozess_name"].value is None
     assert r2 == {"status": "frage",
                   "payload": {"naechste_frage": "Wie heißt der Prozess?",
-                              "feld": "prozess_name"}}
+                              "feld": "prozess_name",
+                              "pflicht_erfasst": 0,
+                              "pflicht_gesamt": 3}}
 
 # Ein überholter Crash-Turn (andere Nachrichten kamen dazwischen, Session
 # wurde regulär FERTIG) darf beim Replay NICHT fortgesetzt werden — sonst
@@ -354,7 +370,7 @@ def test_llm_absturz_liefert_fehler_fortsetzbar_statt_exception():
 # verarbeiteten Turn (rounds/attempts). Der Retry zählt dann genau einmal.
 def test_llm_ausfall_verbraucht_keine_nachfrage():
     class PhrasenAusfallLLM(FakeLLM):
-        def phrase(self, field, state):
+        def antworte(self, kontext):
             raise RuntimeError("LLM weg")
 
     store = InMemoryStateStore()
@@ -382,3 +398,44 @@ def test_retry_nach_fehler_fortsetzbar_setzt_turn_fort():
     assert st.status is SessionStatus.WARTET
     assert st.values["prozess_name"].value == "Freigabe"
     assert st.raw_log == [("m1", "wichtig")]    # nicht doppelt geloggt
+
+
+def test_frage_traegt_gespraechstext_mit_bestaetigung_und_kernfrage():
+    store = InMemoryStateStore()
+    llm = FakeLLM({"Der Prozess heißt Urlaubsantrag":
+                   [ExtractionCandidate("prozess_name", "Urlaubsantrag")]})
+    resp = process_turn(store, llm, TOY_PROZESS, "s-gespraech", "m1",
+                        "Der Prozess heißt Urlaubsantrag")
+    p = resp["payload"]
+    # Fake-Komposition: Bestätigung der echten Werte + nächste Kernfrage wörtlich.
+    assert "Urlaubsantrag" in p["naechste_frage"]
+    assert TOY_PROZESS.field(p["feld"]).question in p["naechste_frage"]
+    assert p["pflicht_erfasst"] == 1
+    assert p["pflicht_gesamt"] == len(TOY_PROZESS.required_fields())
+
+
+def test_abschluss_traegt_zusammenfassung_und_zaehler():
+    store = InMemoryStateStore()
+    llm = FakeLLM({
+        "A": [ExtractionCandidate("prozess_name", "Urlaubsantrag")],
+        "B": [ExtractionCandidate("ausloeser", "Antrag")],
+        "C": [ExtractionCandidate("haeufigkeit", "100 mal pro Jahr")]})
+    process_turn(store, llm, TOY_PROZESS, "s-abschluss", "m1", "A")
+    process_turn(store, llm, TOY_PROZESS, "s-abschluss", "m2", "B")
+    resp = process_turn(store, llm, TOY_PROZESS, "s-abschluss", "m3", "C")
+    assert resp["status"] == "fertig"
+    p = resp["payload"]
+    assert "Urlaubsantrag" in p["abschluss_text"]
+    assert p["pflicht_erfasst"] == p["pflicht_gesamt"]
+
+
+def test_gespraechstext_kommt_aus_llm_antworte_nicht_aus_dem_paket():
+    # Invariante „LLM nur hinter dem LLM-Client" — ersetzt den bisherigen
+    # phrase-Beweis aus test_dialog.py auf der neuen Naht.
+    class EigeneWorte(FakeLLM):
+        def antworte(self, kontext):
+            return "GANZ EIGENE FORMULIERUNG"
+
+    store = InMemoryStateStore()
+    resp = process_turn(store, EigeneWorte(), TOY_PROZESS, "s-inv", "m1", "Hallo")
+    assert resp["payload"]["naechste_frage"] == "GANZ EIGENE FORMULIERUNG"

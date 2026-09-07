@@ -1,0 +1,383 @@
+# n8n-Chat-Anbindung — Aufbau & Smoke-Checkliste
+
+> Übergangs-Chat-UI laut Bauplan B1 (n8n zustandslos, keine Fachlogik). Ziel-Nachweis P2:
+> **echtes Interview im Chat gegen laufenden Dienst.**
+
+## Aufbau
+
+**1. Dienst starten** (aus `bc1-context-discovery/`):
+
+```bash
+export BC1_DB_DSN="postgresql://postgres:test@localhost:55432/postgres"   # oder Supabase-DSN
+export ANTHROPIC_API_KEY="..."                                            # nie committen
+.venv/bin/uvicorn bc1_service.main:app --port 8000
+```
+
+*Ohne Claude-Key (FakeLLM-Demo, so lief der Smoke am 05.08.2026):* statt `main:app` eine
+lokale, NICHT committete Demo-Verdrahtung nutzen — Wegwerf-Datei `demo_fake.py` außerhalb
+des Repos mit exakt diesem Inhalt, Start via
+`PYTHONPATH="$PWD" .venv/bin/uvicorn demo_fake:app --app-dir <ordner-der-datei> --port 8000`:
+
+```python
+"""Demo-Verdrahtung OHNE echten LLM. BC1_DEMO_LLM=kaputt => absichtlich crashender LLM."""
+import os
+
+from bc1_core.llm import ExtractionCandidate, FakeLLM
+from bc1_core.package import TOY_PROZESS
+from bc1_service.api import create_app
+from bc1_service.postgres_store import PostgresStateStore
+from bc1_service.snapshot import lade_snapshot
+
+
+class KaputtesLLM(FakeLLM):
+    def extract(self, message, package, state):
+        raise RuntimeError("absichtlich kaputt (Smoke-Szenario 3)")
+
+
+_SKRIPT = {
+    "Der Prozess heißt Urlaubsantrag": [ExtractionCandidate("prozess_name", "Urlaubsantrag")],
+    "Ausgelöst durch einen Antrag": [ExtractionCandidate("ausloeser", "Antrag")],
+    "Etwa 100 mal pro Jahr": [ExtractionCandidate("haeufigkeit", "100 mal pro Jahr")],
+}
+
+_llm = KaputtesLLM() if os.environ.get("BC1_DEMO_LLM") == "kaputt" else FakeLLM(_SKRIPT)
+_snapshot_pfad = os.environ.get("BC1_SNAPSHOT_PFAD")
+
+app = create_app(
+    PostgresStateStore(os.environ["BC1_DB_DSN"]),
+    _llm,
+    TOY_PROZESS,
+    lade_snapshot(_snapshot_pfad) if _snapshot_pfad else None,
+)
+```
+
+FakeLLM = geskriptetes Kern-Test-Double: NUR die drei Skript-Sätze oben führen zu
+Extraktionen; die Fragen kommen wörtlich aus dem Use-Case-Paket.
+
+**2. n8n starten:**
+
+```bash
+docker volume create n8n_data
+docker run -d --rm --name n8n -p 5678:5678 \
+  -e GENERIC_TIMEZONE="Europe/Berlin" -e TZ="Europe/Berlin" \
+  -e N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true -e N8N_RUNNERS_ENABLED=true \
+  -v n8n_data:/home/node/.n8n docker.n8n.io/n8nio/n8n
+```
+
+**3. Workflow:** `bc1-chat-workflow.json` in der n8n-UI importieren (oder Nodes von Hand).
+Die Datei ist ein **einzelnes Workflow-Objekt** (`name`, `nodes`, `connections`, `settings`) —
+genau das Format, das der UI-Import erwartet. Instanz-Daten (IDs, Zeitstempel, Projekt-/
+Besitzer-Angaben) sind bewusst entfernt; n8n vergibt sie beim Import neu.
+
+| Node | Einstellungen |
+|---|---|
+| Chat Trigger | Make Chat Publicly Available ✓ · Mode: Hosted Chat · Auth: None · Response Mode: **When Last Node Finishes** |
+| HTTP Request | POST `http://host.docker.internal:8000/turn` (n8n läuft im Container → nicht `localhost`) · Body (JSON, Fields): `session_id` = `{{ $json.sessionId }}` · `message_id` = `exec-{{ $execution.id }}` (stabil bei Retries innerhalb einer Execution → Idempotenz) · `message` = `{{ $json.chatInput }}` · Options → Response → **Never Error** ✓ (409 erscheint als Text statt Workflow-Fehler) |
+| Edit Fields (Set) | `output` (String) = `{{ $json.chat_text ?? $json.detail }}` |
+
+Dann **Publish**; Chat-URL steht im Chat-Trigger-Node.
+
+## Smoke-Checkliste (durchgeführt 05.08.2026, FakeLLM-Verdrahtung, Postgres 16 im Container)
+
+1. ☑ **Normales Interview bis fertig:** Drei Skript-Antworten im Hosted Chat →
+   „Danke! Das Interview ist abgeschlossen (Vollständigkeit: 100%)." DB-Nachweis:
+   `SELECT session_id, version, state->>'status' FROM bc1.sessions;` → Chat-Session
+   `fertig`, 3 Einträge im raw_log.
+2. ☑ **Gleiche message_id doppelt (Idempotenz):** identischer `/turn`-Body zweimal per curl →
+   semantisch identische Antwort (Hinweis: JSONB gibt Keys umsortiert zurück — mit `jq -S`
+   vergleichen), `rounds` bleibt 1.
+3. ☑ **LLM absichtlich kaputt:** Dienst mit `BC1_DEMO_LLM=kaputt` (bzw. ungültigem Key) neu
+   gestartet → Chat zeigt die freundliche `fehler_fortsetzbar`-Erklärung, kein 500; per curl:
+   `{"status":"fehler_fortsetzbar","payload":{"grund":"verarbeitung_fehlgeschlagen"},...}`.
+4. ☑ **Danach Resume:** Dienst wieder heil gestartet, **gleiche message_id** erneut gesendet →
+   Turn wird verarbeitet (Crash-Resume-Pfad), nächste Frage kommt, `rounds` ohne Inflation;
+   im Chat: Nachricht erneut gesendet → Interview läuft an der richtigen Stelle weiter.
+
+Bonus (Transport-Gate live): Nachricht in die abgeschlossene Chat-Session → Chat zeigt
+`session_abgeschlossen` (409-Detail; bewusst roher Text — hübschere Formulierung wäre
+API-Kosmetik, siehe Roadmap-Notiz im Ledger).
+
+## Baseline-Nachweis (BC0-Snapshot)
+
+5. ☑ **`GET /prozesse` liefert die Baseline:** Dienst mit gesetztem `BC1_SNAPSHOT_PFAD`
+   gestartet → `curl http://localhost:8000/prozesse` gibt die **10 Kernprozess-Einträge**
+   des BC0-Snapshots zurück (am 05.08.2026 per curl verifiziert). Ohne gesetzten Pfad
+   antwortet der Endpunkt mit 404 `kein_snapshot_konfiguriert` (im Test gepinnt).
+   Der Snapshot selbst bleibt lokal — nie ins Repo (siehe Vertraulichkeits-Regel).
+
+## Wiederholung mit echtem Claude — OFFENER ABNAHME-PUNKT
+
+> ⚠️ **Dieser Punkt ist noch NICHT abgehakt.** Die Checkliste oben lief bewusst gegen die
+> FakeLLM-Verdrahtung (bewusste Projektentscheidung: FakeLLM-first, damit der Smoke ohne Key und
+> ohne Kosten deterministisch läuft). Der Nachweis „echtes Interview gegen echten Claude"
+> steht damit aus — P2 ist an dieser Stelle noch nicht vollständig abgenommen.
+
+Sobald `ANTHROPIC_API_KEY` (Platform) da ist: Dienst regulär über `bc1_service.main:app`
+starten und Checkliste erneut durchgehen — dann mit frei formulierten Antworten statt der
+Skript-Sätze. Erst danach gilt die Bauplan-B3-Zeile als erfüllt. (Nachgehalten im Ledger.)
+
+## Smoke mit Ollama (lokal, ohne API-Key)
+
+Ersetzt die Claude-Abnahme NICHT (die bleibt offen, bis der Key da ist) —
+erlaubt aber Echt-LLM-End-to-End jederzeit lokal. Erwartung ehrlich: das
+8B-Modell extrahiert schwächer als Claude; es testet die Maschinerie,
+nicht die Interview-Qualität.
+
+Voraussetzungen (einmalig): `brew install ollama` · `ollama pull llama3.1:8b` (~5 GB).
+
+1. Ollama starten: `ollama serve` (oder `brew services start ollama`).
+2. Dienst starten wie oben (Postgres-Container, DSN), zusätzlich:
+   `export BC1_LLM=ollama` (optional `BC1_OLLAMA_MODELL=<modell>`).
+   Das ollama-Paket ist dev-Dependency — im .venv vorhanden.
+3. Die 4 Smoke-Szenarien aus der Checkliste oben unverändert durchspielen.
+   Hinweis: erste Antwort bis ~30 s (Modell-Load), danach schneller.
+4. Echt-Stichprobe der Suite:
+   `BC1_ECHT_LLM=1 .venv/bin/pytest tests/test_ollama_llm.py -v -k echt`
+
+**Durchgeführt 07.08.2026 (llama3.1:8b, echtes Ollama, Postgres 16 im Container):**
+
+1. ☑ **Interview bis fertig — doppelt:** (a) klare freie Antworten per curl → 3 Runden,
+   Vollständigkeit 1.0, DB `fertig`; (b) Stresstest im Hosted Chat mit bewusst vagen
+   Antworten („keine Ahnung") → Nachfrage-Limit-Pfad, Pflichtfelder sauber `ungeloest`
+   (grund `nachfrage_limit_erreicht`), Session `fertig`. DB-Nachweis für beide.
+2. ☑ **Idempotenz:** identischer `/turn`-Replay → byte-identische Antwort, `rounds` unverändert.
+3. ☑ **LLM kaputt** (Ollama gestoppt): `fehler_fortsetzbar` mit freundlichem `chat_text`,
+   HTTP 200 — der ConnectionError-Guard real ausgelöst, kein 500.
+4. ☑ **Resume:** Ollama wieder gestartet, GLEICHE `message_id` → Turn verarbeitet,
+   Extraktion korrekt, keine `rounds`-Inflation.
+   Bonus: Nachricht in fertige Session → 409 `session_abgeschlossen`.
+
+*8B-Beobachtung (erwartet, Rolle Test-/Dev-Ersatz):* Frage-Phrasierung kann halluzinieren
+(reproduzierbar ein „Rechtsstreit"-Kontext bei `ausloeser`, deterministisch bei temperature 0),
+und Nicht-Antworten werden mitunter wörtlich als Kandidaten extrahiert („Kein Wert angegeben").
+Die Maschinerie selbst (Merge, Nachfragen, Caps, Terminal-Gate) verhält sich korrekt.
+
+## Discovery-Interview live (P3)
+
+Das echte Interview (26 aktive Fragen, Katalog A–J) ist seit P3 der Default:
+`BC1_PAKET=discovery` (bzw. nichts setzen). `BC1_PAKET=toy` schaltet fürs
+schnelle Testen auf das alte Mini-Paket zurück.
+
+1. Dienst wie oben starten (Postgres, DSN, `BC1_LLM=ollama` oder Claude-Key);
+   optional `BC1_SNAPSHOT_PFAD` setzen — dann bietet die Kernprozess-Frage
+   (B4) die echten KP-IDs aus der Baseline als Auswahl an.
+2. Chat öffnen und frei antworten. Erwartung ehrlich: ~15–30 Minuten für
+   ein vollständiges Interview; mit dem 8B-Modell sind schräge
+   Frage-Formulierungen und Extraktions-Lücken normal (Nachfrage-Mechanik
+   fängt sie); Auswahl-Fragen SOLLEN die gültigen Optionen im Fragetext
+   nennen — das ist Prompt-Instruktion, keine Garantie, siehe den offenen
+   Abnahmepunkt „KP-Optionsliste in Erstfragen" weiter unten, wo genau das
+   mit llama3.1:8b nicht eingehalten wurde.
+3. Kurz-Variante für Smoke-Zwecke: mehrere Angaben in EINE Nachricht packen
+   („Der Prozess heißt X, läuft 30-mal pro Monat und dauert 2 Stunden…") —
+   die Mehrfach-Extraktion füllt alle passenden Felder auf einmal.
+4. DB-Nachweis wie gehabt (`state->>'status'`, `state->>'paket_name' = 'discovery'`).
+
+### Durchführungs-Protokoll 08.08.2026 (Dienst-Ebene, echtes llama3.1:8b)
+
+Setup: `BC1_LLM=ollama` · `BC1_PAKET` ungesetzt (= Discovery-Default) ·
+`BC1_SNAPSHOT_PFAD` auf die lokale Baseline (bleibt strikt lokal) · Postgres-Testcontainer.
+
+1. ☑ `GET /prozesse` → die 10 Kernprozess-Einträge der Baseline.
+2. ☑ Multi-Fakten-Einstieg („… automatisieren, ganzer Prozess, Zeit sparen") →
+   A1/A2/A3 in EINEM Turn extrahiert; DB: `paket_name=discovery`,
+   `request_goal=zeit_sparen` (AUSWAHL-kanonisiert), nächste Frage ist B1.
+3. ☑ Normalisierung live: „30 mal pro Monat" → `frequency_per_year=360` ·
+   „2 Stunden" → `total_duration_minutes=120` · „kp-09" → `process_id=KP-09`
+   (B4-AUSWAHL gegen die echten Baseline-IDs, case-kanonisiert).
+4. ☑ Idempotenz: gleiche `message_id` erneut gesendet → gespeicherte Antwort,
+   `rounds` unverändert.
+
+8B-Quirks wie oben beschrieben (holprige Frage-Grammatik, vereinzelt Platzhalter
+in Formulierungen) — die Nachfrage-Mechanik bleibt davon unberührt. Der Hosted-
+Chat-Workflow aus P2 (n8n, Volume `n8n_data`) ist unverändert einsatzbereit.
+
+Hinweis `schema_version`: Mit Snapshot trägt die Session `1.0+kp-<hash>` (Fingerprint
+der Prozess-IDs). Wird die Baseline um IDs erweitert/gekürzt, antworten laufende
+Interviews beim nächsten Turn bewusst mit 409 `paket_konflikt` — neues Interview
+starten. Clients, die `schema_version` mitsenden wollen, dürfen nicht auf `"1.0"`
+pinnen (Teil vor dem `+` vergleichen).
+
+## Gesprächsschicht live
+
+Seit der Gesprächsschicht antwortet der Interviewer pro Turn mit Bestätigung
+(nur echte erfasste Werte) + Reaktion + Katalogfrage; darunter steht die
+deterministische Fortschrittszeile („✓ X von Y Pflichtfeldern erfasst").
+Beim Abschluss kommt eine Ergebnis-Zusammenfassung inkl. offener Felder.
+
+Erwartung ehrlich: Mit `BC1_LLM=ollama` (8B) ist die STRUKTUR nachweisbar
+(Bestätigung, keine Feldnamen-Leaks, Fortschrittszeile korrekt) — gut KLINGEN
+wird es erst mit dem Claude-Adapter. Die Klang-Abnahme ist ein offener Punkt
+wie der Echt-Claude-Smoke (P2).
+
+Verhaltensänderung seit diesem Branch (ehrlich benannt, nicht nur beworben):
+Ein LLM-Ausfall blockiert jetzt auch den Abschluss-Turn. Vorher lief der
+Fertig-Fall ohne Versprachlichungs-Call durch (kein `antworte`-Aufruf im
+Abschluss-Zweig); seit `process_turn` `antworte` für BEIDE Zweige aufruft,
+führt ein Ausfall dort ebenso zu `fehler_fortsetzbar` statt zum Abschluss.
+Das ist spec-gewollt (kein stiller Fallback) — aber neu, und wer die alte
+Erwartung „Abschluss läuft immer durch" prüft, sieht hier eine echte
+Verhaltensänderung.
+
+> ⚠️ **OFFENER ABNAHME-PUNKT: KP-Optionsliste in Erstfragen.** Spec §8 zählt
+> „KP-Optionsliste überlebt in Erstfragen wörtlich" zum Mechanik-Nachweis —
+> mit llama3.1:8b ist das WIDERLEGT, nicht bestätigt: Bei der B4-Frage
+> (`process_id`) hat das Modell die Kernfrage umformuliert und dabei die
+> Parenthese mit den KP-IDs komplett weggelassen. Die Wörtlich-Treue der
+> Erstfrage ist reine Prompt-Instruktion (`prompts.py:45`), keine
+> Code-Invariante — das 8B-Modell hält sie hier nicht ein. Noch nicht
+> abgehakt: erneut prüfen, sobald der Claude-Adapter läuft. Reißt es auch
+> dort, braucht die Erstfrage-Treue eine mechanische Garantie statt einer
+> Prompt-Bitte (Design-Entscheidung, Team-seitig noch offen).
+>
+> **UPDATE 23.08.2026 (Klang-Abnahme Gemini, s. u.):** Mit gemini-3.6-flash
+> UND gemini-3.7-flash überlebt die KP-Optionsliste die Erstfrage **wörtlich**
+> (alle 10 KP-IDs + Namen; auch in der Nachfrage nach vager Antwort bleibt die
+> Liste vollständig, nur umformatiert). Neubewertung: Das Risiko tritt bei
+> starken Modellen nicht auf — die mechanische Garantie bleibt Roadmap-Anker
+> für schwache/lokale Modelle. Claude-Adapter-Gegenprobe weiter offen (Key
+> ausstehend).
+
+Rohes Protokoll (10.08.2026, llama3.1:8b, Dienst über `bc1_service.main:app`,
+Discovery-Paket mit BC0-Snapshot; reproduziert in zwei unabhängigen
+Live-Durchläufen, byte-identisches Ergebnis bei temperature 0):
+
+Request (`POST /turn`):
+
+```json
+{"session_id": "smoke-task6-repro2", "message_id": "a5",
+ "message": "Die Buchhaltungsleitung ist verantwortlich."}
+```
+
+Response:
+
+```json
+{"status": "frage", "payload": {
+  "naechste_frage": "Die Buchhaltungsleitung ist für den Prozess verantwortlich.\n\nZu welchem Ihrer Kernprozesse gehört das?",
+  "feld": "process_id", "pflicht_erfasst": 6, "pflicht_gesamt": 26},
+ "chat_text": "Die Buchhaltungsleitung ist für den Prozess verantwortlich.\n\nZu welchem Ihrer Kernprozesse gehört das?\n\n✓ 6 von 26 Pflichtfeldern erfasst"}
+```
+
+Erwartet hätte `naechste_frage` (Kernfrage `b4_frage`, `discovery_paket.py:39`)
+mit `(KP-01 = Strategieprozess, KP-02 = Vertrieb & Lead-Management, …)` enden
+müssen — die Parenthese mit den KP-IDs fehlt komplett. Fortschrittszeile
+(„✓ 6 von 26 Pflichtfeldern erfasst") selbst ist korrekt — das betroffene
+Verhalten ist rein die LLM-Antwort, nicht der Transport aus Task 6.
+
+### Abschluss-Turn live (F6, 11.08.2026) — Mechanik-Nachweis, keine Klang-Abnahme
+
+Der riskanteste Prompt-Zweig (Abschluss) lief bislang nie gegen ein echtes LLM
+(nur gegen FakeLLM in Tests). Nachweis auf einer ZWEITEN, isolierten
+Dienst-Instanz (Port 8001, die Standard-Instanz auf Port 8000 blieb unangetastet):
+
+```bash
+BC1_PAKET=toy BC1_LLM=ollama \
+BC1_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" \
+.venv/bin/uvicorn bc1_service.main:app --port 8001
+```
+
+Toy-Paket (3 Pflichtfelder) per curl bis `fertig` durchgespielt — drei freie
+Antworten (`prozess_name`, `ausloeser`, `haeufigkeit`), letzter Turn löst den
+Abschluss aus. Roh-JSON des ABSCHLUSS-Turns:
+
+```json
+{"status":"fertig","payload":{"felder":{
+  "prozess_name":{"wert":"Urlaubsantrag","status":"gueltig","quelle":"m1","grund":null,"kandidaten":[]},
+  "ausloeser":{"wert":"Antrag des Mitarbeiters","status":"gueltig","quelle":"m2","grund":null,"kandidaten":[]},
+  "haeufigkeit":{"wert":"100 mal pro Jahr","status":"gueltig","quelle":"m3","grund":null,"kandidaten":[]},
+  "notiz":{"wert":null,"status":"fehlt","quelle":null,"grund":null,"kandidaten":[]}},
+ "vollstaendigkeit":1.0,"ungeloeste_felder":[],"schema_version":"0.1",
+ "abschluss_text":"Ich habe die Informationen aufgenommen.\n\nDer Urlaubsantrag wird etwa 100 Mal pro Jahr eingereicht, wenn ein Mitarbeiter ihn stellt. Der Prozess beginnt also mit dem Antrag des Mitarbeiters. Die genauen Details zum Ablauf und zur Bearbeitung des Antrags wurden nicht erfasst.",
+ "pflicht_erfasst":3,"pflicht_gesamt":3},
+ "chat_text":"Ich habe die Informationen aufgenommen.\n\nDer Urlaubsantrag wird etwa 100 Mal pro Jahr eingereicht, wenn ein Mitarbeiter ihn stellt. Der Prozess beginnt also mit dem Antrag des Mitarbeiters. Die genauen Details zum Ablauf und zur Bearbeitung des Antrags wurden nicht erfasst.\n\n✓ 3 von 3 Pflichtfeldern erfasst"}
+```
+
+Mechanik bestätigt: `abschluss_text` vorhanden, Fortschrittszeile
+(„✓ 3 von 3 Pflichtfeldern erfasst") korrekt angehängt, und — F2-Nachweis —
+`abschluss_text` endet auf eine Aussage, NICHT auf eine Frage (keine implizit
+erzwungene Anschlussfrage). Ausdrücklich KEINE Klang-Abnahme: der Text ist
+inhaltlich redundant/holprig (typische 8B-Schwäche, siehe „Erwartung ehrlich"
+oben) — bewertet wird hier nur, dass der Abschluss-Zweig mechanisch trägt.
+Danach die :8001-Instanz sauber beendet (`kill`), :8000 blieb während des
+gesamten Nachweises unberührt und erreichbar.
+
+## Gemini-Adapter (Gesprächsschicht mit starkem Modell)
+
+**Start (Key nur in der eigenen Shell, NIE committen):**
+
+    export GEMINI_API_KEY="<eigener Key>"   # bzw. aus ~/.zshrc
+    BC1_LLM=gemini BC1_DB_DSN=... .venv/bin/uvicorn bc1_service.main:app
+    # Modellwahl: BC1_GEMINI_MODELL=gemini-3.6-flash (Default: gemini-3.7-flash)
+
+**Free-Tier-Leitplanken (Stand 11.08.2026, Konto-abhängig — im AI Studio prüfen):**
+je Modell 5 Requests/min · 20 Requests/Tag. Ein Turn = 2 Requests.
+⚠️ Bis Tier 1 (Kreditkarte) kann Google Free-Tier-Eingaben fürs Training nutzen —
+NUR Demo-Daten ohne echte Personennamen.
+
+**Echt-Stichprobe (2 Requests):**
+
+    BC1_ECHT_LLM=1 .venv/bin/pytest tests/test_gemini_echt.py -v
+
+Modell-IDs ändern sich — vor der Abnahme verfügbare Modelle prüfen (AI Studio
+oder models.list).
+
+**Klang-Abnahme (Spec §4) — Call-Plan, Requests mitzählen (max. 16 + 4 Puffer/Tag/Modell):**
+Pacing: zwischen den Turns 30–60 s warten (Limit 5 Requests/min; 1 Turn = 2 Requests).
+1. Toy-Interview komplett (BC1_PAKET=toy, 3 Turns = 6 Requests): Struktur, Fortschritt,
+   Abschluss ohne Schlussfrage.
+2. Discovery, Auftakt-Nachricht (1 Turn = 2 Requests) — Wortlaut exakt:
+   „Wir möchten unser Consultant-Staffing beschleunigen, um Zeit zu sparen — es geht um
+   den ganzen Prozess. Der Prozess heißt Consultant Placement, verantwortlich ist der
+   Staffing Manager." → erwartete Folgefrage: B4 (Kernprozess) —
+   **überlebt die KP-Optionsliste wörtlich?** (offener Abnahmepunkt aus der
+   Gesprächsschicht).
+3. Nachfrage mit Beispiel (2 Requests) · Rückfrage „Was meinen Sie mit …?" (2 Requests) ·
+   Abschluss-Zusammenfassung auf unbelegte Aussagen prüfen (2 Requests).
+4. Zweites Modell: identischer Ablauf mit BC1_GEMINI_MODELL=gemini-3.7-flash.
+Roh-JSON (Dienst-Request/-Response, kein SDK-Trace) hier protokollieren; das
+Erstfragen-Ergebnis aktualisiert den offenen Abnahmepunkt oben.
+
+### Klang-Abnahme DURCHGEFÜHRT (23.08.2026) — BESTANDEN, beide Modelle
+
+Setup: Dienst über `bc1_service.main:app`, Postgres-Testcontainer, Toy-Phase mit
+`BC1_PAKET=toy`, Discovery-Phase mit BC0-Snapshot; Modelle gemini-3.6-flash und
+gemini-3.7-flash (bezahltes Konto — Free-Tier-Pacing entfiel).
+
+**Klang-Urteil (Maintainer): bestanden mit einem Finding** — „Vielen Dank"
+eröffnete fast jeden Zug (3.6: 3/3 Züge; 3.7: 4 Vorkommen in 3 Zügen, doppelt im
+Abschluss). → Prompt-Regel ergänzt (`prompts.py`: Einstiege variieren, Dank
+höchstens einmal pro Gespräch); Re-Test danach: genau 1 Dank, im Abschluss.
+**Modellwahl: gemini-3.7-flash** (wärmer, geschliffener) — zugleich neuer
+Code-Default, denn **gemini-2.5-flash ist für Neukonten gesperrt**: 404 „no
+longer available to new users" (Modell wird von models.list weiter GELISTET,
+generiert aber nicht — Listung ist kein Verfügbarkeitsbeweis).
+
+| Prüfpunkt | 3.6-flash | 3.7-flash |
+|---|---|---|
+| Toy-Interview komplett (3 Turns), Abschluss OHNE Frage | ✓ | ✓ |
+| Felder wortgetreu (Raw-First), Quellen korrekt, Vollständigkeit 1.0 | ✓ | ✓ |
+| KP-Optionsliste in Erstfrage wörtlich (alle 10) | ✓ | ✓ |
+| Nachfrage mit Beispiel bei vager Antwort, Optionsliste erneut vollständig | ✓ | ✓ |
+| Rückfrage wird erklärt; danach Cap-Skip `process_id`→`process_steps` | ✓ | ✓ |
+| Thinking LOW / ohne temperature live (3er-Familien-Konfig) | ✓ | ✓ |
+
+Nebenbefunde: 3.7 formatiert Optionslisten teils mit Markdown-Fettdruck ·
+Idempotenz live bestätigt (Replay einer beantworteten message_id = identische
+gespeicherte Antwort ohne neuen LLM-Call) · der Auftakt-Satz füllte 5/26
+Pflichtfeldern in einem Turn · das „Offenlassen"-Angebot der Nachfrage deckt
+sich mit dem Attempts-Cap-Verhalten. Abschluss-Prüfpunkt über das Toy-Paket
+abgedeckt (Discovery erreicht mit 26 Pflichtfeldern in 2 Requests keinen
+Abschluss).
+
+Roh-JSON-Beleg Erstfrage (Auszug, gemini-3.7-flash, Discovery-Auftakt; 3.6
+inhaltsgleich):
+
+```json
+{"status": "frage", "payload": {"naechste_frage": "Vielen Dank für die Angaben. Ich habe notiert, dass Sie den gesamten Prozess „Consultant Placement“ unter der Verantwortung des Staffing Managers beschleunigen möchten, um Zeit zu sparen.\n\nZu welchem Ihrer Kernprozesse gehört das? (KP-01 = Strategieprozess, KP-02 = Vertrieb & Lead-Management, KP-03 = Kunden-Onboarding, KP-04 = Engagement-Steuerung, KP-05 = Wissensmanagement, KP-06 = Personal, KP-07 = Buchhaltung, KP-08 = IT-Operations, KP-09 = QA und Retrospektiven, KP-10 = Compliance und DSGVO)", "feld": "process_id", "pflicht_erfasst": 5, "pflicht_gesamt": 26}}
+```
+
+Roh-JSON-Beleg Abschluss nach Prompt-Fix (Toy, Default-Modell):
+
+```json
+{"status": "fertig", "payload": {"abschluss_text": "Vielen Dank, damit haben wir alle grundlegenden Informationen erfasst. Der Prozess „Urlaubsantrag“ wird ausgelöst, sobald ein Mitarbeiter den Antrag stellt. Dieser Vorgang kommt ungefähr 100 Mal pro Jahr vor. Damit ist unser Interview erfolgreich abgeschlossen.", "pflicht_erfasst": 3, "pflicht_gesamt": 3}}
+```
