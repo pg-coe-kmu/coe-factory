@@ -12,42 +12,18 @@ import os
 
 import anthropic
 
+from bc1_core.gespraech import TurnKontext
 from bc1_core.llm import ExtractionCandidate
-from bc1_core.package import FieldSpec, UseCasePackage
+from bc1_core.package import UseCasePackage
 from bc1_core.types import SessionState
+from bc1_service.prompts import (
+    EXTRAKTIONS_SCHEMA,
+    SYSTEM_EXTRAKTION,
+    SYSTEM_GESPRAECH,
+    gespraech_nutzer_prompt,
+)
 
 STANDARD_MODELL = "claude-opus-5"
-
-_EXTRAKTIONS_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "extraktionen": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "feld": {"type": "string"},
-                    "wert": {"type": "string"},
-                },
-                "required": ["feld", "wert"],
-                "additionalProperties": False,
-            },
-        }
-    },
-    "required": ["extraktionen"],
-    "additionalProperties": False,
-}
-
-_SYSTEM_EXTRAKTION = (
-    "Du extrahierst Fakten aus einer Interview-Antwort für ein Prozessprofil. "
-    "Extrahiere NUR, was die Nachricht wirklich belegt — nichts erfinden, "
-    "nichts aus Vorwissen ergänzen. Werte wörtlich bzw. minimal normalisiert."
-)
-
-_SYSTEM_FRAGE = (
-    "Du führst ein freundliches, professionelles Prozess-Interview auf Deutsch. "
-    "Antworte NUR mit der Frage selbst — ohne Einleitung, ohne Anführungszeichen."
-)
 
 
 class ClaudeLLM:
@@ -62,9 +38,9 @@ class ClaudeLLM:
         antwort = self._client.messages.create(
             model=self._modell,
             max_tokens=4096,
-            system=_SYSTEM_EXTRAKTION,
+            system=SYSTEM_EXTRAKTION,
             output_config={
-                "format": {"type": "json_schema", "schema": _EXTRAKTIONS_SCHEMA},
+                "format": {"type": "json_schema", "schema": EXTRAKTIONS_SCHEMA},
                 # Triviale Aufgabe: ohne effort low denkt das Modell per
                 # Default lange und verbraucht das max_tokens-Budget.
                 "effort": "low",
@@ -86,30 +62,23 @@ class ClaudeLLM:
             if e["feld"] in bekannte and e["wert"].strip()
         ]
 
-    def phrase(self, field: FieldSpec, state: SessionState) -> str:
-        bisher = state.values.get(field.name)
-        hinweis = (
-            "\nEs ist eine Nachfrage: Die bisherige Antwort war unklar oder "
-            "ungültig — formuliere die Frage anders und konkreter."
-            # Der Dialog zählt attempts VOR diesem Aufruf hoch: 1 = Erstfrage,
-            # ab 2 ist es wirklich eine Nachfrage.
-            if bisher is not None and bisher.attempts > 1
-            else ""
-        )
+    def antworte(self, kontext: TurnKontext) -> str:
         antwort = self._client.messages.create(
             model=self._modell,
             max_tokens=4096,
-            system=_SYSTEM_FRAGE,
-            output_config={"effort": "low"},   # eine Frage formulieren, mehr nicht
+            system=SYSTEM_GESPRAECH,
+            output_config={"effort": "low"},   # Versprachlichen, nicht knobeln
             messages=[{
                 "role": "user",
-                "content": (
-                    "Formuliere genau eine Chat-Frage für dieses Feld:\n"
-                    f"Feld: {field.name}\nKernfrage: {field.question}{hinweis}"
-                ),
+                "content": gespraech_nutzer_prompt(kontext),
             }],
         )
-        return self._text_inhalt(antwort).strip()
+        text = self._text_inhalt(antwort).strip()
+        if not text:
+            # Leer-Guard auf den GESTRIPPTEN Inhalt (Spec §5; Lektion aus dem
+            # Ollama-Review): eine leere Antwort darf nie beim Nutzer landen.
+            raise RuntimeError("LLM-Antwort ohne Inhalt")
+        return text
 
     @staticmethod
     def _text_inhalt(antwort) -> str:
