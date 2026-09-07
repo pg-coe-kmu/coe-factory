@@ -1,9 +1,10 @@
 """Produktions-Verdrahtung: uvicorn bc1_service.main:app
 
 Pflicht: BC1_DB_DSN. Optional: BC1_SNAPSHOT_PFAD (BC0-Baseline), BC1_CLAUDE_MODELL,
-ANTHROPIC_API_KEY (liest das SDK selbst), BC1_LLM ("claude" | "ollama", Default claude —
-ollama = lokaler Test-/Dev-Ersatz ohne API-Key, braucht die dev-Dependency ollama),
-BC1_OLLAMA_MODELL, BC1_PAKET ("discovery" | "toy", Default discovery).
+ANTHROPIC_API_KEY (liest das SDK selbst), BC1_LLM ("claude" | "ollama" | "gemini",
+Default claude — ollama = lokaler Test-/Dev-Ersatz ohne API-Key; gemini = Gemini API,
+braucht GEMINI_API_KEY), BC1_OLLAMA_MODELL, BC1_GEMINI_MODELL,
+BC1_PAKET ("discovery" | "toy", Default discovery).
 """
 from __future__ import annotations
 

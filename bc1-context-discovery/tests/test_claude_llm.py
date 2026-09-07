@@ -140,7 +140,7 @@ def test_antworte_nutzt_gespraechsprompt_und_strippt():
 
 
 @pytest.mark.skipif(
-    not os.environ.get("BC1_ECHT_LLM"),
+    os.environ.get("BC1_ECHT_LLM") != "1",
     reason="Echt-API-Stichprobe nur mit BC1_ECHT_LLM=1 (Kosten!)",
 )
 def test_echt_api_stichprobe_extraktion():

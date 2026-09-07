@@ -17,7 +17,14 @@ def waehle_llm(umgebung: Mapping[str, str]) -> LLMClient:
         from bc1_service.ollama_llm import OllamaLLM
 
         return OllamaLLM()
+    if wahl == "gemini":
+        # Import nur hier: gleiches Muster — der Claude-Pfad lädt die
+        # google-genai-Lib nie.
+        from bc1_service.gemini_llm import GeminiLLM
+
+        return GeminiLLM()
     raise RuntimeError(
-        f"BC1_LLM='{wahl}' ist unbekannt — erlaubt sind 'claude' (Default) "
-        "oder 'ollama' (lokaler Test-/Dev-Ersatz)."
+        f"BC1_LLM='{wahl}' ist unbekannt — erlaubt sind 'claude' (Default), "
+        "'ollama' (lokaler Test-/Dev-Ersatz) oder 'gemini' (Gemini API, "
+        "GEMINI_API_KEY nötig)."
     )
