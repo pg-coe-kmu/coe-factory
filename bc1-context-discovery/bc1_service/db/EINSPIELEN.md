@@ -1,7 +1,8 @@
 # `prozessprofil.sql` einspielen — Anleitung und Rechte-Ist-Stand
 
 > Betriebsdoku für den Menschen, der die BC1-Tabellen in eine Datenbank bringt.
-> Stand 03.09.2026. Alle Zahlen und Rollennamen hier sind **gemessen**, nicht angenommen.
+> Stand 08.09.2026. Alle Zahlen und Rollennamen hier sind **gemessen**, nicht angenommen.
+> Seit dem 08.09. ist der Inhalt **in der Ziel-Supabase ausgeführt** — siehe Abschnitt 9.
 
 ## Das Wichtigste in fünf Sätzen
 
@@ -10,7 +11,7 @@ dem passt, was sie erwartet. Sie läuft in **einer** Transaktion: entweder alles
 nichts. Trifft sie auf eine leere Datenbank, legt sie an (**Fall 1**); trifft sie den
 exakt erwarteten Bestand, tut sie nichts (**Fall 2**); weicht irgendetwas ab, **bricht sie
 ab und ändert nichts** (**Fall 3**). Die Prüfung vergleicht den Ist-Zustand des Katalogs
-Zeile für Zeile mit einer im Skript hinterlegten **Sollsignatur** (172 Zeilen). Wer die
+Zeile für Zeile mit einer im Skript hinterlegten **Sollsignatur** (176 Zeilen). Wer die
 DDL ändert, muss die Signatur neu erzeugen — sonst blockiert sich das Skript selbst.
 
 ---
@@ -162,7 +163,7 @@ ausdrückliche Bestätigung, dass `bc_leser` auch für `profil_rollen` gilt (Rü
 | **K-C** Wertebereiche der Zahlenspalten | **erledigt.** Entschieden: 0 zulässig, Kommastellen und ganze Zahlen erlaubt — das ist der heutige CHECK, keine Änderung nötig |
 | **K-G** Geltungsbereich der Signatur | **erledigt**, siehe Abschnitt 5 |
 | **K-H** PostgreSQL-Hauptversion | **erledigt**, siehe Abschnitt 4 |
-| **K-I** Standardrechte für Schema `bc1` | **OFFEN — blockiert den ersten Produktivlauf.** BC0 setzt für `bc1_role` in Schema `bc1` ein `ALTER DEFAULT PRIVILEGES` mit `bc_leser=r`. Damit ist **jede** Tabelle, die der Dienst dort anlegt, automatisch für BC2–BC4 lesbar — auch die Session-Tabelle mit dem Interview-Rohtext. BC0 wurde am 03.09. gebeten, das zu entfernen. **Erst danach produktiv starten.** |
+| **K-I** Standardrechte für Schema `bc1` | **erledigt 08.09.2026.** BC0 hat das `ALTER DEFAULT PRIVILEGES` für Schema `bc1` entfernt (`REVOKE ALL ON TABLES FROM bc_leser`) und das gemessen; **wir haben gegengemessen**: `pg_default_acl` enthält keine Zeile mehr für `bc1`. Die Defaults für `bc2`/`bc3`/`bc4` bestehen weiter — BC0 hat sie bewusst stehen lassen und den anderen Kontexten gemeldet. |
 
 ---
 
@@ -190,3 +191,24 @@ nachgestellt — kein Fall 3, Zugriff funktionierte):
 Wer im Schema `bc1` etwas anlegen darf, kann daran vorbei. Die Prüfung ersetzt also nicht
 die Frage, **wer `CREATE` in diesem Schema hat** — sie sichert, dass die drei
 Vertragstabellen selbst so stehen, wie wir sie angelegt haben.
+
+---
+
+## 9. Erster Live-Lauf in der Supabase — 08.09.2026
+
+Ausgeführt als `bc1_role` gegen PostgreSQL **17.6** (Session Pooler, Port 5432).
+
+| Schritt | Ergebnis |
+|---|---|
+| Vorprüfung | Rollen **exakt die acht aus Abschnitt 5** (Schema v3.0 brachte keine neue), alle geforderten Rechte `t`, Schema `bc1` leer, K-I geschlossen |
+| Lauf 1 | `NOTICE: Fall 1: kein Vertragsobjekt vorhanden — vollstaendige Anlage.` + `NOTICE: Sollsignatur bestaetigt.` |
+| Lauf 2 | `NOTICE: Fall 2: Bestand ist identisch zur Sollsignatur — No-op.` — Idempotenz **im Ziel** bewiesen, nicht nur im Container |
+| Nachprüfung | drei Tabellen mit Eigentümer `bc1_role`; `bc_leser` hat `SELECT` auf `prozessprofil` und `profil_rollen`, **nichts** auf `profil_write_status`; drei eigene Trigger aktiv; zehn Fremdschlüssel validiert |
+
+**Das Restrisiko aus Abschnitt 5 hat sich nicht bestätigt.** Die Konstellation, die K-G
+ausgelöst hatte — `postgres` als Nicht-Superuser mit Mitgliedschaft in `bc1_role` — ist im
+Test-Container nicht nachstellbar; der Live-Lauf zeigt, dass die Ausnahmeliste dort genau so
+greift wie hergeleitet. Damit ist die Herleitung durch eine Messung ersetzt.
+
+**Für BC0 heißt das:** ein `GRANT SELECT` auf `bc1.prozessprofil` und `bc1.profil_rollen` ist
+**nicht nötig** — unsere DDL vergibt das Leserecht an `bc_leser` selbst (Abschnitt 7).
