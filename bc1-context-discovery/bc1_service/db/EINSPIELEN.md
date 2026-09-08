@@ -163,7 +163,7 @@ ausdrückliche Bestätigung, dass `bc_leser` auch für `profil_rollen` gilt (Rü
 | **K-C** Wertebereiche der Zahlenspalten | **erledigt.** Entschieden: 0 zulässig, Kommastellen und ganze Zahlen erlaubt — das ist der heutige CHECK, keine Änderung nötig |
 | **K-G** Geltungsbereich der Signatur | **erledigt**, siehe Abschnitt 5 |
 | **K-H** PostgreSQL-Hauptversion | **erledigt**, siehe Abschnitt 4 |
-| **K-I** Standardrechte für Schema `bc1` | **erledigt 08.09.2026.** BC0 hat das `ALTER DEFAULT PRIVILEGES` für Schema `bc1` entfernt (`REVOKE ALL ON TABLES FROM bc_leser`) und das gemessen; **wir haben gegengemessen**: `pg_default_acl` enthält keine Zeile mehr für `bc1`. Die Defaults für `bc2`/`bc3`/`bc4` bestehen weiter — BC0 hat sie bewusst stehen lassen und den anderen Kontexten gemeldet. |
+| **K-I** Standardrechte für Schema `bc1` | **erledigt 08.09.2026.** BC0 hat das `ALTER DEFAULT PRIVILEGES` für Schema `bc1` entfernt (`REVOKE ALL ON TABLES FROM bc_leser`) und das gemessen; **wir haben gegengemessen**: `pg_default_acl` enthält keine Zeile mehr für `bc1`. Für die übrigen Kontexte hat BC0 gesondert entschieden und sie unterrichtet. |
 
 ---
 
