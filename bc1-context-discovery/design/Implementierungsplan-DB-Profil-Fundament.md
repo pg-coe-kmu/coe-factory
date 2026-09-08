@@ -6081,6 +6081,14 @@ Frage „wer darf `CREATE` in `bc1`?" nicht ersetzt; sobald BC0 die Standardrech
 
 ## Anhang A (Rev. 11a): Vorbereitung Use-Case-Testprofile für BC2 bis BC4 — Roadmap, NICHT Teil der ausführbaren Reihenfolge
 
+> ✅ **Ausgeführt am 08.09.2026, reproduzierbar seit Rev. 12** (`Implementierungsplan-Use-Case-Testprofile.md`):
+> die drei Fälle liegen als Daten in `bc1_service/use_case_testprofile.py`, die Kriterien 1–5 sind
+> in `tests/test_use_case_testprofile.py` festgenagelt (offline: fertig + Kennzeichnung an ein
+> Pflichtfeld gebunden; gegen die DB: drei fertige Zeilen, per SQL auffindbar, zweiter Lauf ohne
+> zweite Version). Aufruf: `BC1_DB_DSN=… .venv/bin/python -m bc1_service.use_case_testprofile
+> --company-id <uuid> --echt` (ohne `--echt` Trockenlauf). Die Live-Zeilen vom 08.09. tragen die
+> Kennzeichnung erst in Version 2 — siehe Nachtrag 08.09. unten.
+
 > **Kein Task, kein RED→GREEN, kein Commit — bewusst.** Dieser Anhang hält Ziel,
 > Abnahmekriterien und offene Designpunkte fest, damit nichts verloren geht (Prinzip 4).
 > Ein ausführbarer Task (mit Tests, Dateien, Commit-Grenze) entsteht erst, wenn

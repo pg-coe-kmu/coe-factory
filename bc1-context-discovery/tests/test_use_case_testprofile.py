@@ -4,7 +4,8 @@ from psycopg_pool import ConnectionPool
 
 from bc1_core.store import InMemoryStateStore
 from bc1_service.discovery_paket import Bc0Kontext, baue_discovery_paket
-from bc1_service.use_case_testprofile import FAELLE, fuehre_interview, schreibe_testprofile
+from bc1_service.use_case_testprofile import (FAELLE, fuehre_interview, main,
+                                              schreibe_testprofile)
 from tests.db_fixture import DSN, MANDANT_A, frische_db, verbindung
 
 NORO = "7c2d5ee9-2a9a-5990-810f-502ea2b2012d"
@@ -111,3 +112,17 @@ def test_zweiter_lauf_erzeugt_keine_zweite_version(pool):
                                                 ("KP-06.TP-2", 1)]
     assert _zeilen("SELECT count(*) FROM bc1.prozessprofil "
                    "WHERE status = 'in_erhebung'") == [(0,)]
+
+
+# --- CLI-Einstieg: ohne --echt wird nichts geschrieben
+
+def _darf_nicht_schreiben(*_a, **_k):
+    raise AssertionError("Trockenlauf darf schreibe_testprofile nicht aufrufen")
+
+
+def test_main_ohne_echt_schreibt_nicht(monkeypatch, capsys):
+    monkeypatch.setenv("BC1_DB_DSN", "postgresql://unbenutzt")
+    monkeypatch.setattr("bc1_service.use_case_testprofile.schreibe_testprofile",
+                        _darf_nicht_schreiben)
+    assert main(["--company-id", MANDANT_A]) == 0
+    assert "TROCKENLAUF" in capsys.readouterr().out

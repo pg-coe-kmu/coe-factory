@@ -11,7 +11,12 @@ und der Writer friert die Zeile ein — eine spaetere Nachricht bleibt 'fehlt'
 """
 from __future__ import annotations
 
+import argparse
+import os
+import sys
 from dataclasses import dataclass
+
+from psycopg_pool import ConnectionPool
 
 from bc1_core.core import process_turn
 from bc1_core.llm import ExtractionCandidate, FakeLLM
@@ -128,3 +133,31 @@ def schreibe_testprofile(pool, company_id: str) -> list[dict]:
         ergebnis.append({"session_id": fall.session_id, "status": antwort["status"],
                          "vollstaendigkeit": antwort["payload"].get("vollstaendigkeit")})
     return ergebnis
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Aufruf: BC1_DB_DSN=... python -m bc1_service.use_case_testprofile --company-id <uuid> [--echt]
+    Ohne --echt ein Trockenlauf: nichts wird geschrieben."""
+    ap = argparse.ArgumentParser(
+        description="Use-Case-Testprofile ueber den regulaeren Writer schreiben.")
+    ap.add_argument("--company-id", required=True)
+    ap.add_argument("--echt", action="store_true",
+                    help="wirklich schreiben (sonst Trockenlauf)")
+    args = ap.parse_args(argv)
+    print(f"{len(FAELLE)} Faelle: " + ", ".join(f.session_id for f in FAELLE))
+    if not args.echt:
+        print("TROCKENLAUF — nichts geschrieben. Mit --echt schreiben.")
+        return 0
+    pool = ConnectionPool(os.environ["BC1_DB_DSN"], min_size=1, max_size=3, open=True)
+    try:
+        ergebnis = schreibe_testprofile(pool, args.company_id)
+    finally:
+        pool.close()
+    for e in ergebnis:
+        print(f"{'OK ' if e['status'] == 'fertig' else 'FEHLER'} {e['session_id']}: "
+              f"{e['status']} vollstaendigkeit={e['vollstaendigkeit']}")
+    return 0 if all(e["status"] == "fertig" for e in ergebnis) else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))
