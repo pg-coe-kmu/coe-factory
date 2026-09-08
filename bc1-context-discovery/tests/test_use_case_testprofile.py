@@ -10,10 +10,11 @@ from bc1_service.profil_writer import ProfilWriter
 from bc1_service.start import lade_kontext
 from bc1_service.use_case_testprofile import (FAELLE, fuehre_interview, main,
                                               schreibe_testprofile)
-from tests.db_fixture import DSN, MANDANT_A, frische_db, verbindung
+from tests.db_fixture import DSN, MANDANT_A, MANDANT_B, frische_db, verbindung
 
-NORO = "7c2d5ee9-2a9a-5990-810f-502ea2b2012d"
-KONTEXT = Bc0Kontext(NORO, (("KP-05.TP-1", "Wissenstransfer"),
+# Offline reicht der synthetische Fixture-Mandant — die echte Mandantenkennung
+# gehoert in den Aufruf der CLI, nicht ins Repo.
+KONTEXT = Bc0Kontext(MANDANT_A, (("KP-05.TP-1", "Wissenstransfer"),
                             ("KP-06.TP-1", "Consulting-Matching"),
                             ("KP-06.TP-2", "Reise- und Einsatzplanung")),
                      tuple(f"S-0{i}" for i in range(1, 7)))
@@ -21,7 +22,7 @@ KONTEXT = Bc0Kontext(NORO, (("KP-05.TP-1", "Wissenstransfer"),
 
 def _antworten():
     paket = baue_discovery_paket(kontext=KONTEXT)
-    return [(fall, fuehre_interview(InMemoryStateStore(), paket, fall, company_id=NORO))
+    return [(fall, fuehre_interview(InMemoryStateStore(), paket, fall, company_id=MANDANT_A))
             for fall in FAELLE]
 
 
@@ -49,6 +50,13 @@ def test_kennzeichnung_steht_in_derselben_nachricht_wie_ein_pflichtfeld():
         assert len(traeger) == 1, fall.session_id
         assert pflicht & {name for name, _ in traeger[0]}, (
             f"{fall.session_id}: open_remarks ohne Pflichtfeld in derselben Nachricht")
+
+
+def test_fokus_tp_stimmt_mit_dem_skript_ueberein():
+    # fokus_tp ist Metadatum UND steht als focus_step im Skript — beides muss zusammenpassen.
+    for fall in FAELLE:
+        werte = {name: wert for _, felder in fall.nachrichten for name, wert in felder}
+        assert werte["focus_step"] == fall.fokus_tp, fall.session_id
 
 
 # --- gegen die Datenbank: Gerüst kennt nur KP-01/KP-02, die drei Fokus-TPs kommen hier dazu
@@ -134,8 +142,9 @@ def test_gespeicherte_spalten_und_kennzeichnung_sind_die_werte_vom_08_09(pool):
 
 
 def test_zweiter_lauf_erzeugt_keine_zweite_version(pool):
-    # Kriterium 4: dieselben session_id/message_id -> Replay-Weiche + Draft-Bindung,
-    # keine neue Version, kein offener Draft.
+    # Kriterium 4: dieselben session_id/message_id -> keine neue Version, kein offener
+    # Draft. Traeger ist die Writer-Bindung (profil_write_status), NICHT die Replay-
+    # Weiche des Kerns — der Store ist je Lauf frisch, der Kern rechnet alles neu.
     schreibe_testprofile(pool, MANDANT_A)
     schreibe_testprofile(pool, MANDANT_A)
     assert _zeilen("SELECT focus_step_id, count(*) FROM bc1.prozessprofil "
@@ -191,3 +200,27 @@ def test_main_ohne_echt_schreibt_nicht(monkeypatch, capsys):
                         _darf_nicht_schreiben)
     assert main(["--company-id", MANDANT_A]) == 0
     assert "TROCKENLAUF" in capsys.readouterr().out
+
+
+def test_main_echt_schreibt_drei_faelle_und_meldet_ok(pool, monkeypatch, capsys):
+    monkeypatch.setenv("BC1_DB_DSN", DSN)
+    assert main(["--company-id", MANDANT_A, "--echt"]) == 0
+    assert capsys.readouterr().out.count("OK ") == 3
+    assert _zeilen("SELECT count(*) FROM bc1.prozessprofil "
+                   "WHERE status = 'fertig'") == [(3,)]
+
+
+def test_main_echt_ohne_dsn_bricht_mit_klarer_meldung_ab(monkeypatch, capsys):
+    monkeypatch.delenv("BC1_DB_DSN", raising=False)
+    assert main(["--company-id", MANDANT_A, "--echt"]) == 1
+    assert "BC1_DB_DSN" in capsys.readouterr().err
+
+
+def test_main_echt_meldet_fehler_wenn_ein_fall_nicht_fertig_wird(pool, monkeypatch, capsys):
+    # Mandant B hat die drei Fokus-TPs nicht: der Kern lehnt focus_step ab, kein Fall
+    # wird fertig -> Exit 1, FEHLER-Zeilen, und der Writer hat nichts eingefroren.
+    monkeypatch.setenv("BC1_DB_DSN", DSN)
+    assert main(["--company-id", MANDANT_B, "--echt"]) == 1
+    assert capsys.readouterr().out.count("FEHLER") == 3
+    assert _zeilen("SELECT count(*) FROM bc1.prozessprofil "
+                   "WHERE status = 'fertig'") == [(0,)]

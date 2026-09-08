@@ -6082,10 +6082,13 @@ Frage „wer darf `CREATE` in `bc1`?" nicht ersetzt; sobald BC0 die Standardrech
 ## Anhang A (Rev. 11a): Vorbereitung Use-Case-Testprofile für BC2 bis BC4 — Roadmap, NICHT Teil der ausführbaren Reihenfolge
 
 > ✅ **Ausgeführt am 08.09.2026, reproduzierbar seit Rev. 12** (`Implementierungsplan-Use-Case-Testprofile.md`):
-> die drei Fälle liegen als Daten in `bc1_service/use_case_testprofile.py`, die Kriterien 1–5 sind
-> in `tests/test_use_case_testprofile.py` festgenagelt (offline: fertig + Kennzeichnung an ein
-> Pflichtfeld gebunden; gegen die DB: drei fertige Zeilen, per SQL auffindbar, zweiter Lauf ohne
-> zweite Version). Aufruf: `BC1_DB_DSN=… .venv/bin/python -m bc1_service.use_case_testprofile
+> die drei Fälle liegen als Daten in `bc1_service/use_case_testprofile.py`; Tests in
+> `tests/test_use_case_testprofile.py` — offline: fertig + Kennzeichnung an ein Pflichtfeld
+> gebunden; gegen die DB: drei fertige Zeilen mit den **gepinnten Spaltenwerten vom 08.09.**,
+> Kennzeichnung per SQL auffindbar, zweiter Lauf ohne zweite Version, neue `session_id` ⇒
+> Version 2 (der Korrekturweg), Writer-Rückgabe als Overlay. **Offen (Vertragsfrage A1):**
+> `executions_per_run` steht gleich der Jahreshäufigkeit — je Durchlauf oder je Jahr ist mit BC2
+> zu klären (Review 08.09.). Aufruf: `BC1_DB_DSN=… .venv/bin/python -m bc1_service.use_case_testprofile
 > --company-id <uuid> --echt` (ohne `--echt` Trockenlauf). Die Live-Zeilen vom 08.09. tragen die
 > Kennzeichnung erst in Version 2 — siehe Nachtrag 08.09. unten.
 

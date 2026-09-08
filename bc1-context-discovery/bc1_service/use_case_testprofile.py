@@ -2,12 +2,22 @@
 
 Ueber den REGULAEREN Schreibweg: process_turn -> ProfilWriter, wie in api.py.
 Werte: NoroAI (rund 10 Mitarbeitende), GESETZT, nicht erhoben — exakt die Zahlen,
-die am 08.09.2026 in bc1.prozessprofil geschrieben wurden.
+die am 08.09.2026 in bc1.prozessprofil geschrieben wurden (Test pinnt sie).
 
 Kennzeichnung (open_remarks) steht in derselben Nachricht wie das letzte
 Pflichtfeld: mit dem letzten Pflichtfeld wird der Kern terminal (status=fertig)
 und der Writer friert die Zeile ein — eine spaetere Nachricht bleibt 'fehlt'
 (am 08.09. an Version 1 gemessen).
+
+Wiederholbarkeit: ein zweiter Lauf mit denselben session_ids erzeugt KEINE neue
+Version. Traeger ist die Writer-Bindung (profil_write_status): bei fertiger Zeile
+liefert reconcile das gespeicherte Profil zurueck. Die Replay-Weiche des Kerns
+greift hier nicht — der Session-Store ist je Lauf frisch, der Kern rechnet alles
+neu (Review 08.09., gemessen).
+
+Korrektur: 'fertig' ist final (Freeze gegen UPDATE und DELETE). Der einzige Weg,
+Werte zu aendern, ist ein Lauf mit NEUER session_id — er legt je Fokus-TP eine
+neue Version an; die juengste Version zaehlt fuer BC0 und BC2.
 """
 from __future__ import annotations
 
@@ -34,16 +44,21 @@ Nachricht = tuple[str, tuple[tuple[str, str], ...]]
 
 @dataclass(frozen=True)
 class Fall:
+    """anfrage_id ist dokumentarisch (die BC0-Anfrage, an der der Fokus-TP haengt —
+    BC0 setzt am_gate, sobald ihr Profil fertig ist); fokus_tp muss zum focus_step
+    im Skript passen, ein Test prueft das."""
     session_id: str
     anfrage_id: str
     fokus_tp: str
     nachrichten: tuple[Nachricht, ...]
 
 
-def _skript(intent, name, owner, prozess, schritte, trigger, eingang,
+def _skript(*, intent, name, owner, prozess, schritte, trigger, eingang,
             eingangsformat, ausgang, frequenz, faelle, gesamtdauer,
             fokus, fokusdauer, quelle, sicherheit, rollen, systeme,
             medienbruch, doku, standard, daten, stabil, pii) -> tuple[Nachricht, ...]:
+    """Sieben Nachrichten, wie die Demo-Durchlaeufe — nur benannte Argumente,
+    damit aehnliche Zahlen und Skalen nicht vertauscht werden koennen."""
     return (
         (f"Wir wollen {intent} — es geht um den ganzen Prozess, Ziel ist Zeit sparen.", (
             ("request_intent", intent), ("request_goal", "zeit_sparen"),
@@ -72,43 +87,53 @@ def _skript(intent, name, owner, prozess, schritte, trigger, eingang,
     )
 
 
+# faelle (executions_per_run = Faelle JE DURCHLAUF) steht hier gleich der Jahres-
+# haeufigkeit — so am 08.09. geschrieben und in der Datenbank. Ob das fachlich
+# "je Durchlauf" oder "je Jahr" meint, ist eine Vertragsfrage mit BC2 (Review
+# 08.09., Codex B2; Abschlussplan A1). Nicht still aendern: eine Korrektur ist
+# ein neuer Lauf mit neuer session_id (siehe Modul-Docstring).
 FAELLE: tuple[Fall, ...] = (
     Fall("uc1-reisebuchung-testdaten-v2", "A-2026-01", "KP-06.TP-2", _skript(
-        "die Reise- und Einsatzplanung automatisieren", "Reise- und Einsatzplanung",
-        "Office Management", "KP-06",
-        "Bedarf melden, Termine abstimmen, Reise buchen, Abrechnung",
-        "Ein Einsatz beim Kunden steht an", "Einsatztermine und Reisewunsch",
-        "mail", "gebuchte Reise mit Bestätigungen",
-        "15 pro Monat", "180", "3 Stunden",
-        "KP-06.TP-2", "90 Minuten", "geschaetzt", "60%",
-        "Office Management, Consultants", "S-01, S-02",
-        "Ja.", "2", "2", "3", "3", "ja")),
+        intent="die Reise- und Einsatzplanung automatisieren",
+        name="Reise- und Einsatzplanung", owner="Office Management", prozess="KP-06",
+        schritte="Bedarf melden, Termine abstimmen, Reise buchen, Abrechnung",
+        trigger="Ein Einsatz beim Kunden steht an",
+        eingang="Einsatztermine und Reisewunsch", eingangsformat="mail",
+        ausgang="gebuchte Reise mit Bestätigungen",
+        frequenz="15 pro Monat", faelle="180", gesamtdauer="3 Stunden",
+        fokus="KP-06.TP-2", fokusdauer="90 Minuten", quelle="geschaetzt", sicherheit="60%",
+        rollen="Office Management, Consultants", systeme="S-01, S-02",
+        medienbruch="Ja.", doku="2", standard="2", daten="3", stabil="3", pii="ja")),
     Fall("uc2-wissensbasis-testdaten-v2", "A-2026-02", "KP-05.TP-1", _skript(
-        "den Wissenstransfer aus Projekten automatisieren", "Wissenstransfer",
-        "Fachexperte", "KP-05",
-        "Anfrage sichten, Dokumente suchen, Antwort schreiben, ablegen",
-        "Anfrage eines Kollegen oder Kunden", "Anfragetext und Dokumentenablage",
-        "digital", "beantwortete Anfrage mit Quellen",
-        "5 pro Woche", "260", "45 Minuten",
-        "KP-05.TP-1", "25 Minuten", "geschaetzt", "50%",
-        "Fachexperten, Projektleitung", "S-03, S-04",
-        "ja", "3", "3", "3", "4", "nein")),
+        intent="den Wissenstransfer aus Projekten automatisieren",
+        name="Wissenstransfer", owner="Fachexperte", prozess="KP-05",
+        schritte="Anfrage sichten, Dokumente suchen, Antwort schreiben, ablegen",
+        trigger="Anfrage eines Kollegen oder Kunden",
+        eingang="Anfragetext und Dokumentenablage", eingangsformat="digital",
+        ausgang="beantwortete Anfrage mit Quellen",
+        frequenz="5 pro Woche", faelle="260", gesamtdauer="45 Minuten",
+        fokus="KP-05.TP-1", fokusdauer="25 Minuten", quelle="geschaetzt", sicherheit="50%",
+        rollen="Fachexperten, Projektleitung", systeme="S-03, S-04",
+        medienbruch="ja", doku="3", standard="3", daten="3", stabil="4", pii="nein")),
     Fall("uc3-consultant-matching-testdaten-v2", "A-2026-03", "KP-06.TP-1", _skript(
-        "das Consulting-Matching beschleunigen", "Consulting-Matching",
-        "Staffing Manager", "KP-06",
-        "Anfrage erfassen, Profile suchen, Matching, Vorschlag versenden",
-        "Kundenanfrage nach einem Consultant", "Anforderungsprofil des Kunden",
-        "mail", "Personalvorschlag mit passenden Profilen",
-        "40 pro Jahr", "40", "2 Stunden",
-        "KP-06.TP-1", "1 Stunden", "geschaetzt", "70 %",
-        "Staffing, Vertrieb", "S-05, S-06",
-        "nein", "2", "3", "3", "3", "ja")),
+        intent="das Consulting-Matching beschleunigen",
+        name="Consulting-Matching", owner="Staffing Manager", prozess="KP-06",
+        schritte="Anfrage erfassen, Profile suchen, Matching, Vorschlag versenden",
+        trigger="Kundenanfrage nach einem Consultant",
+        eingang="Anforderungsprofil des Kunden", eingangsformat="mail",
+        ausgang="Personalvorschlag mit passenden Profilen",
+        frequenz="40 pro Jahr", faelle="40", gesamtdauer="2 Stunden",
+        fokus="KP-06.TP-1", fokusdauer="1 Stunden", quelle="geschaetzt", sicherheit="70 %",
+        rollen="Staffing, Vertrieb", systeme="S-05, S-06",
+        medienbruch="nein", doku="2", standard="3", daten="3", stabil="3", pii="ja")),
 )
 
 
 def fuehre_interview(store, paket, fall: Fall, *, company_id: str, writer=None) -> dict:
     """Faehrt einen Fall Nachricht fuer Nachricht durch den Kern; mit `writer`
-    wird nach jedem Turn reconciled — dieselbe Reihenfolge wie in api.py."""
+    wird nach jedem Turn reconciled und die Datenbank-Rueckgabe als Overlay
+    uebernommen — wie api.py. Die Transport-Guards von api.py (pruefe_mandant,
+    HTTP-Fehlercodes) entfallen: der Store ist je Lauf frisch."""
     llm = FakeLLM({text: [ExtractionCandidate(f, w) for f, w in felder]
                    for text, felder in fall.nachrichten})
     antwort: dict = {}
@@ -154,7 +179,13 @@ def main(argv: list[str] | None = None) -> int:
     if not args.echt:
         print("TROCKENLAUF — nichts geschrieben. Mit --echt schreiben.")
         return 0
-    pool = ConnectionPool(os.environ["BC1_DB_DSN"], min_size=1, max_size=3, open=True)
+    dsn = os.environ.get("BC1_DB_DSN")
+    if not dsn:
+        print("BC1_DB_DSN ist nicht gesetzt — ohne Datenbank-DSN kann nichts "
+              "geschrieben werden (als bc1_role verbinden, siehe EINSPIELEN.md).",
+              file=sys.stderr)
+        return 1
+    pool = ConnectionPool(dsn, min_size=1, max_size=3, open=True)
     try:
         ergebnis = schreibe_testprofile(pool, args.company_id)
     finally:

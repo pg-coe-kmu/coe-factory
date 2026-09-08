@@ -4,7 +4,7 @@
 
 **Ziel:** Die drei Use-Case-Testprofile (Anhang A des DB-Profil-Plans) sind **aus dem Repo reproduzierbar**: ein Modul trägt die Interview-Skripte, ein Test beweist, dass jedes über den regulären Weg (`process_turn` → `ProfilWriter`) `fertig` wird, die Testdaten-Kennzeichnung trägt und ein Wiederholungslauf keine zweite Version erzeugt.
 
-**Architektur:** Ein kleines Modul `bc1_service/use_case_testprofile.py` mit den drei Fällen als **Daten** (session_id, Anfrage, Fokus-TP, Nachrichten mit FakeLLM-Extraktionen), einer Funktion, die einen Fall durch den Kern fährt, und einer Funktion, die alle drei gegen eine Datenbank schreibt. Session-Store bewusst In-Memory (kein ungeprüftes `bc1.sessions` in der Produktions-DB); der Profil-Schreibweg ist identisch zu `api.py`.
+**Architektur:** Ein kleines Modul `bc1_service/use_case_testprofile.py` mit den drei Fällen als **Daten** (session_id, Anfrage, Fokus-TP, Nachrichten mit FakeLLM-Extraktionen), einer Funktion, die einen Fall durch den Kern fährt, und einer Funktion, die alle drei gegen eine Datenbank schreibt. Session-Store bewusst In-Memory (kein ungeprüftes `bc1.sessions` in der Produktions-DB). Der Profil-Schreibweg folgt `api.py`: Writer nach jedem Turn, Rückgabe der Datenbank als Overlay über den Payload. Die Transport-Guards von `api.py` (`pruefe_mandant`, HTTP-Fehlercodes) entfallen bewusst — der Store ist je Lauf frisch, ein fremder Zustand kann nicht geladen werden.
 
 **Tech Stack:** Python 3.11+, pytest, psycopg 3 / psycopg_pool, Test-Container PostgreSQL 17 (`tests/db_fixture.py`).
 
@@ -30,7 +30,7 @@
 **Interfaces (Produces):**
 - `KENNZEICHEN: str` — beginnt mit `"Testdaten"`
 - `@dataclass(frozen=True) Fall(session_id: str, anfrage_id: str, fokus_tp: str, nachrichten: tuple[tuple[str, tuple[tuple[str, str], ...]], ...])`
-- `FAELLE: tuple[Fall, Fall, Fall]`
+- `FAELLE: tuple[Fall, ...]` (drei Fälle)
 - `fuehre_interview(store, paket, fall, *, company_id, writer=None) -> dict` — letzte Antwort von `process_turn`; mit `writer` wird nach jedem Turn `writer.reconcile(store.load(fall.session_id), antwort)` aufgerufen
 - `schreibe_testprofile(pool, company_id) -> list[dict]` — je Fall `{"session_id", "status", "vollstaendigkeit"}`
 
@@ -49,8 +49,7 @@ from bc1_core.store import InMemoryStateStore
 from bc1_service.discovery_paket import Bc0Kontext, baue_discovery_paket
 from bc1_service.use_case_testprofile import FAELLE, fuehre_interview
 
-NORO = "7c2d5ee9-2a9a-5990-810f-502ea2b2012d"
-KONTEXT = Bc0Kontext(NORO, (("KP-05.TP-1", "Wissenstransfer"),
+KONTEXT = Bc0Kontext(MANDANT_A, (("KP-05.TP-1", "Wissenstransfer"),
                             ("KP-06.TP-1", "Consulting-Matching"),
                             ("KP-06.TP-2", "Reise- und Einsatzplanung")),
                      tuple(f"S-0{i}" for i in range(1, 7)))
@@ -58,7 +57,7 @@ KONTEXT = Bc0Kontext(NORO, (("KP-05.TP-1", "Wissenstransfer"),
 
 def _antworten():
     paket = baue_discovery_paket(kontext=KONTEXT)
-    return [(fall, fuehre_interview(InMemoryStateStore(), paket, fall, company_id=NORO))
+    return [(fall, fuehre_interview(InMemoryStateStore(), paket, fall, company_id=MANDANT_A))
             for fall in FAELLE]
 
 
@@ -296,7 +295,7 @@ def test_schreibe_legt_drei_fertige_gekennzeichnete_zeilen_an(pool):
                    "WHERE profil->'felder'->'open_remarks'->>'wert' LIKE 'Testdaten%'") == [(3,)]
 ```
 
-(`verbindung(DSN, rolle=None)` = Superuser für das Gerüst; prüfen, ob `frische_db` bereits committet — sonst `conn.commit()` im Helfer.)
+(`verbindung(DSN, rolle=None)` = Login-Benutzer der Test-DSN ohne `SET ROLE`; der Kontextmanager committet bei sauberem Ende — **gemessen (Review 08.09.)**, kein eigenes `conn.commit()` nötig.)
 
 - [ ] **Step 2: Voller Lauf — RED** (`ImportError: schreibe_testprofile`)
 
@@ -336,7 +335,7 @@ def test_zweiter_lauf_erzeugt_keine_zweite_version(pool):
     assert _zeilen("SELECT count(*) FROM bc1.prozessprofil WHERE status = 'in_erhebung'") == [(0,)]
 ```
 
-- [ ] **Step 6: Voller Lauf** — Erwartung grün bei Ankunft (Replay-Weiche + Draft-Bindung existieren). Wenn rot: das ist ein echter Befund am Writer, nicht am Test.
+- [ ] **Step 6: Voller Lauf** — Erwartung grün bei Ankunft. **Mechanismus, gemessen (Review 08.09.):** der Store ist je Lauf frisch, die Replay-Weiche des Kerns greift hier NICHT — der zweite Lauf rechnet alle Turns neu. Was die zweite Version verhindert, ist allein die **Writer-Bindung** in `profil_write_status`: bei fertiger Zeile liefert `reconcile` das gespeicherte Profil zurück. Wenn rot: echter Befund am Writer, nicht am Test.
 
 - [ ] **Step 7: Commit** — `feat(bc1): schreibe_testprofile — drei Zeilen ueber den Writer, wiederholbar (Rev. 12, Task 3)`
 
@@ -351,7 +350,7 @@ from bc1_service.use_case_testprofile import main
 def test_main_ohne_echt_schreibt_nicht(monkeypatch, capsys):
     monkeypatch.setenv("BC1_DB_DSN", "postgresql://unbenutzt")
     monkeypatch.setattr("bc1_service.use_case_testprofile.schreibe_testprofile",
-                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("darf nicht schreiben")))
+                        _darf_nicht_schreiben)   # benannter Helfer, der AssertionError wirft
     assert main(["--company-id", MANDANT_A]) == 0
     assert "TROCKENLAUF" in capsys.readouterr().out
 ```
@@ -403,3 +402,27 @@ if __name__ == "__main__":
 - **Spec-Abdeckung:** Kriterium 1 (regulärer Weg) → Task 3 nutzt `ProfilWriter`, kein INSERT · 2 (Werte/Kennzeichnung/Quelle) → Task 1 Daten + Task 2 · 3 (SQL-wiederfindbar) → Task 3 Assertion `LIKE 'Testdaten%'` · 4 (wiederholbar) → Task 3 Step 5 · 5 (fertig = Freeze) → Task 3 Assertion `fertig` · Lehre 08.09. → Task 2 Strukturtest + Mutation.
 - **Platzhalter:** keine. **Typen:** `Fall`, `FAELLE`, `fuehre_interview(store, paket, fall, *, company_id, writer)`, `schreibe_testprofile(pool, company_id)`, `main(argv)` in allen Tasks gleich.
 - **Ehrlich:** Der Gerüst-Zusatz im Test (`_noro_geruest`) dupliziert Wissen aus `db_fixture._testdaten`; bewusst lokal gehalten (YAGNI), bis ein zweiter Test dieselben TPs braucht. `erhebung_id`-Erwartung `E-2026-01` folgt aus der Task-13-Regel (jüngste nicht verworfene Bewertung) — im Lauf verifizieren.
+
+---
+
+## Review — adjudiziert am 08.09.2026
+
+Zwei unabhängige Reviews des Commit-Bereichs `e99d81d..f2e56d5`: **Claude messend** (Suite, Mutationen, Zähler-Wrapper, CLI End-to-End gegen den Container) und **Codex statisch** (ohne DB-Zugriff, ausdrücklich so gekennzeichnet). Kein Critical. Befunde nach Schwere; Doppelnennungen zusammengeführt.
+
+| Befund | Schwere | Entscheidung | Beleg |
+|---|---|---|---|
+| Writer-Rückgabe verworfen — bei bestehender Bindung meldet der Lauf den frischen Kern statt der eingefrorenen Zeile (Codex B3, Claude I2) | Important | **gefixt:** Overlay mit `OVERLAY_SCHLUESSEL` aus `api.py` (eine Wahrheit) | Test mit echtem Writer: gleiche `session_id`, 900 statt 90 Minuten im Skript → gemeldet 90 (RED→GREEN) |
+| „exakt die Zahlen vom 08.09." nirgends gepinnt; Kennzeichnung nur per Präfix geprüft (Codex B4, Claude I2) | Important | **gefixt:** unabhängige Erwartungstabelle der sechs Spalten je TP + vollständiger Kennzeichnungstext, nicht aus `FAELLE` abgeleitet | `test_gespeicherte_spalten_und_kennzeichnung_sind_die_werte_vom_08_09` |
+| Ohne `BC1_TEST_DB_DSN` zwei Errors statt Skips (Codex B1, Claude I1) | Important | **gefixt:** `pytest.skip` in der `pool`-Fixture — die Offline-Tests laufen weiter | gemessen: `4 passed, 2 skipped` ohne DSN |
+| Kriterium 4, zweite Hälfte fehlt; Mechanismus „Replay-Weiche" gemessen falsch — Träger ist die Writer-Bindung (Claude I3, Codex B8) | Important | **gefixt:** Docstring, Testkommentar, Plan korrigiert; `test_neue_session_id_erzeugt_version_2` | Version 1+2 je TP nach zweitem Lauf mit neuer `session_id` |
+| `--echt`-Pfad ohne Test (Claude I4, Codex B5) | Important | **gefixt:** Erfolg (3× OK, Exit 0, 3 Zeilen), fehlende DSN (klare Meldung, Exit 1 — vorher nackter `KeyError`, Claude M4), Mandant ohne die TPs (3× FEHLER, Exit 1, 0 Zeilen) | drei CLI-Tests |
+| **`executions_per_run` = Jahreshäufigkeit** in allen drei Fällen — „Fälle je Durchlauf" fachlich fraglich (Codex B2) | Important | **nicht geändert, Entscheidung offen:** die Werte reproduzieren den Ist-Stand vom 08.09.; die Einheit ist eine Vertragsfrage mit BC2 (`menge`), Abschlussplan **A1**. Kommentar am Datenblock; Korrektur nur als neuer Lauf mit neuer `session_id` | Richard / BC2 |
+| Tote Metadaten `anfrage_id`/`fokus_tp`, 24 Positionsargumente (Codex B7, Claude M2) | Minor | **gefixt:** `_skript` nur mit benannten Argumenten; `fokus_tp` per Test gegen das Skript geprüft; `anfrage_id` als dokumentarisch erklärt | `test_fokus_tp_stimmt_mit_dem_skript_ueberein` |
+| Mandanten-UUID im Offline-Test/Plan unnötig (Codex B6) | Minor | **gefixt:** synthetischer Fixture-Mandant; die echte Kennung kommt nur per CLI-Argument | — |
+| „dieselbe Reihenfolge wie api.py" überzeichnet (Claude M3) | Minor | **gefixt:** Docstring nennt, was entfällt und warum | — |
+| Anhang-A-Hinweis „Kriterien 1–5 festgenagelt" zu weitgehend (Claude M7) | Minor | **gefixt:** Hinweis präzisiert, offene Vertragsfrage genannt | — |
+| Trivialer Doku-Drift: Tupel-Typ, Commit-Hinweis, Lambda-Stub (Claude M8) | Minor | **gefixt** im Plan | — |
+| Trockenlauf beweist nichts über das Ziel (Claude M1, M6) | Minor | **deferiert:** `--echt` scheitert bei falschem Mandanten schnell und sauber (gemessen: `RuntimeError`, Exit 1, keine Zeile); ein Pre-Flight dupliziert `lade_kontext` für ein Werkzeug mit einer Handvoll Aufrufe (YAGNI). **Nächster Schritt:** sobald ein zweiter Nutzer die CLI bedient, Kontextprüfung im Trockenlauf | — |
+| TP-Name „Consulting-Matching" vs. Snapshot „Neueinstellung und Onboarding" (Claude M5) | Minor | **kein Handlungsbedarf:** die Live-Datenbank führt seit BC0s v3.0 „Consulting-Matching" (Kontextmessung 08.09.); der Snapshot v3 auf `main` ist älter. **Nächster Schritt:** Snapshot-Abgleich in Abschlussplan A5 | `kontext.log` 08.09. |
+
+**Nicht geprüft (beide Reviewer):** Verhalten gegen die Live-Supabase (nur Container); fachliche Passung zu BC0s Anfragetexten.
