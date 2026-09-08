@@ -15,6 +15,10 @@ from dataclasses import dataclass
 
 from bc1_core.core import process_turn
 from bc1_core.llm import ExtractionCandidate, FakeLLM
+from bc1_core.store import InMemoryStateStore
+from bc1_service.discovery_paket import baue_discovery_paket
+from bc1_service.profil_writer import ProfilWriter
+from bc1_service.start import lade_kontext
 
 KENNZEICHEN = ("Testdaten Use-Case-Definition 24.08., nicht erhoben. "
                "Quelle: Projektgruppe CoE-Factory.")
@@ -108,3 +112,19 @@ def fuehre_interview(store, paket, fall: Fall, *, company_id: str, writer=None) 
         if writer is not None:
             writer.reconcile(store.load(fall.session_id), antwort)
     return antwort
+
+
+def schreibe_testprofile(pool, company_id: str) -> list[dict]:
+    """Schreibt alle Faelle ueber den regulaeren Writer-Pfad; Session-Store
+    bewusst In-Memory — kein ungeprueftes bc1.sessions in der Ziel-DB."""
+    with pool.connection() as conn:
+        kontext = lade_kontext(conn, company_id)
+    paket = baue_discovery_paket(kontext=kontext)
+    writer = ProfilWriter(pool, company_id, paket)
+    ergebnis = []
+    for fall in FAELLE:
+        antwort = fuehre_interview(InMemoryStateStore(), paket, fall,
+                                   company_id=company_id, writer=writer)
+        ergebnis.append({"session_id": fall.session_id, "status": antwort["status"],
+                         "vollstaendigkeit": antwort["payload"].get("vollstaendigkeit")})
+    return ergebnis
