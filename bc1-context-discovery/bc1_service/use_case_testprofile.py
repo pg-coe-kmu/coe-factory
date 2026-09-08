@@ -21,6 +21,7 @@ from psycopg_pool import ConnectionPool
 from bc1_core.core import process_turn
 from bc1_core.llm import ExtractionCandidate, FakeLLM
 from bc1_core.store import InMemoryStateStore
+from bc1_service.api import OVERLAY_SCHLUESSEL
 from bc1_service.discovery_paket import baue_discovery_paket
 from bc1_service.profil_writer import ProfilWriter
 from bc1_service.start import lade_kontext
@@ -115,7 +116,12 @@ def fuehre_interview(store, paket, fall: Fall, *, company_id: str, writer=None) 
         antwort = process_turn(store, llm, paket, fall.session_id, f"m{i}", text,
                                company_id=company_id)
         if writer is not None:
-            writer.reconcile(store.load(fall.session_id), antwort)
+            db_profil = writer.reconcile(store.load(fall.session_id), antwort)
+            if db_profil is not None:
+                # Wie api.py: was in der Datenbank steht, gilt — bei bestehender
+                # Bindung ist das die eingefrorene Zeile, nicht der frische Kern.
+                antwort["payload"].update(
+                    {k: db_profil[k] for k in OVERLAY_SCHLUESSEL})
     return antwort
 
 

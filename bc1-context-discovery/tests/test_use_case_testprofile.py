@@ -1,9 +1,13 @@
 """Anhang A (Rev. 12): die drei Use-Case-Testprofile sind aus dem Repo reproduzierbar."""
+import dataclasses
+
 import pytest
 from psycopg_pool import ConnectionPool
 
 from bc1_core.store import InMemoryStateStore
 from bc1_service.discovery_paket import Bc0Kontext, baue_discovery_paket
+from bc1_service.profil_writer import ProfilWriter
+from bc1_service.start import lade_kontext
 from bc1_service.use_case_testprofile import (FAELLE, fuehre_interview, main,
                                               schreibe_testprofile)
 from tests.db_fixture import DSN, MANDANT_A, frische_db, verbindung
@@ -76,6 +80,8 @@ def _noro_geruest(conn) -> None:
 
 @pytest.fixture
 def pool():
+    if not DSN:
+        pytest.skip("BC1_TEST_DB_DSN nicht gesetzt — DB-Tests uebersprungen")
     frische_db(DSN)
     with verbindung(DSN, rolle=None) as conn:
         _noro_geruest(conn)
@@ -102,6 +108,31 @@ def test_schreibe_legt_drei_fertige_gekennzeichnete_zeilen_an(pool):
                    "WHERE profil->'felder'->'open_remarks'->>'wert' LIKE 'Testdaten%'") == [(3,)]
 
 
+# Unabhaengige Erwartung (NICHT aus FAELLE abgeleitet): die Spaltenwerte, die am
+# 08.09.2026 in der Supabase gemessen wurden. Aendert jemand einen Rohwert im Modul,
+# widerspricht das Repo dem Ist-Stand — und dieser Test sagt es.
+SPALTEN_08_09 = {
+    #  focus_step_id : (haeufigkeit, menge, dauer_ges, dauer_fokus, guete, herkunft)
+    "KP-05.TP-1": (260, 260, 45, 25, 50, "geschaetzt"),
+    "KP-06.TP-1": (40, 40, 120, 60, 70, "geschaetzt"),
+    "KP-06.TP-2": (180, 180, 180, 90, 60, "geschaetzt"),
+}
+KENNZEICHEN_08_09 = ("Testdaten Use-Case-Definition 24.08., nicht erhoben. "
+                     "Quelle: Projektgruppe CoE-Factory.")
+
+
+def test_gespeicherte_spalten_und_kennzeichnung_sind_die_werte_vom_08_09(pool):
+    schreibe_testprofile(pool, MANDANT_A)
+    zeilen = _zeilen(
+        "SELECT focus_step_id, frequency_per_year, executions_per_run, "
+        "       total_duration_minutes, focus_step_duration_minutes, "
+        "       focus_step_duration_confidence_pct, focus_step_duration_source, "
+        "       profil->'felder'->'open_remarks'->>'wert' "
+        "FROM bc1.prozessprofil ORDER BY 1")
+    assert {z[0]: tuple(z[1:7]) for z in zeilen} == SPALTEN_08_09
+    assert {z[7] for z in zeilen} == {KENNZEICHEN_08_09}
+
+
 def test_zweiter_lauf_erzeugt_keine_zweite_version(pool):
     # Kriterium 4: dieselben session_id/message_id -> Replay-Weiche + Draft-Bindung,
     # keine neue Version, kein offener Draft.
@@ -112,6 +143,40 @@ def test_zweiter_lauf_erzeugt_keine_zweite_version(pool):
                                                 ("KP-06.TP-2", 1)]
     assert _zeilen("SELECT count(*) FROM bc1.prozessprofil "
                    "WHERE status = 'in_erhebung'") == [(0,)]
+
+
+def test_neue_session_id_erzeugt_version_2(pool, monkeypatch):
+    # Kriterium 4, zweite Haelfte: 'fertig' ist final — der einzige Korrekturweg
+    # ist ein Lauf mit NEUER session_id, der eine neue Version anlegt.
+    schreibe_testprofile(pool, MANDANT_A)
+    neu = tuple(dataclasses.replace(f, session_id=f.session_id + "-v3") for f in FAELLE)
+    monkeypatch.setattr("bc1_service.use_case_testprofile.FAELLE", neu)
+    schreibe_testprofile(pool, MANDANT_A)
+    assert _zeilen("SELECT focus_step_id, profil_version, status FROM bc1.prozessprofil "
+                   "ORDER BY 1, 2") == [
+        ("KP-05.TP-1", 1, "fertig"), ("KP-05.TP-1", 2, "fertig"),
+        ("KP-06.TP-1", 1, "fertig"), ("KP-06.TP-1", 2, "fertig"),
+        ("KP-06.TP-2", 1, "fertig"), ("KP-06.TP-2", 2, "fertig")]
+
+
+def test_wiederholung_meldet_den_gespeicherten_stand_nicht_den_neuen_kern(pool):
+    # Wie api.py: liefert der Writer das gespeicherte (eingefrorene) Profil, gilt
+    # DAS — nicht, was der Kern in diesem Lauf frisch extrahiert hat.
+    schreibe_testprofile(pool, MANDANT_A)
+    with pool.connection() as conn:
+        kontext = lade_kontext(conn, MANDANT_A)
+    paket = baue_discovery_paket(kontext=kontext)
+    fall = FAELLE[0]
+    nachrichten = tuple(
+        (text, tuple(("focus_step_duration_minutes", "900 Minuten")
+                     if name == "focus_step_duration_minutes" else (name, wert)
+                     for name, wert in felder))
+        for text, felder in fall.nachrichten)
+    antwort = fuehre_interview(InMemoryStateStore(), paket,
+                               dataclasses.replace(fall, nachrichten=nachrichten),
+                               company_id=MANDANT_A,
+                               writer=ProfilWriter(pool, MANDANT_A, paket))
+    assert antwort["payload"]["felder"]["focus_step_duration_minutes"]["wert"] == "90"
 
 
 # --- CLI-Einstieg: ohne --echt wird nichts geschrieben
