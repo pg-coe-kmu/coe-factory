@@ -11,6 +11,22 @@ Beispieldaten liegen in [`../examples/`](../examples/):
 `mock_automatisierungskonzept.json`, `mock_prozesspriorisierung.json`,
 `mock_roi_report.md` und das Eingangsprofil `mock_prozessprofil.json`.
 
+## Lieferungen
+
+Echte Lieferungen an BC3 liegen unter [`lieferungen/`](lieferungen/) — getrennt von den
+Mocks, die reine Schema-Fixtures sind.
+
+| Lieferung | Stand | Art |
+| --- | --- | --- |
+| [`2026-08-30-vorlaeufig/`](lieferungen/2026-08-30-vorlaeufig/) | 30.08.2026 | ⚠️ **vorläufig** — echte Prozesse (KP-02/03/04), gesetzte Value-Zahlen |
+
+Die vorläufige Lieferung entblockt BC3 und BC4, solange das Value-Modell
+([#166](https://github.com/pg-coe-kmu/coe-factory/issues/166)) und die Akzeptanzkriterien
+([#160](https://github.com/pg-coe-kmu/coe-factory/issues/160)) offen sind. Erzeugt für
+[#168](https://github.com/pg-coe-kmu/coe-factory/issues/168); **nicht Gate-1-freigabefähig.**
+Details und die Trennung „echt vs. gesetzt" stehen in ihrer
+[README](lieferungen/2026-08-30-vorlaeufig/README.md).
+
 ## Dieser Pfad ist die Endlage
 
 Die Dateien lagen bis zum 30.08.2026 außerhalb des Repos unter `Projektgruppe/BC2/Lösung/`

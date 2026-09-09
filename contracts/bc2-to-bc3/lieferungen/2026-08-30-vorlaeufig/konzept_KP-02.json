@@ -1,0 +1,124 @@
+{
+  "konzept_id": "00000000-0000-4000-8000-000000000002",
+  "schema_version": "2.0",
+  "prozessprofil_ref": "bc0-snapshot:NoroAI_Consulting_GmbH_baseline_v3.json#KP-02",
+  "erzeugt_am": "2026-08-30T00:00:00Z",
+  "erzeugt_von": "bc2-uebergangslieferung@2026-08-30 -- VORLAEUFIG, keine Bewertung",
+  "kontext": {
+    "prozess_kurzbeschreibung": "[VORLAEUFIG] Vertrieb & Lead-Management (Kerngeschäftsprozess, Reifegrad 3.7/5) bei NoroAI Consulting GmbH, 10 Mitarbeitende, KI-Beratung.",
+    "kp_id": "KP-02",
+    "unternehmen": "NoroAI Consulting GmbH (KI-Beratung, 10 Mitarbeitende)",
+    "betroffene_systeme_landschaft": [
+      "EspoCRM",
+      "n8n",
+      "GitLab",
+      "Grafana",
+      "NocoDB"
+    ],
+    "hauptschmerzpunkte": [
+      {
+        "beschreibung": "Dokumentierter Medienbruch: Manuelle CRM-Pflege bei Email-Anfragen",
+        "haeufigkeit": "Teilprozess KP-02.TP-1",
+        "auswirkung": "Automatisierungsgrad 3.75 von 5 (Tools 4.0, Systemintegration 3.5)"
+      },
+      {
+        "beschreibung": "Dokumentierter Medienbruch: Manuelle CRM-Pflege bei Email-Anfragen",
+        "haeufigkeit": "Teilprozess KP-02.TP-2",
+        "auswirkung": "Automatisierungsgrad 3.67 von 5 (Tools 4.0, Systemintegration 3.5)"
+      }
+    ]
+  },
+  "potenziale": [
+    {
+      "potenzial_id": "00000000-0000-4000-8000-00000000f001",
+      "titel": "[VORLAEUFIG] Lead-Erfassung und -Qualifizierung aus E-Mail-Anfragen ins CRM",
+      "rang": 1,
+      "beschreibung": "> **[VORLAEUFIG] Uebergangslieferung, keine Bewertung.** Prozess, Teilprozesse, Tools, Medienbrueche und Reifegrade unten sind **echt** (BC0-Snapshot v3 vom 27.08.2026). Die Zahlen in `value{}` sind **gesetzt, nicht erhoben**: Fallzahl und Bearbeitungszeit fuehrt die gemeinsame Datenbank nicht (Issue #159). Zweck ist, BC3 und BC4 zu entblocken -- nicht, Wirtschaftlichkeit auszusagen. Nicht fuer Entscheidungen, Angebote oder Gate-1-Freigaben verwenden.\n\n**Ausgangslage (aus der Baseline, echt).** Im Kernprozess KP-02 \"Vertrieb & Lead-Management\" betrifft dieses Potenzial \"Lead erfassen\", \"Lead qualifizieren\". Der Snapshot v3 vom 27.08.2026 misst dort: Lead erfassen (Automatisierungsgrad 3.75, Tools 4.0, Systemintegration 3.5); Lead qualifizieren (Automatisierungsgrad 3.67, Tools 4.0, Systemintegration 3.5). Als Medienbruch ist dokumentiert: \"Manuelle CRM-Pflege bei Email-Anfragen\". Eingesetzt sind laut Baseline: EspoCRM zentral, BPMN dokumentiert · Lead-Scoring teilautomatisch. Die Schnittstellenlage ist \"EspoCRM ↔ NocoDB ↔ Grafana, n8n-Sync\". Ausgeloest wird der Prozess durch: eingehende Anfrage · proaktive Recherche · LinkedIn-Inbound.\n\n**(a) Was automatisiert wird.** n8n greift den Posteingang und den LinkedIn-Inbound ab, ein LLM extrahiert Firma, Ansprechperson, Anliegen und Quelle strukturiert und legt den Lead ueber die EspoCRM-API an. Das vorhandene teilautomatische Lead-Scoring wird direkt angestossen, der Pipeline-Status vorbelegt. Bei unklarer Zuordnung oder fehlender DSGVO-Rechtsgrundlage bleibt der Lead im Entwurf und geht an den Vertrieb.\n\n**(b) In welchen Prozessschritten.** \"Lead erfassen\", \"Lead qualifizieren\" (Notation laut Baseline: \"Anfrage / Recherche entgegennehmen → CRM-Eintrag → Quelle + DSGVO-Check\").\n\n**(c) Mit welchem Ergebnis.** Eingehende Anfragen landen ohne Abtippen als qualifizierter Lead im CRM; der Vertrieb entscheidet nur noch die unklaren Faelle.\n\n**(d) Datenfluesse.** E-Mail / LinkedIn-Inbound -> EspoCRM -> n8n. Rollen und Integrationsart je System stehen in `betroffene_systeme`.\n\n**(e) Beteiligte Akteure/Rollen.** Prozesseigner laut Baseline: P-01. Im Regelfall arbeitet das System, der Mensch entscheidet die Ausnahmen.\n\n**(f) Vorbedingungen.** EspoCRM-API-Schreibzugriff; Postfach-/Graph-Anbindung fuer den Anfrage-Eingang; DSGVO-Rechtsgrundlage fuer die automatisierte Verarbeitung von Kontaktdaten; Abgrenzung, welche Felder das LLM setzen darf und welche der Mensch.\n\n**(g) Sonderfaelle/Ausnahmen.** Fehlklassifizierte Leads verunreinigen die CRM-Pipeline -- Konfidenzschwelle, Entwurfsstatus bis zur Freigabe durch den Vertrieb. Personenbezogene Daten gehen an ein externes LLM -- PII-Grenze projektweit noch offen (#150) -- vor Umsetzung zu klaeren.\n\n**Zur Wirtschaftlichkeit -- bitte lesen.** Die Zahlen in `value{}` sind **gesetzt, nicht erhoben**: die gemeinsame Datenbank fuehrt weder Fallzahlen noch Bearbeitungszeiten (#159). Angenommen sind 180 Vorgaenge/Jahr (angenommen 15 Leads/Monat bei 10 Mitarbeitenden) zu je 25 Minuten. Belegt ist allein der Stundensatz -- und auch der ist in der Datenbank als 'geschaetzt' gefuehrt. Die Amortisation von 8.5 Monaten ist daher **keine Aussage ueber die Wirtschaftlichkeit**, sondern ein Platzhalter in der richtigen Groessenordnung. Der belastbare Stand folgt aus #166; die fehlenden Akzeptanzkriterien aus #160.",
+      "betroffene_prozessschritte": [
+        "Lead erfassen",
+        "Lead qualifizieren"
+      ],
+      "betroffene_systeme": [
+        {
+          "name": "E-Mail / LinkedIn-Inbound",
+          "rolle": "Quelle",
+          "integration": "Email"
+        },
+        {
+          "name": "EspoCRM",
+          "rolle": "Ziel",
+          "integration": "API"
+        },
+        {
+          "name": "n8n",
+          "rolle": "Quelle+Ziel",
+          "integration": "API"
+        }
+      ],
+      "manueller_aufwand_heute": "mittel",
+      "impact": "hoch",
+      "umsetzungskomplexitaet": "gering",
+      "value": {
+        "ist_kosten_eur_jahr": 5100.0,
+        "einsparung_eur_jahr": 3060.0,
+        "ersparnis_prozent": 60.0,
+        "investition_eur_richtwert": 2176.0,
+        "amortisation_monate": 8.5,
+        "value_quelle": "default",
+        "annahmen": [
+          "VORLAEUFIG -- KEINE BEWERTUNG. Diese Zahl ist gesetzt, nicht erhoben. Fallzahl und Bearbeitungszeit fuehrt die gemeinsame Datenbank nicht (Issue #159); sie sind hier angenommen, um BC3 und BC4 zu entblocken. Nicht fuer Entscheidungen, Angebote oder Gate-1-Freigaben verwenden.",
+          "GESETZT -- Fallzahl: 180 Vorgaenge/Jahr (angenommen 15 Leads/Monat bei 10 Mitarbeitenden)",
+          "GESETZT -- manuelle Zeit heute: 25 Min/Fall",
+          "GESETZT -- angenommener Einsparungsgrad: 60 %",
+          "GESETZT -- Umsetzungsaufwand: 4 PT (interne Umsetzung)",
+          "AUS DB, aber 'geschaetzt' -- Stundensatz 68 EUR/h (Kostensatz K3, rollen_kostensaetze, gueltig ab 17.08.2026)",
+          "ABGELEITET -- Tagessatz 544 EUR = 68 EUR/h x 8 h",
+          "Kein Kernprozess hat Gate 0 durchlaufen (#159) -- diese Rechnung nimmt das vorweg."
+        ]
+      },
+      "aufwand_schaetzung_pt": 4,
+      "prioritaet_score": 75.0,
+      "kategorie": "Quick Win",
+      "potenzielle_loesung": {
+        "ansatz": "n8n greift den Posteingang und den LinkedIn-Inbound ab, ein LLM extrahiert Firma, Ansprechperson, Anliegen und Quelle strukturiert und legt den Lead ueber die EspoCRM-API an. Das vorhandene teilautomatische Lead-Scoring wird direkt angestossen, der Pipeline-Status vorbelegt. Bei unklarer Zuordnung oder fehlender DSGVO-Rechtsgrundlage bleibt der Lead im Entwurf und geht an den Vertrieb.",
+        "tech_stack_empfehlung": [
+          "n8n",
+          "EspoCRM (API)",
+          "Claude (Sonnet 4.6)",
+          "PostgreSQL"
+        ],
+        "to_be_kurz": "Eingehende Anfragen landen ohne Abtippen als qualifizierter Lead im CRM; der Vertrieb entscheidet nur noch die unklaren Faelle."
+      },
+      "voraussetzungen": [
+        "EspoCRM-API-Schreibzugriff",
+        "Postfach-/Graph-Anbindung fuer den Anfrage-Eingang",
+        "DSGVO-Rechtsgrundlage fuer die automatisierte Verarbeitung von Kontaktdaten",
+        "Abgrenzung, welche Felder das LLM setzen darf und welche der Mensch"
+      ],
+      "risiken": [
+        {
+          "beschreibung": "Fehlklassifizierte Leads verunreinigen die CRM-Pipeline",
+          "wahrscheinlichkeit": "med",
+          "auswirkung": "med",
+          "gegenmassnahme": "Konfidenzschwelle, Entwurfsstatus bis zur Freigabe durch den Vertrieb"
+        },
+        {
+          "beschreibung": "Personenbezogene Daten gehen an ein externes LLM",
+          "wahrscheinlichkeit": "high",
+          "auswirkung": "high",
+          "gegenmassnahme": "PII-Grenze projektweit noch offen (#150) -- vor Umsetzung zu klaeren"
+        }
+      ]
+    }
+  ],
+  "gesamtempfehlung": {
+    "reihenfolge_potenzial_ids": [
+      "00000000-0000-4000-8000-00000000f001"
+    ],
+    "begruendung": "[VORLAEUFIG] Dieses Konzept traegt genau ein Potenzial; eine Reihenfolge innerhalb des Konzepts entfaellt. Die Reihenfolge **ueber alle drei Kernprozesse hinweg** steht in `prozesspriorisierung.json`. Grundlage der Auswahl ist der gemessene Automatisierungsgrad je Teilprozess aus dem BC0-Snapshot v3, nicht die Value-Rechnung -- diese ist vorlaeufig."
+  },
+  "gate1": {
+    "status": "pending",
+    "kommentar": "[VORLAEUFIG] Dieses Konzept darf am Gate 1 NICHT freigegeben werden. Es ist eine Uebergangslieferung an BC3 (Issue #168), damit BC3 Tickets schneiden und BC4 bauen kann. Die Value-Zahlen sind gesetzt, nicht erhoben. Zusaetzlich hat kein Kernprozess Gate 0 durchlaufen (#159). Freigabefaehig wird der Stand erst nach #166 (Value-Modell) und #160 (Akzeptanzkriterien)."
+  }
+}

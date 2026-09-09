@@ -1,0 +1,56 @@
+{
+  "priorisierung_id": "00000000-0000-4000-8000-00000000f000",
+  "schema_version": "2.0",
+  "erzeugt_am": "2026-08-30T00:00:00Z",
+  "score_formel": "**[VORLAEUFIG] Vorlaeufig.** `score = impact_gewicht(impact) * (125 - komplexitaet_gewicht(umsetzungskomplexitaet)) / 100` mit gering=25, mittel=50, hoch=75, sehr hoch=100. Bei Score-Gleichstand entscheidet die hoehere angenommene Jahreseinsparung.\n\nDie Formel ist aus dem v2-Stand uebernommen und **nicht** das Ergebnis von #166 (Value-Modell: Bandbreiten + Nutzwertanalyse). Sie bewertet ausschliesslich Impact x Komplexitaet -- die Geldbetraege gehen in den Rang nur als Tie-Break ein. Das ist Absicht: die Geldbetraege sind gesetzt, nicht erhoben, und wuerden ein Ranking sonst scheingenau machen.",
+  "eintraege": [
+    {
+      "potenzial_id": "00000000-0000-4000-8000-00000000f001",
+      "konzept_id": "00000000-0000-4000-8000-000000000002",
+      "titel": "[VORLAEUFIG] Lead-Erfassung und -Qualifizierung aus E-Mail-Anfragen ins CRM",
+      "kp_id": "KP-02",
+      "kategorie": "Quick Win",
+      "impact": "hoch",
+      "umsetzungskomplexitaet": "gering",
+      "score": 75.0,
+      "aufwand_pt": 4,
+      "einsparung_eur_jahr": 3060.0,
+      "investition_eur_richtwert": 2176.0,
+      "amortisation_monate": 8.5,
+      "bemerkung": "[VORLAEUFIG] Value gesetzt, nicht erhoben. Rang folgt dem Score (Impact x Komplexitaet); bei Gleichstand entscheidet die hoehere angenommene Einsparung. Beides vorlaeufig.",
+      "rang": 1
+    },
+    {
+      "potenzial_id": "00000000-0000-4000-8000-00000000f003",
+      "konzept_id": "00000000-0000-4000-8000-000000000004",
+      "titel": "[VORLAEUFIG] Sprint-Retrospektive und Lessons Learned automatisch verdichten",
+      "kp_id": "KP-04",
+      "kategorie": "Strategisch",
+      "impact": "mittel",
+      "umsetzungskomplexitaet": "mittel",
+      "score": 37.5,
+      "aufwand_pt": 6,
+      "einsparung_eur_jahr": 1468.8,
+      "investition_eur_richtwert": 3264.0,
+      "amortisation_monate": 26.7,
+      "bemerkung": "[VORLAEUFIG] Value gesetzt, nicht erhoben. Rang folgt dem Score (Impact x Komplexitaet); bei Gleichstand entscheidet die hoehere angenommene Einsparung. Beides vorlaeufig.",
+      "rang": 2
+    },
+    {
+      "potenzial_id": "00000000-0000-4000-8000-00000000f002",
+      "konzept_id": "00000000-0000-4000-8000-000000000003",
+      "titel": "[VORLAEUFIG] AVV- und DSGVO-Abwicklung im Onboarding medienbruchfrei machen",
+      "kp_id": "KP-03",
+      "kategorie": "Strategisch",
+      "impact": "mittel",
+      "umsetzungskomplexitaet": "mittel",
+      "score": 37.5,
+      "aufwand_pt": 5,
+      "einsparung_eur_jahr": 612.0,
+      "investition_eur_richtwert": 2720.0,
+      "amortisation_monate": 53.3,
+      "bemerkung": "[VORLAEUFIG] Value gesetzt, nicht erhoben. Rang folgt dem Score (Impact x Komplexitaet); bei Gleichstand entscheidet die hoehere angenommene Einsparung. Beides vorlaeufig.",
+      "rang": 3
+    }
+  ]
+}
