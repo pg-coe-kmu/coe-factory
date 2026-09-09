@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/pg-coe-kmu/coe-factory/contracts/bc0-to-bc2/trigger.schema.json",
+  "title": "BC0 → BC2 · Paket-Anstoß",
+  "description": "Nutzlast des Aufrufs, mit dem BC0 nach der Gate-0-Freigabe ein Paket an BC2 übergibt. Feldnamen sind BC0s eigene aus public.v_uebergabe_offen — hier wird nichts neu erfunden. Vorschlag von BC2 an BC0, keine Vorschrift (#190).",
+  "type": "object",
+  "required": ["paket_id", "company_id", "uebergeben_am", "teilprozesse"],
+  "additionalProperties": true,
+  "properties": {
+    "paket_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Die eine Paket-ID, die BC0 beim Schnüren nach Gate 0 erzeugt (gate_pakete.paket_id). Zugleich der Idempotenzschlüssel: ein zweiter Aufruf mit derselben ID wird erneut mit 202 quittiert, ohne dass ein zweites Paket entsteht."
+    },
+    "company_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Der Mandant. Pflicht, auch BC2-intern — es liegen mehrere Mandanten in derselben Datenbank, und kontext.unternehmen ist Freitext."
+    },
+    "uebergeben_am": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Zeitpunkt der Übergabe (gate_pakete.uebergeben_am), ISO 8601 mit Zeitzone. BC2 hebt den Wert roh auf. Ob er nur Protokollangabe ist oder der Stand, für den BC2 mit stand_zum() liest, ist zwischen BC0 und BC2 noch strittig (#165 gegen bc0-baseline-onboarding/app/app.py:4454) — für die Annahme des Pakets macht es keinen Unterschied."
+    },
+    "teilprozesse": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Die sub_process_id des Pakets, eine je Zeile in v_uebergabe_offen. Mindestens eine — BC0 lehnt ein leeres Paket seinerseits mit einer check_violation ab ('Nichts zu uebergeben')."
+    },
+    "anfrage_id": {
+      "type": ["string", "null"],
+      "description": "Optional. Die auslösende Anfrage (ref_anfragen). Fehlt beim Portfolio-Weg, der keine Anfrage kennt. ACHTUNG: In v_uebergabe_offen hängt anfrage_id am Teilprozess, nicht am Paket — ein Paket kann darum mehrere tragen. Trägt es genau eine, gehört sie hierher; trägt es mehrere, bleibt das Feld leer und die Zuordnung steht je Teilprozess in der Datenbank."
+    },
+    "hinweis": {
+      "type": ["string", "null"],
+      "description": "Optional. Freitext am Paket (gate_pakete.hinweis). Nicht zu verwechseln mit hinweis_an_bc2, das je Teilprozess geführt wird."
+    }
+  },
+  "examples": [
+    {
+      "paket_id": "PKT-2026-0007",
+      "company_id": "NOROAI",
+      "uebergeben_am": "2026-09-10T14:32:11+02:00",
+      "teilprozesse": ["KP-02.TP-1", "KP-02.TP-3", "KP-04.TP-2"],
+      "anfrage_id": "A-2026-01",
+      "hinweis": "Reisekosten sind noch handschriftlich, bitte gesondert ansehen."
+    },
+    {
+      "paket_id": "PKT-2026-0008",
+      "company_id": "NOROAI",
+      "uebergeben_am": "2026-09-10T16:05:00+02:00",
+      "teilprozesse": ["KP-06.TP-2"]
+    }
+  ]
+}
