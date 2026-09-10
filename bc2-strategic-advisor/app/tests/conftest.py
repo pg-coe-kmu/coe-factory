@@ -17,9 +17,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 # Protokoll, ist nichts verloren.
 TEST_TOKEN = "test-schluessel-nicht-echt"
 os.environ["BC2_TRIGGER_TOKEN"] = TEST_TOKEN
-# DATABASE_URL bleibt leer: die Tests schieben ein SpeicherEingangsbuch unter,
-# es wird nie eine Verbindung aufgebaut.
-os.environ.pop("DATABASE_URL", None)
+# DATABASE_URL bleibt leer: die Tests hier schieben ein SpeicherEingangsbuch
+# unter, es wird nie eine Verbindung aufgebaut. Ein versehentlich gesetzter Wert
+# soll nicht dazu führen, dass die Vorschleife plötzlich gegen die gemeinsame
+# Datenbank läuft.
+#
+# **Ausgenommen der Vertragstest.** `conftest.py` gilt für das ganze
+# Verzeichnis, also auch für `test_vertrag_postgres.py` — und dem hat dieses
+# `pop` die DSN unter den Füßen weggezogen. Der Test ist nie gelaufen: ohne
+# `BC2_ECHTE_DB=1` übersprungen, mit ihm an `DATABASE_URL fehlt` gescheitert.
+# Aufgefallen am 10.09.2026 beim ersten Lauf gegen die echte Datenbank (#190).
+if os.environ.get("BC2_ECHTE_DB") != "1":
+    os.environ.pop("DATABASE_URL", None)
 
 from app import erzeuge_app  # noqa: E402
 from eingang import SpeicherEingangsbuch  # noqa: E402
