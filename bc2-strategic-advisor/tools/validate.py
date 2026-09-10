@@ -11,6 +11,8 @@ PAIRS = [
     ("contracts/bc2-to-bc3/konzept.schema.json", f"{LIEFERUNG}/konzept_KP-03.json"),
     ("contracts/bc2-to-bc3/konzept.schema.json", f"{LIEFERUNG}/konzept_KP-04.json"),
     ("contracts/bc2-to-bc3/priorisierung.schema.json", f"{LIEFERUNG}/prozesspriorisierung.json"),
+    # Eingangsseite: BC1s Prozessprofil, geschnitten gegen die Zeilen vom 08.09.2026 (#184).
+    ("contracts/bc1-to-bc2/prozessprofil.schema.json", "contracts/examples/beispiel_bc1_prozessprofil.json"),
 ]
 
 ok = True

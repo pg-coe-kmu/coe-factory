@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/pg-coe-kmu/coe-factory/contracts/bc1-to-bc2/prozessprofil.schema.json",
+  "title": "BC1 → BC2 · Prozessprofil (Leseprojektion)",
+  "description": "Was BC2 aus einer Zeile bc1.prozessprofil baut, nachdem es sie über die Leseregel in lesen.sql geholt hat. Der Vertrag beschreibt NICHT die Tabelle — die gehört BC1, und ihr Schema liegt in der Datenbank (ADR-002). Er beschreibt das Objekt, über das sich BC1 und BC2 einig sein müssen: Feldnamen, Einheiten, Nullbarkeit. Feldnamen sind BC1s eigene, unübersetzt — es sind BC1s Daten, und ein umbenanntes Feld macht jeden Befund zwischen den Teams unaussprechbar. Übersetzt wird an BC2s innerer Grenze, nicht hier. Geschnitten am 10.09.2026 gegen die drei Zeilen, die BC1 am 08.09.2026 geschrieben hat (#184).",
+  "type": "object",
+  "required": [
+    "company_id",
+    "focus_step_id",
+    "profil_version",
+    "process_id",
+    "status",
+    "erhebung_id",
+    "paket_version",
+    "frequency_per_year",
+    "executions_per_run",
+    "total_duration_minutes",
+    "focus_step_duration_minutes",
+    "focus_step_duration_source",
+    "focus_step_duration_confidence_pct",
+    "profil"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "company_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Der Mandant. Kommt aus der Writer-Konfiguration von BC1, nie aus dem Interview. BC2 liest nie über Mandantengrenzen hinweg."
+    },
+    "focus_step_id": {
+      "type": "string",
+      "pattern": "^KP-[0-9]{2}\\.TP-[0-9]+$",
+      "description": "Teilprozess-ID, die Identität des Profils. Zugleich der Anker, den Simeon am 24.08.2026 zur Auflage gemacht hat: ohne sie lässt sich kein Wert einem Teilprozess zuordnen."
+    },
+    "profil_version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Vergibt ein BEFORE-INSERT-Trigger bei BC1, nicht der Writer. Es liegen mehrere Versionen je Teilprozess vor, weil status='fertig' bei BC1 final ist und BC1 deshalb nachlegt statt zu korrigieren. Welche Zeile gilt, steht in lesen.sql."
+    },
+    "process_id": {
+      "type": "string",
+      "pattern": "^KP-[0-9]{2}$",
+      "description": "Kernprozess. Von BC1 aus dem Präfix der Teilprozess-ID abgeleitet, nicht aus der Interview-Antwort — die dient nur dem Abgleich (profil.befunde.kp_tp_diskrepanz)."
+    },
+    "status": {
+      "const": "fertig",
+      "description": "In der Projektion immer 'fertig'. BC2 liest ausschließlich abgeschlossene Profile; 'in_erhebung' bedeutet, dass gerade jemand im Interview sitzt."
+    },
+    "erhebung_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "HERKUNFTSANKER, keine Stand-Garantie. BC1 speichert die Erhebung mit dem jüngsten Stand — nicht die, aus der alle aktuellen Bewertungen stammen; die Sicht v_bewertung_aktuell ist itemweise aktuell. BC2 sagt hiermit zu, die Bitkom-Bewertungen über v_bewertung_aktuell zu holen und NIE über diese ID: wer über sie lädt, sieht zu wenig (Klärpunkt K-L, bc0_lesepfade.py). Der Zeitanker für BC2s Rechnung ist uebergeben_am gegen die Historisierung, nicht dieses Feld."
+    },
+    "paket_version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Schema-Version des BC1-Fragepakets samt Kontext-Fingerabdruck, z. B. '1.1+ctx-…'. BC2 hebt sie roh auf: sie sagt, gegen welchen Fragenkatalog das Profil erhoben wurde, und ist damit die einzige Handhabe, wenn BC1 den Katalog ändert."
+    },
+    "frequency_per_year": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "description": "PROZESSDURCHLÄUFE PRO JAHR, von BC1 normalisiert (Frage D1: '30 pro Monat' → 360). BC1 sagt zu, dass dieser Wert bei status='fertig' nicht null ist; BC2 weist eine Null-Zeile trotzdem nicht ab, verliert dann aber die monetäre Aussage (#163)."
+    },
+    "executions_per_run": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "description": "FÄLLE JE PROZESSDURCHLAUF (Frage D4). KEIN MULTIPLIKATOR DER DAUER — siehe Invariante I2 im README. Der Wert ist Kontext für die Fallschwere, nicht für die Jahresminuten. Achtung: in den drei Zeilen vom 08.09.2026 ist er gleich frequency_per_year gesetzt (180/180, 260/260, 40/40); das ist mit BC1 als Eingabeartefakt der Testdaten zu klären."
+    },
+    "total_duration_minutes": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "description": "MINUTEN JE PROZESSDURCHLAUF (Frage E1: 'ein kompletter Prozessdurchlauf'), einschließlich der darin bearbeiteten executions_per_run Fälle. Jahresminuten = frequency_per_year × total_duration_minutes."
+    },
+    "focus_step_duration_minutes": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "description": "MINUTEN JE PROZESSDURCHLAUF für den Fokus-Schritt (Frage E2), dieselbe Bezugsgröße wie total_duration_minutes. Der Fokus-Schritt ist der Teilprozess aus focus_step_id."
+    },
+    "focus_step_duration_source": {
+      "type": ["string", "null"],
+      "enum": ["gemessen", "geschaetzt", "aus_system", null],
+      "description": "HERKUNFT der Zeitangabe und damit BC2s Güteachse. Simeons Belegpflicht vom 07.09.2026 ('kein Prozess ohne Dokumentation') trifft diese Achse, nicht eine Konfidenzzahl. Wie breit die Bandbreite je Herkunft wird, setzt #166 — hier wird nur die Quelle benannt."
+    },
+    "focus_step_duration_confidence_pct": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Selbsteinschätzung der Sicherheit (Frage E4), ganzzahlig. Verfeinert focus_step_duration_source, ersetzt sie nicht. Gilt AUSSCHLIESSLICH für focus_step_duration_minutes — die drei anderen Rechengrößen tragen heute keine Güteangabe."
+    },
+    "upstream_process_id": {
+      "type": ["string", "null"],
+      "pattern": "^KP-[0-9]{2}$",
+      "description": "Vorgelagerter Kernprozess, sofern die Antwort kanonisch, in der Baseline bekannt und nicht der eigene KP war; sonst null, der Freitext bleibt im Profil-JSON."
+    },
+    "downstream_process_id": {
+      "type": ["string", "null"],
+      "pattern": "^KP-[0-9]{2}$",
+      "description": "Nachgelagerter Kernprozess, gleiche Regel wie upstream_process_id."
+    },
+    "process_owner_rolle_id": {
+      "type": ["string", "null"],
+      "description": "Verweis auf mandant_rollen. In BC1s Etappe 1 IMMER NULL; die Antwort auf Frage B3 bleibt Freitext im Profil-JSON. Struktur ist abgenommen, Befüllung kommt mit BC1s Rollen-Lesepfad (Abschlussplan C1)."
+    },
+    "rollen": {
+      "type": "array",
+      "description": "Rollen am Fokus-Schritt aus bc1.profil_rollen. Die Tabelle ist strukturell abgenommen und in Etappe 1 LEER — BC2 erwartet hier heute eine leere Liste. Sie ist der Eingang für die Kapazitätsachse (fte_anteil, Option D in #172); bis sie trägt, verdrahtet BC2 diese Achse nicht.",
+      "items": {
+        "type": "object",
+        "required": ["pos"],
+        "additionalProperties": true,
+        "properties": {
+          "pos": { "type": "integer", "minimum": 1, "description": "Reihenfolge innerhalb des Profils." },
+          "rolle_id": { "type": ["string", "null"], "description": "Verweis auf mandant_rollen. Genau eine Quelle je Zeile: entweder rolle_id ODER rolle_freitext, nie beides." },
+          "rolle_freitext": { "type": ["string", "null"], "description": "Rolle als Text, wenn keine Stammdatenrolle zugeordnet werden konnte." },
+          "zeitanteil_pct": { "type": ["integer", "null"], "minimum": 0, "maximum": 100, "description": "Zeitanteil dieser Rolle am Fokus-Schritt. Erhebt heute niemand — die Frage gehört zu BC1s Etappe 2." }
+        }
+      }
+    },
+    "erstellt_am": {
+      "type": "string",
+      "description": "Anlage der Profilzeile. Postgres gibt den Zeitstempel mit Leerzeichen statt 'T' aus; BC2 nimmt beide Schreibweisen an (darum kein format: date-time)."
+    },
+    "aktualisiert_am": {
+      "type": "string",
+      "description": "Letzte Änderung der Profilzeile, in derselben Schreibweise wie erstellt_am."
+    },
+    "profil": {
+      "type": "object",
+      "description": "BC1s Profil-JSON. Verbindlich ist nur der unten benannte Ausschnitt; alles Weitere ist für BC2 Kontext und darf sich ohne Rücksprache ändern. ACHTUNG: jeder Wert unter felder.<name>.wert ist eine ZEICHENKETTE oder null — auch Zahlen und 1-bis-5-Skalen. Nur die typisierten Spalten oben tragen Zahlen.",
+      "required": ["felder"],
+      "additionalProperties": true,
+      "properties": {
+        "felder": {
+          "type": "object",
+          "description": "Alle 43 Interviewfelder mit Wert, Status und Herkunft. Nur Felder mit status='gueltig' sind in die typisierten Spalten geflossen; jeder andere Status ergab dort SQL NULL, während der Rohwert hier stehen bleibt.",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["wert", "status"],
+            "additionalProperties": true,
+            "properties": {
+              "wert": { "type": ["string", "null"] },
+              "status": { "enum": ["fehlt", "gueltig", "ungueltig", "unklar", "ungeloest"] },
+              "quelle": { "type": ["string", "null"], "description": "ID der Nachricht, aus der der Wert stammt." },
+              "grund": { "type": ["string", "null"] },
+              "kandidaten": { "type": "array", "items": { "type": "object" } }
+            }
+          },
+          "required": [
+            "documentation_status",
+            "standardization_level",
+            "data_availability_score",
+            "stability_score",
+            "focus_step_roles",
+            "focus_step_systems",
+            "focus_step_media_break",
+            "open_remarks"
+          ],
+          "properties": {
+            "documentation_status": { "$ref": "#/$defs/feld", "description": "G1, Skala 1–5: Ist der Ablauf dokumentiert? Geht in BC2s Umsetzungskomplexität ein." },
+            "standardization_level": { "$ref": "#/$defs/feld", "description": "G2, Skala 1–5: läuft der Prozess immer gleich (5) oder viele Sonderfälle (1)?" },
+            "data_availability_score": { "$ref": "#/$defs/feld", "description": "G4, Skala 1–5: liegen die nötigen Daten strukturiert und digital vor?" },
+            "stability_score": { "$ref": "#/$defs/feld", "description": "G5, Skala 1–5: wie stabil läuft der Prozess bei hoher Last?" },
+            "focus_step_roles": { "$ref": "#/$defs/feld", "description": "F1: beteiligte Rollen als FREITEXT-Liste, z. B. 'Office Management, Consultants'. Daraus eine rolle_id abzuleiten wäre geraten — BC2 tut es nicht." },
+            "focus_step_systems": { "$ref": "#/$defs/feld", "description": "F2: genutzte IT-Systeme als S-NN-Kennungen aus den Systemen des Mandanten." },
+            "focus_step_media_break": { "$ref": "#/$defs/feld", "description": "F3: muss zwischen Systemen gewechselt oder manuell übertragen werden? Die einzige Medienbruch-Angabe, der BC2 trauen kann — v_gate_prozessstand.tp_mit_medienbruch zählt nur nicht-leeren Freitext (#163)." },
+            "open_remarks": { "$ref": "#/$defs/feld", "description": "Freitext am Ende des Interviews. Trägt heute die Testdaten-Kennzeichnung ('Testdaten … nicht erhoben'). BC2 lehnt deshalb nicht ab, sondern reicht die Kennzeichnung als Herkunft an den mitgeführten Eingangswert durch (#187)." }
+          }
+        },
+        "vollstaendigkeit": { "type": ["number", "null"], "description": "Anteil erfasster Pflichtfelder, von BC1 berechnet." },
+        "ungeloeste_felder": { "type": "array", "items": { "type": "string" }, "description": "Felder, die das Interview nicht klären konnte." },
+        "schema_version": { "type": ["string", "null"], "description": "Wie paket_version, hier innerhalb des Profil-JSON." }
+      }
+    }
+  },
+  "$defs": {
+    "feld": {
+      "type": "object",
+      "required": ["wert", "status"],
+      "additionalProperties": true,
+      "properties": {
+        "wert": { "type": ["string", "null"] },
+        "status": { "enum": ["fehlt", "gueltig", "ungueltig", "unklar", "ungeloest"] },
+        "quelle": { "type": ["string", "null"] },
+        "grund": { "type": ["string", "null"] },
+        "kandidaten": { "type": "array", "items": { "type": "object" } }
+      }
+    }
+  }
+}
