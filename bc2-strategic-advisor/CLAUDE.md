@@ -89,8 +89,18 @@ Der Vertrag verlor beim Sprung v1→v2 die Felder `akzeptanzkriterien_geschaeftl
   damit sie reproduzierbar und testbar bleiben.
 - **Jede Annahme reist mit dem Ergebnis.** Stundensätze sind `geschaetzt`, Aufwandsgrößen fehlen
   teils ganz — die Ausgabe macht das sichtbar, statt Genauigkeit vorzutäuschen.
-- **Die Bitkom-Skala ist nicht linear** (1 = 0 %, 2 = >0–40 %, 3 = >40–50 %, 4 = >50–95 %, 5 = >95 %).
-  Der Sprung 3→4 ist der größte im Modell; eine lineare Übersetzung in Nutzen rechnet falsch.
+- **Es gilt die Checklisten-Skala** — `1 = 0–10 %` · `2 = >10–40 %` · `3 = >40–60 %` ·
+  `4 = >60–90 %` · `5 = >90 %`. Von BC0 am 10.09.2026 an **allen 24 Bewertungsblättern zu
+  KP-01…KP-04** nachgeprüft: die Bewerter hatten diese Kopfzeile vor sich, die Bänder des
+  Leitfadens stehen in keinem Blatt. Erhoben und gerechnet wird damit auf derselben Skala.
+  *(Korrigiert am 10.09.2026, [#171](https://github.com/pg-coe-kmu/coe-factory/issues/171). Die
+  Vorgängerfassung führte die **Leitfaden**-Bänder als Invariante — 1 = 0 %, 2 = >0–40 %,
+  3 = >40–50 %, 4 = >50–95 %, 5 = >95 % — und damit die falschen Grenzen.)*
+  **Achtung, die alte Merkregel gilt nicht mehr:** dort war der Sprung 3→4 der größte im Modell.
+  Bei den Checklisten-Bändern liegen die Bandmitten bei 5 / 25 / 50 / 75 / 95 %, also nahezu
+  gleichmäßig. Was daraus für die Übersetzung in Nutzen folgt, entscheidet
+  [#166](https://github.com/pg-coe-kmu/coe-factory/issues/166) — hier steht nur die Skala,
+  nicht die Rechenregel.
 
 ## Stack & Sprache
 
