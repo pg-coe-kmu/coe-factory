@@ -7,7 +7,10 @@ hier, was daran hing.
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -74,7 +77,7 @@ def test_zweiter_anstoss_ueberschreibt_nichts(client, kopf, paket, buch):
 # ------------------------------------------------------------ Zusage: 400/401
 
 
-@pytest.mark.parametrize("fehlend", ["paket_id", "company_id", "uebergeben_am", "teilprozesse"])
+@pytest.mark.parametrize("fehlend", ["paket_id", "company_id", "uebergeben_am"])
 def test_fehlendes_pflichtfeld_gibt_400_mit_klartext(client, kopf, paket, fehlend):
     del paket[fehlend]
     a = client.post("/api/bc0/uebergabe", json=paket, headers=kopf)
@@ -84,11 +87,28 @@ def test_fehlendes_pflichtfeld_gibt_400_mit_klartext(client, kopf, paket, fehlen
     assert fehlend in a.json()["fehler"]
 
 
-def test_leere_teilprozessliste_gibt_400(client, kopf, paket):
+def test_fehlende_teilprozesse_sind_kein_fehler(client, kopf, paket):
+    """BC0 schickt den Zuschnitt nicht mit — und muss es auch nicht.
+
+    Die Liste steht in ``v_uebergabe_offen`` und wird über die ``paket_id`` von
+    dort gelesen. Sie in der Nachricht zu verlangen hiesse, fremden Zustand zu
+    doppeln (ADR-003 Regel 4). Vor dem 10.09.2026 war sie Pflicht — daran waere
+    BC0s erster echter Ruf mit ``400`` gescheitert.
+    """
+    del paket["teilprozesse"]
+    a = client.post("/api/bc0/uebergabe", json=paket, headers=kopf)
+    assert a.status_code == 202
+
+
+def test_leere_teilprozessliste_ist_wie_keine(client, kopf, paket):
+    """Eine leere Liste trägt keine Angabe — und wird darum nicht abgewiesen.
+
+    Ein leeres Paket kann BC0 ohnehin nicht schnüren, das verhindert dort eine
+    ``check_violation``. Hier deshalb kein zweiter Wächter.
+    """
     paket["teilprozesse"] = []
     a = client.post("/api/bc0/uebergabe", json=paket, headers=kopf)
-    assert a.status_code == 400
-    assert "teilprozesse" in a.json()["fehler"]
+    assert a.status_code == 202
 
 
 def test_unbrauchbarer_zeitstempel_gibt_400(client, kopf, paket):
@@ -224,6 +244,143 @@ def test_bereitschaft_meldet_die_datenbank_nur_mit_schluessel(client, kopf, buch
     assert client.get("/api/intern/bereit", headers=kopf).status_code == 200
     buch.antwortet = False
     assert client.get("/api/intern/bereit", headers=kopf).status_code == 503
+
+
+# ------------------------------------------------- BC0s Ruf, wie er ihn baut
+#
+# Nachgezogen am 10.09.2026 an BC0s Commit 9ddda89 („Ruf an BC2"). Gegen den
+# Stand davor waere jeder dieser Rufe gescheitert: 401 mangels Bearer, 400
+# mangels teilprozesse, 400 am Postgres-Zeitstempel. Darum stehen sie hier.
+
+
+def _bc0_ruf(nutzlast: dict, geheimnis: str, stempel: int | None = None):
+    """Baut den Ruf **genau** wie BC0 (``bc0-.../app.py:4366-4378``).
+
+    Kompaktes JSON mit sortierten Schlüsseln, Signatur über
+    ``stempel + "." + rumpf``. Die Bytes gehen so über die Leitung — wer sie
+    neu serialisiert, bekommt eine andere Signatur.
+    """
+    rumpf = json.dumps(nutzlast, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    ts = str(int(time.time()) if stempel is None else stempel)
+    unterschrift = hmac.new(
+        geheimnis.encode("utf-8"), ts.encode("utf-8") + b"." + rumpf, hashlib.sha256
+    ).hexdigest()
+    return rumpf, {
+        "Content-Type": "application/json",
+        "User-Agent": "BC0/3.1",
+        "X-BC0-Timestamp": ts,
+        "X-BC0-Signature": "sha256=" + unterschrift,
+    }
+
+
+@pytest.fixture
+def bc0_nutzlast() -> dict:
+    """Was BC0 wirklich schickt: vier Felder, keine Teilprozesse.
+
+    ``uebergeben_am`` in Postgres-Schreibweise — Leerzeichen statt ``T``,
+    zweistelliger Zonenversatz. BC0 reicht ``uebergeben_am::text`` durch.
+    """
+    return {
+        "ereignis": "paket_uebergeben",
+        "company_id": "7c2d5ee9-2a9a-5990-810f-502ea2b2012d",
+        "paket_id": "b1f4c0de-5a2e-4f77-9a31-8c6d1e0b7a44",
+        "uebergeben_am": "2026-09-10 14:32:11.123456+02",
+    }
+
+
+def test_bc0s_echter_ruf_wird_angenommen(client, token, bc0_nutzlast, buch):
+    """Der Ruf, den BC0 heute baut — Signatur, nur Kennungen, Postgres-Stempel."""
+    rumpf, kopf = _bc0_ruf(bc0_nutzlast, token)
+    a = client.post("/api/bc0/uebergabe", content=rumpf, headers=kopf)
+
+    assert a.status_code == 202, a.text
+    assert a.json()["status"] == "angenommen"
+    abgelegt = buch.abgelegt[bc0_nutzlast["paket_id"]]
+    # Roh aufgehoben, samt ereignis — das Feld kennt der Vertrag, ausgewertet
+    # wird es nicht.
+    assert abgelegt.nutzlast == bc0_nutzlast
+    assert abgelegt.uebergeben_am.utcoffset().total_seconds() == 2 * 3600
+
+
+def test_bc0s_doppelanstoss_bleibt_harmlos(client, token, bc0_nutzlast):
+    for erwartet in ("angenommen", "bereits_angenommen"):
+        rumpf, kopf = _bc0_ruf(bc0_nutzlast, token)
+        a = client.post("/api/bc0/uebergabe", content=rumpf, headers=kopf)
+        assert a.status_code == 202
+        assert a.json()["status"] == erwartet
+
+
+def test_veraenderter_rumpf_bricht_die_signatur(client, token, bc0_nutzlast):
+    """Genau wofür die Signatur da ist: der Rumpf ist mitgeprüft."""
+    rumpf, kopf = _bc0_ruf(bc0_nutzlast, token)
+    verbogen = rumpf.replace(b"paket_uebergeben", b"paket_zurueckgezogen")
+    assert verbogen != rumpf
+
+    a = client.post("/api/bc0/uebergabe", content=verbogen, headers=kopf)
+    assert a.status_code == 401
+
+
+def test_signatur_mit_falschem_geheimnis_gibt_401(client, bc0_nutzlast):
+    rumpf, kopf = _bc0_ruf(bc0_nutzlast, "ein-anderes-geheimnis")
+    a = client.post("/api/bc0/uebergabe", content=rumpf, headers=kopf)
+    assert a.status_code == 401
+
+
+def test_alter_ruf_gilt_nicht(client, token, bc0_nutzlast):
+    """Ein mitgeschnittener Ruf soll sich nicht beliebig lange wiederholen lassen."""
+    rumpf, kopf = _bc0_ruf(bc0_nutzlast, token, stempel=int(time.time()) - 3600)
+    a = client.post("/api/bc0/uebergabe", content=rumpf, headers=kopf)
+    assert a.status_code == 401
+
+
+def test_signatur_ohne_zeitstempel_gilt_nicht(client, token, bc0_nutzlast):
+    rumpf, kopf = _bc0_ruf(bc0_nutzlast, token)
+    del kopf["X-BC0-Timestamp"]
+    a = client.post("/api/bc0/uebergabe", content=rumpf, headers=kopf)
+    assert a.status_code == 401
+
+
+def test_ohne_signatur_wird_nichts_abgelegt(client, bc0_nutzlast, buch):
+    rumpf = json.dumps(bc0_nutzlast).encode("utf-8")
+    a = client.post(
+        "/api/bc0/uebergabe", content=rumpf, headers={"Content-Type": "application/json"}
+    )
+    assert a.status_code == 401
+    assert buch.abgelegt == {}
+
+
+# ----------------------------------------------------- Postgres-Zeitstempel
+
+
+@pytest.mark.parametrize(
+    "roh,erwarteter_versatz_h",
+    [
+        ("2026-09-10 14:32:11.123456+02", 2),   # so schickt BC0 es
+        ("2026-09-10 14:32:11+02", 2),          # ohne Bruchsekunden
+        ("2026-09-10 14:32:11.12+02", 2),       # gekuerzte Bruchsekunden
+        ("2026-09-10 14:32:11+0200", 2),        # Versatz ohne Doppelpunkt
+        ("2026-09-10T14:32:11+02:00", 2),       # RFC 3339, unveraendert gueltig
+        ("2026-09-10T14:32:11Z", 0),            # Zulu
+        ("2026-09-10 12:32:11+00", 0),          # UTC zweistellig
+    ],
+)
+def test_zeitstempel_schreibweisen(roh, erwarteter_versatz_h):
+    """Was Postgres ausgibt, muss BC2 lesen — unabhängig von der Python-Version.
+
+    ``fromisoformat`` nimmt Leerzeichen und zweistelligen Versatz erst ab 3.11.
+    Der Container läuft auf 3.12, die Prüfung hier auf dem, was gerade da ist —
+    darum wird ausdrücklich normalisiert statt auf Nachsicht gehofft.
+    """
+    from app import iso_normalisieren
+
+    gelesen = datetime.fromisoformat(iso_normalisieren(roh))
+    assert gelesen.utcoffset().total_seconds() == erwarteter_versatz_h * 3600
+
+
+def test_postgres_zeitstempel_kommt_durch_den_endpunkt(client, kopf, paket):
+    paket["uebergeben_am"] = "2026-09-10 14:32:11.123456+02"
+    a = client.post("/api/bc0/uebergabe", json=paket, headers=kopf)
+    assert a.status_code == 202, a.text
 
 
 # --------------------------------------------------- Vertrag und Wirklichkeit
