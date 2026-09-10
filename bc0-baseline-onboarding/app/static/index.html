@@ -2466,6 +2466,18 @@ var G0_ZUSTAND_TEXT={entscheiden:'entscheidungsreif', bc0_pflege:'BC0 ist am Zug
                      wartet_bc1:'wartet auf BC1', entschieden:'entschieden'};
 
 async function renderG0(){
+  /* v3.0: Bevor der Bogen gezeichnet wird, ziehen wir die Anfragen nach, deren
+     BC1-Profile inzwischen fertig sind — sie gehen dann von selbst auf
+     `am_gate`. Vorher setzte diesen Status niemand: er stand seit v2.2 in der
+     Wertemenge, und keine Zeile Code schrieb ihn (Befund 07.09.2026). Damit
+     muss BC1 ihn auch nicht selbst setzen (Richards Frage vom 03.09.).
+     Der Aufruf steht bewusst hier und nicht im GET der Anfrageliste: ein
+     Lesevorgang soll nichts schreiben. Schlaegt er fehl — kein PostgreSQL,
+     `bc1.prozessprofil` fehlt noch, keine Rechte —, wird der Bogen trotzdem
+     gezeichnet. Ein nicht nachgezogener Status ist ein Hinweis, kein Grund,
+     dem Freigebenden die Seite zu verweigern. */
+  try{ await api('/api/companies/'+cur.company.id+'/anfragen/gate_nachziehen','POST',{}); }
+  catch(e){ }
   G0 = await api('/api/companies/'+cur.company.id+'/gate');
   G0_ANFRAGEN = (await api('/api/companies/'+cur.company.id+'/anfragen')).anfragen;
   G0_BOGEN = null; zeichneG0Liste(); show('g0');

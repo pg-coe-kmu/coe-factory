@@ -38,6 +38,7 @@ Start:  pip install -r requirements.txt
         Browser: http://localhost:8000
 """
 import sqlite3, os, datetime, json, uuid, re, urllib.request, urllib.error, hashlib
+import time, hmac
 import logging
 
 HERE = os.path.dirname(__file__)
@@ -486,6 +487,11 @@ CREATE TABLE IF NOT EXISTS ref_anfragen (
   erhofftes_ziel   TEXT,
   ausloeser        TEXT,
   umfang_geschaetzt TEXT,
+  -- v3.0: das Konto, das die Maske abgeschickt hat. Hier ohne Fremdschluessel,
+  -- weil app_benutzer zu diesem Zeitpunkt noch nicht steht; schema_v3.0 setzt
+  -- ihn nach. Gleiche Luecke wie bei v2.1-v2.3 oben: frische Installation soll
+  -- dieselbe Tabelle bekommen wie eine gewachsene.
+  angelegt_von     TEXT,
   PRIMARY KEY (company_id, anfrage_id),
   -- Ohne Prozess kein FORTSCHRITT (v2.3). Entstehen darf die Anfrage ohne.
   CHECK (process_id IS NOT NULL OR status = 'eingegangen'),
@@ -580,6 +586,7 @@ CREATE TABLE IF NOT EXISTS ref_anfragen(
   process_id TEXT, sub_process_id TEXT, zuordnung_quelle TEXT,
   status TEXT NOT NULL DEFAULT 'eingegangen', status_seit TEXT,
   erhofftes_ziel TEXT, ausloeser TEXT, umfang_geschaetzt TEXT,
+  angelegt_von TEXT,                                   -- v3.0
   PRIMARY KEY(company_id, anfrage_id),
   CHECK (process_id IS NOT NULL OR status = 'eingegangen'),
   CHECK ((process_id IS NULL) = (zuordnung_quelle IS NULL)));
@@ -4300,6 +4307,90 @@ def _db_fehler_lesbar(e):
     return HTTPException(400, text.split("\n")[0][:400])
 
 
+# ---------------------------------------------------------------------------
+# Der Ruf an BC2 (Beschluss Projektmeeting 07.09.2026)
+#
+# "REST-API fuer die BC2-Aktivierung, JSON-IDs statt Datei-Check." Beim
+# Schnueren des Pakets rufen wir BC2 und uebergeben NUR die Kennungen —
+# company_id, paket_id, uebergeben_am. Die Daten holt er sich damit selbst.
+#
+# Warum nicht die Daten im Ruf: Eine Nachricht ist nicht wiederholbar lesbar,
+# ein Zustand schon. Die Nachricht ist der Zettel mit der Nummer, nicht der
+# Inhalt — die Datenbank bleibt alleinige Quelle (ADR-003 Regel 4). Und
+# v_uebergabe_offen bleibt die Rueckfallebene: **ein verpasster Ruf ist kein
+# verlorenes Paket.**
+#
+# Zieladresse und Geheimnis stehen in der .env, nicht in der Datenbank — ein
+# Geheimnis gehoert nicht in eine Tabelle, die vier Kontexte lesen duerfen.
+BC2_HOOK_URL    = os.environ.get("BC2_HOOK_URL", "").strip()
+BC2_HOOK_SECRET = os.environ.get("BC2_HOOK_SECRET", "").strip()
+BC2_HOOK_TIMEOUT = float(os.environ.get("BC2_HOOK_TIMEOUT", "5"))
+
+
+def _zustellung_merken(cid, paket_id, ergebnis, http_code=None, meldung=None, versuch=1):
+    """Schreibt einen Versuch ins Protokoll. Append-only, wie am Gate.
+
+    Bewusst mit eigener Verbindung und eigenem Commit: Das Protokoll haengt
+    nicht an der Transaktion, die das Paket geschnuert hat — die ist zu
+    diesem Zeitpunkt laengst abgeschlossen.
+    """
+    if not PG:
+        return
+    c = db()
+    try:
+        c.execute("INSERT INTO bc_zustellungen(company_id,paket_id,ziel_bc,ziel_url,"
+                  "versuch,ergebnis,http_code,meldung) VALUES(?,?,?,?,?,?,?,?)",
+                  (cid, paket_id, "bc2", BC2_HOOK_URL or None, versuch, ergebnis,
+                   http_code, (meldung or None) and str(meldung)[:400]))
+        c.commit()
+    except Exception as e:                                   # noqa: BLE001
+        LOG.warning("Zustellprotokoll nicht geschrieben: %s", e)
+    finally:
+        try: c.close()
+        except Exception: pass
+
+
+def _bc2_rufen(cid, paket_id, uebergeben_am, versuch=1):
+    """Ruft BC2 mit den Kennungen. Gibt (ergebnis, http_code, meldung) zurueck.
+
+    Wirft nie. Ein fehlgeschlagener Ruf ist ein Protokolleintrag, kein Fehler
+    der Uebergabe: Das Paket steht in der Datenbank, BC2 findet es auch ohne
+    uns ueber v_uebergabe_offen.
+    """
+    if not BC2_HOOK_URL:
+        _zustellung_merken(cid, paket_id, "kein_ziel",
+                           meldung="BC2_HOOK_URL ist nicht gesetzt — es wurde nicht gerufen.",
+                           versuch=versuch)
+        return ("kein_ziel", None, "keine Zieladresse hinterlegt")
+
+    rumpf = json.dumps({"ereignis": "paket_uebergeben", "company_id": str(cid),
+                        "paket_id": str(paket_id), "uebergeben_am": str(uebergeben_am)},
+                       separators=(",", ":"), sort_keys=True).encode("utf-8")
+    kopf = {"Content-Type": "application/json", "User-Agent": "BC0/3.1"}
+    if BC2_HOOK_SECRET:
+        # Damit BC2 pruefen kann, dass der Ruf von uns kommt. Der Zeitstempel
+        # geht in die Signatur ein, sonst liesse sich ein alter Ruf wiederholen.
+        stempel = str(int(time.time()))
+        unterschrift = hmac.new(BC2_HOOK_SECRET.encode("utf-8"),
+                                stempel.encode("utf-8") + b"." + rumpf,
+                                hashlib.sha256).hexdigest()
+        kopf["X-BC0-Timestamp"] = stempel
+        kopf["X-BC0-Signature"] = "sha256=" + unterschrift
+
+    try:
+        anfrage = urllib.request.Request(BC2_HOOK_URL, data=rumpf, headers=kopf, method="POST")
+        with urllib.request.urlopen(anfrage, timeout=BC2_HOOK_TIMEOUT) as antwort:
+            code = antwort.getcode()
+        _zustellung_merken(cid, paket_id, "zugestellt", code, None, versuch)
+        return ("zugestellt", code, None)
+    except urllib.error.HTTPError as e:
+        _zustellung_merken(cid, paket_id, "fehler", e.code, str(e.reason), versuch)
+        return ("fehler", e.code, str(e.reason))
+    except Exception as e:                                   # noqa: BLE001
+        _zustellung_merken(cid, paket_id, "fehler", None, str(e), versuch)
+        return ("fehler", None, str(e))
+
+
 @app.get("/api/companies/{cid}/uebergabe")
 def uebergabe_lesen(cid: str, benutzer: Benutzer = Depends(admin)):
     """Vorschau und Bestand: Was wuerde ein Paket enthalten, welche Pakete gibt es.
@@ -4343,8 +4434,25 @@ def uebergabe_lesen(cid: str, benutzer: Benutzer = Depends(admin)):
         a["vollstaendig"] = bool(a["vollstaendig"]); a["uebergabefaehig"] = bool(a["uebergabefaehig"])
     # Portfolio-Kandidaten: freigegeben, in keinem Paket, ohne Anfrage.
     portfolio = [k for k in kandidaten if not k["anfrage_id"]]
+    zustellung = {}                                            # v3.1
+    if PG:
+        c2 = db()
+        try:
+            for r in c2.execute(
+                    "SELECT paket_id::text AS paket_id, versuche, letztes_ergebnis, "
+                    "letzte_meldung, zuletzt_am::text AS zuletzt_am "
+                    "FROM v_zustellung_offen WHERE " + W_CO, (cid,)).fetchall():
+                zustellung[r["paket_id"]] = {"offen": True, "versuche": int(r["versuche"]),
+                                             "letztes_ergebnis": r["letztes_ergebnis"],
+                                             "letzte_meldung": r["letzte_meldung"],
+                                             "zuletzt_am": r["zuletzt_am"]}
+        finally:
+            c2.close()
+    for p in pakete.values():
+        p["zustellung"] = zustellung.get(p["paket_id"], {"offen": False})
     return {"anfragen": anfragen, "kandidaten": kandidaten, "portfolio": portfolio,
-            "pakete": list(pakete.values())}
+            "pakete": list(pakete.values()),
+            "zustellung_offen": len(zustellung)}
 
 
 @app.post("/api/companies/{cid}/uebergabe")
@@ -4380,10 +4488,57 @@ async def uebergabe_schnueren(cid: str, req: Request, benutzer: Benutzer = Depen
             c.close()
             raise _db_fehler_lesbar(e)
         c.commit()
+        stand = c.execute("SELECT uebergeben_am::text AS am FROM gate_pakete "
+                          "WHERE " + W_CO + " AND paket_id=?::uuid",
+                          (cid, paket)).fetchone()
+        uebergeben_am = stand["am"] if stand else None
     finally:
         try: c.close()
         except Exception: pass
-    return {"ok": True, "paket_id": paket}
+    # v3.1: BC2 rufen — NACH dem COMMIT. Ein Paket, das in der Datenbank steht,
+    # ist uebergeben, auch wenn der Ruf scheitert; der Ruf darf die Uebergabe
+    # nicht umwerfen. Was schiefging, steht in bc_zustellungen.
+    ergebnis, code, meldung = _bc2_rufen(cid, paket, uebergeben_am)
+    return {"ok": True, "paket_id": paket,
+            "zustellung": {"ergebnis": ergebnis, "http_code": code, "meldung": meldung}}
+
+
+@app.post("/api/companies/{cid}/uebergabe/nachliefern")
+def uebergabe_nachliefern(cid: str, benutzer: Benutzer = Depends(admin)):
+    """Wiederholt die Rufe an BC2, die noch nicht angekommen sind.
+
+    **Wofuer.** Ein Ruf kann scheitern — BC2 ist neu gestartet, das Netz war
+    weg, die Adresse war noch nicht hinterlegt. Dann steht das Paket
+    weiterhin in ``v_uebergabe_offen``; verloren ist nichts. Aber jemand muss
+    es noch einmal versuchen, und das soll nicht von Hand geschehen.
+
+    **Was hier NICHT passiert:** ein Dauerlauf im Hintergrund. Der Aufruf ist
+    eine Handlung — vom Freigabe-Reiter oder von einem Zeitplan. Alles andere
+    braeuchte einen zweiten Betriebsmodus, den wir fuer eine Handvoll Pakete
+    nicht aufmachen.
+
+    Returns:
+        Je offenem Paket das Ergebnis des neuen Versuchs.
+    """
+    pruefe_mandant(benutzer, cid)
+    _nur_pg("Das Nachliefern an BC2")
+    c = db()
+    try:
+        _gate_mandant(c, cid)
+        offen = [dict(r) for r in c.execute(
+            "SELECT paket_id::text AS paket_id, uebergeben_am::text AS uebergeben_am, versuche "
+            "FROM v_zustellung_offen WHERE " + W_CO + " ORDER BY uebergeben_am", (cid,)).fetchall()]
+    finally:
+        c.close()
+    ergebnisse = []
+    for p in offen:
+        erg, code, meldung = _bc2_rufen(cid, p["paket_id"], p["uebergeben_am"],
+                                        versuch=int(p["versuche"]) + 1)
+        ergebnisse.append({"paket_id": p["paket_id"], "versuch": int(p["versuche"]) + 1,
+                           "ergebnis": erg, "http_code": code, "meldung": meldung})
+    return {"offen": len(offen),
+            "zugestellt": [e["paket_id"] for e in ergebnisse if e["ergebnis"] == "zugestellt"],
+            "ergebnisse": ergebnisse}
 
 
 @app.post("/api/companies/{cid}/gate/{sub_process_id}/widerrufen")
@@ -4590,10 +4745,24 @@ def anfragen(cid: str, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
             " FROM ref_anfragen WHERE " + W_CO +
             " ORDER BY anfrage_id DESC", (cid,)).fetchall()]
         bezuege = _bezuege_lesen(c, cid)                       # v2.7
+        steller = {}                                           # v3.0
+        if PG:
+            # v_anfrage_steller loest auf, wer hinter der Anfrage steht:
+            # ausdruecklich gesetzte steller_id, sonst die Person des Kontos.
+            # `herkunft` sagt, worauf die P-ID beruht — geraten wird nichts.
+            for r in c.execute(
+                    "SELECT anfrage_id, person_id, herkunft, person_name, person_funktion"
+                    " FROM v_anfrage_steller WHERE " + W_CO, (cid,)).fetchall():
+                steller[r["anfrage_id"]] = {
+                    "person_id": r["person_id"], "herkunft": r["herkunft"],
+                    "name": r["person_name"], "funktion": r["person_funktion"]}
     finally:
         c.close()
     for z in zeilen:
         z["bezuege"] = bezuege.get(z["anfrage_id"], [])
+        z["steller"] = steller.get(z["anfrage_id"],
+                                   {"person_id": None, "herkunft": "unbekannt",
+                                    "name": None, "funktion": None})
     return {"anfragen": zeilen}
 
 
@@ -4680,11 +4849,16 @@ async def anfrage_anlegen(cid: str, req: Request, benutzer: Benutzer = Depends(a
             raise HTTPException(400, "Fuer %d sind bereits 99 Anfragen vergeben." % jahr)
         anfrage_id = "A-%04d-%02d" % (jahr, naechste)
         eingang_am = (b.get("eingang_am") or "").strip()
+        # v3.0: Wer die Maske abgeschickt hat, steht jetzt in der Zeile. Bis
+        # hierher wurde die Anmeldung geprueft und dann vergessen — die Anfrage
+        # trug ihren Absender nicht. `steller_id` bleibt daneben: sie sagt, WER
+        # GEMEINT ist (auch wenn ein Dritter die Maske bedient hat).
         c.execute("INSERT INTO ref_anfragen(company_id,anfrage_id,originaltext,eingang_am,"
                   "eingang_weg,steller_id,hinweis,angelegt_am,"
                   "process_id,sub_process_id,zuordnung_quelle,"
-                  "status,status_seit,erhofftes_ziel,ausloeser,umfang_geschaetzt) "
-                  "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                  "status,status_seit,erhofftes_ziel,ausloeser,umfang_geschaetzt,"
+                  "angelegt_von) "
+                  "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                   (cid, anfrage_id, originaltext, eingang_am or _heute(),
                    (b.get("eingang_weg") or "").strip() or "pwa", steller_id,
                    (b.get("hinweis") or "").strip() or None, _jetzt(),
@@ -4692,7 +4866,8 @@ async def anfrage_anlegen(cid: str, req: Request, benutzer: Benutzer = Depends(a
                    "eingegangen", eingang_am or _heute(),
                    (b.get("erhofftes_ziel") or "").strip() or None,
                    (b.get("ausloeser") or "").strip() or None,
-                   (b.get("umfang_geschaetzt") or "").strip() or None))
+                   (b.get("umfang_geschaetzt") or "").strip() or None,
+                   benutzer.benutzer_id))
         if process_id:                                          # v2.7: Hauptbezug n:m
             c.execute("INSERT INTO anfrage_prozesse(company_id,anfrage_id,process_id,sub_process_id,"
                       "rolle,zuordnung_quelle,angelegt_am) VALUES(?,?,?,?,?,?,?)",
@@ -5127,6 +5302,46 @@ async def anfrage_zuordnen(cid: str, anfrage_id: str, req: Request,
     return {"ok": True, "anfrage_id": anfrage_id, "process_id": process_id,
             "sub_process_id": sub_process_id, "zuordnung_quelle": quelle,
             "status": zeile["status"] if zeile else None}
+
+
+@app.post("/api/companies/{cid}/anfragen/gate_nachziehen")
+def anfrage_gate_nachziehen(cid: str, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+    """Zieht Anfragen auf ``am_gate`` nach, deren BC1-Profile fertig sind.
+
+    **Wofuer.** ``am_gate`` stand seit v2.2 in der Wertemenge — und **keine
+    Zeile Code setzte ihn.** Befund vom 07.09.2026. Simeon: *„Wenn er
+    abgeschlossen hat, sollte es automatisch ins Gate 0 zur Freigabe HitL
+    gehen."* Damit erledigt sich zugleich Richards Frage vom 03.09., ob BC1
+    den Status selbst setzen darf: Er muss nicht.
+
+    **Die Regel** steht in der Datenbank, nicht hier: ``am_gate`` erst, wenn
+    **alle** Teilprozesse der Anfrage ein fertiges BC1-Profil tragen —
+    dieselbe Vollstaendigkeitsregel wie bei der Uebergabe (v2.7). Ein
+    Gate-Bogen auf einem Ausschnitt waere derselbe Fehler wie ein ROI auf
+    einem Ausschnitt. Kein Ruecksprung: nur aus ``zugeordnet`` und
+    ``im_interview`` heraus.
+
+    Solange BC1 nicht eingespielt hat, gibt es ``bc1.prozessprofil`` nicht;
+    die Funktion laeuft dann, tut nichts und sagt es im Hinweis.
+
+    Returns:
+        Je betrachteter Anfrage: alter Status, neuer Status, Hinweis.
+    """
+    pruefe_mandant(benutzer, cid)
+    _nur_pg("Das Nachziehen auf am_gate")
+    c = db()
+    try:
+        _gate_mandant(c, cid)
+        zeilen = [dict(r) for r in c.execute(
+            "SELECT anfrage_id, status_alt, status_neu, hinweis"
+            " FROM anfrage_am_gate_nachziehen(?) ORDER BY anfrage_id", (cid,)).fetchall()]
+        c.commit()
+    finally:
+        c.close()
+    return {"geprueft": len(zeilen),
+            "gesetzt": [z["anfrage_id"] for z in zeilen if z["status_neu"] == "am_gate"
+                        and z["status_alt"] != "am_gate"],
+            "anfragen": zeilen}
 
 
 @app.put("/api/companies/{cid}/anfragen/{anfrage_id}/status")

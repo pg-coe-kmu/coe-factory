@@ -14,7 +14,7 @@
    test_cache_name_haengt_an_der_huelle schlaegt dann fehl und zwingt zu der
    Entscheidung, die am 01.09.2026 unterblieben ist: CACHE erhoehen — ja oder nein?
    Am 02.09.2026 nachgeruestet, weil kein Test den vergessenen Namenswechsel sah. */
-const CACHE = "bc0-pwa-v11";  /* 04.09.2026, dritte Aenderung: Stand des Berichts und
+const CACHE = "bc0-pwa-v12";  /* 04.09.2026, dritte Aenderung: Stand des Berichts und
                                  Vorher/Nachher im Reifegradbericht (v2.9). Davor v10:
                                  04.09.2026, zweite Aenderung: Block "Erhebung" im Self-Rating
                                  (Stand, abschliessen, neu — v2.8 Nacherhebung). Davor v9:
