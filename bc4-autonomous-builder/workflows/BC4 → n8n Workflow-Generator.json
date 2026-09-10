@@ -1,0 +1,887 @@
+{
+  "name": "44. BC4 → n8n Workflow-Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "# BC4 → n8n Workflow-Generator (Google-Drive-MVP)\n\n**Quellordner:** `1DVdSThu7wKsGBFqKP4eXzZkRblDtLjl7`\n\n1. In **Google Drive – Tickets suchen**, **Google Drive – neueste Datei laden** und **Drive Trigger – neues Ticket** passende Google-Drive-Credentials auswählen. Das verbundene Konto benötigt Leserechte für den Quellordner.\n2. In den drei Claude-Modell-Nodes dieselben **Anthropic API Credentials** auswählen.\n3. Für einen Test **Generator manuell starten** ausführen. Nach Aktivierung startet der Workflow außerdem automatisch, wenn im Ordner eine neue Datei angelegt wird.\n4. Der Generator berücksichtigt ausschließlich JSON-Dateien und wählt bei mehreren Treffern immer die Datei mit dem neuesten `modifiedTime`; fehlt dieses Feld, wird `createdTime` verwendet.\n5. Das ausgewählte Ticket wird heruntergeladen, analysiert und in ein deaktiviertes TEST-Workflow-JSON umgewandelt. Ist die erste Ausgabe ungültig, erfolgt genau ein Reparaturversuch.\n6. Die erzeugte Datei im letzten erfolgreichen **Convert to File**-Node unter Binary/Data herunterladen und anschließend manuell in n8n importieren.\n\nDer Generator importiert oder aktiviert erzeugte Workflows nicht automatisch. Credentials werden weder gelesen noch in die Ausgabe geschrieben. Aktuelles Standardmodell: `claude-sonnet-4-6`.\n\n## UC1-Prozessvorlage\nUC1 wird deterministisch als mehrstufiger Reiseprozess erzeugt: Leistungsauswahl, manuelle Reisedaten, optionale Flugsuche/Hotelsuche/Leihwagensuche, Angebot, Budgetfreigabe, Kundenbestätigung, Testzahlung, simulierte Buchung und Bestätigung.\n\n## Ticket-Warteschlange\nQuelle „Neues Ticket“: 1bCogRhQvDgHLzrGPLd9YKl8IjOp1_8h7\nArchiv „Eingelesene Tickets“: 1ZHMXudcQa6C263d9sJmbOAhSEzwl1dgz\nDie Auswahl wird bei fehlenden Zeitstempeln abgebrochen. Nach erfolgreicher Workflow-Ausgabe wird das Originalticket ins Archiv verschoben.\n\n## UC1 Formularoptimierung\nUC1 startet direkt mit einem einzigen Eingabeformular. Flug, Hotel und Leihwagen werden ohne vorgeschaltete Leistungsauswahl verarbeitet.\n\n## Merge- und Datenflussprüfung\nExklusive IF-/Switch-Pfade werden direkt in den gemeinsamen Folgeschritt geführt. Merge-Nodes benötigen unterschiedliche Eingänge. Nicht-terminale Set-Nodes behalten Eingangsdaten, und LLM-Auswertungen stellen den Vorgangskontext über einen benannten Node-Bezug wieder her.",
+        "height": 420,
+        "width": 1120,
+        "color": 5
+      },
+      "id": "f8ffdf31-da68-43d5-8128-0fdfc80da76f",
+      "name": "SETUP – zuerst lesen",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "07d7e8b3-26af-4021-b6e8-3797124514a4",
+      "name": "Generator manuell starten",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1056,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "triggerOn": "specificFolder",
+        "folderToWatch": {
+          "__rl": true,
+          "value": "1bCogRhQvDgHLzrGPLd9YKl8IjOp1_8h7",
+          "mode": "id"
+        },
+        "event": "fileCreated",
+        "options": {}
+      },
+      "id": "d7bb95c4-d1ea-4db7-8abf-3120293d5c4d",
+      "name": "Drive Trigger – neues Ticket",
+      "type": "n8n-nodes-base.googleDriveTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1056,
+        848
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "ONuRz7ii88FAmi5K",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "returnAll": true,
+        "filter": {
+          "folderId": {
+            "__rl": true,
+            "value": "1bCogRhQvDgHLzrGPLd9YKl8IjOp1_8h7",
+            "mode": "id"
+          },
+          "whatToSearch": "files",
+          "includeTrashed": false
+        },
+        "options": {
+          "fields": [
+            "*"
+          ]
+        }
+      },
+      "id": "cb300d11-f174-4fbb-8643-b4fdbe58e479",
+      "name": "Google Drive – Tickets suchen",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -816,
+        672
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "yVA5CKfcl8sBZHm9",
+          "name": "Google Drive account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const folderId = '1bCogRhQvDgHLzrGPLd9YKl8IjOp1_8h7';\nconst files = $input.all()\n  .map(item => item.json)\n  .filter(file => file && file.id)\n  .filter(file => String(file.name ?? '').toLowerCase().endsWith('.json') || file.mimeType === 'application/json');\n\nif (files.length === 0) {\n  throw new Error('Im Ordner Neues Ticket wurde keine JSON-Ticketdatei gefunden.');\n}\n\nconst timestamp = file => {\n  const value = file.modifiedTime ?? file.createdTime;\n  if (!value) return null;\n  const parsed = Date.parse(value);\n  return Number.isFinite(parsed) ? parsed : null;\n};\n\nconst withoutTimestamp = files.filter(file => timestamp(file) === null);\nif (withoutTimestamp.length > 0) {\n  throw new Error('Google Drive liefert für ' + withoutTimestamp.length + ' JSON-Datei(en) keinen modifiedTime/createdTime-Wert. Im Node Google Drive – Tickets suchen muss Options → Fields = All eingestellt sein. Auswahl abgebrochen, damit nicht das falsche Ticket verarbeitet wird.');\n}\n\nfiles.sort((a, b) => timestamp(b) - timestamp(a));\nconst latest = files[0];\n\nreturn [{ json: {\n  ...latest,\n  sourceFileId: latest.id,\n  sourceFolderId: folderId,\n  selectedAsNewest: true,\n  selectedTimestamp: latest.modifiedTime ?? latest.createdTime,\n  jsonTicketCount: files.length\n} }];"
+      },
+      "id": "12bbff7f-e518-42b3-bcd5-5638c86688e8",
+      "name": "Neueste JSON-Datei auswählen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -576,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "id": "2301eab9-c2c6-4257-9bb7-32645dbe249a",
+      "name": "Google Drive – neueste Datei laden",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -336,
+        672
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "yVA5CKfcl8sBZHm9",
+          "name": "Google Drive account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "fromJson",
+        "options": {
+          "encoding": "utf8"
+        }
+      },
+      "id": "4baec63d-08aa-4f26-a79a-5d6bafb47bc2",
+      "name": "JSON-Ticket auslesen",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -96,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawTicket = $input.first().json;\nconst ticket = rawTicket && rawTicket.data && typeof rawTicket.data === 'object' && !Array.isArray(rawTicket.data)\n  ? rawTicket.data\n  : rawTicket;\nconst serialized = JSON.stringify(ticket);\nif (!ticket || typeof ticket !== 'object' || Array.isArray(ticket)) throw new Error('Das Ticket muss ein JSON-Objekt sein.');\nif (serialized.length > 250000) throw new Error('Das Ticket ist für diesen MVP zu groß (maximal 250.000 Zeichen).');\nconst ticketId = String(ticket.ticketId ?? ticket.ticket_id ?? ticket.lieferung_id ?? ticket.id ?? 'UNBEKANNT');\nreturn [{ json: { ticketId, ticket, ticketText: JSON.stringify(ticket, null, 2) } }];"
+      },
+      "id": "3239ef83-2cf5-45b0-9c32-36201be5bb08",
+      "name": "Ticket vorbereiten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        96,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.ticketText }}",
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"additionalProperties\": true,\n  \"properties\": {\n    \"ticketId\": {\n      \"type\": \"string\",\n      \"description\": \"Eindeutige ID aus dem Ticket; falls nicht vorhanden: UNBEKANNT\"\n    },\n    \"processName\": {\n      \"type\": \"string\"\n    },\n    \"objective\": {\n      \"type\": \"string\"\n    },\n    \"trigger\": {\n      \"type\": \"string\"\n    },\n    \"inputs\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      }\n    },\n    \"processSteps\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"additionalProperties\": true,\n        \"properties\": {\n          \"order\": {\n            \"type\": \"integer\"\n          },\n          \"name\": {\n            \"type\": \"string\"\n          },\n          \"description\": {\n            \"type\": \"string\"\n          },\n          \"implementationType\": {\n            \"type\": \"string\"\n          }\n        },\n        \"required\": [\n          \"order\",\n          \"name\",\n          \"description\"\n        ]\n      }\n    },\n    \"decisions\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      }\n    },\n    \"systems\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      }\n    },\n    \"outputs\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      }\n    },\n    \"approvalPoints\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      }\n    },\n    \"openQuestions\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      }\n    }\n  },\n  \"required\": [\n    \"ticketId\",\n    \"processName\",\n    \"objective\",\n    \"trigger\",\n    \"processSteps\",\n    \"systems\",\n    \"outputs\"\n  ]\n}",
+        "options": {
+          "systemPromptTemplate": "Du analysierst BC3-Umsetzungstickets für Workflow-Automatisierungen. Extrahiere ausschließlich Angaben aus dem Ticket und fasse sie kompakt zusammen. Ordne Epics, Stories und Akzeptanzkriterien zu höchstens 20 ausführbaren Prozessschritten. Verwende für implementationType kurze Werte wie deterministic, llm, human oder external-system; das Feld darf bei Unsicherheit entfallen. Offene oder widersprüchliche Angaben gehören in openQuestions. Erfinde keine Anforderungen. Gib ausschließlich die geforderte JSON-Struktur zurück."
+        }
+      },
+      "id": "70c9bb42-233d-4e0b-ad86-d972fa556a8e",
+      "name": "Ticketanforderungen strukturieren",
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1,
+      "position": [
+        320,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-sonnet-4-6",
+          "mode": "list",
+          "cachedResultName": "Claude Sonnet 4.6"
+        },
+        "options": {
+          "maxTokensToSample": 12000
+        }
+      },
+      "id": "b8bfd638-2938-4466-8e11-2bd00645b44b",
+      "name": "Claude – Ticketanalyse",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.5,
+      "position": [
+        352,
+        848
+      ],
+      "credentials": {
+        "anthropicApi": {
+          "id": "R0zVmWKMLSKvz5SZ",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "let specification = $json.output ?? $json;\nif (typeof specification === 'string') {\n  try { specification = JSON.parse(specification); } catch (error) { throw new Error('Ticketanalyse ist kein gültiges JSON: ' + error.message); }\n}\nconst prepared = $('Ticket vorbereiten').first().json;\nif (!specification || typeof specification !== 'object') throw new Error('Keine strukturierte Ticketspezifikation erhalten.');\nreturn [{ json: {\n  ticketId: prepared.ticketId,\n  specification,\n  originalTicket: prepared.ticket,\n  ticketText: prepared.ticketText\n} }];"
+      },
+      "id": "98f3a1ad-1fce-43aa-894a-8a52235ab500",
+      "name": "Spezifikation zusammenführen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        704,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Du bist Senior-n8n-Entwickler. Erzeuge aus der normalisierten BC3-Spezifikation einen kleinen, demonstrierbaren TEST-Prototyp als vollständig importierbaren n8n-Workflow.\n\nNORMALISIERTE SPEZIFIKATION:\n{{ JSON.stringify($json.specification) }}\n\nORIGINALTICKET:\n{{ JSON.stringify($json.originalTicket) }}\n\nVERBINDLICHE REGELN:\n1. Antworte ausschließlich mit einem einzigen JSON-Objekt. Kein Markdown und keine Erklärung vor oder nach dem JSON.\n2. Root-Struktur: {\"name\":\"...\",\"nodes\":[],\"connections\":{},\"settings\":{\"executionOrder\":\"v1\"},\"active\":false}.\n3. Der erzeugte Workflow muss deaktiviert sein und als Namen das Präfix PROTOTYP_ tragen.\n4. Jeder Node benötigt id, name, type, typeVersion, position und parameters. Node-Namen und IDs müssen eindeutig sein.\n5. Verwende ausschließlich diese bekannten Nodetypen und Versionen:\n   - n8n-nodes-base.manualTrigger (1)\n   - n8n-nodes-base.webhook (2.1)\n   - n8n-nodes-base.formTrigger (2.6)\n   - n8n-nodes-base.form (1)\n   - n8n-nodes-base.set (3.4)\n   - n8n-nodes-base.code (2)\n   - n8n-nodes-base.if (2.3)\n   - n8n-nodes-base.switch (3.3)\n   - n8n-nodes-base.merge (3.2)\n   - n8n-nodes-base.httpRequest (4.4)\n   - n8n-nodes-base.wait (1.1)\n   - n8n-nodes-base.respondToWebhook (1.4)\n   - n8n-nodes-base.splitOut (1)\n   - n8n-nodes-base.splitInBatches (3)\n   - n8n-nodes-base.noOp (1)\n   - n8n-nodes-base.stickyNote (1)\n   - n8n-nodes-base.convertToFile (1.1)\n   - n8n-nodes-base.extractFromFile (1.1)\n   - n8n-nodes-base.gmail (2.2)\n   - n8n-nodes-base.emailSend (2.1)\n   - n8n-nodes-base.postgres (2.6)\n   - n8n-nodes-base.supabase (1)\n   - @n8n/n8n-nodes-langchain.chainLlm (1.4)\n   - @n8n/n8n-nodes-langchain.lmChatAnthropic (1.5)\n   - @n8n/n8n-nodes-langchain.outputParserStructured (1.3)\n6. Verwende keine credentials-Objekte, Credential-IDs, API-Schlüssel, Passwörter oder realen geheimen URLs. Benötigte Werte werden in einer Setup-Sticky-Note erklärt und nach Import manuell zugewiesen.\n7. Beginne den ausführbaren Pfad mit einem Manual Trigger oder Form Trigger und einer zentralen Konfiguration mit TEST_MODE=true.\n8. Alle externen schreibenden Aktionen müssen im TEST_MODE simuliert werden. Verwende dafür Code- oder Set-Nodes mit eindeutig gekennzeichneten Mock-Antworten.\n9. Eine LLM-Ausgabe darf niemals direkt eine Zahlung, Buchung, Bestellung, Reservierung, Löschung oder andere kritische Schreibaktion auslösen.\n10. Falls das Ticket eine kritische Aktion verlangt, füge davor einen nachvollziehbaren Human-in-the-Loop-Prüfpunkt ein oder beende den MVP vor der Live-Aktion mit Status AWAITING_HUMAN_APPROVAL.\n11. Erzeuge mindestens einen Erfolgsweg und, soweit aus dem Ticket ableitbar, einen kontrollierten Fehler- oder Unvollständigkeitspfad.\n12. Erfinde keine fachlichen Regeln. Fehlende Informationen werden in einer Sticky Note als offene Punkte dokumentiert und durch sichere Mock-Annahmen überbrückt.\n13. Alle Namen in connections müssen exakt mit vorhandenen Node-Namen übereinstimmen. Verwende für normale Kanten type=main; für KI-Unterknoten die korrekten AI-Verbindungstypen.\n14. Der Workflow darf weder automatisch importiert noch aktiviert werden.\n15. Die fachlichen Prozessschritte müssen als einzelne sichtbare Nodes erscheinen. Bündele nicht mehrere Entscheidungen, API-Suchen, Freigaben, Zahlung und Buchung in wenigen großen Code-Nodes.\n16. Jeder @n8n/n8n-nodes-langchain.chainLlm-Node muss parameters.promptType=\"define\" und einen nicht leeren parameters.text-Prompt besitzen. Verwende niemals nur parameters.prompt. \"Connected Chat Trigger Node\" ist ausschließlich zulässig, wenn tatsächlich ein Chat Trigger verbunden ist.\n17. Jeder @n8n/n8n-nodes-langchain.lmChatAnthropic-Node ab Version 1.3 muss parameters.model als Resource-Locator-Objekt besitzen, zum Beispiel {\"__rl\":true,\"value\":\"claude-sonnet-4-6\",\"mode\":\"list\",\"cachedResultName\":\"Claude Sonnet 4.6\"}. Verwende niemals einen einfachen Modellstring. Das Tokenlimit heißt options.maxTokensToSample, nicht options.maxTokens.\n18. Ein Node mit Status oder Namen AWAITING_HUMAN_APPROVAL beendet im MVP den ausführbaren Hauptpfad. Er darf keine ausgehende main-Verbindung zu Reservierung, Buchung, Zahlung, Versand oder einer anderen kritischen Aktion besitzen.\n19. Jeder chainLlm-Prompt muss die relevanten Daten des eingehenden main-Items dynamisch referenzieren, über gültige n8n-Expressions mit $json-Feldern oder JSON.stringify($json). Der Prompt muss Aufgabe, Eingangsdaten und erwartetes Ausgabeformat enthalten. Keine ausschließlich statischen Beispielwerte.\n20. Für n8n-nodes-base.set ab Version 3 im Modus manual muss parameters.assignments.assignments ein Array sein. Jede Zuweisung besitzt id, name, value und type. Verwende niemals das alte Schema parameters.fields oder fields.values. Soll das komplette Eingangsitem erhalten bleiben, nutze eine Objekt-Zuweisung mit type=object und einer gültigen n8n-Expression, die $json referenziert.\n\nErzeuge jetzt ausschließlich das vollständige Workflow-JSON.\n21. UC1-Reisebuchung wird durch die vorgeschaltete geprüfte Prozessvorlage erzeugt. Falls dieser LLM-Pfad dennoch ein UC1-Ticket erhält, muss er exakt die Schritte und Felder der UC1-Sollprozess-Sticky-Note abbilden.\n22. Verwende keinen Merge-Node, um gegenseitig ausschließende IF- oder Switch-Pfade wieder zusammenzuführen. Verbinde solche Pfade direkt mit demselben nachfolgenden Code-, Set- oder Ausgabe-Node; dieser wird nur für den tatsächlich aktiven Pfad ausgeführt.\n23. Ein Merge-Node ist nur für tatsächlich parallel ausgeführte Zweige zulässig. Er benötigt mindestens zwei Verbindungen auf unterschiedlichen Ziel-Eingängen (index 0 und index 1). Verwende bei Merge Version 3.2 niemals mode=passThrough/output=input1.\n24. Ein Set-Node ab Version 3, der innerhalb eines fortgesetzten Datenpfads liegt, muss parameters.includeOtherFields=true besitzen. Sonst gehen Frage, E-Mail, Vorgangs-ID, Quellen und Status verloren. Nur ein terminaler Ergebnis-Node ohne ausgehende Verbindung darf die Eingangsdaten bewusst verwerfen.\n25. Ein chainLlm-Node gibt regelmäßig nur seine Modellantwort weiter. Der direkt folgende Code-Node muss deshalb die Vorgangsdaten eines eindeutig benannten vorgelagerten Nodes mit $('Node-Name').first().json wieder einlesen und mit der LLM-Antwort zusammenführen. Dies gilt insbesondere für Frage, pseudonymisierte Kennung, Quellen, Anfrage-ID und Status.\n"
+      },
+      "id": "c4b25e34-206f-4fb0-ab64-1b1d716f923d",
+      "name": "n8n-Workflow erzeugen",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [
+        1392,
+        624
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-sonnet-4-6",
+          "mode": "list",
+          "cachedResultName": "Claude Sonnet 4.6"
+        },
+        "options": {
+          "maxTokensToSample": 20000
+        }
+      },
+      "id": "076ac16e-d2a6-4ba0-8c02-ca7c24301008",
+      "name": "Claude – Workflow-Generierung",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.5,
+      "position": [
+        1456,
+        784
+      ],
+      "credentials": {
+        "anthropicApi": {
+          "id": "R0zVmWKMLSKvz5SZ",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst rawCandidate = input.text ?? input.output ?? input.response ?? input.rawOutput ?? input;\nlet raw = typeof rawCandidate === 'string' ? rawCandidate.trim() : JSON.stringify(rawCandidate);\nconst fence = String.fromCharCode(96).repeat(3);\nif (raw.startsWith(fence)) raw = raw.slice(3).replace(/^json\\s*/i, '');\nif (raw.endsWith(fence)) raw = raw.slice(0, -3).trim();\nconst firstBrace = raw.indexOf('{');\nconst lastBrace = raw.lastIndexOf('}');\nif (firstBrace >= 0 && lastBrace > firstBrace) raw = raw.slice(firstBrace, lastBrace + 1);\n\nconst errors = [];\nlet workflow = null;\ntry { workflow = JSON.parse(raw); } catch (error) { errors.push('Ungültiges JSON: ' + error.message); }\n\nconst allowedTypes = new Set([\n  'n8n-nodes-base.manualTrigger','n8n-nodes-base.webhook','n8n-nodes-base.formTrigger','n8n-nodes-base.form',\n  'n8n-nodes-base.set','n8n-nodes-base.code','n8n-nodes-base.if','n8n-nodes-base.switch',\n  'n8n-nodes-base.merge','n8n-nodes-base.httpRequest','n8n-nodes-base.wait',\n  'n8n-nodes-base.respondToWebhook','n8n-nodes-base.splitOut','n8n-nodes-base.splitInBatches',\n  'n8n-nodes-base.noOp','n8n-nodes-base.stickyNote','n8n-nodes-base.convertToFile',\n  'n8n-nodes-base.extractFromFile','n8n-nodes-base.gmail','n8n-nodes-base.emailSend',\n  'n8n-nodes-base.postgres','n8n-nodes-base.supabase',\n  '@n8n/n8n-nodes-langchain.chainLlm','@n8n/n8n-nodes-langchain.lmChatAnthropic',\n  '@n8n/n8n-nodes-langchain.outputParserStructured'\n]);\n\nif (workflow && typeof workflow === 'object' && !Array.isArray(workflow)) {\n  if (typeof workflow.name !== 'string' || !workflow.name.trim()) errors.push('Workflow-Name fehlt.');\n  if (!Array.isArray(workflow.nodes) || workflow.nodes.length === 0) errors.push('nodes fehlt oder ist leer.');\n  if (!workflow.connections || typeof workflow.connections !== 'object' || Array.isArray(workflow.connections)) errors.push('connections fehlt oder ist ungültig.');\n\n  if (Array.isArray(workflow.nodes)) {\n    const names = new Set();\n    const ids = new Set();\n    for (const [index, node] of workflow.nodes.entries()) {\n      if (!node || typeof node !== 'object') { errors.push('Node ' + index + ' ist ungültig.'); continue; }\n      if (!node.name) errors.push('Node ' + index + ' hat keinen Namen.');\n      else if (names.has(node.name)) errors.push('Doppelter Node-Name: ' + node.name);\n      else names.add(node.name);\n      if (!node.id) errors.push('Node ' + (node.name ?? index) + ' hat keine ID.');\n      else if (ids.has(node.id)) errors.push('Doppelte Node-ID: ' + node.id);\n      else ids.add(node.id);\n      if (!allowedTypes.has(node.type)) errors.push('Nicht erlaubter oder unbekannter Nodetyp: ' + node.type);\n      if (node.credentials && Object.keys(node.credentials).length > 0) errors.push('Credentials eingebettet in Node: ' + node.name);\n      if (!Array.isArray(node.position) || node.position.length !== 2) errors.push('Ungültige Position bei Node: ' + node.name);\n      if (!node.parameters || typeof node.parameters !== 'object') errors.push('parameters fehlt bei Node: ' + node.name);\n      if (node.type === 'n8n-nodes-base.set' && Number(node.typeVersion) >= 3) {\n        const setParameters = node.parameters && typeof node.parameters === 'object' ? node.parameters : {};\n        if (Object.prototype.hasOwnProperty.call(setParameters, 'fields')) errors.push('Set-Node ab Version 3 verwendet das veraltete Feld parameters.fields: ' + node.name);\n        const setMode = setParameters.mode ?? 'manual';\n        if (setMode === 'manual') {\n          const assignments = setParameters.assignments && setParameters.assignments.assignments;\n          if (!Array.isArray(assignments) || assignments.length === 0) {\n            errors.push('Set-Node ab Version 3 benötigt im Modus manual parameters.assignments.assignments: ' + node.name);\n          } else {\n            for (const [assignmentIndex, assignment] of assignments.entries()) {\n              const label = node.name + ' Zuweisung ' + assignmentIndex;\n              if (!assignment || typeof assignment !== 'object') { errors.push('Ungültige Set-Zuweisung: ' + label); continue; }\n              if (typeof assignment.id !== 'string' || !assignment.id.trim()) errors.push('Set-Zuweisung ohne id: ' + label);\n              if (typeof assignment.name !== 'string' || !assignment.name.trim()) errors.push('Set-Zuweisung ohne name: ' + label);\n              if (!Object.prototype.hasOwnProperty.call(assignment, 'value')) errors.push('Set-Zuweisung ohne value: ' + label);\n              if (typeof assignment.type !== 'string' || !assignment.type.trim()) errors.push('Set-Zuweisung ohne type: ' + label);\n            }\n          }\n        } else if (setMode === 'raw' && (typeof setParameters.jsonOutput !== 'string' || !setParameters.jsonOutput.trim())) {\n          errors.push('Set-Node im Modus raw benötigt jsonOutput: ' + node.name);\n        }\n      }\n      if (node.type === '@n8n/n8n-nodes-langchain.chainLlm') {\n        if (node.parameters.promptType !== 'define') errors.push('LLM-Chain muss promptType=define verwenden: ' + node.name);\n        if (typeof node.parameters.text !== 'string' || !node.parameters.text.trim()) errors.push('LLM-Chain besitzt keinen ausführbaren Text-Prompt: ' + node.name);\n        const promptText = node.parameters.text;\n        if (typeof promptText === 'string' && promptText.trim() && !(promptText.includes('{{') && promptText.includes('$json') && promptText.includes('}}'))) errors.push('LLM-Chain-Prompt verwendet keine dynamischen Eingangsdaten ($json): ' + node.name);\n        if (Object.prototype.hasOwnProperty.call(node.parameters, 'prompt')) errors.push('LLM-Chain verwendet das ungültige Feld parameters.prompt statt parameters.text: ' + node.name);\n      }\n      if (node.type === '@n8n/n8n-nodes-langchain.lmChatAnthropic') {\n        if (Number(node.typeVersion) >= 1.3 && (!node.parameters.model || typeof node.parameters.model !== 'object' || typeof node.parameters.model.value !== 'string' || !node.parameters.model.value.trim())) {\n          errors.push('Anthropic-Node benötigt ab Version 1.3 ein model.value Resource-Locator-Objekt: ' + node.name);\n        }\n        if (node.parameters.options && Object.prototype.hasOwnProperty.call(node.parameters.options, 'maxTokens')) {\n          errors.push('Anthropic-Node verwendet options.maxTokens statt options.maxTokensToSample: ' + node.name);\n        }\n      }\n    }\n\n    if (workflow.connections && typeof workflow.connections === 'object') {\n      const inspectLinks = (value, sourceName, path = '') => {\n        if (Array.isArray(value)) {\n          for (const item of value) inspectLinks(item, sourceName, path);\n        } else if (value && typeof value === 'object') {\n          if (typeof value.node === 'string' && !names.has(value.node)) {\n            errors.push('Connection von ' + sourceName + ' zeigt auf unbekannten Node: ' + value.node);\n          }\n          for (const [key, child] of Object.entries(value)) inspectLinks(child, sourceName, path + '/' + key);\n        }\n      };\n      for (const [sourceName, channels] of Object.entries(workflow.connections)) {\n        if (!names.has(sourceName)) errors.push('Connection-Quelle existiert nicht: ' + sourceName);\n        inspectLinks(channels, sourceName);\n      }\n    }\n  }\n\n  if (Array.isArray(workflow.nodes) && workflow.connections && typeof workflow.connections === 'object') {\n    const allConnectionGroups = Object.values(workflow.connections);\n    for (const chain of workflow.nodes.filter(node => node.type === '@n8n/n8n-nodes-langchain.chainLlm')) {\n      const hasModel = allConnectionGroups.some(channels =>\n        Array.isArray(channels.ai_languageModel) &&\n        channels.ai_languageModel.flat(2).some(link => link && link.node === chain.name && link.type === 'ai_languageModel')\n      );\n      const hasMainInput = allConnectionGroups.some(channels =>\n        Array.isArray(channels.main) &&\n        channels.main.flat(2).some(link => link && link.node === chain.name && link.type === 'main')\n      );\n      if (!hasModel) errors.push('LLM-Chain hat keine ai_languageModel-Verbindung: ' + chain.name);\n      if (!hasMainInput) errors.push('LLM-Chain hat keinen eingehenden main-Datenpfad: ' + chain.name);\n    }\n  }\n\n  if (workflow.connections && typeof workflow.connections === 'object') {\n    for (const [sourceName, channels] of Object.entries(workflow.connections)) {\n      if (/AWAITING_HUMAN_APPROVAL/i.test(sourceName)) {\n        const outgoingMain = channels && Array.isArray(channels.main)\n          ? channels.main.flat(2).filter(link => link && typeof link.node === 'string')\n          : [];\n        if (outgoingMain.length > 0) errors.push('AWAITING_HUMAN_APPROVAL darf im MVP keine ausgehende main-Verbindung besitzen: ' + sourceName);\n      }\n    }\n  }\n\n\n  if (Array.isArray(workflow.nodes) && workflow.connections && typeof workflow.connections === 'object') {\n    const nodeByName = new Map(workflow.nodes.map(node => [node.name, node]));\n    const outgoingMain = sourceName => {\n      const channels = workflow.connections[sourceName];\n      return channels && Array.isArray(channels.main)\n        ? channels.main.flat(2).filter(link => link && typeof link.node === 'string')\n        : [];\n    };\n    const incomingMain = new Map();\n    for (const [sourceName, channels] of Object.entries(workflow.connections)) {\n      if (!channels || !Array.isArray(channels.main)) continue;\n      for (const outputs of channels.main) {\n        for (const link of Array.isArray(outputs) ? outputs : []) {\n          if (!link || typeof link.node !== 'string') continue;\n          if (!incomingMain.has(link.node)) incomingMain.set(link.node, []);\n          incomingMain.get(link.node).push({ sourceName, targetInput: Number(link.index ?? 0) });\n        }\n      }\n    }\n\n    for (const targetNode of workflow.nodes) {\n      if (targetNode.type === 'n8n-nodes-base.merge') {\n        const incoming = incomingMain.get(targetNode.name) ?? [];\n        const distinctInputs = new Set(incoming.map(link => link.targetInput));\n        if (Number(targetNode.typeVersion) >= 3 && targetNode.parameters?.mode === 'passThrough') {\n          errors.push('Merge-Node ab Version 3 verwendet den veralteten Modus passThrough: ' + targetNode.name);\n        }\n        if (incoming.length > 0 && distinctInputs.size < 2) {\n          errors.push('Merge-Node erhält alle Verbindungen nur auf demselben Eingang und wartet auf einen fehlenden Eingang: ' + targetNode.name);\n        }\n      }\n\n      if (targetNode.type === 'n8n-nodes-base.set' && Number(targetNode.typeVersion) >= 3) {\n        if (outgoingMain(targetNode.name).length > 0 && targetNode.parameters?.includeOtherFields !== true) {\n          errors.push('Set-Node innerhalb der Datenkette muss includeOtherFields=true verwenden, damit Vorgangsdaten erhalten bleiben: ' + targetNode.name);\n        }\n      }\n\n      if (targetNode.type === '@n8n/n8n-nodes-langchain.chainLlm') {\n        for (const link of outgoingMain(targetNode.name)) {\n          const nextNode = nodeByName.get(link.node);\n          if (nextNode?.type !== 'n8n-nodes-base.code') continue;\n          const code = String(nextNode.parameters?.jsCode ?? '');\n          if (!/\\$\\s*\\(\\s*['\"][^'\"]+['\"]\\s*\\)/.test(code)) {\n            errors.push('Code-Node nach LLM stellt die vorherigen Vorgangsdaten nicht über einen benannten Node-Bezug wieder her: ' + nextNode.name);\n          }\n        }\n      }\n    }\n  }\n\n  const sourceTicket = $('Spezifikation zusammenführen').first().json;\n  const sourceOriginal = sourceTicket?.originalTicket ?? {};\n  const sourceIds = [sourceTicket?.ticketId, sourceOriginal.lieferung_id, sourceOriginal.ticketId, sourceOriginal.ticket_id, sourceOriginal.id, sourceOriginal.projekt_kurzname, sourceOriginal.useCase, sourceOriginal.use_case].filter(Boolean).map(value => String(value).toLowerCase()).join(' | ');\n  const isUc1 = /(^|[^a-z0-9])uc\\s*[-_]?\\s*1([^a-z0-9]|$)|reisebuchung/.test(sourceIds);\n  if (isUc1 && Array.isArray(workflow.nodes)) {\n    const byName = new Map(workflow.nodes.map(node => [node.name, node]));\n    const requiredUc1 = [\n      ['Reisedaten manuell eingeben','n8n-nodes-base.formTrigger'],\n      ['Reisedaten normalisieren','n8n-nodes-base.code'],['Eingaben gültig?','n8n-nodes-base.if'],\n      ['Flüge suchen','n8n-nodes-base.httpRequest'],['Flugdaten zusammenführen','n8n-nodes-base.merge'],\n      ['Hotels suchen','n8n-nodes-base.httpRequest'],['Hoteldaten zusammenführen','n8n-nodes-base.merge'],\n      ['Leihwagen suchen','n8n-nodes-base.httpRequest'],['Leihwagendaten zusammenführen','n8n-nodes-base.merge'],\n      ['Angebot erstellen','n8n-nodes-base.code'],['Angebote vorhanden?','n8n-nodes-base.if'],\n      ['Budget überschritten?','n8n-nodes-base.if'],['Budgetfreigabe einholen','n8n-nodes-base.form'],\n      ['Angebotslink senden','n8n-nodes-base.code'],['Kundenbestätigung erfassen','n8n-nodes-base.form'],\n      ['Kunde bestätigt?','n8n-nodes-base.if'],['Zahlungslink erstellen','n8n-nodes-base.code'],\n      ['Zahlung erfassen','n8n-nodes-base.form'],['Zahlung erfolgreich?','n8n-nodes-base.if'],\n      ['Zahlung erneut anfordern','n8n-nodes-base.set'],['Gewählte Leistungen buchen','n8n-nodes-base.code'],\n      ['Buchungsbestätigung senden','n8n-nodes-base.set']\n    ];\n    for (const [name,type] of requiredUc1) {\n      const found = byName.get(name);\n      if (!found) errors.push('UC1-Pflichtschritt fehlt: ' + name);\n      else if (found.type !== type) errors.push('UC1-Pflichtschritt hat falschen Nodetyp: ' + name);\n    }\n    if (byName.has('Was wird benötigt?')) errors.push('UC1 darf keine vorgeschaltete Leistungsauswahl enthalten.');\n    const details = byName.get('Reisedaten manuell eingeben');\n    const fields = details?.parameters?.formFields?.values;\n    const fieldText = Array.isArray(fields) ? fields.map(f => String(f.fieldLabel ?? f.fieldName ?? '').toLowerCase()).join(' | ') : '';\n    for (const label of ['reisebeginn','reiseende','urlaubsort','budget','personen','flughafen','e-mail']) {\n      if (!fieldText.includes(label)) errors.push('UC1-Formularfeld fehlt: ' + label);\n    }\n    const apiChecks = [\n      ['Flüge suchen','/api/flights/search',['origin','destination','departureDate','numberOfAdults','numberOfChildren','numberOfInfants']],\n      ['Hotels suchen','/api/hotels/search',['destination','numberOfAdults']],\n      ['Leihwagen suchen','/api/cars/search',['location']]\n    ];\n    for (const [name,path,params] of apiChecks) {\n      const n = byName.get(name); if (!n) continue;\n      if (typeof n.parameters?.url !== 'string' || !n.parameters.url.includes(path)) errors.push('UC1-API-Endpunkt falsch: ' + name);\n      const query = n.parameters?.queryParameters?.parameters;\n      const keys = Array.isArray(query) ? query.map(p => p.name) : [];\n      for (const param of params) if (!keys.includes(param)) errors.push('UC1-API-Parameter fehlt bei ' + name + ': ' + param);\n    }\n    const requiredEdges = [\n      ['Reisedaten manuell eingeben','Reisedaten normalisieren'],['Reisedaten normalisieren','Eingaben gültig?'],\n      ['Flüge suchen','Flugdaten zusammenführen'],['Flugdaten zusammenführen','Hotels suchen'],\n      ['Hotels suchen','Hoteldaten zusammenführen'],['Hoteldaten zusammenführen','Leihwagen suchen'],\n      ['Leihwagen suchen','Leihwagendaten zusammenführen'],['Leihwagendaten zusammenführen','Angebot erstellen'],\n      ['Angebot erstellen','Angebote vorhanden?'],['Angebotslink senden','Kundenbestätigung erfassen'],\n      ['Kundenbestätigung erfassen','Kunde bestätigt?'],['Zahlungslink erstellen','Zahlung erfassen'],\n      ['Zahlung erfassen','Zahlung erfolgreich?'],['Gewählte Leistungen buchen','Buchungsbestätigung senden']\n    ];\n    const targets = source => {\n      const c = workflow.connections?.[source];\n      return c?.main ? c.main.flat(2).filter(Boolean).map(x => x.node) : [];\n    };\n    for (const [source,target] of requiredEdges) if (!targets(source).includes(target)) errors.push('UC1-Verbindung fehlt: ' + source + ' → ' + target);\n    const budgetTargets = targets('Budget überschritten?');\n    if (!budgetTargets.includes('Budgetfreigabe einholen') || !budgetTargets.includes('Angebotslink senden')) errors.push('UC1-Budgetentscheidung besitzt nicht beide Pfade.');\n    const paymentTargets = targets('Zahlung erfolgreich?');\n    if (!paymentTargets.includes('Gewählte Leistungen buchen') || !paymentTargets.includes('Zahlung erneut anfordern')) errors.push('UC1-Zahlungsentscheidung besitzt nicht beide Pfade.');\n  }\n\n  workflow.active = false;\n  workflow.settings = workflow.settings && typeof workflow.settings === 'object' ? workflow.settings : {};\n  workflow.settings.executionOrder = workflow.settings.executionOrder || 'v1';\n  delete workflow.id;\n  delete workflow.versionId;\n  delete workflow.shared;\n}\n\nreturn [{ json: {\n  valid: errors.length === 0,\n  validationErrors: errors,\n  rawOutput: raw,\n  workflow\n} }];"
+      },
+      "id": "142b1fe4-f0e2-4a66-8973-96fb820b811f",
+      "name": "Workflow-JSON validieren",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a5354d47-3561-4908-a67d-5f4c005fc0e2",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "161aa7a6-24a3-4ce2-8843-979b56e806d0",
+      "name": "Workflow gültig?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1872,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const workflow = $json.workflow;\nif (!workflow) throw new Error('Validierter Workflow fehlt.');\nreturn [{ json: workflow }];"
+      },
+      "id": "6a5dca0f-0b3a-4bbf-8ce2-e7a5defe9b58",
+      "name": "Gültigen Workflow bereitstellen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2288,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "toJson",
+        "mode": "each",
+        "options": {
+          "format": true,
+          "fileName": "={{ ($json.name || \"PROTOTYP_Workflow\").replace(/[^a-zA-Z0-9_-]+/g, \"_\") + \".json\" }}"
+        }
+      },
+      "id": "c7149037-84eb-47b6-b601-bb70d853ae19",
+      "name": "Workflow-Datei ausgeben",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        2544,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Du reparierst ein von einem LLM erzeugtes n8n-Workflow-JSON.\n\nVALIDIERUNGSFEHLER:\n{{ JSON.stringify($json.validationErrors) }}\n\nURSPRÜNGLICHE AUSGABE:\n{{ $json.rawOutput }}\n\nGib ausschließlich ein einziges korrigiertes, vollständiges JSON-Objekt zurück, ohne Markdown oder Begleittext.\nEs muss die Root-Felder name, nodes, connections, settings und active=false besitzen.\nÄndere nur, was zur Behebung der Fehler erforderlich ist. Entferne alle credentials-Objekte und unbekannten Nodetypen. Alle Connection-Namen müssen auf existierende Node-Namen zeigen.\n\nVERBINDLICHE REPARATURFORMATE:\n- Für @n8n/n8n-nodes-langchain.chainLlm Version 1.4: parameters.promptType muss \"define\" sein und parameters.text muss den vollständigen, nicht leeren Prompt enthalten. Entferne parameters.prompt.\n- Für @n8n/n8n-nodes-langchain.lmChatAnthropic ab Version 1.3: parameters.model muss {\"__rl\":true,\"value\":\"claude-sonnet-4-6\",\"mode\":\"list\",\"cachedResultName\":\"Claude Sonnet 4.6\"} sein. Verwende options.maxTokensToSample statt options.maxTokens.\n- Ein Node namens oder mit Status AWAITING_HUMAN_APPROVAL muss den ausführbaren Hauptpfad beenden und darf keine ausgehende main-Verbindung zu einer kritischen Aktion besitzen.\n- Jeder chainLlm-Node muss über eine ai_languageModel-Verbindung mit einem vorhandenen Modell-Node verbunden sein.\n- Jeder chainLlm-Prompt muss die relevanten Daten des eingehenden main-Items dynamisch über gültige n8n-Expressions mit $json-Feldern oder JSON.stringify($json) referenzieren und Aufgabe sowie erwartetes Ausgabeformat nennen.\n- Für n8n-nodes-base.set ab Version 3 im Modus manual: Entferne parameters.fields und fields.values. Erzeuge parameters.assignments.assignments als Array; jede Zuweisung benötigt id, name, value und type. Eine Objekt-Zuweisung, die das Eingangsitem erhält, verwendet type=object und eine gültige n8n-Expression mit $json.\n- Bei UC1 müssen sämtliche in den Validierungsfehlern genannten UC1-Pflichtschritte, Formularfelder, API-Parameter und Entscheidungspfade vollständig ergänzt werden.\n- Wenn mehrere gegenseitig ausschließende Antwortpfade auf einen wartenden Merge führen, entferne den Merge. Verbinde jeden Vorgänger direkt mit dem bisherigen Nachfolger des Merge-Nodes.\n- Ein Merge Version 3.2 darf nicht mode=passThrough/output=input1 verwenden und braucht Verbindungen auf mindestens zwei unterschiedlichen Ziel-Eingängen.\n- Ergänze bei jedem nicht-terminalen Set-Node ab Version 3 parameters.includeOtherFields=true.\n- Nach jedem chainLlm muss der auswertende Code-Node die vor der LLM-Ausführung vorhandenen Vorgangsdaten über $('Eindeutiger vorgelagerter Node').first().json wiederherstellen und anschließend die Modellantwort ergänzen.\n"
+      },
+      "id": "2efc6e93-e648-4102-ac77-4475bb60832a",
+      "name": "Workflow einmal reparieren",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [
+        2032,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-sonnet-4-6",
+          "mode": "list",
+          "cachedResultName": "Claude Sonnet 4.6"
+        },
+        "options": {
+          "maxTokensToSample": 20000
+        }
+      },
+      "id": "280b3919-1fcc-4670-b808-c4662d6829ae",
+      "name": "Claude – JSON-Reparatur",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.5,
+      "position": [
+        2032,
+        944
+      ],
+      "credentials": {
+        "anthropicApi": {
+          "id": "R0zVmWKMLSKvz5SZ",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst rawCandidate = input.text ?? input.output ?? input.response ?? input.rawOutput ?? input;\nlet raw = typeof rawCandidate === 'string' ? rawCandidate.trim() : JSON.stringify(rawCandidate);\nconst fence = String.fromCharCode(96).repeat(3);\nif (raw.startsWith(fence)) raw = raw.slice(3).replace(/^json\\s*/i, '');\nif (raw.endsWith(fence)) raw = raw.slice(0, -3).trim();\nconst firstBrace = raw.indexOf('{');\nconst lastBrace = raw.lastIndexOf('}');\nif (firstBrace >= 0 && lastBrace > firstBrace) raw = raw.slice(firstBrace, lastBrace + 1);\n\nconst errors = [];\nlet workflow = null;\ntry { workflow = JSON.parse(raw); } catch (error) { errors.push('Ungültiges JSON: ' + error.message); }\n\nconst allowedTypes = new Set([\n  'n8n-nodes-base.manualTrigger','n8n-nodes-base.webhook','n8n-nodes-base.formTrigger','n8n-nodes-base.form',\n  'n8n-nodes-base.set','n8n-nodes-base.code','n8n-nodes-base.if','n8n-nodes-base.switch',\n  'n8n-nodes-base.merge','n8n-nodes-base.httpRequest','n8n-nodes-base.wait',\n  'n8n-nodes-base.respondToWebhook','n8n-nodes-base.splitOut','n8n-nodes-base.splitInBatches',\n  'n8n-nodes-base.noOp','n8n-nodes-base.stickyNote','n8n-nodes-base.convertToFile',\n  'n8n-nodes-base.extractFromFile','n8n-nodes-base.gmail','n8n-nodes-base.emailSend',\n  'n8n-nodes-base.postgres','n8n-nodes-base.supabase',\n  '@n8n/n8n-nodes-langchain.chainLlm','@n8n/n8n-nodes-langchain.lmChatAnthropic',\n  '@n8n/n8n-nodes-langchain.outputParserStructured'\n]);\n\nif (workflow && typeof workflow === 'object' && !Array.isArray(workflow)) {\n  if (typeof workflow.name !== 'string' || !workflow.name.trim()) errors.push('Workflow-Name fehlt.');\n  if (!Array.isArray(workflow.nodes) || workflow.nodes.length === 0) errors.push('nodes fehlt oder ist leer.');\n  if (!workflow.connections || typeof workflow.connections !== 'object' || Array.isArray(workflow.connections)) errors.push('connections fehlt oder ist ungültig.');\n\n  if (Array.isArray(workflow.nodes)) {\n    const names = new Set();\n    const ids = new Set();\n    for (const [index, node] of workflow.nodes.entries()) {\n      if (!node || typeof node !== 'object') { errors.push('Node ' + index + ' ist ungültig.'); continue; }\n      if (!node.name) errors.push('Node ' + index + ' hat keinen Namen.');\n      else if (names.has(node.name)) errors.push('Doppelter Node-Name: ' + node.name);\n      else names.add(node.name);\n      if (!node.id) errors.push('Node ' + (node.name ?? index) + ' hat keine ID.');\n      else if (ids.has(node.id)) errors.push('Doppelte Node-ID: ' + node.id);\n      else ids.add(node.id);\n      if (!allowedTypes.has(node.type)) errors.push('Nicht erlaubter oder unbekannter Nodetyp: ' + node.type);\n      if (node.credentials && Object.keys(node.credentials).length > 0) errors.push('Credentials eingebettet in Node: ' + node.name);\n      if (!Array.isArray(node.position) || node.position.length !== 2) errors.push('Ungültige Position bei Node: ' + node.name);\n      if (!node.parameters || typeof node.parameters !== 'object') errors.push('parameters fehlt bei Node: ' + node.name);\n      if (node.type === 'n8n-nodes-base.set' && Number(node.typeVersion) >= 3) {\n        const setParameters = node.parameters && typeof node.parameters === 'object' ? node.parameters : {};\n        if (Object.prototype.hasOwnProperty.call(setParameters, 'fields')) errors.push('Set-Node ab Version 3 verwendet das veraltete Feld parameters.fields: ' + node.name);\n        const setMode = setParameters.mode ?? 'manual';\n        if (setMode === 'manual') {\n          const assignments = setParameters.assignments && setParameters.assignments.assignments;\n          if (!Array.isArray(assignments) || assignments.length === 0) {\n            errors.push('Set-Node ab Version 3 benötigt im Modus manual parameters.assignments.assignments: ' + node.name);\n          } else {\n            for (const [assignmentIndex, assignment] of assignments.entries()) {\n              const label = node.name + ' Zuweisung ' + assignmentIndex;\n              if (!assignment || typeof assignment !== 'object') { errors.push('Ungültige Set-Zuweisung: ' + label); continue; }\n              if (typeof assignment.id !== 'string' || !assignment.id.trim()) errors.push('Set-Zuweisung ohne id: ' + label);\n              if (typeof assignment.name !== 'string' || !assignment.name.trim()) errors.push('Set-Zuweisung ohne name: ' + label);\n              if (!Object.prototype.hasOwnProperty.call(assignment, 'value')) errors.push('Set-Zuweisung ohne value: ' + label);\n              if (typeof assignment.type !== 'string' || !assignment.type.trim()) errors.push('Set-Zuweisung ohne type: ' + label);\n            }\n          }\n        } else if (setMode === 'raw' && (typeof setParameters.jsonOutput !== 'string' || !setParameters.jsonOutput.trim())) {\n          errors.push('Set-Node im Modus raw benötigt jsonOutput: ' + node.name);\n        }\n      }\n      if (node.type === '@n8n/n8n-nodes-langchain.chainLlm') {\n        if (node.parameters.promptType !== 'define') errors.push('LLM-Chain muss promptType=define verwenden: ' + node.name);\n        if (typeof node.parameters.text !== 'string' || !node.parameters.text.trim()) errors.push('LLM-Chain besitzt keinen ausführbaren Text-Prompt: ' + node.name);\n        const promptText = node.parameters.text;\n        if (typeof promptText === 'string' && promptText.trim() && !(promptText.includes('{{') && promptText.includes('$json') && promptText.includes('}}'))) errors.push('LLM-Chain-Prompt verwendet keine dynamischen Eingangsdaten ($json): ' + node.name);\n        if (Object.prototype.hasOwnProperty.call(node.parameters, 'prompt')) errors.push('LLM-Chain verwendet das ungültige Feld parameters.prompt statt parameters.text: ' + node.name);\n      }\n      if (node.type === '@n8n/n8n-nodes-langchain.lmChatAnthropic') {\n        if (Number(node.typeVersion) >= 1.3 && (!node.parameters.model || typeof node.parameters.model !== 'object' || typeof node.parameters.model.value !== 'string' || !node.parameters.model.value.trim())) {\n          errors.push('Anthropic-Node benötigt ab Version 1.3 ein model.value Resource-Locator-Objekt: ' + node.name);\n        }\n        if (node.parameters.options && Object.prototype.hasOwnProperty.call(node.parameters.options, 'maxTokens')) {\n          errors.push('Anthropic-Node verwendet options.maxTokens statt options.maxTokensToSample: ' + node.name);\n        }\n      }\n    }\n\n    if (workflow.connections && typeof workflow.connections === 'object') {\n      const inspectLinks = (value, sourceName, path = '') => {\n        if (Array.isArray(value)) {\n          for (const item of value) inspectLinks(item, sourceName, path);\n        } else if (value && typeof value === 'object') {\n          if (typeof value.node === 'string' && !names.has(value.node)) {\n            errors.push('Connection von ' + sourceName + ' zeigt auf unbekannten Node: ' + value.node);\n          }\n          for (const [key, child] of Object.entries(value)) inspectLinks(child, sourceName, path + '/' + key);\n        }\n      };\n      for (const [sourceName, channels] of Object.entries(workflow.connections)) {\n        if (!names.has(sourceName)) errors.push('Connection-Quelle existiert nicht: ' + sourceName);\n        inspectLinks(channels, sourceName);\n      }\n    }\n  }\n\n  if (Array.isArray(workflow.nodes) && workflow.connections && typeof workflow.connections === 'object') {\n    const allConnectionGroups = Object.values(workflow.connections);\n    for (const chain of workflow.nodes.filter(node => node.type === '@n8n/n8n-nodes-langchain.chainLlm')) {\n      const hasModel = allConnectionGroups.some(channels =>\n        Array.isArray(channels.ai_languageModel) &&\n        channels.ai_languageModel.flat(2).some(link => link && link.node === chain.name && link.type === 'ai_languageModel')\n      );\n      const hasMainInput = allConnectionGroups.some(channels =>\n        Array.isArray(channels.main) &&\n        channels.main.flat(2).some(link => link && link.node === chain.name && link.type === 'main')\n      );\n      if (!hasModel) errors.push('LLM-Chain hat keine ai_languageModel-Verbindung: ' + chain.name);\n      if (!hasMainInput) errors.push('LLM-Chain hat keinen eingehenden main-Datenpfad: ' + chain.name);\n    }\n  }\n\n  if (workflow.connections && typeof workflow.connections === 'object') {\n    for (const [sourceName, channels] of Object.entries(workflow.connections)) {\n      if (/AWAITING_HUMAN_APPROVAL/i.test(sourceName)) {\n        const outgoingMain = channels && Array.isArray(channels.main)\n          ? channels.main.flat(2).filter(link => link && typeof link.node === 'string')\n          : [];\n        if (outgoingMain.length > 0) errors.push('AWAITING_HUMAN_APPROVAL darf im MVP keine ausgehende main-Verbindung besitzen: ' + sourceName);\n      }\n    }\n  }\n\n\n  if (Array.isArray(workflow.nodes) && workflow.connections && typeof workflow.connections === 'object') {\n    const nodeByName = new Map(workflow.nodes.map(node => [node.name, node]));\n    const outgoingMain = sourceName => {\n      const channels = workflow.connections[sourceName];\n      return channels && Array.isArray(channels.main)\n        ? channels.main.flat(2).filter(link => link && typeof link.node === 'string')\n        : [];\n    };\n    const incomingMain = new Map();\n    for (const [sourceName, channels] of Object.entries(workflow.connections)) {\n      if (!channels || !Array.isArray(channels.main)) continue;\n      for (const outputs of channels.main) {\n        for (const link of Array.isArray(outputs) ? outputs : []) {\n          if (!link || typeof link.node !== 'string') continue;\n          if (!incomingMain.has(link.node)) incomingMain.set(link.node, []);\n          incomingMain.get(link.node).push({ sourceName, targetInput: Number(link.index ?? 0) });\n        }\n      }\n    }\n\n    for (const targetNode of workflow.nodes) {\n      if (targetNode.type === 'n8n-nodes-base.merge') {\n        const incoming = incomingMain.get(targetNode.name) ?? [];\n        const distinctInputs = new Set(incoming.map(link => link.targetInput));\n        if (Number(targetNode.typeVersion) >= 3 && targetNode.parameters?.mode === 'passThrough') {\n          errors.push('Merge-Node ab Version 3 verwendet den veralteten Modus passThrough: ' + targetNode.name);\n        }\n        if (incoming.length > 0 && distinctInputs.size < 2) {\n          errors.push('Merge-Node erhält alle Verbindungen nur auf demselben Eingang und wartet auf einen fehlenden Eingang: ' + targetNode.name);\n        }\n      }\n\n      if (targetNode.type === 'n8n-nodes-base.set' && Number(targetNode.typeVersion) >= 3) {\n        if (outgoingMain(targetNode.name).length > 0 && targetNode.parameters?.includeOtherFields !== true) {\n          errors.push('Set-Node innerhalb der Datenkette muss includeOtherFields=true verwenden, damit Vorgangsdaten erhalten bleiben: ' + targetNode.name);\n        }\n      }\n\n      if (targetNode.type === '@n8n/n8n-nodes-langchain.chainLlm') {\n        for (const link of outgoingMain(targetNode.name)) {\n          const nextNode = nodeByName.get(link.node);\n          if (nextNode?.type !== 'n8n-nodes-base.code') continue;\n          const code = String(nextNode.parameters?.jsCode ?? '');\n          if (!/\\$\\s*\\(\\s*['\"][^'\"]+['\"]\\s*\\)/.test(code)) {\n            errors.push('Code-Node nach LLM stellt die vorherigen Vorgangsdaten nicht über einen benannten Node-Bezug wieder her: ' + nextNode.name);\n          }\n        }\n      }\n    }\n  }\n\n  const sourceTicket = $('Spezifikation zusammenführen').first().json;\n  const sourceOriginal = sourceTicket?.originalTicket ?? {};\n  const sourceIds = [sourceTicket?.ticketId, sourceOriginal.lieferung_id, sourceOriginal.ticketId, sourceOriginal.ticket_id, sourceOriginal.id, sourceOriginal.projekt_kurzname, sourceOriginal.useCase, sourceOriginal.use_case].filter(Boolean).map(value => String(value).toLowerCase()).join(' | ');\n  const isUc1 = /(^|[^a-z0-9])uc\\s*[-_]?\\s*1([^a-z0-9]|$)|reisebuchung/.test(sourceIds);\n  if (isUc1 && Array.isArray(workflow.nodes)) {\n    const byName = new Map(workflow.nodes.map(node => [node.name, node]));\n    const requiredUc1 = [\n      ['Reisedaten manuell eingeben','n8n-nodes-base.formTrigger'],\n      ['Reisedaten normalisieren','n8n-nodes-base.code'],['Eingaben gültig?','n8n-nodes-base.if'],\n      ['Flüge suchen','n8n-nodes-base.httpRequest'],['Flugdaten zusammenführen','n8n-nodes-base.merge'],\n      ['Hotels suchen','n8n-nodes-base.httpRequest'],['Hoteldaten zusammenführen','n8n-nodes-base.merge'],\n      ['Leihwagen suchen','n8n-nodes-base.httpRequest'],['Leihwagendaten zusammenführen','n8n-nodes-base.merge'],\n      ['Angebot erstellen','n8n-nodes-base.code'],['Angebote vorhanden?','n8n-nodes-base.if'],\n      ['Budget überschritten?','n8n-nodes-base.if'],['Budgetfreigabe einholen','n8n-nodes-base.form'],\n      ['Angebotslink senden','n8n-nodes-base.code'],['Kundenbestätigung erfassen','n8n-nodes-base.form'],\n      ['Kunde bestätigt?','n8n-nodes-base.if'],['Zahlungslink erstellen','n8n-nodes-base.code'],\n      ['Zahlung erfassen','n8n-nodes-base.form'],['Zahlung erfolgreich?','n8n-nodes-base.if'],\n      ['Zahlung erneut anfordern','n8n-nodes-base.set'],['Gewählte Leistungen buchen','n8n-nodes-base.code'],\n      ['Buchungsbestätigung senden','n8n-nodes-base.set']\n    ];\n    for (const [name,type] of requiredUc1) {\n      const found = byName.get(name);\n      if (!found) errors.push('UC1-Pflichtschritt fehlt: ' + name);\n      else if (found.type !== type) errors.push('UC1-Pflichtschritt hat falschen Nodetyp: ' + name);\n    }\n    if (byName.has('Was wird benötigt?')) errors.push('UC1 darf keine vorgeschaltete Leistungsauswahl enthalten.');\n    const details = byName.get('Reisedaten manuell eingeben');\n    const fields = details?.parameters?.formFields?.values;\n    const fieldText = Array.isArray(fields) ? fields.map(f => String(f.fieldLabel ?? f.fieldName ?? '').toLowerCase()).join(' | ') : '';\n    for (const label of ['reisebeginn','reiseende','urlaubsort','budget','personen','flughafen','e-mail']) {\n      if (!fieldText.includes(label)) errors.push('UC1-Formularfeld fehlt: ' + label);\n    }\n    const apiChecks = [\n      ['Flüge suchen','/api/flights/search',['origin','destination','departureDate','numberOfAdults','numberOfChildren','numberOfInfants']],\n      ['Hotels suchen','/api/hotels/search',['destination','numberOfAdults']],\n      ['Leihwagen suchen','/api/cars/search',['location']]\n    ];\n    for (const [name,path,params] of apiChecks) {\n      const n = byName.get(name); if (!n) continue;\n      if (typeof n.parameters?.url !== 'string' || !n.parameters.url.includes(path)) errors.push('UC1-API-Endpunkt falsch: ' + name);\n      const query = n.parameters?.queryParameters?.parameters;\n      const keys = Array.isArray(query) ? query.map(p => p.name) : [];\n      for (const param of params) if (!keys.includes(param)) errors.push('UC1-API-Parameter fehlt bei ' + name + ': ' + param);\n    }\n    const requiredEdges = [\n      ['Reisedaten manuell eingeben','Reisedaten normalisieren'],['Reisedaten normalisieren','Eingaben gültig?'],\n      ['Flüge suchen','Flugdaten zusammenführen'],['Flugdaten zusammenführen','Hotels suchen'],\n      ['Hotels suchen','Hoteldaten zusammenführen'],['Hoteldaten zusammenführen','Leihwagen suchen'],\n      ['Leihwagen suchen','Leihwagendaten zusammenführen'],['Leihwagendaten zusammenführen','Angebot erstellen'],\n      ['Angebot erstellen','Angebote vorhanden?'],['Angebotslink senden','Kundenbestätigung erfassen'],\n      ['Kundenbestätigung erfassen','Kunde bestätigt?'],['Zahlungslink erstellen','Zahlung erfassen'],\n      ['Zahlung erfassen','Zahlung erfolgreich?'],['Gewählte Leistungen buchen','Buchungsbestätigung senden']\n    ];\n    const targets = source => {\n      const c = workflow.connections?.[source];\n      return c?.main ? c.main.flat(2).filter(Boolean).map(x => x.node) : [];\n    };\n    for (const [source,target] of requiredEdges) if (!targets(source).includes(target)) errors.push('UC1-Verbindung fehlt: ' + source + ' → ' + target);\n    const budgetTargets = targets('Budget überschritten?');\n    if (!budgetTargets.includes('Budgetfreigabe einholen') || !budgetTargets.includes('Angebotslink senden')) errors.push('UC1-Budgetentscheidung besitzt nicht beide Pfade.');\n    const paymentTargets = targets('Zahlung erfolgreich?');\n    if (!paymentTargets.includes('Gewählte Leistungen buchen') || !paymentTargets.includes('Zahlung erneut anfordern')) errors.push('UC1-Zahlungsentscheidung besitzt nicht beide Pfade.');\n  }\n\n  workflow.active = false;\n  workflow.settings = workflow.settings && typeof workflow.settings === 'object' ? workflow.settings : {};\n  workflow.settings.executionOrder = workflow.settings.executionOrder || 'v1';\n  delete workflow.id;\n  delete workflow.versionId;\n  delete workflow.shared;\n}\n\nreturn [{ json: {\n  valid: errors.length === 0,\n  validationErrors: errors,\n  rawOutput: raw,\n  workflow\n} }];"
+      },
+      "id": "aa79fe39-14f4-49f3-b9bd-c2a8438e03e4",
+      "name": "Repariertes JSON validieren",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2288,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a7622dd1-06ae-4e50-a62c-a18168578aae",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "8743b328-9b65-4fc2-9464-3ca5b28ecd58",
+      "name": "Reparatur erfolgreich?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2528,
+        704
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const workflow = $json.workflow;\nif (!workflow) throw new Error('Reparierter Workflow fehlt.');\nreturn [{ json: workflow }];"
+      },
+      "id": "1125a606-68a7-40de-86ae-8123f325bdc8",
+      "name": "Reparierten Workflow bereitstellen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2784,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "toJson",
+        "mode": "each",
+        "options": {
+          "format": true,
+          "fileName": "={{ ($json.name || \"PROTOTYP_Workflow_repariert\").replace(/[^a-zA-Z0-9_-]+/g, \"_\") + \".json\" }}"
+        }
+      },
+      "id": "93967c40-d285-44a2-9895-ebaefcd3dece",
+      "name": "Reparierte Workflow-Datei ausgeben",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        3040,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const prepared = $('Ticket vorbereiten').first().json;\nreturn [{ json: {\n  status: 'MANUAL_REVIEW_REQUIRED',\n  ticketId: prepared.ticketId,\n  message: 'Der Workflow war auch nach einem Reparaturversuch nicht technisch gültig.',\n  validationErrors: $json.validationErrors,\n  rawModelOutput: $json.rawOutput\n} }];"
+      },
+      "id": "602a0761-61cf-4044-9627-a59d9e658d5c",
+      "name": "Validierungsbericht erstellen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2784,
+        832
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "toJson",
+        "mode": "each",
+        "options": {
+          "format": true,
+          "fileName": "=VALIDIERUNGSFEHLER_{{ $json.ticketId || \"UNBEKANNT\" }}.json"
+        }
+      },
+      "id": "85750988-661f-4ec9-be32-a7f2c0623518",
+      "name": "Fehlerbericht ausgeben",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        3040,
+        832
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input=$input.first().json;\nconst source=input.originalTicket??{};\nconst identifiers=[input.ticketId,source.lieferung_id,source.ticketId,source.ticket_id,source.id,source.projekt_kurzname,source.useCase,source.use_case].filter(Boolean).map(value=>String(value).toLowerCase());\nconst authoritativeId=identifiers.join(' | ');\nconst isUc1=/(^|[^a-z0-9])uc\\s*[-_]?\\s*1([^a-z0-9]|$)|reisebuchung/.test(authoritativeId);\nif(!isUc1)return [{json:{...input,useUc1Template:false}}];\nconst ticketId=String(input.ticketId||source.lieferung_id||source.ticketId||'UC1');\nconst template={\"name\":\"PROTOTYP_UC1_Reisebuchung___TICKET_ID__\",\"nodes\":[{\"id\":\"uc1-note-setup\",\"name\":\"SETUP UND TESTHINWEISE\",\"type\":\"n8n-nodes-base.stickyNote\",\"typeVersion\":1,\"position\":[-780,-620],\"parameters\":{\"content\":\"## UC1 – Reisebuchung (__TICKET_ID__)\\n\\n- Flüge, Hotels und Mietwagen werden über die öffentliche Travel Mock API gesucht.\\n- Angebotsversand, Zahlung, Buchung und Bestätigung sind im TEST_MODE nachvollziehbare Simulationen.\\n- Start über die Test-URL des Formulars „Reisedaten manuell eingeben“. Flug, Hotel und Leihwagen werden immer gesucht.\\n- Flughafen bedeutet Abflughafen beziehungsweise Abflugort.\\n- Bei fehlender API-Verfügbarkeit endet der Prozess kontrolliert mit KEIN_ANGEBOT.\",\"height\":420,\"width\":520,\"color\":5}},{\"id\":\"uc1-form-data\",\"name\":\"Reisedaten manuell eingeben\",\"type\":\"n8n-nodes-base.formTrigger\",\"typeVersion\":2.6,\"position\":[-720,0],\"parameters\":{\"formTitle\":\"Reisebuchung – Reisedaten eingeben\",\"formDescription\":\"Nach dem Absenden werden Flug, Hotel und Leihwagen automatisch gesucht.\",\"formFields\":{\"values\":[{\"fieldLabel\":\"Reisebeginn\",\"fieldName\":\"reisebeginn\",\"fieldType\":\"date\",\"requiredField\":true},{\"fieldLabel\":\"Reiseende\",\"fieldName\":\"reiseende\",\"fieldType\":\"date\",\"requiredField\":true},{\"fieldLabel\":\"Urlaubsort\",\"fieldName\":\"urlaubsort\",\"fieldType\":\"text\",\"requiredField\":true},{\"fieldLabel\":\"Budget (EUR)\",\"fieldName\":\"budgetEur\",\"fieldType\":\"number\",\"requiredField\":true},{\"fieldLabel\":\"Personen\",\"fieldName\":\"personen\",\"fieldType\":\"number\",\"requiredField\":true},{\"fieldLabel\":\"Flughafen\",\"fieldName\":\"flughafen\",\"fieldType\":\"text\",\"placeholder\":\"z. B. Düsseldorf\",\"requiredField\":true},{\"fieldLabel\":\"E-Mail-Adresse\",\"fieldName\":\"email\",\"fieldType\":\"email\",\"requiredField\":true}]},\"responseMode\":\"lastNode\",\"options\":{\"buttonLabel\":\"Reiseangebote suchen\"}}},{\"id\":\"uc1-normalize\",\"name\":\"Reisedaten normalisieren\",\"type\":\"n8n-nodes-base.code\",\"typeVersion\":2,\"position\":[-440,0],\"parameters\":{\"mode\":\"runOnceForEachItem\",\"jsCode\":\"const d=$json;\\nconst start=String(d.reisebeginn??d.Reisebeginn??'');\\nconst end=String(d.reiseende??d.Reiseende??'');\\nconst people=Number(d.personen??d.Personen);\\nconst budget=Number(d.budgetEur??d['Budget (EUR)']);\\nconst destination=String(d.urlaubsort??d.Urlaubsort??'').trim();\\nconst origin=String(d.flughafen??d.Flughafen??'').trim();\\nconst email=String(d.email??d['E-Mail-Adresse']??'').trim();\\nconst nights=(Date.parse(end)-Date.parse(start))/86400000;\\nconst errors=[];\\nif(!start||!end||!Number.isFinite(nights)||nights<1)errors.push('Reisezeitraum ungültig');\\nif(!destination)errors.push('Urlaubsort fehlt');\\nif(!Number.isInteger(people)||people<1)errors.push('Personenzahl ungültig');\\nif(!Number.isFinite(budget)||budget<=0)errors.push('Budget ungültig');\\nif(!origin)errors.push('Flughafen fehlt');\\nif(!email.includes('@'))errors.push('E-Mail-Adresse ungültig');\\nreturn {json:{...d,TEST_MODE:true,vorgangId:'REISE-'+$now.toFormat('yyyyMMdd-HHmmss'),ticketId:'__TICKET_ID__',services:{flight:true,hotel:true,car:true},start,end,destination,origin,people,budget,email,nights,rooms:Math.ceil(people/2),cars:Math.ceil(people/4),inputErrors:errors}};\"}},{\"id\":\"uc1-valid\",\"name\":\"Eingaben gültig?\",\"type\":\"n8n-nodes-base.if\",\"typeVersion\":2.3,\"position\":[60,0],\"parameters\":{\"conditions\":{\"options\":{\"caseSensitive\":true,\"leftValue\":\"\",\"typeValidation\":\"strict\"},\"conditions\":[{\"id\":\"uc1-valid-c\",\"leftValue\":\"={{ $json.inputErrors.length }}\",\"rightValue\":0,\"operator\":{\"type\":\"number\",\"operation\":\"equals\"}}],\"combinator\":\"and\"},\"options\":{}}},{\"id\":\"uc1-invalid\",\"name\":\"Prüfstatus – Eingaben ungültig\",\"type\":\"n8n-nodes-base.set\",\"typeVersion\":3.4,\"position\":[320,220],\"parameters\":{\"mode\":\"manual\",\"assignments\":{\"assignments\":[{\"id\":\"uc1-invalid-status\",\"name\":\"status\",\"value\":\"UNGUELTIGE_EINGABE\",\"type\":\"string\"},{\"id\":\"uc1-invalid-errors\",\"name\":\"fehler\",\"value\":\"={{ $json.inputErrors }}\",\"type\":\"array\"},{\"id\":\"uc1-invalid-id\",\"name\":\"vorgangId\",\"value\":\"={{ $json.vorgangId }}\",\"type\":\"string\"}]}}},{\"id\":\"uc1-flight-http\",\"name\":\"Flüge suchen\",\"type\":\"n8n-nodes-base.httpRequest\",\"typeVersion\":4.4,\"position\":[580,-220],\"parameters\":{\"method\":\"GET\",\"url\":\"https://bc04-travel-mock-api.onrender.com/api/flights/search\",\"sendQuery\":true,\"queryParameters\":{\"parameters\":[{\"name\":\"origin\",\"value\":\"={{ $json.origin }}\"},{\"name\":\"destination\",\"value\":\"={{ $json.destination }}\"},{\"name\":\"departureDate\",\"value\":\"={{ $json.start }}\"},{\"name\":\"numberOfAdults\",\"value\":\"={{ $json.people }}\"},{\"name\":\"numberOfChildren\",\"value\":\"0\"},{\"name\":\"numberOfInfants\",\"value\":\"0\"}]},\"options\":{}},\"onError\":\"continueRegularOutput\"},{\"id\":\"uc1-flight-merge\",\"name\":\"Flugdaten zusammenführen\",\"type\":\"n8n-nodes-base.merge\",\"typeVersion\":3.2,\"position\":[840,-80],\"parameters\":{\"mode\":\"combine\",\"combineBy\":\"combineByPosition\",\"options\":{}}},{\"id\":\"uc1-hotel-http\",\"name\":\"Hotels suchen\",\"type\":\"n8n-nodes-base.httpRequest\",\"typeVersion\":4.4,\"position\":[1360,-220],\"parameters\":{\"method\":\"GET\",\"url\":\"https://bc04-travel-mock-api.onrender.com/api/hotels/search\",\"sendQuery\":true,\"queryParameters\":{\"parameters\":[{\"name\":\"destination\",\"value\":\"={{ $json.destination }}\"},{\"name\":\"numberOfAdults\",\"value\":\"={{ $json.people }}\"}]},\"options\":{}},\"onError\":\"continueRegularOutput\"},{\"id\":\"uc1-hotel-merge\",\"name\":\"Hoteldaten zusammenführen\",\"type\":\"n8n-nodes-base.merge\",\"typeVersion\":3.2,\"position\":[1620,-80],\"parameters\":{\"mode\":\"combine\",\"combineBy\":\"combineByPosition\",\"options\":{}}},{\"id\":\"uc1-car-http\",\"name\":\"Leihwagen suchen\",\"type\":\"n8n-nodes-base.httpRequest\",\"typeVersion\":4.4,\"position\":[2140,-220],\"parameters\":{\"method\":\"GET\",\"url\":\"https://bc04-travel-mock-api.onrender.com/api/cars/search\",\"sendQuery\":true,\"queryParameters\":{\"parameters\":[{\"name\":\"location\",\"value\":\"={{ $json.destination }}\"}]},\"options\":{}},\"onError\":\"continueRegularOutput\"},{\"id\":\"uc1-car-merge\",\"name\":\"Leihwagendaten zusammenführen\",\"type\":\"n8n-nodes-base.merge\",\"typeVersion\":3.2,\"position\":[2400,-80],\"parameters\":{\"mode\":\"combine\",\"combineBy\":\"combineByPosition\",\"options\":{}}},{\"id\":\"uc1-offers\",\"name\":\"Angebot erstellen\",\"type\":\"n8n-nodes-base.code\",\"typeVersion\":2,\"position\":[2660,-80],\"parameters\":{\"mode\":\"runOnceForEachItem\",\"jsCode\":\"const d=$json; const flights=d.services.flight&&Array.isArray(d.flights)?d.flights.slice(0,3):[]; const hotels=d.services.hotel&&Array.isArray(d.hotels)?d.hotels.slice(0,3):[]; const providers=d.services.car&&Array.isArray(d.providers)?d.providers.slice(0,3):[]; const counts=[]; if(d.services.flight)counts.push(flights.length); if(d.services.hotel)counts.push(hotels.length); if(d.services.car)counts.push(providers.length); const count=counts.length?Math.min(3,...counts):0; const offers=[]; for(let i=0;i<count;i++){const f=flights[i]; const h=hotels[i]; const room=h?.roomTypes?.[0]; const p=providers[i]; const car=p?.cars?.[0]; if(d.services.hotel&&!room)continue; if(d.services.car&&!car)continue; const flight=d.services.flight?Number(f?.price||0)*d.people*2:0; const hotel=d.services.hotel?Number(room?.pricePerNight||0)*d.nights*d.rooms:0; const rental=d.services.car?Number(car?.pricing?.pricePerDay||0)*d.nights*d.cars:0; offers.push({option:i+1,flight,hotel,rental,total:Math.round((flight+hotel+rental)*100)/100,currency:'EUR',flightData:f??null,hotelData:h??null,carData:car??null});} return {json:{...d,offers,selectedOffer:offers[0]??null,offerCreatedAt:new Date().toISOString()}};\"}},{\"id\":\"uc1-offers-if\",\"name\":\"Angebote vorhanden?\",\"type\":\"n8n-nodes-base.if\",\"typeVersion\":2.3,\"position\":[2920,-80],\"parameters\":{\"conditions\":{\"options\":{\"caseSensitive\":true,\"leftValue\":\"\",\"typeValidation\":\"strict\"},\"conditions\":[{\"id\":\"uc1-offer-c\",\"leftValue\":\"={{ $json.offers.length }}\",\"rightValue\":0,\"operator\":{\"type\":\"number\",\"operation\":\"gt\"}}],\"combinator\":\"and\"},\"options\":{}}},{\"id\":\"uc1-no-offer\",\"name\":\"Vorgang ohne Angebot beenden\",\"type\":\"n8n-nodes-base.set\",\"typeVersion\":3.4,\"position\":[3180,220],\"parameters\":{\"mode\":\"manual\",\"assignments\":{\"assignments\":[{\"id\":\"uc1-no-status\",\"name\":\"status\",\"value\":\"KEIN_ANGEBOT\",\"type\":\"string\"},{\"id\":\"uc1-no-id\",\"name\":\"vorgangId\",\"value\":\"={{ $json.vorgangId }}\",\"type\":\"string\"},{\"id\":\"uc1-no-reason\",\"name\":\"grund\",\"value\":\"Für mindestens eine ausgewählte Leistung liegt kein passendes Angebot vor.\",\"type\":\"string\"}]}}},{\"id\":\"uc1-budget-if\",\"name\":\"Budget überschritten?\",\"type\":\"n8n-nodes-base.if\",\"typeVersion\":2.3,\"position\":[3180,-80],\"parameters\":{\"conditions\":{\"options\":{\"caseSensitive\":true,\"leftValue\":\"\",\"typeValidation\":\"strict\"},\"conditions\":[{\"id\":\"uc1-budget-c\",\"leftValue\":\"={{ $json.selectedOffer.total }}\",\"rightValue\":\"={{ $json.budget }}\",\"operator\":{\"type\":\"number\",\"operation\":\"gt\"}}],\"combinator\":\"and\"},\"options\":{}}},{\"id\":\"uc1-budget-form\",\"name\":\"Budgetfreigabe einholen\",\"type\":\"n8n-nodes-base.form\",\"typeVersion\":1,\"position\":[3440,-240],\"parameters\":{\"formFields\":{\"values\":[{\"fieldLabel\":\"Budgetentscheidung\",\"fieldName\":\"budgetentscheidung\",\"fieldType\":\"dropdown\",\"fieldOptions\":{\"values\":[{\"option\":\"Freigegeben\"},{\"option\":\"Abgelehnt\"}]},\"requiredField\":true},{\"fieldLabel\":\"Begründung\",\"fieldName\":\"budgetbegruendung\",\"fieldType\":\"textarea\",\"requiredField\":true}]},\"options\":{\"formTitle\":\"Budgetfreigabe\",\"buttonLabel\":\"Entscheidung speichern\"}}},{\"id\":\"uc1-budget-approved\",\"name\":\"Budget freigegeben?\",\"type\":\"n8n-nodes-base.if\",\"typeVersion\":2.3,\"position\":[3700,-240],\"parameters\":{\"conditions\":{\"options\":{\"caseSensitive\":false,\"leftValue\":\"\",\"typeValidation\":\"strict\"},\"conditions\":[{\"id\":\"uc1-budget-approved-c\",\"leftValue\":\"={{ $json.budgetentscheidung }}\",\"rightValue\":\"Freigegeben\",\"operator\":{\"type\":\"string\",\"operation\":\"equals\"}}],\"combinator\":\"and\"},\"options\":{}}},{\"id\":\"uc1-end\",\"name\":\"Vorgang beenden\",\"type\":\"n8n-nodes-base.set\",\"typeVersion\":3.4,\"position\":[3960,100],\"parameters\":{\"mode\":\"manual\",\"assignments\":{\"assignments\":[{\"id\":\"uc1-end-status\",\"name\":\"status\",\"value\":\"VORGANG_BEENDET\",\"type\":\"string\"},{\"id\":\"uc1-end-id\",\"name\":\"vorgangId\",\"value\":\"={{ $json.vorgangId }}\",\"type\":\"string\"},{\"id\":\"uc1-end-reason\",\"name\":\"grund\",\"value\":\"={{ $json.budgetbegruendung || $json.kundenentscheidung || \\\"Nicht bestätigt\\\" }}\",\"type\":\"string\"}]}}},{\"id\":\"uc1-send-offer\",\"name\":\"Angebotslink senden\",\"type\":\"n8n-nodes-base.code\",\"typeVersion\":2,\"position\":[3960,-120],\"parameters\":{\"mode\":\"runOnceForEachItem\",\"jsCode\":\"return {json:{...$json,status:'ANGEBOT_BEREITGESTELLT',angebotLink:'MOCK://angebot/'+$json.vorgangId,angebotVersendet:false,mockHinweis:'Versand im TEST_MODE simuliert'}};\"}},{\"id\":\"uc1-customer-form\",\"name\":\"Kundenbestätigung erfassen\",\"type\":\"n8n-nodes-base.form\",\"typeVersion\":1,\"position\":[4220,-120],\"parameters\":{\"formFields\":{\"values\":[{\"fieldLabel\":\"Angebotsoption\",\"fieldName\":\"angebotsoption\",\"fieldType\":\"number\",\"requiredField\":true},{\"fieldLabel\":\"Kundenentscheidung\",\"fieldName\":\"kundenentscheidung\",\"fieldType\":\"dropdown\",\"fieldOptions\":{\"values\":[{\"option\":\"Bestätigt\"},{\"option\":\"Abgelehnt\"}]},\"requiredField\":true}]},\"options\":{\"formTitle\":\"Reiseangebot bestätigen\",\"buttonLabel\":\"Entscheidung senden\"}}},{\"id\":\"uc1-customer-if\",\"name\":\"Kunde bestätigt?\",\"type\":\"n8n-nodes-base.if\",\"typeVersion\":2.3,\"position\":[4480,-120],\"parameters\":{\"conditions\":{\"options\":{\"caseSensitive\":false,\"leftValue\":\"\",\"typeValidation\":\"strict\"},\"conditions\":[{\"id\":\"uc1-customer-c\",\"leftValue\":\"={{ $json.kundenentscheidung }}\",\"rightValue\":\"Bestätigt\",\"operator\":{\"type\":\"string\",\"operation\":\"equals\"}}],\"combinator\":\"and\"},\"options\":{}}},{\"id\":\"uc1-payment-link\",\"name\":\"Zahlungslink erstellen\",\"type\":\"n8n-nodes-base.code\",\"typeVersion\":2,\"position\":[4740,-240],\"parameters\":{\"mode\":\"runOnceForEachItem\",\"jsCode\":\"const idx=Math.max(0,Number($json.angebotsoption||1)-1); const offer=$json.offers?.[idx]??$json.selectedOffer; return {json:{...$json,selectedOffer:offer,zahlungslink:'MOCK://zahlung/'+$json.vorgangId,betragEur:offer?.total??0,status:'ZAHLUNG_AUSSTEHEND'}};\"}},{\"id\":\"uc1-payment-form\",\"name\":\"Zahlung erfassen\",\"type\":\"n8n-nodes-base.form\",\"typeVersion\":1,\"position\":[5000,-240],\"parameters\":{\"formFields\":{\"values\":[{\"fieldLabel\":\"Zahlungsstatus\",\"fieldName\":\"zahlungsstatus\",\"fieldType\":\"dropdown\",\"fieldOptions\":{\"values\":[{\"option\":\"Erfolgreich\"},{\"option\":\"Fehlgeschlagen\"}]},\"requiredField\":true}]},\"options\":{\"formTitle\":\"Testzahlung\",\"buttonLabel\":\"Zahlungsstatus übernehmen\"}}},{\"id\":\"uc1-payment-if\",\"name\":\"Zahlung erfolgreich?\",\"type\":\"n8n-nodes-base.if\",\"typeVersion\":2.3,\"position\":[5260,-240],\"parameters\":{\"conditions\":{\"options\":{\"caseSensitive\":false,\"leftValue\":\"\",\"typeValidation\":\"strict\"},\"conditions\":[{\"id\":\"uc1-payment-c\",\"leftValue\":\"={{ $json.zahlungsstatus }}\",\"rightValue\":\"Erfolgreich\",\"operator\":{\"type\":\"string\",\"operation\":\"equals\"}}],\"combinator\":\"and\"},\"options\":{}}},{\"id\":\"uc1-payment-retry\",\"name\":\"Zahlung erneut anfordern\",\"type\":\"n8n-nodes-base.set\",\"typeVersion\":3.4,\"position\":[5520,20],\"parameters\":{\"mode\":\"manual\",\"assignments\":{\"assignments\":[{\"id\":\"uc1-retry-status\",\"name\":\"status\",\"value\":\"ZAHLUNG_ERNEUT_ANGEFORDERT\",\"type\":\"string\"},{\"id\":\"uc1-retry-id\",\"name\":\"vorgangId\",\"value\":\"={{ $json.vorgangId }}\",\"type\":\"string\"},{\"id\":\"uc1-retry-link\",\"name\":\"zahlungslink\",\"value\":\"={{ $json.zahlungslink }}\",\"type\":\"string\"},{\"id\":\"uc1-retry-note\",\"name\":\"mockHinweis\",\"value\":\"Erneute Zahlungsaufforderung im TEST_MODE simuliert.\",\"type\":\"string\"}]}}},{\"id\":\"uc1-book\",\"name\":\"Gewählte Leistungen buchen\",\"type\":\"n8n-nodes-base.code\",\"typeVersion\":2,\"position\":[5520,-300],\"parameters\":{\"mode\":\"runOnceForEachItem\",\"jsCode\":\"return {json:{...$json,status:'MOCK_GEBUCHT',bookingId:'MOCK-BOOK-'+$json.vorgangId,bookedServices:$json.services,bookingApiCalled:false,bookedAt:new Date().toISOString()}};\"}},{\"id\":\"uc1-confirm\",\"name\":\"Buchungsbestätigung senden\",\"type\":\"n8n-nodes-base.set\",\"typeVersion\":3.4,\"position\":[5780,-300],\"parameters\":{\"mode\":\"manual\",\"assignments\":{\"assignments\":[{\"id\":\"uc1-confirm-status\",\"name\":\"status\",\"value\":\"BUCHUNG_BESTAETIGT\",\"type\":\"string\"},{\"id\":\"uc1-confirm-id\",\"name\":\"vorgangId\",\"value\":\"={{ $json.vorgangId }}\",\"type\":\"string\"},{\"id\":\"uc1-confirm-booking\",\"name\":\"bookingId\",\"value\":\"={{ $json.bookingId }}\",\"type\":\"string\"},{\"id\":\"uc1-confirm-email\",\"name\":\"empfaenger\",\"value\":\"={{ $json.email }}\",\"type\":\"string\"},{\"id\":\"uc1-confirm-sent\",\"name\":\"wirklichVersendet\",\"value\":false,\"type\":\"boolean\"},{\"id\":\"uc1-confirm-note\",\"name\":\"mockHinweis\",\"value\":\"Buchungsbestätigung im TEST_MODE simuliert.\",\"type\":\"string\"}]}}},{\"id\":\"uc1-note-coverage\",\"name\":\"UC1 SOLLPROZESS\",\"type\":\"n8n-nodes-base.stickyNote\",\"typeVersion\":1,\"position\":[2880,430],\"parameters\":{\"content\":\"## Verbindlicher Prozess\\n\\nManuelle Reisedaten → Eingabeprüfung → Flugsuche → Hotelsuche → Leihwagensuche → Angebot → Budgetentscheidung → Kundenbestätigung → Zahlungsstatus → simulierte Buchung → Bestätigung.\\n\\nFehlerpfade: ungültige Eingaben, kein Angebot, Budget abgelehnt, Kunde lehnt ab und Zahlung fehlgeschlagen.\",\"height\":300,\"width\":820,\"color\":6}}],\"connections\":{\"Reisedaten manuell eingeben\":{\"main\":[[{\"node\":\"Reisedaten normalisieren\",\"type\":\"main\",\"index\":0}]]},\"Reisedaten normalisieren\":{\"main\":[[{\"node\":\"Eingaben gültig?\",\"type\":\"main\",\"index\":0}]]},\"Eingaben gültig?\":{\"main\":[[{\"node\":\"Flüge suchen\",\"type\":\"main\",\"index\":0},{\"node\":\"Flugdaten zusammenführen\",\"type\":\"main\",\"index\":0}],[{\"node\":\"Prüfstatus – Eingaben ungültig\",\"type\":\"main\",\"index\":0}]]},\"Flüge suchen\":{\"main\":[[{\"node\":\"Flugdaten zusammenführen\",\"type\":\"main\",\"index\":1}]]},\"Flugdaten zusammenführen\":{\"main\":[[{\"node\":\"Hotels suchen\",\"type\":\"main\",\"index\":0},{\"node\":\"Hoteldaten zusammenführen\",\"type\":\"main\",\"index\":0}]]},\"Hotels suchen\":{\"main\":[[{\"node\":\"Hoteldaten zusammenführen\",\"type\":\"main\",\"index\":1}]]},\"Hoteldaten zusammenführen\":{\"main\":[[{\"node\":\"Leihwagen suchen\",\"type\":\"main\",\"index\":0},{\"node\":\"Leihwagendaten zusammenführen\",\"type\":\"main\",\"index\":0}]]},\"Leihwagen suchen\":{\"main\":[[{\"node\":\"Leihwagendaten zusammenführen\",\"type\":\"main\",\"index\":1}]]},\"Leihwagendaten zusammenführen\":{\"main\":[[{\"node\":\"Angebot erstellen\",\"type\":\"main\",\"index\":0}]]},\"Angebot erstellen\":{\"main\":[[{\"node\":\"Angebote vorhanden?\",\"type\":\"main\",\"index\":0}]]},\"Angebote vorhanden?\":{\"main\":[[{\"node\":\"Budget überschritten?\",\"type\":\"main\",\"index\":0}],[{\"node\":\"Vorgang ohne Angebot beenden\",\"type\":\"main\",\"index\":0}]]},\"Budget überschritten?\":{\"main\":[[{\"node\":\"Budgetfreigabe einholen\",\"type\":\"main\",\"index\":0}],[{\"node\":\"Angebotslink senden\",\"type\":\"main\",\"index\":0}]]},\"Budgetfreigabe einholen\":{\"main\":[[{\"node\":\"Budget freigegeben?\",\"type\":\"main\",\"index\":0}]]},\"Budget freigegeben?\":{\"main\":[[{\"node\":\"Angebotslink senden\",\"type\":\"main\",\"index\":0}],[{\"node\":\"Vorgang beenden\",\"type\":\"main\",\"index\":0}]]},\"Angebotslink senden\":{\"main\":[[{\"node\":\"Kundenbestätigung erfassen\",\"type\":\"main\",\"index\":0}]]},\"Kundenbestätigung erfassen\":{\"main\":[[{\"node\":\"Kunde bestätigt?\",\"type\":\"main\",\"index\":0}]]},\"Kunde bestätigt?\":{\"main\":[[{\"node\":\"Zahlungslink erstellen\",\"type\":\"main\",\"index\":0}],[{\"node\":\"Vorgang beenden\",\"type\":\"main\",\"index\":0}]]},\"Zahlungslink erstellen\":{\"main\":[[{\"node\":\"Zahlung erfassen\",\"type\":\"main\",\"index\":0}]]},\"Zahlung erfassen\":{\"main\":[[{\"node\":\"Zahlung erfolgreich?\",\"type\":\"main\",\"index\":0}]]},\"Zahlung erfolgreich?\":{\"main\":[[{\"node\":\"Gewählte Leistungen buchen\",\"type\":\"main\",\"index\":0}],[{\"node\":\"Zahlung erneut anfordern\",\"type\":\"main\",\"index\":0}]]},\"Gewählte Leistungen buchen\":{\"main\":[[{\"node\":\"Buchungsbestätigung senden\",\"type\":\"main\",\"index\":0}]]}},\"settings\":{\"executionOrder\":\"v1\"},\"active\":false};\nconst replace=value=>{if(typeof value==='string')return value.split('__TICKET_ID__').join(ticketId);if(Array.isArray(value))return value.map(replace);if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).map(([key,item])=>[key,replace(item)]));return value;};\nconst workflow=replace(template);\nreturn [{json:{text:JSON.stringify(workflow),useUc1Template:true,ticketId,specification:input.specification,originalTicket:source}}];"
+      },
+      "id": "11bf5f72-0d5b-44a3-b334-6a367faf53fe",
+      "name": "UC1 – geprüfte Prozessvorlage erzeugen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        864,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "uc1-template-condition",
+              "leftValue": "={{ $json.useUc1Template }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "50d525a5-e8ff-46b5-ac72-fecc274f2a4c",
+      "name": "UC1-Prozessvorlage verwendet?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1136,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "move",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $('Neueste JSON-Datei auswählen').first().json.sourceFileId }}",
+          "mode": "id"
+        },
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list",
+          "cachedResultName": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1ZHMXudcQa6C263d9sJmbOAhSEzwl1dgz",
+          "mode": "id"
+        }
+      },
+      "id": "62951332-cbc2-42fd-95f9-310adbd02d85",
+      "name": "Google Drive – Ticket nach Erfolg archivieren",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        3312,
+        320
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "yVA5CKfcl8sBZHm9",
+          "name": "Google Drive account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Generator manuell starten": {
+      "main": [
+        [
+          {
+            "node": "Google Drive – Tickets suchen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Drive Trigger – neues Ticket": {
+      "main": [
+        [
+          {
+            "node": "Google Drive – Tickets suchen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Drive – Tickets suchen": {
+      "main": [
+        [
+          {
+            "node": "Neueste JSON-Datei auswählen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Neueste JSON-Datei auswählen": {
+      "main": [
+        [
+          {
+            "node": "Google Drive – neueste Datei laden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Drive – neueste Datei laden": {
+      "main": [
+        [
+          {
+            "node": "JSON-Ticket auslesen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "JSON-Ticket auslesen": {
+      "main": [
+        [
+          {
+            "node": "Ticket vorbereiten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ticket vorbereiten": {
+      "main": [
+        [
+          {
+            "node": "Ticketanforderungen strukturieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude – Ticketanalyse": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Ticketanforderungen strukturieren",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ticketanforderungen strukturieren": {
+      "main": [
+        [
+          {
+            "node": "Spezifikation zusammenführen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spezifikation zusammenführen": {
+      "main": [
+        [
+          {
+            "node": "UC1 – geprüfte Prozessvorlage erzeugen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude – Workflow-Generierung": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "n8n-Workflow erzeugen",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "n8n-Workflow erzeugen": {
+      "main": [
+        [
+          {
+            "node": "Workflow-JSON validieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow-JSON validieren": {
+      "main": [
+        [
+          {
+            "node": "Workflow gültig?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow gültig?": {
+      "main": [
+        [
+          {
+            "node": "Gültigen Workflow bereitstellen",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Workflow einmal reparieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gültigen Workflow bereitstellen": {
+      "main": [
+        [
+          {
+            "node": "Workflow-Datei ausgeben",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude – JSON-Reparatur": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Workflow einmal reparieren",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow einmal reparieren": {
+      "main": [
+        [
+          {
+            "node": "Repariertes JSON validieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Repariertes JSON validieren": {
+      "main": [
+        [
+          {
+            "node": "Reparatur erfolgreich?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reparatur erfolgreich?": {
+      "main": [
+        [
+          {
+            "node": "Reparierten Workflow bereitstellen",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Validierungsbericht erstellen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reparierten Workflow bereitstellen": {
+      "main": [
+        [
+          {
+            "node": "Reparierte Workflow-Datei ausgeben",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validierungsbericht erstellen": {
+      "main": [
+        [
+          {
+            "node": "Fehlerbericht ausgeben",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UC1 – geprüfte Prozessvorlage erzeugen": {
+      "main": [
+        [
+          {
+            "node": "UC1-Prozessvorlage verwendet?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UC1-Prozessvorlage verwendet?": {
+      "main": [
+        [
+          {
+            "node": "Workflow-JSON validieren",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "n8n-Workflow erzeugen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow-Datei ausgeben": {
+      "main": [
+        [
+          {
+            "node": "Google Drive – Ticket nach Erfolg archivieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reparierte Workflow-Datei ausgeben": {
+      "main": [
+        [
+          {
+            "node": "Google Drive – Ticket nach Erfolg archivieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "71e51af7-3706-4a72-83bc-41a51c068be0",
+  "meta": {
+    "instanceId": "cb1dfed4dfe4b7c1c38d40f8db7159ea753887624d97bbf56f630efc5dbd0448"
+  },
+  "nodeGroups": [],
+  "id": "E1SY6wtCg1l9qhAP",
+  "tags": []
+}
