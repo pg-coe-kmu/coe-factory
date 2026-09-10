@@ -72,15 +72,26 @@ class Eingangsbuch(Protocol):
 # es genau eine, wird sie übernommen; trägt es mehrere, bleibt das Feld leer —
 # lieber keine Angabe als eine willkürlich gegriffene. Dasselbe steht so im
 # Vertrag unter contracts/bc0-to-bc2/.
+# **Durchgehend nach `text` gewandelt, und das ist keine Kosmetik.** In BC0s
+# Schema sind `paket_id` und `company_id` vom Typ `uuid`; in `bc2.eingang` sind
+# sie `text`, weil der Vertrag sie als Zeichenkette führt und der Endpunkt auch
+# eine Kennung annehmen soll, die kein UUID ist. Ohne die Wandlung scheitert
+# schon der Verbund:
+#
+#     operator does not exist: text = uuid
+#
+# und die Werte kämen als `uuid.UUID` zurück, woran `json.dumps` für die
+# Nutzlast zerbräche. Am 10.09.2026 beim ersten Lauf gegen die echte Datenbank
+# aufgefallen — der Nachhol-Abgleich wäre **jedes Mal** gescheitert (#190).
 _SQL_OFFEN = """
-SELECT v.paket_id,
-       v.company_id,
+SELECT v.paket_id::text                                             AS paket_id,
+       v.company_id::text                                           AS company_id,
        v.uebergeben_am,
-       max(v.hinweis)                                        AS hinweis,
-       array_agg(DISTINCT v.sub_process_id)                  AS teilprozesse,
-       array_remove(array_agg(DISTINCT v.anfrage_id), NULL)  AS anfrage_ids
+       max(v.hinweis)                                               AS hinweis,
+       array_agg(DISTINCT v.sub_process_id::text)                   AS teilprozesse,
+       array_remove(array_agg(DISTINCT v.anfrage_id::text), NULL)   AS anfrage_ids
   FROM public.v_uebergabe_offen v
-  LEFT JOIN bc2.eingang e ON e.paket_id = v.paket_id
+  LEFT JOIN bc2.eingang e ON e.paket_id = v.paket_id::text
  WHERE e.paket_id IS NULL
  GROUP BY v.paket_id, v.company_id, v.uebergeben_am
  ORDER BY v.uebergeben_am
