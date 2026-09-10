@@ -8,6 +8,10 @@ Betriebsmuster von BC0 übernommen ([#136](https://github.com/pg-coe-kmu/coe-fac
 manueller Bestellprüfung, der A-Record ist noch nicht gesetzt. Alles ab
 Schritt 3 ist gebaut und getestet.
 
+**Nachgezogen an BC0s gebauten Ruf** (Commit `9ddda89`): BC0 weist sich mit
+einer HMAC-Signatur aus, nicht mit `Authorization: Bearer`, und schickt nur die
+Kennungen. BC2 nimmt jetzt beides an — siehe Schritt 8 und 9.
+
 ---
 
 ## Was hier liegt
@@ -147,6 +151,33 @@ curl -i -X POST https://bc2.02da.de/api/bc0/uebergabe \
 # -> 202 {"paket_id":"PROBE-1","status":"bereits_angenommen"}
 ```
 
+**Die wichtigste Gegenprobe: BC0s echter Ruf.** So ruft BC0 wirklich — mit
+Signatur statt Bearer und nur den Kennungen. Wenn diese Probe durchgeht, geht
+Simeons Aufruf durch:
+
+```bash
+python3 - <<'EOF'
+import hashlib, hmac, json, os, time, urllib.request
+geheim = os.environ["BC2_TRIGGER_TOKEN"]
+rumpf = json.dumps({"ereignis": "paket_uebergeben",
+                    "company_id": "7c2d5ee9-2a9a-5990-810f-502ea2b2012d",
+                    "paket_id": "PROBE-2",
+                    "uebergeben_am": "2026-09-10 14:32:11.123456+02"},
+                   separators=(",", ":"), sort_keys=True).encode()
+stempel = str(int(time.time()))
+sig = hmac.new(geheim.encode(), stempel.encode() + b"." + rumpf, hashlib.sha256).hexdigest()
+r = urllib.request.Request("https://bc2.02da.de/api/bc0/uebergabe", data=rumpf,
+                           headers={"Content-Type": "application/json",
+                                    "X-BC0-Timestamp": stempel,
+                                    "X-BC0-Signature": "sha256=" + sig}, method="POST")
+with urllib.request.urlopen(r) as a:
+    print(a.getcode(), a.read().decode())
+EOF
+# -> 202 {"paket_id": "PROBE-2", "status": "angenommen"}
+```
+
+Proben hinterher entfernen: `PROBE-1` **und** `PROBE-2`.
+
 Probe hinterher wieder entfernen:
 
 ```sql
@@ -161,21 +192,31 @@ BC2_ECHTE_DB=1 python -m pytest tests/test_vertrag_postgres.py -v
 
 ## 9. An BC0 übergeben
 
-Simeon braucht genau zwei Dinge — die URL steht schon im Vertrag
-(`contracts/bc0-to-bc2/README.md`), der Schlüssel kommt per SMS:
+BC0s Code liest zwei Umgebungsvariablen (`bc0-baseline-onboarding/app/app.py:4325`).
+Genau die beiden Werte braucht Simeon — **`BC2_HOOK_SECRET` per SMS**, der Rest
+darf offen stehen:
 
 ```
-POST https://bc2.02da.de/api/bc0/uebergabe
-Authorization: Bearer <token>
+BC2_HOOK_URL=https://bc2.02da.de/api/bc0/uebergabe
+BC2_HOOK_SECRET=<derselbe Wert wie BC2_TRIGGER_TOKEN>
 ```
+
+**Ein Geheimnis, eine SMS.** BC0 signiert damit, BC2 prüft damit; derselbe Wert
+wird zusätzlich als `Authorization: Bearer` akzeptiert.
+
+Danach ist Simeons Gegenprobe ein Klick auf **Übergabe** in BC0 — die Antwort
+trägt `zustellung.ergebnis` und den HTTP-Code, und in `bc_zustellungen` steht
+der Versuch.
 
 ---
 
 ## Nachhol-Abgleich
 
-BC0 braucht **keine Wiederholungslogik**. Fällt BC2 aus, während BC0 überträgt,
-holt BC2 das Paket beim nächsten Start selbst aus `public.v_uebergabe_offen`.
-Von Hand anstoßen:
+Kein Paket geht verloren, auf drei Wegen: der Ruf, BC0s
+`POST …/uebergabe/nachliefern`, und BC2s Abgleich gegen
+`public.v_uebergabe_offen` beim Start. Fällt BC2 aus, während BC0 überträgt,
+holt BC2 das Paket beim nächsten Start selbst — dafür muss auf BC0s Seite
+niemand etwas anstoßen. Von Hand anstoßen:
 
 ```bash
 curl -X POST -H "Authorization: Bearer $BC2_TRIGGER_TOKEN" \

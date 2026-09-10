@@ -20,14 +20,26 @@ ist Primärschlüssel von ``bc2.eingang``. Der zweite Aufruf mit derselben ID
 läuft ins ``ON CONFLICT DO NOTHING`` und wird als ``bereits_angenommen``
 quittiert.
 
+**Nachgezogen am 10.09.2026 an BC0s gebauten Ruf** (``9ddda89``, „Ruf an BC2"):
+BC0 weist sich mit einer **HMAC-Signatur** aus, nicht mit ``Authorization:
+Bearer``, und schickt **nur die Kennungen** — ohne ``teilprozesse``. Beides war
+im Vertrag anders vorgeschlagen; der Vertrag war ausdrücklich Vorschlag, nicht
+Vorschrift. BC2 nimmt jetzt **beide** Ausweisformen an und verlangt die Liste
+nicht mehr. Damit muss auf BC0s Seite nichts geändert werden, und der ältere
+Vorschlag funktioniert weiter.
+
 Vertrag: ``contracts/bc0-to-bc2/``.
 """
 
 from __future__ import annotations
 
+import hashlib
 import hmac
+import json
 import logging
 import os
+import re
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any
@@ -39,12 +51,29 @@ from eingang import Eingangsbuch, Paket, PostgresEingangsbuch
 
 log = logging.getLogger("bc2.trigger")
 
-PFLICHTFELDER = ("paket_id", "company_id", "uebergeben_am", "teilprozesse")
+PFLICHTFELDER = ("paket_id", "company_id", "uebergeben_am")
+
+# Wie alt eine Signatur höchstens sein darf. Fünf Minuten fangen den Uhrversatz
+# zwischen zwei Servern ab, ohne einen mitgeschnittenen Ruf beliebig lange
+# wiederholbar zu machen.
+SIGNATUR_FENSTER_S = float(os.environ.get("BC2_SIGNATUR_FENSTER_S", "300"))
 
 
 # ----------------------------------------------------------------------------
 # Schlüssel
 # ----------------------------------------------------------------------------
+#
+# Es gibt **ein** Geheimnis und zwei Arten, sich damit auszuweisen:
+#
+# 1. ``X-BC0-Signature`` — BC0 signiert Zeitstempel und Rumpf damit (HMAC-SHA256).
+#    Das ist der Weg, den BC0 gebaut hat, und der stärkere: das Geheimnis geht
+#    nie über die Leitung, und der Zeitstempel verhindert, dass ein
+#    mitgeschnittener Ruf wiederholt wird.
+# 2. ``Authorization: Bearer`` — der ursprünglich vorgeschlagene Weg. Bleibt für
+#    BC2s eigene Endpunkte und als Rückfallebene.
+#
+# Beide gegen denselben Wert: BC0 führt ihn als ``BC2_HOOK_SECRET``, BC2 als
+# ``BC2_TRIGGER_TOKEN``. **Ein** Geheimnis, **eine** SMS.
 
 
 def _erwarteter_schluessel() -> str:
@@ -70,6 +99,93 @@ def _schluessel_stimmt(request: Request) -> bool:
     return hmac.compare_digest(kopf[7:].strip(), erwartet)
 
 
+def _signatur_stimmt(request: Request, rumpf: bytes) -> bool:
+    """Prüft BC0s ``X-BC0-Signature`` gegen den **rohen** Rumpf.
+
+    So bildet BC0 sie (``bc0-baseline-onboarding/app/app.py:4370``)::
+
+        stempel      = str(int(time.time()))
+        unterschrift = hmac_sha256(geheimnis, stempel + "." + rumpf).hexdigest()
+        X-BC0-Timestamp: <stempel>
+        X-BC0-Signature: sha256=<unterschrift>
+
+    Geprüft wird über die Bytes, **wie sie ankamen** — nicht über neu
+    serialisiertes JSON. Schon ein anderes Trennzeichen oder eine andere
+    Schlüsselreihenfolge ergäbe eine andere Signatur.
+    """
+    geheimnis = _erwarteter_schluessel()
+    if not geheimnis:
+        return False
+
+    stempel = (request.headers.get("x-bc0-timestamp") or "").strip()
+    mitgeschickt = (request.headers.get("x-bc0-signature") or "").strip()
+    if not stempel or not mitgeschickt.startswith("sha256="):
+        return False
+
+    # Ein alter Ruf zählt nicht, sonst liesse sich ein mitgeschnittener
+    # wiederholen. Beide Richtungen, weil auch eine vorgehende Uhr Versatz ist.
+    try:
+        if abs(time.time() - int(stempel)) > SIGNATUR_FENSTER_S:
+            return False
+    except ValueError:
+        return False
+
+    erwartet = hmac.new(
+        geheimnis.encode("utf-8"),
+        stempel.encode("utf-8") + b"." + rumpf,
+        hashlib.sha256,
+    ).hexdigest()
+    return hmac.compare_digest(mitgeschickt[7:].strip(), erwartet)
+
+
+def _ruf_ist_echt(request: Request, rumpf: bytes) -> bool:
+    """Signatur **oder** Bearer — einer von beiden genügt."""
+    return _signatur_stimmt(request, rumpf) or _schluessel_stimmt(request)
+
+
+# ----------------------------------------------------------------------------
+# Zeitstempel
+# ----------------------------------------------------------------------------
+
+_ZONE = re.compile(r"([+-]\d{2})(\d{2})?$")
+_BRUCH = re.compile(r"\.(\d{1,6})")
+
+
+def iso_normalisieren(text: str) -> str:
+    """Bringt BC0s Zeitstempel auf die Form, die jedes Python versteht.
+
+    BC0 reicht den Wert durch, wie Postgres ihn ausgibt
+    (``SELECT uebergeben_am::text``, ``app.py:4491``), und das ist **kein**
+    RFC 3339::
+
+        2026-09-10 14:32:11.123456+02      Postgres
+        2026-09-10T14:32:11.123456+02:00   was fromisoformat vor 3.11 verlangt
+
+    Zwei Abweichungen: ein Leerzeichen statt ``T`` und ein **zweistelliger**
+    Zonenversatz. Ab Python 3.11 nimmt ``fromisoformat`` beides von selbst —
+    davor nicht, und Bruchsekunden mit einer anderen Stellenzahl als drei oder
+    sechs auch dann nicht. Der Container läuft auf 3.12, die Prüfung hier aber
+    auf dem, was der Entwickler gerade hat.
+
+    Sich auf die Nachsicht einer Version zu verlassen hiesse, den ersten echten
+    Ruf von BC0 zur Probe zu machen. Also ausdrücklich normalisieren.
+    """
+    t = text.strip()
+    if t[-1:] in ("Z", "z"):
+        t = t[:-1] + "+00:00"
+    if len(t) > 10 and t[10] == " ":
+        t = t[:10] + "T" + t[11:]
+
+    zone = _ZONE.search(t)
+    if zone and ":" not in t[zone.start():]:
+        t = t[: zone.start()] + zone.group(1) + ":" + (zone.group(2) or "00")
+
+    bruch = _BRUCH.search(t)
+    if bruch and len(bruch.group(1)) not in (3, 6):
+        t = t[: bruch.start()] + "." + bruch.group(1).ljust(6, "0") + t[bruch.end():]
+    return t
+
+
 # ----------------------------------------------------------------------------
 # Prüfung der Nutzlast
 # ----------------------------------------------------------------------------
@@ -85,6 +201,15 @@ def pruefe_nutzlast(daten: Any) -> tuple[Paket | None, str | None]:
     Geprüft werden **nur die Pflichtfelder**. Unbekannte Felder sind erlaubt und
     werden roh mitprotokolliert: der Endpunkt ist tolerant (#190), damit BC0
     ergänzen kann, ohne sich mit BC2 abzustimmen.
+
+    ``teilprozesse`` ist **kein** Pflichtfeld. BC0 schickt bewusst nur die
+    Kennungen und begründet das mit ADR-003 Regel 4: *„Die Nachricht ist der
+    Zettel mit der Nummer, nicht der Inhalt — die Datenbank bleibt alleinige
+    Quelle."* Der Zuschnitt des Pakets steht in ``public.v_uebergabe_offen`` und
+    wird von dort über die ``paket_id`` gelesen, wenn gerechnet wird. Ihn hier
+    zu verlangen hiesse, fremden Zustand in einer Nachricht zu doppeln — und
+    zwei Quellen zu haben, die auseinanderlaufen können. Kommt die Liste
+    trotzdem mit, wird sie geprüft und roh aufgehoben.
     """
     if not isinstance(daten, dict):
         return None, "Rumpf muss ein JSON-Objekt sein."
@@ -98,18 +223,18 @@ def pruefe_nutzlast(daten: Any) -> tuple[Paket | None, str | None]:
     if not isinstance(paket_id, str) or not isinstance(company_id, str):
         return None, "paket_id und company_id muessen Zeichenketten sein."
 
-    teilprozesse = daten["teilprozesse"]
-    if not isinstance(teilprozesse, list) or not all(
-        isinstance(t, str) and t for t in teilprozesse
-    ):
-        return None, "teilprozesse muss eine nicht-leere Liste von Zeichenketten sein."
+    if "teilprozesse" in daten:
+        teilprozesse = daten["teilprozesse"]
+        if not isinstance(teilprozesse, list) or not all(
+            isinstance(t, str) and t for t in teilprozesse
+        ):
+            return None, "teilprozesse muss eine nicht-leere Liste von Zeichenketten sein."
 
     roh = daten["uebergeben_am"]
     if not isinstance(roh, str):
         return None, "uebergeben_am muss eine ISO-8601-Zeichenkette sein."
     try:
-        # Python vor 3.11 versteht das abschliessende Z nicht.
-        uebergeben_am = datetime.fromisoformat(roh.replace("Z", "+00:00"))
+        uebergeben_am = datetime.fromisoformat(iso_normalisieren(roh))
     except ValueError:
         return None, f"uebergeben_am ist kein ISO-8601-Zeitstempel: {roh!r}."
 
@@ -202,7 +327,12 @@ def erzeuge_app(buch: Eingangsbuch | None = None) -> FastAPI:
     @app.post("/api/bc0/uebergabe")
     async def uebergabe(request: Request):
         """Der Endpunkt, auf den BC0 seit dem 09.09.2026 wartet."""
-        if not _schluessel_stimmt(request):
+        # Erst die Bytes, dann die Prüfung, dann das Parsen: BC0s Signatur geht
+        # über den rohen Rumpf, und der ist nach dem Parsen nicht mehr exakt
+        # rekonstruierbar.
+        rumpf = await request.body()
+
+        if not _ruf_ist_echt(request, rumpf):
             return JSONResponse(
                 {"fehler": "Schluessel fehlt oder stimmt nicht."},
                 status_code=401,
@@ -210,7 +340,7 @@ def erzeuge_app(buch: Eingangsbuch | None = None) -> FastAPI:
             )
 
         try:
-            daten = await request.json()
+            daten = json.loads(rumpf)
         except Exception:  # noqa: BLE001
             return JSONResponse({"fehler": "Rumpf ist kein gueltiges JSON."}, status_code=400)
 
@@ -230,11 +360,17 @@ def erzeuge_app(buch: Eingangsbuch | None = None) -> FastAPI:
                 status_code=503,
             )
 
+        # Den Zuschnitt mitschreiben, wenn er mitkam — sonst ausdruecklich
+        # sagen, dass er aus der Datenbank kommt. Sonst laese sich ein Paket
+        # ohne Liste wie ein leeres Paket.
+        mitgeschickt = paket.nutzlast.get("teilprozesse")
         log.info(
-            "Paket %s (%s, %d Teilprozesse) %s",
+            "Paket %s (%s, %s) %s",
             paket.paket_id,
             paket.company_id,
-            len(paket.nutzlast.get("teilprozesse", [])),
+            f"{len(mitgeschickt)} Teilprozesse mitgeschickt"
+            if isinstance(mitgeschickt, list)
+            else "Zuschnitt aus v_uebergabe_offen",
             "angenommen" if neu else "lag bereits",
         )
         return JSONResponse(
