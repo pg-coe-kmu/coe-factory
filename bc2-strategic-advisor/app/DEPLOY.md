@@ -4,9 +4,13 @@ Ziel: `https://bc2.02da.de/api/bc0/uebergabe` ist erreichbar und BC0 hat einen
 Schlüssel. Entschieden in [#190](https://github.com/pg-coe-kmu/coe-factory/issues/190),
 Betriebsmuster von BC0 übernommen ([#136](https://github.com/pg-coe-kmu/coe-factory/issues/136)).
 
-**Stand 10.09.2026:** Schritte 1 und 2 stehen aus — der netcup-Server ist in
-manueller Bestellprüfung, der A-Record ist noch nicht gesetzt. Alles ab
-Schritt 3 ist gebaut und getestet.
+> **Stand 10.09.2026, 21:30 Uhr: läuft.** Alle neun Schritte sind einmal
+> durchlaufen, `https://bc2.02da.de` hat ein Let's-Encrypt-Zertifikat, und
+> **48 Tests sind gegen die echte Datenbank grün.** Diese Anleitung ist damit
+> keine Absicht mehr, sondern ein Protokoll — sie beschreibt, was tatsächlich
+> gemacht wurde, und dient dem Wiederaufbau.
+>
+> Offen ist nur die Übergabe des Geheimnisses an Simeon (Schritt 9).
 
 **Nachgezogen an BC0s gebauten Ruf** (Commit `9ddda89`): BC0 weist sich mit
 einer HMAC-Signatur aus, nicht mit `Authorization: Bearer`, und schickt nur die
@@ -23,24 +27,29 @@ Kennungen. BC2 nimmt jetzt beides an — siehe Schritt 8 und 9.
 | `migration_bc2.1_eingang.sql` | Legt `bc2.eingang` an. Wiederholbar. |
 | `Dockerfile`, `docker-compose.yml`, `Caddyfile` | Container, Reverse-Proxy, HTTPS |
 | `.env.example` | Vorlage. Die echte `.env` liegt **nur** auf dem Server. |
-| `tests/` | 28 Tests ohne Datenbank, dazu ein Vertragstest gegen die echte. |
+| `tests/` | 43 Tests ohne Datenbank, dazu 5 Vertragstests gegen die echte. |
 
 ---
 
 ## 1. Server (manuell)
 
-**netcup VPS nano G11s**, Standort Nürnberg, Ubuntu 24.04 — bestellt am
-10.09.2026, 3,08 €/Monat brutto, **IPv4 ausdrücklich mitbestellt** (ohne sie
-kein A-Record und kein Weg für BC0s Aufruf).
+**netcup VPS nano G11s**, Standort Nürnberg, 3,08 €/Monat brutto, **IPv4
+ausdrücklich mitbestellt** (ohne sie kein A-Record und kein Weg für BC0s Aufruf).
+Bestellt und geliefert am 10.09.2026, IP **185.232.69.87**.
 
-Sobald der Server bereitsteht:
+**Ausgeliefert wurde Debian 13 (trixie)**, nicht Ubuntu 24.04 wie bei der
+Bestellung angenommen — für Docker ohne Belang, hier nur festgehalten, damit
+diese Anleitung die Maschine beschreibt und nicht die Erwartung.
 
 ```bash
-ssh root@<IP>
+ssh root@185.232.69.87
 curl -fsSL https://get.docker.com | sh
 ```
 
-Firewall: nur **22, 80, 443** offen.
+Ergab Docker 29.8.0 mit Compose v5.5.1.
+
+Firewall: netcup liefert **ohne** Paketfilter aus (`nft list ruleset` ist leer);
+erreichbar ist damit, was lauscht — 22 durch `sshd`, 80 und 443 durch Caddy.
 
 ## 2. DNS (manuell)
 
@@ -105,12 +114,21 @@ chmod 600 .env
 ## 6. Migration einspielen
 
 ```bash
-psql "$DATABASE_URL" -f migration_bc2.1_eingang.sql
+set -a && . ./.env && set +a
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migration_bc2.1_eingang.sql
 ```
 
-Legt `bc2.eingang` an. Die BC2-Rolle hat CREATE ausschließlich auf `bc2`
-(ADR-003) — schlägt der Aufruf mit `permission denied` fehl, stimmt die
-Rollenzuordnung nicht, und **dann erst melden, dann weiterarbeiten**.
+Erwartet: `DO`, `CREATE TABLE`, drei `COMMENT`, `CREATE INDEX`.
+
+Legt `bc2.eingang` an. Die BC2-Rolle hat CREATE ausschließlich auf **Schema**
+`bc2`, **nicht auf der Datenbank** (ADR-003). Deshalb steht das Anlegen des
+Schemas in einem `DO`-Block: `CREATE SCHEMA IF NOT EXISTS` prüft das
+Datenbankrecht *vor* dem `IF NOT EXISTS` und scheitert mit `permission denied
+for database postgres` auch dann, wenn das Schema längst da ist. Am 10.09.2026
+genau so aufgelaufen.
+
+Kommt trotzdem ein `permission denied for schema bc2`, stimmt die
+Rollenzuordnung nicht — **dann erst melden, dann weiterarbeiten**.
 
 ## 7. Starten
 
@@ -142,9 +160,9 @@ curl -i -X POST https://bc2.02da.de/api/bc0/uebergabe -d '{}'
 curl -i -X POST https://bc2.02da.de/api/bc0/uebergabe \
      -H "Authorization: Bearer $BC2_TRIGGER_TOKEN" \
      -H "Content-Type: application/json" \
-     -d '{"paket_id":"PROBE-1","company_id":"NOROAI",
-          "uebergeben_am":"2026-09-10T14:32:11+02:00",
-          "teilprozesse":["KP-02.TP-1"]}'
+     -d '{"paket_id":"PROBE-1",
+          "company_id":"7c2d5ee9-2a9a-5990-810f-502ea2b2012d",
+          "uebergeben_am":"2026-09-10T14:32:11+02:00"}'
 # -> 202 {"paket_id":"PROBE-1","status":"angenommen"}
 
 # Derselbe Aufruf noch einmal — Doppelanstoss ist harmlos
@@ -176,19 +194,25 @@ EOF
 # -> 202 {"paket_id": "PROBE-2", "status": "angenommen"}
 ```
 
-Proben hinterher entfernen: `PROBE-1` **und** `PROBE-2`.
-
-Probe hinterher wieder entfernen:
+Proben hinterher entfernen — **beide**:
 
 ```sql
-DELETE FROM bc2.eingang WHERE paket_id = 'PROBE-1';
+DELETE FROM bc2.eingang WHERE paket_id LIKE 'PROBE-%';
 ```
 
 Der Vertragstest gegen die echte Datenbank macht dasselbe automatisiert:
 
 ```bash
-BC2_ECHTE_DB=1 python -m pytest tests/test_vertrag_postgres.py -v
+BC2_ECHTE_DB=1 .venv/bin/python -m pytest tests/ -q
 ```
+
+⚠️ **Dieser Lauf ist nicht folgenlos.** `test_abgleich_laeuft_gegen_die_echte_view_durch`
+stößt den echten Nachhol-Abgleich an — und der holt **wartende Pakete von BC0
+tatsächlich ab** und schreibt sie nach `bc2.eingang`. Am 10.09.2026 ist genau
+das passiert: der erste Lauf hat ein seit dem 04.09. offenes Paket eingesammelt.
+Kein Schaden (der Eingang ist genau dafür da, und ein gelöschter Eintrag würde
+beim nächsten Abgleich erneut geholt), aber es ist **kein reiner Lesetest**. Vor
+dem Lauf wissen, was in `v_uebergabe_offen` steht.
 
 ## 9. An BC0 übergeben
 
