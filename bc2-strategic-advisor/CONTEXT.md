@@ -30,6 +30,20 @@ Ein Abschnitt eines Kernprozesses und die kleinste Einheit, für die BC0 erhebt 
 entscheidet. Trägt eine ID der Form `KP-XX.TP-Y`.
 _Avoid_: Prozessschritt, Subprozess
 
+**Prozessdurchlauf**:
+Eine Ausführung eines Kernprozesses beim Mandanten, von seinem Auslöser bis zu seinem Ergebnis.
+Die Bezugsgröße aller Zeit- und Mengenangaben von BC1: `frequency_per_year` zählt Prozessdurchläufe
+je Jahr, `total_duration_minutes` misst die Minuten **eines** Prozessdurchlaufs. Hat mit dem
+Analyselauf nichts zu tun — der eine geschieht beim Mandanten, der andere bei BC2.
+_Avoid_: Durchlauf (unqualifiziert), Lauf, Run, Vorgang
+
+**Fall**:
+Ein einzelner Vorgang, der innerhalb **eines** Prozessdurchlaufs bearbeitet wird; BC1 zählt sie als
+`executions_per_run`. Beschreibt, wie schwer ein Durchlauf wiegt — **nicht**, wie oft er stattfindet.
+Die Dauer eines Prozessdurchlaufs deckt seine Fälle bereits ab, Fälle multiplizieren sie also nicht
+(siehe `contracts/bc1-to-bc2/README.md`, I1/I2).
+_Avoid_: Menge, Vorgang, Transaktion, Item
+
 **Paket**:
 Die Menge freigegebener Teilprozesse, die BC0 nach Gate 0 zusammenschnürt und in einem Zug an BC2
 übergibt. Trägt eine ID und einen Übergabezeitpunkt; ein Nachzügler ist ein neues Paket, kein
@@ -78,8 +92,11 @@ _Avoid_: Muster, Pattern, empfohlenes Muster
 ### Wie BC2 bewertet
 
 **Manueller Aufwand heute**:
-Wie viel Handarbeit der heutige Ablauf je Jahr kostet. Eine **gemessene** Größe aus Dauer,
-Häufigkeit und Menge — kein Urteil.
+Wie viel Handarbeit der heutige Ablauf je Jahr kostet. Eine **gemessene** Größe aus **Dauer und
+Häufigkeit** — kein Urteil. Die **Fallzahl geht nicht als Faktor ein**: die Dauer eines
+Prozessdurchlaufs deckt seine Fälle schon ab. *(Präzisiert am 10.09.2026, #184. Die
+Vorgängerfassung nannte „Dauer, Häufigkeit und Menge" und legte damit ein Produkt aus dreien nahe —
+gerechnet ergäbe das für die Reisebuchung das Dreifache der Gesamtkapazität des Mandanten.)*
 _Avoid_: Ist-Aufwand, Handaufwand
 
 **Value**:
