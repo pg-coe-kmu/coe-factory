@@ -13,6 +13,10 @@ Zwischen Gate 0 und Gate 1. Verantwortlich: **Sergio, allein** — Eike ist seit
 
 ## Erst lesen
 
+- **[`CONTEXT.md`](./CONTEXT.md)** — das Glossar. Was Potenzial, Value, Nutzwert, Impact, Kategorie
+  und Analyselauf bedeuten und wer sie setzt. Die Begriffe waren quer durch die Quellen unscharf;
+  seit [#164](https://github.com/pg-coe-kmu/coe-factory/issues/164) stehen sie. Wer hier ein Wort
+  anders verwendet als dort, hat entweder das Glossar zu ändern oder das Wort.
 - **[Karte #158](https://github.com/pg-coe-kmu/coe-factory/issues/158)** — Ziel, getroffene Entscheidungen,
   Nebel. Wird pro Session einmal geladen. Die offenen Tickets sind ihre Sub-Issues; das nächste
   bearbeitbare ist das erste ohne offenen Blocker und ohne Assignee.
@@ -80,6 +84,14 @@ Der Vertrag verlor beim Sprung v1→v2 die Felder `akzeptanzkriterien_geschaeftl
   setzt das durch (ADR-003).
 - **Jede Ausgabe führt die Kernprozess-ID mit.** Ohne sie ist ein Ergebnis nicht zuordenbar und
   wird verworfen (Auflage BC0, 17.08.2026).
+- **Ein Lauf ist ein Paket, kein Mandant.** Die Einheit ist `(company_id, paket_id)` — nur dafür gibt
+  es einen reproduzierbaren Datenstand (`stand_zum(…, uebergeben_am)`) und einen einheitlichen
+  Freigabestand. ADR-005, [#164](https://github.com/pg-coe-kmu/coe-factory/issues/164). *(Verengt die
+  Festlegung vom 30.08.2026, die den Mandanten als Arbeitseinheit nannte — sie entstand, bevor es das
+  Paket gab.)*
+- **Gelesen wird auf Teilprozess-Ebene, ausgeliefert auf Kernprozess-Ebene.** Paketinhalt, Gate-0-
+  Freigabe und `v_prozessautomatisierung` sind je `sub_process_id`; ein Konzept deckt genau einen
+  Kernprozess ab. Der Kernprozess ist das Präfix der Teilprozess-ID, nicht eine eigene Erhebung.
 - **Jede Abfrage filtert nach `company_id`.** Es liegen zwei Mandanten in derselben Datenbank, und die
   Datenbank trennt sie nicht. NoroAI ist `7c2d5ee9-2a9a-5990-810f-502ea2b2012d`; der zweite Mandant
   ist ein Übungsmandant und trägt keine auswertbaren Werte.
