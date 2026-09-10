@@ -15,7 +15,23 @@
 --
 -- Die Datei ist wiederholbar (IF NOT EXISTS durchgehend).
 
-CREATE SCHEMA IF NOT EXISTS bc2;
+-- Das Schema legt BC0 an, nicht BC2 — hier steht nur der Rückfall, falls es
+-- fehlt.
+--
+-- **Warum kein blankes `CREATE SCHEMA IF NOT EXISTS bc2`:** PostgreSQL prüft
+-- das CREATE-Recht auf der **Datenbank**, *bevor* es das `IF NOT EXISTS`
+-- auswertet. Die Anweisung scheitert also mit `permission denied for database
+-- postgres` auch dann, wenn das Schema längst existiert und gar nichts zu tun
+-- wäre. BC2 hat CREATE nur auf dem Schema `bc2`, nicht auf der Datenbank
+-- (ADR-003) — genau richtig so, aber damit ist die kurze Form unbrauchbar.
+-- Am 10.09.2026 beim Ausrollen aufgelaufen.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'bc2') THEN
+    EXECUTE 'CREATE SCHEMA bc2';
+  END IF;
+END
+$$;
 
 CREATE TABLE IF NOT EXISTS bc2.eingang (
   -- Primärschlüssel, nicht bloß ein Index: **die Idempotenz aus #190 wird hier
