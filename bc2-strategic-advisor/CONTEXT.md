@@ -105,9 +105,18 @@ Entweder gerechnet oder als Annahme gekennzeichnet, nie beides stillschweigend.
 _Avoid_: ROI, Wirtschaftlichkeit, Business Value
 
 **Nutzwert**:
-Der **nicht-monetäre** Nutzen eines Potenzials — Qualität, Durchlaufzeit, Mitarbeiterzufriedenheit,
-Zukunftssicherheit. Die einzige Urteilsgröße auf der Nutzenseite.
+Der **nicht-monetäre** Nutzen eines Potenzials — Qualität, Durchlaufzeit, Fehlerreduktion,
+Mitarbeiterzufriedenheit. Die einzige Urteilsgröße auf der Nutzenseite. *(Korrigiert am 11.09.2026:
+die Ursprungsfassung zählte **Zukunftssicherheit** mit auf und machte sie damit über `impact` zum
+Formelterm — die Karte hat am 30.08.2026 ausdrücklich das Gegenteil entschieden. Sie ist ein
+Querschnitt.)*
 _Avoid_: Soft Benefits, qualitativer Nutzen
+
+**Querschnitt**:
+Ein Gesichtspunkt, der ein Potenzial betrifft, aber **bewusst in keine Rechnung eingeht** —
+Zukunftssicherheit und Abhängigkeiten zu anderen Potenzialen. Wird dem Entscheider am Gate 1
+angezeigt, nicht verrechnet: überschreiben kann er nur, was er sieht.
+_Avoid_: Achse, Kriterium, Faktor
 
 **Impact**:
 Die **Mehrwert-Achse** der Priorisierung, ordinal von 1 bis 10. Fasst Value und Nutzwert zu einer
