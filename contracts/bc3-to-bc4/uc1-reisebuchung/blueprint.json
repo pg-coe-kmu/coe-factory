@@ -1,11 +1,11 @@
 {
   "projekt_kurzname": "uc1-reisebuchung",
-  "lieferung_id": "del-uc1-reisebuchung-2026-09-06-070613",
+  "lieferung_id": "del-uc1-reisebuchung-2026-09-10-173311",
   "kp_id": "KP-06",
   "teilprozess_ids": [
     "KP-06.TP-2"
   ],
-  "erzeugt_am": "2026-09-06T07:06:13.488Z",
+  "erzeugt_am": "2026-09-10T17:33:11.251Z",
   "erzeugt_von": "BC3-50 Bauplan erzeugen",
   "komponenten": [
     {
@@ -111,22 +111,37 @@
     {
       "story_id": "st-7f86-9601-99bb-d235c7490f7d-2",
       "epic_id": "ep-7f86-9601-99bb-d235c7490f7d",
-      "titel": "Pflichtfelder extrahieren und Projekt/Kostenstelle zuordnen"
+      "titel": "Projekt- oder Kostenstellenzuordnung prüfen"
     },
     {
       "story_id": "st-7f86-9601-99bb-d235c7490f7d-3",
       "epic_id": "ep-7f86-9601-99bb-d235c7490f7d",
-      "titel": "Verfügbarkeitsprüfung in Reise-API durchführen"
+      "titel": "Budgetrahmen prüfen und Freigabe einholen"
     },
     {
       "story_id": "st-7f86-9601-99bb-d235c7490f7d-4",
       "epic_id": "ep-7f86-9601-99bb-d235c7490f7d",
-      "titel": "Eingangsbestätigung und Rückfragen automatisiert versenden"
+      "titel": "Verfügbarkeit in Buchungsportalen prüfen"
+    },
+    {
+      "story_id": "st-7f86-9601-99bb-d235c7490f7d-5",
+      "epic_id": "ep-7f86-9601-99bb-d235c7490f7d",
+      "titel": "Extraktionskonfidenz prüfen und manuelle Prüfung auslösen"
     },
     {
       "story_id": "st-7f86-9601-99bb-d235c7490f7d-6",
       "epic_id": "ep-7f86-9601-99bb-d235c7490f7d",
-      "titel": "Transparenzhinweis in automatisierten E-Mails einbauen"
+      "titel": "Eingangsbestätigung und Rückfragen strukturiert versenden"
+    },
+    {
+      "story_id": "st-7f86-9601-99bb-d235c7490f7d-8",
+      "epic_id": "ep-7f86-9601-99bb-d235c7490f7d",
+      "titel": "Aufsichtsführung für Verfügbarkeitsprüfung einbauen"
+    },
+    {
+      "story_id": "st-7f86-9601-99bb-d235c7490f7d-9",
+      "epic_id": "ep-7f86-9601-99bb-d235c7490f7d",
+      "titel": "Transparenzhinweis in Eingangsbestätigung und Angebot einbauen"
     },
     {
       "story_id": "st-9539-ba84-470c-dc60f3f7c980-1",
@@ -136,22 +151,22 @@
     {
       "story_id": "st-9539-ba84-470c-dc60f3f7c980-3",
       "epic_id": "ep-9539-ba84-470c-dc60f3f7c980",
-      "titel": "Erneute Prüfung bei abgelaufenen Optionen durchführen"
+      "titel": "Zusage erfassen und Vorgang für Freigabe vorbereiten"
     },
     {
-      "story_id": "st-9539-ba84-470c-dc60f3f7c980-5",
+      "story_id": "st-9539-ba84-470c-dc60f3f7c980-4",
       "epic_id": "ep-9539-ba84-470c-dc60f3f7c980",
       "titel": "Buchung nach Freigabe auslösen und Buchungsnummern speichern"
     },
     {
-      "story_id": "st-9539-ba84-470c-dc60f3f7c980-7",
+      "story_id": "st-9539-ba84-470c-dc60f3f7c980-5",
       "epic_id": "ep-9539-ba84-470c-dc60f3f7c980",
-      "titel": "Freigabeprozess für Reisebuchungen einbauen"
+      "titel": "Ablauf von Optionen prüfen und aktualisiertes Angebot erzeugen"
     },
     {
       "story_id": "st-9539-ba84-470c-dc60f3f7c980-8",
       "epic_id": "ep-9539-ba84-470c-dc60f3f7c980",
-      "titel": "Manuelle Übersteuerung der Reiseoptionen ermöglichen"
+      "titel": "Menschliche Freigabe vor Buchungsauslösung einbauen"
     }
   ],
   "tech_stack": [
@@ -168,7 +183,7 @@
         "it:backend",
         "it:integration"
       ],
-      "anzahl_stories": 6
+      "anzahl_stories": 9
     },
     {
       "epic_id": "ep-9539-ba84-470c-dc60f3f7c980",
@@ -177,7 +192,7 @@
         "it:backend",
         "it:integration"
       ],
-      "anzahl_stories": 9
+      "anzahl_stories": 8
     }
   ]
 }

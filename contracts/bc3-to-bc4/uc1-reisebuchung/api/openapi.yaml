@@ -2,7 +2,7 @@
 openapi: "3.0.3"
 info:
   title: Reise-Schnittstelle BC4 - Bedarf aus KP-06
-  version: 0.1.0-2026-09-06
+  version: 0.1.0-2026-09-10
   description: |-
     Von BC3 erzeugt, nicht von Hand geschrieben.
 
@@ -10,7 +10,7 @@ info:
 
     BC3 beschreibt die Anfrage-Seite. Die Gestalt der Antworten gehört BC4: die Java-Modelle im Repository sind verbindlich, die Schemata hier verweisen darauf und lassen weitere Felder ausdrücklich zu.
 
-    Stand 2026-09-06. Deckung 33% - 3 vorhandene, 6 vorgeschlagene Operationen.
+    Stand 2026-09-10. Deckung 33% - 3 vorhandene, 6 vorgeschlagene Operationen.
 servers:
   - url: https://travel-mock-api.onrender.com
     description: Von BC4 bereitgestellt.
