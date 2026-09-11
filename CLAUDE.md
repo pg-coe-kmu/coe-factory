@@ -18,7 +18,9 @@ Siehe `docs/agents/triage-labels.md`.
 
 ### Domain docs
 
-Multi-Context: `CONTEXT-MAP.md` im Root zeigt auf je ein `CONTEXT.md` pro
-Bounded Context. **Beides existiert noch nicht** — `/domain-modeling` legt es an,
-sobald Begriffe tatsächlich geklärt werden; bis dahin ist das Fehlen kein Mangel.
+Multi-Context: [`CONTEXT-MAP.md`](./CONTEXT-MAP.md) im Root zeigt auf je ein
+`CONTEXT.md` pro Bounded Context. **Die Karte existiert seit dem 11.09.2026; von
+den sechs Contexts hat bislang nur BC2 ein `CONTEXT.md`.** Das Fehlen der übrigen
+ist kein Mangel — ein `CONTEXT.md` entsteht, wenn Begriffe tatsächlich geklärt
+werden, nicht auf Vorrat. Wer eines anlegt, trägt es in der Karte nach.
 Siehe `docs/agents/domain.md`.
