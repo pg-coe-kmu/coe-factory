@@ -158,6 +158,11 @@ Deployment mit Docker Compose und Caddy: siehe `app/DEPLOY.md`. Backup und Wiede
 | **ADR-002** | DB-Schema v1.1 ist verbindliche Vorgabe für alle BCs, stabile IDs als Vertrag | angenommen 12.07.2026 |
 | **ADR-003** | SSoT-Schreibmodell: alle BCs schreiben additiv in die gemeinsame Datenbank | **angenommen 10.08.2026** |
 | **ADR-004** | Identität der Entitäten: IDs fachlich und lesbar, serverseitig vergeben, nie wiederverwendet, gesperrt statt gelöscht, Klarnamen an genau einer Stelle | **angenommen 12.08.2026** |
+| **ADR-005** | BC2: der Analyselauf ist das Paket, nicht der Mandant — `(company_id, paket_id)` | Entwurf 10.09.2026 |
+
+> Die Nummern laufen **projektweit** durch, die Dateien liegen beim jeweiligen Context: ADR-004 in
+> `bc0-baseline-onboarding/app/`, ADR-005 in `bc2-strategic-advisor/docs/adr/`. Wer eine neue Nummer
+> zieht, trägt sie hier ein — sonst vergeben zwei Contexts dieselbe.
 
 ---
 
