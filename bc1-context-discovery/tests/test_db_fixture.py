@@ -1,5 +1,6 @@
 import pytest
 
+from bc1_service import bc0_lesepfade
 from tests.db_fixture import DSN, MANDANT_A, MANDANT_B, frische_db, verbindung
 
 pytestmark = pytest.mark.skipif(not DSN, reason="BC1_TEST_DB_DSN nicht gesetzt")
@@ -46,14 +47,16 @@ def test_default_privileges_reproduzieren_den_bc_leser_automatismus():
 def test_bc1_role_liest_bc0_objekte_nur_ueber_bc_leser():
     # Zweite Chat-Nachricht 02.09.: bc1_role liest ueber die Gruppenrolle bc_leser, die
     # direkten Doppel-GRANTs sind weg (in der Supabase am 02.09. nachgesehen). Das
-    # Geruest bildet genau das ab. Das ALTER DEFAULT PRIVILEGES bleibt — es existiert
-    # in der Supabase, anders als BC0s Antwort 9 behauptet (pg_default_acl, 02.09.).
+    # Geruest bildet genau das ab. Das ALTER DEFAULT PRIVILEGES fuer bc1 hat BC0 am
+    # 08.09.2026 live entfernt (K-I); das Geruest simuliert es weiter — bewusst, als
+    # Positivkontrolle dafuer, dass unsere DDL auch unter feindlichem Default dicht ist.
+    # mandant_rollen: SELECT fuer bc_leser live gemessen 12.09.2026 (A5) — braucht C1a.
     frische_db(DSN, mit_ddl=False)
     with verbindung(DSN, None) as conn:
         assert conn.execute(
             "SELECT pg_has_role('bc1_role', 'bc_leser', 'USAGE')").fetchone()[0] is True
         for objekt in ("v_bewertung_aktuell", "mandant_systeme", "ref_teilprozesse",
-                       "companies", "v_prozesse_lesen", "ref_erhebungen"):
+                       "companies", "v_prozesse_lesen", "ref_erhebungen", "mandant_rollen"):
             # Kein DIREKTES SELECT an bc1_role mehr. Achtung: companies,
             # ref_teilprozesse und ref_erhebungen behalten ihr direktes REFERENCES
             # (bc1_role=x in der ACL) — deshalb aclexplode nach Privileg, nicht
@@ -90,3 +93,38 @@ def test_step_no_reicht_bis_neun_und_nicht_weiter():
                 "step_no, sub_process_name) VALUES (%s, 'KP-01.TP-10', 'KP-01', 10, 'zehn')",
                 (MANDANT_A,))
         assert "step_no" in str(fehler.value)
+
+
+def test_nacherhebungs_ids_wie_bc0_v28_akzeptiert_und_richtig_gereiht():
+    # BC0 Schema v2.8 (Nacherhebung): erhebung_id darf ein Suffix tragen —
+    # '^E-[0-9]{4}-[0-9]{2}(-[2-9]|-[1-9][0-9]+)?$', live gemessen 12.09.2026 (A5).
+    # Das Geruest kannte nur 'E-JJJJ-MM' und war damit strenger als die Realitaet.
+    # Zweiter Teil: bei gleichem Stand entscheidet erhebung_id DESC (wie in
+    # v_bewertung_aktuell) — 'E-2026-08-2' liegt als Text hinter 'E-2026-08', die
+    # Nacherhebung gewinnt also. (Text-Reihenfolge, nicht numerisch: '-10' laege vor
+    # '-2'; das ist BC0s Reihung, und wir folgen ihr bewusst.)
+    frische_db(DSN, mit_ddl=False)
+    with verbindung(DSN, None) as conn:
+        conn.execute(
+            "INSERT INTO ref_erhebungen (company_id, erhebung_id, bezeichnung, stand, status) "
+            "VALUES (%s, 'E-2026-08', 'Erhebung', '2026-08-01', 'abgeschlossen'), "
+            "       (%s, 'E-2026-08-2', 'Nacherhebung', '2026-08-01', 'offen'), "
+            "       (%s, 'E-2026-08-10', 'zehnte Nacherhebung', '2026-08-01', 'offen')",
+            (MANDANT_A, MANDANT_A, MANDANT_A))
+        conn.execute(
+            "INSERT INTO bitkom_bewertungen (company_id, erhebung_id, id, sub_process_id, "
+            "item_nr, stufe, beleg, bewertet_am) VALUES "
+            "(%s, 'E-2026-08', 'KP-01.TP-3.I-01', 'KP-01.TP-3', 1, 2, 'Erhebung', '2026-08-01'), "
+            "(%s, 'E-2026-08-2', 'KP-01.TP-3.I-02', 'KP-01.TP-3', 2, 2, 'Nacherhebung', "
+            " '2026-08-01')", (MANDANT_A, MANDANT_A))
+        conn.commit()
+    for kaputt in ("E-2026-08-1", "E-2026-08-0", "E-2026-08-x"):
+        with verbindung(DSN, None) as conn:
+            with pytest.raises(Exception) as fehler:
+                conn.execute(
+                    "INSERT INTO ref_erhebungen (company_id, erhebung_id, bezeichnung, "
+                    "stand, status) VALUES (%s, %s, 'kaputt', '2026-08-01', 'offen')",
+                    (MANDANT_A, kaputt))
+            assert "erhebung_id" in str(fehler.value), kaputt
+    with verbindung(DSN) as conn:
+        assert bc0_lesepfade.erhebung_id(conn, MANDANT_A, "KP-01.TP-3") == "E-2026-08-2"

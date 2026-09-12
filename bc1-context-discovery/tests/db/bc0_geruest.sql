@@ -83,7 +83,10 @@ CREATE TABLE mandant_systeme (
 
 CREATE TABLE ref_erhebungen (
     company_id  uuid NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
-    erhebung_id text NOT NULL CHECK (erhebung_id ~ '^E-[0-9]{4}-[0-9]{2}$'),
+    -- Muster wie BC0 seit Schema v2.8 (Nacherhebung): optionales Suffix -2..-9 oder
+    -- -10 aufwaerts. Live gemessen 12.09.2026 (Auswirkungspruefung v2.5-v3.1, Schritt D).
+    erhebung_id text NOT NULL
+                CHECK (erhebung_id ~ '^E-[0-9]{4}-[0-9]{2}(-[2-9]|-[1-9][0-9]+)?$'),
     bezeichnung text NOT NULL,
     stand       date NOT NULL,
     status      text NOT NULL CHECK (status IN ('offen','abgeschlossen','verworfen')),
@@ -161,10 +164,12 @@ GRANT USAGE, CREATE ON SCHEMA bc1 TO bc1_role;
 GRANT USAGE ON SCHEMA bc1 TO bc_leser;
 GRANT USAGE ON SCHEMA public TO bc1_role, bc_leser;
 
--- Der Stolperstein aus R14-I1: BC0 vergibt SELECT auf JEDE neue Tabelle von bc1_role
--- automatisch an bc_leser. Ohne diese Zeile testet die ACL-Prüfung ins Leere.
--- In der Supabase am 02.09.2026 bestaetigt (pg_default_acl: bc1_role / bc1 -> bc_leser=r),
--- anders als BC0s schriftliche Antwort 9 — der Katalog ist massgeblich.
+-- Der Stolperstein aus R14-I1: BC0 vergab SELECT auf JEDE neue Tabelle von bc1_role
+-- automatisch an bc_leser (in der Supabase am 02.09.2026 gemessen). BC0 hat dieses
+-- Default-Privileg fuer bc1 am 08.09.2026 entfernt (K-I) — live gibt es die Zeile nicht
+-- mehr (gemessen 12.09.2026). Das Geruest simuliert sie BEWUSST weiter, als
+-- Positivkontrolle: unsere DDL muss auch unter feindlichem Default dicht sein (REVOKE
+-- statt Hoffen), sonst testet die ACL-Pruefung ins Leere. Entscheidung Richard 12.09.
 ALTER DEFAULT PRIVILEGES FOR ROLE bc1_role IN SCHEMA bc1 GRANT SELECT ON TABLES TO bc_leser;
 
 -- Rechte wie in BC0 seit 02.09.: REFERENCES direkt an bc1_role (fuer unsere FKs);
@@ -175,7 +180,9 @@ ALTER DEFAULT PRIVILEGES FOR ROLE bc1_role IN SCHEMA bc1 GRANT SELECT ON TABLES 
 GRANT REFERENCES ON companies, ref_prozesse, ref_teilprozesse, mandant_rollen,
                     ref_erhebungen TO bc1_role;
 GRANT SELECT ON v_bewertung_aktuell, mandant_systeme, ref_teilprozesse, companies,
-                v_prozesse_lesen, ref_erhebungen TO bc_leser;
+                v_prozesse_lesen, ref_erhebungen, mandant_rollen TO bc_leser;
+-- mandant_rollen: SELECT fuer bc_leser live gemessen 12.09.2026 (A5) — Eingang fuer C1a
+-- (Owner-Auswahl statt Freitext).
 
 -- BEWUSST NICHT: SELECT auf ref_prozesse (BC0 hat das Recht entzogen, R14-I2).
 -- Ein Test beweist, dass der direkte Lesezugriff scheitert und v_prozesse_lesen trägt.
