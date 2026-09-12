@@ -6,7 +6,7 @@
 > so wie bisher (`Implementierungsplan-*.md`). Dieser Plan ersetzt die verstreuten
 > Roadmap-Anker der sieben Einzelpläne; sie bleiben als Herkunft verlinkt.
 >
-> **Stand:** 08.09.2026. **Spec:** `Design-Spec.md` (MVP-Schnitt, Teil B8 Roadmap) und
+> **Stand:** 12.09.2026 (A1: Vertrag Fassung 1.1 als PR #199; A5 entblockt; C1a/C4 ergänzt). **Spec:** `Design-Spec.md` (MVP-Schnitt, Teil B8 Roadmap) und
 > `../architektur/BC1_Systemarchitektur.md` (spätere Schichten #49/#50/#52/#53).
 
 **Ziel:** Ein gemeinsames Verständnis, was „fertig" für BC1 bedeutet — in drei Stufen —
@@ -67,11 +67,11 @@ unklar) und wird beim jeweiligen Implementierungsplan präzisiert.
 
 | # | Paket | Ziel | Nächster Schritt | Hängt an | Aufwand |
 |---|---|---|---|---|---|
-| **A1** | **Vertrag BC1→BC2** | `contracts/bc1-to-bc2/prozessprofil.schema.json` mit Beispiel — Typen und Einheiten der vier Größen, TP-ID als Anker, `erhebung_id`-Lesart (Klärpunkt **K-L**: die Sicht ist itemweise aktuell, wir speichern eine ID); **Einheit von `menge`** klären — in den Testprofilen steht `executions_per_run` (Fälle je Durchlauf) gleich der Jahreshäufigkeit (Review Rev. 12, 08.09.) | BC2 schneidet gegen die Zeilen vom 08.09. (#184, v3.0 in #187); BC1 liefert Spalte-zu-Feld-Tabelle + `pruef.sql`-Muster als Eingang | BC2 + Platform (CODEOWNERS) | S |
+| **A1** | **Vertrag BC1→BC2** | `contracts/bc1-to-bc2/prozessprofil.schema.json` mit Beispiel — Typen und Einheiten der vier Größen, TP-ID als Anker, `erhebung_id`-Lesart (Klärpunkt **K-L**: die Sicht ist itemweise aktuell, wir speichern eine ID); **Einheit von `menge`** klären — in den Testprofilen steht `executions_per_run` (Fälle je Durchlauf) gleich der Jahreshäufigkeit (Review Rev. 12, 08.09.) **Stand 12.09.:** BC2 hat Fassung 1.0 gegen unsere Zeilen geschnitten (#195, 10.09.); Prüfung gegen den Bau mit unabhängiger Zweitmeinung → Typen/Enums/JSON-Form/`lesen.sql` halten, aber drei Zusagen in unserem Namen stimmten nicht (v. a. „nie NULL bei fertig") → **Fassung 1.1 als PR #199** | PR #199 mergen lassen; BC2-Antwort zu D3 (`step_frequency_per_year`) einarbeiten; die zwei Bau-Zusagen aus 1.1 (D4-Zähltyp, E2-Text) liegen in C1a | BC2 (Merge, D3) | S |
 | **A2** | **GitHub-Stand = Realität** | Die Arbeitspakete spiegeln den Bau: #120–#126 sind über PR #129 erledigt → schließen; #48 DoD an die Hybrid-Architektur angleichen (kein Tool-Call, kein Aurelia-Mock, Schema-Validierung → A1); #49/#50/#52/#53 als Stufe B/C einordnen; README um Setup + Start ergänzen (heute nur Struktur) | Richard schließt/kommentiert; README-Absatz aus `SMOKE.md` ableiten | — | S |
 | **A3** | **Spalte-zu-Feld-Tabelle + Einseiter** | Als eigenes Artefakt an BC0 (erledigt dort ADR-005 §8 Punkt 96) und für das Team: „Was BC1 fragt und was daraus wird" (26 Pflichtfragen → Spalte) | Aus Task 11 des DB-Profil-Plans extrahieren, in `design/` ablegen | — | S |
 | **A4** | **Testdaten reproduzierbar (Rev. 12)** | Das Testdaten-Skript vom 08.09. liegt außerhalb des Repos. Als TDD-Task ins Repo: Test, der die drei Läufe gegen das Gerüst fährt und `fertig` + Kennzeichnung prüft. **Lehre einbauen:** Kennzeichnungsfelder in dieselbe Nachricht wie das letzte Pflichtfeld — der Kern ist danach terminal | Implementierungsplan Rev. 12 schreiben | — | S |
-| **A5** | **Auswirkungsprüfung v2.5–v3.0, Schritt D** | `tests/db/bc0_geruest.sql` gegen den Live-Stand — die gefährlichste Stelle: die Suite bleibt grün, während BC0 wegläuft. Dabei entscheiden: die Gerüst-Simulation des inzwischen entfernten Default-Privilegs behalten (Positivkontrolle) oder angleichen | Braucht BC0s v3.0-Dateien auf `main` (erbeten am 08.09.) | BC0 | S–M |
+| **A5** | **Auswirkungsprüfung v2.5–v3.1, Schritt D** | `tests/db/bc0_geruest.sql` gegen den Live-Stand — die gefährlichste Stelle: die Suite bleibt grün, während BC0 wegläuft. Dabei entscheiden: die Gerüst-Simulation des inzwischen entfernten Default-Privilegs behalten (Positivkontrolle) oder angleichen | **Entblockt:** BC0s v3.0 + v3.1 liegen seit 10.09. auf `main` (Commit `9ddda89`); Umfang jetzt v2.5–v3.1 | — | S–M |
 | **A6** | **Dorka-Termin 22.09.** | 2 Folien / 10 Minuten, maximale Transparenz inkl. Minuspunkten — Material ist dieser Plan | Entwurf im Gruppentermin der Vorwoche | Richard | S |
 
 ### Stufe B — betriebsfähig
@@ -88,10 +88,10 @@ unklar) und wird beim jeweiligen Implementierungsplan präzisiert.
 
 | # | Paket | Ziel | Nächster Schritt | Hängt an | Aufwand |
 |---|---|---|---|---|---|
-| **C1** | **Rollen-Lesepfad + `profil_rollen`** | Rollen als **Auswahl** aus `mandant_rollen` statt Freitext; `profil_rollen` befüllen; `process_owner_rolle_id` setzen; **`zeitanteil_pct` erheben** — das ist der `fte_anteil`, den BC2 in #184 will und den heute niemand liefert. Vorher: Eigner/Sponsor 1:n (`v_prozesse_lesen`) gegen die eine Spalte prüfen | Lesepfad wie `bc0_lesepfade.py`, Feldtyp `AUSWAHL` aus Kontext (Muster: `focus_step`), Writer-Erweiterung mit Kaskade-Test | BC0-Rechtekonzept #148 (Spaltenhoheit, teils umgesetzt) | M |
+| **C1** | **Rollen-Lesepfad + `profil_rollen`** | Rollen als **Auswahl** aus `mandant_rollen` statt Freitext; `profil_rollen` befüllen; `process_owner_rolle_id` setzen; **`zeitanteil_pct` erheben** — das ist der `fte_anteil`, den BC2 in #184 will und den heute niemand liefert. Vorher: Eigner/Sponsor 1:n (`v_prozesse_lesen`) gegen die eine Spalte prüfen. **C1a (vorgezogen, ein Lauf = Version 3 der Testprofile):** Owner-Auswahl aus `mandant_rollen` (`bc1_role` liest sie, gemessen 12.09.: 6 Zeilen) → `process_owner_rolle_id` setzen · **D4 auf reinen Zähl-Typ** ohne Perioden-Normalisierer (Vertrag 1.1) · **E2-Fragetext „je Durchlauf"** (Vertrag 1.1) · Testprofile korrigieren: `executions_per_run` fachlich (=1), D1/E1 je KP konsistent (heute widersprechen sich `KP-06.TP-1` und `TP-2`) — die Zusage „Version 3" steht öffentlich in #195. **C1b:** `profil_rollen` + `zeitanteil_pct` — erst wenn BC0/BC2 klären, ob `fte_anteil` gebraucht wird | C1a: Simeons Antwort zu Owner 1:n vs. 1:1 (Sammelliste) abwarten, dann Implementierungsplan | BC0-Rechtekonzept #148 (Spaltenhoheit, teils umgesetzt); C1b: BC0/BC2 | M |
 | **C2** | **Etappe-2-Fragen** | Nachfass-Paket für Lücken (Klartext, keine Skalen) · Kanten-Art „Was fließt zwischen den beiden?" (BC0-Endpunkt kommt) · strukturierte System-Erfassung (S-NN als Auswahl) · B6 `process_category`-Umbau (braucht `ref_prozesse`-Lesepfad + `SCHEMA_VERSION`-Erhöhung, BC0 informieren) | Je Punkt ein kleines Paket; Reihenfolge nach Bedarf der Use Cases | — | M |
 | **C3** | **Spätere Schichten** | Doku-Generator (#52: Prozessdoku aus dem Profil) · Baseline-Mapper (#53: Abgleich mit BC0-Reifegrad) · Voice/OCR (#49: Eingangsschicht vor dem Extractor) | Erst wenn Stufe B steht und das Team den Bedarf bestätigt — jede Schicht dockt am Kern an, ohne ihn zu ändern | Team | L |
-| **C4** | **Härtung, bewusst vertagt** | **K-K:** der Freeze prüft die Erhebung nicht nach (Draft angelegt → Erhebungen verworfen → Zeile `fertig` mit verworfener ID; gemessen) · **K-M:** Eingaben < 0,0001 werden zurückgewiesen (`str(float)` → Exponent) — fachlich irrelevant · Outbox/Reconciler nur, falls der 503-Weg operativ nicht reicht · `SECURITY DEFINER`-Prüfpfad für die S-NN-Restlücke · automatische Auflösung verwaister Drafts (K5 bleibt manuell) | Nur auf konkreten Anlass | — | S je Punkt |
+| **C4** | **Härtung, bewusst vertagt** | **K-K:** der Freeze prüft die Erhebung nicht nach (Draft angelegt → Erhebungen verworfen → Zeile `fertig` mit verworfener ID; gemessen) · **K-M:** Eingaben < 0,0001 werden zurückgewiesen (`str(float)` → Exponent) — fachlich irrelevant · Outbox/Reconciler nur, falls der 503-Weg operativ nicht reicht · `SECURITY DEFINER`-Prüfpfad für die S-NN-Restlücke · automatische Auflösung verwaister Drafts (K5 bleibt manuell) · **Rechengrößen unaufgebbar?** Heute wird ein Profil nach zwei Nachfragen auch ohne D1/D4/E1/E2 `fertig` (Spalte NULL, `ungeloeste_felder` sagt welche) — Vertrag 1.1 sagt das ehrlich, BC2 hält NULL aus; die vier `identitaetskritisch` zu machen wäre eine Spec-Entscheidung, die Interviews bei sturen Antworten blockiert · **strukturierter Testdaten-Marker** statt Präfix-Konvention `Testdaten ` in `open_remarks` (Review 12.09.) | Nur auf konkreten Anlass | — | S je Punkt |
 
 ### Nachgehaltene Kleinpunkte (aus allen Plänen, damit nichts verloren geht)
 
@@ -101,6 +101,9 @@ unklar) und wird beim jeweiligen Implementierungsplan präzisiert.
 - **Dauerregel:** kein Fremdschlüssel von `bc1.*` auf `prozess_personen`/`ref_personen` — BC0 schreibt sie mandantenweit neu (DB-Profil).
 - Bitkom-30-Items im Chat — **entfällt endgültig** (Team-Beschluss, von BC0 angenommen); Bewertung bleibt im Self-Rating.
 - Die Produktfrage „wer bewertet die übrigen Teilprozesse" liegt außerhalb des Projekts (Roadmap-Anker für ein Produkt).
+- **D3 `step_frequency_per_year`** ist ungebunden; BC2 entscheidet binden (mit Vorrang für den Fokus-Schritt) oder ignorieren (#195, PR #199). Falls binden: Schema-Ergänzung, der Writer bleibt (Feld liegt nur im JSON).
+- **Merge nach `main`:** unser Bau liegt nur auf `bc1-db-profil-fundament` (11 Dateien gegenüber `main`); BC2 hat gegen Branch + DB-Zeilen geschnitten. Merge-PR nach A5 (Review-Finding 12.09.).
+- **Normalisierung ist jetzt Vertragsbestandteil** (Vertrag 1.1, Abschnitt „Normalisierung der Zahlen"): Perioden-/Einheitenlogik in `feldtypen.py` nicht mehr ohne BC2-Hinweis ändern.
 
 ### Entscheidungen, die den Plan bewegen
 
@@ -111,6 +114,8 @@ unklar) und wird beim jeweiligen Implementierungsplan präzisiert.
 | **Hosting** | Gruppen-Server · Cloud · lokal bleiben | offen — Team-Frage, blockiert B3 | Gruppe |
 | **Sitzungsschlüssel** | `session_id` allein · `(company_id, session_id)` | mandantenweit, sobald n8n die ID vergibt (B1) | Richard |
 | **Stufe C: was davon** | alle vier Schichten · nur Rollen + Doku-Generator | nach Use-Case-Bedarf; Voice/OCR zuletzt | Team |
+| **Rechengrößen unaufgebbar** | aufgebbar lassen (heute) · `identitaetskritisch` | **aufgebbar lassen** — BC2 hält NULL aus, Vertrag 1.1 sagt es ehrlich; **so entschieden 12.09.** | Richard |
+| **`executions_per_run`-Korrektur** | Version 3 sofort · mit C1a in einem Lauf | **mit C1a** — ein Lauf, alle Korrekturen; Version 3 ist in #195 ohne Datum zugesagt | Richard |
 
 ### Was dieser Plan ausdrücklich nicht ist
 
