@@ -107,4 +107,5 @@ def main(argv: list[str]) -> int:
 
 
 if __name__ == "__main__":
+    sys.path.insert(0, ".")        # als Skript: 'tests' liegt im Arbeitsverzeichnis, nicht neben der Datei
     sys.exit(main(sys.argv))

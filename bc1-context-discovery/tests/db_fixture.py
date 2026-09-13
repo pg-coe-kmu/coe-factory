@@ -19,13 +19,15 @@ MANDANT_B = "22222222-2222-2222-2222-222222222222"
 
 _GERUEST = Path(__file__).parent / "db" / "bc0_geruest.sql"
 _DDL = Path(__file__).parents[1] / "bc1_service" / "db" / "prozessprofil.sql"
+_DDL_SESSIONS = Path(__file__).parents[1] / "bc1_service" / "db" / "sessions.sql"
 
 
 def frische_db(dsn: str, *, mit_ddl: bool = True) -> None:
-    """Setzt public + bc1 zurueck, baut das Geruest, spielt (optional) unsere DDL ein.
+    """Setzt public + bc1 zurueck, baut das Geruest, spielt (optional) BEIDE DDL-Dateien ein.
 
-    ACHTUNG: raeumt auch bc1.sessions weg — einen PostgresStateStore erst NACH
-    diesem Aufruf anlegen (sein Konstruktor legt die Tabelle wieder an).
+    Reihenfolge wie im Betrieb (EINSPIELEN.md): erst prozessprofil.sql, dann sessions.sql,
+    jede als bc1_role in einer eigenen Transaktion. bc1.sessions entsteht damit NUR hier —
+    der PostgresStateStore legt seit B1 nichts mehr an.
     """
     with psycopg.connect(dsn, autocommit=True) as conn:
         conn.execute("DROP SCHEMA IF EXISTS bc1 CASCADE")
@@ -35,6 +37,7 @@ def frische_db(dsn: str, *, mit_ddl: bool = True) -> None:
         _testdaten(conn)
     if mit_ddl:
         spiele_ddl_ein(dsn)
+        spiele_sessions_ein(dsn)
 
 
 def spiele_datei_ein(dsn: str, pfad: Path) -> None:
@@ -48,6 +51,11 @@ def spiele_datei_ein(dsn: str, pfad: Path) -> None:
 def spiele_ddl_ein(dsn: str) -> None:
     """prozessprofil.sql — Name bleibt, viele Aufrufer meinen genau diese Datei."""
     spiele_datei_ein(dsn, _DDL)
+
+
+def spiele_sessions_ein(dsn: str) -> None:
+    """sessions.sql — zweite Einspiel-Einheit (B1)."""
+    spiele_datei_ein(dsn, _DDL_SESSIONS)
 
 
 @contextmanager

@@ -785,7 +785,9 @@ Erwartet: Block mit u. a. `acl|sessions|bc1_role|…` (8 Rechte), **keine** Zeil
 
 - [ ] **Step 6: GREEN messen** — `.venv/bin/pytest tests/test_ddl_sessions.py tests/test_ddl_einspielen.py tests/test_db_fixture.py -q` → alles grün (12 neue Testfälle inkl. 3 Parametrisierungen + Bestand). Dann volle Suite: erwartet **485 passed / 4 skipped** (473 nach Task 1 + 12).
 
-- [ ] **Step 7:** `git diff --stat` zeigt `prozessprofil.sql` **nicht**. Commit `feat(bc1): sessions.sql — bc1.sessions signiert, nur bc1_role, Loeschkaskade (B1, Task 2)`.
+- [x] **Step 7:** `git diff --stat` zeigt `prozessprofil.sql` **nicht** (gemessen). Commit `feat(bc1): sessions.sql — bc1.sessions signiert, nur bc1_role, Loeschkaskade (B1, Task 2)`.
+
+**Verlauf 13.09. (ausgeführt):** Signatur **32 Zeilen** (8 `acl|`, 3 `constraint|`, 7 `effektiv|`, 4 `effektiv_spalte|`, 5 `spalte|`, je 1 `eigentuemer|`/`index|`/`kommentar|`/`rls|`/`trigger_intern|`), keine `bc_leser`-Zeile — das REVOKE greift gegen den Gerüst-Automatismus. Suite **485 passed / 4 skipped**. **Ein Bestandstest musste angepasst werden, ehrlich benannt:** `test_ddl_trigger.py::test_kaskadentests_laufen_im_unguenstigsten_fall` verlangte, dass der Kaskadentrigger von `bc1.prozessprofil` auf `companies` als **letzter** feuert; seit `sessions.sql` danach eingespielt wird, feuert `bc1.sessions` als letzter. Die Zusicherung dahinter (jede bc1-Kaskade nach jeder fremden) gilt unverändert — der Test prüft jetzt genau das plus die Einspiel-Reihenfolge der bc1-Tabellen (je FK zwei RI-Trigger, deshalb entdoppelt). Nicht aufgeweicht, sondern präzisiert. Generator-Startblock: `sys.path.insert(0, ".")` nötig, als Skript liegt `tests` nicht neben der Datei.
 
 ---
 

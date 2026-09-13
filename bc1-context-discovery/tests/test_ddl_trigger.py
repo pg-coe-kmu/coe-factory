@@ -405,7 +405,16 @@ def test_kaskadentests_laufen_im_unguenstigsten_fall(db):
             "   AND t.tgrelid = 'companies'::regclass "
             " ORDER BY t.tgname").fetchall()
     assert namen, "keine companies-Kaskadentrigger gefunden"
-    assert namen[-1][0] == "bc1.prozessprofil"
+    # Seit B1 haengen ZWEI bc1-Tabellen an companies (sessions.sql laeuft nach
+    # prozessprofil.sql, im Test wie im Betrieb). Die Zusicherung bleibt dieselbe:
+    # jede bc1-Kaskade feuert nach jeder fremden — und die bc1-Reihenfolge ist die
+    # Einspiel-Reihenfolge.
+    # Je FK zwei RI-Trigger (DELETE/UPDATE) => Tabellen entdoppeln, Reihenfolge behalten.
+    reihenfolge = list(dict.fromkeys(n[0] for n in namen))
+    fremde = [n for n in reihenfolge if not n.startswith("bc1.")]
+    eigene = [n for n in reihenfolge if n.startswith("bc1.")]
+    assert eigene == ["bc1.prozessprofil", "bc1.sessions"]
+    assert reihenfolge == fremde + eigene
 
 
 def test_fremder_teilprozess_wird_vom_verbund_fk_abgewiesen(db):
