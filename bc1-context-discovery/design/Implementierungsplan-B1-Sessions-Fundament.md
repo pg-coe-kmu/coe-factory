@@ -1019,7 +1019,24 @@ Tragweite: Datenmodell + Rechte + Signaturmechanik → Pflicht (CLAUDE.md, Revie
 
 - [ ] **Step 1:** Review-Agent (frischer Kontext) mit dem Diff `git diff bc1-db-profil-fundament...HEAD` und dieser Datei; Fragen: (1) Kann `sessions.sql` die alte Datei live in Fall 3 treiben? (2) Gibt es einen Weg, wie `bc_leser`/`bc2_role` an `bc1.sessions` kommt, den die Signatur nicht sieht — insbesondere über die weggelassenen `mitglied|`-Zeilen? (3) Verhält sich der Store bei fehlender Tabelle, fehlender Rolle, fehlendem `company_id` korrekt? (4) Verliert die Kaskade Daten, die bleiben müssten? (5) Ist der Generator-Umbau äquivalent (Regressionsschritt Task 1 Step 6)?
 - [ ] **Step 2:** Findings nach Schwere adjudizieren: Critical/Important nachmessen und fixen (TDD), Minor begründet fixen oder mit Ziel in den Abschlussplan (Kleinpunkte). Jeder Fix: eigener Commit `fix(bc1): …`.
-- [ ] **Step 3:** Volle Suite grün, Stand hier im Plan als Changelog-Absatz festhalten.
+- [x] **Step 3:** Volle Suite grün — **502 passed / 4 skipped** (13.09., nach allen Fixes).
+
+**Verlauf Task 5 (13.09.):** Der Claude-Review-Agent scheiterte am Sitzungslimit, bevor er las. Zweitmeinung dann über **Codex** (`codex:codex-rescue`, gleiche sechs Fragen). Codex konnte in seiner Sandbox **weder Container noch Suite** erreichen — alle Befunde sind Codeableitungen; **jeder übernommene Befund wurde hier am Container per rotem Test nachgemessen**, bevor er behoben wurde. Adjudikation:
+
+| # | Codex | Befund | Entscheidung | Beleg / Commit |
+|---|---|---|---|---|
+| 1 | Critical | Generator wischt die DB (`frische_db`) vor DSN-/Rollenprüfung; keine Sperre gegen Produktions-DSN | **Fix.** `pruefe_lokal()` in `frische_db` (nur `localhost`/`127.0.0.1`/`::1`, vor der ersten Verbindung — schützt Generator UND Suite); Rollenprüfung vor den Reset, Markierungstabelle überlebt den Abbruch | `d62c39c` |
+| 2 | Important | `sessions.sql` erkennt keine fremden Views/`SECURITY DEFINER`-Funktionen; Begründung „prozessprofil.sql prüft Funktionen" falsch | **Doku-Fix + Deferral.** Die Lücke ist alt und gilt für beide Dateien (EINSPIELEN.md Anhang seit 03.09.); Wortlaut in `sessions.sql`-Kopf und EINSPIELEN.md korrigiert; Inventarprüfung → Abschlussplan C4 (Auslöser B3) | Docs-Commit |
+| 3 | Important | Keine `mitglied\|`-Zeilen in `sessions.sql`; Befehlsfolge ohne Erfolgsverkettung | **Fix.** `mitglied\|`-Zweig wie prozessprofil.sql (SET-Mitgliedschaft ohne INHERIT → Fall 3, Test `test_set_mitgliedschaft_in_bc1_role_wird_von_sessions_sql_selbst_erkannt`); Befehle mit `&&` (EINSPIELEN.md §2, `lauf.sh sessions` mit Fall-2-Vorbedingung) | `d8ce41b` |
+| 4 | Important | Store startet bei vorhandener Tabelle auch ohne Rechte (`to_regclass` braucht keine) | **Fix.** Startprüfung `fehlt/ok/keine_rechte` mit `has_table_privilege`; Stub + Container-Test als `bc_leser` | `16d7bab` |
+| 5 | Important | UPDATE tauscht nur das JSON; JSON-Mandant und Spalte können auseinanderlaufen | **Fix.** CHECK `sessions_mandant_konsistent` (JSON-Mandant vorhanden und gleich der Spalte); DDL- und Store-Test | `d8ce41b`, `705c37a` |
+| 6 | Important | Generator verlangt `bc0_loescher`, die nur ein Test anlegt — auf frischem Cluster Abbruch nach dem Reset | **Fix.** `rollen_abweichung()` als reine Funktion, `TOLERIERTE_ROLLEN = {bc0_loescher}`; Prüfung vor dem Reset | `d62c39c` |
+| 7 | Important | RI-Trigger auf der `companies`-Seite (Kaskade!) in keiner Signatur | **Fix für sessions.sql.** `trigger_intern\|` über die Constraint gejoint, mit Tabelle und Funktion; Test deaktiviert `RI_FKey_cascade_del` → Fall 3. Für `prozessprofil.sql` → C4 (byteidentisch bleibt) | `d8ce41b` |
+| 8 | Minor | Testlücken: Erst-Save-Rennen, Kaskade unter `bc0_loescher` mit Sessions, Rechtefehler beim Start, Generator nur für eine Datei | **Alle vier geschlossen** | `705c37a`, `16d7bab` |
+| 9 | Minor | Parser kürzt mehrzeilige Signaturwerte still | **Deferiert mit Ziel** (Abschlussplan Kleinpunkt): Katalogtexte sind heute einzeilig | — |
+| 10 | Minor | EINSPIELEN.md §5/§6 passen nicht zum Bau (Rolle über DSN-Option; „Tabellen gehören sonst anderer Rolle" obsolet; §5 historisch) | **Doku-Fix** | Docs-Commit |
+
+**Nicht übernommen:** Codex' Empfehlung, den Generator per localhost-Sperre zu schützen, wurde ausgeweitet auf `frische_db` selbst (schützt die ganze Suite). Codex' Aussage „jede Katalogabfrage von prozessprofil.sql ist auf die drei Tabellen eingeschränkt ist falsch" ist korrekt (`funktion\|`, `mitglied\|`, Vorprüfung nach Triggernamen sind global) — für die Nichtbeeinflussung durch `sessions.sql` ändert das nichts (keine Funktionen, keine Mitgliedschaften, keine eigenen Trigger), der Test `test_prozessprofil_sql_bleibt_nach_sessions_sql_ein_no_op` misst es.
 
 ---
 
