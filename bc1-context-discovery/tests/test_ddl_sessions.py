@@ -191,6 +191,35 @@ def test_mandanten_kaskade_raeumt_nur_die_eigene_sitzung():
             "SELECT session_id FROM bc1.sessions").fetchall()] == ["b1"]
 
 
+def test_kaskade_raeumt_die_sitzung_auch_unter_rechtelosem_loeschkonto():
+    # Review 13.09., Befund 8: der Superuser-DELETE oben verdeckt Rechtefragen. BC0
+    # loescht Mandanten mit einem Konto ohne jedes Recht auf bc1.* — die Kaskade
+    # laeuft mit den Rechten des Tabelleneigentuemers (bc1_role), muss also auch
+    # eine belegte Sessions-Tabelle raeumen.
+    frische_db(DSN)
+    with verbindung(DSN, None) as conn:
+        conn.execute("DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles "
+                     "WHERE rolname = 'bc0_loescher') THEN CREATE ROLE bc0_loescher; "
+                     "END IF; END $$")
+        conn.execute("GRANT SELECT, DELETE ON companies TO bc0_loescher")
+        conn.execute("GRANT USAGE ON SCHEMA public TO bc0_loescher")
+        conn.commit()
+    with verbindung(DSN) as conn:
+        _session_anlegen(conn, "a1", MANDANT_A)
+        _session_anlegen(conn, "b1", MANDANT_B)
+        conn.commit()
+    with verbindung(DSN, None) as conn:
+        assert conn.execute(
+            "SELECT has_table_privilege('bc0_loescher', 'bc1.sessions', 'SELECT')"
+        ).fetchone()[0] is False                       # wirklich rechtelos
+    with verbindung(DSN, "bc0_loescher") as conn:
+        conn.execute("DELETE FROM companies WHERE company_id = %s", (MANDANT_A,))
+        conn.commit()
+    with verbindung(DSN) as conn:
+        assert [z[0] for z in conn.execute(
+            "SELECT session_id FROM bc1.sessions").fetchall()] == ["b1"]
+
+
 @pytest.mark.parametrize("eingriff", [
     lambda conn: _session_anlegen(conn, version=0),                       # CHECK version >= 1
     lambda conn: conn.execute(                                              # company_id Pflicht

@@ -10,7 +10,8 @@ from tests.db.signatur_erzeugen import (ERWARTETE_ROLLEN, baue_block, main,
 
 DSN = os.environ.get("BC1_TEST_DB_DSN")
 _PROJEKT = Path(__file__).parents[1]
-_DDL = _PROJEKT / "bc1_service" / "db" / "prozessprofil.sql"
+_DB = _PROJEKT / "bc1_service" / "db"
+_DDL = _DB / "prozessprofil.sql"
 PLATZHALTER_BLOCK = "    ('platzhalter|wird|in|step7|ersetzt');\n"
 
 FEHLERTEXT = """\
@@ -51,18 +52,16 @@ def test_rollen_abweichung_toleriert_die_testrolle_und_meldet_fremde():
 
 
 @pytest.mark.skipif(not DSN, reason="BC1_TEST_DB_DSN nicht gesetzt")
-def test_main_reproduziert_die_committete_sollsignatur_byteidentisch(tmp_path, monkeypatch):
-    # Regressionsanker: aus der committeten prozessprofil.sql mit Platzhalter statt
-    # Signaturblock muss der Generator GENAU die committete Datei erzeugen. Weicht
-    # etwas ab, ist der Generator kaputt — oder die Signatur stimmt nicht mehr zum
-    # Container (dann sagt der Diff, was).
-    original = _DDL.read_text(encoding="utf-8")
-    mit_platzhalter = re.sub(
-        r"(-- << HIER die generierte Sollsignatur einsetzen \(Step 7\) >>\n)(?:    \('.*\n)+",
-        lambda m: m.group(1) + PLATZHALTER_BLOCK, original, count=1)
-    assert mit_platzhalter != original
-    kopie = tmp_path / "prozessprofil.sql"
-    kopie.write_text(mit_platzhalter, encoding="utf-8")
+@pytest.mark.parametrize("datei", ["prozessprofil.sql", "sessions.sql"])
+def test_main_reproduziert_die_committete_sollsignatur_byteidentisch(tmp_path, monkeypatch,
+                                                                       datei):
+    # Regressionsanker fuer BEIDE Einspiel-Einheiten (Review 13.09., Befund 8): aus der
+    # committeten Datei mit Platzhalter statt Signaturblock muss der Generator GENAU
+    # die committete Datei erzeugen. Weicht etwas ab, ist der Generator kaputt — oder
+    # die Signatur stimmt nicht mehr zum Container (dann sagt der Diff, was).
+    original = (_DB / datei).read_text(encoding="utf-8")
+    kopie = _kopie_mit_platzhalter(tmp_path, datei)
+    assert kopie.read_text(encoding="utf-8") != original
     monkeypatch.chdir(_PROJEKT)              # main() importiert tests.db_fixture ueber cwd
     assert main(["signatur_erzeugen.py", str(kopie)]) == 0
     assert kopie.read_text(encoding="utf-8") == original
@@ -80,12 +79,14 @@ def test_main_bricht_ohne_platzhalter_ab_und_laesst_die_datei_in_ruhe(tmp_path, 
     assert kopie.read_text(encoding="utf-8") == _DDL.read_text(encoding="utf-8")
 
 
-def _kopie_mit_platzhalter(tmp_path) -> Path:
-    original = _DDL.read_text(encoding="utf-8")
+def _kopie_mit_platzhalter(tmp_path, datei: str = "prozessprofil.sql") -> Path:
+    # Signaturblock (Zeilen nach der HIER-Markierung bis zum Semikolon) durch den
+    # Platzhalter ersetzen — die Markierung nennt je Datei ein anderes Werkzeug.
+    original = (_DB / datei).read_text(encoding="utf-8")
     mit_platzhalter = re.sub(
-        r"(-- << HIER die generierte Sollsignatur einsetzen \(Step 7\) >>\n)(?:    \('.*\n)+",
+        r"(-- << HIER die generierte Sollsignatur einsetzen [^\n]*>>\n)(?:    \('.*\n)+",
         lambda m: m.group(1) + PLATZHALTER_BLOCK, original, count=1)
-    kopie = tmp_path / "prozessprofil.sql"
+    kopie = tmp_path / datei
     kopie.write_text(mit_platzhalter, encoding="utf-8")
     return kopie
 

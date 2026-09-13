@@ -161,3 +161,36 @@ class StoreVertrag:
             assert len(erfolge) == 1, f"Runde {runde}: {len(erfolge)} Gewinner"
             assert len(fehler) == n - 1
             assert store.load(sid).version == 2
+
+    def test_nebenlaeufige_erst_saves_genau_einer_gewinnt(self, store):
+        # Review 13.09., Befund 8: der Test oben rennt um ein UPDATE. Der Erst-Save
+        # (Version 0 -> INSERT) ist ein eigener Pfad — beim Postgres-Store
+        # ON CONFLICT DO NOTHING plus rowcount. Auch dort darf genau einer gewinnen.
+        for runde in range(50):
+            sid = f"erst_{runde}"
+            n = 8
+            barriere = threading.Barrier(n)
+            erfolge: list[int] = []
+            fehler: list[int] = []
+
+            def schreiber(i: int) -> None:
+                st = _leerer_state(sid)
+                st.rounds = i
+                barriere.wait()
+                try:
+                    store.save(st)
+                    erfolge.append(i)
+                except StaleStateError:
+                    fehler.append(i)
+
+            threads = [
+                threading.Thread(target=schreiber, args=(i,)) for i in range(n)
+            ]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+            assert len(erfolge) == 1, f"Runde {runde}: {len(erfolge)} Gewinner"
+            assert len(fehler) == n - 1
+            gespeichert = store.load(sid)
+            assert gespeichert.version == 1 and gespeichert.rounds == erfolge[0]

@@ -42,6 +42,18 @@ class TestPostgresStore(StoreVertrag):
         with pytest.raises(psycopg.errors.NotNullViolation):
             store.save(st)
 
+    def test_update_mit_fremdem_mandant_im_zustand_wird_abgewiesen(self, store):
+        # Review 13.09., Befund 5: das UPDATE schreibt nur das JSON — die Spalte
+        # bleibt. Der CHECK sessions_mandant_konsistent haelt beides zusammen, auch
+        # wenn der Kern (pruefe_mandant) umgangen wuerde.
+        import psycopg
+
+        st = _fetter_state("s1")
+        store.save(st)
+        st.company_id = "22222222-2222-2222-2222-222222222222"
+        with pytest.raises(psycopg.errors.CheckViolation):
+            store.save(st)
+
 
 def test_start_als_rolle_ohne_rechte_bricht_ab_statt_beim_ersten_turn_zu_scheitern():
     # Review 13.09., Befund 4: bc_leser sieht die Tabelle (to_regclass), darf sie
