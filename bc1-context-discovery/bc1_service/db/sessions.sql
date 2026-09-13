@@ -8,10 +8,12 @@
 --     psql -v ON_ERROR_STOP=1 -1 -f sessions.sql
 -- Die Datei enthaelt bewusst KEIN BEGIN/COMMIT.
 --
--- Was hier NICHT geprueft wird und warum: Mitgliedschafts-Kanten ('mitglied|') und
--- Funktionen sind global bzw. gehoeren zu prozessprofil.sql, das im Betrieb immer
--- zuerst laeuft und beides prueft. Ein GRANT bc1_role TO <irgendwer> bricht also
--- dort ab, bevor diese Datei an der Reihe ist.
+-- Die Datei prueft eigenstaendig, auch die Mitgliedschafts-Kanten ('mitglied|') in
+-- jede Rolle, ueber die man an die Tabelle kaeme — sie verlaesst sich NICHT auf
+-- einen vorgeschalteten prozessprofil.sql-Lauf (Review 13.09., Befund 3).
+-- Bekannte Luecke BEIDER Dateien (EINSPIELEN.md, Anhang): neue Objekte, die auf die
+-- Tabellen zeigen (Views, SECURITY-DEFINER-Funktionen), inventarisiert keine von
+-- beiden — nachgehalten im Abschlussplan (C4).
 --
 -- Aufbau: 0 Voraussetzungen | 0b Sollsignatur | 1 Vorpruefung | 2 Anlage + 3 Rechte | 4 Nachpruefung
 
@@ -69,6 +71,7 @@ INSERT INTO pg_temp.bc1_sessions_soll_signatur (zeile) VALUES
     ('acl|sessions|bc1_role|TRUNCATE|f'),
     ('acl|sessions|bc1_role|UPDATE|f'),
     ('constraint|sessions|sessions_company_fk|FOREIGN KEY (company_id) REFERENCES companies(company_id) ON DELETE CASCADE'),
+    ('constraint|sessions|sessions_mandant_konsistent|CHECK ((((state ->> ''company_id''::text) IS NOT NULL) AND (((state ->> ''company_id''::text))::uuid = company_id)))'),
     ('constraint|sessions|sessions_pkey|PRIMARY KEY (session_id)'),
     ('constraint|sessions|sessions_version_positiv|CHECK ((version >= 1))'),
     ('effektiv_spalte|sessions|bc1_role|INSERT'),
@@ -85,13 +88,20 @@ INSERT INTO pg_temp.bc1_sessions_soll_signatur (zeile) VALUES
     ('eigentuemer|sessions|bc1_role'),
     ('index|sessions|sessions_pkey|CREATE UNIQUE INDEX sessions_pkey ON bc1.sessions USING btree (session_id)'),
     ('kommentar|sessions|fa9b4c7aecb7751ee161ee80f797fb7e'),
+    ('mitglied|bc_leser|bc1_role'),
+    ('mitglied|bc_leser|bc2_role'),
+    ('mitglied|bc_leser|bc3_role'),
+    ('mitglied|bc_leser|bc4_role'),
     ('rls|sessions|f|f'),
     ('spalte|sessions|aktualisiert_am|timestamp with time zone|notnull|now()|-|-'),
     ('spalte|sessions|company_id|uuid|notnull||-|-'),
     ('spalte|sessions|session_id|text|notnull||-|-'),
     ('spalte|sessions|state|jsonb|notnull||-|-'),
     ('spalte|sessions|version|integer|notnull||-|-'),
-    ('trigger_intern|sessions|sessions_company_fk|O');
+    ('trigger_intern|sessions|sessions_company_fk|bc1.sessions|RI_FKey_check_ins|O'),
+    ('trigger_intern|sessions|sessions_company_fk|bc1.sessions|RI_FKey_check_upd|O'),
+    ('trigger_intern|sessions|sessions_company_fk|companies|RI_FKey_cascade_del|O'),
+    ('trigger_intern|sessions|sessions_company_fk|companies|RI_FKey_noaction_upd|O');
 
 CREATE OR REPLACE TEMP VIEW bc1_sessions_ist_signatur AS
 SELECT format('spalte|%s|%s|%s|%s|%s|%s|%s', c.relname, a.attname,
@@ -126,14 +136,19 @@ SELECT format('trigger|%s|%s|%s|%s', c.relname, t.tgname,
  WHERE n.nspname = 'bc1' AND c.relname = 'sessions'
    AND NOT t.tgisinternal
 UNION ALL
--- Interne RI-Trigger: Name traegt OIDs, deshalb Schluessel = Constraint-Name;
--- der AKTIVIERUNGSZUSTAND gehoert in die Signatur (ein deaktivierter RI-Trigger
--- laesst die Constraint-Definition stehen und erzwingt den FK trotzdem nicht).
-SELECT format('trigger_intern|%s|%s|%s', c.relname, con.conname, t.tgenabled)
-  FROM pg_trigger t
-  JOIN pg_class c ON c.oid = t.tgrelid
+-- Interne RI-Trigger: Name traegt OIDs, deshalb Schluessel = Constraint-Name plus
+-- Tabelle und Triggerfunktion; der AKTIVIERUNGSZUSTAND gehoert in die Signatur.
+-- BEIDE FK-Seiten (Review 13.09., Befund 7): die Loeschkaskade haengt am Trigger
+-- RI_FKey_cascade_del auf COMPANIES — deaktiviert liefe die DSGVO-Loeschung ins
+-- Leere, ohne dass sich an bc1.sessions selbst etwas aendert. Deshalb ueber die
+-- Constraint der Tabelle gejoint, nicht ueber tgrelid.
+SELECT format('trigger_intern|%s|%s|%s|%s|%s', c.relname, con.conname,
+              t.tgrelid::regclass, p.proname, t.tgenabled)
+  FROM pg_constraint con
+  JOIN pg_class c ON c.oid = con.conrelid
   JOIN pg_namespace n ON n.oid = c.relnamespace
-  JOIN pg_constraint con ON con.oid = t.tgconstraint
+  JOIN pg_trigger t ON t.tgconstraint = con.oid
+  JOIN pg_proc p ON p.oid = t.tgfoid
  WHERE n.nspname = 'bc1' AND c.relname = 'sessions'
    AND t.tgisinternal
 UNION ALL
@@ -163,6 +178,17 @@ SELECT format('spalte_acl|%s|%s|%s|%s|%s', c.relname, a.attname,
   CROSS JOIN LATERAL aclexplode(a.attacl) AS acl
  WHERE n.nspname = 'bc1' AND c.relname = 'sessions'
    AND a.attnum > 0 AND NOT a.attisdropped AND a.attacl IS NOT NULL
+UNION ALL
+-- Mitgliedschafts-Kanten in JEDE Rolle, ueber die man an die Tabelle kaeme (wie
+-- prozessprofil.sql): eine Mitgliedschaft MIT 'SET', aber OHNE 'INHERIT' gibt per
+-- SET ROLE vollen Zugriff, ist fuer has_table_privilege aber unsichtbar. Umgebungs-
+-- rollen als MITGLIED ausgenommen (gemessen 03.09.); als Zielrolle gezaehlt.
+SELECT format('mitglied|%s|%s', pg_get_userbyid(m.roleid), pg_get_userbyid(m.member))
+  FROM pg_auth_members m
+ WHERE (pg_get_userbyid(m.roleid) IN ('bc1_role', 'bc_leser', 'pg_read_all_data',
+                                      'pg_write_all_data', 'pg_maintain')
+        OR pg_get_userbyid(m.roleid) IN (SELECT rolname FROM pg_temp.bc1_sessions_umgebungsrollen))
+   AND pg_get_userbyid(m.member) NOT IN (SELECT rolname FROM pg_temp.bc1_sessions_umgebungsrollen)
 UNION ALL
 SELECT format('rls|%s|%s|%s', c.relname, c.relrowsecurity, c.relforcerowsecurity)
   FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -277,6 +303,13 @@ BEGIN
 
         CONSTRAINT sessions_pkey PRIMARY KEY (session_id),
         CONSTRAINT sessions_version_positiv CHECK (version >= 1),
+        -- Spalte und JSON sagen dasselbe (Review 13.09., Befund 5): die Loeschkaskade
+        -- folgt der Spalte, der Kern liest das JSON — ein UPDATE, das nur das JSON
+        -- tauscht, darf die Mandantenbindung nicht stillschweigend aendern. Ein JSON
+        -- ohne Mandant ist ebenso ungueltig (NULL wuerde den CHECK sonst passieren).
+        CONSTRAINT sessions_mandant_konsistent
+            CHECK (state->>'company_id' IS NOT NULL
+                   AND (state->>'company_id')::uuid = company_id),
         CONSTRAINT sessions_company_fk FOREIGN KEY (company_id)
             REFERENCES companies (company_id) ON DELETE CASCADE
     ) $ddl$;
