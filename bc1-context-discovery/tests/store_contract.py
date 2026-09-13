@@ -47,6 +47,14 @@ def _fetter_state(session_id: str = "s1") -> SessionState:
     return st
 
 
+def _leerer_state(session_id: str = "s1") -> SessionState:
+    # Leerer Zustand, aber mandantengebunden — so entsteht er im Kern (process_turn
+    # setzt company_id beim ersten Turn); der Postgres-Store haelt die Bindung als
+    # Pflichtspalte fest, ein Zustand ohne Mandant ist dort keine gueltige Zeile.
+    return SessionState(session_id, "0.1",
+                        company_id="11111111-1111-1111-1111-111111111111")
+
+
 class StoreVertrag:
     def test_load_unbekannter_session_gibt_none(self, store):
         assert store.load("gibt-es-nicht") is None
@@ -59,7 +67,7 @@ class StoreVertrag:
         assert geladen.version == 1
 
     def test_save_bumpt_caller_version_um_genau_eins(self, store):
-        st = SessionState("s1", "0.1")
+        st = _leerer_state()
         store.save(st)
         assert st.version == 1
         store.save(st)  # ohne Neuladen weiterspeichern muss funktionieren
@@ -72,7 +80,7 @@ class StoreVertrag:
         assert st.version == 3  # Fehlerpfad mutiert den Caller nicht
 
     def test_stale_write_wird_abgelehnt(self, store):
-        st = SessionState("s1", "0.1")
+        st = _leerer_state()
         store.save(st)              # gespeichert: Version 1
         veraltet = store.load("s1")
         store.save(st)              # gespeichert: Version 2
@@ -80,7 +88,7 @@ class StoreVertrag:
             store.save(veraltet)    # Version 1 gegen gespeicherte 2
 
     def test_vorauseilende_version_wird_abgelehnt(self, store):
-        st = SessionState("s1", "0.1")
+        st = _leerer_state()
         store.save(st)
         voraus = store.load("s1")
         voraus.version = 99

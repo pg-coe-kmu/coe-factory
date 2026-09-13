@@ -989,7 +989,9 @@ Bewusst **nicht** geändert: `company_id` bleibt beim UPDATE unangetastet (der K
 
 - [ ] **Step 5: GREEN messen** — `.venv/bin/pytest tests/test_store_postgres.py tests/test_postgres_init.py -q` → 14 + 4 grün (11 Vertrag + 3 neu; 3 Bestand + 1 neu). Der bestehende Test `test_pool_wird_bei_init_fehler_geschlossen` (Stub wirft bei `execute`) bleibt grün. Volle Suite: erwartet **489 passed / 4 skipped**.
 
-- [ ] **Step 6:** Docstring in `tests/db_fixture.py` prüfen (Step 1 Task 2 hat ihn schon ersetzt). Commit `feat(bc1): PostgresStateStore legt nichts mehr an — Startpruefung, company_id-Spalte (B1, Task 3)`.
+- [x] **Step 6:** Docstring in `tests/db_fixture.py` geprüft (Task 2 hat ihn ersetzt). Commit `feat(bc1): PostgresStateStore legt nichts mehr an — Startpruefung, company_id-Spalte (B1, Task 3)`.
+
+**Verlauf 13.09. (ausgeführt, ehrlich):** (1) **Befund:** Als `bc1_role` scheiterte der alte Konstruktor an `CREATE SCHEMA IF NOT EXISTS bc1` mit `permission denied for database` — der Store hätte live (DSN = `bc1_role`) **nie starten können**; die alte Fixture (Superuser) hat das verdeckt. B1 behebt das nebenbei. (2) **Reihenfolge vom Guard erzwungen:** Drei Vertragstests bauen einen nackten `SessionState("s1", "0.1")` ohne Mandant; gegen die Pflichtspalte scheitern sie mit `NotNullViolation`. Der Guard erlaubt keine Änderung roter Bestandstests, und der Store darf den Mandanten nicht optional machen. Deshalb per `git checkout` zurück auf den grünen Stand, in `store_contract.py` den Helfer `_leerer_state()` (mandantengebunden, wie der Kern ihn erzeugt) als **Refactoring bei Grün** eingezogen, dann Task 3 erneut: Fixture → 12 Fixture-Fehler → CREATE raus → 11 `NotNullViolation`/DID-NOT-RAISE → INSERT/UPDATE → nur noch der alte Init-Test rot → Existenzabfrage → neuer Stub-Test rot → `RuntimeError` → Container-Test und NOT-NULL-Test grün bei Ankunft. Suite **489 passed / 4 skipped**. (3) `test_store_postgres.py` importiert `DSN` jetzt aus `db_fixture` statt selbst aus der Umgebung.
 
 ---
 

@@ -44,6 +44,38 @@ def test_pool_wird_bei_init_fehler_geschlossen(monkeypatch):
     assert pools and pools[0].geschlossen
 
 
+class _StubCursorOhneTabelle:
+    def fetchone(self):
+        return (False,)
+
+
+class _StubVerbindungOhneTabelle:
+    def execute(self, *args, **kwargs):
+        return _StubCursorOhneTabelle()
+
+
+class _StubPoolOhneTabelle(_StubPool):
+    @contextmanager
+    def connection(self):
+        yield _StubVerbindungOhneTabelle()
+
+
+# Seit B1 legt der Store die Tabelle nicht mehr an. Fehlt sie, soll der Dienst mit
+# einem Hinweis auf die Einspiel-Datei stehenbleiben — und den Pool schliessen.
+def test_fehlende_tabelle_meldet_die_einspiel_datei_und_schliesst_den_pool(monkeypatch):
+    pools: list[_StubPoolOhneTabelle] = []
+
+    def _fabrik(*args, **kwargs) -> _StubPoolOhneTabelle:
+        pool = _StubPoolOhneTabelle()
+        pools.append(pool)
+        return pool
+
+    monkeypatch.setattr(postgres_store, "ConnectionPool", _fabrik)
+    with pytest.raises(RuntimeError, match="sessions.sql"):
+        postgres_store.PostgresStateStore("postgresql://egal/egal")
+    assert pools and pools[0].geschlossen
+
+
 # Fehlt die Pflicht-Variable, soll der Dienst mit einer lesbaren Meldung
 # stehenbleiben — nicht mit einem nackten KeyError beim Import.
 def test_main_ohne_dsn_meldet_die_fehlende_variable(monkeypatch):
