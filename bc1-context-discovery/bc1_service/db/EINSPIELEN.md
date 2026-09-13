@@ -2,8 +2,8 @@
 
 > Betriebsdoku für den Menschen, der die BC1-Tabellen in eine Datenbank bringt.
 > Stand 13.09.2026. Alle Zahlen und Rollennamen hier sind **gemessen**, nicht angenommen.
-> `prozessprofil.sql` ist seit dem 08.09. **in der Ziel-Supabase ausgeführt** (Abschnitt 9);
-> `sessions.sql` (B1) steht dort **noch aus** (Abschnitt 10).
+> `prozessprofil.sql` ist seit dem 08.09. **in der Ziel-Supabase ausgeführt** (Abschnitt 9),
+> `sessions.sql` (B1) seit dem 13.09. (Abschnitt 10).
 
 ## Das Wichtigste in fünf Sätzen
 
@@ -246,20 +246,22 @@ greift wie hergeleitet. Damit ist die Herleitung durch eine Messung ersetzt.
 
 ---
 
-## 10. Zweiter Lauf: `sessions.sql` — noch offen
+## 10. Zweiter Lauf: `sessions.sql` in der Supabase — 13.09.2026
 
-**Stand 13.09.2026: im Container gebaut und getestet, in der Ziel-Supabase noch nicht
-ausgeführt.** Erwartung für den Live-Lauf (als `bc1_role`, nach einem erneuten
-`prozessprofil.sql`-Lauf, der Fall 2 melden muss):
+Ausgeführt als `bc1_role` (Session Pooler), Signatur **40 Zeilen**, alle Zeilen gemessen
+(`einspielen.log`, `einspielen-sessions.log`, `einspielen-nachpruefung-sessions.log`):
 
 | Schritt | Erwartung | Gemessen |
 |---|---|---|
-| Vorbedingung | `prozessprofil.sql` erneut: `NOTICE: Fall 2` (die alte Datei ist unberührt) | offen |
-| Umgebungsrollen | Abfrage aus Abschnitt 5 liefert dieselben acht Rollen wie am 12.09. | offen |
-| Lauf 1 | `NOTICE: Fall 1: bc1.sessions nicht vorhanden — Anlage.` + `NOTICE: Sollsignatur bestaetigt.` | offen |
-| Lauf 2 | `NOTICE: Fall 2: Bestand ist identisch zur Sollsignatur — No-op.` | offen |
-| Nachprüfung | vier Tabellen in `bc1`, `sessions` gehört `bc1_role`, ACL ohne `bc_leser`; `bc_leser`/`bc2`–`bc4`: alle Rechte `f`; `sessions_company_fk` validiert | offen |
+| Vorbedingung | `prozessprofil.sql` erneut: `NOTICE: Fall 2` (die alte Datei ist unberührt) | **`Fall 2` in beiden Läufen von `lauf.sh ein` und erneut als Vorbedingung im `sessions`-Lauf** — die vierte Tabelle beeinflusst die alte Datei nicht, jetzt auch live belegt |
+| Umgebungsrollen | Abfrage aus Abschnitt 5 liefert dieselben acht Rollen wie am 12.09. | nicht erneut abgefragt; die Sollsignatur (inkl. `mitglied\|`, `effektiv\|`) wurde ohne Abweichung bestätigt — eine neue Rolle mit Zugriff wäre als Fall 3 aufgefallen |
+| Lauf 1 | `NOTICE: Fall 1: bc1.sessions nicht vorhanden — Anlage.` + `NOTICE: Sollsignatur bestaetigt.` | **genau so** |
+| Lauf 2 | `NOTICE: Fall 2: Bestand ist identisch zur Sollsignatur — No-op.` | **genau so** — Idempotenz im Ziel bewiesen |
+| Nachprüfung A | vier Tabellen in `bc1`, `sessions` gehört `bc1_role`, ACL ohne `bc_leser` | **4 Tabellen; `sessions` = `bc1_role`, `relacl = {bc1_role=arwdDxtm/bc1_role}`** |
+| Nachprüfung B | `bc1_role` SELECT/INSERT `t`; `bc_leser`, `bc2`–`bc4` `f` | **wie erwartet.** Zusätzlich `postgres` `t/t` — die Supabase-Administration ist Mitglied von `bc1_role` (Umgebungsrolle, Abschnitt 5); kein Befund, aber sichtbar gemacht |
+| Nachprüfung C | `sessions_company_fk` validiert | **alle vier Constraints `convalidated = t`** (FK, `sessions_mandant_konsistent`, PK, `version_positiv`) |
 
-Diese Tabelle wird nach dem Lauf mit den gemessenen Zeilen gefüllt — kein Ergebnis wird
-vorab eingetragen. Bei Fall 3: Abweichung Zeile für Zeile lesen; wahrscheinlichste Ursache
-ist eine neue Rolle in der Supabase (Abschnitt 5), **nie** die Prüfung abschalten.
+**Für BC0 heißt das:** nichts zu tun — `bc1.sessions` ist eine interne Tabelle, kein
+Fremdschema liest sie, ein `GRANT` ist weder nötig noch erwünscht. Die Löschkaskade von
+`companies` läuft mit den Rechten von `bc1_role` (im Container unter einem rechtelosen
+Löschkonto gemessen, Test `test_kaskade_raeumt_die_sitzung_auch_unter_rechtelosem_loeschkonto`).
