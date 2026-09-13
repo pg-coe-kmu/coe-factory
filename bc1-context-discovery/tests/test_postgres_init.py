@@ -46,7 +46,7 @@ def test_pool_wird_bei_init_fehler_geschlossen(monkeypatch):
 
 class _StubCursorOhneTabelle:
     def fetchone(self):
-        return (False,)
+        return ("fehlt",)
 
 
 class _StubVerbindungOhneTabelle:
@@ -72,6 +72,39 @@ def test_fehlende_tabelle_meldet_die_einspiel_datei_und_schliesst_den_pool(monke
 
     monkeypatch.setattr(postgres_store, "ConnectionPool", _fabrik)
     with pytest.raises(RuntimeError, match="sessions.sql"):
+        postgres_store.PostgresStateStore("postgresql://egal/egal")
+    assert pools and pools[0].geschlossen
+
+
+class _StubCursorOhneRechte:
+    def fetchone(self):
+        return ("keine_rechte",)
+
+
+class _StubVerbindungOhneRechte:
+    def execute(self, *args, **kwargs):
+        return _StubCursorOhneRechte()
+
+
+class _StubPoolOhneRechte(_StubPool):
+    @contextmanager
+    def connection(self):
+        yield _StubVerbindungOhneRechte()
+
+
+# Review 13.09., Befund 4: die Tabelle kann existieren, waehrend der DSN-Rolle jedes
+# Recht darauf fehlt (to_regclass braucht keine Rechte). Dann darf der Dienst nicht
+# starten und erst beim ersten Turn scheitern — Startpruefung mit lesbarer Meldung.
+def test_fehlende_rechte_meldet_die_rolle_und_schliesst_den_pool(monkeypatch):
+    pools: list[_StubPoolOhneRechte] = []
+
+    def _fabrik(*args, **kwargs) -> _StubPoolOhneRechte:
+        pool = _StubPoolOhneRechte()
+        pools.append(pool)
+        return pool
+
+    monkeypatch.setattr(postgres_store, "ConnectionPool", _fabrik)
+    with pytest.raises(RuntimeError, match="Rechte"):
         postgres_store.PostgresStateStore("postgresql://egal/egal")
     assert pools and pools[0].geschlossen
 

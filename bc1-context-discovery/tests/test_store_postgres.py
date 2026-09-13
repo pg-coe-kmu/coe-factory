@@ -43,6 +43,16 @@ class TestPostgresStore(StoreVertrag):
             store.save(st)
 
 
+def test_start_als_rolle_ohne_rechte_bricht_ab_statt_beim_ersten_turn_zu_scheitern():
+    # Review 13.09., Befund 4: bc_leser sieht die Tabelle (to_regclass), darf sie
+    # aber nicht benutzen. Der Dienst muss das beim Start sagen.
+    from bc1_service.postgres_store import PostgresStateStore
+
+    frische_db(DSN)
+    with pytest.raises(RuntimeError, match="keine Rechte"):
+        PostgresStateStore(f"{DSN}?options=-c%20role%3Dbc_leser")
+
+
 def test_start_ohne_tabelle_bricht_mit_hinweis_auf_die_einspiel_datei_ab():
     # Echter Fehlpfad am Container, nicht nur der Stub in test_postgres_init.py:
     # Geruest ohne unsere DDL — Schema bc1 existiert, bc1.sessions nicht.

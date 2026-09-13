@@ -18,7 +18,17 @@ from bc1_core.serialize import state_from_dict, state_to_dict
 from bc1_core.store import StaleStateError, StateStore
 from bc1_core.types import SessionState
 
-_TABELLE_VORHANDEN_SQL = "SELECT to_regclass('bc1.sessions') IS NOT NULL"
+# Startpruefung: Tabelle da UND die DSN-Rolle darf sie benutzen. to_regclass braucht
+# keine Rechte — allein damit startete der Dienst auch als bc_leser und scheiterte
+# erst beim ersten Turn (Review 13.09., Befund 4).
+_STARTPRUEFUNG_SQL = """
+SELECT CASE
+         WHEN to_regclass('bc1.sessions') IS NULL THEN 'fehlt'
+         WHEN has_table_privilege('bc1.sessions', 'SELECT, INSERT, UPDATE, DELETE')
+              THEN 'ok'
+         ELSE 'keine_rechte'
+       END
+"""
 
 
 class PostgresStateStore(StateStore):
@@ -26,12 +36,18 @@ class PostgresStateStore(StateStore):
         self._pool = ConnectionPool(dsn, min_size=1, max_size=10, open=True)
         try:
             with self._pool.connection() as conn:
-                vorhanden = conn.execute(_TABELLE_VORHANDEN_SQL).fetchone()[0]
-            if not vorhanden:
+                befund = conn.execute(_STARTPRUEFUNG_SQL).fetchone()[0]
+            if befund == "fehlt":
                 raise RuntimeError(
                     "bc1.sessions fehlt — der Dienst legt die Tabelle nicht mehr an. "
                     "Einspielen als bc1_role: bc1_service/db/sessions.sql "
                     "(Anleitung: bc1_service/db/EINSPIELEN.md)."
+                )
+            if befund != "ok":
+                raise RuntimeError(
+                    "Die Rolle aus BC1_DB_DSN hat keine Rechte auf bc1.sessions — "
+                    "der Dienst muss als bc1_role verbinden (EINSPIELEN.md, Abschnitt 6; "
+                    "Rechte vergibt bc1_service/db/sessions.sql)."
                 )
         except Exception:
             # Der Pool ist bereits offen: ohne close() blieben seine
