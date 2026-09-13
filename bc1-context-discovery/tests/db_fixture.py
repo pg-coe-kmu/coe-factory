@@ -11,6 +11,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import psycopg
+from psycopg.conninfo import conninfo_to_dict
 
 DSN = os.environ.get("BC1_TEST_DB_DSN")
 
@@ -22,6 +23,23 @@ _DDL = Path(__file__).parents[1] / "bc1_service" / "db" / "prozessprofil.sql"
 _DDL_SESSIONS = Path(__file__).parents[1] / "bc1_service" / "db" / "sessions.sql"
 
 
+_LOKALE_HOSTS = {"localhost", "127.0.0.1", "::1"}
+
+
+def pruefe_lokal(dsn: str) -> None:
+    """Bricht ab, wenn die DSN nicht auf eine lokale Datenbank zeigt.
+
+    frische_db() droppt public und bc1 — gegen eine falsch gesetzte DSN (Supabase!)
+    waere das die Produktionsdatenbank. Geprueft wird VOR der ersten Verbindung;
+    ohne Host (Unix-Socket) gilt die Verbindung als lokal.
+    """
+    host = conninfo_to_dict(dsn).get("host")
+    if host and host not in _LOKALE_HOSTS:
+        raise RuntimeError(
+            f"frische_db wischt die Datenbank und laeuft deshalb nur lokal "
+            f"({', '.join(sorted(_LOKALE_HOSTS))}), nicht gegen Host {host!r}.")
+
+
 def frische_db(dsn: str, *, mit_ddl: bool = True) -> None:
     """Setzt public + bc1 zurueck, baut das Geruest, spielt (optional) BEIDE DDL-Dateien ein.
 
@@ -29,6 +47,7 @@ def frische_db(dsn: str, *, mit_ddl: bool = True) -> None:
     jede als bc1_role in einer eigenen Transaktion. bc1.sessions entsteht damit NUR hier —
     der PostgresStateStore legt seit B1 nichts mehr an.
     """
+    pruefe_lokal(dsn)
     with psycopg.connect(dsn, autocommit=True) as conn:
         conn.execute("DROP SCHEMA IF EXISTS bc1 CASCADE")
         conn.execute("DROP SCHEMA IF EXISTS public CASCADE")

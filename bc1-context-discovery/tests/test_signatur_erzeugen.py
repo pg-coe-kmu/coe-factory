@@ -5,7 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from tests.db.signatur_erzeugen import baue_block, main, zeilen_aus_fehlertext
+from tests.db.signatur_erzeugen import (ERWARTETE_ROLLEN, baue_block, main,
+                                        rollen_abweichung, zeilen_aus_fehlertext)
 
 DSN = os.environ.get("BC1_TEST_DB_DSN")
 _PROJEKT = Path(__file__).parents[1]
@@ -35,6 +36,18 @@ def test_baue_block_sortiert_verdoppelt_hochkommas_und_schliesst_mit_semikolon()
     assert block == (
         "    ('constraint|s|c|CHECK ((x = ''ja''::text))'),\n"
         "    ('spalte|s|b|text|null||-|-');")
+
+
+def test_rollen_abweichung_toleriert_die_testrolle_und_meldet_fremde():
+    # bc0_loescher legt test_ddl_trigger.py an, nicht das Geruest (Review 13.09.,
+    # Befund 6): auf einem frischen Cluster fehlt sie, nach der Suite ist sie da —
+    # beides ist in Ordnung. Jede andere Abweichung ist ein Abbruchgrund.
+    assert rollen_abweichung(set(ERWARTETE_ROLLEN)) is None
+    assert rollen_abweichung(set(ERWARTETE_ROLLEN) | {"bc0_loescher"}) is None
+    meldung = rollen_abweichung(set(ERWARTETE_ROLLEN) | {"probe_fremd"})
+    assert "zuviel: ['probe_fremd']" in meldung
+    meldung = rollen_abweichung(set(ERWARTETE_ROLLEN) - {"bc_leser"})
+    assert "fehlt:  ['bc_leser']" in meldung
 
 
 @pytest.mark.skipif(not DSN, reason="BC1_TEST_DB_DSN nicht gesetzt")
@@ -87,12 +100,20 @@ def test_main_bricht_bei_fremder_cluster_rolle_ab(tmp_path, monkeypatch):
     monkeypatch.chdir(_PROJEKT)
     with psycopg.connect(DSN, autocommit=True) as conn:
         conn.execute("CREATE ROLE probe_fremd NOLOGIN")
+        # Markierung: die Rollenpruefung muss VOR dem Reset greifen (Review 13.09.,
+        # Befund 1) — sonst ist die Datenbank schon gewischt, wenn der Generator abbricht.
+        conn.execute("CREATE TABLE public.markierung_vor_reset (x int)")
     try:
         with pytest.raises(SystemExit, match="erwarteten Rollen"):
             main(["signatur_erzeugen.py", str(kopie)])
+        with psycopg.connect(DSN, autocommit=True) as conn:
+            assert conn.execute(
+                "SELECT to_regclass('public.markierung_vor_reset') IS NOT NULL"
+            ).fetchone()[0], "Reset lief VOR der Rollenpruefung"
     finally:
         with psycopg.connect(DSN, autocommit=True) as conn:
             conn.execute("DROP ROLE probe_fremd")
+            conn.execute("DROP TABLE IF EXISTS public.markierung_vor_reset")
     assert PLATZHALTER_BLOCK in kopie.read_text(encoding="utf-8")   # nichts geschrieben
 
 

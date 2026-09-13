@@ -44,8 +44,24 @@ ERLAUBT = ("spalte|", "spalte_acl|", "constraint|", "index|", "trigger|",
 # Rollen sind CLUSTERWEIT und ueberleben frische_db(). Bleibt aus einer Probe eine
 # Rolle stehen, landet sie ungefragt in der Sollsignatur (Review 03.09.) — deshalb
 # vorher pruefen, statt es zu merken, wenn die Signatur schon committet ist.
-ERWARTETE_ROLLEN = {"bc0_loescher", "bc1_role", "bc2_role", "bc3_role", "bc4_role",
-                    "bc_leser"}
+ERWARTETE_ROLLEN = {"bc1_role", "bc2_role", "bc3_role", "bc4_role", "bc_leser"}
+# Testrest, kein Geruest-Bestandteil: test_ddl_trigger.py legt bc0_loescher an und
+# laesst sie stehen (Rollen ueberleben frische_db). Auf einem frischen Cluster fehlt
+# sie — beides ist in Ordnung, sie hat keine Rechte auf bc1.* (Review 13.09., Befund 6).
+TOLERIERTE_ROLLEN = {"bc0_loescher"}
+
+
+def rollen_abweichung(vorhanden: set[str]) -> str | None:
+    """Meldung, wenn der Cluster nicht genau die erwarteten Rollen traegt — sonst None."""
+    relevant = vorhanden - TOLERIERTE_ROLLEN
+    if relevant == ERWARTETE_ROLLEN:
+        return None
+    return ("Der Cluster enthaelt nicht genau die erwarteten Rollen — Abbruch, sonst\n"
+            "landen fremde Rollen in der Sollsignatur.\n"
+            f"  zuviel: {sorted(relevant - ERWARTETE_ROLLEN)}\n"
+            f"  fehlt:  {sorted(ERWARTETE_ROLLEN - relevant)}\n"
+            "Proberollen entfernen (DROP OWNED BY <rolle>; DROP ROLE <rolle>) und\n"
+            "erneut starten. Ist die Aenderung gewollt, ERWARTETE_ROLLEN anpassen.")
 
 
 def zeilen_aus_fehlertext(text: str) -> tuple[list[str], list[str]]:
@@ -61,7 +77,7 @@ def baue_block(zeilen: Iterable[str]) -> str:
 
 
 def main(argv: list[str]) -> int:
-    from tests.db_fixture import DSN, frische_db, spiele_datei_ein, verbindung
+    from tests.db_fixture import DSN, frische_db, pruefe_lokal, spiele_datei_ein, verbindung
 
     datei = Path(argv[1]) if len(argv) > 1 else STANDARD_DATEI
     quelle = datei.read_text(encoding="utf-8")
@@ -69,20 +85,20 @@ def main(argv: list[str]) -> int:
         sys.exit(f"Die Platzhalterzeile fehlt in {datei}. Vor dem Erzeugen den alten "
                  "Signaturblock durch genau diese Zeile ersetzen:\n" + PLATZHALTER)
 
-    frische_db(DSN, mit_ddl=False)
+    # Rollen VOR dem Reset pruefen (Review 13.09., Befund 1): der Abbruch darf die
+    # Datenbank nicht schon gewischt haben. pruefe_lokal() in frische_db haelt
+    # zusaetzlich jede nicht lokale DSN fern — hier ausdruecklich davor, weil die
+    # Rollenabfrage selbst schon eine Verbindung oeffnet.
+    pruefe_lokal(DSN)
     with verbindung(DSN, None) as conn:
         vorhanden = {r[0] for r in conn.execute(
             "SELECT rolname FROM pg_roles WHERE NOT rolsuper "
             "  AND rolname NOT LIKE 'pg\\_%'").fetchall()}
-    if vorhanden != ERWARTETE_ROLLEN:
-        sys.exit(
-            "Der Cluster enthaelt nicht genau die erwarteten Rollen — Abbruch, sonst\n"
-            "landen fremde Rollen in der Sollsignatur.\n"
-            f"  zuviel: {sorted(vorhanden - ERWARTETE_ROLLEN)}\n"
-            f"  fehlt:  {sorted(ERWARTETE_ROLLEN - vorhanden)}\n"
-            "Proberollen entfernen (DROP OWNED BY <rolle>; DROP ROLE <rolle>) und\n"
-            "erneut starten. Ist die Aenderung gewollt, ERWARTETE_ROLLEN anpassen.")
+    abweichung = rollen_abweichung(vorhanden)
+    if abweichung:
+        sys.exit(abweichung)
 
+    frische_db(DSN, mit_ddl=False)
     try:
         spiele_datei_ein(DSN, datei)
     except Exception as fehler:                   # noqa: BLE001 — der Fehler IST das Ergebnis
