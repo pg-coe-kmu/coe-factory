@@ -37,12 +37,17 @@ def frische_db(dsn: str, *, mit_ddl: bool = True) -> None:
         spiele_ddl_ein(dsn)
 
 
-def spiele_ddl_ein(dsn: str) -> None:
-    """Spielt prozessprofil.sql genau wie im Betrieb ein: EINE Transaktion, als bc1_role."""
+def spiele_datei_ein(dsn: str, pfad: Path) -> None:
+    """Spielt EINE Einspiel-Datei genau wie im Betrieb ein: EINE Transaktion, als bc1_role."""
     with psycopg.connect(dsn) as conn:          # autocommit=False => eine Transaktion
         conn.execute("SET ROLE bc1_role")
-        conn.execute(_DDL.read_text(encoding="utf-8"))
+        conn.execute(pfad.read_text(encoding="utf-8"))
         conn.commit()
+
+
+def spiele_ddl_ein(dsn: str) -> None:
+    """prozessprofil.sql — Name bleibt, viele Aufrufer meinen genau diese Datei."""
+    spiele_datei_ein(dsn, _DDL)
 
 
 @contextmanager

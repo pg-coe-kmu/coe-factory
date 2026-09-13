@@ -11,7 +11,7 @@
 **Spec:** `design/Abschlussplan-BC1.md`, Stufe B, Paket B1 + Entscheidungen Richard 13.09.2026 (Chat, nach Bestandsaufnahme):
 1. **Eigene Datei `sessions.sql`** statt Einbau in `prozessprofil.sql` — Abweichung vom Abschlussplan, weil die Dreifallregel nur „alles" oder „nichts" kennt: live stehen die neun Vertragsobjekte mit eingefrorenen Daten, ein zehntes Objekt in derselben Datei wäre dort „Fall 3: Teilbestand". **Bedingung Richard:** nichts anderes wird verschlimmbessert, kein anderer BC wird beeinträchtigt → eigener Test (Task 2, `test_prozessprofil_sql_bleibt_nach_sessions_sql_ein_no_op`) und volle Suite grün.
 2. **Schlüssel `session_id` allein** (wie `profil_write_status` und der StateStore-Vertrag `load(session_id)`); `company_id` kommt als Pflichtspalte dazu. Der Verbundschlüssel bleibt Roadmap-Anker im DB-Profil-Plan (Nachtrag 08.09., Zeile „Mandantenweiter Sitzungsschlüssel") — Auslöser: zweite Dienstinstanz auf derselben Datenbank. Ehrlich: n8n vergibt die `session_id` heute schon clientseitig (`SMOKE.md`, HTTP-Request-Node); die Kopplung ist fail-closed (409), keine Datenvermischung.
-3. **Signatur-Skript ins Repo** (`bc1_service/db/signatur_erzeugen.py`), weil `EINSPIELEN.md` heute auf `../../signatur-erzeugen.py` außerhalb des Repos verweist.
+3. **Signatur-Skript ins Repo** (`tests/db/signatur_erzeugen.py`), weil `EINSPIELEN.md` heute auf `../../signatur-erzeugen.py` außerhalb des Repos verweist.
 
 ## Global Constraints
 
@@ -30,7 +30,7 @@
 ## Dateien
 
 - Create: `bc1_service/db/sessions.sql` — zweite Einspiel-Einheit (Voraussetzungen · Sollsignatur · Dreifallregel · Anlage · Rechte · Nachprüfung)
-- Create: `bc1_service/db/__init__.py` (leer) + `bc1_service/db/signatur_erzeugen.py` — Generator, Zieldatei als Argument, zwei reine Funktionen testbar
+- Create: `tests/db/signatur_erzeugen.py` — Generator (Entwicklungswerkzeug, braucht das Test-Gerüst → liegt bei den Tests, nicht unter `bc1_service/`), Zieldatei als Argument, reine Funktionen + Gesamtlauf testbar
 - Create: `tests/test_signatur_erzeugen.py` — Parser + Blockbau
 - Create: `tests/test_ddl_sessions.py` — Dreifallregel, Rechte, Kaskade, Wertebereich, Liste, Nichtbeeinflussung
 - Modify: `tests/db_fixture.py` — `spiele_datei_ein(dsn, pfad)`, `spiele_sessions_ein(dsn)`, `frische_db` spielt beide Dateien ein, Docstring
@@ -45,7 +45,7 @@
 - `tests.db_fixture.spiele_datei_ein(dsn: str, pfad: Path) -> None` — eine Datei als `bc1_role` in einer Transaktion
 - `tests.db_fixture.spiele_sessions_ein(dsn: str) -> None` — `sessions.sql`
 - `tests.db_fixture.spiele_ddl_ein(dsn: str) -> None` — **unverändert** `prozessprofil.sql` (viele Aufrufer)
-- `bc1_service.db.signatur_erzeugen.zeilen_aus_fehlertext(text: str) -> tuple[list[str], list[str]]` und `baue_block(zeilen: Iterable[str]) -> str`
+- `tests.db.signatur_erzeugen.zeilen_aus_fehlertext(text: str) -> tuple[list[str], list[str]]` und `baue_block(zeilen: Iterable[str]) -> str`
 - `PostgresStateStore(dsn)` — Signatur unverändert; wirft `RuntimeError` mit `sessions.sql` im Text, wenn `bc1.sessions` fehlt
 
 ---
@@ -69,20 +69,19 @@ Task 0 (Branch, Plan) → Task 1 (Generator ins Repo, ohne DB-Änderung) → Tas
 ## Task 1: Signatur-Generator ins Repo, Zieldatei als Argument
 
 **Files:**
-- Create: `bc1_service/db/__init__.py` (leer)
-- Create: `bc1_service/db/signatur_erzeugen.py`
+- Create: `tests/db/signatur_erzeugen.py`
 - Create: `tests/test_signatur_erzeugen.py`
 - Modify: `tests/db_fixture.py:40-45` (`spiele_datei_ein`)
 
 **Interfaces:**
-- Produces: `zeilen_aus_fehlertext`, `baue_block`, CLI `uv run python bc1_service/db/signatur_erzeugen.py <datei.sql>`
+- Produces: `zeilen_aus_fehlertext`, `baue_block`, CLI `uv run python tests/db/signatur_erzeugen.py <datei.sql>`
 - Consumes: `tests.db_fixture.frische_db`, `verbindung`, neu `spiele_datei_ein`
 
 - [ ] **Step 1: Failing Tests schreiben** (`tests/test_signatur_erzeugen.py`)
 
 ```python
 """Reine Teile des Signatur-Generators — ohne Datenbank."""
-from bc1_service.db.signatur_erzeugen import baue_block, zeilen_aus_fehlertext
+from tests.db.signatur_erzeugen import baue_block, zeilen_aus_fehlertext
 
 FEHLERTEXT = """\
 psycopg.errors.RaiseException: Nachpruefung fehlgeschlagen — Rollback.
@@ -109,7 +108,7 @@ def test_baue_block_sortiert_verdoppelt_hochkommas_und_schliesst_mit_semikolon()
         "    ('spalte|s|b|text|null||-|-');")
 ```
 
-- [ ] **Step 2: RED messen** — `.venv/bin/pytest tests/test_signatur_erzeugen.py -q` → `ModuleNotFoundError: bc1_service.db.signatur_erzeugen`.
+- [ ] **Step 2: RED messen** — `.venv/bin/pytest tests/test_signatur_erzeugen.py -q` → `ModuleNotFoundError: tests.db.signatur_erzeugen`.
 
 - [ ] **Step 3: `tests/db_fixture.py` erweitern** (nur die Einspiel-Funktion; `spiele_ddl_ein` behält Name und Verhalten):
 
@@ -127,7 +126,7 @@ def spiele_ddl_ein(dsn: str) -> None:
     spiele_datei_ein(dsn, _DDL)
 ```
 
-- [ ] **Step 4: Generator schreiben** (`bc1_service/db/signatur_erzeugen.py`; Inhalt aus `../../signatur-erzeugen.py`, umgebaut):
+- [ ] **Step 4: Generator schreiben** (`tests/db/signatur_erzeugen.py`; Inhalt aus `../../signatur-erzeugen.py`, umgebaut):
 
 ```python
 #!/usr/bin/env python
@@ -145,7 +144,7 @@ lassen: frische_db() droppt die Schemata public und bc1.
 
 AUFRUF (aus bc1-context-discovery/, Container postgres:17 muss laufen):
     BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" \\
-        uv run python bc1_service/db/signatur_erzeugen.py bc1_service/db/sessions.sql
+        uv run python tests/db/signatur_erzeugen.py bc1_service/db/sessions.sql
 Ohne Argument: prozessprofil.sql. Danach: volle Suite laufen lassen.
 
 HAUPTVERSION (K-H, 03.09.): Container und Ziel laufen PostgreSQL 17. Gegen 16 erzeugt,
@@ -242,7 +241,7 @@ if __name__ == "__main__":
 
 - [ ] **Step 5: GREEN messen** — `.venv/bin/pytest tests/test_signatur_erzeugen.py -q` → 2 passed.
 
-- [ ] **Step 6: Regression des Umbaus gegen `prozessprofil.sql`** (der Generator muss die bestehende Signatur byteidentisch reproduzieren). Im Scratchpad, nicht im Repo:
+- [x] **Step 6: Regression des Umbaus gegen `prozessprofil.sql`** — **als Dauertest umgesetzt** (`test_main_reproduziert_die_committete_sollsignatur_byteidentisch`, 13.09.: 176 Zeilen byteidentisch). Der manuelle Lauf unten ist damit überholt und bleibt nur als Beschreibung stehen:
 
 ```bash
 S=/private/tmp/claude-501/-Users-rprezer-Desktop-Claude-Projekte-AutoCoE-Projekt/55759f28-fe59-4793-8d8f-8a822856439d/scratchpad
@@ -256,14 +255,16 @@ neu = re.sub(r"(-- << HIER die generierte Sollsignatur einsetzen \(Step 7\) >>\n
 assert neu != t; open(p, "w", encoding="utf-8").write(neu)
 PY
 BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" \
-  uv run python bc1_service/db/signatur_erzeugen.py "$S/prozessprofil.regress.sql"
+  uv run python tests/db/signatur_erzeugen.py "$S/prozessprofil.regress.sql"
 diff bc1_service/db/prozessprofil.sql "$S/prozessprofil.regress.sql" && echo IDENTISCH
 ```
 Erwartet: `Sollsignatur eingesetzt … 176 Zeilen` und `IDENTISCH`. Weicht es ab: Umbau falsch, nicht die DDL.
 
-- [ ] **Step 7:** Volle Suite → 467 passed / 4 skipped. Commit `feat(bc1): Signatur-Generator ins Repo, Zieldatei als Argument (B1, Task 1)`.
+- [x] **Step 7:** Volle Suite → **473 passed / 4 skipped** (gemessen 13.09.). Commit `feat(bc1): Signatur-Generator ins Repo, Zieldatei als Argument (B1, Task 1)`.
 
 - [ ] **Step 8 (Richard):** Alte Kopie `AutoCoE_Projekt/signatur-erzeugen.py` (außerhalb des Repos) löschen — Richards Datei, Richards Entscheidung; im Abschlussbericht fragen.
+
+**Verlauf 13.09. (ausgeführt, Abweichungen vom Plan oben — ehrlich):** (1) Der Guard lehnte den Generator unter `bc1_service/db/` zu Recht ab: Dienstcode darf `tests.db_fixture` nicht importieren. Der Generator ist Entwicklungswerkzeug und liegt jetzt in **`tests/db/signatur_erzeugen.py`**; kein `__init__.py` unter `bc1_service/db/`. (2) Statt zwei Tests sind es **acht**, jeder einzeln RED→GREEN gefahren (Guard: ein Test je Schritt, Sicherheitsprüfungen nur mit eigenem Test): Parser, Blockbau, **Byteidentität gegen die committete Signatur** (ersetzt Step 6), Platzhalter fehlt, fremde Cluster-Rolle, unbekannte Signaturart, mehr als der Platzhalter fehlt, keine `zuviel`-Zeilen. Künstliche Einspiel-Dateien (`_kunstdatei`) erzeugen die Fehlertexte gezielt. (3) `spiele_datei_ein` in `db_fixture.py` wie geplant; `spiele_ddl_ein` unverändert im Verhalten.
 
 ---
 
@@ -778,11 +779,11 @@ END $$;
 
 ```bash
 BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" \
-  uv run python bc1_service/db/signatur_erzeugen.py bc1_service/db/sessions.sql
+  uv run python tests/db/signatur_erzeugen.py bc1_service/db/sessions.sql
 ```
 Erwartet: Block mit u. a. `acl|sessions|bc1_role|…` (8 Rechte), **keine** Zeile mit `bc_leser`, `effektiv|sessions|bc1_role|…` (7), `constraint|sessions|sessions_company_fk|…`, `trigger_intern|sessions|sessions_company_fk|O`, `kommentar|sessions|…`, `rls|sessions|f|f`, 5 `spalte|`-Zeilen, `index|sessions|sessions_pkey|…`, `eigentuemer|sessions|bc1_role`. `git diff bc1_service/db/sessions.sql` lesen: jede Zeile erklärbar. Steht eine `bc_leser`-Zeile drin, fehlt das REVOKE — **nicht** die Signatur anpassen.
 
-- [ ] **Step 6: GREEN messen** — `.venv/bin/pytest tests/test_ddl_sessions.py tests/test_ddl_einspielen.py tests/test_db_fixture.py -q` → alles grün (12 neue Testfälle inkl. 3 Parametrisierungen + Bestand). Dann volle Suite: erwartet **479 passed / 4 skipped** (465 + 2 Task 1 + 12).
+- [ ] **Step 6: GREEN messen** — `.venv/bin/pytest tests/test_ddl_sessions.py tests/test_ddl_einspielen.py tests/test_db_fixture.py -q` → alles grün (12 neue Testfälle inkl. 3 Parametrisierungen + Bestand). Dann volle Suite: erwartet **485 passed / 4 skipped** (473 nach Task 1 + 12).
 
 - [ ] **Step 7:** `git diff --stat` zeigt `prozessprofil.sql` **nicht**. Commit `feat(bc1): sessions.sql — bc1.sessions signiert, nur bc1_role, Loeschkaskade (B1, Task 2)`.
 
@@ -984,7 +985,7 @@ class PostgresStateStore(StateStore):
 ```
 Bewusst **nicht** geändert: `company_id` bleibt beim UPDATE unangetastet (der Kern prüft den Mandanten vor jedem Turn, `pruefe_mandant`); kein Python-Guard für `company_id is None` — die Datenbank sagt es (Test Step 1), der Kern setzt es immer.
 
-- [ ] **Step 5: GREEN messen** — `.venv/bin/pytest tests/test_store_postgres.py tests/test_postgres_init.py -q` → 14 + 4 grün (11 Vertrag + 3 neu; 3 Bestand + 1 neu). Der bestehende Test `test_pool_wird_bei_init_fehler_geschlossen` (Stub wirft bei `execute`) bleibt grün. Volle Suite: erwartet **483 passed / 4 skipped**.
+- [ ] **Step 5: GREEN messen** — `.venv/bin/pytest tests/test_store_postgres.py tests/test_postgres_init.py -q` → 14 + 4 grün (11 Vertrag + 3 neu; 3 Bestand + 1 neu). Der bestehende Test `test_pool_wird_bei_init_fehler_geschlossen` (Stub wirft bei `execute`) bleibt grün. Volle Suite: erwartet **489 passed / 4 skipped**.
 
 - [ ] **Step 6:** Docstring in `tests/db_fixture.py` prüfen (Step 1 Task 2 hat ihn schon ersetzt). Commit `feat(bc1): PostgresStateStore legt nichts mehr an — Startpruefung, company_id-Spalte (B1, Task 3)`.
 
@@ -999,11 +1000,11 @@ Bewusst **nicht** geändert: `company_id` bleibt beim UPDATE unangetastet (der K
 - [ ] **Step 1: `EINSPIELEN.md`**
   - Titel → „`prozessprofil.sql` und `sessions.sql` einspielen — Anleitung und Rechte-Ist-Stand"; „Fünf Sätze": Satz ergänzen: *„Seit B1 gibt es eine zweite Datei `sessions.sql` für die Sitzungstabelle — gleiche Dreifallregel, eigene Signatur, läuft NACH `prozessprofil.sql`."*
   - §2 Einspielen: zweiter Befehl `psql "$BC1_DB_DSN" -v ON_ERROR_STOP=1 -1 -f bc1_service/db/sessions.sql`, Reihenfolge begründet (Mitgliedschafts-Kanten prüft nur die erste Datei).
-  - §4 Sollsignatur: Befehl auf `uv run python bc1_service/db/signatur_erzeugen.py <datei>` umstellen; Satz: Platzhalterzeile je Datei, Generator liegt im Repo.
+  - §4 Sollsignatur: Befehl auf `uv run python tests/db/signatur_erzeugen.py <datei>` umstellen; Satz: Platzhalterzeile je Datei, Generator liegt im Repo.
   - §7 Rechte-Matrix: Zeile `bc1.sessions | alles | **nichts** (ausdrückliches REVOKE)`.
   - §9 bleibt (08.09.); neuer **§10 „Zweiter Lauf: `sessions.sql` — <Datum>"** mit Tabelle Vorprüfung/Lauf 1/Lauf 2/Nachprüfung, zunächst mit dem Vermerk *„offen, wird nach dem Live-Lauf gefüllt (Task 6)"* — kein erfundenes Ergebnis.
   - Anhang „Was sie NICHT abdeckt": Satz ergänzen, dass `sessions.sql` `mitglied|` und Funktionen nicht prüft und warum.
-- [ ] **Step 2: `Abschlussplan-BC1.md`**, Zeile B1: Ziel-Spalte ergänzen um *„**Stand 13.09.:** gebaut als eigene Einspiel-Einheit `sessions.sql` (Entscheidung: Dreifallregel kennt nur alles/nichts, live stehen die neun Objekte); Schlüssel `session_id` allein, `company_id` Pflichtspalte mit Kaskade; Store legt nichts mehr an; Suite 483 grün"*; Nächster-Schritt-Spalte: *„Live-Einspielen als Fall 1 (lauf.sh `sessions`), Nachprüfung, EINSPIELEN.md §10"*. Kleinpunkt ergänzen: *„Signatur-Sicht liegt jetzt zweimal (prozessprofil.sql, sessions.sql) — bei einer dritten Einheit in einen Generator ziehen, nicht vorher (YAGNI)."*
+- [ ] **Step 2: `Abschlussplan-BC1.md`**, Zeile B1: Ziel-Spalte ergänzen um *„**Stand 13.09.:** gebaut als eigene Einspiel-Einheit `sessions.sql` (Entscheidung: Dreifallregel kennt nur alles/nichts, live stehen die neun Objekte); Schlüssel `session_id` allein, `company_id` Pflichtspalte mit Kaskade; Store legt nichts mehr an; Suite 489 grün"*; Nächster-Schritt-Spalte: *„Live-Einspielen als Fall 1 (lauf.sh `sessions`), Nachprüfung, EINSPIELEN.md §10"*. Kleinpunkt ergänzen: *„Signatur-Sicht liegt jetzt zweimal (prozessprofil.sql, sessions.sql) — bei einer dritten Einheit in einen Generator ziehen, nicht vorher (YAGNI)."*
 - [ ] **Step 3:** Commit `docs(bc1): EINSPIELEN.md zweite Einspiel-Einheit, Abschlussplan B1 (B1, Task 4)`.
 
 ---
