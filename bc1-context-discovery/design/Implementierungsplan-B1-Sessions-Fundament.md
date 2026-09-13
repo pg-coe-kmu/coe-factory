@@ -1009,7 +1009,7 @@ Bewusst **nicht** geändert: `company_id` bleibt beim UPDATE unangetastet (der K
   - §9 bleibt (08.09.); neuer **§10 „Zweiter Lauf: `sessions.sql` — <Datum>"** mit Tabelle Vorprüfung/Lauf 1/Lauf 2/Nachprüfung, zunächst mit dem Vermerk *„offen, wird nach dem Live-Lauf gefüllt (Task 6)"* — kein erfundenes Ergebnis.
   - Anhang „Was sie NICHT abdeckt": Satz ergänzen, dass `sessions.sql` `mitglied|` und Funktionen nicht prüft und warum.
 - [ ] **Step 2: `Abschlussplan-BC1.md`**, Zeile B1: Ziel-Spalte ergänzen um *„**Stand 13.09.:** gebaut als eigene Einspiel-Einheit `sessions.sql` (Entscheidung: Dreifallregel kennt nur alles/nichts, live stehen die neun Objekte); Schlüssel `session_id` allein, `company_id` Pflichtspalte mit Kaskade; Store legt nichts mehr an; Suite 489 grün"*; Nächster-Schritt-Spalte: *„Live-Einspielen als Fall 1 (lauf.sh `sessions`), Nachprüfung, EINSPIELEN.md §10"*. Kleinpunkt ergänzen: *„Signatur-Sicht liegt jetzt zweimal (prozessprofil.sql, sessions.sql) — bei einer dritten Einheit in einen Generator ziehen, nicht vorher (YAGNI)."*
-- [ ] **Step 3:** Commit `docs(bc1): EINSPIELEN.md zweite Einspiel-Einheit, Abschlussplan B1 (B1, Task 4)`.
+- [x] **Step 3:** Commit `docs(bc1): EINSPIELEN.md zweite Einspiel-Einheit, Abschlussplan B1 (B1, Task 4)` — Steps 1–2 ausgeführt 13.09. (§10 bewusst „offen" bis zum Live-Lauf; Sitzungsschlüssel-Entscheidung und zwei Kleinpunkte im Abschlussplan nachgetragen).
 
 ---
 

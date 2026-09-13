@@ -1,8 +1,9 @@
-# `prozessprofil.sql` einspielen — Anleitung und Rechte-Ist-Stand
+# `prozessprofil.sql` und `sessions.sql` einspielen — Anleitung und Rechte-Ist-Stand
 
 > Betriebsdoku für den Menschen, der die BC1-Tabellen in eine Datenbank bringt.
-> Stand 08.09.2026. Alle Zahlen und Rollennamen hier sind **gemessen**, nicht angenommen.
-> Seit dem 08.09. ist der Inhalt **in der Ziel-Supabase ausgeführt** — siehe Abschnitt 9.
+> Stand 13.09.2026. Alle Zahlen und Rollennamen hier sind **gemessen**, nicht angenommen.
+> `prozessprofil.sql` ist seit dem 08.09. **in der Ziel-Supabase ausgeführt** (Abschnitt 9);
+> `sessions.sql` (B1) steht dort **noch aus** (Abschnitt 10).
 
 ## Das Wichtigste in fünf Sätzen
 
@@ -13,6 +14,13 @@ exakt erwarteten Bestand, tut sie nichts (**Fall 2**); weicht irgendetwas ab, **
 ab und ändert nichts** (**Fall 3**). Die Prüfung vergleicht den Ist-Zustand des Katalogs
 Zeile für Zeile mit einer im Skript hinterlegten **Sollsignatur** (176 Zeilen). Wer die
 DDL ändert, muss die Signatur neu erzeugen — sonst blockiert sich das Skript selbst.
+
+Seit B1 (13.09.2026) gibt es eine **zweite Datei `sessions.sql`** für die Sitzungstabelle
+`bc1.sessions` (kompletter Interview-Zustand inklusive Rohtext): gleiche Dreifallregel,
+eigene Sollsignatur (32 Zeilen), Geltungsbereich genau diese eine Tabelle. Sie läuft
+**nach** `prozessprofil.sql`; die erste Datei bleibt davon unberührt und meldet weiter
+Fall 2 (im Container in beide Richtungen getestet). Der Dienst legt die Sitzungstabelle
+nicht mehr selbst an — fehlt sie, bricht er beim Start mit Verweis auf diese Anleitung ab.
 
 ---
 
@@ -35,10 +43,13 @@ Aus `bc1-context-discovery/`, **als `bc1_role`**:
 
 ```bash
 psql "$BC1_DB_DSN" -v ON_ERROR_STOP=1 -1 -f bc1_service/db/prozessprofil.sql
+psql "$BC1_DB_DSN" -v ON_ERROR_STOP=1 -1 -f bc1_service/db/sessions.sql
 ```
 
 `-1` ist nicht optional: Die Dreifallregel verlässt sich darauf, dass ein Abbruch alles
-zurückrollt.
+zurückrollt. **Reihenfolge ist Pflicht:** `sessions.sql` prüft weder Mitgliedschafts-Kanten
+(`mitglied|`) noch Funktionen — das tut nur `prozessprofil.sql`, deshalb läuft die zuerst.
+Jede Datei ist eine eigene Transaktion; jede meldet ihren eigenen Fall 1/2/3.
 
 ## 3. Die Dreifallregel lesen
 
@@ -57,13 +68,17 @@ Prüfung abschalten.
 **Wann:** nach *jeder* Änderung an der DDL, und beim Wechsel der PostgreSQL-Hauptversion.
 
 ```bash
-# 1. Den Signaturblock in Abschnitt 0b durch die eine Platzhalterzeile ersetzen:
+# 1. Den Signaturblock in Abschnitt 0b DER JEWEILIGEN DATEI durch die eine Platzhalterzeile ersetzen:
 #    ('platzhalter|wird|in|step7|ersetzt');
-# 2. Aus bc1-context-discovery/, gegen den Test-Container:
+# 2. Aus bc1-context-discovery/, gegen den Test-Container (ohne Argument: prozessprofil.sql):
 BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" \
-    .venv/bin/python ../../signatur-erzeugen.py
+    uv run python tests/db/signatur_erzeugen.py bc1_service/db/sessions.sql
 # 3. git diff lesen — jede geänderte Zeile muss erklärbar sein — dann committen.
 ```
+
+Der Generator liegt seit B1 **im Repo** (`tests/db/signatur_erzeugen.py`, bei den Tests, weil
+er das BC0-Gerüst braucht und die Zieldatenbank wischt — **nie gegen die Supabase**). Ein
+Test hält fest, dass er die committete `prozessprofil.sql`-Signatur byteidentisch reproduziert.
 
 **Hauptversion (Klärpunkt K-H, entschieden 03.09.):** Test-Container **und** Ziel laufen
 PostgreSQL 17. Der Container wird mit `postgres:17` gestartet. Gegen PostgreSQL 16 erzeugt,
@@ -151,6 +166,7 @@ Benutzer-Anteil von `BC1_DB_DSN`, wer schreibt.
 | `bc1.prozessprofil` | alles | `SELECT` |
 | `bc1.profil_rollen` | alles | `SELECT` |
 | `bc1.profil_write_status` | alles | **nichts** (ausdrückliches `REVOKE`) |
+| `bc1.sessions` (B1) | alles | **nichts** (ausdrückliches `REVOKE`; Sitzungszustand mit Rohtext) |
 
 Unsere DDL vergibt diese Rechte selbst — BC0 muss nichts nachziehen. Offen ist nur BC0s
 ausdrückliche Bestätigung, dass `bc_leser` auch für `profil_rollen` gilt (Rückfrage vom
@@ -187,6 +203,10 @@ nachgestellt — kein Fall 3, Zugriff funktionierte):
   Signatur inventarisiert nur die drei Tabellen und die drei Triggerfunktionen.
 - **Standardrechte** (`pg_default_acl`) — sie wirken erst auf *künftige* Objekte, siehe
   Abschnitt 8 (K-I).
+- **`sessions.sql` prüft keine Mitgliedschafts-Kanten und keine Funktionen** — das sind
+  globale Dinge, die `prozessprofil.sql` prüft; deshalb läuft die immer zuerst (Abschnitt 2).
+  Die Signatur-Sicht liegt damit zweimal im Repo (je Datei) — bewusst, solange es zwei
+  Einheiten sind; bei einer dritten wird sie in einen Generator gezogen (Abschlussplan).
 
 Wer im Schema `bc1` etwas anlegen darf, kann daran vorbei. Die Prüfung ersetzt also nicht
 die Frage, **wer `CREATE` in diesem Schema hat** — sie sichert, dass die drei
@@ -212,3 +232,23 @@ greift wie hergeleitet. Damit ist die Herleitung durch eine Messung ersetzt.
 
 **Für BC0 heißt das:** ein `GRANT SELECT` auf `bc1.prozessprofil` und `bc1.profil_rollen` ist
 **nicht nötig** — unsere DDL vergibt das Leserecht an `bc_leser` selbst (Abschnitt 7).
+
+---
+
+## 10. Zweiter Lauf: `sessions.sql` — noch offen
+
+**Stand 13.09.2026: im Container gebaut und getestet, in der Ziel-Supabase noch nicht
+ausgeführt.** Erwartung für den Live-Lauf (als `bc1_role`, nach einem erneuten
+`prozessprofil.sql`-Lauf, der Fall 2 melden muss):
+
+| Schritt | Erwartung | Gemessen |
+|---|---|---|
+| Vorbedingung | `prozessprofil.sql` erneut: `NOTICE: Fall 2` (die alte Datei ist unberührt) | offen |
+| Umgebungsrollen | Abfrage aus Abschnitt 5 liefert dieselben acht Rollen wie am 12.09. | offen |
+| Lauf 1 | `NOTICE: Fall 1: bc1.sessions nicht vorhanden — Anlage.` + `NOTICE: Sollsignatur bestaetigt.` | offen |
+| Lauf 2 | `NOTICE: Fall 2: Bestand ist identisch zur Sollsignatur — No-op.` | offen |
+| Nachprüfung | vier Tabellen in `bc1`, `sessions` gehört `bc1_role`, ACL ohne `bc_leser`; `bc_leser`/`bc2`–`bc4`: alle Rechte `f`; `sessions_company_fk` validiert | offen |
+
+Diese Tabelle wird nach dem Lauf mit den gemessenen Zeilen gefüllt — kein Ergebnis wird
+vorab eingetragen. Bei Fall 3: Abweichung Zeile für Zeile lesen; wahrscheinlichste Ursache
+ist eine neue Rolle in der Supabase (Abschnitt 5), **nie** die Prüfung abschalten.
