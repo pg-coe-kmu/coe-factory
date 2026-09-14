@@ -9,11 +9,21 @@ from __future__ import annotations
 
 import re
 
-# Ein Namenswort: Großbuchstabe + Kleinbuchstaben, Binnenbindestrich erlaubt
-# ("Müller-Lüdenscheid"); keine Ziffern — sonst frisst das Muster S-03/KP-06.
-_WORT = r"[A-ZÄÖÜ][a-zäöüß]+(?:-[A-ZÄÖÜ][a-zäöüß]+)*"
-_TITEL = r"(?:(?:Dr|Prof)\.\s+(?:(?:med|jur|phil|ing|rer\.\s?nat|h\.\s?c)\.\s+)?)"
+# Buchstaben lateinischer Namen: ASCII, Latin-1 (é, ñ, ß, Umlaute) und Latin
+# Extended-A (ł, ő, ř; U+0100–U+017F, per chr gebaut). Keine Ziffern — sonst
+# frisst das Muster Kennungen wie S-03/KP-06.
+_GROSS = "[A-ZÀ-ÖØ-Þ" + chr(0x100) + "-" + chr(0x17F) + "]"
+_KLEIN = "[a-zß-öø-ÿ" + chr(0x100) + "-" + chr(0x17F) + "]"
+# Ein Namenswort: Großbuchstabe + Kleinbuchstaben, Binnenbindestrich erlaubt.
+_WORT = _GROSS + _KLEIN + "+(?:-" + _GROSS + _KLEIN + "+)*"
+# Namenspartikel ("van der Muster", "von Muster") — "der" allein ist keiner.
+_PARTIKEL = r"(?:(?:von|van|zu|zur|de|da|di|du|le|la|del|dos)(?:\s+de[rnm])?\s+)"
+_TITEL = (r"(?:(?:Dr|Prof|Dipl)\.(?:-Ing\.)?\s+"
+          r"(?:(?:med|jur|phil|ing|rer\.\s?nat|h\.\s?c)\.\s+)?)")
 _ANREDE = r"(?:Herrn?|Frau|Hr\.|Fr\.|Kolleg(?:e|in)|[Ii]ch heiße|[Mm]ein Name ist)"
+# Titel + optionaler Partikel + ein bis drei Namenswörter (je mit optionalem Partikel).
+_NAME = (_TITEL + "*" + _PARTIKEL + "?" + _WORT
+         + r"(?:\s+" + _PARTIKEL + "?" + _WORT + r"){0,2}")
 _STRASSE = r"[A-ZÄÖÜ][a-zäöüß]*(?:-[A-ZÄÖÜ][a-zäöüß]*)*-?"
 _HAUSNR = r"\d+[a-zA-Z]?(?:\s*[-–/]\s*\d+[a-zA-Z]?)?"
 _ORT = r"[A-ZÄÖÜ][a-zäöüß-]+(?:\s+[A-ZÄÖÜ][a-zäöüß-]+)?"
@@ -55,8 +65,8 @@ _MUSTER: tuple[tuple[str, re.Pattern[str]], ...] = (
                            + _HAUSNR + _PLZ_ORT + r"\b")),
     # Hinweiswort bleibt stehen (Gruppe "hinweis"), Titel + Name werden ersetzt.
     # EIN Muster für Anrede und Titel, damit die Kennungen der Textreihenfolge folgen.
-    ("Person", re.compile(r"(?P<hinweis>\b" + _ANREDE + r"\s+|\b(?=(?:Dr|Prof)\.\s))"
-                          r"(?P<name>" + _TITEL + r"*" + _WORT + r"(?:\s+" + _WORT + r"){0,2})")),
+    ("Person", re.compile(r"(?P<hinweis>\b" + _ANREDE + r"\s+|\b(?=" + _TITEL + r"))"
+                          r"(?P<name>" + _NAME + r")")),
 )
 def _buchstabe(n: int) -> str:
     """0 → A, 25 → Z, 26 → AA (wie Tabellenspalten)."""

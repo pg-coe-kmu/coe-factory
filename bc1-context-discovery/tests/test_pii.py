@@ -141,6 +141,16 @@ def test_telefon_mit_geschuetztem_leerzeichen_und_klammervorwahl_datumsfolgen_bl
                  "Termin 01/02/2026 09:30", "Termin 01-02-2026"):
         assert ersetze_pii(text) == text
 
+
+def test_namen_mit_akzenten_partikeln_und_zusammengesetzten_titeln():
+    # Review 2, Critical 2
+    assert ersetze_pii("Herr René Muster genehmigt.") == "Herr [Person A] genehmigt."
+    assert ersetze_pii("Herr van Muster prüft.") == "Herr [Person A] prüft."
+    assert ersetze_pii("Frau Anna von Muster kommt.") == "Frau [Person A] kommt."
+    assert ersetze_pii("Frau van der Muster kommt.") == "Frau [Person A] kommt."
+    assert ersetze_pii("Dr.-Ing. Mustermann entscheidet.") == "[Person A] entscheidet."
+    assert ersetze_pii("Herr der Lage") == "Herr der Lage"      # "der" allein ist kein Partikel
+
 def test_zwei_ibans_nebeneinander_werden_beide_im_ersten_lauf_ersetzt():
     # Review 2, Critical 1: der Regex lief in die zweite IBAN hinein, die
     # Soll-Laengen-Kuerzung gab den Rest ungeprueft zurueck (nur beim ZWEITEN
