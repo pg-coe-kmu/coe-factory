@@ -31,16 +31,17 @@ Ein Arbeitspaket (Issue unter [#48](https://github.com/pg-coe-kmu/coe-factory/is
 
 Jede Nachricht wird im Kern gefiltert, **bevor** sie gespeichert oder an einen
 LLM-Anbieter gegeben wird (`bc1_core/pii.py`, Einhängung in `process_turn`).
-Ein Original gibt es danach nicht — weder in `bc1.sessions` noch im Profil.
+Ein Original gibt es danach nicht — weder in `bc1.sessions` noch im Profil. Auch die
+Anbieter-Ausgaben (Extraktionswerte, Antworttext) laufen durch den Filter.
 Strategie: **maskieren**, kein Mapping-Tresor (kein Konsument für eine Rückersetzung).
 
 | Klasse | Erkennung | Platzhalter | Quote Testset |
 |---|---|---|---|
-| E-Mail | Muster, auch Unicode-Domains | `[E-Mail A]` | 100 % |
-| Telefon | Muster: `+`/`0`-Präfix, `(0)`, 7–14 Ziffern, Trenner; Datums-, Uhrzeit- und Dezimalformen ausgenommen | `[Telefon A]` | 100 % |
-| IBAN | Muster, Groß-/Kleinschreibung, Soll-Länge je Land | `[IBAN A]` | 100 % |
-| Adresse | Straße/Allee/Gasse mit Hausnummer, optional PLZ + Ort; Weg/Platz nur mit PLZ + Ort | `[Adresse A]` | 100 % |
-| Name mit Hinweiswort | Anrede (Herr/Herrn/Frau/Hr./Fr.), Titel (Dr./Prof., auch „Dr. med."), Kollege/Kollegin, „ich heiße", „mein Name ist"; Hinweiswort bleibt stehen | `[Person A]` | 100 % |
+| E-Mail | Muster, auch Unicode-Domains und -Endungen (Punycode) | `[E-Mail A]` | 100 % |
+| Telefon | Muster: `+`/`0`-Präfix, `(0)`, geklammerte Vorwahl, 7–14 Ziffern, Trenner inkl. geschützter Leerzeichen; Datums-, Uhrzeit- und Dezimalformen ausgenommen | `[Telefon A]` | 100 % |
+| IBAN | Muster für bekannte Ländercodes, Groß-/Kleinschreibung, geschützte Leerzeichen, Soll-Länge je Land (Folgewort bleibt) | `[IBAN A]` | 100 % |
+| Adresse | Straße/Allee/Gasse mit Hausnummer, optional PLZ + Ort; Weg/Platz nur mit PLZ + Ort; Prozessbegriffe („Fertigungsstraße 3") ausgenommen | `[Adresse A]` | 100 % |
+| Name mit Hinweiswort | Anrede (Herr/Herrn/Frau/Hr./Fr.), Titel (Dr./Prof./Dipl., „Dr.-Ing.", Zusätze wie „med."), Partikel („von", „van der"), Kollege/Kollegin, „ich heiße", „mein Name ist"; Hinweiswort bleibt stehen | `[Person A]` | 100 % |
 | Name ohne Hinweiswort | **nicht erkannt** (dokumentierte Lücke, braucht NER) | — | 0 % |
 
 Quote = erkannte PII-Stellen / vorhandene Stellen im Testset (`tests/pii_testset.py`,

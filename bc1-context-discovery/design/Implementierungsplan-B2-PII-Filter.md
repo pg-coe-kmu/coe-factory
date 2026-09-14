@@ -59,7 +59,7 @@ Task 0 → Task 1 (Muster-Klassen + Vergabe) → Task 2 (Namen, Reihenfolge, Ide
 ## Task 0: Plan-Commit und Basis
 
 - [x] **Step 1:** Branch `bc1-b2-pii-konzept`, Arbeitsbaum sauber. Container `bc1-test-pg` läuft. Suite-Basis **502 passed / 4 skipped** (14.09.).
-- [ ] **Step 2:** Commit `docs(bc1): Implementierungsplan B2 Fassung 2 + Konzept-Nachträge nach Codex-Review`.
+- [x] **Step 2:** Commit `docs(bc1): Implementierungsplan B2 Fassung 2 + Konzept-Nachträge nach Codex-Review`.
 
 ---
 
@@ -69,7 +69,7 @@ Task 0 → Task 1 (Muster-Klassen + Vergabe) → Task 2 (Namen, Reihenfolge, Ide
 
 **Interfaces:** Produces `ersetze_pii(text) -> str`; intern `_MUSTER`, `_Vergabe`, `_buchstabe`, `_ersatz`, `_iban_ersatz`, `_DATUM`, `_IBAN_LAENGE`.
 
-- [ ] **Step 1: Test E-Mail** (`tests/test_pii.py` anlegen)
+- [x] **Step 1: Test E-Mail** (`tests/test_pii.py` anlegen)
 
 ```python
 """PII-Filter (B2): personenbezogene Angaben werden VOR dem ersten Speichern
@@ -83,7 +83,7 @@ def test_email_wird_platzhalter():
             == "Rückfragen an [E-Mail A] bitte.")
 ```
 
-- [ ] **Step 2:** Voller Lauf → RED (`ModuleNotFoundError`). Dann `bc1_core/pii.py` minimal:
+- [x] **Step 2:** Voller Lauf → RED (`ModuleNotFoundError`). Dann `bc1_core/pii.py` minimal:
 
 ```python
 """PII-Filter (B2): ersetzt personenbezogene Angaben durch Platzhalter, BEVOR der
@@ -107,7 +107,7 @@ def ersetze_pii(text: str) -> str:
 
 Voller Lauf → GREEN. Commit `feat(bc1): PII-Filter — E-Mail (B2, Task 1)`.
 
-- [ ] **Step 3: Test — zwei Adressen, zwei Kennungen; gleicher Wert gleiche Kennung** (anfügen)
+- [x] **Step 3: Test — zwei Adressen, zwei Kennungen; gleicher Wert gleiche Kennung** (anfügen)
 
 ```python
 def test_kennungen_je_wert_gleicher_wert_gleiche_kennung():
@@ -115,7 +115,7 @@ def test_kennungen_je_wert_gleicher_wert_gleiche_kennung():
             == "Kontakt [E-Mail A], [E-Mail B], [E-Mail A]")
 ```
 
-- [ ] **Step 4:** Voller Lauf → RED. Vergabe einführen:
+- [x] **Step 4:** Voller Lauf → RED. Vergabe einführen:
 
 ```python
 _MUSTER: tuple[tuple[str, re.Pattern[str]], ...] = (
@@ -150,7 +150,7 @@ def ersetze_pii(text: str) -> str:
 
 Voller Lauf → GREEN. Commit `feat(bc1): PII-Filter — Platzhaltervergabe je Wert (B2, Task 1)`.
 
-- [ ] **Step 5: Test — Kennungen über Z hinaus** (anfügen)
+- [x] **Step 5: Test — Kennungen über Z hinaus** (anfügen)
 
 ```python
 def test_kennungen_laufen_ueber_z_hinaus():
@@ -159,7 +159,7 @@ def test_kennungen_laufen_ueber_z_hinaus():
     assert ergebnis.endswith("[E-Mail AA]")
 ```
 
-- [ ] **Step 6:** Voller Lauf → RED (`chr(91)` = `[`). `_buchstabe` einführen, in `platzhalter` `kennung = _buchstabe(len(belegt))`:
+- [x] **Step 6:** Voller Lauf → RED (`chr(91)` = `[`). `_buchstabe` einführen, in `platzhalter` `kennung = _buchstabe(len(belegt))`:
 
 ```python
 def _buchstabe(n: int) -> str:
@@ -174,7 +174,7 @@ def _buchstabe(n: int) -> str:
 
 Voller Lauf → GREEN. Commit `feat(bc1): PII-Filter — Kennungen A..Z, AA.. (B2, Task 1)`.
 
-- [ ] **Step 7: Test — IBAN in drei Schreibweisen, Folgewort bleibt** (anfügen)
+- [x] **Step 7: Test — IBAN in drei Schreibweisen, Folgewort bleibt** (anfügen)
 
 ```python
 def test_iban_wird_platzhalter_folgewort_bleibt():
@@ -185,7 +185,7 @@ def test_iban_wird_platzhalter_folgewort_bleibt():
     assert ersetze_pii("AT61 1904 3002 3457 3201 SAP") == "[IBAN A] SAP"
 ```
 
-- [ ] **Step 8:** Voller Lauf → RED. IBAN-Muster (nach E-Mail) + Längentabelle + `_ersatz`:
+- [x] **Step 8:** Voller Lauf → RED. IBAN-Muster (nach E-Mail) + Längentabelle + `_ersatz`:
 
 ```python
 # Soll-Länge je Land (Zeichen ohne Leerzeichen): Folgetext wird nicht verschluckt.
@@ -226,7 +226,7 @@ def ersetze_pii(text: str) -> str:
 
 Voller Lauf → GREEN. Commit `feat(bc1): PII-Filter — IBAN mit Soll-Länge je Land (B2, Task 1)`.
 
-- [ ] **Step 9: Test — Telefon in üblichen Schreibweisen** (anfügen)
+- [x] **Step 9: Test — Telefon in üblichen Schreibweisen** (anfügen)
 
 ```python
 def test_telefon_wird_platzhalter():
@@ -236,7 +236,7 @@ def test_telefon_wird_platzhalter():
     assert ersetze_pii("+49 (0)30 1234567") == "[Telefon A]"
 ```
 
-- [ ] **Step 10:** Voller Lauf → RED. Telefon-Muster (nach IBAN):
+- [x] **Step 10:** Voller Lauf → RED. Telefon-Muster (nach IBAN):
 
 ```python
     ("Telefon", re.compile(r"(?<![\d,.])(?:\+\d{1,3}(?:[ /-]*\(0\))?|\b0)[ /-]*\d"
@@ -245,7 +245,7 @@ def test_telefon_wird_platzhalter():
 
 Voller Lauf → GREEN. Commit `feat(bc1): PII-Filter — Telefon (B2, Task 1)`.
 
-- [ ] **Step 11: Test — Mengen, Daten, Dezimalzahlen, Uhrzeiten bleiben** (anfügen)
+- [x] **Step 11: Test — Mengen, Daten, Dezimalzahlen, Uhrzeiten bleiben** (anfügen)
 
 ```python
 def test_mengen_daten_dezimalzahlen_bleiben_stehen():
@@ -256,7 +256,7 @@ def test_mengen_daten_dezimalzahlen_bleiben_stehen():
         assert ersetze_pii(text) == text
 ```
 
-- [ ] **Step 12:** Voller Lauf → RED (`01-02-2026`, `01/02/2026` treffen als Telefon). Datums-Ausnahme:
+- [x] **Step 12:** Voller Lauf → RED (`01-02-2026`, `01/02/2026` treffen als Telefon). Datums-Ausnahme:
 
 ```python
 _DATUM = re.compile(r"\d{1,2}[./-]\d{1,2}[./-]\d{2,4}|\d{4}-\d{2}-\d{2}")
@@ -272,7 +272,7 @@ def _ersatz(klasse, m, vergabe):
 
 Voller Lauf → GREEN. Commit `feat(bc1): PII-Filter — Datumsformen sind keine Telefonnummern (B2, Task 1)`.
 
-- [ ] **Step 13: Test — Adresse mit Straße** (anfügen)
+- [x] **Step 13: Test — Adresse mit Straße** (anfügen)
 
 ```python
 def test_adresse_mit_strasse_wird_platzhalter():
@@ -283,7 +283,7 @@ def test_adresse_mit_strasse_wird_platzhalter():
     assert ersetze_pii("Karl-Marx-Straße 1") == "[Adresse A]"
 ```
 
-- [ ] **Step 14:** Voller Lauf → RED. Adresse-Muster (nach Telefon):
+- [x] **Step 14:** Voller Lauf → RED. Adresse-Muster (nach Telefon):
 
 ```python
 _STRASSE = r"[A-ZÄÖÜ][a-zäöüß]*(?:-[A-ZÄÖÜ][a-zäöüß]*)*-?"
@@ -297,7 +297,7 @@ _PLZ_ORT = r"(?:(?:,|\s+in)?\s+\d{5}\s+" + _ORT + r")"
 
 Voller Lauf → GREEN. Commit `feat(bc1): PII-Filter — Adresse mit Straße, Bereich, PLZ + Ort (B2, Task 1)`.
 
-- [ ] **Step 15: Test — Weg/Platz nur mit PLZ + Ort** (anfügen)
+- [x] **Step 15: Test — Weg/Platz nur mit PLZ + Ort** (anfügen)
 
 ```python
 def test_weg_und_platz_nur_als_volle_adresse():
@@ -307,7 +307,7 @@ def test_weg_und_platz_nur_als_volle_adresse():
         assert ersetze_pii(text) == text
 ```
 
-- [ ] **Step 16:** Voller Lauf → RED. Zweites Adresse-Muster (nach dem ersten):
+- [x] **Step 16:** Voller Lauf → RED. Zweites Adresse-Muster (nach dem ersten):
 
 ```python
     ("Adresse", re.compile(r"\b" + _STRASSE + r"(?:[Ww]eg|[Pp]latz|[Rr]ing|[Dd]amm|[Uu]fer)\s+"
@@ -322,7 +322,7 @@ Voller Lauf → GREEN. Commit `feat(bc1): PII-Filter — Weg/Platz nur mit PLZ +
 
 **Files:** Modify `tests/test_pii.py`, `bc1_core/pii.py`.
 
-- [ ] **Step 1: Test — Anrede, ein Namenswort** (anfügen)
+- [x] **Step 1: Test — Anrede, ein Namenswort** (anfügen)
 
 ```python
 def test_anrede_verraet_den_namen_hinweiswort_bleibt():
@@ -334,7 +334,7 @@ def test_anrede_verraet_den_namen_hinweiswort_bleibt():
             == "Bitte an Hr. [Person A] und Fr. [Person B].")
 ```
 
-- [ ] **Step 2:** Voller Lauf → RED. Person-Muster (ans Ende von `_MUSTER`) und `_ersatz`-Zweig:
+- [x] **Step 2:** Voller Lauf → RED. Person-Muster (ans Ende von `_MUSTER`) und `_ersatz`-Zweig:
 
 ```python
 # Ein Namenswort: Großbuchstabe + Kleinbuchstaben, Binnenbindestrich erlaubt
@@ -355,7 +355,7 @@ def _ersatz(klasse, m, vergabe):
 
 Voller Lauf → GREEN. Commit `feat(bc1): PII-Filter — Namen hinter Anrede (B2, Task 2)`.
 
-- [ ] **Step 3: Test — Titel und bis zu drei Namensteile, ein Platzhalter** (anfügen)
+- [x] **Step 3: Test — Titel und bis zu drei Namensteile, ein Platzhalter** (anfügen)
 
 ```python
 def test_titel_und_mehrteilige_namen_werden_ein_platzhalter():
@@ -365,7 +365,7 @@ def test_titel_und_mehrteilige_namen_werden_ein_platzhalter():
     assert ersetze_pii("Herr Müller-Lüdenscheid kommt.") == "Herr [Person A] kommt."
 ```
 
-- [ ] **Step 4:** Voller Lauf → RED. Titel und Mehrwortnamen in die Namensgruppe:
+- [x] **Step 4:** Voller Lauf → RED. Titel und Mehrwortnamen in die Namensgruppe:
 
 ```python
 _TITEL = r"(?:(?:Dr|Prof)\.\s+(?:(?:med|jur|phil|ing|rer\.\s?nat|h\.\s?c)\.\s+)?)"
@@ -376,7 +376,7 @@ _TITEL = r"(?:(?:Dr|Prof)\.\s+(?:(?:med|jur|phil|ing|rer\.\s?nat|h\.\s?c)\.\s+)?
 
 Voller Lauf → GREEN. Commit `feat(bc1): PII-Filter — Titel und mehrteilige Namen (B2, Task 2)`.
 
-- [ ] **Step 5: Test — Titel ohne Anrede, Kennungen in Textreihenfolge** (anfügen)
+- [x] **Step 5: Test — Titel ohne Anrede, Kennungen in Textreihenfolge** (anfügen)
 
 ```python
 def test_titel_ohne_anrede_und_kennungen_in_textreihenfolge():
@@ -385,7 +385,7 @@ def test_titel_ohne_anrede_und_kennungen_in_textreihenfolge():
             == "[Person A] prüft und Frau [Person B] genehmigt.")
 ```
 
-- [ ] **Step 6:** Voller Lauf → RED. Hinweis-Gruppe um den Titel-Einstieg erweitern (EIN Muster, links nach rechts):
+- [x] **Step 6:** Voller Lauf → RED. Hinweis-Gruppe um den Titel-Einstieg erweitern (EIN Muster, links nach rechts):
 
 ```python
     ("Person", re.compile(r"(?P<hinweis>\b" + _ANREDE + r"\s+|\b(?=(?:Dr|Prof)\.\s))"
@@ -394,7 +394,7 @@ def test_titel_ohne_anrede_und_kennungen_in_textreihenfolge():
 
 Voller Lauf → GREEN. Commit `feat(bc1): PII-Filter — Titel ohne Anrede, Kennungen in Textreihenfolge (B2, Task 2)`.
 
-- [ ] **Step 7: Test — Selbstvorstellung, Kollege, Kennungen neben Namen** (anfügen)
+- [x] **Step 7: Test — Selbstvorstellung, Kollege, Kennungen neben Namen** (anfügen)
 
 ```python
 def test_selbstvorstellung_kollege_und_kennungen_neben_namen():
@@ -407,7 +407,7 @@ def test_selbstvorstellung_kollege_und_kennungen_neben_namen():
 
 Voller Lauf → GREEN bei Ankunft (Buchstabenwörter). Weiter.
 
-- [ ] **Step 8: Test — kein Treffer ohne Hinweiswort, bei kleingeschriebenem Folgewort, beim Plural** (anfügen)
+- [x] **Step 8: Test — kein Treffer ohne Hinweiswort, bei kleingeschriebenem Folgewort, beim Plural** (anfügen)
 
 ```python
 def test_kein_treffer_ohne_hinweiswort_und_bei_kleingeschriebenem_folgewort():
@@ -420,14 +420,14 @@ def test_kein_treffer_ohne_hinweiswort_und_bei_kleingeschriebenem_folgewort():
 
 Voller Lauf → GREEN bei Ankunft. Commit `test(bc1): PII-Filter — Selbstvorstellung, Kennungen neben Namen, Negativfälle (B2, Task 2)`.
 
-- [ ] **Step 9: Test — vorhandene Platzhalter bleiben, Kennungen kollidieren nicht** (anfügen)
+- [x] **Step 9: Test — vorhandene Platzhalter bleiben, Kennungen kollidieren nicht** (anfügen)
 
 ```python
 def test_vorhandene_platzhalter_bleiben_und_kollidieren_nicht():
     assert ersetze_pii("Frau [Person A] und Herr Muster") == "Frau [Person A] und Herr [Person B]"
 ```
 
-- [ ] **Step 10:** Voller Lauf → RED (`[Person A]` doppelt). Kennungen vorhandener Platzhalter vorab belegen — **keine** Segmentierung (kein Muster trifft den Wortlaut eines Platzhalters; Review-Guard-Hinweis):
+- [x] **Step 10:** Voller Lauf → RED (`[Person A]` doppelt). Kennungen vorhandener Platzhalter vorab belegen — **keine** Segmentierung (kein Muster trifft den Wortlaut eines Platzhalters; Review-Guard-Hinweis):
 
 ```python
 _PLATZHALTER = re.compile(
@@ -459,7 +459,7 @@ class _Vergabe:
 
 und in `ersetze_pii`: `vergabe = _Vergabe(text)`. Voller Lauf → GREEN. Commit `feat(bc1): PII-Filter — Kennungen vorhandener Platzhalter bleiben belegt (B2, Task 2)`.
 
-- [ ] **Step 11: Test — idempotent und deterministisch** (anfügen)
+- [x] **Step 11: Test — idempotent und deterministisch** (anfügen)
 
 ```python
 def test_idempotent_und_deterministisch():
@@ -472,7 +472,7 @@ def test_idempotent_und_deterministisch():
 
 Voller Lauf → GREEN bei Ankunft. Weiter.
 
-- [ ] **Step 12: Test — leer und beliebiger Text ohne Ausnahme** (anfügen)
+- [x] **Step 12: Test — leer und beliebiger Text ohne Ausnahme** (anfügen)
 
 ```python
 def test_leer_und_beliebiger_text_ohne_ausnahme():
@@ -484,7 +484,7 @@ def test_leer_und_beliebiger_text_ohne_ausnahme():
 
 Voller Lauf → GREEN bei Ankunft. Commit `test(bc1): PII-Filter — Idempotenz, Determinismus, Totalität (B2, Task 2)`.
 
-- [ ] **Step 13: Zielform prüfen.** `bc1_core/pii.py` muss jetzt genau dies sein (Reihenfolge `_MUSTER`: E-Mail, IBAN, Telefon, Adresse/Straße, Adresse/Weg, Person) — gegen diese Fassung wurden **alle** Erwartungen aus Task 1–2 und dem Testset am 14.09. als Wegwerf-Skript gemessen (0 Abweichungen):
+- [x] **Step 13: Zielform prüfen.** `bc1_core/pii.py` muss jetzt genau dies sein (Reihenfolge `_MUSTER`: E-Mail, IBAN, Telefon, Adresse/Straße, Adresse/Weg, Person) — gegen diese Fassung wurden **alle** Erwartungen aus Task 1–2 und dem Testset am 14.09. als Wegwerf-Skript gemessen (0 Abweichungen):
 
 ```python
 """PII-Filter (B2): ersetzt personenbezogene Angaben durch Platzhalter, BEVOR der
@@ -607,7 +607,7 @@ def ersetze_pii(text: str) -> str:
 
 **Files:** Modify `bc1_core/core.py`, `tests/test_core.py` (nutzt vorhandene `_turn`, `CrashtBeimZweitenSave`, `InMemoryStateStore`, `FakeLLM`, `ExtractionCandidate`, `TOY_PROZESS`), `tests/test_feldtypen.py`, `tests/test_paket_feldtypen.py`.
 
-- [ ] **Step 1: Spione + Integrationstest** (`tests/test_core.py`, anfügen — Helferklassen sind kein Test, der EINE neue Test ist die Funktion)
+- [x] **Step 1: Spione + Integrationstest** (`tests/test_core.py`, anfügen — Helferklassen sind kein Test, der EINE neue Test ist die Funktion)
 
 ```python
 class _ProtokollStore(InMemoryStateStore):
@@ -650,7 +650,7 @@ def test_pii_wird_vor_dem_ersten_save_ersetzt_und_beide_llm_eingaenge_sehen_nur_
     assert store.load("s1").values["prozess_name"].value == "Freigabe"
 ```
 
-- [ ] **Step 2:** Voller Lauf → RED. `bc1_core/core.py`: Import `from bc1_core.pii import ersetze_pii` (nach `from bc1_core.llm import LLMClient`), und im `else`-Zweig:
+- [x] **Step 2:** Voller Lauf → RED. `bc1_core/core.py`: Import `from bc1_core.pii import ersetze_pii` (nach `from bc1_core.llm import LLMClient`), und im `else`-Zweig:
 
 ```python
     else:
@@ -667,7 +667,7 @@ def test_pii_wird_vor_dem_ersten_save_ersetzt_und_beide_llm_eingaenge_sehen_nur_
 
 Voller Lauf → GREEN. Commit `feat(bc1): PII-Filter im Kern vor dem ersten Speichern (B2, Task 3)`.
 
-- [ ] **Step 3: Crash-Resume mit PII und abweichendem Retry-Body** (anfügen)
+- [x] **Step 3: Crash-Resume mit PII und abweichendem Retry-Body** (anfügen)
 
 ```python
 def test_crash_resume_spielt_den_gefilterten_logtext_ab_nicht_den_retry_body():
@@ -690,7 +690,7 @@ def test_crash_resume_spielt_den_gefilterten_logtext_ab_nicht_den_retry_body():
 
 Voller Lauf → GREEN bei Ankunft (Replay-Pfad liest `raw_log`). Commit `test(bc1): Crash-Resume spielt gefilterten Logtext ab (B2, Task 3)`.
 
-- [ ] **Step 4: Round-Trip Feldtypen** (`tests/test_feldtypen.py`, anfügen)
+- [x] **Step 4: Round-Trip Feldtypen** (`tests/test_feldtypen.py`, anfügen)
 
 ```python
 def test_pii_platzhalter_passieren_text_und_listenfelder_unveraendert():
@@ -704,7 +704,7 @@ def test_pii_platzhalter_passieren_text_und_listenfelder_unveraendert():
 
 Voller Lauf → GREEN bei Ankunft. Weiter.
 
-- [ ] **Step 5: Round-Trip Systemfeld** (`tests/test_paket_feldtypen.py`, anfügen)
+- [x] **Step 5: Round-Trip Systemfeld** (`tests/test_paket_feldtypen.py`, anfügen)
 
 ```python
 def test_pii_platzhalter_bleibt_im_systemfeld_stehen():
@@ -723,7 +723,7 @@ Voller Lauf → GREEN bei Ankunft. Commit `test(bc1): PII-Platzhalter passieren 
 
 **Files:** Modify `bc1_service/prompts.py:31-49`, `tests/test_prompts.py`.
 
-- [ ] **Step 1: Test** (anfügen)
+- [x] **Step 1: Test** (anfügen)
 
 ```python
 def test_system_prompts_erklaeren_die_pii_platzhalter():
@@ -734,7 +734,7 @@ def test_system_prompts_erklaeren_die_pii_platzhalter():
         assert "nie auf" in prompt
 ```
 
-- [ ] **Step 2:** Voller Lauf → RED. `bc1_service/prompts.py`:
+- [x] **Step 2:** Voller Lauf → RED. `bc1_service/prompts.py`:
 
 ```python
 PII_HINWEIS = (
@@ -762,7 +762,7 @@ Voller Lauf → GREEN (Adapter-Tests vergleichen gegen die Konstanten — Review
 
 **Files:** Create `tests/pii_testset.py`, `tests/test_pii_kpi.py`; Modify `README.md`, `design/Abschlussplan-BC1.md`.
 
-- [ ] **Step 1: Testset** (`tests/pii_testset.py` — Daten, kein Test; **genau eine PII-Stelle je POSITIV-Fall**, damit die Quote PII-Stellen zählt, Review I6)
+- [x] **Step 1: Testset** (`tests/pii_testset.py` — Daten, kein Test; **genau eine PII-Stelle je POSITIV-Fall**, damit die Quote PII-Stellen zählt, Review I6)
 
 ```python
 """Testset für die Kennzahl pii_erkennung (Issue #50).
@@ -833,7 +833,7 @@ NEGATIV = [
 ]
 ```
 
-- [ ] **Step 2: KPI-Test — Quote je Klasse gegen die README-Tabelle** (`tests/test_pii_kpi.py`, EIN Test)
+- [x] **Step 2: KPI-Test — Quote je Klasse gegen die README-Tabelle** (`tests/test_pii_kpi.py`, EIN Test)
 
 ```python
 """Kennzahl pii_erkennung (Issue #50): Quote je Klasse auf dem Testset — gemessen,
@@ -868,7 +868,7 @@ def test_quote_je_klasse_entspricht_der_readme_tabelle():
     assert _quoten_gemessen() == _quoten_readme()
 ```
 
-- [ ] **Step 3:** Voller Lauf → RED (README-Abschnitt fehlt). README-Abschnitt vor `## Setup und Start` einfügen (Prozentwerte = Messung; erwartet 100/100/100/100/100/0):
+- [x] **Step 3:** Voller Lauf → RED (README-Abschnitt fehlt). README-Abschnitt vor `## Setup und Start` einfügen (Prozentwerte = Messung; erwartet 100/100/100/100/100/0):
 
 ```markdown
 ## PII-Filter
@@ -910,7 +910,7 @@ def test_keine_fehltreffer_auf_pii_freien_interviewsaetzen():
 
 Voller Lauf → GREEN. Commit `test(bc1): Kennzahl pii_erkennung gegen README-Tabelle, null Fehltreffer (B2, Task 5)` (README im selben Commit).
 
-- [ ] **Step 4: Abschlussplan** — B2-Zeile: Stand „GEBAUT (Konzept + Plan Fassung 2): Filter im Kern vor dem ersten Speichern, Muster + Hinweiswörter, Kennzahl gegen README-Tabelle; keine Namensliste aus BC0 (ADR-004 R5); Zweitmeinung Codex vor dem Bau (Plan) und nach dem Bau (Code)"; nächster Schritt „PR; BC0 informieren; dann B7-Logging". Kleinpunkte: NER-Auslöser; „Platzhalter als Wert = ungültig" (C2-Nähe); n8n-Ausführungsdaten (B3); Straßen ohne Straßenwort. Commit `docs(bc1): Abschlussplan — B2 gebaut (B2, Task 5)`.
+- [x] **Step 4: Abschlussplan** — B2-Zeile: Stand „GEBAUT (Konzept + Plan Fassung 2): Filter im Kern vor dem ersten Speichern, Muster + Hinweiswörter, Kennzahl gegen README-Tabelle; keine Namensliste aus BC0 (ADR-004 R5); Zweitmeinung Codex vor dem Bau (Plan) und nach dem Bau (Code)"; nächster Schritt „PR; BC0 informieren; dann B7-Logging". Kleinpunkte: NER-Auslöser; „Platzhalter als Wert = ungültig" (C2-Nähe); n8n-Ausführungsdaten (B3); Straßen ohne Straßenwort. Commit `docs(bc1): Abschlussplan — B2 gebaut (B2, Task 5)`.
 
 ---
 
@@ -918,16 +918,16 @@ Voller Lauf → GREEN. Commit `test(bc1): Kennzahl pii_erkennung gegen README-Ta
 
 Zweitmeinung 1 (Plan, Codex, 14.09.) ist erledigt — Adjudikation unten. Zweitmeinung 2 nach dem Bau: `codex:codex-rescue` über `git diff origin/bc1-db-profil-fundament...HEAD` mit Auftrag „Abweichungen Bau vs. Plan Fassung 2, Restlücken der Muster, Testabdeckung, Guard-Spuren (Code ohne Test)". Codex hat keinen Container — Befunde per rotem Test nachmessen.
 
-- [ ] **Step 1:** Review anstoßen; Befunde unter „Adjudikation Zweitmeinung 2" eintragen.
-- [ ] **Step 2:** Critical/Important fixen (Test zuerst); Minor begründet fixen oder mit Ziel in den Abschlussplan.
-- [ ] **Step 3:** Voller Lauf, Zahl notieren.
+- [x] **Step 1:** Review anstoßen; Befunde unter „Adjudikation Zweitmeinung 2" eintragen.
+- [x] **Step 2:** Critical/Important fixen (Test zuerst); Minor begründet fixen oder mit Ziel in den Abschlussplan.
+- [x] **Step 3:** Voller Lauf, Zahl notieren.
 
 ---
 
 ## Task 7: Abschluss
 
 - [ ] **Step 1:** Volle Suite final messen, Zahl im Abschlussplan eintragen.
-- [ ] **Step 2:** Vertraulichkeits-Check: `git diff --name-only origin/bc1-db-profil-fundament...HEAD` → `git grep -n -i -E "passw|secret|supabase\.co|@gmail|sk-ant|AIza" -- <Dateien>` → nur Beispiel-Domains/Testwerte. Befund Richard vorlegen; **Push nur nach OK**.
+- [x] **Step 2:** Vertraulichkeits-Check: `git diff --name-only origin/bc1-db-profil-fundament...HEAD` → `git grep -n -i -E "passw|secret|supabase\.co|@gmail|sk-ant|AIza" -- <Dateien>` → nur Beispiel-Domains/Testwerte. Befund Richard vorlegen; **Push nur nach OK**.
 - [ ] **Step 3:** PR: Ziel `main`, falls PR #201 gemergt ist, sonst `bc1-db-profil-fundament`. PR-Text: Big Picture, Prüfung (Suite, Kennzahl), Abweichung von #50 (kein Mapping-Tresor), Zweitmeinungen.
 - [ ] **Step 4:** Kommentar in Issue #50 (öffentlich, nach OK): Stand, Kennzahl, Abweichung, Lücken mit Auslöser.
 - [ ] **Step 5 (Richard):** BC0 informieren über den bestehenden Kanal zu BC0: BC1 liest keine Personennamen; das direkte SELECT-Recht von `bc1_role` auf `prozess_personen` ist für BC1 unnötig.
@@ -958,6 +958,28 @@ Codex hat die Zielform aus Fassung 1 im Arbeitsspeicher ausgeführt (kein Contai
 | — | Minor | BC0 informieren nur als Handoff-Punkt | **Gefixt:** Task 7 Step 5 mit Verantwortlichem | Task 7 |
 | — | Minor | Lückenquote „MUSS 0 %" verbietet Verbesserung | **Gefixt:** README-Tabelle ist die Wahrheit, Abweichung in beide Richtungen → README nachziehen | Task 5 |
 | — | Important | Guard: Steps zu groß (Task 1 Step 2, Task 2 Step 2, Task 2 Step 8) | **Gefixt:** Literal → Vergabe → Buchstaben; Anrede → Titel → Mehrwort → Textreihenfolge; keine Segmentierung (unnötig) | Task 1/2 |
+
+## Adjudikation Zweitmeinung 2 (Codex, Code-Review 14.09.2026)
+
+Codex hat das gebaute Modul im Arbeitsspeicher gegen eigene Sätze ausgeführt (kein Container, kein Guard). Jeder Befund wurde hier per rotem Test nachgestellt und gefixt; Bau ≙ Zielform war laut Codex verhaltensgleich.
+
+| Nr. | Schwere | Befund | Entscheidung | Nachweis |
+|---|---|---|---|---|
+| 1 | Critical | Zwei IBANs nebeneinander: die zweite bleibt im ersten Lauf offen (Idempotenz verletzt) | **Gefixt:** Gruppe, die wie ein IBAN-Anfang aussieht, beendet die IBAN; nur bekannte Ländercodes | `test_zwei_ibans_nebeneinander…` |
+| 2 | Critical | „René", „van Muster", „von Muster", „Dr.-Ing." bleiben ganz/teilweise offen | **Gefixt:** Buchstabenklassen Latin-1 + Latin Extended-A (per `chr`), Partikel, zusammengesetzte Titel; „der" allein kein Partikel | `test_namen_mit_akzenten…` |
+| 3 | Important | Telefon mit geschütztem Leerzeichen / „(030)" bleibt offen | **Gefixt:** Trennerklasse U+00A0/U+202F, geklammerte Vorwahl | `test_telefon_mit_geschuetztem…` |
+| 4 | Important | IBAN mit Doppel-Leerzeichen leckt; „Ticket AB12 3456 7890" wird IBAN | **Gefixt:** beliebige Leerzeichen, nur Länder aus der Tabelle | `test_iban_nur_bekannte_laender…` |
+| 5 | Important | Unicode-/Punycode-Endungen bei E-Mail | **Gefixt** | `test_email_mit_unicode…` |
+| 6 | Important | Datumsfolgen mit weiteren Zahlen werden Telefon | **Gefixt:** Lookahead/Lookbehind statt `fullmatch`; `_DATUM` entfällt | `test_telefon_mit_geschuetztem…` |
+| 7 | Important | „Musterweg 3,12345" leckt; „Fertigungsstraße 3" wird Adresse; Ort über Zeilenumbruch | **Gefixt:** Komma ohne Abstand, Ort nur in derselben Zeile, Prozessbegriffe ausgenommen | `test_adresse_komma_ohne_abstand…` |
+| 8 | Important | Literal U+00A0 in Modul und Test kann gemeinsam still normalisiert werden | **Gefixt:** `chr(160)` in Modul und Test, kein Zeichen im Quelltext | `test_geschuetztes_leerzeichen_in_iban_per_chr160` |
+| 9 | Important | Anbieter-Ausgaben (Extraktionswerte, Antworttext) laufen am Filter vorbei | **Gefixt:** `ersetze_pii` auf `cand.value` (Extraktor) und auf `llm.antworte(...)` (Kern). Hinweis: je String eigene Kennungen — ein halluzinierter Name im Antworttext bekommt nicht zwingend dieselbe Kennung wie in der Eingabe | `test_anbieter_ausgaben_werden_ebenfalls_gefiltert` |
+| 10 | Important | Crash-Resume-Test beweist keinen Resume | **Gefixt:** `pytest.raises`, Zwischenzustand geprüft, Aufrufzähler | `test_crash_resume_spielt…` |
+| 11 | Minor | Adresskennungen folgen der Musterreihenfolge | **Gefixt:** ein Adresse-Muster | `test_adresskennungen_folgen…` |
+| 12 | Minor | README-Parsing hängt an exakten Leerzeichen | **Gefixt:** Zellen zerlegen, `(\d+)\s*%`, Dopplung abgewiesen | `test_pii_kpi.py` |
+| 13 | Minor | Erweiterungen ohne erzwingenden Test; unerreichbarer Datumszweig | **Gefixt:** `test_zugesagte_erweiterungen…`; `_DATUM` entfernt | `test_pii.py` |
+| — | Hinweis | Alt-Logs würden ungefiltert abgespielt | Akzeptiert: live nur Testprofile, Migration bewusst vertagt (Konzept) | — |
+| — | Hinweis | BC0-Benachrichtigung offen | Task 7 Step 5 (Richard) | — |
 
 ## Selbstprüfung des Plans (Fassung 2)
 
