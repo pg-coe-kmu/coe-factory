@@ -647,3 +647,21 @@ def test_pii_wird_vor_dem_ersten_save_ersetzt_und_beide_llm_eingaenge_sehen_nur_
     assert llm.extract_texte == [gefiltert]
     assert llm.antwort_texte == [gefiltert]
     assert store.load("s1").values["prozess_name"].value == "Freigabe"
+
+
+def test_crash_resume_spielt_den_gefilterten_logtext_ab_nicht_den_retry_body():
+    store = CrashtBeimZweitenSave()
+    gefiltert = "Herr [Person A] startet."
+    llm = _ProtokollLLM({gefiltert: [ExtractionCandidate("prozess_name", "Freigabe")]})
+    _turn(store, llm, TOY_PROZESS, "s1", "m1", "eins")
+    store.scharf = True
+    try:
+        _turn(store, llm, TOY_PROZESS, "s1", "m2", "Herr Muster startet.")
+    except RuntimeError:
+        pass                                    # m2 geloggt, unbeantwortet
+    store.scharf = False
+    _turn(store, llm, TOY_PROZESS, "s1", "m2", "Herr Beispiel startet.")   # anderer Body
+    assert store.load("s1").raw_log == [("m1", "eins"), ("m2", gefiltert)]
+    assert llm.extract_texte[-1] == gefiltert
+    assert "Muster" not in "".join(llm.extract_texte + llm.antwort_texte)
+    assert "Beispiel" not in "".join(llm.extract_texte + llm.antwort_texte)
