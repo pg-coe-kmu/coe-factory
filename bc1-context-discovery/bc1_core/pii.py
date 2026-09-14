@@ -9,6 +9,11 @@ from __future__ import annotations
 
 import re
 
+_STRASSE = r"[A-ZÄÖÜ][a-zäöüß]*(?:-[A-ZÄÖÜ][a-zäöüß]*)*-?"
+_HAUSNR = r"\d+[a-zA-Z]?(?:\s*[-–/]\s*\d+[a-zA-Z]?)?"
+_ORT = r"[A-ZÄÖÜ][a-zäöüß-]+(?:\s+[A-ZÄÖÜ][a-zäöüß-]+)?"
+_PLZ_ORT = r"(?:(?:,|\s+in)?\s+\d{5}\s+" + _ORT + r")"
+
 # Reihenfolge = Anwendungsreihenfolge: spezifisch vor allgemein.
 _MUSTER: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("E-Mail", re.compile(r"\b[\w.%+-]+@[\w.-]+\.[A-Za-z]{2,}\b")),
@@ -17,6 +22,9 @@ _MUSTER: tuple[tuple[str, re.Pattern[str]], ...] = (
                         r"(?:[  ]?[a-z0-9]{1,4})?\b", re.IGNORECASE)),
     ("Telefon", re.compile(r"(?<![\d,.])(?:\+\d{1,3}(?:[ /-]*\(0\))?|\b0)[ /-]*\d"
                            r"(?:[ /-]{0,3}\d){6,13}\b(?![:.]\d)")),
+    # Straße/Allee/Gasse mit Hausnummer, optional PLZ + Ort.
+    ("Adresse", re.compile(r"\b" + _STRASSE + r"(?:[Ss]traße|[Ss]trasse|[Ss]tr\.|[Aa]llee|[Gg]asse)\s+"
+                           + _HAUSNR + _PLZ_ORT + r"?\b")),
 )
 # Soll-Länge je Land (Zeichen ohne Leerzeichen): Folgetext wird nicht verschluckt.
 _IBAN_LAENGE = {"AT": 20, "BE": 16, "CH": 21, "CZ": 24, "DE": 22, "DK": 18, "ES": 24,

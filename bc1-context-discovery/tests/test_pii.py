@@ -41,3 +41,11 @@ def test_mengen_daten_dezimalzahlen_bleiben_stehen():
                  "Termin 01/02/2026 09:30", "Termin am Freitag um 09:30",
                  "0,01234567 %", "12000 Rechnungen im Jahr", "Rechnung Nr. 4711"):
         assert ersetze_pii(text) == text
+
+
+def test_adresse_mit_strasse_wird_platzhalter():
+    assert ersetze_pii("Sitz: Musterstraße 12, 10115 Berlin.") == "Sitz: [Adresse A]."
+    assert ersetze_pii("Musterstraße 12-14, 10115 Berlin") == "[Adresse A]"
+    assert ersetze_pii("Musterstraße 12, 01234 Bad Beispielstadt") == "[Adresse A]"
+    assert ersetze_pii("Hauptstr. 5 in 10115 Berlin") == "[Adresse A]"
+    assert ersetze_pii("Karl-Marx-Straße 1") == "[Adresse A]"
