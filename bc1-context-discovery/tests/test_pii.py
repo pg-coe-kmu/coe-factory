@@ -167,6 +167,21 @@ def test_adresskennungen_folgen_der_textreihenfolge():
     assert (ersetze_pii("Musterweg 3, 10115 Berlin und Musterstraße 4, 10115 Berlin")
             == "[Adresse A] und [Adresse B]")
 
+
+def test_zugesagte_erweiterungen_sind_erzwungen():
+    # Review 2, Minor 13: was das README verspricht, haelt ein Test.
+    assert ersetze_pii("Prof. Dr. jur. Muster prüft.") == "[Person A] prüft."
+    assert ersetze_pii("Frau Dr. phil. Beispiel kommt.") == "Frau [Person A] kommt."
+    assert ersetze_pii("Musterdamm 3, 10115 Berlin") == "[Adresse A]"
+    assert ersetze_pii("Musterufer 3, 10115 Berlin") == "[Adresse A]"
+    assert ersetze_pii("Musterring 3, 10115 Berlin") == "[Adresse A]"
+    assert ersetze_pii("Hauptstraße 5/7") == "[Adresse A]"
+    assert ersetze_pii("Hauptstraße 5–7") == "[Adresse A]"
+    assert ersetze_pii("CH93 0076 2011 6238 5295 7 SAP") == "[IBAN A] SAP"
+    assert ersetze_pii("NL91 ABNA 0417 1643 00 Excel") == "[IBAN A] Excel"
+    # Leerraum-Normalisierung bei der Vergabe: derselbe Name, andere Abstaende.
+    assert ersetze_pii("Herr Max  Muster und Herr Max Muster") == "Herr [Person A] und Herr [Person A]"
+
 def test_zwei_ibans_nebeneinander_werden_beide_im_ersten_lauf_ersetzt():
     # Review 2, Critical 1: der Regex lief in die zweite IBAN hinein, die
     # Soll-Laengen-Kuerzung gab den Rest ungeprueft zurueck (nur beim ZWEITEN
