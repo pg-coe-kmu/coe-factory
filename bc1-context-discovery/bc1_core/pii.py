@@ -9,7 +9,11 @@ from __future__ import annotations
 
 import re
 
-_STRASSE = r"[A-ZÄÖÜ][a-zäöüß]*(?:-[A-ZÄÖÜ][a-zäöüß]*)*-?"
+# Ein Namenswort: Großbuchstabe + Kleinbuchstaben, Binnenbindestrich erlaubt
+# ("Müller-Lüdenscheid"); keine Ziffern — sonst frisst das Muster S-03/KP-06.
+_WORT = r"[A-ZÄÖÜ][a-zäöüß]+(?:-[A-ZÄÖÜ][a-zäöüß]+)*"
+_ANREDE = r"(?:Herrn?|Frau|Hr\.|Fr\.|Kolleg(?:e|in)|[Ii]ch heiße|[Mm]ein Name ist)"
+_STRASSE =r"[A-ZÄÖÜ][a-zäöüß]*(?:-[A-ZÄÖÜ][a-zäöüß]*)*-?"
 _HAUSNR = r"\d+[a-zA-Z]?(?:\s*[-–/]\s*\d+[a-zA-Z]?)?"
 _ORT = r"[A-ZÄÖÜ][a-zäöüß-]+(?:\s+[A-ZÄÖÜ][a-zäöüß-]+)?"
 _PLZ_ORT = r"(?:(?:,|\s+in)?\s+\d{5}\s+" + _ORT + r")"
@@ -28,6 +32,8 @@ _MUSTER: tuple[tuple[str, re.Pattern[str]], ...] = (
                            + _HAUSNR + _PLZ_ORT + r"?\b")),
     ("Adresse", re.compile(r"\b" + _STRASSE + r"(?:[Ww]eg|[Pp]latz|[Rr]ing|[Dd]amm|[Uu]fer)\s+"
                            + _HAUSNR + _PLZ_ORT + r"\b")),
+    # Hinweiswort bleibt stehen (Gruppe "hinweis"), der Name wird ersetzt.
+    ("Person", re.compile(r"(?P<hinweis>\b" + _ANREDE + r"\s+)(?P<name>" + _WORT + r")")),
 )
 # Soll-Länge je Land (Zeichen ohne Leerzeichen): Folgetext wird nicht verschluckt.
 _IBAN_LAENGE = {"AT": 20, "BE": 16, "CH": 21, "CZ": 24, "DE": 22, "DK": 18, "ES": 24,
@@ -76,6 +82,8 @@ def _iban_ersatz(treffer: str, vergabe: _Vergabe) -> str:
 
 
 def _ersatz(klasse: str, m: re.Match[str], vergabe: _Vergabe) -> str:
+    if klasse == "Person":
+        return m.group("hinweis") + vergabe.platzhalter(klasse, m.group("name"))
     if klasse == "IBAN":
         return _iban_ersatz(m.group(0), vergabe)
     if klasse == "Telefon" and _DATUM.fullmatch(m.group(0)):

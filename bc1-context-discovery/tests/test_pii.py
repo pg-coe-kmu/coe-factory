@@ -56,3 +56,12 @@ def test_weg_und_platz_nur_als_volle_adresse():
     for text in ("Der Arbeitsplatz 3 nutzt S-03.", "System Datenweg 3 verarbeitet 60%.",
                  "Büro am Marktplatz 5", "Beispielweg 3a"):
         assert ersetze_pii(text) == text
+
+
+def test_anrede_verraet_den_namen_hinweiswort_bleibt():
+    assert (ersetze_pii("Herr Mustermann prüft die Rechnung.")
+            == "Herr [Person A] prüft die Rechnung.")
+    assert (ersetze_pii("mit Herrn Beispiel und Frau Musterfrau")
+            == "mit Herrn [Person A] und Frau [Person B]")
+    assert (ersetze_pii("Bitte an Hr. Mustermann und Fr. Musterfrau.")
+            == "Bitte an Hr. [Person A] und Fr. [Person B].")
