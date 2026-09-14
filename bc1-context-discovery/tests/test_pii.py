@@ -49,3 +49,10 @@ def test_adresse_mit_strasse_wird_platzhalter():
     assert ersetze_pii("Musterstraße 12, 01234 Bad Beispielstadt") == "[Adresse A]"
     assert ersetze_pii("Hauptstr. 5 in 10115 Berlin") == "[Adresse A]"
     assert ersetze_pii("Karl-Marx-Straße 1") == "[Adresse A]"
+
+
+def test_weg_und_platz_nur_als_volle_adresse():
+    assert ersetze_pii("Marktplatz 5, 10115 Berlin") == "[Adresse A]"
+    for text in ("Der Arbeitsplatz 3 nutzt S-03.", "System Datenweg 3 verarbeitet 60%.",
+                 "Büro am Marktplatz 5", "Beispielweg 3a"):
+        assert ersetze_pii(text) == text

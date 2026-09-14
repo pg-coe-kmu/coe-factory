@@ -22,9 +22,12 @@ _MUSTER: tuple[tuple[str, re.Pattern[str]], ...] = (
                         r"(?:[  ]?[a-z0-9]{1,4})?\b", re.IGNORECASE)),
     ("Telefon", re.compile(r"(?<![\d,.])(?:\+\d{1,3}(?:[ /-]*\(0\))?|\b0)[ /-]*\d"
                            r"(?:[ /-]{0,3}\d){6,13}\b(?![:.]\d)")),
-    # Straße/Allee/Gasse mit Hausnummer, optional PLZ + Ort.
+    # Straße/Allee/Gasse mit Hausnummer, optional PLZ + Ort; Weg/Platz/Ring/
+    # Damm/Ufer NUR mit PLZ + Ort ("Arbeitsplatz 3" ist keine Adresse).
     ("Adresse", re.compile(r"\b" + _STRASSE + r"(?:[Ss]traße|[Ss]trasse|[Ss]tr\.|[Aa]llee|[Gg]asse)\s+"
                            + _HAUSNR + _PLZ_ORT + r"?\b")),
+    ("Adresse", re.compile(r"\b" + _STRASSE + r"(?:[Ww]eg|[Pp]latz|[Rr]ing|[Dd]amm|[Uu]fer)\s+"
+                           + _HAUSNR + _PLZ_ORT + r"\b")),
 )
 # Soll-Länge je Land (Zeichen ohne Leerzeichen): Folgetext wird nicht verschluckt.
 _IBAN_LAENGE = {"AT": 20, "BE": 16, "CH": 21, "CZ": 24, "DE": 22, "DK": 18, "ES": 24,
