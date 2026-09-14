@@ -28,6 +28,8 @@ _IBAN_LAENGE = {"AT": 20, "BE": 16, "CH": 21, "CZ": 24, "DE": 22, "DK": 18, "ES"
 # Dokumenten), beliebig viele. Eine Gruppe, die selbst wie ein IBAN-Anfang aussieht
 # (Ländercode + Prüfziffern), beendet die IBAN — sonst frisst sie die nächste.
 _LEER = "[ " + chr(160) + "]"   # chr(160) statt Zeichen im Quelltext (Editor-Normalisierung)
+# Telefon-Trenner: Leerzeichen, geschützt (U+00A0), schmal geschützt (U+202F), "/", "-".
+_TRENN = "[ " + chr(160) + chr(8239) + "/-]"
 _IBAN = re.compile(
     r"\b(?:" + "|".join(_IBAN_LAENGE) + r")\d{2}"
     r"(?:" + _LEER + r"*(?![a-z]{2}\d{2}(?:" + _LEER + r"|$))[a-z0-9]{4}){2,7}"
@@ -39,8 +41,12 @@ _MUSTER: tuple[tuple[str, re.Pattern[str]], ...] = (
     # Endung: Buchstaben jeder Schrift (\w ist Unicode) oder Punycode ("xn--p1ai").
     ("E-Mail", re.compile(r"\b[\w.%+-]+@[\w.-]+\.(?:xn--[\w-]+|[^\W\d_]{2,})\b")),
     ("IBAN", _IBAN),
-    ("Telefon", re.compile(r"(?<![\d,.])(?:\+\d{1,3}(?:[ /-]*\(0\))?|\b0)[ /-]*\d"
-                           r"(?:[ /-]{0,3}\d){6,13}\b(?![:.]\d)")),
+    # Nicht inmitten von Dezimalzahlen oder hinter Datums-Trennern beginnen, keine
+    # Datumsform ("01-02-2026", "01/02/2026") als Anfang, kein ":"/"."+Ziffer danach.
+    ("Telefon", re.compile(
+        r"(?<![\d,./-])(?!\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b)"
+        r"(?:\+\d{1,3}(?:" + _TRENN + r"*\(0\))?|\(0\d{1,5}\)|\b0)" + _TRENN + r"*\d"
+        r"(?:" + _TRENN + r"{0,3}\d){6,13}\b(?![:.]\d)")),
     # Straße/Allee/Gasse mit Hausnummer, optional PLZ + Ort; Weg/Platz/Ring/
     # Damm/Ufer NUR mit PLZ + Ort ("Arbeitsplatz 3" ist keine Adresse).
     ("Adresse", re.compile(r"\b" + _STRASSE + r"(?:[Ss]traße|[Ss]trasse|[Ss]tr\.|[Aa]llee|[Gg]asse)\s+"
@@ -52,10 +58,6 @@ _MUSTER: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("Person", re.compile(r"(?P<hinweis>\b" + _ANREDE + r"\s+|\b(?=(?:Dr|Prof)\.\s))"
                           r"(?P<name>" + _TITEL + r"*" + _WORT + r"(?:\s+" + _WORT + r"){0,2})")),
 )
-# Datumsformen, die das Telefon-Muster sonst träfe ("01/02/2026", "01-02-2026").
-_DATUM = re.compile(r"\d{1,2}[./-]\d{1,2}[./-]\d{2,4}|\d{4}-\d{2}-\d{2}")
-
-
 def _buchstabe(n: int) -> str:
     """0 → A, 25 → Z, 26 → AA (wie Tabellenspalten)."""
     kennung = ""
@@ -109,8 +111,6 @@ def _ersatz(klasse: str, m: re.Match[str], vergabe: _Vergabe) -> str:
         return m.group("hinweis") + vergabe.platzhalter(klasse, m.group("name"))
     if klasse == "IBAN":
         return _iban_ersatz(m.group(0), vergabe)
-    if klasse == "Telefon" and _DATUM.fullmatch(m.group(0)):
-        return m.group(0)
     return vergabe.platzhalter(klasse, m.group(0))
 
 

@@ -131,6 +131,16 @@ def test_email_mit_unicode_oder_punycode_endung():
     assert ersetze_pii("muster@example.xn--p1ai") == "[E-Mail A]"
     assert ersetze_pii("muster@büro.example.org") == "[E-Mail A]"
 
+
+def test_telefon_mit_geschuetztem_leerzeichen_und_klammervorwahl_datumsfolgen_bleiben():
+    # Review 2, Important 3 + 6
+    geschuetzt = chr(160)
+    assert ersetze_pii("Kontakt +49 (0)30" + geschuetzt + "1234567") == "Kontakt [Telefon A]"
+    assert ersetze_pii("Telefon: (030) 1234567") == "Telefon: [Telefon A]"
+    for text in ("Seit 01-02-2026 30 Fälle täglich.", "Termin 01/02/2026 - 03/02/2026",
+                 "Termin 01/02/2026 09:30", "Termin 01-02-2026"):
+        assert ersetze_pii(text) == text
+
 def test_zwei_ibans_nebeneinander_werden_beide_im_ersten_lauf_ersetzt():
     # Review 2, Critical 1: der Regex lief in die zweite IBAN hinein, die
     # Soll-Laengen-Kuerzung gab den Rest ungeprueft zurueck (nur beim ZWEITEN
