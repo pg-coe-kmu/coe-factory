@@ -1,8 +1,9 @@
-# `prozessprofil.sql` einspielen — Anleitung und Rechte-Ist-Stand
+# `prozessprofil.sql` und `sessions.sql` einspielen — Anleitung und Rechte-Ist-Stand
 
 > Betriebsdoku für den Menschen, der die BC1-Tabellen in eine Datenbank bringt.
-> Stand 08.09.2026. Alle Zahlen und Rollennamen hier sind **gemessen**, nicht angenommen.
-> Seit dem 08.09. ist der Inhalt **in der Ziel-Supabase ausgeführt** — siehe Abschnitt 9.
+> Stand 13.09.2026. Alle Zahlen und Rollennamen hier sind **gemessen**, nicht angenommen.
+> `prozessprofil.sql` ist seit dem 08.09. **in der Ziel-Supabase ausgeführt** (Abschnitt 9),
+> `sessions.sql` (B1) seit dem 13.09. (Abschnitt 10).
 
 ## Das Wichtigste in fünf Sätzen
 
@@ -13,6 +14,15 @@ exakt erwarteten Bestand, tut sie nichts (**Fall 2**); weicht irgendetwas ab, **
 ab und ändert nichts** (**Fall 3**). Die Prüfung vergleicht den Ist-Zustand des Katalogs
 Zeile für Zeile mit einer im Skript hinterlegten **Sollsignatur** (176 Zeilen). Wer die
 DDL ändert, muss die Signatur neu erzeugen — sonst blockiert sich das Skript selbst.
+
+Seit B1 (13.09.2026) gibt es eine **zweite Datei `sessions.sql`** für die Sitzungstabelle
+`bc1.sessions` (kompletter Interview-Zustand inklusive Rohtext): gleiche Dreifallregel,
+eigene Sollsignatur (40 Zeilen), Geltungsbereich genau diese eine Tabelle — **eigenständig**
+geprüft, einschließlich Mitgliedschafts-Kanten und der RI-Trigger auf beiden Seiten des
+Fremdschlüssels zu `companies`. Sie läuft **nach** `prozessprofil.sql`; die erste Datei
+bleibt davon unberührt und meldet weiter Fall 2 (im Container in beide Richtungen
+getestet). Der Dienst legt die Sitzungstabelle nicht mehr selbst an — fehlt sie oder
+fehlen der DSN-Rolle die Rechte, bricht er beim Start mit Verweis auf diese Anleitung ab.
 
 ---
 
@@ -34,11 +44,16 @@ Erteilt von BC0 am 02.09.2026, in der Ziel-Supabase nachgemessen:
 Aus `bc1-context-discovery/`, **als `bc1_role`**:
 
 ```bash
-psql "$BC1_DB_DSN" -v ON_ERROR_STOP=1 -1 -f bc1_service/db/prozessprofil.sql
+psql "$BC1_DB_DSN" -v ON_ERROR_STOP=1 -1 -f bc1_service/db/prozessprofil.sql \
+  && psql "$BC1_DB_DSN" -v ON_ERROR_STOP=1 -1 -f bc1_service/db/sessions.sql
 ```
 
 `-1` ist nicht optional: Die Dreifallregel verlässt sich darauf, dass ein Abbruch alles
-zurückrollt.
+zurückrollt. Jede Datei ist eine eigene Transaktion und prüft **eigenständig** (beide auch
+die Mitgliedschafts-Kanten); jede meldet ihren eigenen Fall 1/2/3. Das `&&` ist Pflicht:
+meldet die erste Datei Fall 3, darf die zweite gar nicht erst laufen — erst die Abweichung
+verstehen. Reihenfolge erst `prozessprofil.sql`, dann `sessions.sql`, damit die Live-
+Meldungen in derselben Ordnung stehen wie die Tests (`tests/db_fixture.py`).
 
 ## 3. Die Dreifallregel lesen
 
@@ -57,13 +72,17 @@ Prüfung abschalten.
 **Wann:** nach *jeder* Änderung an der DDL, und beim Wechsel der PostgreSQL-Hauptversion.
 
 ```bash
-# 1. Den Signaturblock in Abschnitt 0b durch die eine Platzhalterzeile ersetzen:
+# 1. Den Signaturblock in Abschnitt 0b DER JEWEILIGEN DATEI durch die eine Platzhalterzeile ersetzen:
 #    ('platzhalter|wird|in|step7|ersetzt');
-# 2. Aus bc1-context-discovery/, gegen den Test-Container:
+# 2. Aus bc1-context-discovery/, gegen den Test-Container (ohne Argument: prozessprofil.sql):
 BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" \
-    .venv/bin/python ../../signatur-erzeugen.py
+    uv run python tests/db/signatur_erzeugen.py bc1_service/db/sessions.sql
 # 3. git diff lesen — jede geänderte Zeile muss erklärbar sein — dann committen.
 ```
+
+Der Generator liegt seit B1 **im Repo** (`tests/db/signatur_erzeugen.py`, bei den Tests, weil
+er das BC0-Gerüst braucht und die Zieldatenbank wischt — **nie gegen die Supabase**). Ein
+Test hält fest, dass er die committete `prozessprofil.sql`-Signatur byteidentisch reproduziert.
 
 **Hauptversion (Klärpunkt K-H, entschieden 03.09.):** Test-Container **und** Ziel laufen
 PostgreSQL 17. Der Container wird mit `postgres:17` gestartet. Gegen PostgreSQL 16 erzeugt,
@@ -130,19 +149,23 @@ bewusst geändert wird.
 > **Restrisiko, ehrlich benannt:** Der Fall, der K-G ausgelöst hat — `postgres` als
 > Nicht-Superuser mit Mitgliedschaft in `bc1_role` — ist im Test-Container **nicht**
 > nachstellbar: dort ist `postgres` Superuser und fällt schon vorher aus der Prüfung. Dass
-> das Einspielen in der Ziel-Supabase nach dieser Änderung durchläuft, ist damit
-> hergeleitet und an den gemessenen Rollen geprüft, **aber nicht dort ausgeführt**. Der
-> erste echte Einspiel-Lauf ist deshalb mit wachem Auge zu fahren — Fall 3 dort bedeutet
-> zuerst: die Abfrage oben erneut ausführen und mit dieser Tabelle vergleichen.
+> das Einspielen in der Ziel-Supabase nach dieser Änderung durchläuft, war damit
+> hergeleitet und an den gemessenen Rollen geprüft, **bis zum 08.09. aber nicht dort
+> ausgeführt** — seitdem gemessen (Abschnitt 9). Für `sessions.sql` gilt derselbe Stand bis
+> zu ihrem Live-Lauf (Abschnitt 10). Der erste echte Einspiel-Lauf einer Datei ist deshalb
+> mit wachem Auge zu fahren — Fall 3 dort bedeutet zuerst: die Abfrage oben erneut
+> ausführen und mit dieser Tabelle vergleichen.
 
 ## 6. Als welche Rolle verbindet der Dienst?
 
-`main.py` öffnet den Profil-Pool **ohne** `SET ROLE`. Produktiv entscheidet also allein der
-Benutzer-Anteil von `BC1_DB_DSN`, wer schreibt.
+`main.py` öffnet beide Pools **ohne** `SET ROLE`. Produktiv entscheidet also der Benutzer-
+Anteil von `BC1_DB_DSN` — oder eine `options=-c role=…`-Angabe in der DSN, wie sie die
+Tests nutzen —, als wer der Dienst arbeitet.
 
-> **`BC1_DB_DSN` muss als `bc1_role` verbinden.** Sonst gehören die Tabellen einer anderen
-> Rolle, und weder die Tabellenrechte noch die getestete Mandantentrennung greifen so, wie
-> die Tests sie nachweisen (die Tests setzen die Rolle explizit).
+> **`BC1_DB_DSN` muss als `bc1_role` arbeiten.** Nur sie hat die Rechte auf `bc1.*`
+> (vergeben von `prozessprofil.sql` und `sessions.sql`). Der Session-Store prüft das beim
+> Start — Tabelle vorhanden **und** `SELECT/INSERT/UPDATE/DELETE` für die DSN-Rolle — und
+> bleibt sonst mit lesbarer Meldung stehen, statt beim ersten Turn zu scheitern.
 
 ## 7. Leserechte: wer darf was
 
@@ -151,6 +174,7 @@ Benutzer-Anteil von `BC1_DB_DSN`, wer schreibt.
 | `bc1.prozessprofil` | alles | `SELECT` |
 | `bc1.profil_rollen` | alles | `SELECT` |
 | `bc1.profil_write_status` | alles | **nichts** (ausdrückliches `REVOKE`) |
+| `bc1.sessions` (B1) | alles | **nichts** (ausdrückliches `REVOKE`; Sitzungszustand mit Rohtext) |
 
 Unsere DDL vergibt diese Rechte selbst — BC0 muss nichts nachziehen. Offen ist nur BC0s
 ausdrückliche Bestätigung, dass `bc_leser` auch für `profil_rollen` gilt (Rückfrage vom
@@ -187,6 +211,13 @@ nachgestellt — kein Fall 3, Zugriff funktionierte):
   Signatur inventarisiert nur die drei Tabellen und die drei Triggerfunktionen.
 - **Standardrechte** (`pg_default_acl`) — sie wirken erst auf *künftige* Objekte, siehe
   Abschnitt 8 (K-I).
+- **Diese Lücke gilt für beide Dateien.** `sessions.sql` prüft dieselben Arten wie
+  `prozessprofil.sql` — einschließlich Mitgliedschafts-Kanten — und zusätzlich die
+  RI-Trigger **beider** Seiten ihres Fremdschlüssels (der Kaskaden-Trigger sitzt auf
+  `companies`; Review 13.09.). Funktionen prüft sie nicht, weil sie keine hat; eine fremde
+  `SECURITY DEFINER`-Funktion oder View auf `bc1.sessions` sähe **keine** der beiden
+  Dateien (Abschlussplan C4: Inventarprüfung fremder Objekte in `bc1`). Die Signatur-Sicht
+  liegt zweimal im Repo (je Datei) — bewusst, solange es zwei Einheiten sind.
 
 Wer im Schema `bc1` etwas anlegen darf, kann daran vorbei. Die Prüfung ersetzt also nicht
 die Frage, **wer `CREATE` in diesem Schema hat** — sie sichert, dass die drei
@@ -212,3 +243,25 @@ greift wie hergeleitet. Damit ist die Herleitung durch eine Messung ersetzt.
 
 **Für BC0 heißt das:** ein `GRANT SELECT` auf `bc1.prozessprofil` und `bc1.profil_rollen` ist
 **nicht nötig** — unsere DDL vergibt das Leserecht an `bc_leser` selbst (Abschnitt 7).
+
+---
+
+## 10. Zweiter Lauf: `sessions.sql` in der Supabase — 13.09.2026
+
+Ausgeführt als `bc1_role` (Session Pooler), Signatur **40 Zeilen**, alle Zeilen gemessen
+(`einspielen.log`, `einspielen-sessions.log`, `einspielen-nachpruefung-sessions.log`):
+
+| Schritt | Erwartung | Gemessen |
+|---|---|---|
+| Vorbedingung | `prozessprofil.sql` erneut: `NOTICE: Fall 2` (die alte Datei ist unberührt) | **`Fall 2` in beiden Läufen von `lauf.sh ein` und erneut als Vorbedingung im `sessions`-Lauf** — die vierte Tabelle beeinflusst die alte Datei nicht, jetzt auch live belegt |
+| Umgebungsrollen | Abfrage aus Abschnitt 5 liefert dieselben acht Rollen wie am 12.09. | nicht erneut abgefragt; die Sollsignatur (inkl. `mitglied\|`, `effektiv\|`) wurde ohne Abweichung bestätigt — eine neue Rolle mit Zugriff wäre als Fall 3 aufgefallen |
+| Lauf 1 | `NOTICE: Fall 1: bc1.sessions nicht vorhanden — Anlage.` + `NOTICE: Sollsignatur bestaetigt.` | **genau so** |
+| Lauf 2 | `NOTICE: Fall 2: Bestand ist identisch zur Sollsignatur — No-op.` | **genau so** — Idempotenz im Ziel bewiesen |
+| Nachprüfung A | vier Tabellen in `bc1`, `sessions` gehört `bc1_role`, ACL ohne `bc_leser` | **4 Tabellen; `sessions` = `bc1_role`, `relacl = {bc1_role=arwdDxtm/bc1_role}`** |
+| Nachprüfung B | `bc1_role` SELECT/INSERT `t`; `bc_leser`, `bc2`–`bc4` `f` | **wie erwartet.** Zusätzlich `postgres` `t/t` — die Supabase-Administration ist Mitglied von `bc1_role` (Umgebungsrolle, Abschnitt 5); kein Befund, aber sichtbar gemacht |
+| Nachprüfung C | `sessions_company_fk` validiert | **alle vier Constraints `convalidated = t`** (FK, `sessions_mandant_konsistent`, PK, `version_positiv`) |
+
+**Für BC0 heißt das:** nichts zu tun — `bc1.sessions` ist eine interne Tabelle, kein
+Fremdschema liest sie, ein `GRANT` ist weder nötig noch erwünscht. Die Löschkaskade von
+`companies` läuft mit den Rechten von `bc1_role` (im Container unter einem rechtelosen
+Löschkonto gemessen, Test `test_kaskade_raeumt_die_sitzung_auch_unter_rechtelosem_loeschkonto`).

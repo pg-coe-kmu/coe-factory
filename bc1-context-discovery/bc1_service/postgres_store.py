@@ -3,7 +3,11 @@
 Vertrag identisch zum InMemoryStateStore (siehe tests/store_contract.py).
 Optimistisches Locking atomar per Compare-and-Swap-UPDATE — damit ist die
 Nebenläufigkeit hier per Konstruktion sicher, nicht per Prozess-Lock.
-Nur Standard-Postgres (Bauplan B1), keine Supabase-Spezialfeatures.
+Nur Standard-Postgres, keine Supabase-Spezialfeatures.
+
+Die Tabelle bc1.sessions legt seit B1 NICHT mehr der Store an, sondern die
+signierte Einspiel-Datei bc1_service/db/sessions.sql (EINSPIELEN.md) — als
+bc1_role, mit ausdruecklichem REVOKE fuer bc_leser.
 """
 from __future__ import annotations
 
@@ -14,13 +18,16 @@ from bc1_core.serialize import state_from_dict, state_to_dict
 from bc1_core.store import StaleStateError, StateStore
 from bc1_core.types import SessionState
 
-_TABELLE_SQL = """
-CREATE TABLE IF NOT EXISTS bc1.sessions (
-    session_id text PRIMARY KEY,
-    version    integer NOT NULL,
-    state      jsonb NOT NULL,
-    updated_at timestamptz NOT NULL DEFAULT now()
-)
+# Startpruefung: Tabelle da UND die DSN-Rolle darf sie benutzen. to_regclass braucht
+# keine Rechte — allein damit startete der Dienst auch als bc_leser und scheiterte
+# erst beim ersten Turn (Review 13.09., Befund 4).
+_STARTPRUEFUNG_SQL = """
+SELECT CASE
+         WHEN to_regclass('bc1.sessions') IS NULL THEN 'fehlt'
+         WHEN has_table_privilege('bc1.sessions', 'SELECT, INSERT, UPDATE, DELETE')
+              THEN 'ok'
+         ELSE 'keine_rechte'
+       END
 """
 
 
@@ -29,8 +36,19 @@ class PostgresStateStore(StateStore):
         self._pool = ConnectionPool(dsn, min_size=1, max_size=10, open=True)
         try:
             with self._pool.connection() as conn:
-                conn.execute("CREATE SCHEMA IF NOT EXISTS bc1")
-                conn.execute(_TABELLE_SQL)
+                befund = conn.execute(_STARTPRUEFUNG_SQL).fetchone()[0]
+            if befund == "fehlt":
+                raise RuntimeError(
+                    "bc1.sessions fehlt — der Dienst legt die Tabelle nicht mehr an. "
+                    "Einspielen als bc1_role: bc1_service/db/sessions.sql "
+                    "(Anleitung: bc1_service/db/EINSPIELEN.md)."
+                )
+            if befund != "ok":
+                raise RuntimeError(
+                    "Die Rolle aus BC1_DB_DSN hat keine Rechte auf bc1.sessions — "
+                    "der Dienst muss als bc1_role verbinden (EINSPIELEN.md, Abschnitt 6; "
+                    "Rechte vergibt bc1_service/db/sessions.sql)."
+                )
         except Exception:
             # Der Pool ist bereits offen: ohne close() blieben seine
             # Verbindungen und Worker-Threads als Leiche zurueck.
@@ -55,10 +73,10 @@ class PostgresStateStore(StateStore):
         with self._pool.connection() as conn:
             if state.version == 0:
                 cursor = conn.execute(
-                    "INSERT INTO bc1.sessions (session_id, version, state) "
-                    "VALUES (%s, %s, %s) "
+                    "INSERT INTO bc1.sessions (session_id, company_id, version, state) "
+                    "VALUES (%s, %s, %s, %s) "
                     "ON CONFLICT (session_id) DO NOTHING",
-                    (state.session_id, neue_version, Jsonb(daten)),
+                    (state.session_id, state.company_id, neue_version, Jsonb(daten)),
                 )
                 if cursor.rowcount == 0:
                     raise StaleStateError(
@@ -68,7 +86,7 @@ class PostgresStateStore(StateStore):
             else:
                 cursor = conn.execute(
                     "UPDATE bc1.sessions "
-                    "SET state = %s, version = %s, updated_at = now() "
+                    "SET state = %s, version = %s, aktualisiert_am = now() "
                     "WHERE session_id = %s AND version = %s",
                     (Jsonb(daten), neue_version, state.session_id, state.version),
                 )

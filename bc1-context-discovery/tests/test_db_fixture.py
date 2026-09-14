@@ -6,6 +6,14 @@ from tests.db_fixture import DSN, MANDANT_A, MANDANT_B, frische_db, verbindung
 pytestmark = pytest.mark.skipif(not DSN, reason="BC1_TEST_DB_DSN nicht gesetzt")
 
 
+def test_frische_db_verweigert_jede_nicht_lokale_datenbank():
+    # frische_db() droppt die Schemata public und bc1 — an einer falsch gesetzten
+    # DSN (Supabase!) waere das die Produktionsdatenbank. Deshalb: Abbruch VOR der
+    # ersten Verbindung, wenn der Host nicht lokal ist (Review 13.09., Befund 1).
+    with pytest.raises(RuntimeError, match="lokal"):
+        frische_db("postgresql://postgres:x@nicht-lokal.invalid:5432/postgres")
+
+
 def test_geruest_hat_beide_mandanten_mit_kollidierenden_ids():
     frische_db(DSN, mit_ddl=False)
     with verbindung(DSN, "bc1_role") as conn:

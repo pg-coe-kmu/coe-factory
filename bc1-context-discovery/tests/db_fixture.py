@@ -11,6 +11,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import psycopg
+from psycopg.conninfo import conninfo_to_dict
 
 DSN = os.environ.get("BC1_TEST_DB_DSN")
 
@@ -19,14 +20,34 @@ MANDANT_B = "22222222-2222-2222-2222-222222222222"
 
 _GERUEST = Path(__file__).parent / "db" / "bc0_geruest.sql"
 _DDL = Path(__file__).parents[1] / "bc1_service" / "db" / "prozessprofil.sql"
+_DDL_SESSIONS = Path(__file__).parents[1] / "bc1_service" / "db" / "sessions.sql"
+
+
+_LOKALE_HOSTS = {"localhost", "127.0.0.1", "::1"}
+
+
+def pruefe_lokal(dsn: str) -> None:
+    """Bricht ab, wenn die DSN nicht auf eine lokale Datenbank zeigt.
+
+    frische_db() droppt public und bc1 — gegen eine falsch gesetzte DSN (Supabase!)
+    waere das die Produktionsdatenbank. Geprueft wird VOR der ersten Verbindung;
+    ohne Host (Unix-Socket) gilt die Verbindung als lokal.
+    """
+    host = conninfo_to_dict(dsn).get("host")
+    if host and host not in _LOKALE_HOSTS:
+        raise RuntimeError(
+            f"frische_db wischt die Datenbank und laeuft deshalb nur lokal "
+            f"({', '.join(sorted(_LOKALE_HOSTS))}), nicht gegen Host {host!r}.")
 
 
 def frische_db(dsn: str, *, mit_ddl: bool = True) -> None:
-    """Setzt public + bc1 zurueck, baut das Geruest, spielt (optional) unsere DDL ein.
+    """Setzt public + bc1 zurueck, baut das Geruest, spielt (optional) BEIDE DDL-Dateien ein.
 
-    ACHTUNG: raeumt auch bc1.sessions weg — einen PostgresStateStore erst NACH
-    diesem Aufruf anlegen (sein Konstruktor legt die Tabelle wieder an).
+    Reihenfolge wie im Betrieb (EINSPIELEN.md): erst prozessprofil.sql, dann sessions.sql,
+    jede als bc1_role in einer eigenen Transaktion. bc1.sessions entsteht damit NUR hier —
+    der PostgresStateStore legt seit B1 nichts mehr an.
     """
+    pruefe_lokal(dsn)
     with psycopg.connect(dsn, autocommit=True) as conn:
         conn.execute("DROP SCHEMA IF EXISTS bc1 CASCADE")
         conn.execute("DROP SCHEMA IF EXISTS public CASCADE")
@@ -35,14 +56,25 @@ def frische_db(dsn: str, *, mit_ddl: bool = True) -> None:
         _testdaten(conn)
     if mit_ddl:
         spiele_ddl_ein(dsn)
+        spiele_sessions_ein(dsn)
+
+
+def spiele_datei_ein(dsn: str, pfad: Path) -> None:
+    """Spielt EINE Einspiel-Datei genau wie im Betrieb ein: EINE Transaktion, als bc1_role."""
+    with psycopg.connect(dsn) as conn:          # autocommit=False => eine Transaktion
+        conn.execute("SET ROLE bc1_role")
+        conn.execute(pfad.read_text(encoding="utf-8"))
+        conn.commit()
 
 
 def spiele_ddl_ein(dsn: str) -> None:
-    """Spielt prozessprofil.sql genau wie im Betrieb ein: EINE Transaktion, als bc1_role."""
-    with psycopg.connect(dsn) as conn:          # autocommit=False => eine Transaktion
-        conn.execute("SET ROLE bc1_role")
-        conn.execute(_DDL.read_text(encoding="utf-8"))
-        conn.commit()
+    """prozessprofil.sql — Name bleibt, viele Aufrufer meinen genau diese Datei."""
+    spiele_datei_ein(dsn, _DDL)
+
+
+def spiele_sessions_ein(dsn: str) -> None:
+    """sessions.sql — zweite Einspiel-Einheit (B1)."""
+    spiele_datei_ein(dsn, _DDL_SESSIONS)
 
 
 @contextmanager
