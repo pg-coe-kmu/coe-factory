@@ -15,6 +15,8 @@ _MUSTER: tuple[tuple[str, re.Pattern[str]], ...] = (
     # Geschütztes Leerzeichen (U+00A0) kommt beim Einfügen aus Dokumenten vor.
     ("IBAN", re.compile(r"\b[a-z]{2}\d{2}(?:[  ]?[a-z0-9]{4}){2,7}"
                         r"(?:[  ]?[a-z0-9]{1,4})?\b", re.IGNORECASE)),
+    ("Telefon", re.compile(r"(?<![\d,.])(?:\+\d{1,3}(?:[ /-]*\(0\))?|\b0)[ /-]*\d"
+                           r"(?:[ /-]{0,3}\d){6,13}\b(?![:.]\d)")),
 )
 # Soll-Länge je Land (Zeichen ohne Leerzeichen): Folgetext wird nicht verschluckt.
 _IBAN_LAENGE = {"AT": 20, "BE": 16, "CH": 21, "CZ": 24, "DE": 22, "DK": 18, "ES": 24,

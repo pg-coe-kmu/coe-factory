@@ -26,3 +26,10 @@ def test_iban_wird_platzhalter_folgewort_bleibt():
     assert ersetze_pii("de89370400440532013000") == "[IBAN A]"
     assert ersetze_pii("DE89 3704 0044 0532 0130 00") == "[IBAN A]"
     assert ersetze_pii("AT61 1904 3002 3457 3201 SAP") == "[IBAN A] SAP"
+
+
+def test_telefon_wird_platzhalter():
+    assert (ersetze_pii("Erreichbar unter +49 30 1234567 oder 0151 12345678.")
+            == "Erreichbar unter [Telefon A] oder [Telefon B].")
+    assert ersetze_pii("Büro 030/1234567 oder 030 / 1234567") == "Büro [Telefon A] oder [Telefon B]"
+    assert ersetze_pii("+49 (0)30 1234567") == "[Telefon A]"
