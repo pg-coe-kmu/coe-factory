@@ -151,6 +151,16 @@ def test_namen_mit_akzenten_partikeln_und_zusammengesetzten_titeln():
     assert ersetze_pii("Dr.-Ing. Mustermann entscheidet.") == "[Person A] entscheidet."
     assert ersetze_pii("Herr der Lage") == "Herr der Lage"      # "der" allein ist kein Partikel
 
+
+def test_adresse_komma_ohne_abstand_kein_zeilenumbruch_im_ort_keine_prozessbegriffe():
+    # Review 2, Important 7
+    assert ersetze_pii("Sitz: Musterweg 3,12345 Musterstadt") == "Sitz: [Adresse A]"
+    assert (ersetze_pii("Hauptstraße 5\n10115 Berlin\nBuchhaltung prüft S-03.")
+            == "[Adresse A]\nBuchhaltung prüft S-03.")
+    for text in ("Die Fertigungsstraße 3 verarbeitet 80 %.", "Produktionsstraße 2 läuft.",
+                 "Montagestraße 1 ist ausgelastet."):
+        assert ersetze_pii(text) == text
+
 def test_zwei_ibans_nebeneinander_werden_beide_im_ersten_lauf_ersetzt():
     # Review 2, Critical 1: der Regex lief in die zweite IBAN hinein, die
     # Soll-Laengen-Kuerzung gab den Rest ungeprueft zurueck (nur beim ZWEITEN

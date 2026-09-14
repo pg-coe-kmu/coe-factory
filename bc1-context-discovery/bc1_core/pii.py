@@ -26,8 +26,12 @@ _NAME = (_TITEL + "*" + _PARTIKEL + "?" + _WORT
          + r"(?:\s+" + _PARTIKEL + "?" + _WORT + r"){0,2}")
 _STRASSE = r"[A-ZÄÖÜ][a-zäöüß]*(?:-[A-ZÄÖÜ][a-zäöüß]*)*-?"
 _HAUSNR = r"\d+[a-zA-Z]?(?:\s*[-–/]\s*\d+[a-zA-Z]?)?"
-_ORT = r"[A-ZÄÖÜ][a-zäöüß-]+(?:\s+[A-ZÄÖÜ][a-zäöüß-]+)?"
-_PLZ_ORT = r"(?:(?:,|\s+in)?\s+\d{5}\s+" + _ORT + r")"
+# Zweites Ortswort nur in derselben Zeile ("Bad Beispielstadt"), nie über einen
+# Zeilenumbruch hinweg — sonst wird die nächste Zeile Teil der Adresse.
+_ORT = r"[A-ZÄÖÜ][a-zäöüß-]+(?:[ \t]+[A-ZÄÖÜ][a-zäöüß-]+)?"
+_PLZ_ORT = r"(?:(?:,\s*|\s+in\s+|\s+)\d{5}\s+" + _ORT + r")"
+# Prozessbegriffe mit Straßenwort sind keine Adressen ("Fertigungsstraße 3").
+_KEINE_ADRESSE = ("fertigungs", "produktions", "montage", "prozess", "verarbeitungs")
 
 # Soll-Länge je Land (Zeichen ohne Leerzeichen): nur diese Länder gelten als IBAN,
 # Folgetext wird anhand der Länge nicht verschluckt.
@@ -121,6 +125,8 @@ def _ersatz(klasse: str, m: re.Match[str], vergabe: _Vergabe) -> str:
         return m.group("hinweis") + vergabe.platzhalter(klasse, m.group("name"))
     if klasse == "IBAN":
         return _iban_ersatz(m.group(0), vergabe)
+    if klasse == "Adresse" and m.group(0).lower().startswith(_KEINE_ADRESSE):
+        return m.group(0)
     return vergabe.platzhalter(klasse, m.group(0))
 
 
