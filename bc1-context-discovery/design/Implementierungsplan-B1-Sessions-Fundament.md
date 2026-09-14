@@ -60,9 +60,9 @@ Task 0 (Branch, Plan) → Task 1 (Generator ins Repo, ohne DB-Änderung) → Tas
 
 **Files:** dieser Plan.
 
-- [ ] **Step 1:** `git switch -c bc1-b1-sessions-fundament` (ab `bc1-db-profil-fundament` @ `9a73eac`, Arbeitsbaum sauber — prüfen mit `git status --short`).
-- [ ] **Step 2:** Container läuft? `docker ps --format '{{.Names}}'` → `bc1-test-pg`; sonst README-Befehl. Suite-Basis messen: `BC1_TEST_DB_DSN=… .venv/bin/pytest -q -W error` → erwartet **465 passed, 4 skipped**.
-- [ ] **Step 3:** Commit `docs(bc1): Implementierungsplan B1 — bc1.sessions ins signierte Fundament`.
+- [x] **Step 1:** `git switch -c bc1-b1-sessions-fundament` (ab `bc1-db-profil-fundament` @ `9a73eac`, Arbeitsbaum sauber — prüfen mit `git status --short`).
+- [x] **Step 2:** Container läuft? `docker ps --format '{{.Names}}'` → `bc1-test-pg`; sonst README-Befehl. Suite-Basis messen: `BC1_TEST_DB_DSN=… .venv/bin/pytest -q -W error` → erwartet **465 passed, 4 skipped**.
+- [x] **Step 3:** Commit `docs(bc1): Implementierungsplan B1 — bc1.sessions ins signierte Fundament`.
 
 ---
 
@@ -77,7 +77,7 @@ Task 0 (Branch, Plan) → Task 1 (Generator ins Repo, ohne DB-Änderung) → Tas
 - Produces: `zeilen_aus_fehlertext`, `baue_block`, CLI `uv run python tests/db/signatur_erzeugen.py <datei.sql>`
 - Consumes: `tests.db_fixture.frische_db`, `verbindung`, neu `spiele_datei_ein`
 
-- [ ] **Step 1: Failing Tests schreiben** (`tests/test_signatur_erzeugen.py`)
+- [x] **Step 1: Failing Tests schreiben** (`tests/test_signatur_erzeugen.py`)
 
 ```python
 """Reine Teile des Signatur-Generators — ohne Datenbank."""
@@ -108,9 +108,9 @@ def test_baue_block_sortiert_verdoppelt_hochkommas_und_schliesst_mit_semikolon()
         "    ('spalte|s|b|text|null||-|-');")
 ```
 
-- [ ] **Step 2: RED messen** — `.venv/bin/pytest tests/test_signatur_erzeugen.py -q` → `ModuleNotFoundError: tests.db.signatur_erzeugen`.
+- [x] **Step 2: RED messen** — `.venv/bin/pytest tests/test_signatur_erzeugen.py -q` → `ModuleNotFoundError: tests.db.signatur_erzeugen`.
 
-- [ ] **Step 3: `tests/db_fixture.py` erweitern** (nur die Einspiel-Funktion; `spiele_ddl_ein` behält Name und Verhalten):
+- [x] **Step 3: `tests/db_fixture.py` erweitern** (nur die Einspiel-Funktion; `spiele_ddl_ein` behält Name und Verhalten):
 
 ```python
 def spiele_datei_ein(dsn: str, pfad: Path) -> None:
@@ -126,7 +126,7 @@ def spiele_ddl_ein(dsn: str) -> None:
     spiele_datei_ein(dsn, _DDL)
 ```
 
-- [ ] **Step 4: Generator schreiben** (`tests/db/signatur_erzeugen.py`; Inhalt aus `../../signatur-erzeugen.py`, umgebaut):
+- [x] **Step 4: Generator schreiben** (`tests/db/signatur_erzeugen.py`; Inhalt aus `../../signatur-erzeugen.py`, umgebaut):
 
 ```python
 #!/usr/bin/env python
@@ -239,7 +239,7 @@ if __name__ == "__main__":
     sys.exit(main(sys.argv))
 ```
 
-- [ ] **Step 5: GREEN messen** — `.venv/bin/pytest tests/test_signatur_erzeugen.py -q` → 2 passed.
+- [x] **Step 5: GREEN messen** — `.venv/bin/pytest tests/test_signatur_erzeugen.py -q` → 2 passed.
 
 - [x] **Step 6: Regression des Umbaus gegen `prozessprofil.sql`** — **als Dauertest umgesetzt** (`test_main_reproduziert_die_committete_sollsignatur_byteidentisch`, 13.09.: 176 Zeilen byteidentisch). Der manuelle Lauf unten ist damit überholt und bleibt nur als Beschreibung stehen:
 
@@ -262,7 +262,7 @@ Erwartet: `Sollsignatur eingesetzt … 176 Zeilen` und `IDENTISCH`. Weicht es ab
 
 - [x] **Step 7:** Volle Suite → **473 passed / 4 skipped** (gemessen 13.09.). Commit `feat(bc1): Signatur-Generator ins Repo, Zieldatei als Argument (B1, Task 1)`.
 
-- [ ] **Step 8 (Richard):** Alte Kopie `AutoCoE_Projekt/signatur-erzeugen.py` (außerhalb des Repos) löschen — Richards Datei, Richards Entscheidung; im Abschlussbericht fragen.
+- [ ] **Step 8 (Richard, offen):** Alte Kopie `AutoCoE_Projekt/signatur-erzeugen.py` (außerhalb des Repos) löschen — Richards Datei, Richards Entscheidung; im Abschlussbericht fragen.
 
 **Verlauf 13.09. (ausgeführt, Abweichungen vom Plan oben — ehrlich):** (1) Der Guard lehnte den Generator unter `bc1_service/db/` zu Recht ab: Dienstcode darf `tests.db_fixture` nicht importieren. Der Generator ist Entwicklungswerkzeug und liegt jetzt in **`tests/db/signatur_erzeugen.py`**; kein `__init__.py` unter `bc1_service/db/`. (2) Statt zwei Tests sind es **acht**, jeder einzeln RED→GREEN gefahren (Guard: ein Test je Schritt, Sicherheitsprüfungen nur mit eigenem Test): Parser, Blockbau, **Byteidentität gegen die committete Signatur** (ersetzt Step 6), Platzhalter fehlt, fremde Cluster-Rolle, unbekannte Signaturart, mehr als der Platzhalter fehlt, keine `zuviel`-Zeilen. Künstliche Einspiel-Dateien (`_kunstdatei`) erzeugen die Fehlertexte gezielt. (3) `spiele_datei_ein` in `db_fixture.py` wie geplant; `spiele_ddl_ein` unverändert im Verhalten.
 
@@ -279,7 +279,7 @@ Erwartet: `Sollsignatur eingesetzt … 176 Zeilen` und `IDENTISCH`. Weicht es ab
 - Consumes: `spiele_datei_ein` (Task 1)
 - Produces: `spiele_sessions_ein(dsn)`; `frische_db(dsn)` spielt beide Dateien ein; Tabelle `bc1.sessions(session_id text PK, company_id uuid NOT NULL FK companies CASCADE, version integer NOT NULL CHECK ≥ 1, state jsonb NOT NULL, aktualisiert_am timestamptz NOT NULL DEFAULT now())`
 
-- [ ] **Step 1: Fixture erweitern** (`tests/db_fixture.py`)
+- [x] **Step 1: Fixture erweitern** (`tests/db_fixture.py`)
 
 ```python
 _GERUEST = Path(__file__).parent / "db" / "bc0_geruest.sql"
@@ -310,7 +310,7 @@ def spiele_sessions_ein(dsn: str) -> None:
     spiele_datei_ein(dsn, _DDL_SESSIONS)
 ```
 
-- [ ] **Step 2: Failing Tests schreiben** (`tests/test_ddl_sessions.py`)
+- [x] **Step 2: Failing Tests schreiben** (`tests/test_ddl_sessions.py`)
 
 ```python
 """sessions.sql — zweite Einspiel-Einheit (B1): Dreifallregel, Rechte, Kaskade, Wertebereich.
@@ -476,9 +476,9 @@ def test_ausnahmeliste_ist_identisch_mit_prozessprofil_sql():
         == {"postgres", "supabase_read_only_user", "supabase_etl_admin"}
 ```
 
-- [ ] **Step 3: RED messen** — `.venv/bin/pytest tests/test_ddl_sessions.py -q` → alle rot (`FileNotFoundError: … sessions.sql` bzw. `ImportError: spiele_sessions_ein`). Außerdem `tests/test_ddl_einspielen.py` rot? Nein — `frische_db` würde jetzt `sessions.sql` laden und mit `FileNotFoundError` scheitern → **erwartet: die gesamte DB-Suite rot, bis Step 4 steht.** Nur Step 3 → Step 4 direkt hintereinander, kein Commit dazwischen.
+- [x] **Step 3: RED messen** — `.venv/bin/pytest tests/test_ddl_sessions.py -q` → alle rot (`FileNotFoundError: … sessions.sql` bzw. `ImportError: spiele_sessions_ein`). Außerdem `tests/test_ddl_einspielen.py` rot? Nein — `frische_db` würde jetzt `sessions.sql` laden und mit `FileNotFoundError` scheitern → **erwartet: die gesamte DB-Suite rot, bis Step 4 steht.** Nur Step 3 → Step 4 direkt hintereinander, kein Commit dazwischen.
 
-- [ ] **Step 4: `sessions.sql` schreiben** — mit Platzhalter-Signatur:
+- [x] **Step 4: `sessions.sql` schreiben** — mit Platzhalter-Signatur:
 
 ```sql
 -- BC1 Etappe 1, Paket B1 — Sitzungszustand des Interviews: bc1.sessions.
@@ -775,7 +775,7 @@ BEGIN
 END $$;
 ```
 
-- [ ] **Step 5: Sollsignatur erzeugen**
+- [x] **Step 5: Sollsignatur erzeugen**
 
 ```bash
 BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" \
@@ -783,7 +783,7 @@ BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" \
 ```
 Erwartet: Block mit u. a. `acl|sessions|bc1_role|…` (8 Rechte), **keine** Zeile mit `bc_leser`, `effektiv|sessions|bc1_role|…` (7), `constraint|sessions|sessions_company_fk|…`, `trigger_intern|sessions|sessions_company_fk|O`, `kommentar|sessions|…`, `rls|sessions|f|f`, 5 `spalte|`-Zeilen, `index|sessions|sessions_pkey|…`, `eigentuemer|sessions|bc1_role`. `git diff bc1_service/db/sessions.sql` lesen: jede Zeile erklärbar. Steht eine `bc_leser`-Zeile drin, fehlt das REVOKE — **nicht** die Signatur anpassen.
 
-- [ ] **Step 6: GREEN messen** — `.venv/bin/pytest tests/test_ddl_sessions.py tests/test_ddl_einspielen.py tests/test_db_fixture.py -q` → alles grün (12 neue Testfälle inkl. 3 Parametrisierungen + Bestand). Dann volle Suite: erwartet **485 passed / 4 skipped** (473 nach Task 1 + 12).
+- [x] **Step 6: GREEN messen** — `.venv/bin/pytest tests/test_ddl_sessions.py tests/test_ddl_einspielen.py tests/test_db_fixture.py -q` → alles grün (12 neue Testfälle inkl. 3 Parametrisierungen + Bestand). Dann volle Suite: erwartet **485 passed / 4 skipped** (473 nach Task 1 + 12).
 
 - [x] **Step 7:** `git diff --stat` zeigt `prozessprofil.sql` **nicht** (gemessen). Commit `feat(bc1): sessions.sql — bc1.sessions signiert, nur bc1_role, Loeschkaskade (B1, Task 2)`.
 
@@ -802,7 +802,7 @@ Erwartet: Block mit u. a. `acl|sessions|bc1_role|…` (8 Rechte), **keine** Zeil
 - Consumes: Tabelle aus Task 2; `frische_db`
 - Produces: `PostgresStateStore(dsn)` — wirft `RuntimeError("bc1.sessions fehlt …sessions.sql…")` ohne Tabelle, Pool geschlossen; INSERT schreibt `company_id`; UPDATE setzt `aktualisiert_am = now()`
 
-- [ ] **Step 1: Vertrags-Fixture umstellen** (`tests/test_store_postgres.py`) — Store läuft wie im Betrieb als `bc1_role` gegen die eingespielte Tabelle. Die Rolle hängt als libpq-Option an der DSN (**am 13.09. am Container gemessen:** `psycopg.connect` und `ConnectionPool` liefern `current_user = bc1_role`) — kein Test-Schalter im Store.
+- [x] **Step 1: Vertrags-Fixture umstellen** (`tests/test_store_postgres.py`) — Store läuft wie im Betrieb als `bc1_role` gegen die eingespielte Tabelle. Die Rolle hängt als libpq-Option an der DSN (**am 13.09. am Container gemessen:** `psycopg.connect` und `ConnectionPool` liefern `current_user = bc1_role`) — kein Test-Schalter im Store.
 
 ```python
 import os
@@ -861,7 +861,7 @@ def test_start_ohne_tabelle_bricht_mit_hinweis_auf_die_einspiel_datei_ab():
         PostgresStateStore(ROLLEN_DSN)
 ```
 
-- [ ] **Step 2: Start-ohne-Tabelle-Test** (`tests/test_postgres_init.py`, anhängen)
+- [x] **Step 2: Start-ohne-Tabelle-Test** (`tests/test_postgres_init.py`, anhängen)
 
 ```python
 class _StubCursorOhneTabelle:
@@ -896,9 +896,9 @@ def test_fehlende_tabelle_meldet_die_einspiel_datei_und_schliesst_den_pool(monke
     assert pools and pools[0].geschlossen
 ```
 
-- [ ] **Step 3: RED messen** — `.venv/bin/pytest tests/test_store_postgres.py tests/test_postgres_init.py -q`. Erwartet: Vertragssuite rot mit `NotNullViolation` bei `company_id` (der alte INSERT kennt die Spalte nicht; `CREATE TABLE IF NOT EXISTS` ist gegen die bestehende Tabelle ein No-op) und der neue Init-Test rot (kein `RuntimeError`, der Stub-Cursor hat kein `rowcount`… → tatsächliche Meldung notieren).
+- [x] **Step 3: RED messen** — `.venv/bin/pytest tests/test_store_postgres.py tests/test_postgres_init.py -q`. Erwartet: Vertragssuite rot mit `NotNullViolation` bei `company_id` (der alte INSERT kennt die Spalte nicht; `CREATE TABLE IF NOT EXISTS` ist gegen die bestehende Tabelle ein No-op) und der neue Init-Test rot (kein `RuntimeError`, der Stub-Cursor hat kein `rowcount`… → tatsächliche Meldung notieren).
 
-- [ ] **Step 4: Store umbauen** (`bc1_service/postgres_store.py`, vollständig):
+- [x] **Step 4: Store umbauen** (`bc1_service/postgres_store.py`, vollständig):
 
 ```python
 """Persistenter StateStore auf PostgreSQL (Supabase-Schema `bc1`).
@@ -987,7 +987,7 @@ class PostgresStateStore(StateStore):
 ```
 Bewusst **nicht** geändert: `company_id` bleibt beim UPDATE unangetastet (der Kern prüft den Mandanten vor jedem Turn, `pruefe_mandant`); kein Python-Guard für `company_id is None` — die Datenbank sagt es (Test Step 1), der Kern setzt es immer.
 
-- [ ] **Step 5: GREEN messen** — `.venv/bin/pytest tests/test_store_postgres.py tests/test_postgres_init.py -q` → 14 + 4 grün (11 Vertrag + 3 neu; 3 Bestand + 1 neu). Der bestehende Test `test_pool_wird_bei_init_fehler_geschlossen` (Stub wirft bei `execute`) bleibt grün. Volle Suite: erwartet **489 passed / 4 skipped**.
+- [x] **Step 5: GREEN messen** — `.venv/bin/pytest tests/test_store_postgres.py tests/test_postgres_init.py -q` → 14 + 4 grün (11 Vertrag + 3 neu; 3 Bestand + 1 neu). Der bestehende Test `test_pool_wird_bei_init_fehler_geschlossen` (Stub wirft bei `execute`) bleibt grün. Volle Suite: erwartet **489 passed / 4 skipped**.
 
 - [x] **Step 6:** Docstring in `tests/db_fixture.py` geprüft (Task 2 hat ihn ersetzt). Commit `feat(bc1): PostgresStateStore legt nichts mehr an — Startpruefung, company_id-Spalte (B1, Task 3)`.
 
@@ -1001,14 +1001,14 @@ Bewusst **nicht** geändert: `company_id` bleibt beim UPDATE unangetastet (der K
 - Modify: `bc1_service/db/EINSPIELEN.md` (Kopf, §2, §4, §7, neuer §10-Platzhalter für den Live-Lauf)
 - Modify: `design/Abschlussplan-BC1.md` (Zeile B1)
 
-- [ ] **Step 1: `EINSPIELEN.md`**
+- [x] **Step 1: `EINSPIELEN.md`**
   - Titel → „`prozessprofil.sql` und `sessions.sql` einspielen — Anleitung und Rechte-Ist-Stand"; „Fünf Sätze": Satz ergänzen: *„Seit B1 gibt es eine zweite Datei `sessions.sql` für die Sitzungstabelle — gleiche Dreifallregel, eigene Signatur, läuft NACH `prozessprofil.sql`."*
   - §2 Einspielen: zweiter Befehl `psql "$BC1_DB_DSN" -v ON_ERROR_STOP=1 -1 -f bc1_service/db/sessions.sql`, Reihenfolge begründet (Mitgliedschafts-Kanten prüft nur die erste Datei).
   - §4 Sollsignatur: Befehl auf `uv run python tests/db/signatur_erzeugen.py <datei>` umstellen; Satz: Platzhalterzeile je Datei, Generator liegt im Repo.
   - §7 Rechte-Matrix: Zeile `bc1.sessions | alles | **nichts** (ausdrückliches REVOKE)`.
   - §9 bleibt (08.09.); neuer **§10 „Zweiter Lauf: `sessions.sql` — <Datum>"** mit Tabelle Vorprüfung/Lauf 1/Lauf 2/Nachprüfung, zunächst mit dem Vermerk *„offen, wird nach dem Live-Lauf gefüllt (Task 6)"* — kein erfundenes Ergebnis.
   - Anhang „Was sie NICHT abdeckt": Satz ergänzen, dass `sessions.sql` `mitglied|` und Funktionen nicht prüft und warum.
-- [ ] **Step 2: `Abschlussplan-BC1.md`**, Zeile B1: Ziel-Spalte ergänzen um *„**Stand 13.09.:** gebaut als eigene Einspiel-Einheit `sessions.sql` (Entscheidung: Dreifallregel kennt nur alles/nichts, live stehen die neun Objekte); Schlüssel `session_id` allein, `company_id` Pflichtspalte mit Kaskade; Store legt nichts mehr an; Suite 489 grün"*; Nächster-Schritt-Spalte: *„Live-Einspielen als Fall 1 (lauf.sh `sessions`), Nachprüfung, EINSPIELEN.md §10"*. Kleinpunkt ergänzen: *„Signatur-Sicht liegt jetzt zweimal (prozessprofil.sql, sessions.sql) — bei einer dritten Einheit in einen Generator ziehen, nicht vorher (YAGNI)."*
+- [x] **Step 2: `Abschlussplan-BC1.md`**, Zeile B1: Ziel-Spalte ergänzen um *„**Stand 13.09.:** gebaut als eigene Einspiel-Einheit `sessions.sql` (Entscheidung: Dreifallregel kennt nur alles/nichts, live stehen die neun Objekte); Schlüssel `session_id` allein, `company_id` Pflichtspalte mit Kaskade; Store legt nichts mehr an; Suite 489 grün"*; Nächster-Schritt-Spalte: *„Live-Einspielen als Fall 1 (lauf.sh `sessions`), Nachprüfung, EINSPIELEN.md §10"*. Kleinpunkt ergänzen: *„Signatur-Sicht liegt jetzt zweimal (prozessprofil.sql, sessions.sql) — bei einer dritten Einheit in einen Generator ziehen, nicht vorher (YAGNI)."*
 - [x] **Step 3:** Commit `docs(bc1): EINSPIELEN.md zweite Einspiel-Einheit, Abschlussplan B1 (B1, Task 4)` — Steps 1–2 ausgeführt 13.09. (§10 bewusst „offen" bis zum Live-Lauf; Sitzungsschlüssel-Entscheidung und zwei Kleinpunkte im Abschlussplan nachgetragen).
 
 ---
@@ -1017,8 +1017,8 @@ Bewusst **nicht** geändert: `company_id` bleibt beim UPDATE unangetastet (der K
 
 Tragweite: Datenmodell + Rechte + Signaturmechanik → Pflicht (CLAUDE.md, Reviews).
 
-- [ ] **Step 1:** Review-Agent (frischer Kontext) mit dem Diff `git diff bc1-db-profil-fundament...HEAD` und dieser Datei; Fragen: (1) Kann `sessions.sql` die alte Datei live in Fall 3 treiben? (2) Gibt es einen Weg, wie `bc_leser`/`bc2_role` an `bc1.sessions` kommt, den die Signatur nicht sieht — insbesondere über die weggelassenen `mitglied|`-Zeilen? (3) Verhält sich der Store bei fehlender Tabelle, fehlender Rolle, fehlendem `company_id` korrekt? (4) Verliert die Kaskade Daten, die bleiben müssten? (5) Ist der Generator-Umbau äquivalent (Regressionsschritt Task 1 Step 6)?
-- [ ] **Step 2:** Findings nach Schwere adjudizieren: Critical/Important nachmessen und fixen (TDD), Minor begründet fixen oder mit Ziel in den Abschlussplan (Kleinpunkte). Jeder Fix: eigener Commit `fix(bc1): …`.
+- [x] **Step 1:** Review-Agent (frischer Kontext) mit dem Diff `git diff bc1-db-profil-fundament...HEAD` und dieser Datei; Fragen: (1) Kann `sessions.sql` die alte Datei live in Fall 3 treiben? (2) Gibt es einen Weg, wie `bc_leser`/`bc2_role` an `bc1.sessions` kommt, den die Signatur nicht sieht — insbesondere über die weggelassenen `mitglied|`-Zeilen? (3) Verhält sich der Store bei fehlender Tabelle, fehlender Rolle, fehlendem `company_id` korrekt? (4) Verliert die Kaskade Daten, die bleiben müssten? (5) Ist der Generator-Umbau äquivalent (Regressionsschritt Task 1 Step 6)?
+- [x] **Step 2:** Findings nach Schwere adjudizieren: Critical/Important nachmessen und fixen (TDD), Minor begründet fixen oder mit Ziel in den Abschlussplan (Kleinpunkte). Jeder Fix: eigener Commit `fix(bc1): …`.
 - [x] **Step 3:** Volle Suite grün — **502 passed / 4 skipped** (13.09., nach allen Fixes).
 
 **Verlauf Task 5 (13.09.):** Der Claude-Review-Agent scheiterte am Sitzungslimit, bevor er las. Zweitmeinung dann über **Codex** (`codex:codex-rescue`, gleiche sechs Fragen). Codex konnte in seiner Sandbox **weder Container noch Suite** erreichen — alle Befunde sind Codeableitungen; **jeder übernommene Befund wurde hier am Container per rotem Test nachgemessen**, bevor er behoben wurde. Adjudikation:
@@ -1044,7 +1044,7 @@ Tragweite: Datenmodell + Rechte + Signaturmechanik → Pflicht (CLAUDE.md, Revie
 
 **Files (git-ignoriert, SDD-Ordner):** `lauf.sh` Modus `sessions`; `einspielen-nachpruefung-sessions.sql`.
 
-- [ ] **Step 1:** `lauf.sh` ergänzen (nach `ein)`):
+- [x] **Step 1:** `lauf.sh` ergänzen (nach `ein)`):
 
 ```bash
   sessions) LOG=$SDD/einspielen-sessions.log
@@ -1055,7 +1055,7 @@ Tragweite: Datenmodell + Rechte + Signaturmechanik → Pflicht (CLAUDE.md, Revie
         } >"$LOG" ;;
 ```
 
-- [ ] **Step 2:** `einspielen-nachpruefung-sessions.sql` anlegen:
+- [x] **Step 2:** `einspielen-nachpruefung-sessions.sql` anlegen:
 
 ```sql
 \echo === A) Tabellen in bc1 + Eigentuemer (Erwartung: 4, sessions gehoert bc1_role, ACL ohne bc_leser) ===
@@ -1071,17 +1071,17 @@ select conname, convalidated from pg_constraint where conrelid = 'bc1.sessions':
 \echo === D) prozessprofil.sql weiterhin Fall 2? (wird durch 'lauf.sh ein' gemessen, LAUF 2 muss 'Fall 2' melden) ===
 ```
 
-- [ ] **Step 3 (Richard):** Reihenfolge: `bash lauf.sh ein` (muss zweimal „Fall 2" melden — alte Datei unbeeinflusst, Vorbedingung) → `bash lauf.sh sessions` (Erwartung Lauf 1: `Fall 1` + `Sollsignatur bestaetigt.`, Lauf 2: `Fall 2`) → `bash lauf.sh sql einspielen-nachpruefung-sessions.sql`. Vorher die Umgebungsrollen-Abfrage aus EINSPIELEN.md §5 laufen lassen, falls seit 12.09. neue Rollen dazukamen (Stand 12.09.: unverändert).
-- [ ] **Step 4 (Claude):** Logs lesen, Ergebnis in `EINSPIELEN.md` §10 eintragen (gemessene NOTICE-Zeilen, Tabelle A–C). Bei Fall 3: Abweichung Zeile für Zeile verstehen, **nie** die Prüfung abschalten; wahrscheinlichste Ursache: neue Rolle in der Supabase → §5-Abfrage.
-- [ ] **Step 5:** Commit `docs(bc1): sessions.sql live eingespielt — Fall 1, Nachpruefung (B1, Task 6)`.
+- [x] **Step 3 (Richard):** Reihenfolge: `bash lauf.sh ein` (muss zweimal „Fall 2" melden — alte Datei unbeeinflusst, Vorbedingung) → `bash lauf.sh sessions` (Erwartung Lauf 1: `Fall 1` + `Sollsignatur bestaetigt.`, Lauf 2: `Fall 2`) → `bash lauf.sh sql einspielen-nachpruefung-sessions.sql`. Vorher die Umgebungsrollen-Abfrage aus EINSPIELEN.md §5 laufen lassen, falls seit 12.09. neue Rollen dazukamen (Stand 12.09.: unverändert).
+- [x] **Step 4 (Claude):** Logs lesen, Ergebnis in `EINSPIELEN.md` §10 eintragen (gemessene NOTICE-Zeilen, Tabelle A–C). Bei Fall 3: Abweichung Zeile für Zeile verstehen, **nie** die Prüfung abschalten; wahrscheinlichste Ursache: neue Rolle in der Supabase → §5-Abfrage.
+- [x] **Step 5:** Commit `docs(bc1): sessions.sql live eingespielt — Fall 1, Nachpruefung (B1, Task 6)`.
 
 ---
 
 ## Task 7: Abschluss
 
-- [ ] **Step 1:** Volle Suite final messen, Zahl in Abschlussplan/EINSPIELEN eintragen.
-- [ ] **Step 2:** Vertraulichkeits-Check vor Push: `git diff bc1-db-profil-fundament...HEAD --stat`; `git grep -n -i -E "passw|secret|supabase\.co|@gmail" -- $(git diff --name-only bc1-db-profil-fundament...HEAD)` → 0 Treffer außer bekannten Variablennamen. Befund Richard vorlegen; **Push nur nach OK**. Ziel-Branch der PR: `bc1-db-profil-fundament` (oder `main`, falls der Merge-Kleinpunkt vorher erledigt ist — Richards Entscheidung).
-- [ ] **Step 3:** `SESSION-HANDOFF.md` (lokal) aktualisieren: B1-Stand, offene Richard-Todos (alte Generator-Kopie löschen, Live-Lauf, Push).
+- [x] **Step 1:** Volle Suite final messen, Zahl in Abschlussplan/EINSPIELEN eintragen.
+- [x] **Step 2:** Vertraulichkeits-Check vor Push: `git diff bc1-db-profil-fundament...HEAD --stat`; `git grep -n -i -E "passw|secret|supabase\.co|@gmail" -- $(git diff --name-only bc1-db-profil-fundament...HEAD)` → 0 Treffer außer bekannten Variablennamen. Befund Richard vorlegen; **Push nur nach OK**. Ziel-Branch der PR: `bc1-db-profil-fundament` (oder `main`, falls der Merge-Kleinpunkt vorher erledigt ist — Richards Entscheidung).
+- [x] **Step 3:** `SESSION-HANDOFF.md` (lokal) aktualisieren: B1-Stand, offene Richard-Todos (alte Generator-Kopie löschen, Live-Lauf, Push).
 
 ---
 
