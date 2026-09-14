@@ -4,6 +4,7 @@ from bc1_core.types import (Ergebnis, FieldStatus, FieldValue, SessionState,
 from bc1_core.package import UseCasePackage
 from bc1_core.store import StateStore
 from bc1_core.llm import LLMClient
+from bc1_core.pii import ersetze_pii
 from bc1_core.extractor import extract_and_merge
 from bc1_core.confidence import confidence_check, ConfidenceResult
 from bc1_core.dialog import GRUND_IDENTITAET_UNGEKLAERT, decide_next
@@ -129,6 +130,11 @@ def process_turn(store: StateStore, llm: LLMClient, package: UseCasePackage,
         # aktives Zurückweisen ist Sache der Transportschicht (P2).
         return state.antworten[state.raw_log[-1][0]]
     else:
+        # PII-Filter VOR dem ersten Speichern (B2): ab hier existiert kein
+        # Original mehr — weder in raw_log noch beim Anbieter. Der
+        # Crash-Resume-Pfad oben liest raw_log, also den gefilterten Text
+        # (gilt für Turns, die unter B2 geloggt wurden).
+        message = ersetze_pii(message)
         # Rohnachricht zuerst sichern (vor jedem LLM-Aufruf).
         state.raw_log.append((message_id, message))
         state.processed_message_ids.add(message_id)
@@ -152,7 +158,9 @@ def process_turn(store: StateStore, llm: LLMClient, package: UseCasePackage,
             kontext = baue_turn_kontext(message, vorher, state, package, conf,
                                         decision.next_field,
                                         decision.ergebnis is Ergebnis.FERTIG)
-            antwortetext = llm.antworte(kontext)
+            # Auch die Anbieter-Antwort wird gefiltert (B2): sie wird gespeichert
+            # und ausgeliefert, und der Anbieter kann Klartext halluzinieren.
+            antwortetext = ersetze_pii(llm.antworte(kontext))
     except Exception:
         # LLM-Aussetzer (Spec B4): fortsetzbar melden. NUR der FEHLER-Marker
         # wird persistiert — auf dem letzten dauerhaften Stand, nicht auf dem

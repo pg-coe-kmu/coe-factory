@@ -311,3 +311,14 @@ def test_zahl_zwei_verschiedene_perioden_werden_nicht_still_geraten():
     # Dieselbe Periode zweimal ist keine Mehrdeutigkeit (Policy: DISTINCT
     # Perioden > 1 lehnt ab, Wiederholung derselben Periode nicht).
     assert ZAHL.normalisiere("5 pro Woche pro Woche") == "260"
+
+
+# --- B2 PII-Filter: Platzhalter passieren die Normalisierer ------------------
+
+def test_pii_platzhalter_passieren_text_und_listenfelder_unveraendert():
+    assert FREITEXT.normalisiere("[Person A]") == "[Person A]"
+    assert LISTE.normalisiere("[Person A], [Person B]") == "[Person A], [Person B]"
+    assert ZAHL.normalisiere("[Telefon A]") == "[Telefon A]"
+    assert JA_NEIN.normalisiere("[Person A]") == "[Person A]"
+    # In Zahlenfeldern gewinnt die Zahl — gewollt (Konzept T3, Review M3).
+    assert ZAHL.normalisiere("30 pro Monat [Person A]") == "360"

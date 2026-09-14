@@ -2,6 +2,7 @@ from __future__ import annotations
 from bc1_core.types import Candidate, FieldStatus, FieldValue, SessionState
 from bc1_core.package import UseCasePackage, FieldSpec
 from bc1_core.llm import LLMClient
+from bc1_core.pii import ersetze_pii
 
 def status_fuer(spec: FieldSpec, value: str) -> FieldStatus:
     # Policy: ein werfender Validator macht den Wert UNGUELTIG, bricht aber
@@ -27,7 +28,9 @@ def extract_and_merge(state: SessionState, message: str, message_id: str,
             continue
         # Normalisierung VOR dem Merge: Vergleiche, Klärung und Kandidaten
         # arbeiten auf dem normalisierten Wert; gespeichert wird er auch.
-        wert = spec.typ.normalisiere(cand.value)
+        # Davor der PII-Filter (B2): der Anbieter sah nur Platzhalter, kann aber
+        # Klartext halluzinieren oder echoen — auch der darf nicht in den State.
+        wert = spec.typ.normalisiere(ersetze_pii(cand.value))
         fv = state.values.get(cand.field_name)
         if fv is None or fv.value is None:
             state.values[cand.field_name] = FieldValue(

@@ -66,3 +66,11 @@ def test_entfernung_behandelt_semikolon_als_trenner_gleichwertig_zum_komma():
     # Fix-Runde 1: Semikolon war als ERSTER Trenner der Konsolidierungsregel nicht
     # gleichwertig zum Komma behandelt — doppelter Trenner blieb stehen.
     assert entferne_snn("SAP; S-01; DATEV", ["S-01"]) == "SAP; DATEV"
+
+
+def test_pii_platzhalter_bleibt_im_systemfeld_stehen():
+    typ = baue_system_typ(frozenset({"S-01"}))
+    assert typ.normalisiere("S-01, [Person A]") == "S-01, [Person A]"
+    # Freitext ohne S-NN-Kennung ist im Systemfeld erlaubt (Review I5) — die
+    # Bewertung "Platzhalter als Wert" ist im Konzept ausdrücklich vertagt.
+    assert typ.validator("[Person A]") is True
