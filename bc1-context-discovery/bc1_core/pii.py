@@ -27,10 +27,12 @@ _IBAN_LAENGE = {"AT": 20, "BE": 16, "CH": 21, "CZ": 24, "DE": 22, "DK": 18, "ES"
 # Leerzeichen zwischen den Gruppen: normal oder geschützt (U+00A0, beim Einfügen aus
 # Dokumenten), beliebig viele. Eine Gruppe, die selbst wie ein IBAN-Anfang aussieht
 # (Ländercode + Prüfziffern), beendet die IBAN — sonst frisst sie die nächste.
+_LEER = "[ " + chr(160) + "]"   # chr(160) statt Zeichen im Quelltext (Editor-Normalisierung)
 _IBAN = re.compile(
     r"\b(?:" + "|".join(_IBAN_LAENGE) + r")\d{2}"
-    r"(?:[  ]*(?![a-z]{2}\d{2}(?:[  ]|$))[a-z0-9]{4}){2,7}"
-    r"(?:[  ]*(?![a-z]{2}\d{2}(?:[  ]|$))[a-z0-9]{1,4})?\b", re.IGNORECASE)
+    r"(?:" + _LEER + r"*(?![a-z]{2}\d{2}(?:" + _LEER + r"|$))[a-z0-9]{4}){2,7}"
+    r"(?:" + _LEER + r"*(?![a-z]{2}\d{2}(?:" + _LEER + r"|$))[a-z0-9]{1,4})?\b",
+    re.IGNORECASE)
 
 # Reihenfolge = Anwendungsreihenfolge: spezifisch vor allgemein.
 _MUSTER: tuple[tuple[str, re.Pattern[str]], ...] = (

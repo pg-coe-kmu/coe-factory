@@ -117,9 +117,24 @@ def test_leer_und_beliebiger_text_ohne_ausnahme():
 
 # --- Zweitmeinung 2 (Codex, Code-Review 14.09.) ------------------------------
 
+def test_geschuetztes_leerzeichen_in_iban_per_chr160():
+    # Review 2, Important 8: das Zeichen steht NICHT im Quelltext (chr(160)),
+    # damit eine stille Editor-Normalisierung im Modul hier sofort rot wird.
+    geschuetzt = chr(160).join(["DE89", "3704", "0044", "0532", "0130", "00"])
+    assert ersetze_pii(geschuetzt) == "[IBAN A]"
+    assert ersetze_pii("Konto " + geschuetzt + " nutzen") == "Konto [IBAN A] nutzen"
+
 def test_zwei_ibans_nebeneinander_werden_beide_im_ersten_lauf_ersetzt():
     # Review 2, Critical 1: der Regex lief in die zweite IBAN hinein, die
     # Soll-Laengen-Kuerzung gab den Rest ungeprueft zurueck (nur beim ZWEITEN
     # Aufruf ersetzt = Idempotenz verletzt).
     text = "AT61 1904 3002 3457 3201 GB82 WEST 1234 5698 7654 32"
     assert ersetze_pii(text) == "[IBAN A] [IBAN B]"
+
+
+def test_iban_nur_bekannte_laender_beliebige_und_geschuetzte_leerzeichen():
+    # Review 2, Important 4 + 8. Das geschuetzte Leerzeichen kommt hier als
+    # Escape, damit eine stille Editor-Normalisierung im Modul sofort rot wird.
+    assert ersetze_pii("Ticket AB12 3456 7890 wurde heute bearbeitet.") == "Ticket AB12 3456 7890 wurde heute bearbeitet."
+    assert ersetze_pii("DE89  3704  0044  0532  0130  00") == "[IBAN A]"
+    assert ersetze_pii("DE89 3704 0044 0532 0130 00") == "[IBAN A]"
