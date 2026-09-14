@@ -7,3 +7,8 @@ from bc1_core.pii import ersetze_pii
 def test_email_wird_platzhalter():
     assert (ersetze_pii("Rückfragen an erika.musterfrau@example.org bitte.")
             == "Rückfragen an [E-Mail A] bitte.")
+
+
+def test_kennungen_je_wert_gleicher_wert_gleiche_kennung():
+    assert (ersetze_pii("Kontakt max@example.org, info@example.org, Max@example.org")
+            == "Kontakt [E-Mail A], [E-Mail B], [E-Mail A]")
