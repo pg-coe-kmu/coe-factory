@@ -124,6 +124,13 @@ def test_geschuetztes_leerzeichen_in_iban_per_chr160():
     assert ersetze_pii(geschuetzt) == "[IBAN A]"
     assert ersetze_pii("Konto " + geschuetzt + " nutzen") == "Konto [IBAN A] nutzen"
 
+
+def test_email_mit_unicode_oder_punycode_endung():
+    # Review 2, Important 5
+    assert ersetze_pii("Rückfragen an muster@example.рф.") == "Rückfragen an [E-Mail A]."
+    assert ersetze_pii("muster@example.xn--p1ai") == "[E-Mail A]"
+    assert ersetze_pii("muster@büro.example.org") == "[E-Mail A]"
+
 def test_zwei_ibans_nebeneinander_werden_beide_im_ersten_lauf_ersetzt():
     # Review 2, Critical 1: der Regex lief in die zweite IBAN hinein, die
     # Soll-Laengen-Kuerzung gab den Rest ungeprueft zurueck (nur beim ZWEITEN

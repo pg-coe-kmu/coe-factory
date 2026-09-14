@@ -36,7 +36,8 @@ _IBAN = re.compile(
 
 # Reihenfolge = Anwendungsreihenfolge: spezifisch vor allgemein.
 _MUSTER: tuple[tuple[str, re.Pattern[str]], ...] = (
-    ("E-Mail", re.compile(r"\b[\w.%+-]+@[\w.-]+\.[A-Za-z]{2,}\b")),
+    # Endung: Buchstaben jeder Schrift (\w ist Unicode) oder Punycode ("xn--p1ai").
+    ("E-Mail", re.compile(r"\b[\w.%+-]+@[\w.-]+\.(?:xn--[\w-]+|[^\W\d_]{2,})\b")),
     ("IBAN", _IBAN),
     ("Telefon", re.compile(r"(?<![\d,.])(?:\+\d{1,3}(?:[ /-]*\(0\))?|\b0)[ /-]*\d"
                            r"(?:[ /-]{0,3}\d){6,13}\b(?![:.]\d)")),
