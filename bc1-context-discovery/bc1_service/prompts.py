@@ -28,11 +28,17 @@ EXTRAKTIONS_SCHEMA = {
     "additionalProperties": False,
 }
 
+PII_HINWEIS = (
+    " Ausdrücke in eckigen Klammern wie [Person A], [E-Mail A] oder "
+    "[Telefon A] sind Platzhalter für entfernte personenbezogene Angaben: "
+    "übernimm sie wörtlich, löse sie nie auf und rate nicht, wer gemeint ist."
+)
+
 SYSTEM_EXTRAKTION = (
     "Du extrahierst Fakten aus einer Interview-Antwort für ein Prozessprofil. "
     "Extrahiere NUR, was die Nachricht wirklich belegt — nichts erfinden, "
     "nichts aus Vorwissen ergänzen. Werte wörtlich bzw. minimal normalisiert."
-)
+) + PII_HINWEIS
 
 SYSTEM_GESPRAECH = (
     "Du führst ein freundliches, professionelles Prozess-Interview auf "
@@ -48,7 +54,7 @@ SYSTEM_GESPRAECH = (
     "Zug. Antworte kompakt "
     "(2–4 Sätze plus Frage), ohne Meta-Kommentare. Beim Abschluss: 3–5 "
     "Sätze, OHNE Frage."
-)
+) + PII_HINWEIS
 
 
 def gespraech_nutzer_prompt(kontext: TurnKontext) -> str:

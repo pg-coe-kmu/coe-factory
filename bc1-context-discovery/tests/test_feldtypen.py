@@ -171,6 +171,27 @@ def test_totalitaet_gilt_auch_fuer_riesenzahl_mit_periode():
     assert ZAHL.normalisiere(riesenzahl + " pro Woche") == riesenzahl + " pro Woche"
 
 
+def test_zahl_und_minuten_lehnen_reine_riesenzahl_ohne_periode_ab():
+    # K-J (Task-11-Review, gemessen): Die bestehenden Ueberlauftests tragen ein
+    # Periodenwort ("pro Woche", "Stunden") — daran scheitert schon _nur_zahl.
+    # Eine REINE Ziffernfolge jenseits des float-Bereichs passiert dagegen das
+    # Muster, und inf >= 0 ist wahr: der Wert gilt als gueltig, wird vom
+    # Normalisierer (zu Recht, Total-Vertrag) unveraendert durchgereicht, und
+    # Decimal() scheitert am stehengebliebenen Komma. Folge im Betrieb:
+    # ProfilWriteError -> 503 in JEDEM Turn, die Sitzung haengt dauerhaft.
+    ueberlauf = "9" * 309 + ",25"
+    assert ZAHL.validator(ueberlauf) is False
+    assert MINUTEN.validator(ueberlauf) is False
+
+
+def test_zahl_lehnt_ziffernfolge_jenseits_der_spaltenkapazitaet_ab():
+    # Zweite gemessene K-J-Variante: diese Zahl IST konvertierbar (Decimal kann
+    # sie), aber die numeric-Spalte lehnt sie ab (131072 Vorkommastellen).
+    # Sie faellt heute schon durch die Endlichkeitspruefung — der Test haelt
+    # fest, dass "gueltig" auch "speicherbar" bedeutet.
+    assert ZAHL.validator("1" * 140000) is False
+
+
 def test_zahl_periode_nur_mit_wortgrenze_erkannt():
     # Codex I4: "woche" als Teilstring in "Wochenende" darf NICHT als Periode
     # zählen — nur mit Wortgrenze (\b) matchen.
@@ -290,3 +311,14 @@ def test_zahl_zwei_verschiedene_perioden_werden_nicht_still_geraten():
     # Dieselbe Periode zweimal ist keine Mehrdeutigkeit (Policy: DISTINCT
     # Perioden > 1 lehnt ab, Wiederholung derselben Periode nicht).
     assert ZAHL.normalisiere("5 pro Woche pro Woche") == "260"
+
+
+# --- B2 PII-Filter: Platzhalter passieren die Normalisierer ------------------
+
+def test_pii_platzhalter_passieren_text_und_listenfelder_unveraendert():
+    assert FREITEXT.normalisiere("[Person A]") == "[Person A]"
+    assert LISTE.normalisiere("[Person A], [Person B]") == "[Person A], [Person B]"
+    assert ZAHL.normalisiere("[Telefon A]") == "[Telefon A]"
+    assert JA_NEIN.normalisiere("[Person A]") == "[Person A]"
+    # In Zahlenfeldern gewinnt die Zahl — gewollt (Konzept T3, Review M3).
+    assert ZAHL.normalisiere("30 pro Monat [Person A]") == "360"

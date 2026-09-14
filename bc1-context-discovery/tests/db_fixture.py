@@ -1,0 +1,207 @@
+"""Fixture-Helfer für alle DB-Tests: BC0-Gerüst + unsere DDL + zwei Mandanten.
+
+Zwei Mandanten sind Pflicht (Spec R5-I5): BC0-IDs wie 'KP-01.TP-1' oder 'S-01'
+wiederholen sich über Mandanten hinweg — ein vergessener company_id-Filter fällt
+nur mit einem zweiten Mandanten auf.
+"""
+from __future__ import annotations
+
+import os
+from contextlib import contextmanager
+from pathlib import Path
+
+import psycopg
+from psycopg.conninfo import conninfo_to_dict
+
+DSN = os.environ.get("BC1_TEST_DB_DSN")
+
+MANDANT_A = "11111111-1111-1111-1111-111111111111"
+MANDANT_B = "22222222-2222-2222-2222-222222222222"
+
+_GERUEST = Path(__file__).parent / "db" / "bc0_geruest.sql"
+_DDL = Path(__file__).parents[1] / "bc1_service" / "db" / "prozessprofil.sql"
+_DDL_SESSIONS = Path(__file__).parents[1] / "bc1_service" / "db" / "sessions.sql"
+
+
+_LOKALE_HOSTS = {"localhost", "127.0.0.1", "::1"}
+
+
+def pruefe_lokal(dsn: str) -> None:
+    """Bricht ab, wenn die DSN nicht auf eine lokale Datenbank zeigt.
+
+    frische_db() droppt public und bc1 — gegen eine falsch gesetzte DSN (Supabase!)
+    waere das die Produktionsdatenbank. Geprueft wird VOR der ersten Verbindung;
+    ohne Host (Unix-Socket) gilt die Verbindung als lokal.
+    """
+    host = conninfo_to_dict(dsn).get("host")
+    if host and host not in _LOKALE_HOSTS:
+        raise RuntimeError(
+            f"frische_db wischt die Datenbank und laeuft deshalb nur lokal "
+            f"({', '.join(sorted(_LOKALE_HOSTS))}), nicht gegen Host {host!r}.")
+
+
+def frische_db(dsn: str, *, mit_ddl: bool = True) -> None:
+    """Setzt public + bc1 zurueck, baut das Geruest, spielt (optional) BEIDE DDL-Dateien ein.
+
+    Reihenfolge wie im Betrieb (EINSPIELEN.md): erst prozessprofil.sql, dann sessions.sql,
+    jede als bc1_role in einer eigenen Transaktion. bc1.sessions entsteht damit NUR hier —
+    der PostgresStateStore legt seit B1 nichts mehr an.
+    """
+    pruefe_lokal(dsn)
+    with psycopg.connect(dsn, autocommit=True) as conn:
+        conn.execute("DROP SCHEMA IF EXISTS bc1 CASCADE")
+        conn.execute("DROP SCHEMA IF EXISTS public CASCADE")
+        conn.execute("CREATE SCHEMA public")
+        conn.execute(_GERUEST.read_text(encoding="utf-8"))
+        _testdaten(conn)
+    if mit_ddl:
+        spiele_ddl_ein(dsn)
+        spiele_sessions_ein(dsn)
+
+
+def spiele_datei_ein(dsn: str, pfad: Path) -> None:
+    """Spielt EINE Einspiel-Datei genau wie im Betrieb ein: EINE Transaktion, als bc1_role."""
+    with psycopg.connect(dsn) as conn:          # autocommit=False => eine Transaktion
+        conn.execute("SET ROLE bc1_role")
+        conn.execute(pfad.read_text(encoding="utf-8"))
+        conn.commit()
+
+
+def spiele_ddl_ein(dsn: str) -> None:
+    """prozessprofil.sql — Name bleibt, viele Aufrufer meinen genau diese Datei."""
+    spiele_datei_ein(dsn, _DDL)
+
+
+def spiele_sessions_ein(dsn: str) -> None:
+    """sessions.sql — zweite Einspiel-Einheit (B1)."""
+    spiele_datei_ein(dsn, _DDL_SESSIONS)
+
+
+@contextmanager
+def verbindung(dsn: str, rolle: str | None = "bc1_role"):
+    """Verbindung mit optionalem SET ROLE (None = postgres/Superuser)."""
+    with psycopg.connect(dsn) as conn:
+        if rolle:
+            conn.execute(f"SET ROLE {rolle}")
+        yield conn
+
+
+def _testdaten(conn) -> None:
+    for mandant, kuerzel in ((MANDANT_A, "A"), (MANDANT_B, "B")):
+        conn.execute("INSERT INTO companies (company_id, name) VALUES (%s, %s)",
+                     (mandant, f"Demo {kuerzel}"))
+        conn.execute(
+            "INSERT INTO ref_prozesse (company_id, process_id, process_name, kategorie) "
+            "VALUES (%s, 'KP-01', %s, 'Kerngeschäftsprozess'), "
+            "       (%s, 'KP-02', %s, 'Unterstützungsprozess')",
+            (mandant, f"Auftrag {kuerzel}", mandant, f"Einkauf {kuerzel}"))
+        # Namen bewusst mandantenspezifisch: gleiche IDs, verschiedene Inhalte —
+        # nur so faellt ein fehlender company_id-Filter im Test auf.
+        conn.execute(
+            "INSERT INTO ref_teilprozesse "
+            "(company_id, sub_process_id, process_id, step_no, sub_process_name) VALUES "
+            "(%s, 'KP-01.TP-1', 'KP-01', 1, %s), "
+            "(%s, 'KP-01.TP-2', 'KP-01', 2, %s), "
+            "(%s, 'KP-01.TP-3', 'KP-01', 3, %s), "
+            "(%s, 'KP-02.TP-1', 'KP-02', 1, %s)",
+            (mandant, f"Erfassen {kuerzel}", mandant, f"Pruefen {kuerzel}",
+             mandant, f"Archivieren {kuerzel}", mandant, f"Bestellen {kuerzel}"))
+        conn.execute(
+            "INSERT INTO mandant_rollen (company_id, rolle_id, bezeichnung, klasse) "
+            "VALUES (%s, 'R-01', 'Sachbearbeitung', 'K2')", (mandant,))
+    # Nur bei Mandant B: damit lassen sich Verbund-FK und Mandantenfilter gezielt
+    # verletzen — eine ID, die es beim anderen Mandanten NICHT gibt.
+    conn.execute(
+        "INSERT INTO ref_prozesse (company_id, process_id, process_name, kategorie) "
+        "VALUES (%s, 'KP-03', 'Nur bei B', 'Steuerungsprozess')", (MANDANT_B,))
+    conn.execute(
+        "INSERT INTO ref_teilprozesse "
+        "(company_id, sub_process_id, process_id, step_no, sub_process_name) "
+        "VALUES (%s, 'KP-02.TP-2', 'KP-02', 2, 'Nur bei B')", (MANDANT_B,))
+    # Systeme: S-01 gibt es in BEIDEN Mandanten (verschiedene Bedeutung),
+    # S-02 nur in A, S-03 nur in B — genau der Fall, den ein fehlender Filter frisst.
+    conn.execute("INSERT INTO mandant_systeme (company_id, system_id, bezeichnung) "
+                 "VALUES (%s, 'S-01', 'SAP A'), (%s, 'S-02', 'DATEV A')",
+                 (MANDANT_A, MANDANT_A))
+    conn.execute("INSERT INTO mandant_systeme (company_id, system_id, bezeichnung) "
+                 "VALUES (%s, 'S-01', 'Navision B'), (%s, 'S-03', 'Lexware B')",
+                 (MANDANT_B, MANDANT_B))
+    conn.execute(
+        "INSERT INTO ref_items (item_nr, dimension, kriterium, frage) VALUES "
+        "(1, '1) Technologie', 'Systemunterstuetzung', 'Wie digital laeuft der Schritt?'), "
+        "(2, '2) Daten', 'Datenqualitaet', 'Wie strukturiert liegen die Daten vor?')")
+    conn.execute(
+        "INSERT INTO ref_erhebungen (company_id, erhebung_id, bezeichnung, stand, status) "
+        "VALUES (%s, 'E-2026-01', 'Erst', '2026-01-15', 'abgeschlossen'), "
+        "       (%s, 'E-2026-02', 'Nach',  '2026-06-01', 'abgeschlossen'), "
+        "       (%s, 'E-2026-03', 'Verworfen', '2026-07-01', 'verworfen'), "
+        # E-2026-04 ist OFFEN und hat den juengsten Stand: die Sicht schliesst nur
+        # 'verworfen' aus, eine laufende Erhebung gilt also als aktuell. Ohne diese
+        # Zeile besteht eine Implementierung mit "AND e.status = 'abgeschlossen'"
+        # alle Erhebungs-Tests (Codex-Review Task 13).
+        "       (%s, 'E-2026-04', 'Offen', '2026-09-01', 'offen'), "
+        # E-2026-05 hat die GROESSTE ID und den KLEINSTEN Stand — die einzige Stelle,
+        # an der ID-Reihenfolge und Stand-Reihenfolge auseinanderfallen. Ohne sie
+        # besteht eine Implementierung, die nur nach erhebung_id sortiert (und damit
+        # den ref_erhebungen-JOIN ganz weglaesst), alle Erhebungs-Tests (Review Task 13).
+        "       (%s, 'E-2026-05', 'Nachgereicht', '2025-11-01', 'abgeschlossen')",
+        (MANDANT_A, MANDANT_A, MANDANT_A, MANDANT_A, MANDANT_A))
+    conn.execute(
+        "INSERT INTO ref_erhebungen (company_id, erhebung_id, bezeichnung, stand, status) "
+        "VALUES (%s, 'E-2026-09', 'B-Erhebung', '2026-03-01', 'abgeschlossen'), "
+        "       (%s, 'E-2026-10', 'B-Gleichstand', '2026-03-01', 'abgeschlossen'), "
+        # Dieselbe Erhebungs-ID wie bei A, aber mit spaeterem Stand und OHNE eigene
+        # Bewertungen: die Kollisionsfalle fuer den Verbund-JOIN. Faellt company_id
+        # aus der JOIN-Bedingung, entscheidet Bs Stand ueber As Auswahl (Spec R5-I5).
+        "       (%s, 'E-2026-01', 'B-Kollision', '2026-12-01', 'abgeschlossen')",
+        (MANDANT_B, MANDANT_B, MANDANT_B))
+    # A: KP-01.TP-1 wurde in E-2026-01 bewertet und in E-2026-02 teilweise nacherhoben
+    # (genau die 1.2-Logik: je Item die juengste nicht verworfene Erhebung).
+    # id folgt BC0s Muster '^KP-\d{2}\.TP-\d+\.I-\d{2}$'; beleg ist Pflicht.
+    # A: Item 1 wurde in E-2026-02 nacherhoben, Item 2 steht noch auf E-2026-01 —
+    # genau die 1.2-Logik "je Einzelbewertung die juengste nicht verworfene".
+    conn.execute(
+        "INSERT INTO bitkom_bewertungen "
+        "(company_id, erhebung_id, id, sub_process_id, item_nr, stufe, beleg, "
+        " bewertet_am) VALUES "
+        "(%s, 'E-2026-01', 'KP-01.TP-1.I-01', 'KP-01.TP-1', 1, 2, 'Erstaufnahme', "
+        " '2026-01-15'), "
+        "(%s, 'E-2026-01', 'KP-01.TP-1.I-02', 'KP-01.TP-1', 2, 3, 'Erstaufnahme', "
+        " '2026-01-15'), "
+        "(%s, 'E-2026-02', 'KP-01.TP-2.I-01', 'KP-01.TP-2', 1, 3, 'Nacherhebung TP-2', "
+        " '2026-06-01'), "
+        "(%s, 'E-2026-01', 'KP-02.TP-1.I-01', 'KP-02.TP-1', 1, 2, 'Erstaufnahme TP', "
+        " '2026-01-15'), "
+        "(%s, 'E-2026-03', 'KP-01.TP-3.I-01', 'KP-01.TP-3', 1, 1, 'nur in verworfener Erhebung', "
+        " '2026-07-01'), "
+        # KP-01.TP-2 bekommt sein zweites Item in der OFFENEN E-2026-04 (juengster
+        # Stand) — damit gewinnt fuer diesen Teilprozess eine laufende Erhebung.
+        "(%s, 'E-2026-04', 'KP-01.TP-2.I-02', 'KP-01.TP-2', 2, 2, 'laufende Erhebung', "
+        " '2026-09-01'), "
+        # KP-02.TP-1 bekommt sein zweites Item in E-2026-05: groessere ID, aelterer
+        # Stand. Massgeblich bleibt E-2026-01 — Stand schlaegt ID.
+        "(%s, 'E-2026-05', 'KP-02.TP-1.I-02', 'KP-02.TP-1', 2, 1, 'nachgereicht, alter Stand', "
+        " '2025-11-01')",
+        (MANDANT_A, MANDANT_A, MANDANT_A, MANDANT_A, MANDANT_A, MANDANT_A, MANDANT_A))
+    conn.execute(
+        "UPDATE bitkom_bewertungen SET erhebung_id = 'E-2026-02', "
+        "       stufe = 4, beleg = 'Nacherhebung', bewertet_am = '2026-06-01' "
+        " WHERE company_id = %s AND id = 'KP-01.TP-1.I-01'", (MANDANT_A,))
+    # Korrektur INNERHALB der alten Erhebung — genau das tut BC0s save_rating per
+    # ON CONFLICT (bewertet_am = excluded.bewertet_am). Danach hat E-2026-01 den
+    # juengsten Schreibzeitpunkt, E-2026-02 aber den juengsten Erhebungs-STAND.
+    # Task 13 muss E-2026-02 liefern (Rev. 11).
+    conn.execute(
+        "UPDATE bitkom_bewertungen SET bewertet_am = '2026-08-01', "
+        "       beleg = 'Korrektur in der alten Erhebung' "
+        " WHERE company_id = %s AND id = 'KP-01.TP-1.I-02'", (MANDANT_A,))
+    # B: gleicher Teilprozess-Schluessel, andere Erhebung — Kollisionsfalle.
+    # E-2026-09 und E-2026-10 haben denselben Stand: Tie-Breaker fuer Task 13
+    # (erhebung_id DESC -> E-2026-10 gewinnt). bewertet_am bleibt hier bewusst
+    # Default now().
+    conn.execute(
+        "INSERT INTO bitkom_bewertungen "
+        "(company_id, erhebung_id, id, sub_process_id, item_nr, stufe, beleg) VALUES "
+        "(%s, 'E-2026-09', 'KP-01.TP-1.I-01', 'KP-01.TP-1', 1, 5, 'B-Aufnahme'), "
+        "(%s, 'E-2026-10', 'KP-01.TP-1.I-02', 'KP-01.TP-1', 2, 4, 'B-Gleichstand')",
+        (MANDANT_B, MANDANT_B))

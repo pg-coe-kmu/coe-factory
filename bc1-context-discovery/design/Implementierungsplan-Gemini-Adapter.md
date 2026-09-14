@@ -26,7 +26,7 @@ Stubs (kein Netz) · Echt-Stichprobe hinter Flag.
 - **TDD.** pytest IMMER aus `bc1-context-discovery/` und IMMER mit Test-DB:
   `BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" .venv/bin/pytest`
   (Container `bc1-test-pg` auf Port 55432; falls er nicht läuft:
-  `docker run -d --rm --name bc1-test-pg -e POSTGRES_PASSWORD=test -p 55432:5432 postgres:16`).
+  `docker run -d --rm --name bc1-test-pg -e POSTGRES_PASSWORD=test -p 55432:5432 postgres:17`).
 - **Suite-Basis: 220 passed, 2 skipped, 0 Warnings.** Expected-Zahlen sind Momentaufnahmen —
   reale Zahlen laufen lassen und berichten, Abweichungen explizit.
 - **SDK-Fakten (am Quelltext google-genai 2.17.0 verifiziert — Feasibility-Gate 11.08.,

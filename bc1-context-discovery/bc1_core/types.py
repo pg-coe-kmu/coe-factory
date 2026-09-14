@@ -14,6 +14,21 @@ class SessionStatus(str, Enum):
     WARTET = "wartet_auf_antwort"
     FERTIG = "fertig"
     FEHLER = "fehler_fortsetzbar"
+    # Definiertes Ende, wenn die Prozess-Identitaet ungeklaert bleibt (Spec K0).
+    # Terminal wie FERTIG — aber ohne Profil und ohne 503.
+    ABGEBROCHEN_OHNE_IDENTITAET = "abgebrochen_ohne_identitaet"
+
+
+# Zustaende, aus denen es keinen Weg zurueck gibt. Replay-Weiche (core) und
+# Terminal-Gate (api) pruefen BEIDE, nie nur FERTIG.
+TERMINALE_STATUS = (SessionStatus.FERTIG, SessionStatus.ABGEBROCHEN_OHNE_IDENTITAET)
+
+
+class Ergebnis(str, Enum):
+    """Ausgang eines Turns. Ersetzt das frühere Decision.done (nur zwei Ausgänge)."""
+    WEITER = "weiter"
+    FERTIG = "fertig"
+    ABGEBROCHEN_OHNE_IDENTITAET = "abgebrochen_ohne_identitaet"
 
 # Design-Spec B2/B4: jeder Kandidat behält seine Quelle (message_id).
 @dataclass(frozen=True)
@@ -38,6 +53,10 @@ class SessionState:
     # Paket-Bindung der Session (None nur in direkt konstruierten Test-States;
     # process_turn setzt und prüft den Namen — Version allein ist nicht eindeutig).
     paket_name: str | None = None
+    # Mandanten-Bindung der Session (Spec K3, R11-C1). Wird beim ersten Turn
+    # gesetzt und danach bei JEDEM Turn geprueft — der Paket-Fingerprint taugt
+    # dafuer nicht, weil der Recovery-Replay ihn passieren darf.
+    company_id: str | None = None
     status: SessionStatus = SessionStatus.AKTIV
     version: int = 0
     rounds: int = 0

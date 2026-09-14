@@ -99,3 +99,15 @@ def test_unbekannter_statuswert_wird_abgelehnt():
     daten["status"] = "kaputt"
     with pytest.raises(ValueError):
         state_from_dict(daten)
+
+
+def test_company_id_ueberlebt_den_roundtrip():
+    st = _voller_state()
+    st.company_id = "11111111-1111-1111-1111-111111111111"
+    assert state_from_dict(state_to_dict(st)).company_id == st.company_id
+
+
+def test_alt_session_ohne_company_id_laedt_unveraendert():
+    daten = state_to_dict(_voller_state())
+    del daten["company_id"]                     # Stand vor dieser Aenderung
+    assert state_from_dict(daten).company_id is None

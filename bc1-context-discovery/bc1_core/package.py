@@ -11,6 +11,9 @@ class FieldSpec:
     required: bool = True
     validator: Callable[[str], bool] | None = None
     typ: Feldtyp = FREITEXT
+    # Ohne gueltigen Wert gibt es kein Profil und keinen Abschluss (Spec K0).
+    # Generisch: Pakete ohne solches Feld verhalten sich unveraendert.
+    identitaetskritisch: bool = False
 
 @dataclass(frozen=True)
 class UseCasePackage:
@@ -26,6 +29,16 @@ class UseCasePackage:
         doppelte = sorted({n for n in namen if namen.count(n) > 1})
         if doppelte:
             raise ValueError(f"Doppelte Feldnamen im Use-Case-Paket: {doppelte}")
+
+        # identitaetskritisch wirkt nur ueber required_fields() (dialog.py) —
+        # auf einem optionalen Feld waere die Flagge ein stiller No-op: kein
+        # Fail-safe, kein Abbruch, die Session liefe ins Runden-Limit ohne
+        # geklaerte Identitaet. Also die widerspruechliche Kombination hier
+        # ablehnen statt sie still durchgehen zu lassen.
+        falsch = [f.name for f in self.fields
+                  if f.identitaetskritisch and not f.required]
+        if falsch:
+            raise ValueError(f"identitaetskritisch verlangt required=True: {falsch}")
 
     def required_fields(self) -> list[FieldSpec]:
         return [f for f in self.fields if f.required]

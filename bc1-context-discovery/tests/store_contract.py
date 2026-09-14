@@ -29,6 +29,7 @@ def _fetter_state(session_id: str = "s1") -> SessionState:
         schema_version="0.1",
         paket_name="toy_prozess",
         status=SessionStatus.WARTET,
+        company_id="11111111-1111-1111-1111-111111111111",
         rounds=2,
         processed_message_ids={"m0", "m1"},
         raw_log=[("m0", "erste Nachricht"), ("m1", "zweite Nachricht")],
@@ -46,6 +47,14 @@ def _fetter_state(session_id: str = "s1") -> SessionState:
     return st
 
 
+def _leerer_state(session_id: str = "s1") -> SessionState:
+    # Leerer Zustand, aber mandantengebunden — so entsteht er im Kern (process_turn
+    # setzt company_id beim ersten Turn); der Postgres-Store haelt die Bindung als
+    # Pflichtspalte fest, ein Zustand ohne Mandant ist dort keine gueltige Zeile.
+    return SessionState(session_id, "0.1",
+                        company_id="11111111-1111-1111-1111-111111111111")
+
+
 class StoreVertrag:
     def test_load_unbekannter_session_gibt_none(self, store):
         assert store.load("gibt-es-nicht") is None
@@ -58,7 +67,7 @@ class StoreVertrag:
         assert geladen.version == 1
 
     def test_save_bumpt_caller_version_um_genau_eins(self, store):
-        st = SessionState("s1", "0.1")
+        st = _leerer_state()
         store.save(st)
         assert st.version == 1
         store.save(st)  # ohne Neuladen weiterspeichern muss funktionieren
@@ -71,7 +80,7 @@ class StoreVertrag:
         assert st.version == 3  # Fehlerpfad mutiert den Caller nicht
 
     def test_stale_write_wird_abgelehnt(self, store):
-        st = SessionState("s1", "0.1")
+        st = _leerer_state()
         store.save(st)              # gespeichert: Version 1
         veraltet = store.load("s1")
         store.save(st)              # gespeichert: Version 2
@@ -79,7 +88,7 @@ class StoreVertrag:
             store.save(veraltet)    # Version 1 gegen gespeicherte 2
 
     def test_vorauseilende_version_wird_abgelehnt(self, store):
-        st = SessionState("s1", "0.1")
+        st = _leerer_state()
         store.save(st)
         voraus = store.load("s1")
         voraus.version = 99
@@ -152,3 +161,36 @@ class StoreVertrag:
             assert len(erfolge) == 1, f"Runde {runde}: {len(erfolge)} Gewinner"
             assert len(fehler) == n - 1
             assert store.load(sid).version == 2
+
+    def test_nebenlaeufige_erst_saves_genau_einer_gewinnt(self, store):
+        # Review 13.09., Befund 8: der Test oben rennt um ein UPDATE. Der Erst-Save
+        # (Version 0 -> INSERT) ist ein eigener Pfad — beim Postgres-Store
+        # ON CONFLICT DO NOTHING plus rowcount. Auch dort darf genau einer gewinnen.
+        for runde in range(50):
+            sid = f"erst_{runde}"
+            n = 8
+            barriere = threading.Barrier(n)
+            erfolge: list[int] = []
+            fehler: list[int] = []
+
+            def schreiber(i: int) -> None:
+                st = _leerer_state(sid)
+                st.rounds = i
+                barriere.wait()
+                try:
+                    store.save(st)
+                    erfolge.append(i)
+                except StaleStateError:
+                    fehler.append(i)
+
+            threads = [
+                threading.Thread(target=schreiber, args=(i,)) for i in range(n)
+            ]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+            assert len(erfolge) == 1, f"Runde {runde}: {len(erfolge)} Gewinner"
+            assert len(fehler) == n - 1
+            gespeichert = store.load(sid)
+            assert gespeichert.version == 1 and gespeichert.rounds == erfolge[0]

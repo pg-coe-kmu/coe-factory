@@ -4,16 +4,17 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from bc1_core.package import TOY_PROZESS, UseCasePackage
-from bc1_service.discovery_paket import baue_discovery_paket
+from bc1_service.discovery_paket import Bc0Kontext, baue_discovery_paket
 
 
 def waehle_paket(
     umgebung: Mapping[str, str],
     prozesse: list[tuple[str, str]] | None = None,
+    kontext: Bc0Kontext | None = None,
 ) -> UseCasePackage:
     wahl = umgebung.get("BC1_PAKET", "discovery")
     if wahl == "discovery":
-        return baue_discovery_paket(prozesse)
+        return baue_discovery_paket(prozesse, kontext)
     if wahl == "toy":
         return TOY_PROZESS
     raise RuntimeError(

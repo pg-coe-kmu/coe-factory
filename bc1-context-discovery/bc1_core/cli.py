@@ -4,12 +4,16 @@ from bc1_core.store import InMemoryStateStore
 from bc1_core.llm import FakeLLM, ExtractionCandidate
 from bc1_core.core import process_turn
 
+DEMO_MANDANT = "11111111-1111-1111-1111-111111111111"
+
 def run_scripted(package: UseCasePackage, llm: FakeLLM,
-                 script: list[tuple[str, str]], session_id: str = "demo") -> list[dict]:
+                 script: list[tuple[str, str]], session_id: str = "demo",
+                 company_id: str = DEMO_MANDANT) -> list[dict]:
     store = InMemoryStateStore()
     out: list[dict] = []
     for message_id, message in script:
-        out.append(process_turn(store, llm, package, session_id, message_id, message))
+        out.append(process_turn(store, llm, package, session_id, message_id, message,
+                                company_id=company_id))
     return out
 
 def main() -> None:

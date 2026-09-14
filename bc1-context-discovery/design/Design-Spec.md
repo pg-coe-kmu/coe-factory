@@ -36,12 +36,19 @@
 - **Reihenfolge:** zuerst den Code-Kern über einen minimalen Chat-/HTTP-Client beweisen, **dann** n8n davorschalten. n8n-Integration nicht vor bewiesenem Kernverhalten.
 - **Eine Schnittstelle n8n ↔ Kern**, eine **versionierte** Antwort mit explizitem Status:
   - **Request:** `{ session_id, message_id, message, schema_version? }` (das optionale `schema_version` prüft die **Transportschicht** gegen das deployte Paket; der Kern bindet die Session beim ersten Turn an die Paket-Version und lehnt Wechsel ab)
-  - **Response:** `{ status, payload }` mit `status ∈ { "frage", "fertig", "fehler_fortsetzbar" }`
+  - **Response:** `{ status, payload }` mit `status ∈ { "frage", "fertig", "fehler_fortsetzbar", "abgebrochen_ohne_identitaet" }`
     - `"frage"` → `payload = { naechste_frage, feld }`
     - `"fertig"` → `payload = { felder, vollstaendigkeit, ungeloeste_felder[], schema_version }`
       (`felder` = das Profil: je Paketfeld `{ wert, status, quelle, grund, kandidaten[{wert, quelle}] }`;
       finale Formalisierung gehört nach `contracts/bc1-to-bc2/`, gemeinsam mit BC2 + Platform)
     - `"fehler_fortsetzbar"` → `payload = { grund }`
+    - `"abgebrochen_ohne_identitaet"` → `payload = { grund, feld, pflicht_erfasst, pflicht_gesamt }`
+      **Terminal wie `"fertig"`, aber ohne Profil** (K0): Bleibt ein als *identitätskritisch*
+      deklariertes Pflichtfeld bis zum Runden-Limit ungeklärt, endet das Interview hier definiert,
+      statt endlos weiterzufragen oder ein Profil ohne belastbare Identität zu erzeugen.
+      `grund = "identitaet_ungeklaert"`, `feld` = das ungeklärte Feld. Der Antworttext ist
+      **fest verdrahtet und LLM-frei** — ein LLM-Ausfall darf diesen Terminalzustand nicht kippen.
+      Neue Nachrichten an eine so beendete Session werden abgewiesen (409) wie bei `"fertig"`.
 - **Idempotenz über `message_id`** (nicht nur `session_id`): bereits verarbeitete Nachrichten werden nicht doppelt angewandt (schützt vor n8n-/HTTP-Retries).
 - **Persistenz gehört dem Kern.** Laden → Ändern → Speichern ist **eine atomare Operation** mit **State-Versionierung (optimistic locking)**; veraltete Updates werden abgewiesen/erneut gespielt. **n8n schreibt nie selbst den Zustand** — es transportiert nur.
 

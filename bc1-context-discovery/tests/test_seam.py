@@ -3,6 +3,8 @@ from bc1_core.store import InMemoryStateStore
 from bc1_core.llm import FakeLLM, ExtractionCandidate
 from bc1_core.core import process_turn
 
+MANDANT = "11111111-1111-1111-1111-111111111111"
+
 # Zweites, bewusst anderes Paket (anderer Name, andere Felder)
 RECHNUNG = UseCasePackage(
     name="rechnungspruefung",
@@ -16,7 +18,7 @@ def test_core_handles_a_different_package_unchanged():
     store = InMemoryStateStore()
     llm = FakeLLM({"x": [ExtractionCandidate("lieferant", "ACME"),
                          ExtractionCandidate("betrag", "500 EUR")]})
-    r = process_turn(store, llm, RECHNUNG, "s9", "m1", "x")
+    r = process_turn(store, llm, RECHNUNG, "s9", "m1", "x", company_id=MANDANT)
     # Kern kennt RECHNUNG nicht vorab -> trotzdem korrekt, ohne Sonderlogik
     assert r["status"] == "fertig"
     assert r["payload"]["schema_version"] == "9.9"

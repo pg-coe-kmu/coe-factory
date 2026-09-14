@@ -482,7 +482,7 @@ git commit -m "feat(bc1): Store-Vertrags-Suite (wiederverwendbar) + threadsicher
 **Lokale Test-DB** (die Tests skippen ohne DSN; Supabase wird später nur per DSN getauscht — Session Pooler, Port 5432):
 
 ```bash
-docker run --rm -d --name bc1-test-pg -e POSTGRES_PASSWORD=test -p 55432:5432 postgres:16
+docker run --rm -d --name bc1-test-pg -e POSTGRES_PASSWORD=test -p 55432:5432 postgres:17
 export BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres"
 ```
 

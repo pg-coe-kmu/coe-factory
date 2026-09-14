@@ -9,9 +9,27 @@
 
 ```bash
 export BC1_DB_DSN="postgresql://postgres:test@localhost:55432/postgres"   # oder Supabase-DSN
+export BC1_COMPANY_ID="11111111-1111-1111-1111-111111111111"              # Pflicht seit Task 10
+                       # ^ Test-Container: Fixture-Mandant A · Supabase: echte company_id
 export ANTHROPIC_API_KEY="..."                                            # nie committen
 .venv/bin/uvicorn bc1_service.main:app --port 8000
 ```
+
+**Zwei Startabbrüche sind regulär, kein Fehler** (BC0-Antwort 10 vom 02.09.; der erste
+Wortlaut stammt von BC0 und ist mit ihnen abgestimmt). Der Dienst startet nicht und sagt
+warum:
+
+- Mandant ohne Teilprozesse:
+  „Für diesen Mandanten sind noch keine Teilprozesse erfasst. Das Interview kann erst
+  geführt werden, wenn die Prozessstruktur steht."
+- Teilprozesse vorhanden, aber keiner bewertet:
+  „Für diesen Mandanten ist noch kein Teilprozess bewertet. Das Interview kann erst
+  geführt werden, wenn mindestens ein Teilprozess im Self-Rating bewertet ist."
+
+**Interviewbar sind nur BEWERTETE Teilprozesse** (mindestens eine aktuelle Bewertung in
+`v_bewertung_aktuell`; verworfene Erhebungen zählen nicht). Zu einem unbewerteten
+Teilprozess entsteht kein Profil — die Auswahl im Interview zeigt ihn deshalb gar nicht
+erst an.
 
 *Ohne Claude-Key (FakeLLM-Demo, so lief der Smoke am 05.08.2026):* statt `main:app` eine
 lokale, NICHT committete Demo-Verdrahtung nutzen — Wegwerf-Datei `demo_fake.py` außerhalb
@@ -48,6 +66,7 @@ app = create_app(
     _llm,
     TOY_PROZESS,
     lade_snapshot(_snapshot_pfad) if _snapshot_pfad else None,
+    company_id=os.environ["BC1_COMPANY_ID"],   # Pflicht-Argument seit Task 10
 )
 ```
 
@@ -76,6 +95,50 @@ Besitzer-Angaben) sind bewusst entfernt; n8n vergibt sie beim Import neu.
 | Edit Fields (Set) | `output` (String) = `{{ $json.chat_text ?? $json.detail }}` |
 
 Dann **Publish**; Chat-URL steht im Chat-Trigger-Node.
+
+## Betrieb: wenn das Schreiben des Profils klemmt
+
+> Gilt für die **Produktivverdrahtung** (`bc1_service.main`), nicht für den Demo-Block
+> oben: der ruft `create_app(...)` ohne `writer=` auf, schreibt also nie ein Profil und
+> kann diese Lagen gar nicht erzeugen.
+
+### `503 profil_write_fehlgeschlagen`
+
+Der Dienst konnte das fertige Profil nicht speichern und hat die Antwort deshalb
+**bewusst nicht ausgeliefert** — nicht „der Server ist kaputt", sondern „lieber keine
+Antwort als eine, die nicht in der Datenbank steht". Der Interview-Zustand ist heil.
+
+**Richtiger Umgang:** dieselbe `message_id` erneut senden. Der Dienst fährt den kompletten
+Abgleich noch einmal und antwortet erst, wenn geschrieben ist. Kommt der 503 wiederholt,
+liegt meist ein fremder Draft auf demselben Fokus-Schritt — dann das Rezept unten.
+
+### K5: verwaister oder fremder `in_erhebung`-Draft
+
+Ein abgebrochener Lauf kann eine Zeile im Zustand `in_erhebung` hinterlassen. Sie belegt
+den Fokus-Schritt für alle anderen Sitzungen.
+
+> **Wichtig fürs Verständnis:** Der 503 kommt **erst im Abschluss-Turn**, nicht sofort. Eine
+> neue Sitzung zu demselben Schritt führt das ganze Interview scheinbar normal — der
+> Writer meldet den fremden Draft in allen Turns davor still zurück — und fällt erst am
+> Ende um. Wer einen 503 sieht, sucht die Ursache also nicht im letzten Turn.
+
+```sql
+-- 1. Nachsehen, was steht (fertige Zeilen sind per Trigger gesperrt und
+--    tauchen hier nicht auf):
+SELECT company_id, focus_step_id, profil_version, erstellt_am
+  FROM bc1.prozessprofil WHERE status = 'in_erhebung';
+
+-- 2. Gezielt EINE Zeile loeschen — nie pauschal:
+DELETE FROM bc1.prozessprofil
+ WHERE company_id = '<UUID>' AND focus_step_id = '<KP-XX.TP-N>'
+   AND profil_version = <n> AND status = 'in_erhebung';
+```
+
+Danach gleicht die aktive Sitzung beim nächsten Turn von selbst wieder ab — es ist kein
+Neustart und kein Eingriff in die Sitzung nötig.
+
+> Einspielen der Tabellen, Rechte-Ist-Stand und Sollsignatur: siehe
+> [`../db/EINSPIELEN.md`](../db/EINSPIELEN.md).
 
 ## Smoke-Checkliste (durchgeführt 05.08.2026, FakeLLM-Verdrahtung, Postgres 16 im Container)
 
@@ -192,11 +255,20 @@ Setup: `BC1_LLM=ollama` · `BC1_PAKET` ungesetzt (= Discovery-Default) ·
 in Formulierungen) — die Nachfrage-Mechanik bleibt davon unberührt. Der Hosted-
 Chat-Workflow aus P2 (n8n, Volume `n8n_data`) ist unverändert einsatzbereit.
 
-Hinweis `schema_version`: Mit Snapshot trägt die Session `1.0+kp-<hash>` (Fingerprint
-der Prozess-IDs). Wird die Baseline um IDs erweitert/gekürzt, antworten laufende
-Interviews beim nächsten Turn bewusst mit 409 `paket_konflikt` — neues Interview
-starten. Clients, die `schema_version` mitsenden wollen, dürfen nicht auf `"1.0"`
-pinnen (Teil vor dem `+` vergleichen).
+Hinweis `schema_version`: Seit dem BC0-Kontext ist dieser im Betrieb Pflicht
+(main.py lädt ihn beim Start) — die Session trägt daher immer `1.1+ctx-<hash>`
+(Fingerprint aus Mandant, Teilprozessen, Systemen, ggf. KP-Liste). Der oben
+protokollierte `1.0+kp-<hash>`-Zweig greift nur noch ohne Kontext (Tests,
+Etappe-0-Kompatibilität) — über main.py nicht mehr erreichbar. Wird eine
+dieser Grundlagen erweitert/gekürzt, antworten laufende Interviews **nach einem
+Neustart des Dienstes** beim nächsten Turn bewusst mit 409 `paket_konflikt` — neues
+Interview starten. (Ohne Neustart passiert nichts: `main.py` lädt den Kontext einmal
+beim Start, eine Änderung bei BC0 erreicht den laufenden Prozess also gar nicht.)
+Das gilt auch für neu BEWERTETE Teilprozesse: die Auswahl enthält nur bewertete,
+also ändert schon eine hinzukommende Bewertung die Startmenge. Ein nach dem Start
+bewerteter Teilprozess ist erst nach einem Neustart des Dienstes wählbar.
+Clients, die `schema_version` mitsenden wollen, dürfen nicht auf `"1.0"` oder
+`"1.1"` pinnen (Teil vor dem `+` vergleichen).
 
 ## Gesprächsschicht live
 

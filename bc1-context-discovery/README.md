@@ -26,3 +26,53 @@ Ein Arbeitspaket (Issue unter [#48](https://github.com/pg-coe-kmu/coe-factory/is
 ## Schnittstellen
 - **Input von BC0:** Baseline-Lookup (KP/TP/Reifegrad)
 - **Output an BC2:** `contracts/bc1-to-bc2/` (Schema + Mock; gemeinsam mit BC2 + Platform)
+
+## PII-Filter
+
+Jede Nachricht wird im Kern gefiltert, **bevor** sie gespeichert oder an einen
+LLM-Anbieter gegeben wird (`bc1_core/pii.py`, Einhängung in `process_turn`).
+Ein Original gibt es danach nicht — weder in `bc1.sessions` noch im Profil. Auch die
+Anbieter-Ausgaben (Extraktionswerte, Antworttext) laufen durch den Filter.
+Strategie: **maskieren**, kein Mapping-Tresor (kein Konsument für eine Rückersetzung).
+
+| Klasse | Erkennung | Platzhalter | Quote Testset |
+|---|---|---|---|
+| E-Mail | Muster, auch Unicode-Domains und -Endungen (Punycode) | `[E-Mail A]` | 100 % |
+| Telefon | Muster: `+`/`0`-Präfix, `(0)`, geklammerte Vorwahl, 7–14 Ziffern, Trenner inkl. geschützter Leerzeichen; Datums-, Uhrzeit- und Dezimalformen ausgenommen | `[Telefon A]` | 100 % |
+| IBAN | Muster für bekannte Ländercodes, Groß-/Kleinschreibung, geschützte Leerzeichen, Soll-Länge je Land (Folgewort bleibt) | `[IBAN A]` | 100 % |
+| Adresse | Straße/Allee/Gasse mit Hausnummer, optional PLZ + Ort; Weg/Platz nur mit PLZ + Ort; Prozessbegriffe („Fertigungsstraße 3") ausgenommen | `[Adresse A]` | 100 % |
+| Name mit Hinweiswort | Anrede (Herr/Herrn/Frau/Hr./Fr.), Titel (Dr./Prof./Dipl., „Dr.-Ing.", Zusätze wie „med."), Partikel („von", „van der"), Kollege/Kollegin, „ich heiße", „mein Name ist"; Hinweiswort bleibt stehen | `[Person A]` | 100 % |
+| Name ohne Hinweiswort | **nicht erkannt** (dokumentierte Lücke, braucht NER) | — | 0 % |
+
+Quote = erkannte PII-Stellen / vorhandene Stellen im Testset (`tests/pii_testset.py`,
+eine Stelle je Fall); `tests/test_pii_kpi.py` hält diese Tabelle gegen die Messung.
+Fehltreffer auf den PII-freien Interviewsätzen des Testsets: 0. Kennungen laufen
+je Klasse und Turn (A, B, …, AA) in Textreihenfolge; gleicher Wert im selben Turn
+→ gleicher Platzhalter; über Turns hinweg keine Konsistenz.
+
+Bekannte Grenzen: nackte Nachnamen („Mustermann prüft"), „ich bin X", Kartennummern,
+Straßen ohne Straßenwort („Am Alten Markt 3"). Übererkennung ist akzeptiert („Dr. Oetker",
+„Fr. Vormittag" werden `[Person A]`). NER folgt erst bei gemessenem Bedarf. Außerhalb
+von BC1: n8n speichert Ausführungsdaten mit der Chat-Eingabe, bevor der Dienst sie
+sieht — Hosting-Thema (B3). Konzept: `design/Konzept-B2-PII-Filter.md`.
+
+## Setup und Start
+
+Voraussetzungen: Python 3.11+, [`uv`](https://docs.astral.sh/uv/), Docker (für die Test-Datenbank), `psql`.
+
+```bash
+uv sync                                                            # .venv anlegen
+docker run -d --rm --name bc1-test-pg -e POSTGRES_PASSWORD=test -p 55432:5432 postgres:17
+BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" .venv/bin/pytest -q -W error
+```
+
+Dienst starten (Pflicht: `BC1_DB_DSN` als `bc1_role`, `BC1_COMPANY_ID`; LLM-Wahl über `BC1_LLM` = `claude` | `ollama` | `gemini`, Key des Anbieters aus der Umgebung):
+
+```bash
+export BC1_DB_DSN="postgresql://…"        # Datenbank mit eingespielter DDL, siehe unten
+export BC1_COMPANY_ID="<uuid des Mandanten>"
+export BC1_LLM=ollama                      # lokal, ohne API-Key
+.venv/bin/uvicorn bc1_service.main:app --port 8000
+```
+
+Der Dienst startet nur, wenn der Mandant bewertete Teilprozesse hat — die beiden regulären Startabbrüche und der Chat-Aufbau stehen in [`bc1_service/n8n/SMOKE.md`](bc1_service/n8n/SMOKE.md). Die Datenbanktabellen kommen aus [`bc1_service/db/prozessprofil.sql`](bc1_service/db/prozessprofil.sql); wie man sie einspielt und was die Dreifallregel bedeutet, steht in [`bc1_service/db/EINSPIELEN.md`](bc1_service/db/EINSPIELEN.md). Was das Interview fragt und in welche Spalte es fließt: [`design/Spalte-zu-Feld-Tabelle.md`](design/Spalte-zu-Feld-Tabelle.md). Was noch fehlt: [`design/Abschlussplan-BC1.md`](design/Abschlussplan-BC1.md).
