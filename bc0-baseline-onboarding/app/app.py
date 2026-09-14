@@ -4350,6 +4350,41 @@ def _zustellung_merken(cid, paket_id, ergebnis, http_code=None, meldung=None, ve
         except Exception: pass
 
 
+_ZEIT_RE = re.compile(
+    r"^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s*(Z|[+-]\d{2}(?::?\d{2})?)?$")
+
+
+def _rfc3339(wert):
+    """Macht aus PostgreSQLs Textform einen RFC-3339-Zeitstempel.
+
+    PostgreSQL schreibt `2026-09-10 14:32:11.123456+02`: Leerzeichen statt
+    `T`, Zonenversatz zweistellig. RFC 3339 verlangt `T` und `+02:00`.
+    Python nimmt beides erst ab 3.11; ein Empfaenger auf 3.10 weist es ab.
+
+    Gibt `None` zurueck, wenn nichts oder etwas Unlesbares ankommt — der
+    Aufrufer entscheidet dann, dass nicht gerufen wird. Eine Zeichenkette,
+    die wir nicht erkennen, reichen wir unveraendert durch: lieber der
+    Originalwert als eine stille Verfaelschung.
+    """
+    if wert is None:
+        return None
+    text = str(wert).strip()
+    if not text or text == "None":
+        return None
+    treffer = _ZEIT_RE.match(text)
+    if not treffer:
+        return text
+    tag, zeit, zone = treffer.group(1), treffer.group(2), treffer.group(3)
+    if not zone:
+        return tag + "T" + zeit                      # ohne Zone: nichts erfinden
+    if zone != "Z":
+        if len(zone) == 3:                           # +02   -> +02:00
+            zone += ":00"
+        elif len(zone) == 5:                         # +0200 -> +02:00
+            zone = zone[:3] + ":" + zone[3:]
+    return tag + "T" + zeit + zone
+
+
 def _bc2_rufen(cid, paket_id, uebergeben_am, versuch=1):
     """Ruft BC2 mit den Kennungen. Gibt (ergebnis, http_code, meldung) zurueck.
 
@@ -4363,10 +4398,22 @@ def _bc2_rufen(cid, paket_id, uebergeben_am, versuch=1):
                            versuch=versuch)
         return ("kein_ziel", None, "keine Zieladresse hinterlegt")
 
+    # v3.2: Ohne Zeitpunkt wird nicht gerufen. Vorher ging in diesem Fall die
+    # Zeichenkette "None" hinaus, BC2 antwortete 400, und im Protokoll stand
+    # ein Raetsel statt einer Ursache. Das Paket ist deswegen nicht verloren —
+    # BC2 holt es sich ueber v_uebergabe_offen (ADR-003 Regel 4).
+    stand = _rfc3339(uebergeben_am)
+    if not stand:
+        _zustellung_merken(cid, paket_id, "fehler", None,
+                           "uebergeben_am fehlt — es wurde nicht gerufen. "
+                           "Das Paket steht in der Datenbank; BC2 holt es nach.",
+                           versuch)
+        return ("fehler", None, "uebergeben_am fehlt")
+
     rumpf = json.dumps({"ereignis": "paket_uebergeben", "company_id": str(cid),
-                        "paket_id": str(paket_id), "uebergeben_am": str(uebergeben_am)},
+                        "paket_id": str(paket_id), "uebergeben_am": stand},
                        separators=(",", ":"), sort_keys=True).encode("utf-8")
-    kopf = {"Content-Type": "application/json", "User-Agent": "BC0/3.1"}
+    kopf = {"Content-Type": "application/json", "User-Agent": "BC0/3.2"}
     if BC2_HOOK_SECRET:
         # Damit BC2 pruefen kann, dass der Ruf von uns kommt. Der Zeitstempel
         # geht in die Signatur ein, sonst liesse sich ein alter Ruf wiederholen.
