@@ -9,9 +9,17 @@ from __future__ import annotations
 
 import re
 
+# Reihenfolge = Anwendungsreihenfolge: spezifisch vor allgemein.
 _MUSTER: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("E-Mail", re.compile(r"\b[\w.%+-]+@[\w.-]+\.[A-Za-z]{2,}\b")),
+    # Geschütztes Leerzeichen (U+00A0) kommt beim Einfügen aus Dokumenten vor.
+    ("IBAN", re.compile(r"\b[a-z]{2}\d{2}(?:[  ]?[a-z0-9]{4}){2,7}"
+                        r"(?:[  ]?[a-z0-9]{1,4})?\b", re.IGNORECASE)),
 )
+# Soll-Länge je Land (Zeichen ohne Leerzeichen): Folgetext wird nicht verschluckt.
+_IBAN_LAENGE = {"AT": 20, "BE": 16, "CH": 21, "CZ": 24, "DE": 22, "DK": 18, "ES": 24,
+                "FI": 18, "FR": 27, "GB": 22, "HU": 28, "IE": 22, "IT": 27, "LI": 21,
+                "LU": 20, "NL": 18, "NO": 15, "PL": 28, "PT": 25, "SE": 24, "SK": 24}
 
 
 def _buchstabe(n: int) -> str:
@@ -41,9 +49,26 @@ class _Vergabe:
         return self._kennung[schluessel]
 
 
+def _iban_ersatz(treffer: str, vergabe: _Vergabe) -> str:
+    laenge = _IBAN_LAENGE.get(treffer[:2].upper())
+    if laenge is not None:
+        gezaehlt = 0
+        for i, zeichen in enumerate(treffer):
+            gezaehlt += not zeichen.isspace()
+            if gezaehlt == laenge:
+                return vergabe.platzhalter("IBAN", treffer[:i + 1]) + treffer[i + 1:]
+    return vergabe.platzhalter("IBAN", treffer)   # unbekanntes Land / kürzer: ganz ersetzen
+
+
+def _ersatz(klasse: str, m: re.Match[str], vergabe: _Vergabe) -> str:
+    if klasse == "IBAN":
+        return _iban_ersatz(m.group(0), vergabe)
+    return vergabe.platzhalter(klasse, m.group(0))
+
+
 def ersetze_pii(text: str) -> str:
     """Ersetzt personenbezogene Angaben durch Platzhalter wie "[E-Mail A]"."""
     vergabe = _Vergabe()
     for klasse, muster in _MUSTER:
-        text = muster.sub(lambda m, k=klasse: vergabe.platzhalter(k, m.group(0)), text)
+        text = muster.sub(lambda m, k=klasse: _ersatz(k, m, vergabe), text)
     return text
