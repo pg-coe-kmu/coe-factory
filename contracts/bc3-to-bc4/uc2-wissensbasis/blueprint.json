@@ -1,0 +1,141 @@
+{
+  "projekt_kurzname": "uc2-wissensbasis",
+  "lieferung_id": "del-uc2-wissensbasis-2026-09-06-073831",
+  "kp_id": "KP-05",
+  "teilprozess_ids": [
+    "KP-05.TP-1"
+  ],
+  "erzeugt_am": "2026-09-06T07:38:31.244Z",
+  "erzeugt_von": "BC3-50 Bauplan erzeugen",
+  "komponenten": [
+    {
+      "name": "Google Drive Wissensordner",
+      "anbindung": "API",
+      "rollen": [
+        "Quelle"
+      ],
+      "verwendet_in": [
+        "Wissensquellen automatisch indexieren und aktuell halten"
+      ]
+    },
+    {
+      "name": "Vektorindex",
+      "anbindung": "DB",
+      "rollen": [
+        "Ziel",
+        "Quelle"
+      ],
+      "verwendet_in": [
+        "Wissensquellen automatisch indexieren und aktuell halten",
+        "Interne Fragen mit Quellenangabe beantworten"
+      ]
+    },
+    {
+      "name": "Freigaberegister Wissensquellen",
+      "anbindung": "DB",
+      "rollen": [
+        "Quelle"
+      ],
+      "verwendet_in": [
+        "Wissensquellen automatisch indexieren und aktuell halten"
+      ]
+    },
+    {
+      "name": "Chat-Oberfläche",
+      "anbindung": "API",
+      "rollen": [
+        "Quelle+Ziel"
+      ],
+      "verwendet_in": [
+        "Interne Fragen mit Quellenangabe beantworten"
+      ]
+    },
+    {
+      "name": "Frageprotokoll",
+      "anbindung": "DB",
+      "rollen": [
+        "Ziel"
+      ],
+      "verwendet_in": [
+        "Interne Fragen mit Quellenangabe beantworten"
+      ]
+    }
+  ],
+  "datenfluesse": [
+    {
+      "von": "Google Drive Wissensordner",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Prozess",
+      "nach": "Vektorindex",
+      "art": "schreibt"
+    },
+    {
+      "von": "Vektorindex",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Freigaberegister Wissensquellen",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Chat-Oberfläche",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Prozess",
+      "nach": "Chat-Oberfläche",
+      "art": "schreibt"
+    },
+    {
+      "von": "Prozess",
+      "nach": "Frageprotokoll",
+      "art": "schreibt"
+    }
+  ],
+  "menschliche_entscheidungspunkte": [
+    {
+      "story_id": "st-9f05-a08d-e2b8-c7d19d3681b9-1",
+      "epic_id": "ep-9f05-a08d-e2b8-c7d19d3681b9",
+      "titel": "Frage entgegennehmen und auf Mandantenbezug prüfen"
+    },
+    {
+      "story_id": "st-9f05-a08d-e2b8-c7d19d3681b9-7",
+      "epic_id": "ep-9f05-a08d-e2b8-c7d19d3681b9",
+      "titel": "Transparenzhinweis in Antwort integrieren"
+    }
+  ],
+  "tech_stack": [
+    "n8n",
+    "Mistral Large",
+    "PostgreSQL",
+    "Vektordatenbank"
+  ],
+  "epics": [
+    {
+      "epic_id": "ep-1419-f870-10a8-6c3c69e6379c",
+      "titel": "Wissensquellen automatisch indexieren und aktuell halten",
+      "kategorien": [
+        "it:backend",
+        "it:integration",
+        "it:ai-pipeline"
+      ],
+      "anzahl_stories": 5
+    },
+    {
+      "epic_id": "ep-9f05-a08d-e2b8-c7d19d3681b9",
+      "titel": "Interne Fragen mit Quellenangabe automatisiert beantworten",
+      "kategorien": [
+        "it:backend",
+        "it:integration",
+        "it:ai-pipeline"
+      ],
+      "anzahl_stories": 8
+    }
+  ]
+}

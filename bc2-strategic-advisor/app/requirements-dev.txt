@@ -1,0 +1,6 @@
+# Zusaetzliche Pakete fuer Tests. Die Anwendung selbst kommt ohne sie aus.
+-r requirements.txt
+
+pytest>=8.0
+httpx>=0.27          # wird vom FastAPI-Testclient benoetigt
+jsonschema>=4.0      # prueft die Beispiele im Vertrag gegen das Schema

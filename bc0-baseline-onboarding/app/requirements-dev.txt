@@ -1,0 +1,9 @@
+# Zusätzliche Pakete für Tests und Entwicklung.
+# Die Anwendung selbst kommt ohne diese aus — requirements.txt bleibt unverändert,
+# insbesondere wurde für die Benutzerverwaltung keine neue Laufzeit-Abhängigkeit
+# aufgenommen (PBKDF2 stammt aus der Standardbibliothek, siehe AUTH.md).
+-r requirements.txt
+
+pytest>=8.0
+httpx>=0.27          # wird vom FastAPI-Testclient benötigt
+pglast>=6.0          # Prüfung der SQL-Dateien gegen den PostgreSQL-Parser

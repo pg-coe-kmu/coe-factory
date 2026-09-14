@@ -1,0 +1,53 @@
+{
+  "priorisierung_id": "bb000000-0000-4000-8000-000000000001",
+  "schema_version": "2.0",
+  "erzeugt_am": "2026-06-27T12:00:00Z",
+  "score_formel": "score = impact_gewicht x (125 - komplexitaet_gewicht) / 100, mit Gewichten gering=25, mittel=50, hoch=75, sehr hoch=100. Geringe Umsetzungskomplexitaet erhoeht den Score, hoher Impact ebenso -> Quick Wins zuerst.",
+  "eintraege": [
+    {
+      "rang": 1,
+      "potenzial_id": "aa000000-0000-4000-8000-000000000003",
+      "konzept_id": "3f9a1c22-0001-4a10-9c00-000000000001",
+      "titel": "Bescheid-Generator mit Textbausteinen und Vorlagen",
+      "kp_id": "KP-07",
+      "kategorie": "Quick Win",
+      "impact": "sehr hoch",
+      "umsetzungskomplexitaet": "gering",
+      "score": 100.0,
+      "aufwand_pt": 15,
+      "einsparung_eur_jahr": 51750.0,
+      "investition_eur_richtwert": 12000.0,
+      "amortisation_monate": 2.8
+    },
+    {
+      "rang": 2,
+      "potenzial_id": "aa000000-0000-4000-8000-000000000001",
+      "konzept_id": "3f9a1c22-0001-4a10-9c00-000000000001",
+      "titel": "Automatisierte Antragserfassung via OCR + LLM-Feldextraktion",
+      "kp_id": "KP-07",
+      "kategorie": "Quick Win",
+      "impact": "hoch",
+      "umsetzungskomplexitaet": "mittel",
+      "score": 56.25,
+      "aufwand_pt": 25,
+      "einsparung_eur_jahr": 40250.0,
+      "investition_eur_richtwert": 20000.0,
+      "amortisation_monate": 6.0
+    },
+    {
+      "rang": 3,
+      "potenzial_id": "aa000000-0000-4000-8000-000000000002",
+      "konzept_id": "3f9a1c22-0001-4a10-9c00-000000000001",
+      "titel": "Gefuehrter Rueckfrage-Workflow bei unvollstaendigen Antraegen",
+      "kp_id": "KP-07",
+      "kategorie": "Strategisch",
+      "impact": "hoch",
+      "umsetzungskomplexitaet": "hoch",
+      "score": 37.5,
+      "aufwand_pt": 30,
+      "einsparung_eur_jahr": 16560.0,
+      "investition_eur_richtwert": 24000.0,
+      "amortisation_monate": 17.4
+    }
+  ]
+}

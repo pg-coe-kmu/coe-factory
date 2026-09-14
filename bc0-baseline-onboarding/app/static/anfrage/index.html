@@ -1,0 +1,368 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#C77C3C">
+<link rel="manifest" href="/anfrage/manifest.json">
+<link rel="icon" href="/static/icon-192.png">
+<title>Anfrage an das CoE</title>
+<style>
+/* ------------------------------------------------------------------
+   Bewusst eine ANDERE Farbwelt als BC0. Wer hier landet, soll merken,
+   dass er nicht im Erhebungswerkzeug ist: warm statt marineblau, viel
+   Weissraum, grosse Schrift, keine Reiterleiste. Die Trennung ist der
+   Zweck dieser Anwendung — sie darf nicht nur im Pfad stattfinden.
+   ------------------------------------------------------------------ */
+:root{
+  --grund:#faf7f3; --papier:#fff; --linie:#e6ddd3; --schrift:#2b2724;
+  --leise:#7d736b; --akzent:#C77C3C; --akzent-dunkel:#a6632b;
+  --warn:#b03a2e; --gut:#1f7a42;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--grund);color:var(--schrift);
+     font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.kopf{background:var(--akzent);color:#fff;padding:14px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.kopf h1{margin:0;font-size:17px;font-weight:600;letter-spacing:.2px}
+.kopf .wer{margin-left:auto;display:flex;align-items:center;gap:14px;font-size:13px;opacity:.95}
+.kopf a{color:#fff;text-decoration:underline;cursor:pointer}
+.huelle{max-width:720px;margin:0 auto;padding:28px 22px 60px}
+.reiter{display:flex;gap:6px;margin-bottom:24px;border-bottom:1px solid var(--linie)}
+.reiter button{background:none;border:0;border-bottom:2px solid transparent;padding:10px 14px;
+               font:inherit;font-size:14px;color:var(--leise);cursor:pointer}
+.reiter button.an{color:var(--akzent-dunkel);border-bottom-color:var(--akzent);font-weight:600}
+h2{font-size:22px;margin:0 0 6px;font-weight:600}
+.lead{color:var(--leise);margin:0 0 24px;font-size:14.5px}
+label{display:block;font-size:14px;font-weight:600;margin:22px 0 6px}
+label .pflicht{color:var(--warn)}
+label .neben{font-weight:400;color:var(--leise)}
+input,textarea,select{width:100%;padding:11px 13px;border:1px solid var(--linie);border-radius:9px;
+                      font:inherit;font-size:15px;background:var(--papier);color:var(--schrift)}
+textarea{line-height:1.55;resize:vertical}
+input:focus,textarea:focus,select:focus{outline:2px solid var(--akzent);outline-offset:-1px;border-color:var(--akzent)}
+.hinweis{font-size:12.5px;color:var(--leise);margin-top:5px;line-height:1.5}
+.btn{background:var(--akzent);color:#fff;border:0;border-radius:9px;padding:13px 26px;
+     font:inherit;font-size:15px;font-weight:600;cursor:pointer}
+.btn:hover{background:var(--akzent-dunkel)}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.leise{background:none;color:var(--akzent-dunkel);border:1px solid var(--linie)}
+.merk{background:#fdf6ec;border-left:3px solid var(--akzent);padding:12px 15px;border-radius:0 8px 8px 0;
+      font-size:13.5px;line-height:1.55;margin-top:10px}
+.karte{background:var(--papier);border:1px solid var(--linie);border-radius:12px;padding:16px 18px;margin-bottom:12px}
+.karte .kopfzeile{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.nr{font-weight:700;font-size:15px}
+.pille{font-size:11.5px;padding:3px 10px;border-radius:999px;background:#efe9e2;color:#6b5f55;font-weight:600}
+.pille.eingegangen{background:#fdf0dc;color:#8a5a12}
+.pille.erledigt{background:#e4f4ea;color:var(--gut)}
+.pille.abgelehnt{background:#fbe9e7;color:var(--warn)}
+.wortlaut{font-size:14.5px;white-space:pre-wrap}
+.zusatz{font-size:13px;color:var(--leise);margin-top:6px}
+.ohne{font-size:12.5px;color:#8a5a12}
+.gross{text-align:center;padding:40px 0 10px}
+.gross .haken{font-size:44px;color:var(--gut);line-height:1}
+.gross .kennung{font-size:30px;font-weight:700;letter-spacing:1px;margin:14px 0 4px}
+.schritte{counter-reset:s;list-style:none;padding:0;margin:22px 0 0}
+.schritte li{counter-increment:s;position:relative;padding-left:38px;margin-bottom:14px;font-size:14px}
+.schritte li::before{content:counter(s);position:absolute;left:0;top:1px;width:24px;height:24px;border-radius:50%;
+  background:var(--akzent);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.tor{position:fixed;inset:0;background:var(--akzent);display:none;align-items:center;justify-content:center;padding:20px;z-index:99}
+.tor.an{display:flex}
+.tor .kasten{background:#fff;border-radius:14px;padding:30px 32px;width:100%;max-width:360px;box-shadow:0 18px 50px rgba(0,0,0,.25)}
+.tor h2{font-size:19px;margin:0 0 4px}
+.tor .fehler{color:var(--warn);font-size:13px;min-height:18px;margin-top:12px}
+.tor .btn{width:100%;margin-top:20px}
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(80px);background:#2b2724;color:#fff;
+       padding:12px 20px;border-radius:10px;font-size:14px;opacity:0;transition:.25s;z-index:98;max-width:90vw}
+.toast.an{transform:translateX(-50%);opacity:1}
+.leer{color:var(--leise);font-size:14px}
+@media(max-width:520px){.huelle{padding:20px 15px 50px}h2{font-size:19px}}
+</style>
+
+<!-- Anmeldung. Gleicher Ursprung wie BC0, deshalb gilt dasselbe
+     Sitzungscookie: Wer in BC0 angemeldet ist, ist es hier auch. Genau
+     deshalb liegt diese Anwendung unter /anfrage und nicht auf einer
+     eigenen Adresse — dort braeuchte es Token-Uebergabe oder SSO. -->
+<div class="tor" id="tor"><div class="kasten">
+  <h2>Anfrage an das CoE</h2>
+  <p class="lead" id="torHinweis">Bitte anmelden.</p>
+  <form id="anmeldeForm">
+    <label for="mail">E-Mail</label>
+    <input type="email" id="mail" autocomplete="username" required>
+    <label for="pw">Passwort</label>
+    <input type="password" id="pw" autocomplete="current-password" required>
+    <button class="btn" type="submit" id="anmeldeBtn">Anmelden</button>
+    <div class="fehler" id="anmeldeFehler"></div>
+  </form>
+</div></div>
+
+<div class="kopf">
+  <h1>Anfrage an das CoE</h1>
+  <div class="wer" id="wer" style="display:none">
+    <span id="werName"></span>
+    <a href="/">zum Onboarding-Werkzeug</a>
+    <a id="abmelden">Abmelden</a>
+  </div>
+</div>
+
+<div class="huelle">
+  <div class="reiter" id="reiter" style="display:none">
+    <button data-v="neu" class="an">Neue Anfrage</button>
+    <button data-v="meine">Meine Anfragen</button>
+  </div>
+  <div id="inhalt"><p class="leer">Einen Moment …</p></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+var $ = function(id){ return document.getElementById(id); };
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(z){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[z]; }); }
+function toast(t, schlecht){
+  var e=$('toast'); e.textContent=t; e.style.background = schlecht ? '#b03a2e' : '#2b2724';
+  e.classList.add('an'); setTimeout(function(){ e.classList.remove('an'); }, 3800);
+}
+
+/* Der einzige Weg zur Schnittstelle. Alle Aufrufe laufen hierdurch,
+   damit es EINE Stelle fuer die 401-Behandlung gibt. */
+async function api(pfad, methode, koerper){
+  var o = {method: methode||'GET', headers:{'Content-Type':'application/json'}};
+  if (koerper) o.body = JSON.stringify(koerper);
+  var r = await fetch(pfad, o);
+  if (r.status === 401){ zeigeAnmeldung('Die Sitzung ist abgelaufen. Bitte neu anmelden.'); throw {detail:'nicht angemeldet'}; }
+  var d = null;
+  try { d = await r.json(); } catch(e) { d = null; }
+  if (!r.ok) throw (d || {detail:'Fehler '+r.status});
+  return d;
+}
+
+var BENUTZER=null, CID=null, MANDANTEN=[], PROZESSE={}, PERSONEN=[], ANSICHT='neu';
+
+function zeigeAnmeldung(hinweis){
+  $('torHinweis').textContent = hinweis || 'Bitte anmelden.';
+  $('tor').classList.add('an'); $('wer').style.display='none'; $('reiter').style.display='none';
+  setTimeout(function(){ $('mail').focus(); }, 60);
+}
+function verbergeAnmeldung(){ $('tor').classList.remove('an'); $('pw').value=''; $('anmeldeFehler').textContent=''; }
+
+$('anmeldeForm').onsubmit = async function(ev){
+  ev.preventDefault();
+  var k=$('anmeldeBtn'); k.disabled=true; $('anmeldeFehler').textContent='';
+  try{
+    var r = await fetch('/api/auth/login', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({email:$('mail').value, passwort:$('pw').value})});
+    var d = await r.json();
+    if(!r.ok){ $('anmeldeFehler').textContent = d.detail || 'Anmeldung fehlgeschlagen.'; return; }
+    BENUTZER = d.benutzer; verbergeAnmeldung(); await starte();
+  }catch(e){ $('anmeldeFehler').textContent = 'Der Server ist nicht erreichbar.'; }
+  finally{ k.disabled=false; }
+};
+
+$('abmelden').onclick = async function(){
+  try{ await fetch('/api/auth/logout', {method:'POST'}); }catch(e){}
+  BENUTZER=null; CID=null; zeigeAnmeldung('Abgemeldet.');
+};
+
+document.querySelectorAll('#reiter button').forEach(function(b){
+  b.onclick = function(){
+    document.querySelectorAll('#reiter button').forEach(function(x){ x.classList.remove('an'); });
+    b.classList.add('an'); ANSICHT = b.dataset.v;
+    if (ANSICHT === 'neu') zeichneFormular(); else zeichneMeine();
+  };
+});
+
+async function starte(){
+  $('werName').textContent = BENUTZER ? BENUTZER.name : '';
+  $('wer').style.display='flex'; $('reiter').style.display='flex';
+  try{ MANDANTEN = await api('/api/companies'); }
+  catch(e){ $('inhalt').innerHTML = '<p class="leer">Die Daten konnten nicht geladen werden.</p>'; return; }
+  if(!MANDANTEN.length){
+    $('reiter').style.display='none';
+    $('inhalt').innerHTML = '<h2>Kein Unternehmen zugeordnet</h2>'
+      + '<p class="lead">Eine Anfrage braucht ein Unternehmen, zu dem sie gehört. '
+      + 'Ihrem Zugang ist derzeit keines zugewiesen — ein Administrator kann das einrichten.</p>';
+    return;
+  }
+  var da=false; for(var i=0;i<MANDANTEN.length;i++) if(String(MANDANTEN[i].id)===String(CID)) da=true;
+  if(!da) CID = MANDANTEN[0].id;
+  await ladeMandant();
+  if (ANSICHT === 'neu') zeichneFormular(); else zeichneMeine();
+}
+
+async function ladeMandant(){
+  PROZESSE = {}; PERSONEN = [];
+  try{ var d = await api('/api/companies/'+CID); PROZESSE = d.processes || {}; }catch(e){}
+  /* Personen kommen aus dem Register, nicht aus einem Namensfeld: In
+     ref_anfragen steht nach ADR-004 R5 kein Klarname, sondern eine ID. */
+  try{ var e2 = await api('/api/companies/'+CID+'/entitaeten');
+       PERSONEN = (e2.personen||[]).filter(function(p){ return p.aktiv; }); }catch(e){}
+}
+
+function mandantenWahl(){
+  if (MANDANTEN.length < 2) return '';
+  return '<label for="co">Unternehmen</label><select id="co">'
+    + MANDANTEN.map(function(t){ return '<option value="'+esc(String(t.id))+'"'
+        + (String(t.id)===String(CID)?' selected':'') + '>'+esc(t.name)+'</option>'; }).join('')
+    + '</select>';
+}
+
+function zeichneFormular(){
+  /* Der erste Eintrag ist "weiss ich nicht" und nicht der erste Prozess.
+     Wer aus dem Fachbereich kommt, kennt KP-06.TP-2 nicht, und ein
+     geratener Bezug ist schlechter als keiner: Dann laeuft ein
+     vollstaendiges Interview auf dem falschen Prozess. */
+  var kp = '<option value="">— weiß ich nicht —</option>'
+    + Object.keys(PROZESSE).sort().map(function(pid){
+        return '<option value="'+pid+'">'+pid+' — '+esc(PROZESSE[pid].process_name||'')+'</option>'; }).join('');
+  var pers = '<option value="">— keine Angabe —</option>'
+    + PERSONEN.map(function(p){ return '<option value="'+esc(p.person_id)+'">'+esc(p.name||p.person_id)+'</option>'; }).join('');
+
+  $('inhalt').innerHTML =
+     '<h2>Was beschäftigt Sie?</h2>'
+   + '<p class="lead">Beschreiben Sie es in eigenen Worten. Fünf Minuten reichen — '
+   + 'alles Weitere klärt das CoE mit Ihnen.</p>'
+   + mandantenWahl()
+
+   + '<label for="text">Worum geht es? <span class="pflicht">*</span></label>'
+   + '<textarea id="text" rows="6" placeholder="z. B. Die Reisebuchung läuft über drei Mails und eine Excel-Liste. Jeder macht es anders, und am Monatsende fehlt immer etwas."></textarea>'
+   + '<div class="hinweis">Ihr Wortlaut wird <b>nie verändert</b> — weder gekürzt noch umformuliert. '
+   + 'Nur so lässt sich am Ende prüfen, ob die Empfehlung Ihre Frage beantwortet.</div>'
+
+   + '<label for="ziel">Was soll dabei herauskommen?</label>'
+   + '<textarea id="ziel" rows="2" placeholder="z. B. Ich will die Reisekostenabrechnung nicht mehr am Wochenende machen."></textarea>'
+   + '<div class="hinweis">Ihr Text oben beschreibt fast immer das <i>Problem</i>. Woran am Ende gemessen wird, '
+   + 'ob wir geliefert haben, steht selten darin — und niemand fragt später danach.</div>'
+
+   + '<label for="ausl">Warum jetzt?</label>'
+   + '<input id="ausl" placeholder="z. B. Die Kollegin, die es bisher gemacht hat, geht Ende September.">'
+   + '<div class="hinweis">Erklärt die Dringlichkeit besser als jede Prioritätsstufe — und ist in vier Wochen nicht mehr rekonstruierbar.</div>'
+
+   + '<label for="umf">Größenordnung <span class="neben">— geschätzt</span></label>'
+   + '<input id="umf" placeholder="z. B. etwa zwölf Leute, jeden Monatsanfang">'
+   + '<div class="hinweis">Nur ein Anhaltspunkt für die Reihenfolge. <b>Keine Messung</b> — '
+   + 'Häufigkeit und Dauer erhebt das Gespräch später, mit Gütegrad.</div>'
+
+   + '<label for="kp">Welcher Prozess ist betroffen?</label>'
+   + '<select id="kp">'+kp+'</select>'
+   + '<div id="tpZeile" style="display:none"><label for="tp">Welcher Schritt darin?</label><select id="tp"></select></div>'
+   + '<div id="weissnicht"></div>'
+
+   + '<label for="per">Wer fragt?</label><select id="per">'+pers+'</select>'
+   + '<div class="hinweis">Aus dem Personenregister Ihres Unternehmens — in der Anfrage steht die Kennung, nicht der Name.</div>'
+
+   + '<div style="margin-top:30px"><button class="btn" id="senden">Anfrage absenden</button></div>';
+
+  if($('co')) $('co').onchange = async function(){ CID = $('co').value; await ladeMandant(); zeichneFormular(); };
+  $('kp').onchange = kpGewaehlt;
+  $('senden').onclick = absenden;
+  kpGewaehlt();
+}
+
+function kpGewaehlt(){
+  var pid = $('kp').value, zeile = $('tpZeile'), hin = $('weissnicht');
+  if(!pid){
+    zeile.style.display='none';
+    hin.innerHTML = '<div class="merk"><b>„Weiß ich nicht" ist in Ordnung.</b> Ihre Anfrage wird aufgenommen '
+      + 'und bleibt liegen, bis im Gespräch geklärt ist, um welchen Prozess es geht. '
+      + 'Auf gut Glück etwas anzuklicken wäre schlechter — dann liefe die ganze Aufnahme auf dem falschen Prozess.</div>';
+    return;
+  }
+  hin.innerHTML = '';
+  var tps = (PROZESSE[pid]||{}).tps || [];
+  $('tp').innerHTML = '<option value="">— keine Angabe —</option>'
+    + tps.filter(function(t){ return t.sub_process_id; }).map(function(t){
+        return '<option value="'+esc(t.sub_process_id)+'">'+esc(t.sub_process_name||t.sub_process_id)+'</option>'; }).join('');
+  zeile.style.display='block';
+}
+
+async function absenden(){
+  var text = ($('text').value||'').trim();
+  if(!text){ toast('Bitte beschreiben Sie zuerst Ihr Anliegen.', true); $('text').focus(); return; }
+  var kp = $('kp').value||'', tp = kp ? ($('tp').value||'') : '';
+  var k = { originaltext: text,
+            erhofftes_ziel: ($('ziel').value||'').trim(),
+            ausloeser: ($('ausl').value||'').trim(),
+            umfang_geschaetzt: ($('umf').value||'').trim(),
+            steller_id: $('per').value||'',
+            eingang_weg: 'anfrage-pwa' };
+  /* Nur mitschicken, wenn wirklich gewaehlt: Ein leerer Prozessbezug MIT
+     Herkunftsangabe ist in der Datenbank verboten — beide oder keiner. */
+  if(kp){ k.process_id = kp; k.zuordnung_quelle = 'anfrage'; if(tp) k.sub_process_id = tp; }
+  var b = $('senden'); b.disabled = true;
+  try{
+    var d = await api('/api/companies/'+CID+'/anfragen', 'POST', k);
+    zeichneDanke(d.anfrage_id, !kp);
+  }catch(e){ toast('Fehler: '+(e.detail||'unbekannt'), true); }
+  finally{ b.disabled = false; }
+}
+
+function zeichneDanke(nr, ohneBezug){
+  $('inhalt').innerHTML =
+     '<div class="gross"><div class="haken">&#10003;</div>'
+   + '<div class="kennung">'+esc(nr)+'</div>'
+   + '<p class="lead">Ihre Anfrage ist aufgenommen. Diese Nummer begleitet sie bis zum Ergebnis.</p></div>'
+
+   + '<h2 style="margin-top:26px">Was jetzt passiert</h2>'
+   + '<ol class="schritte">'
+   + '<li><b>Ein Gespräch über Ihren Ablauf.</b> Jemand geht mit Ihnen durch, wie es heute läuft — wie oft, wie lange, wo es hakt.'
+   + (ohneBezug ? ' Dabei wird auch geklärt, welchen Prozess Sie meinen.' : '') + '</li>'
+   + '<li><b>Eine Entscheidung durch einen Menschen.</b> Kein Automatismus: Jemand sieht sich an, ob die Angaben tragen.</li>'
+   + '<li><b>Eine Rechnung, was es bringt.</b> Ob und in welcher Reihenfolge etwas gebaut wird, entscheidet sich hier.</li>'
+   + '<li><b>Umsetzung</b> — wenn es sich lohnt.</li>'
+   + '</ol>'
+
+   /* Die Stelle fuer BC1. Heute ein Hinweis, spaeter der Uebergang ins
+      Gespraech — als Angebot, nicht als Zwang: Wer hierher kommt, hat
+      fuenf Minuten mitgebracht, kein Interview. */
+   + '<div class="merk" style="margin-top:26px" id="uebergang">'
+   + '<b>Das Gespräch führen wir noch nicht hier.</b> Sobald es soweit ist, können Sie an dieser Stelle '
+   + 'direkt weitermachen — freiwillig und jederzeit abbrechbar. Bis dahin meldet sich das CoE bei Ihnen.'
+   + '</div>'
+
+   + '<div style="margin-top:28px;display:flex;gap:10px;flex-wrap:wrap">'
+   + '<button class="btn leise" id="nochmal">Noch eine Anfrage</button>'
+   + '<button class="btn leise" id="zuMeinen">Meine Anfragen ansehen</button></div>';
+
+  $('nochmal').onclick = zeichneFormular;
+  $('zuMeinen').onclick = function(){
+    document.querySelectorAll('#reiter button').forEach(function(x){
+      x.classList.toggle('an', x.dataset.v==='meine'); });
+    ANSICHT='meine'; zeichneMeine();
+  };
+}
+
+async function zeichneMeine(){
+  $('inhalt').innerHTML = '<h2>Meine Anfragen</h2><p class="lead">Was eingegangen ist und wo es steht.</p>'
+    + mandantenWahl() + '<div id="liste" class="leer">Lade …</div>';
+  if($('co')) $('co').onchange = async function(){ CID=$('co').value; await ladeMandant(); zeichneMeine(); };
+  var z = [];
+  try{ z = (await api('/api/companies/'+CID+'/anfragen')).anfragen || []; }
+  catch(e){ $('liste').innerHTML = 'Die Anfragen konnten nicht geladen werden.'; return; }
+  if(!z.length){ $('liste').innerHTML = 'Noch keine Anfrage für dieses Unternehmen.'; return; }
+  $('liste').innerHTML = z.map(function(a){
+    var st = a.status || 'eingegangen';
+    return '<div class="karte"><div class="kopfzeile">'
+      + '<span class="nr">'+esc(a.anfrage_id)+'</span>'
+      + '<span class="pille '+esc(st)+'">'+esc(st.replace(/_/g,' '))+'</span>'
+      + '<span class="zusatz" style="margin-left:auto">'+esc(a.eingang_am||'')+'</span></div>'
+      + '<div class="wortlaut">'+esc(a.originaltext||'')+'</div>'
+      + (a.erhofftes_ziel ? '<div class="zusatz">Ziel: '+esc(a.erhofftes_ziel)+'</div>' : '')
+      + (a.process_id
+          ? '<div class="zusatz">Prozess: '+esc(a.process_id)+(a.sub_process_id?' · '+esc(a.sub_process_id):'')+'</div>'
+          : '<div class="zusatz ohne">Prozess noch offen — wird im Gespräch geklärt</div>')
+      + '</div>';
+  }).join('');
+}
+
+/* Einstieg. Fragt zuerst, ob eine Sitzung besteht — wer aus BC0 kommt,
+   ist bereits angemeldet und sieht die Maske gar nicht erst. */
+(async function(){
+  var st;
+  try{ st = await (await fetch('/api/auth/status')).json(); }
+  catch(e){ zeigeAnmeldung('Der Server ist nicht erreichbar.'); return; }
+  if(!st.eingerichtet){ zeigeAnmeldung('Es ist noch kein Zugang eingerichtet.'); return; }
+  if(!st.angemeldet){ zeigeAnmeldung(); return; }
+  BENUTZER = st.benutzer; await starte();
+})();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function(){ navigator.serviceWorker.register('/anfrage/sw.js'); });
+}
+</script>

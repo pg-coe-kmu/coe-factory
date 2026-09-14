@@ -1,0 +1,18 @@
+{
+  "id": "/anfrage/",
+  "name": "Anfrage an das CoE",
+  "short_name": "CoE-Anfrage",
+  "description": "Ein Anliegen ans Center of Excellence schildern — in eigenen Worten, in fünf Minuten.",
+  "lang": "de",
+  "start_url": "/anfrage/",
+  "scope": "/anfrage/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#faf7f3",
+  "theme_color": "#C77C3C",
+  "icons": [
+    { "src": "/static/anfrage/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/static/anfrage/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/static/anfrage/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

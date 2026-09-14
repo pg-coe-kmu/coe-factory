@@ -1,0 +1,53 @@
+# ---- BC0 App/PWA · .gitignore ----
+# Grundsatz: Konfiguration, Zugangsdaten und Mandantendaten gehören nicht ins Repo.
+# Struktur und Beispieldateien schon.
+
+# Zugangsdaten / Konfiguration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Datenbanken (lokaler SQLite-Fallback + Dumps)
+bc0.db
+*.db
+*.sqlite
+*.sqlite3
+*.sql.gz
+*.dump
+
+# Hochgeladene Belege und Laufzeitdaten
+belege/
+data/
+# Hinweis: snapshots/ wird bewusst mitversioniert.
+# NoroAI ist ein virtuelles Referenzunternehmen — der Baseline-Snapshot ist
+# das Übergabeartefakt fuer BC1 (Issue #46) und enthaelt keine echten Mandantendaten.
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# Logs / temporäre Dateien
+*.log
+*.tmp
+*.bak
+*~
+
+# Betriebssystem / Editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# Caddy / Docker-Laufzeit
+caddy_data/
+caddy_config/

@@ -1,0 +1,256 @@
+{
+  "konzept_id": "b1000000-0000-4000-8000-0000000000c1",
+  "schema_version": "2.1-bc3",
+  "prozessprofil_ref": "A-2026-01",
+  "erzeugt_am": "2026-08-30T20:00:00+02:00",
+  "erzeugt_von": "BC3 Engineering Architect — Entwurf zur Freigabe durch BC2, keine BC2-Lieferung",
+  "kontext": {
+    "prozess_kurzbeschreibung": "Reise- und Einsatzplanung bei NoroAI Consulting: Reiseanfrage per Mail oder Formular, Verfügbarkeit wird geprüft, Angebot manuell erstellt, Bestätigung per Mail, Buchung manuell vorgenommen.",
+    "kp_id": "KP-06",
+    "unternehmen": "NoroAI Consulting GmbH",
+    "betroffene_systeme_landschaft": [
+      "Outlook",
+      "Web-Formular",
+      "Buchungsportale",
+      "Excel-Liste"
+    ],
+    "hauptschmerzpunkte": [
+      {
+        "beschreibung": "Anfragen kommen als Freitext und müssen manuell gelesen werden",
+        "haeufigkeit": "jede Anfrage",
+        "auswirkung": "25 Min je Vorgang, Hauptzeitfresser"
+      },
+      {
+        "beschreibung": "Verfügbarkeiten werden nacheinander in mehreren Portalen geprüft",
+        "haeufigkeit": "jede Anfrage",
+        "auswirkung": "Bearbeitung dauert Stunden statt Minuten"
+      },
+      {
+        "beschreibung": "Buchungsnummern werden von Hand in eine Excel-Liste übertragen",
+        "haeufigkeit": "jede Buchung",
+        "auswirkung": "Medienbruch, Liste veraltet"
+      }
+    ]
+  },
+  "potenziale": [
+    {
+      "potenzial_id": "b1000000-0000-4000-8000-000000000001",
+      "titel": "Reiseanfrage automatisch erfassen und Verfügbarkeit prüfen",
+      "rang": 2,
+      "betroffene_teilprozess_ids": [
+        "KP-06.TP-2"
+      ],
+      "betroffene_prozessschritte": [
+        "Reiseanfrage entgegennehmen",
+        "Verfügbarkeit prüfen"
+      ],
+      "beschreibung": "Heute erreichen Reiseanfragen NoroAI auf zwei Wegen: als Freitext-Mail an das Backoffice oder über ein Web-Formular. Beide landen im selben Postfach und werden von Hand gelesen. Die Mitarbeitenden lesen Reiseziel, Zeitraum, Personenzahl und Budget heraus, tragen sie in eine Excel-Liste ein und prüfen anschließend nacheinander in den Buchungsportalen, ob Flug, Hotel und Mietwagen im gewünschten Zeitraum verfügbar sind. Automatisiert wird die Erfassung und die Verfügbarkeitsprüfung, nicht die Entscheidung.\n\nErgebnis der Automatisierung ist ein strukturierter Anfragedatensatz mit den Feldern Reiseziel, Hin- und Rückreisedatum, Anzahl Reisender, Budgetrahmen und Sonderwünschen, sowie eine Liste verfügbarer Optionen je Kategorie. Der Datenfluss läuft vom Postfach beziehungsweise Formular über die Feldextraktion in die Reise-API und von dort zurück in die Vorgangsablage.\n\nBeteiligte Rollen sind das Backoffice als Bearbeiter, die reisende Person als Anfragestellerin und die Teamleitung als Budgetfreigeberin. Vorbedingung ist ein eindeutig zugeordnetes Projekt oder eine Kostenstelle; ohne diese Zuordnung darf keine Prüfung starten. Sonderfälle: unvollständige Anfragen ohne Datum oder Ziel gehen mit einer strukturierten Rückfrage zurück an die anfragende Person; Anfragen über dem hinterlegten Budgetrahmen werden nicht automatisch weiterverarbeitet, sondern der Teamleitung zur Freigabe vorgelegt; bei Extraktionskonfidenz unter dem Schwellwert übernimmt ein Mensch.",
+      "betroffene_systeme": [
+        {
+          "name": "Outlook-Postfach reisen@noroai",
+          "rolle": "Quelle",
+          "integration": "Email"
+        },
+        {
+          "name": "Web-Formular Reiseanfrage",
+          "rolle": "Quelle",
+          "integration": "API"
+        },
+        {
+          "name": "Reise-API (travel-mock-api)",
+          "rolle": "Quelle+Ziel",
+          "integration": "API"
+        },
+        {
+          "name": "Vorgangsablage",
+          "rolle": "Ziel",
+          "integration": "DB"
+        }
+      ],
+      "manueller_aufwand_heute": "hoch",
+      "impact": "hoch",
+      "umsetzungskomplexitaet": "mittel",
+      "value": {
+        "ist_kosten_eur_jahr": 30000.0,
+        "einsparung_eur_jahr": 21000.0,
+        "ersparnis_prozent": 70.0,
+        "investition_eur_richtwert": 16000.0,
+        "amortisation_monate": 9.1,
+        "value_quelle": "annahme",
+        "annahmen": [
+          "Jahresvolumen 1200 Reiseanfragen (Annahme, nicht erhoben)",
+          "Vollkostensatz 60 EUR/h (Annahme, nicht erhoben)",
+          "manuelle Zeit heute: 25 Min/Anfrage (Annahme, nicht gemessen)",
+          "Umsetzungs-Tagessatz 800 EUR",
+          "angenommener Einsparungsgrad: 70 %",
+          "VORLÄUFIG — Übergangslieferung, Gate 0 nicht durchlaufen"
+        ]
+      },
+      "aufwand_schaetzung_pt": 20,
+      "prioritaet_score": 56.25,
+      "kategorie": "Quick Win",
+      "potenzielle_loesung": {
+        "ansatz": "Mail- und Formulareingang laufen in einen gemeinsamen Eingangskanal. LLM-gestützte Feldextraktion erzeugt den strukturierten Anfragedatensatz; eine Konfidenzschwelle steuert den Human-in-the-Loop. Die Verfügbarkeitsprüfung erfolgt als parallele Abfrage der Reise-API für Flug, Hotel und Mietwagen. Ergebnisse werden mit der Anfrage-ID in der Vorgangsablage abgelegt.",
+        "tech_stack_empfehlung": [
+          "n8n",
+          "Mistral Large",
+          "PostgreSQL",
+          "travel-mock-api"
+        ],
+        "to_be_kurz": "Anfragen werden automatisch strukturiert erfasst und die Verfügbarkeit sofort geprüft."
+      },
+      "to_be_vision": "Eine Reiseanfrage trifft ein und ist innerhalb von zwei Minuten strukturiert erfasst, geprüft und mit verfügbaren Optionen hinterlegt. Die anfragende Person erhält unmittelbar eine Eingangsbestätigung mit der Vorgangsnummer und den erkannten Eckdaten, sodass Missverständnisse sofort auffallen und nicht erst nach Tagen. Fehlen Pflichtangaben, geht automatisch eine strukturierte Rückfrage hinaus, die genau benennt, was fehlt; die Antwort wird demselben Vorgang zugeordnet, ohne dass jemand sie manuell zusammenführen muss. Das Backoffice sieht in der Vorgangsablage nur noch die Fälle, die eine Entscheidung brauchen: Anfragen über Budget, unklare Ziele oder Extraktionen unterhalb der Konfidenzschwelle. Gegenüber den Buchungssystemen tritt der Prozess ausschließlich lesend auf; es wird nichts gebucht, solange kein Mensch freigegeben hat. Jeder Schritt ist mit Zeitstempel, Vorgangs-ID und Teilprozess-ID protokolliert, sodass sich im Nachhinein nachvollziehen lässt, welche Option auf welcher Datengrundlage vorgeschlagen wurde.",
+      "fachliche_anforderungen": [
+        "Anfragen aus Mail und Web-Formular werden in einem einheitlichen Datensatz zusammengeführt.",
+        "Reiseziel, Hin- und Rückreisedatum, Anzahl Reisender und Budgetrahmen werden als Pflichtfelder extrahiert.",
+        "Jede Anfrage wird einem Projekt oder einer Kostenstelle zugeordnet, bevor die Prüfung startet.",
+        "Unvollständige Anfragen lösen eine strukturierte Rückfrage aus, statt abgebrochen zu werden.",
+        "Anfragen über dem hinterlegten Budgetrahmen gehen an die Teamleitung zur Freigabe.",
+        "Die Verfügbarkeitsprüfung liefert je Kategorie mindestens drei Optionen, sofern vorhanden.",
+        "Es wird nichts gebucht; der Schritt endet mit einem Vorschlag.",
+        "Antwortzeit vom Eingang bis zur Optionsliste unter fünf Minuten im Regelfall.",
+        "Jede Verarbeitung wird mit Vorgangs-ID und KP-06.TP-2 protokolliert."
+      ],
+      "akzeptanzkriterien_geschaeftlich": [
+        "Gegeben eine vollständige Reiseanfrage per Mail, wenn sie im Postfach eingeht, dann liegt binnen fünf Minuten ein strukturierter Vorgang mit Optionsliste vor.",
+        "Gegeben eine Anfrage ohne Reisedatum, wenn sie verarbeitet wird, dann geht eine Rückfrage an die anfragende Person und der Vorgang bleibt offen.",
+        "Gegeben eine Anfrage über dem Budgetrahmen, wenn die Prüfung abgeschlossen ist, dann wird sie der Teamleitung zur Freigabe vorgelegt und nicht weiterverarbeitet.",
+        "Gegeben eine Extraktion unterhalb der Konfidenzschwelle, wenn der Vorgang angelegt wird, dann wird er als prüfbedürftig markiert und einem Menschen zugewiesen.",
+        "Gegeben ein abgeschlossener Vorgang, wenn das Protokoll gelesen wird, dann sind Vorgangs-ID, Teilprozess-ID und Zeitstempel je Schritt enthalten."
+      ],
+      "voraussetzungen": [
+        "Zugriff auf das Postfach reisen@noroai",
+        "Erreichbare Reise-API mit Flug-, Hotel- und Mietwagendaten",
+        "Hinterlegte Budgetrahmen je Projekt oder Kostenstelle",
+        "DSGVO-Freigabe für die Verarbeitung von Reisedaten Beschäftigter"
+      ],
+      "risiken": [
+        {
+          "beschreibung": "Freitext-Mails sind uneinheitlich, Extraktion schlägt fehl",
+          "wahrscheinlichkeit": "med",
+          "auswirkung": "med",
+          "gegenmassnahme": "Konfidenzschwelle mit manuellem Fallback, Formular bevorzugen"
+        },
+        {
+          "beschreibung": "Reisedaten Beschäftigter sind personenbezogen",
+          "wahrscheinlichkeit": "high",
+          "auswirkung": "med",
+          "gegenmassnahme": "Pseudonymisierung nach ADR-004 vor der LLM-Grenze"
+        }
+      ]
+    },
+    {
+      "potenzial_id": "b1000000-0000-4000-8000-000000000002",
+      "titel": "Angebot erstellen und Buchung nach Freigabe auslösen",
+      "rang": 1,
+      "betroffene_teilprozess_ids": [
+        "KP-06.TP-2"
+      ],
+      "betroffene_prozessschritte": [
+        "Angebot erstellen",
+        "Bestätigung einholen",
+        "Buchung vornehmen"
+      ],
+      "beschreibung": "Nach der Verfügbarkeitsprüfung stellt das Backoffice heute ein Angebot von Hand zusammen: die passenden Optionen werden aus den Portalen kopiert, in eine Word-Vorlage übertragen, Preise addiert und das Dokument per Mail verschickt. Die reisende Person antwortet formlos per Mail. Erst danach werden Flug, Hotel und Mietwagen einzeln in den Portalen gebucht und die Buchungsnummern wieder von Hand in die Excel-Liste eingetragen.\n\nAutomatisiert werden die Angebotserstellung aus den bereits strukturierten Optionen, der Versand mit eindeutiger Zuordnung, die Erfassung der Zusage und das Auslösen der Buchung. Der Datenfluss geht von der Vorgangsablage über die Angebotsvorlage zur reisenden Person und nach der Freigabe zurück in die Reise-API sowie in die Vorgangsablage.\n\nBeteiligte Rollen sind das Backoffice, die reisende Person und die Teamleitung als Freigebende. Vorbedingung ist ein Vorgang mit geprüften Optionen aus dem ersten Potenzial. Sonderfälle: läuft eine Option zwischen Angebot und Zusage ab, wird erneut geprüft und ein aktualisiertes Angebot erzeugt; bleibt die Zusage aus, erinnert der Prozess zweimal und schließt den Vorgang danach mit Begründung; eine Stornierung nach Buchung ist kein Abbruch, sondern ein eigener Statuswechsel mit Protokolleintrag.",
+      "betroffene_systeme": [
+        {
+          "name": "Vorgangsablage",
+          "rolle": "Quelle+Ziel",
+          "integration": "DB"
+        },
+        {
+          "name": "Outlook-Postfach reisen@noroai",
+          "rolle": "Quelle+Ziel",
+          "integration": "Email"
+        },
+        {
+          "name": "Reise-API (travel-mock-api)",
+          "rolle": "Ziel",
+          "integration": "API"
+        }
+      ],
+      "manueller_aufwand_heute": "hoch",
+      "impact": "hoch",
+      "umsetzungskomplexitaet": "gering",
+      "value": {
+        "ist_kosten_eur_jahr": 24000.0,
+        "einsparung_eur_jahr": 15600.0,
+        "ersparnis_prozent": 65.0,
+        "investition_eur_richtwert": 12000.0,
+        "amortisation_monate": 9.2,
+        "value_quelle": "annahme",
+        "annahmen": [
+          "Jahresvolumen 1200 Reiseanfragen (Annahme, nicht erhoben)",
+          "Vollkostensatz 60 EUR/h (Annahme, nicht erhoben)",
+          "manuelle Zeit heute: 20 Min/Anfrage (Annahme, nicht gemessen)",
+          "Umsetzungs-Tagessatz 800 EUR",
+          "angenommener Einsparungsgrad: 65 %",
+          "VORLÄUFIG — Übergangslieferung, Gate 0 nicht durchlaufen"
+        ]
+      },
+      "aufwand_schaetzung_pt": 15,
+      "prioritaet_score": 75.0,
+      "kategorie": "Quick Win",
+      "potenzielle_loesung": {
+        "ansatz": "Angebotsdokument wird aus versionierten Textbausteinen und den geprüften Optionen erzeugt. Versand mit Vorgangs-ID im Betreff, Rückordnung der Antwort über dieselbe ID. Zusage setzt den Status und löst die Buchung über die Reise-API aus. Buchungsnummern werden zurück in die Vorgangsablage geschrieben. Die Freigabe bleibt beim Menschen.",
+        "tech_stack_empfehlung": [
+          "n8n",
+          "Mistral Large",
+          "PostgreSQL",
+          "travel-mock-api"
+        ],
+        "to_be_kurz": "Angebot entsteht automatisch, die Buchung läuft erst nach menschlicher Freigabe."
+      },
+      "to_be_vision": "Sobald geprüfte Optionen vorliegen, entsteht das Angebot ohne Zutun und geht innerhalb weniger Minuten hinaus. Die reisende Person sieht drei vergleichbare Varianten mit Gesamtpreis und Rahmenbedingungen und kann mit einer Antwort zusagen; die Zuordnung zum Vorgang passiert über die Vorgangsnummer und muss nicht von Hand hergestellt werden. Bleibt eine Antwort aus, erinnert der Prozess selbsttätig und schließt den Vorgang nach der zweiten Erinnerung mit einer nachvollziehbaren Begründung. Ist eine Option zwischenzeitlich abgelaufen, wird erneut geprüft und ein aktualisiertes Angebot erzeugt, statt den Vorgang scheitern zu lassen. Gebucht wird ausschließlich nach ausdrücklicher Freigabe durch einen Menschen; die Buchungsnummern laufen automatisch in die Vorgangsablage zurück, sodass die Excel-Liste entfällt. Stornierungen und nachträgliche Änderungen sind als Statuswechsel abgebildet und bleiben im Protokoll sichtbar.",
+      "fachliche_anforderungen": [
+        "Das Angebot wird aus den geprüften Optionen ohne manuelles Kopieren erzeugt.",
+        "Jedes Angebot enthält mindestens drei vergleichbare Varianten mit Gesamtpreis.",
+        "Der Versand trägt die Vorgangs-ID, damit die Antwort automatisch zugeordnet wird.",
+        "Eine Buchung wird ausschließlich nach ausdrücklicher menschlicher Freigabe ausgelöst.",
+        "Abgelaufene Optionen führen zu einer erneuten Prüfung, nicht zum Abbruch.",
+        "Ausbleibende Zusagen lösen zwei Erinnerungen aus, danach wird der Vorgang geschlossen.",
+        "Stornierung ist ein Statuswechsel mit Protokolleintrag, kein Löschvorgang.",
+        "Buchungsnummern werden in die Vorgangsablage zurückgeschrieben."
+      ],
+      "akzeptanzkriterien_geschaeftlich": [
+        "Gegeben ein Vorgang mit geprüften Optionen, wenn das Angebot erzeugt wird, dann enthält es drei Varianten mit Gesamtpreis und geht binnen fünf Minuten hinaus.",
+        "Gegeben eine Zusage per Mail mit Vorgangs-ID, wenn sie eingeht, dann wechselt der Vorgang in den Status freigabebereit und wird nicht automatisch gebucht.",
+        "Gegeben eine erteilte Freigabe, wenn die Buchung ausgelöst wird, dann stehen die Buchungsnummern binnen fünf Minuten im Vorgang.",
+        "Gegeben eine abgelaufene Option, wenn die Zusage eintrifft, dann wird erneut geprüft und ein aktualisiertes Angebot verschickt.",
+        "Gegeben eine ausbleibende Antwort, wenn 48 Stunden vergangen sind, dann geht eine Erinnerung hinaus; nach der zweiten wird der Vorgang mit Begründung geschlossen.",
+        "Gegeben eine Stornierung nach Buchung, wenn sie erfasst wird, dann bleibt der Vorgang bestehen und trägt den Status storniert mit Zeitstempel."
+      ],
+      "voraussetzungen": [
+        "Freigegebene Angebotsvorlage mit versionierten Textbausteinen",
+        "Schreibender Zugriff auf die Reise-API",
+        "Definierte Freigabeberechtigung je Projekt oder Kostenstelle",
+        "Aufbewahrungsregel für Angebots- und Buchungsdaten"
+      ],
+      "risiken": [
+        {
+          "beschreibung": "Zuordnung der Mailantwort scheitert, wenn die Vorgangs-ID entfernt wird",
+          "wahrscheinlichkeit": "med",
+          "auswirkung": "high",
+          "gegenmassnahme": "ID zusätzlich im Body, Rückordnung über Absender und Zeitraum als Fallback"
+        },
+        {
+          "beschreibung": "Automatische Buchung ohne Freigabe verursacht Kosten",
+          "wahrscheinlichkeit": "low",
+          "auswirkung": "high",
+          "gegenmassnahme": "Freigabe technisch erzwingen, Buchungsschritt ohne Freigabe-Flag nicht ausführbar"
+        }
+      ]
+    }
+  ],
+  "gesamtempfehlung": {
+    "reihenfolge_potenzial_ids": [
+      "b1000000-0000-4000-8000-000000000001",
+      "b1000000-0000-4000-8000-000000000002"
+    ],
+    "begruendung": "Trotz des höheren Scores von Potenzial 2 wird mit Potenzial 1 begonnen: die Angebotserstellung setzt strukturierte Anfragedaten und geprüft Optionen voraus. Diese fachliche Abhängigkeit lässt sich in v2.0 nicht abbilden, seit abhaengigkeiten entfallen ist, und steht deshalb hier im Freitext."
+  },
+  "gate1": {
+    "status": "pending",
+    "kommentar": "Zahlen sind Annahmen (value_quelle = annahme), noch nicht gerechnet. Gate 0 ist für KP-06.TP-2 nicht durchlaufen."
+  }
+}

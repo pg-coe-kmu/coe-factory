@@ -1,0 +1,215 @@
+{
+  "lieferung_id": "del-uc3-consultant-placement-2026-09-06-074930",
+  "schema_version": "3.5",
+  "projekt_kurzname": "uc3-consultant-placement",
+  "erzeugt_am": "2026-09-06T07:49:30.775Z",
+  "konzept_ref": {
+    "konzept_id": "b3000000-0000-4000-8000-0000000000c3",
+    "schema_version": "2.1-bc3",
+    "source_file": "konzept_uc3_consultant_placement.json",
+    "kp_id": "KP-06",
+    "teilprozess_ids": [
+      "KP-06.TP-1"
+    ],
+    "value_quelle": "annahme"
+  },
+  "prozess_kurzbeschreibung": "Neueinstellung und Onboarding bei NoroAI Consulting: Lebensläufe gehen unstrukturiert ein und werden manuell abgelegt; für eine Projektausschreibung werden sie von Hand gesichtet, mit den Anforderungen abgeglichen und als Personalvorschlag per Mail versendet.",
+  "vorpruefung": {
+    "ampel": "yellow",
+    "ai_act_klasse": "high",
+    "anhang_iii_kategorie": "Anhang III Nr. 4 Buchstabe a (Beschäftigung, Personalauswahl)",
+    "dsgvo_rechtsgrundlage": "Artikel 6 Absatz 1 Buchstabe a (Einwilligung), Artikel 9 Absatz 2 Buchstabe a (ausdrückliche Einwilligung für besondere Kategorien), Artikel 13 (Informationspflicht)",
+    "betroffene_datenarten": [
+      "Bewerbungsunterlagen (Stufe hoch)",
+      "E-Mail-Adresse (Stufe gering)",
+      "Kompetenzen, Erfahrungsjahre, Branchen, Sprachen, Verfügbarkeit (Stufe hoch, da personenbezogen und entscheidungsrelevant)"
+    ],
+    "begruendung_ampel": "Der Prozess fällt unter Anhang III der EU-KI-Verordnung (Hochrisiko) und erfordert menschliche Aufsicht bei Auswahlentscheidungen. Durch die implementierten Maßnahmen (menschliche Entscheidung vor Versand, Protokollierung, Transparenzhinweise, Pseudonymisierung) werden die Risiken gemindert. Die Ampel steht auf yellow, da die menschliche Aufsicht technisch erzwungen wird und die Plattform-Standards (PII-Filter, Audit-Log, Verschlüsselung) die Compliance weiter stärken."
+  },
+  "pflichten": [
+    {
+      "id": "p1",
+      "tag": "[AI-Act Art. 14]",
+      "text": "Vor jeder endgültigen Auswahlentscheidung muss ein Mensch die Vorschlagsliste prüfen, die Entscheidung treffen und dies protokollieren, um die menschliche Aufsicht nach Artikel 14 KI-VO sicherzustellen.",
+      "massnahme": "mensch_prueft",
+      "datenkategorie": "hoch",
+      "stelle": "Vorschlagsliste an Outlook für Versand vorbereiten (ep-0002-6)",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3"
+    },
+    {
+      "id": "p2",
+      "tag": "[AI-Act Art. 14 + DSGVO Art. 22]",
+      "text": "Die technische Sperre für Ablehnungen ohne menschliche Entscheidung (ep-0002-4) muss sicherstellen, dass keine ausschließlich automatisierte Entscheidung mit erheblicher Wirkung (Ablehnung) getroffen wird.",
+      "massnahme": "mensch_prueft",
+      "datenkategorie": "hoch",
+      "stelle": "Technische Sperre für Ablehnungen ohne menschliche Entscheidung implementieren (ep-0002-4)",
+      "adressat": "bc4",
+      "wird_zu_story": false,
+      "owner": "BC3"
+    },
+    {
+      "id": "p3",
+      "tag": "[AI-Act Art. 17]",
+      "text": "Jede Extraktion und jeder Abgleich muss mit Zeitstempel, beteiligten Systemkomponenten und Eingabedaten protokolliert werden, um die Rückverfolgbarkeit nach Artikel 17 KI-VO zu gewährleisten.",
+      "massnahme": "protokollieren",
+      "datenkategorie": "gering",
+      "stelle": "Lebenslauf-Inhalte extrahieren und strukturieren (ep-0001-2) und Profile mit Anforderungen abgleichen (ep-0002-2)",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3"
+    },
+    {
+      "id": "p4",
+      "tag": "[AI-Act Art. 50 + DSGVO Art. 13]",
+      "text": "Betroffene müssen bei der ersten Datenerhebung über den Einsatz des KI-Systems, die verarbeiteten Datenkategorien, den Zweck und ihre Rechte (Auskunft, Korrektur, Löschung) informiert werden (Transparenzhinweis).",
+      "massnahme": "hinweis_geben",
+      "datenkategorie": "gering",
+      "stelle": "Lebenslauf-Dateien aus Postfach abrufen und Einwilligung prüfen (ep-0001-1)",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3"
+    },
+    {
+      "id": "p5",
+      "tag": "[DSGVO Art. 9 Abs. 2 Buchstabe a]",
+      "text": "Für die Verarbeitung besonderer Kategorien personenbezogener Daten (Bewerbungsunterlagen) muss eine ausdrückliche Einwilligung der betroffenen Person vorliegen, die dokumentiert und prüfbar ist.",
+      "massnahme": "feld_weglassen",
+      "datenkategorie": "hoch",
+      "stelle": "Lebenslauf-Dateien aus Postfach abrufen und Einwilligung prüfen (ep-0001-1)",
+      "adressat": "bc4",
+      "wird_zu_story": false,
+      "owner": "BC3"
+    },
+    {
+      "id": "p6",
+      "tag": "[AI-Act Art. 10]",
+      "text": "Unsichere oder widersprüchliche Angaben in Lebensläufen müssen als solche markiert und nicht geschätzt werden, um die Datenqualität nach Artikel 10 KI-VO sicherzustellen.",
+      "massnahme": "feld_weglassen",
+      "datenkategorie": "hoch",
+      "stelle": "Lebenslauf-Inhalte extrahieren und strukturieren (ep-0001-2)",
+      "adressat": "bc4",
+      "wird_zu_story": false,
+      "owner": "BC3"
+    },
+    {
+      "id": "p7",
+      "tag": "[DSGVO Art. 5 Abs. 1 Buchstabe e]",
+      "text": "Profile müssen nach Ablauf der Aufbewahrungsfrist automatisch gelöscht und die Löschung protokolliert werden, um die Speicherbegrenzung nach DSGVO einzuhalten.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "hoch",
+      "stelle": "Profile nach Ablauf der Aufbewahrungsfrist löschen (ep-0001-5)",
+      "adressat": "bc4",
+      "wird_zu_story": false,
+      "owner": "BC3"
+    },
+    {
+      "id": "p8",
+      "tag": "[AI-Act Art. 13]",
+      "text": "Die Vorschlagsliste muss als unverbindlicher Vorschlag gekennzeichnet sein und darf keine verbindliche Entscheidung darstellen, um die Transparenz nach Artikel 13 KI-VO zu wahren.",
+      "massnahme": "hinweis_geben",
+      "datenkategorie": "gering",
+      "stelle": "Vorschlagsliste mit Begründung und Profilfeld-Verweisen erstellen (ep-0002-3)",
+      "adressat": "bc4",
+      "wird_zu_story": false,
+      "owner": "BC3"
+    },
+    {
+      "id": "p9",
+      "tag": "[DSGVO Art. 15]",
+      "text": "Betroffene müssen ihr Kompetenzprofil mit Belegstellen einsehen und Korrekturen verlangen können, um das Auskunftsrecht nach DSGVO zu erfüllen.",
+      "massnahme": "mensch_prueft",
+      "datenkategorie": "hoch",
+      "stelle": "Profil für betroffene Person zur Einsicht und Korrektur bereitstellen (ep-0001-4)",
+      "adressat": "bc4",
+      "wird_zu_story": false,
+      "owner": "BC3"
+    },
+    {
+      "id": "p10",
+      "tag": "[AI-Act Art. 9]",
+      "text": "Die Verarbeitung von Bewerberdaten muss durch technische Maßnahmen (z. B. Pseudonymisierung von E-Mail-Adressen) und organisatorische Maßnahmen (z. B. Zugriffsbeschränkungen) geschützt werden, um Risiken nach Artikel 9 KI-VO zu mindern.",
+      "massnahme": "pseudonymisieren",
+      "datenkategorie": "gering",
+      "stelle": "Lebenslauf-Dateien aus Postfach abrufen und Einwilligung prüfen (ep-0001-1) und Strukturiertes Kompetenzprofil im Register speichern (ep-0001-3)",
+      "adressat": "plattform",
+      "wird_zu_story": false,
+      "owner": "BC3"
+    }
+  ],
+  "pflichten_nach_adressat": {
+    "bc4": [
+      "p1",
+      "p2",
+      "p3",
+      "p4",
+      "p5",
+      "p6",
+      "p7",
+      "p8",
+      "p9"
+    ],
+    "organisation": [],
+    "plattform": [
+      "p10"
+    ],
+    "ohne_angabe": []
+  },
+  "nicht_an_bc4": [],
+  "plattform_standards": [
+    "PII-Filter für E-Mail-Adressen und Kontaktdaten (Pseudonymisierung)",
+    "Zentrales Audit-Log für alle Verarbeitungsschritte (Protokollierung)",
+    "Verschlüsselung der Profilregister-Daten (DSGVO Art. 32)",
+    "Zugriffsbeschränkungen für Bewerberdaten (DSGVO Art. 32)",
+    "Automatisierte Löschungs-Cron-Jobs für Aufbewahrungsfristen (DSGVO Art. 5 Abs. 1 Buchstabe e)"
+  ],
+  "zuordnung": [
+    {
+      "epic_id": "ep-1732-a36b-78d2-83970c030237",
+      "use_case_id_ref": "b3000000-0000-4000-8000-000000000001",
+      "titel": "Lebensläufe strukturiert erfassen und Kompetenzprofil aufbauen"
+    },
+    {
+      "story_id": "st-1732-a36b-78d2-83970c030237-6",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p4"
+      ]
+    },
+    {
+      "story_id": "st-1732-a36b-78d2-83970c030237-7",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p3"
+      ]
+    },
+    {
+      "epic_id": "ep-6880-f9da-611f-5bee0478c626",
+      "use_case_id_ref": "b3000000-0000-4000-8000-000000000002",
+      "titel": "Projektanforderungen mit Profilen abgleichen und Vorschlagsliste automatisiert erzeugen"
+    },
+    {
+      "story_id": "st-6880-f9da-611f-5bee0478c626-7",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p1"
+      ]
+    }
+  ],
+  "nicht_zugeordnete_compliance_stories": [],
+  "pflichten_ohne_story": [],
+  "pflichten_mit_story_ohne_vermerk": [],
+  "befunde_adressat": [],
+  "pruefung_bc3": {
+    "geprueft_gegen": "tickets.schema.json 3.5",
+    "ergebnis": "bestanden",
+    "befunde": [],
+    "epics": 2,
+    "stories": 11,
+    "potenziale": 2,
+    "anforderungen_im_eingang": 17,
+    "akzeptanzkriterien_im_eingang": 11,
+    "stories_ohne_kriterium": 0
+  }
+}

@@ -1,0 +1,318 @@
+{
+  "konzept_id": "3f9a1c22-0001-4a10-9c00-000000000001",
+  "schema_version": "2.1-bc3",
+  "prozessprofil_ref": "mock_prozessprofil",
+  "erzeugt_am": "2026-06-27T12:00:00Z",
+  "erzeugt_von": "BC2-Mock von Sergio, unverändert — BC3 hat nur die vier fehlenden Pflichtfelder ergänzt, damit der Unterschied an einem Fall sichtbar wird",
+  "kontext": {
+    "prozess_kurzbeschreibung": "Versicherte reichen Anträge auf Krankentagegeld ein; das Team prüft und bewilligt (Aurelia Krankenkasse).",
+    "kp_id": "KP-07",
+    "unternehmen": "Aurelia Krankenkasse, Abteilung Leistung",
+    "betroffene_systeme_landschaft": [
+      "SAP",
+      "Outlook",
+      "Excel",
+      "Dokumentenscanner"
+    ],
+    "hauptschmerzpunkte": [
+      {
+        "beschreibung": "Rückfrage-Schleifen bei unvollständigen Anträgen",
+        "haeufigkeit": "30 % der Fälle",
+        "auswirkung": "+1-3 Tage Wartezeit, Hauptzeitfresser"
+      },
+      {
+        "beschreibung": "Excel-Liste 'Offene Anträge' veraltet oft",
+        "haeufigkeit": "wöchentlich",
+        "auswirkung": "ca. 1 Antrag/Woche geht verloren und muss rekonstruiert werden"
+      },
+      {
+        "beschreibung": "Bescheide manuell formuliert (keine Templates)",
+        "haeufigkeit": "jeder Bescheid",
+        "auswirkung": "verlangsamt Endphase, uneinheitliche Formulierungen"
+      }
+    ]
+  },
+  "potenziale": [
+    {
+      "potenzial_id": "aa000000-0000-4000-8000-000000000001",
+      "titel": "Automatisierte Antragserfassung via OCR + LLM-Feldextraktion",
+      "rang": 2,
+      "beschreibung": "Im Schritt \"Antrag erfassen\" digitalisiert die Sachbearbeitung heute jeden eingehenden Krankentagegeld-Antrag manuell in SAP. Papier-Anträge werden zunächst am Dokumentenscanner eingescannt, PDF-Anträge liegen bereits digital vor; anschließend werden die relevanten Felder (Versichertennummer, Zeitraum, Diagnose-Bezug, Bankverbindung) von Hand in die SAP-Maske übertragen. Das betrifft **alle** rund 13.800 Vorgänge pro Jahr und kostet je Fall etwa fünf Minuten reine Erfassungszeit. Zwei Automatisierungshindernisse sind bekannt: Papier-Anträge müssen gescannt werden, und die OCR-Qualität schwankt.\n\n**Was automatisiert wird:** Ein OCR-Service liest das gescannte oder hochgeladene Dokument, ein nachgelagertes LLM extrahiert die Felder strukturiert, prüft sie auf Plausibilität (z. B. gültiges Datum, vorhandene Versichertennummer) und schreibt sie über die SAP-API in den Antragsdatensatz. Nur bei niedriger Extraktions-Konfidenz wird der Fall der Sachbearbeitung zur manuellen Nacherfassung vorgelegt (Human-in-the-Loop).\n\n**Prozessschritt:** \"Antrag erfassen\" (erster Schritt). **Ergebnis:** ein vollständig erfasster, strukturierter Antrag in SAP inklusive Konfidenz-Flag. **Datenflüsse:** Dokument (Scan/PDF) -> OCR -> LLM-Extraktion -> Validierung -> SAP-API. **Akteure:** Sachbearbeitung (nur noch Ausnahmefälle), System (Regelfall). **Vorbedingungen:** SAP-API-Schreibzugriff, ein OCR-Modell, DSGVO-Freigabe für die Dokumentenverarbeitung. **Sonderfälle/Ausnahmen:** unleserliche Scans, unbekannte Formulartypen und Anträge mit widersprüchlichen Angaben werden nicht automatisch gebucht, sondern eskaliert. Damit sinkt der manuelle Erfassungsaufwand deutlich, ohne die fachliche Kontrolle aufzugeben.",
+      "betroffene_prozessschritte": [
+        "Antrag erfassen"
+      ],
+      "betroffene_systeme": [
+        {
+          "name": "Dokumentenscanner",
+          "rolle": "Quelle",
+          "integration": "OCR"
+        },
+        {
+          "name": "SAP",
+          "rolle": "Ziel",
+          "integration": "API"
+        }
+      ],
+      "manueller_aufwand_heute": "mittel",
+      "impact": "hoch",
+      "umsetzungskomplexitaet": "mittel",
+      "value": {
+        "ist_kosten_eur_jahr": 57500.0,
+        "einsparung_eur_jahr": 40250.0,
+        "ersparnis_prozent": 70.0,
+        "investition_eur_richtwert": 20000.0,
+        "amortisation_monate": 6.0,
+        "value_quelle": "berechnet",
+        "annahmen": [
+          "Jahresvolumen 13800 Vorgänge (300/Woche x 46 Wochen)",
+          "Vollkostensatz 50 EUR/h",
+          "Umsetzungs-Tagessatz 800 EUR",
+          "betroffene Fälle/Jahr: 13800",
+          "manuelle Zeit heute: 5 Min/Fall",
+          "angenommener Einsparungsgrad: 70 %"
+        ]
+      },
+      "aufwand_schaetzung_pt": 25,
+      "prioritaet_score": 56.25,
+      "kategorie": "Quick Win",
+      "potenzielle_loesung": {
+        "ansatz": "OCR-Extraktion des Antragsdokuments, LLM-gestützte Feldextraktion und Plausibilitätsprüfung, Rückschreiben der strukturierten Felder via SAP-API. Konfidenzschwelle steuert den Human-in-the-Loop: unsichere Fälle gehen an die Sachbearbeitung.",
+        "tech_stack_empfehlung": [
+          "OCR-Service",
+          "Claude (Sonnet 4.6)",
+          "n8n",
+          "SAP-API",
+          "PostgreSQL"
+        ],
+        "to_be_kurz": "Anträge werden automatisch erfasst; Menschen bearbeiten nur noch Ausnahmen."
+      },
+      "voraussetzungen": [
+        "SAP-API-Schreibzugriff",
+        "OCR-Modell verfügbar",
+        "DSGVO-Freigabe Dokumentenverarbeitung"
+      ],
+      "risiken": [
+        {
+          "beschreibung": "OCR-Qualität bei schlechten Scans zu niedrig",
+          "wahrscheinlichkeit": "med",
+          "auswirkung": "med",
+          "gegenmassnahme": "Konfidenzschwelle + manueller Fallback"
+        }
+      ],
+      "betroffene_teilprozess_ids": [
+        "KP-07.TP-1"
+      ],
+      "to_be_vision": "Ein eingehender Antrag ist binnen weniger Minuten strukturiert in SAP erfasst, ohne dass jemand Felder abtippt. Papieranträge werden gescannt, digital eingehende Anträge direkt gelesen; in beiden Fällen entsteht derselbe strukturierte Datensatz. Die Sachbearbeitung sieht nur noch die Fälle, bei denen die Erkennung unsicher war oder Pflichtfelder fehlen, und arbeitet dort gezielt nach. Für jedes extrahierte Feld ist sichtbar, aus welcher Stelle des Dokuments es stammt und mit welcher Konfidenz, sodass die Prüfung stichprobenartig statt vollständig erfolgen kann. Gegenüber SAP tritt der Prozess schreibend nur mit geprüften Datensätzen auf; unsichere Extraktionen erzeugen keinen Vorgang, sondern eine Aufgabe für einen Menschen. Der Eingangszeitpunkt bleibt in jedem Fall erhalten, damit Fristen unabhängig vom Verarbeitungsweg laufen.",
+      "fachliche_anforderungen": [
+        "Papier- und PDF-Anträge münden in denselben strukturierten Datensatz.",
+        "Pflichtfelder des Antrags werden vollständig extrahiert oder als fehlend markiert.",
+        "Je extrahiertem Feld werden Fundstelle und Konfidenz mitgeführt.",
+        "Unterhalb der Konfidenzschwelle entsteht eine Aufgabe für die Sachbearbeitung statt eines Vorgangs.",
+        "Der Eingangszeitpunkt des Antrags bleibt fristrelevant erhalten.",
+        "Der Schreibzugriff auf SAP erfolgt nur mit geprüften Datensätzen.",
+        "Jeder Vorgang trägt die Teilprozess-ID KP-07.TP-1."
+      ],
+      "akzeptanzkriterien_geschaeftlich": [
+        "Gegeben ein vollständiger PDF-Antrag, wenn er eingeht, dann liegt binnen fünf Minuten ein erfasster Vorgang in SAP vor.",
+        "Gegeben ein Scan schlechter Qualität, wenn die Konfidenz unter dem Schwellwert liegt, dann entsteht kein SAP-Vorgang, sondern eine Aufgabe mit Vorschauabbild.",
+        "Gegeben ein Antrag ohne Pflichtfeld, wenn er verarbeitet wird, dann ist das Feld als fehlend markiert und der Vorgang als unvollständig gekennzeichnet.",
+        "Gegeben ein erfasster Vorgang, wenn er geprüft wird, dann ist je Feld die Fundstelle im Dokument nachvollziehbar.",
+        "Gegeben ein am Freitag eingegangener Antrag, wenn er erst am Montag verarbeitet wird, dann gilt weiterhin der Freitag als Eingangszeitpunkt."
+      ]
+    },
+    {
+      "potenzial_id": "aa000000-0000-4000-8000-000000000002",
+      "titel": "Geführter Rückfrage-Workflow bei unvollständigen Anträgen",
+      "rang": 3,
+      "beschreibung": "Rund 30 % aller Anträge sind unvollständig und lösen eine Rückfrage an die Versicherten aus -- der laut BC1 größte Zeitfresser des Prozesses. Heute formuliert die Sachbearbeitung die Rückfrage manuell in Outlook, es entsteht ein Medienbruch zwischen Mail und SAP, und die Antwortzeit der Versicherten ist nicht kontrollierbar (Wartezeit +1 bis 3 Tage, faktisch oft länger). Pro Rückfrage fallen über Formulierung, Wiedervorlage und Nachverfolgung rund acht Minuten aktive Bearbeitungszeit an; das betrifft etwa 4.140 Fälle pro Jahr.\n\n**Was automatisiert wird:** Sobald die sachliche Prüfung eine definierte Lücke erkennt (z. B. fehlende Bescheinigung), erzeugt das System eine strukturierte, vollständige Nachforderung mit klarer Angabe der fehlenden Unterlagen und einem Rücklauf-Link/Formular. Erinnerungen laufen automatisch, der Rücklauf wird ohne manuelle Übertragung dem SAP-Vorgang zugeordnet. **Prozessschritt:** \"Rückfrage an Versicherten\". **Ergebnis:** vollständiger Antrag oder dokumentierte Nichtreaktion nach definierter Frist. **Datenflüsse:** SAP-Lückenbefund -> Nachforderungsvorlage -> Versand (E-Mail/Portal) -> Rücklauf -> automatische Zuordnung zum SAP-Vorgang. **Akteure:** Sachbearbeitung (nur Freigabe/Ausnahmen), Versicherte (extern), System. **Vorbedingungen:** definierte Lücken-Kategorien, Outlook-/Portal-Anbindung, Vorlagenkatalog. **Sonderfälle:** mehrfache Rückfragen, Teil-Rückmeldungen und Fristablauf werden geregelt. Die eigentliche Kundenantwortzeit bleibt unbeeinflussbar -- deshalb ist die Einsparung auf den internen Aufwand begrenzt.",
+      "betroffene_prozessschritte": [
+        "Sachliche Prüfung",
+        "Rückfrage an Versicherten (bei Lücken)"
+      ],
+      "betroffene_systeme": [
+        {
+          "name": "SAP",
+          "rolle": "Quelle+Ziel",
+          "integration": "API"
+        },
+        {
+          "name": "Outlook",
+          "rolle": "Quelle+Ziel",
+          "integration": "Email"
+        }
+      ],
+      "manueller_aufwand_heute": "hoch",
+      "impact": "hoch",
+      "umsetzungskomplexitaet": "hoch",
+      "value": {
+        "ist_kosten_eur_jahr": 27600.0,
+        "einsparung_eur_jahr": 16560.0,
+        "ersparnis_prozent": 60.0,
+        "investition_eur_richtwert": 24000.0,
+        "amortisation_monate": 17.4,
+        "value_quelle": "berechnet",
+        "annahmen": [
+          "Jahresvolumen 13800 Vorgänge (300/Woche x 46 Wochen)",
+          "Vollkostensatz 50 EUR/h",
+          "Umsetzungs-Tagessatz 800 EUR",
+          "betroffene Fälle/Jahr: 4140",
+          "manuelle Zeit heute: 8 Min/Fall",
+          "angenommener Einsparungsgrad: 60 %"
+        ]
+      },
+      "aufwand_schaetzung_pt": 30,
+      "prioritaet_score": 37.5,
+      "kategorie": "Strategisch",
+      "potenzielle_loesung": {
+        "ansatz": "Regelbasierte Lücken-Erkennung in der Prüfung, generierte strukturierte Nachforderung, automatischer Versand mit Erinnerungen und medienbruchfreie Rückordnung zum SAP-Vorgang. LLM formuliert die Nachforderung verständlich, Regeln steuern den Ablauf.",
+        "tech_stack_empfehlung": [
+          "n8n",
+          "Claude (Sonnet 4.6)",
+          "SAP-API",
+          "Outlook/Graph-API",
+          "PostgreSQL"
+        ],
+        "to_be_kurz": "Nachforderungen laufen strukturiert und medienbruchfrei; Wiedervorlage automatisch."
+      },
+      "voraussetzungen": [
+        "Outlook-/Graph-Anbindung",
+        "SAP-API-Zugang",
+        "definierter Lücken-Katalog"
+      ],
+      "risiken": [
+        {
+          "beschreibung": "Medienbruch Mail<->SAP schwer aufzulösen",
+          "wahrscheinlichkeit": "med",
+          "auswirkung": "high",
+          "gegenmassnahme": "eindeutige Vorgangs-IDs im Betreff + Rückordnungslogik"
+        },
+        {
+          "beschreibung": "Kundenantwortzeit bleibt unkontrollierbar",
+          "wahrscheinlichkeit": "high",
+          "auswirkung": "med",
+          "gegenmassnahme": "automatische Eskalation nach Frist"
+        }
+      ],
+      "betroffene_teilprozess_ids": [
+        "KP-07.TP-2",
+        "KP-07.TP-3"
+      ],
+      "to_be_vision": "Fehlt einem Antrag etwas, erkennt der Prozess das während der Prüfung und erzeugt eine Nachforderung, die genau benennt, welche Unterlage oder Angabe fehlt. Der Versand trägt die Vorgangsnummer, sodass die Antwort des Versicherten automatisch demselben Vorgang zugeordnet wird und niemand mehr zwischen Postfach und SAP hin- und herträgt. Der Vorgang geht in Wiedervorlage und meldet sich selbsttätig, wenn die Frist verstreicht; nach der zweiten Erinnerung wird er mit nachvollziehbarer Begründung geschlossen. Die Sachbearbeitung sieht jederzeit, welche Vorgänge auf eine Rückmeldung warten und wie lange schon. Der Medienbruch zwischen Mail und Fachverfahren entfällt, weil beide Seiten über dieselbe Vorgangs-ID sprechen. Die Entscheidung, ob eine Unterlage ausreicht, bleibt beim Menschen.",
+      "fachliche_anforderungen": [
+        "Lücken werden gegen einen definierten Katalog erkannt, nicht frei geschätzt.",
+        "Die Nachforderung benennt jede fehlende Angabe einzeln und verständlich.",
+        "Jeder Versand trägt die Vorgangs-ID, die Antwort wird darüber zurückgeordnet.",
+        "Ausbleibende Antworten lösen zwei Erinnerungen aus, danach Schließung mit Begründung.",
+        "Die Bewertung, ob eine nachgereichte Unterlage ausreicht, bleibt beim Menschen.",
+        "Wartende Vorgänge sind mit Wartedauer sichtbar.",
+        "Jeder Schritt trägt die Teilprozess-IDs KP-07.TP-2 und KP-07.TP-3."
+      ],
+      "akzeptanzkriterien_geschaeftlich": [
+        "Gegeben ein Antrag mit fehlender Unterlage, wenn die Prüfung läuft, dann geht binnen eines Werktages eine Nachforderung mit benannter Lücke hinaus.",
+        "Gegeben eine Antwort des Versicherten mit Vorgangs-ID, wenn sie eingeht, dann ist sie dem Vorgang zugeordnet, ohne dass jemand sie zuordnet.",
+        "Gegeben eine ausbleibende Antwort, wenn die Frist verstreicht, dann geht eine Erinnerung hinaus und der Vorgang bleibt offen.",
+        "Gegeben eine zweite ausbleibende Antwort, wenn die Frist erneut verstreicht, dann wird der Vorgang mit Begründung geschlossen und der Versicherte informiert.",
+        "Gegeben eine nachgereichte Unterlage, wenn sie eingeht, dann entscheidet die Sachbearbeitung über die Ausreichendheit, nicht das System."
+      ]
+    },
+    {
+      "potenzial_id": "aa000000-0000-4000-8000-000000000003",
+      "titel": "Bescheid-Generator mit Textbausteinen und Vorlagen",
+      "rang": 1,
+      "beschreibung": "Im letzten Schritt \"Bescheid versenden\" wird heute **jeder** Bescheid manuell formuliert -- es gibt keine Templates. Das verlangsamt die Endphase und führt zu uneinheitlichen Formulierungen; zusätzlich fehlt eine Postversand-Schnittstelle. Betroffen sind alle rund 13.800 Vorgänge pro Jahr mit geschätzt sechs Minuten Formulierungs- und Prüfaufwand je Bescheid.\n\n**Was automatisiert wird:** Auf Basis von Prüfergebnis (Genehmigung/Ablehnung), Auszahlungsdaten und Ablehnungsgründen erzeugt ein Template-Generator den vollständigen Bescheidtext aus versionierten, rechtssicher freigegebenen Textbausteinen. Die Sachbearbeitung prüft nur noch und gibt frei; der Versand wird über eine definierte Schnittstelle angestoßen. **Prozessschritt:** \"Bescheid versenden\" (und Übergabe aus \"Auszahlung anstoßen / Ablehnung erstellen\"). **Ergebnis:** einheitlicher, korrekter Bescheid in Sekunden statt Minuten. **Datenflüsse:** SAP-Vorgangsdaten -> Template-Engine -> Bescheid-PDF -> Freigabe -> Versand. **Akteure:** Sachbearbeitung (Freigabe), System (Erzeugung). **Vorbedingungen:** freigegebener, versionierter Textbaustein-Katalog; Zugriff auf die Vorgangsdaten in SAP. **Sonderfälle:** individuelle Begründungen bei komplexen Ablehnungen bleiben editierbar. Wegen geringer Komplexität, hoher Fallzahl und niedriger Investition ist dies das wirtschaftlichste Potenzial des Prozesses.",
+      "betroffene_prozessschritte": [
+        "Auszahlung anstoßen / Ablehnung erstellen",
+        "Bescheid versenden"
+      ],
+      "betroffene_systeme": [
+        {
+          "name": "SAP",
+          "rolle": "Quelle",
+          "integration": "API"
+        },
+        {
+          "name": "Outlook + Postversand",
+          "rolle": "Ziel",
+          "integration": "Datei"
+        }
+      ],
+      "manueller_aufwand_heute": "hoch",
+      "impact": "sehr hoch",
+      "umsetzungskomplexitaet": "gering",
+      "value": {
+        "ist_kosten_eur_jahr": 69000.0,
+        "einsparung_eur_jahr": 51750.0,
+        "ersparnis_prozent": 75.0,
+        "investition_eur_richtwert": 12000.0,
+        "amortisation_monate": 2.8,
+        "value_quelle": "berechnet",
+        "annahmen": [
+          "Jahresvolumen 13800 Vorgänge (300/Woche x 46 Wochen)",
+          "Vollkostensatz 50 EUR/h",
+          "Umsetzungs-Tagessatz 800 EUR",
+          "betroffene Fälle/Jahr: 13800",
+          "manuelle Zeit heute: 6 Min/Fall",
+          "angenommener Einsparungsgrad: 75 %"
+        ]
+      },
+      "aufwand_schaetzung_pt": 15,
+      "prioritaet_score": 100.0,
+      "kategorie": "Quick Win",
+      "potenzielle_loesung": {
+        "ansatz": "Versionierter Textbaustein-Katalog + Template-Engine, gespeist aus SAP-Vorgangsdaten. LLM formuliert nur individuelle Begründungen; Standardbescheide entstehen regelbasiert. Sachbearbeitung gibt frei, Versand über definierte Schnittstelle.",
+        "tech_stack_empfehlung": [
+          "Template-Engine",
+          "Claude (Sonnet 4.6)",
+          "SAP-API",
+          "PostgreSQL"
+        ],
+        "to_be_kurz": "Bescheide entstehen einheitlich per Vorlage; Mensch prüft und gibt frei."
+      },
+      "voraussetzungen": [
+        "freigegebener Textbaustein-Katalog",
+        "SAP-Vorgangsdaten-Zugriff"
+      ],
+      "risiken": [
+        {
+          "beschreibung": "Rechtssichere Formulierungen müssen fachlich freigegeben werden",
+          "wahrscheinlichkeit": "med",
+          "auswirkung": "med",
+          "gegenmassnahme": "Freigabe-Workflow für Textbausteine, Versionierung"
+        }
+      ],
+      "betroffene_teilprozess_ids": [
+        "KP-07.TP-5",
+        "KP-07.TP-6"
+      ],
+      "to_be_vision": "Bescheide entstehen aus einem freigegebenen, versionierten Katalog von Textbausteinen und den Vorgangsdaten, statt jedes Mal neu formuliert zu werden. Standardfälle sind vollständig regelbasiert; nur individuelle Begründungen werden vorformuliert und der Sachbearbeitung zur Prüfung vorgelegt. Vor dem Versand gibt ein Mensch frei, und diese Freigabe ist technisch erforderlich, nicht nur organisatorisch vorgesehen. Jeder Bescheid führt mit, welche Bausteinversion verwendet wurde, sodass sich auch Jahre später nachvollziehen lässt, auf welcher Textgrundlage entschieden wurde. Genehmigung und Ablehnung folgen demselben Weg und unterscheiden sich nur im Bausteinsatz. Die Endphase des Prozesses beschleunigt sich damit deutlich, und die Formulierungen werden über alle Sachbearbeitenden hinweg einheitlich.",
+      "fachliche_anforderungen": [
+        "Standardbescheide entstehen regelbasiert aus versionierten Textbausteinen.",
+        "Individuelle Begründungen werden vorformuliert und zur Prüfung vorgelegt.",
+        "Der Versand ist ohne dokumentierte menschliche Freigabe technisch nicht möglich.",
+        "Jeder Bescheid führt die verwendete Bausteinversion mit.",
+        "Genehmigung und Ablehnung nutzen denselben Weg mit unterschiedlichem Bausteinsatz.",
+        "Textbausteine werden fachlich freigegeben, bevor sie eingesetzt werden.",
+        "Jeder Bescheid trägt die Teilprozess-IDs KP-07.TP-5 und KP-07.TP-6."
+      ],
+      "akzeptanzkriterien_geschaeftlich": [
+        "Gegeben ein entschiedener Vorgang, wenn der Bescheid erzeugt wird, dann liegt er binnen zwei Minuten zur Freigabe vor.",
+        "Gegeben ein erzeugter Bescheid ohne Freigabe, wenn ein Versand versucht wird, dann wird er abgelehnt und protokolliert.",
+        "Gegeben ein versendeter Bescheid, wenn er später geprüft wird, dann ist die verwendete Bausteinversion erkennbar.",
+        "Gegeben eine Ablehnung, wenn der Bescheid erzeugt wird, dann enthält er eine individuelle Begründung, die geprüft wurde.",
+        "Gegeben ein nicht freigegebener Textbaustein, wenn er verwendet werden soll, dann bricht die Erzeugung mit Hinweis ab."
+      ]
+    }
+  ],
+  "gesamtempfehlung": {
+    "reihenfolge_potenzial_ids": [
+      "aa000000-0000-4000-8000-000000000003",
+      "aa000000-0000-4000-8000-000000000001",
+      "aa000000-0000-4000-8000-000000000002"
+    ],
+    "begruendung": "Empfohlen wird, mit dem **Bescheid-Generator** zu starten: höchster Score (geringe Komplexität, sehr hoher Impact, Amortisation < 3 Monate). Danach die **OCR-/LLM-Antragserfassung** als zweiter Quick Win. Der **Rückfrage-Workflow** folgt zuletzt: hoher Nutzen, aber höhere Komplexität (Medienbruch, Kundeninteraktion, DSGVO) und längere Amortisation -- als strategisches Potenzial bewusst nach den Quick Wins."
+  },
+  "gate1": {
+    "status": "pending",
+    "kommentar": "Alles aus dem Original übernommen: Titel, Zahlen, Reihenfolge, Risiken. Neu sind ausschließlich betroffene_teilprozess_ids, to_be_vision, fachliche_anforderungen und akzeptanzkriterien_geschaeftlich. Die Formulierungen darin sind ein Vorschlag von BC3 und gehören fachlich von BC2 geprüft."
+  }
+}

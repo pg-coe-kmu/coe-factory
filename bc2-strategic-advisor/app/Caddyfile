@@ -1,0 +1,37 @@
+# Reverse-Proxy mit automatischem HTTPS, sobald eine echte Domain gesetzt ist.
+# DOMAIN kommt aus der .env:
+#   DOMAIN=:80             -> nur HTTP (Test / nackte IP)
+#   DOMAIN=bc2.02da.de     -> automatisches Let's-Encrypt-HTTPS
+{$DOMAIN} {
+    encode gzip
+
+    # Der Anstoss von BC0 ist eine Handvoll IDs. Alles darueber ist ein Fehler
+    # oder ein Angriff — beides soll Caddy abschneiden, bevor die Anwendung
+    # Speicher dafuer belegt.
+    request_body {
+        max_size 64KB
+    }
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+
+        # Hier liegt keine Oberflaeche, nur JSON. Also alles zu.
+        Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
+
+        # Der Server nennt seinen Namen nicht.
+        -Server
+    }
+
+    # Zugriffsprotokoll. Caddy maskiert `Authorization` von sich aus — genau
+    # deshalb steht der Schluessel dort und nicht in einem eigenen Header
+    # (#190).
+    log {
+        output stdout
+        format json
+    }
+
+    reverse_proxy app:8000
+}

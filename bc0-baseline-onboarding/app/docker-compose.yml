@@ -1,0 +1,43 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      # --- Backend-Wahl ---
+      # Gesetzt  -> Supabase/PostgreSQL (Schema v1.1)  [Projektstandard seit 06.08.2026]
+      # Leer     -> SQLite-Fallback auf /data/bc0.db
+      - DATABASE_URL=${DATABASE_URL:-}
+      - BC0_DB=/data/bc0.db
+      # --- Beleg-Dokumente (Stufe 1) ---
+      # Ohne SUPABASE_*: Dateien liegen auf dem persistenten Volume unter /data/belege
+      - BELEGE_DIR=/data/belege
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY:-}
+      - SUPABASE_BUCKET=${SUPABASE_BUCKET:-belege}
+      - MAX_DOC_MB=${MAX_DOC_MB:-15}
+    volumes:
+      - bc0_data:/data          # SQLite-Fallback + Belege bleiben erhalten (auch nach Updates)
+      - ./snapshots:/app/snapshots
+    expose:
+      - "8000"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # Ohne Domain: ":80" (reines HTTP). Mit Domain: z. B. "bc0.example.org" -> automatisches HTTPS.
+      - DOMAIN=${DOMAIN:-:80}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  bc0_data:
+  caddy_data:
+  caddy_config:

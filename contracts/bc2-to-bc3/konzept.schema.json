@@ -1,0 +1,323 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://coe-factory/contracts/bc2/konzept.schema.json",
+  "title": "BC2 Automatisierungskonzept (potenzial-zentriert)",
+  "description": "Output von BC2 (Strategic Advisor) an BC3 (Engineering Architect). BC2 ordnet KEINE vorgegebenen Muster zu, sondern ERKENNT Automatisierungspotenziale aus dem konkreten Prozessprofil (BC1) und BERECHNET deren Value. Pro Prozessprofil werden ein oder mehrere Potenziale erzeugt, jeweils mit Beschreibung, Impact, Umsetzungskomplexitaet, Value/ROI, Priorisierung und einer potenziellen Loesung -- ausfuehrlich genug, dass BC3 daraus Epics, User Stories und Tickets ableiten kann. Version: 2.0. Aenderung ggue. v1.0: 'use_cases[]' + 'empfohlenes_muster' (Enum) ersetzt durch 'potenziale[]' (offen erkannt); Qdrant/Musterkatalog entfaellt.",
+  "type": "object",
+  "required": [
+    "konzept_id",
+    "schema_version",
+    "prozessprofil_ref",
+    "erzeugt_am",
+    "kontext",
+    "potenziale",
+    "gesamtempfehlung",
+    "gate1"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "konzept_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Eindeutige ID dieses Konzepts."
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "2.0",
+      "description": "SemVer dieses Schemas."
+    },
+    "prozessprofil_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Referenz auf das BC1-Prozessprofil, aus dem das Konzept abgeleitet wurde. In v1 (File-Ingestion) ein Key/Dateiname (z. B. 'mock_prozessprofil'); im Zielzustand die UUID des Profils in Postgres. Bewusst 'string' statt 'format: uuid', damit derselbe Vertrag fuer File-, REST- und DB-ProfileProvider gilt (Port/Adapter)."
+    },
+    "erzeugt_am": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "erzeugt_von": {
+      "type": "string",
+      "description": "Pipeline-Komponente / Prompt-Version, z. B. 'bc2-advisor@v2.0' oder 'potenzial-erkennung@v1.3'."
+    },
+    "kontext": {
+      "type": "object",
+      "description": "Teil 1 der Ergebnis-Praesentation (Ausgangslage) in strukturierter Form -- fasst die Ist-Situation aus dem BC1-Profil zusammen.",
+      "required": ["prozess_kurzbeschreibung", "kp_id", "hauptschmerzpunkte"],
+      "additionalProperties": false,
+      "properties": {
+        "prozess_kurzbeschreibung": {
+          "type": "string",
+          "maxLength": 280,
+          "description": "Kurzfassung des Prozesses aus BC1 -- Tweet-Laenge."
+        },
+        "kp_id": {
+          "type": "string",
+          "pattern": "^KP-(0[1-9]|10)$",
+          "description": "Kernprozess-Zuordnung aus der NoroAI-Baseline (KP-01 ... KP-10)."
+        },
+        "unternehmen": {
+          "type": "string",
+          "description": "Optional: Unternehmen/Bereich aus BC1 (z. B. 'Aurelia Krankenkasse, Abteilung Leistung')."
+        },
+        "betroffene_systeme_landschaft": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Optional: uebergreifende Systemlandschaft aus BC1 (z. B. ['SAP', 'Outlook', 'Excel'])."
+        },
+        "hauptschmerzpunkte": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["beschreibung", "auswirkung"],
+            "additionalProperties": false,
+            "properties": {
+              "beschreibung": { "type": "string" },
+              "haeufigkeit": {
+                "type": "string",
+                "description": "z. B. '30 % der Faelle' oder 'woechentlich'."
+              },
+              "auswirkung": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "potenziale": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Teil 2 der Praesentation: erkannte Automatisierungspotenziale. Offen aus dem Prozess erkannt (kein fester Katalog). BC3 leitet je Potenzial eigene Epics/Tickets ab.",
+      "items": {
+        "type": "object",
+        "required": [
+          "potenzial_id",
+          "titel",
+          "rang",
+          "beschreibung",
+          "betroffene_prozessschritte",
+          "betroffene_systeme",
+          "manueller_aufwand_heute",
+          "impact",
+          "umsetzungskomplexitaet",
+          "value",
+          "prioritaet_score",
+          "kategorie",
+          "potenzielle_loesung",
+          "voraussetzungen"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "potenzial_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "titel": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 140
+          },
+          "rang": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Rang innerhalb dieses Konzepts (1 = wichtigstes Potenzial). Redundant zu prioritaet_score, aber fuer Praesentation/BC3-Reihenfolge explizit."
+          },
+          "beschreibung": {
+            "type": "string",
+            "minLength": 300,
+            "description": "Markdown, Richtwert >= 300 Woerter (maschinell erzwungen: >= 300 Zeichen). Pflicht-Inhalt: (a) Was wird automatisiert, (b) in welchem/welchen Prozessschritt(en), (c) mit welchem Ergebnis, (d) Datenfluesse, (e) beteiligte Akteure/Rollen, (f) Vorbedingungen, (g) Sonderfaelle/Ausnahmen. Ziel: BC3 kann daraus User Stories + Akzeptanzkriterien ableiten."
+          },
+          "betroffene_prozessschritte": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string" },
+            "description": "Namen der Prozessschritte aus dem BC1-Profil, die dieses Potenzial betrifft (z. B. ['Antrag erfassen', 'Sachliche Pruefung'])."
+          },
+          "betroffene_systeme": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["name", "rolle", "integration"],
+              "additionalProperties": false,
+              "properties": {
+                "name": { "type": "string" },
+                "rolle": {
+                  "type": "string",
+                  "enum": ["Quelle", "Ziel", "Quelle+Ziel"]
+                },
+                "integration": {
+                  "type": "string",
+                  "enum": ["API", "RPA", "Datei", "DB", "Email", "OCR", "Manuell"]
+                }
+              }
+            }
+          },
+          "manueller_aufwand_heute": {
+            "type": "string",
+            "enum": ["gering", "mittel", "hoch", "sehr hoch"],
+            "description": "Wie viel manuelle Arbeit der heutige Ist-Zustand fuer diesen Bereich verursacht."
+          },
+          "impact": {
+            "type": "string",
+            "enum": ["gering", "mittel", "hoch", "sehr hoch"],
+            "description": "Erwarteter Nutzen/Wirkung einer Automatisierung dieses Potenzials (qualitativ, vom LLM begruendet)."
+          },
+          "umsetzungskomplexitaet": {
+            "type": "string",
+            "enum": ["gering", "mittel", "hoch", "sehr hoch"],
+            "description": "Geschaetzte technische/organisatorische Komplexitaet der Umsetzung."
+          },
+          "value": {
+            "type": "object",
+            "description": "Teil 3 der Praesentation (Kostenschaetzung), deterministisch in Python berechnet -- NICHT vom LLM. Reproduzierbar & testbar.",
+            "required": [
+              "ist_kosten_eur_jahr",
+              "einsparung_eur_jahr",
+              "ersparnis_prozent",
+              "investition_eur_richtwert",
+              "amortisation_monate",
+              "value_quelle"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "ist_kosten_eur_jahr": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Heutige jaehrliche Kosten des betroffenen Bereichs (aus Frequenz x Aufwand x Kostensatz)."
+              },
+              "einsparung_eur_jahr": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Erwartete jaehrliche Einsparung durch die Automatisierung."
+              },
+              "ersparnis_prozent": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "investition_eur_richtwert": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Investitionsrahmen (Richtwert) auf Tagessatz-Basis (Aufwand PT x Tagessatz)."
+              },
+              "amortisation_monate": {
+                "type": "number",
+                "minimum": 0
+              },
+              "value_quelle": {
+                "type": "string",
+                "enum": ["berechnet", "default"],
+                "description": "'default' wenn Eingabedaten unvollstaendig waren und Fallback-Werte genutzt wurden (Resilienz R-04)."
+              },
+              "annahmen": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Welche Defaults/Annahmen in die Berechnung eingingen (z. B. 'Tagessatz 800 EUR', 'Frequenz aus BC1 uebernommen')."
+              }
+            }
+          },
+          "aufwand_schaetzung_pt": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Geschaetzter Umsetzungsaufwand in Personentagen (Basis fuer investition_eur_richtwert)."
+          },
+          "prioritaet_score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Priorisierungs-Score aus Komplexitaet x Impact (Quick Wins zuerst). Formel siehe priorisierung.schema.json / README."
+          },
+          "kategorie": {
+            "type": "string",
+            "enum": ["Quick Win", "Strategisch", "Optional", "Long Bet"],
+            "description": "Einordnung fuer die Praesentation. Quick Win = hoher Impact + geringe Komplexitaet."
+          },
+          "potenzielle_loesung": {
+            "type": "object",
+            "description": "Offen erkannter Loesungsansatz (KEIN fixer Musterkatalog). BC3 verfeinert dies in eine konkrete Architektur.",
+            "required": ["ansatz", "tech_stack_empfehlung"],
+            "additionalProperties": false,
+            "properties": {
+              "ansatz": {
+                "type": "string",
+                "minLength": 30,
+                "description": "Markdown: Wie koennte die Automatisierung technisch aussehen (z. B. 'OCR-Extraktion + LLM-gestuetzte Feldvalidierung, Rueckschreiben via SAP-API'). Frei formuliert statt Enum."
+              },
+              "tech_stack_empfehlung": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "type": "string" },
+                "description": "z. B. ['n8n', 'Claude (Sonnet 4.6)', 'PostgreSQL', 'OCR-Service']. Muss Tech-Stack-Compliance des Unternehmens beachten."
+              },
+              "to_be_kurz": {
+                "type": "string",
+                "description": "Optional: 1-2 Saetze Soll-Zustand fuer die Praesentation."
+              }
+            }
+          },
+          "voraussetzungen": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Fachliche/technische Voraussetzungen (z. B. 'SAP-API-Zugang', 'OCR-Modell verfuegbar', 'DSGVO-Freigabe fuer Dokumentenverarbeitung')."
+          },
+          "risiken": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["beschreibung", "wahrscheinlichkeit", "auswirkung"],
+              "additionalProperties": false,
+              "properties": {
+                "beschreibung": { "type": "string" },
+                "wahrscheinlichkeit": { "type": "string", "enum": ["low", "med", "high"] },
+                "auswirkung": { "type": "string", "enum": ["low", "med", "high"] },
+                "gegenmassnahme": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "gesamtempfehlung": {
+      "type": "object",
+      "required": ["reihenfolge_potenzial_ids", "begruendung"],
+      "additionalProperties": false,
+      "properties": {
+        "reihenfolge_potenzial_ids": {
+          "type": "array",
+          "items": { "type": "string", "format": "uuid" },
+          "description": "Empfohlene Umsetzungsreihenfolge -- BC3 verarbeitet die Potenziale in dieser Reihenfolge (verhindert Ueberforderung bei mehreren Potenzialen, R-10)."
+        },
+        "begruendung": {
+          "type": "string",
+          "description": "Markdown: warum diese Reihenfolge (Abhaengigkeiten, Quick Wins zuerst, Risiken etc.)."
+        }
+      }
+    },
+    "gate1": {
+      "type": "object",
+      "description": "Human-in-the-Loop Business Approval durch den CoE-Manager. Bei Erzeugung 'pending'.",
+      "required": ["status"],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["pending", "approved", "rejected"]
+        },
+        "entscheider": { "type": "string" },
+        "kommentar": { "type": "string" },
+        "budget_eur": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Optional am Gate 1 gesetztes Budget."
+        },
+        "entschieden_am": { "type": "string", "format": "date-time" },
+        "approved_potenzial_ids": {
+          "type": "array",
+          "items": { "type": "string", "format": "uuid" },
+          "description": "Nur diese Potenziale werden an BC3 uebergeben (falls Gate-1-Entscheider eine Teilmenge freigibt)."
+        }
+      }
+    }
+  }
+}

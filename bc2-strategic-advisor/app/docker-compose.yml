@@ -1,0 +1,35 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      # Gemeinsame PostgreSQL bei Supabase, Session-Pooler Port 5432.
+      # Der Transaction-Pooler auf 6543 haelt keine Sitzung ueber die Anweisung
+      # hinaus (BC2/CLAUDE.md).
+      - DATABASE_URL=${DATABASE_URL:?DATABASE_URL fehlt}
+      # Der Schluessel, den BC2 an BC0 ausstellt. Ohne ihn startet der Dienst
+      # nicht — das ist Absicht, siehe app.py:lebenszyklus.
+      - BC2_TRIGGER_TOKEN=${BC2_TRIGGER_TOKEN:?BC2_TRIGGER_TOKEN fehlt}
+    expose:
+      - "8000"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # Ohne Domain: ":80" (reines HTTP, nur zum Testen).
+      # Mit Domain: "bc2.02da.de" -> automatisches Let's-Encrypt-HTTPS.
+      - DOMAIN=${DOMAIN:-:80}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  caddy_data:
+  caddy_config:

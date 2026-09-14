@@ -1,0 +1,121 @@
+{
+  "prozess_steckbrief": {
+    "name": "Antragsbearbeitung Krankentagegeld",
+    "bereich": "Aurelia Krankenkasse, Abteilung Leistung",
+    "verantwortlich": "Maria Becker + 9 Kolleg:innen",
+    "kurzbeschreibung": "Versicherte reichen Anträge auf Krankentagegeld ein, Team prüft und bewilligt.",
+    "kp_id": "KP-07"
+  },
+  "trigger_und_endzustand": {
+    "trigger": "Antrag geht ein (Post oder Online-Portal)",
+    "endzustand": "Bescheid versendet (Genehmigung mit Auszahlung oder Ablehnung mit Begründung)"
+  },
+  "schritte": [
+    {
+      "name": "Antrag erfassen",
+      "rolle": "Sachbearbeitung",
+      "system": "SAP",
+      "dauer": "~5 Min",
+      "input": "Antragsformular (Papier oder PDF)",
+      "output": "Erfasster Antrag in SAP",
+      "strukturierungsgrad": "regelbasiert",
+      "automatisierungs_hindernisse": ["Papier-Anträge müssen gescannt werden", "OCR-Qualität schwankt"]
+    },
+    {
+      "name": "Sachliche Prüfung",
+      "rolle": "Sachbearbeitung",
+      "system": "SAP + Excel-Liste",
+      "dauer": "~5 Min",
+      "vorbedingung": "Antrag erfasst",
+      "output": "Prüfvermerk",
+      "strukturierungsgrad": "teils regelbasiert / teils ermessen",
+      "automatisierungs_hindernisse": ["unklare Unterlagen erfordern menschliches Urteil"]
+    },
+    {
+      "name": "Rückfrage an Versicherten (bei Lücken)",
+      "rolle": "Sachbearbeitung",
+      "system": "Outlook",
+      "dauer": "+1–3 Tage",
+      "vorbedingung": "Antrag unvollständig",
+      "frequenz": "in ~30% der Fälle",
+      "strukturierungsgrad": "ermessen",
+      "automatisierungs_hindernisse": ["Antwortzeit Kunde nicht kontrollierbar", "Medienbruch Mail ↔ SAP"]
+    },
+    {
+      "name": "Freigabe",
+      "rolle": "Teamleitung",
+      "system": "SAP",
+      "dauer": "~3 Min",
+      "vorbedingung": "Prüfvermerk vorliegt",
+      "strukturierungsgrad": "regelbasiert",
+      "automatisierungs_hindernisse": ["Teamleitung muss persönlich signieren (Compliance)"]
+    },
+    {
+      "name": "Auszahlung anstoßen / Ablehnung erstellen",
+      "rolle": "Sachbearbeitung + Buchhaltung",
+      "system": "SAP",
+      "dauer": "~5 Min",
+      "strukturierungsgrad": "regelbasiert",
+      "automatisierungs_hindernisse": ["Buchhaltungs-Cutoff einmal täglich"]
+    },
+    {
+      "name": "Bescheid versenden",
+      "rolle": "Sachbearbeitung",
+      "system": "Outlook + Postversand",
+      "dauer": "~2 Min",
+      "strukturierungsgrad": "teils regelbasiert / teils ermessen",
+      "automatisierungs_hindernisse": ["Bescheide werden manuell formuliert (keine Templates)", "Postversand-Schnittstelle fehlt"]
+    }
+  ],
+  "beteiligte_rollen": [
+    { "name": "Sachbearbeitung", "schritte": [1, 2, 3, 5, 6] },
+    { "name": "Teamleitung", "schritte": [4] },
+    { "name": "Buchhaltung", "schritte": [5] },
+    { "name": "Versicherte:r (extern)", "schritte": [3] }
+  ],
+  "systeme": [
+    { "name": "SAP", "verwendung": "Antragserfassung, Prüfung, Freigabe" },
+    { "name": "Outlook", "verwendung": "Kommunikation mit Versicherten" },
+    { "name": "Excel: Offene Anträge.xlsx", "verwendung": "Tracking" },
+    { "name": "Dokumentenscanner", "verwendung": "Papier-Anträge digitalisieren" }
+  ],
+  "mengen_und_zahlen": {
+    "volumen": "~300 Anträge / Woche",
+    "bearbeitungszeit_pro_antrag": "15 Min (ohne Rückfrage)",
+    "rueckfrage_quote": "~30%",
+    "wartezeit_bei_rueckfrage": "1–3 Tage",
+    "kosten_pro_vorgang_euro": 25,
+    "fte_anteil": 0.75
+  },
+  "schmerzpunkte": [
+    {
+      "beschreibung": "Rückfrage-Schleifen bei unvollständigen Anträgen",
+      "haeufigkeit": "30% der Fälle",
+      "auswirkung": "+1–3 Tage Wartezeit, Hauptzeitfresser"
+    },
+    {
+      "beschreibung": "Excel-Liste 'Offene Anträge' veraltet oft",
+      "haeufigkeit": "wöchentlich",
+      "auswirkung": "ca. 1 Antrag/Woche geht verloren und muss rekonstruiert werden"
+    },
+    {
+      "beschreibung": "Bescheide manuell formuliert (keine Templates)",
+      "haeufigkeit": "jeder Bescheid",
+      "auswirkung": "verlangsamt Endphase, uneinheitliche Formulierungen"
+    }
+  ],
+  "quellen": {
+    "prozess_steckbrief": ["interview:maria:2026-05-22"],
+    "trigger_und_endzustand": ["interview:maria:2026-05-22"],
+    "schritte": ["interview:maria:2026-05-22", "doc:antrags_handbuch_v3.pdf"],
+    "beteiligte_rollen": ["interview:maria:2026-05-22", "doc:organigramm"],
+    "systeme": ["interview:maria:2026-05-22"],
+    "mengen_und_zahlen": ["interview:maria:2026-05-22"],
+    "schmerzpunkte": ["interview:maria:2026-05-22", "image:whiteboard.jpg"]
+  },
+  "datenverfuegbarkeit": {
+    "SAP": { "logs_vorhanden": true, "exportformat": "CSV", "dsgvo_status": "pseudonymisierbar", "pm_tauglich": true },
+    "Outlook": { "logs_vorhanden": true, "exportformat": "PST", "dsgvo_status": "hohe Hürde", "pm_tauglich": false },
+    "Excel": { "logs_vorhanden": false, "exportformat": null, "dsgvo_status": null, "pm_tauglich": false }
+  }
+}

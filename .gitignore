@@ -217,5 +217,8 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# Lokaler Werkzeug-Zustand (tdd-guard u. a.) — gehoert nicht ins geteilte Repo
+# Claude Code: lokale Agent-Worktrees, Sitzungsdaten und Werkzeug-Zustand (tdd-guard u. a.) — nicht versionieren
 .claude/
+
+# macOS
+.DS_Store

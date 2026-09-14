@@ -1,0 +1,131 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pg-coe-kmu/bc0/baseline-snapshot/v1",
+  "title": "BC0 Baseline-Snapshot",
+  "description": "Eingefrorener, versionierter Daten-Vertrag von BC0 an die nachgelagerten BCs. Identische Struktur wie die Live-API GET /api/v1/mandanten/{id}/baseline.",
+  "type": "object",
+  "required": ["schema_version", "generated_at", "mandant", "stammdaten", "bewertungen", "reifegrad"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string", "description": "Version dieses Schemas (Vertrags)." },
+    "snapshot_version": { "type": "string", "description": "Versions-Label des Freeze, z. B. v1 (Baseline) / v2 (nach BC1-Anreicherung)." },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "generator": { "type": "string" },
+    "mandant": {
+      "type": "object",
+      "required": ["id", "name", "unternehmensdaten"],
+      "properties": {
+        "id": { "type": ["integer", "string"] },
+        "name": { "type": "string" },
+        "branche": { "type": ["string", "null"] },
+        "rechtsform": { "type": ["string", "null"] },
+        "mitarbeitende": { "type": ["integer", "null"] },
+        "region": { "type": ["string", "null"] },
+        "status": { "type": ["string", "null"] },
+        "profil_kurz": {
+          "type": "object",
+          "properties": {
+            "geschaeftsmodell": { "type": ["string", "null"] },
+            "tech_stack": { "type": ["string", "null"] }
+          }
+        },
+        "unternehmensdaten": {
+          "type": "object",
+          "description": "Volles Unternehmensprofil, frei strukturiert (RAG-Quelle fuer BC1)."
+        }
+      }
+    },
+    "stammdaten": {
+      "type": "object",
+      "required": ["items", "dimensionen", "prozesse"],
+      "properties": {
+        "items": {
+          "type": "array",
+          "description": "30 Bitkom-Items (Referenz).",
+          "items": {
+            "type": "object",
+            "required": ["item_nr", "dimension", "kriterium", "frage"],
+            "properties": {
+              "item_nr": { "type": "integer", "minimum": 1, "maximum": 30 },
+              "dimension": { "type": "string" },
+              "kriterium": { "type": "string" },
+              "frage": { "type": "string" }
+            }
+          }
+        },
+        "dimensionen": { "type": "array", "items": { "type": "string" } },
+        "prozesse": {
+          "type": "array",
+          "description": "Kernprozesse (KP) mit Teilprozessen (TP).",
+          "items": {
+            "type": "object",
+            "required": ["process_id", "process_name", "teilprozesse"],
+            "properties": {
+              "process_id": { "type": "string", "pattern": "^KP-[0-9]{2}$" },
+              "process_name": { "type": "string" },
+              "kategorie": { "type": ["string", "null"] },
+              "owner_name": { "type": ["string", "null"] },
+              "owner_role": { "type": ["string", "null"] },
+              "trigger": { "type": ["string", "null"] },
+              "input": { "type": ["string", "null"] },
+              "output": { "type": ["string", "null"] },
+              "teilprozesse": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["sub_process_id", "step_no", "name"],
+                  "properties": {
+                    "sub_process_id": { "type": "string", "pattern": "^KP-[0-9]{2}\\.TP-[0-9]+$" },
+                    "step_no": { "type": "integer", "minimum": 1 },
+                    "name": { "type": "string" },
+                    "notation": { "type": ["string", "null"] },
+                    "tools": { "type": ["string", "null"], "description": "Eingesetzte Tools (CSV), optional" },
+                    "medienbrueche": { "type": ["string", "null"], "description": "Medienbrüche (CSV), optional" },
+                    "schnittstellen": { "type": ["string", "null"], "description": "Schnittstellen (CSV), optional" },
+                    "api": { "type": ["string", "null"], "description": "API-Endpunkt/Hinweis, optional" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "bewertungen": {
+      "type": "array",
+      "description": "Item-Bewertungen (typ. 600 = KP x TP x 30). Belegpflichtig.",
+      "items": {
+        "type": "object",
+        "required": ["id", "process_id", "sub_process_id", "item_nr", "stufe", "beleg"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^KP-[0-9]{2}\\.TP-[0-9]+\\.I-[0-9]{2}$" },
+          "process_id": { "type": "string", "pattern": "^KP-[0-9]{2}$" },
+          "sub_process_id": { "type": "string", "pattern": "^KP-[0-9]{2}\\.TP-[0-9]+$" },
+          "item_nr": { "type": "integer", "minimum": 1, "maximum": 30 },
+          "stufe": { "type": "integer", "minimum": 1, "maximum": 5 },
+          "beleg": { "type": "string", "minLength": 1 },
+          "quelle": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "reifegrad": {
+      "type": "object",
+      "description": "Abgeleitete Auswertung (DB-aggregiert).",
+      "required": ["gesamt", "dimension_durchschnitt", "kp_rows"],
+      "properties": {
+        "gesamt": { "type": "number" },
+        "beleg_quote": { "type": "number" },
+        "n_bewertungen": { "type": "integer" },
+        "dimension_durchschnitt": { "type": "object" },
+        "kp_rows": { "type": "array" },
+        "prozessautomatisierung_matrix": { "type": "object" },
+        "crossfunktionale_matrix": { "type": "array" },
+        "spider_6": { "type": "object" },
+        "krit15_labels": { "type": "array" },
+        "krit15_overall": { "type": "object" },
+        "items12": { "type": "array" },
+        "items12_overall": { "type": "object" }
+      }
+    }
+  }
+}
