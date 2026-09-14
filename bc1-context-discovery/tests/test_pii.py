@@ -78,3 +78,19 @@ def test_titel_ohne_anrede_und_kennungen_in_textreihenfolge():
     assert ersetze_pii("Prof. Dr. Mustermann entscheidet.") == "[Person A] entscheidet."
     assert (ersetze_pii("Dr. Muster prüft und Frau Beispiel genehmigt.")
             == "[Person A] prüft und Frau [Person B] genehmigt.")
+
+
+def test_selbstvorstellung_kollege_und_kennungen_neben_namen():
+    assert ersetze_pii("Mein Name ist Max Mustermann.") == "Mein Name ist [Person A]."
+    assert ersetze_pii("Ich heiße Erika Musterfrau.") == "Ich heiße [Person A]."
+    assert ersetze_pii("Kollege Muster übernimmt.") == "Kollege [Person A] übernimmt."
+    assert ersetze_pii("Frau Muster S-03 prüft.") == "Frau [Person A] S-03 prüft."
+    assert ersetze_pii("Frau Muster KP-06.TP-2 prüft.") == "Frau [Person A] KP-06.TP-2 prüft."
+
+
+def test_kein_treffer_ohne_hinweiswort_und_bei_kleingeschriebenem_folgewort():
+    for text in ("Mustermann prüft das.", "die Frau des Kunden ruft an",
+                 "Kollegen aus dem Vertrieb", "Kollegen Sachbearbeitung Vertrieb prüfen.",
+                 "ich bin Sachbearbeiter", "Herr der Lage",
+                 "Anfrage eines Kollegen oder Kunden"):
+        assert ersetze_pii(text) == text
