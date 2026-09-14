@@ -1,6 +1,6 @@
 # B2 — PII-Filter vor LLM und Datenbank: Konzept
 
-> Stand 14.09.2026. Entscheidungen Richard 14.09.2026 (Chat, nach Bestandsaufnahme). Bezug: Issue #50, Abschlussplan Stufe B Paket B2, Design-Spec B7/B8. Der Implementierungsplan folgt als eigene Datei; dieses Dokument ist das *Warum* und das *Was*.
+> Stand 14.09.2026, mit Nachträgen aus dem Plan-Review (Codex, 14.09.). Entscheidungen Richard 14.09.2026 (Chat, nach Bestandsaufnahme). Bezug: Issue #50, Abschlussplan Stufe B Paket B2, Design-Spec B7/B8. Der Implementierungsplan folgt als eigene Datei; dieses Dokument ist das *Warum* und das *Was*.
 
 ## Big Picture
 
@@ -18,11 +18,11 @@
 
 | Klasse | Wie | Platzhalter |
 |---|---|---|
-| E-Mail | Muster (Referenz bc3) | `[E-Mail A]` |
-| Telefon | Muster: Präfix `+` oder `0`, 7–14 weitere Ziffern, Trenner erlaubt; Datumsformen ausgeschlossen (Referenz bc3) | `[Telefon A]` |
-| IBAN | Muster: Ländercode, Prüfziffern, 11–30 Zeichen (Referenz bc3) | `[IBAN A]` |
-| Adresse | Straßenwort (`-straße`, `-str.`, `-weg`, `-platz`, `-gasse`, `-allee`) mit Hausnummer; PLZ (5 Ziffern) mit Ort | `[Adresse A]` |
-| Name mit Hinweiswort | Anrede (Herr, Herrn, Frau, Hr., Fr.), Titel (Dr., Prof.), Kollege/Kollegin, Selbstvorstellung („ich heiße", „mein Name ist") — danach ein bis drei großgeschriebene Wörter. Das Hinweiswort bleibt stehen, der Name wird ersetzt: „Frau Dr. Musterfrau prüft" → „Frau [Person A] prüft" | `[Person A]` |
+| E-Mail | Muster, auch Unicode-Domains (Referenz bc3, erweitert) | `[E-Mail A]` |
+| Telefon | Muster: Präfix `+` oder `0`, geklammerte Vorwahl `(0)`, 7–14 weitere Ziffern, bis drei Trennzeichen; nicht inmitten von Dezimalzahlen, Datums- und Uhrzeitformen ausgeschlossen (Referenz bc3, erweitert nach Plan-Review) | `[Telefon A]` |
+| IBAN | Muster: Ländercode, Prüfziffern, Vierergruppen; Groß-/Kleinschreibung und geschützte Leerzeichen; Folgetext bleibt anhand der Soll-Länge je Land erhalten (Referenz bc3, erweitert nach Plan-Review) | `[IBAN A]` |
+| Adresse | Straße/Allee/Gasse mit Hausnummer (auch Bereiche „12-14"), optional PLZ + Ort dahinter (nach Komma oder „in", Ort ein- oder zweiteilig); Weg/Platz/Ring/Damm/Ufer **nur** als volle Adresse mit PLZ + Ort („Arbeitsplatz 3" ist eine Prozessangabe). Kein alleinstehendes PLZ + Ort: fünfstellige Mengen („12000 Rechnungen") wären Fehltreffer (Plan-Review 14.09.) | `[Adresse A]` |
+| Name mit Hinweiswort | Anrede (Herr, Herrn, Frau, Hr., Fr.), Titel (Dr., Prof., mit Zusätzen wie „med."), Kollege/Kollegin (kein Plural), Selbstvorstellung („ich heiße", „mein Name ist") — danach ein bis drei **Buchstabenwörter** mit großem Anfangsbuchstaben (Kennungen wie `S-03`, `KP-06.TP-2` gehören nie zum Namen). Das Hinweiswort bleibt stehen, Titel und Name werden ersetzt: „Frau Dr. Musterfrau prüft" → „Frau [Person A] prüft". Kennungen folgen der Textreihenfolge | `[Person A]` |
 
 **Was der Nutzer merkt.** Der Interviewer bestätigt mit dem Platzhalter, das Profil trägt ihn. Für ein Prozessprofil sind Rollen relevant, nicht Personen — kein fachlicher Verlust. Die Systemprompts sagen dem LLM, dass eckige Klammern Platzhalter für entfernte Angaben sind: wörtlich übernehmen, nie auflösen, nie raten.
 
@@ -64,7 +64,7 @@
 ### T2. Einhängung im Kern
 
 - `bc1_core/core.py`, `process_turn`: `message = ersetze_pii(message)` **unmittelbar vor** `state.raw_log.append(...)` im Zweig für neue Nachrichten. Damit gilt der Filter für API (`/turn`), CLI (`run_scripted`) und Testprofil-Skripte gleichermaßen — ein Punkt, im Kern, wo auch die Persistenz liegt (Architektur-Invariante „Persistenz im Code-Kern").
-- Der Crash-Resume-Pfad (`message = state.raw_log[-1][1]`) spielt automatisch gefilterten Text ab. Die Idempotenz je `message_id` ist unberührt.
+- Der Crash-Resume-Pfad (`message = state.raw_log[-1][1]`) spielt den gefilterten Log-Text ab (für Turns, die unter B2 geloggt wurden; ältere Klartext-Einträge gibt es live nicht — nur Testprofile). Die Idempotenz je `message_id` ist unberührt.
 - Beide Anbieter-Pfade sehen nur gefilterten Text: `llm.extract(message, …)` bekommt den gefilterten Turn; `TurnKontext` (`nutzer_nachricht`, `neu_erfasst`, `profil_uebersicht`) entsteht aus gefilterten Werten.
 - Transport (`api.py`) ändert sich nicht.
 
@@ -72,14 +72,14 @@
 
 Reihenfolge von spezifisch nach allgemein, damit „Frau Dr. Erika Musterfrau" **ein** Platzhalter wird:
 
-1. bereits vorhandene Platzhalter erkennen und schützen (`\[(Person|E-Mail|Telefon|IBAN|Adresse) [A-Z]+\]`),
-2. E-Mail, 3. IBAN, 4. Telefon, 5. Adresse (Straße + Hausnummer, dann PLZ + Ort), 6. Name mit Hinweiswort.
+1. Kennungen bereits vorhandener Platzhalter als belegt vormerken (`\[(Person|E-Mail|Telefon|IBAN|Adresse) [A-Z]+\]`) — kein Muster trifft den Wortlaut eines Platzhalters, eine Segmentierung ist nicht nötig,
+2. E-Mail, 3. IBAN, 4. Telefon, 5. Adresse (Straße + Hausnummer, optional PLZ + Ort; Weg/Platz nur mit PLZ + Ort), 6. Name mit Hinweiswort und Titel in **einem** Muster (Kennungen in Textreihenfolge).
 
 Details, die der Plan als Tests festhält:
 - Telefon: nur mit Präfix `+` oder führender `0`; „180 Fälle pro Jahr", „3 pro Woche", „45 Minuten" bleiben unberührt. Datumsformen (`2026-09-14`, `14.09.2026`) sind ausgeschlossen.
 - Name: Hinweiswort + `(Dr\.|Prof\.)?` + ein bis drei Wörter mit großem Anfangsbuchstaben (inkl. Umlaute, Bindestrich) — drei, damit bei „Anna Maria Muster“ kein Nachname stehen bleibt (Übererkennung ist der akzeptierte Fehler, s. u.). Ein kleingeschriebenes Folgewort beendet den Namen („Herr Muster prüft" → nur „Muster"). „Frau des Kunden", „Kollegen aus dem Vertrieb" treffen nicht (Folgewort klein).
-- Bekannte Fehltreffer, bewusst akzeptiert: „Dr. Oetker" (Firma) wird `[Person A]`; „Kollegin Buchhaltung" (ungewöhnliches Deutsch) ebenso. Übererkennung kostet Information, Untererkennung kostet Datenschutz — die Waage kippt zur Übererkennung.
-- Platzhalter enthalten keine Ziffern, Kommas, Zeilenumbrüche: sie passieren `LISTE` (trennt nur an `,`/`\n`), `_entferne_rand` (strippt keine Klammern), den Zahl-Parser und die S-NN-Regel (`\bS-[0-9]{2}\b`) unverändert (geprüft 14.09. in `feldtypen.py`, `paket_feldtypen.py`).
+- Bekannte Fehltreffer, bewusst akzeptiert: „Dr. Oetker" (Firma) wird `[Person A]`; „Kollegin Buchhaltung" (ungewöhnliches Deutsch) und „Fr. Vormittag" ebenso; „Herrn Musters Freigabe" ersetzt beide Wörter. Übererkennung kostet Information, Untererkennung kostet Datenschutz — die Waage kippt zur Übererkennung. Bekannte Lücken neben nackten Nachnamen: Straßen ohne Straßenwort („Am Alten Markt 3").
+- Platzhalter enthalten keine Ziffern, Kommas, Zeilenumbrüche: alleinstehend und in Text-/Listenfeldern passieren sie `LISTE` (trennt nur an `,`/`\n`), `_entferne_rand` (strippt keine Klammern) und die S-NN-Regel (`\bS-[0-9]{2}\b`) unverändert; in Zahlenfeldern gewinnt die Zahl (`ZAHL("30 pro Monat [Person A]")` → `"360"`), das ist gewollt (geprüft 14.09. in `feldtypen.py`, `paket_feldtypen.py`; Plan-Review M3).
 
 ### T4. Prompts
 
