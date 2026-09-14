@@ -91,3 +91,11 @@ def test_nachfrage_prompt_unterstellt_keine_ungueltige_antwort():
     prompt = gespraech_nutzer_prompt(_kontext(ist_nachfrage=True))
     assert "kein verwertbarer Wert vor" in prompt
     assert "unklar oder ungültig" not in prompt
+
+
+def test_system_prompts_erklaeren_die_pii_platzhalter():
+    # B2: der Anbieter sieht nur Platzhalter — wörtlich übernehmen, nie auflösen, nie raten.
+    for prompt in (SYSTEM_EXTRAKTION, SYSTEM_GESPRAECH):
+        assert "[Person A]" in prompt
+        assert "wörtlich" in prompt
+        assert "nie auf" in prompt
