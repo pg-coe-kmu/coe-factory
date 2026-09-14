@@ -10,6 +10,7 @@ from bc1_core.store import InMemoryStateStore
 from bc1_core.llm import FakeLLM, ExtractionCandidate
 from bc1_core.core import (MandantKonfliktError, PaketKonfliktError,
                            process_turn)
+from bc1_core.serialize import state_to_dict
 
 MANDANT = "11111111-1111-1111-1111-111111111111"
 
@@ -665,3 +666,26 @@ def test_crash_resume_spielt_den_gefilterten_logtext_ab_nicht_den_retry_body():
     assert llm.extract_texte[-1] == gefiltert
     assert "Muster" not in "".join(llm.extract_texte + llm.antwort_texte)
     assert "Beispiel" not in "".join(llm.extract_texte + llm.antwort_texte)
+
+
+class _KlartextLLM(FakeLLM):
+    """Liefert trotz maskierter Eingabe Klartext zurueck (halluziniert/echot) —
+    Review 2, Important 9: auch Anbieter-AUSGABEN duerfen keinen Klartext in den
+    State bringen."""
+    def extract(self, message, package, state):
+        return [ExtractionCandidate("prozess_name", "Freigabe durch erika@example.org")]
+
+    def antworte(self, kontext):
+        return "Danke, Frau Musterfrau (0151 12345678). Wie oft läuft der Prozess?"
+
+
+def test_anbieter_ausgaben_werden_ebenfalls_gefiltert():
+    store = InMemoryStateStore()
+    r = _turn(store, _KlartextLLM(), TOY_PROZESS, "s1", "msg-1", "hallo")
+    st = store.load("s1")
+    assert st.values["prozess_name"].value == "Freigabe durch [E-Mail A]"
+    gespeichert = json.dumps(state_to_dict(st), ensure_ascii=False)
+    for klartext in ("example.org", "Musterfrau", "0151 12345678"):
+        assert klartext not in gespeichert
+        assert klartext not in json.dumps(r, ensure_ascii=False)
+    assert "Frau [Person A] ([Telefon A])" in json.dumps(r, ensure_ascii=False)

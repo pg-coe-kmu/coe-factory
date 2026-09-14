@@ -158,7 +158,9 @@ def process_turn(store: StateStore, llm: LLMClient, package: UseCasePackage,
             kontext = baue_turn_kontext(message, vorher, state, package, conf,
                                         decision.next_field,
                                         decision.ergebnis is Ergebnis.FERTIG)
-            antwortetext = llm.antworte(kontext)
+            # Auch die Anbieter-Antwort wird gefiltert (B2): sie wird gespeichert
+            # und ausgeliefert, und der Anbieter kann Klartext halluzinieren.
+            antwortetext = ersetze_pii(llm.antworte(kontext))
     except Exception:
         # LLM-Aussetzer (Spec B4): fortsetzbar melden. NUR der FEHLER-Marker
         # wird persistiert — auf dem letzten dauerhaften Stand, nicht auf dem
