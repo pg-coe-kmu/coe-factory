@@ -14,7 +14,7 @@ import re
 _WORT = r"[A-ZÄÖÜ][a-zäöüß]+(?:-[A-ZÄÖÜ][a-zäöüß]+)*"
 _TITEL = r"(?:(?:Dr|Prof)\.\s+(?:(?:med|jur|phil|ing|rer\.\s?nat|h\.\s?c)\.\s+)?)"
 _ANREDE = r"(?:Herrn?|Frau|Hr\.|Fr\.|Kolleg(?:e|in)|[Ii]ch heiße|[Mm]ein Name ist)"
-_STRASSE =r"[A-ZÄÖÜ][a-zäöüß]*(?:-[A-ZÄÖÜ][a-zäöüß]*)*-?"
+_STRASSE = r"[A-ZÄÖÜ][a-zäöüß]*(?:-[A-ZÄÖÜ][a-zäöüß]*)*-?"
 _HAUSNR = r"\d+[a-zA-Z]?(?:\s*[-–/]\s*\d+[a-zA-Z]?)?"
 _ORT = r"[A-ZÄÖÜ][a-zäöüß-]+(?:\s+[A-ZÄÖÜ][a-zäöüß-]+)?"
 _PLZ_ORT = r"(?:(?:,|\s+in)?\s+\d{5}\s+" + _ORT + r")"

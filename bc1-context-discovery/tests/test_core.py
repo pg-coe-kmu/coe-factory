@@ -603,3 +603,47 @@ def test_except_pfad_prueft_mandant_beim_erneuten_load():
     _turn(store, FakeLLM(), TOY_PROZESS, "s1", "m1", "hallo")
     with pytest.raises(MandantKonfliktError):
         _turn(store, ExplodierendesLLM(), TOY_PROZESS, "s1", "m2", "kaputt")
+
+
+# --- B2 PII-Filter: kein Klartext im Store, keiner beim Anbieter -------------
+
+class _ProtokollStore(InMemoryStateStore):
+    """Zeichnet bei JEDEM save den raw_log auf — beweist, dass nie Klartext gespeichert wird."""
+    def __init__(self):
+        super().__init__()
+        self.gespeicherte_logs = []
+
+    def save(self, state):
+        self.gespeicherte_logs.append(list(state.raw_log))
+        super().save(state)
+
+
+class _ProtokollLLM(FakeLLM):
+    """Zeichnet auf, was BEIDE Anbieter-Eingänge zu sehen bekommen."""
+    def __init__(self, extractions=None):
+        super().__init__(extractions)
+        self.extract_texte = []
+        self.antwort_texte = []
+
+    def extract(self, message, package, state):
+        self.extract_texte.append(message)
+        return super().extract(message, package, state)
+
+    def antworte(self, kontext):
+        self.antwort_texte.append(kontext.nutzer_nachricht)
+        return super().antworte(kontext)
+
+
+def test_pii_wird_vor_dem_ersten_save_ersetzt_und_beide_llm_eingaenge_sehen_nur_platzhalter():
+    store = _ProtokollStore()
+    gefiltert = "Frau [Person A] startet den Prozess, Rückfragen an [E-Mail A]."
+    # Skript auf den GEFILTERTEN Text geschlüsselt: greift es, hat der LLM-Client
+    # nie den Rohtext gesehen.
+    llm = _ProtokollLLM({gefiltert: [ExtractionCandidate("prozess_name", "Freigabe")]})
+    roh = "Frau Musterfrau startet den Prozess, Rückfragen an erika@example.org."
+    _turn(store, llm, TOY_PROZESS, "s1", "msg-1", roh)
+    assert store.gespeicherte_logs                       # mindestens ein save
+    assert all(log == [("msg-1", gefiltert)] for log in store.gespeicherte_logs)
+    assert llm.extract_texte == [gefiltert]
+    assert llm.antwort_texte == [gefiltert]
+    assert store.load("s1").values["prozess_name"].value == "Freigabe"
