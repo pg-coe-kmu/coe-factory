@@ -12,6 +12,7 @@ import re
 # Ein Namenswort: Großbuchstabe + Kleinbuchstaben, Binnenbindestrich erlaubt
 # ("Müller-Lüdenscheid"); keine Ziffern — sonst frisst das Muster S-03/KP-06.
 _WORT = r"[A-ZÄÖÜ][a-zäöüß]+(?:-[A-ZÄÖÜ][a-zäöüß]+)*"
+_TITEL = r"(?:(?:Dr|Prof)\.\s+(?:(?:med|jur|phil|ing|rer\.\s?nat|h\.\s?c)\.\s+)?)"
 _ANREDE = r"(?:Herrn?|Frau|Hr\.|Fr\.|Kolleg(?:e|in)|[Ii]ch heiße|[Mm]ein Name ist)"
 _STRASSE =r"[A-ZÄÖÜ][a-zäöüß]*(?:-[A-ZÄÖÜ][a-zäöüß]*)*-?"
 _HAUSNR = r"\d+[a-zA-Z]?(?:\s*[-–/]\s*\d+[a-zA-Z]?)?"
@@ -32,8 +33,9 @@ _MUSTER: tuple[tuple[str, re.Pattern[str]], ...] = (
                            + _HAUSNR + _PLZ_ORT + r"?\b")),
     ("Adresse", re.compile(r"\b" + _STRASSE + r"(?:[Ww]eg|[Pp]latz|[Rr]ing|[Dd]amm|[Uu]fer)\s+"
                            + _HAUSNR + _PLZ_ORT + r"\b")),
-    # Hinweiswort bleibt stehen (Gruppe "hinweis"), der Name wird ersetzt.
-    ("Person", re.compile(r"(?P<hinweis>\b" + _ANREDE + r"\s+)(?P<name>" + _WORT + r")")),
+    # Hinweiswort bleibt stehen (Gruppe "hinweis"), Titel + Name werden ersetzt.
+    ("Person", re.compile(r"(?P<hinweis>\b" + _ANREDE + r"\s+)"
+                          r"(?P<name>" + _TITEL + r"*" + _WORT + r"(?:\s+" + _WORT + r"){0,2})")),
 )
 # Soll-Länge je Land (Zeichen ohne Leerzeichen): Folgetext wird nicht verschluckt.
 _IBAN_LAENGE = {"AT": 20, "BE": 16, "CH": 21, "CZ": 24, "DE": 22, "DK": 18, "ES": 24,

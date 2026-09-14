@@ -65,3 +65,10 @@ def test_anrede_verraet_den_namen_hinweiswort_bleibt():
             == "mit Herrn [Person A] und Frau [Person B]")
     assert (ersetze_pii("Bitte an Hr. Mustermann und Fr. Musterfrau.")
             == "Bitte an Hr. [Person A] und Fr. [Person B].")
+
+
+def test_titel_und_mehrteilige_namen_werden_ein_platzhalter():
+    assert ersetze_pii("Frau Dr. Erika Musterfrau leitet das.") == "Frau [Person A] leitet das."
+    assert ersetze_pii("Frau Dr. med. Muster prüft") == "Frau [Person A] prüft"
+    assert ersetze_pii("Kollegin Anna Maria Muster übernimmt.") == "Kollegin [Person A] übernimmt."
+    assert ersetze_pii("Herr Müller-Lüdenscheid kommt.") == "Herr [Person A] kommt."
