@@ -656,16 +656,22 @@ def test_crash_resume_spielt_den_gefilterten_logtext_ab_nicht_den_retry_body():
     llm = _ProtokollLLM({gefiltert: [ExtractionCandidate("prozess_name", "Freigabe")]})
     _turn(store, llm, TOY_PROZESS, "s1", "m1", "eins")
     store.scharf = True
-    try:
+    with pytest.raises(RuntimeError):           # der Crash MUSS passieren (Review 2, I10)
         _turn(store, llm, TOY_PROZESS, "s1", "m2", "Herr Muster startet.")
-    except RuntimeError:
-        pass                                    # m2 geloggt, unbeantwortet
     store.scharf = False
+    zwischen = store.load("s1")
+    assert zwischen.raw_log[-1] == ("m2", gefiltert)      # geloggt ...
+    assert "m2" not in zwischen.antworten                  # ... aber unbeantwortet
+    aufrufe_vorher = len(llm.extract_texte)
     _turn(store, llm, TOY_PROZESS, "s1", "m2", "Herr Beispiel startet.")   # anderer Body
-    assert store.load("s1").raw_log == [("m1", "eins"), ("m2", gefiltert)]
+    assert len(llm.extract_texte) == aufrufe_vorher + 1    # Resume hat wirklich verarbeitet
     assert llm.extract_texte[-1] == gefiltert
-    assert "Muster" not in "".join(llm.extract_texte + llm.antwort_texte)
-    assert "Beispiel" not in "".join(llm.extract_texte + llm.antwort_texte)
+    assert llm.antwort_texte[-1] == gefiltert
+    nachher = store.load("s1")
+    assert nachher.raw_log == [("m1", "eins"), ("m2", gefiltert)]
+    assert "m2" in nachher.antworten
+    for klartext in ("Muster", "Beispiel"):
+        assert klartext not in "".join(llm.extract_texte + llm.antwort_texte)
 
 
 class _KlartextLLM(FakeLLM):

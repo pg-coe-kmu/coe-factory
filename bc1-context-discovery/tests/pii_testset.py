@@ -63,4 +63,7 @@ NEGATIV = [
     "Kollegen Sachbearbeitung Vertrieb prüfen.", "ich bin Sachbearbeiter in der Buchhaltung",
     "Herr der Lage", "Der Arbeitsplatz 3 nutzt S-03.", "System Datenweg 3 verarbeitet 60%.",
     "Büro am Marktplatz 5", "Arbeitsschritt 3 dauert 20 Minuten",
+    # Aus der Zweitmeinung 2 (Codex, 14.09.)
+    "Die Fertigungsstraße 3 verarbeitet 80 %.", "Seit 01-02-2026 30 Fälle täglich.",
+    "Termin 01/02/2026 - 03/02/2026", "Ticket AB12 3456 7890 wurde heute bearbeitet.",
 ]

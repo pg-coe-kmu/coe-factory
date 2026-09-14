@@ -21,9 +21,19 @@ def _quoten_gemessen() -> dict[str, int]:
 
 
 def _quoten_readme() -> dict[str, int]:
+    # Zellen am "|" zerlegen und strippen (Review 2, M12): "100%", "100  %" und
+    # Leerraum hinter dem letzten "|" duerfen den Abgleich nicht kippen.
     abschnitt = README.read_text(encoding="utf-8").split("## PII-Filter", 1)[1].split("\n## ", 1)[0]
-    zeilen = re.findall(r"^\| ([^|]+?) \|.*\| (\d+) % \|$", abschnitt, flags=re.M)
-    return {klasse: int(prozent) for klasse, prozent in zeilen}
+    quoten: dict[str, int] = {}
+    for zeile in abschnitt.splitlines():
+        zellen = [z.strip() for z in zeile.strip().strip("|").split("|")]
+        if len(zellen) < 4:
+            continue
+        prozent = re.fullmatch(r"(\d+)\s*%", zellen[-1])
+        if prozent:
+            assert zellen[0] not in quoten, f"Klasse doppelt im README: {zellen[0]}"
+            quoten[zellen[0]] = int(prozent.group(1))
+    return quoten
 
 
 def test_quote_je_klasse_entspricht_der_readme_tabelle():
