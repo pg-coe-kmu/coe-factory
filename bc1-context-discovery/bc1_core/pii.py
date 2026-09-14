@@ -34,7 +34,8 @@ _MUSTER: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("Adresse", re.compile(r"\b" + _STRASSE + r"(?:[Ww]eg|[Pp]latz|[Rr]ing|[Dd]amm|[Uu]fer)\s+"
                            + _HAUSNR + _PLZ_ORT + r"\b")),
     # Hinweiswort bleibt stehen (Gruppe "hinweis"), Titel + Name werden ersetzt.
-    ("Person", re.compile(r"(?P<hinweis>\b" + _ANREDE + r"\s+)"
+    # EIN Muster für Anrede und Titel, damit die Kennungen der Textreihenfolge folgen.
+    ("Person", re.compile(r"(?P<hinweis>\b" + _ANREDE + r"\s+|\b(?=(?:Dr|Prof)\.\s))"
                           r"(?P<name>" + _TITEL + r"*" + _WORT + r"(?:\s+" + _WORT + r"){0,2})")),
 )
 # Soll-Länge je Land (Zeichen ohne Leerzeichen): Folgetext wird nicht verschluckt.

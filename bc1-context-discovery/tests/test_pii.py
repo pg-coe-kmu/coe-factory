@@ -72,3 +72,9 @@ def test_titel_und_mehrteilige_namen_werden_ein_platzhalter():
     assert ersetze_pii("Frau Dr. med. Muster prüft") == "Frau [Person A] prüft"
     assert ersetze_pii("Kollegin Anna Maria Muster übernimmt.") == "Kollegin [Person A] übernimmt."
     assert ersetze_pii("Herr Müller-Lüdenscheid kommt.") == "Herr [Person A] kommt."
+
+
+def test_titel_ohne_anrede_und_kennungen_in_textreihenfolge():
+    assert ersetze_pii("Prof. Dr. Mustermann entscheidet.") == "[Person A] entscheidet."
+    assert (ersetze_pii("Dr. Muster prüft und Frau Beispiel genehmigt.")
+            == "[Person A] prüft und Frau [Person B] genehmigt.")
