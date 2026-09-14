@@ -14,6 +14,16 @@ _MUSTER: tuple[tuple[str, re.Pattern[str]], ...] = (
 )
 
 
+def _buchstabe(n: int) -> str:
+    """0 → A, 25 → Z, 26 → AA (wie Tabellenspalten)."""
+    kennung = ""
+    n += 1
+    while n:
+        n, rest = divmod(n - 1, 26)
+        kennung = chr(65 + rest) + kennung
+    return kennung
+
+
 class _Vergabe:
     """Platzhalter je Klasse und Turn: gleicher Wert → gleicher Buchstabe."""
 
@@ -25,7 +35,7 @@ class _Vergabe:
         schluessel = (klasse, " ".join(wert.split()).lower())
         if schluessel not in self._kennung:
             belegt = self._belegt.setdefault(klasse, set())
-            kennung = chr(65 + len(belegt))
+            kennung = _buchstabe(len(belegt))
             belegt.add(kennung)
             self._kennung[schluessel] = f"[{klasse} {kennung}]"
         return self._kennung[schluessel]

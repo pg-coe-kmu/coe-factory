@@ -12,3 +12,9 @@ def test_email_wird_platzhalter():
 def test_kennungen_je_wert_gleicher_wert_gleiche_kennung():
     assert (ersetze_pii("Kontakt max@example.org, info@example.org, Max@example.org")
             == "Kontakt [E-Mail A], [E-Mail B], [E-Mail A]")
+
+
+def test_kennungen_laufen_ueber_z_hinaus():
+    ergebnis = ersetze_pii(" ".join(f"m{i}@example.org" for i in range(27)))
+    assert "[E-Mail Z]" in ergebnis
+    assert ergebnis.endswith("[E-Mail AA]")
