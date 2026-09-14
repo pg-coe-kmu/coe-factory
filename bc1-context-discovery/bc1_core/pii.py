@@ -63,10 +63,11 @@ _MUSTER: tuple[tuple[str, re.Pattern[str]], ...] = (
         r"(?:" + _TRENN + r"{0,3}\d){6,13}\b(?![:.]\d)")),
     # Straße/Allee/Gasse mit Hausnummer, optional PLZ + Ort; Weg/Platz/Ring/
     # Damm/Ufer NUR mit PLZ + Ort ("Arbeitsplatz 3" ist keine Adresse).
-    ("Adresse", re.compile(r"\b" + _STRASSE + r"(?:[Ss]traße|[Ss]trasse|[Ss]tr\.|[Aa]llee|[Gg]asse)\s+"
-                           + _HAUSNR + _PLZ_ORT + r"?\b")),
-    ("Adresse", re.compile(r"\b" + _STRASSE + r"(?:[Ww]eg|[Pp]latz|[Rr]ing|[Dd]amm|[Uu]fer)\s+"
-                           + _HAUSNR + _PLZ_ORT + r"\b")),
+    # EIN Muster für beide Formen, damit die Kennungen der Textreihenfolge folgen.
+    ("Adresse", re.compile(
+        r"\b" + _STRASSE
+        + r"(?:(?:[Ss]traße|[Ss]trasse|[Ss]tr\.|[Aa]llee|[Gg]asse)\s+" + _HAUSNR + _PLZ_ORT + r"?"
+        + r"|(?:[Ww]eg|[Pp]latz|[Rr]ing|[Dd]amm|[Uu]fer)\s+" + _HAUSNR + _PLZ_ORT + r")\b")),
     # Hinweiswort bleibt stehen (Gruppe "hinweis"), Titel + Name werden ersetzt.
     # EIN Muster für Anrede und Titel, damit die Kennungen der Textreihenfolge folgen.
     ("Person", re.compile(r"(?P<hinweis>\b" + _ANREDE + r"\s+|\b(?=" + _TITEL + r"))"

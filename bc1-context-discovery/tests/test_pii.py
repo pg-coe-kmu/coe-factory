@@ -161,6 +161,12 @@ def test_adresse_komma_ohne_abstand_kein_zeilenumbruch_im_ort_keine_prozessbegri
                  "Montagestraße 1 ist ausgelastet."):
         assert ersetze_pii(text) == text
 
+
+def test_adresskennungen_folgen_der_textreihenfolge():
+    # Review 2, Minor 11
+    assert (ersetze_pii("Musterweg 3, 10115 Berlin und Musterstraße 4, 10115 Berlin")
+            == "[Adresse A] und [Adresse B]")
+
 def test_zwei_ibans_nebeneinander_werden_beide_im_ersten_lauf_ersetzt():
     # Review 2, Critical 1: der Regex lief in die zweite IBAN hinein, die
     # Soll-Laengen-Kuerzung gab den Rest ungeprueft zurueck (nur beim ZWEITEN
