@@ -98,3 +98,18 @@ def test_kein_treffer_ohne_hinweiswort_und_bei_kleingeschriebenem_folgewort():
 
 def test_vorhandene_platzhalter_bleiben_und_kollidieren_nicht():
     assert ersetze_pii("Frau [Person A] und Herr Muster") == "Frau [Person A] und Herr [Person B]"
+
+
+def test_idempotent_und_deterministisch():
+    text = "Herr Muster (muster@example.org, 0151 12345678), Musterstraße 1"
+    einmal = ersetze_pii(text)
+    assert einmal == "Herr [Person A] ([E-Mail A], [Telefon A]), [Adresse A]"
+    assert ersetze_pii(einmal) == einmal
+    assert ersetze_pii(text) == einmal
+
+
+def test_leer_und_beliebiger_text_ohne_ausnahme():
+    assert ersetze_pii("") == ""
+    for text in ("[", "]]", "@", "+", "Dr.", "Herr ", "\n\t", "S-03, S-04",
+                 "0" * 40, "[Person ]", "[Person A", "DE00"):
+        assert isinstance(ersetze_pii(text), str)   # darf nie werfen
