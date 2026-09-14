@@ -33,3 +33,11 @@ def test_telefon_wird_platzhalter():
             == "Erreichbar unter [Telefon A] oder [Telefon B].")
     assert ersetze_pii("Büro 030/1234567 oder 030 / 1234567") == "Büro [Telefon A] oder [Telefon B]"
     assert ersetze_pii("+49 (0)30 1234567") == "[Telefon A]"
+
+
+def test_mengen_daten_dezimalzahlen_bleiben_stehen():
+    for text in ("180 Fälle pro Jahr", "3 pro Woche", "45 Minuten", "60%", "80 %",
+                 "am 14.09.2026", "seit 2026-09-14", "Termin 01-02-2026",
+                 "Termin 01/02/2026 09:30", "Termin am Freitag um 09:30",
+                 "0,01234567 %", "12000 Rechnungen im Jahr", "Rechnung Nr. 4711"):
+        assert ersetze_pii(text) == text

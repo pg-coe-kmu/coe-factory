@@ -22,6 +22,8 @@ _MUSTER: tuple[tuple[str, re.Pattern[str]], ...] = (
 _IBAN_LAENGE = {"AT": 20, "BE": 16, "CH": 21, "CZ": 24, "DE": 22, "DK": 18, "ES": 24,
                 "FI": 18, "FR": 27, "GB": 22, "HU": 28, "IE": 22, "IT": 27, "LI": 21,
                 "LU": 20, "NL": 18, "NO": 15, "PL": 28, "PT": 25, "SE": 24, "SK": 24}
+# Datumsformen, die das Telefon-Muster sonst träfe ("01/02/2026", "01-02-2026").
+_DATUM = re.compile(r"\d{1,2}[./-]\d{1,2}[./-]\d{2,4}|\d{4}-\d{2}-\d{2}")
 
 
 def _buchstabe(n: int) -> str:
@@ -65,6 +67,8 @@ def _iban_ersatz(treffer: str, vergabe: _Vergabe) -> str:
 def _ersatz(klasse: str, m: re.Match[str], vergabe: _Vergabe) -> str:
     if klasse == "IBAN":
         return _iban_ersatz(m.group(0), vergabe)
+    if klasse == "Telefon" and _DATUM.fullmatch(m.group(0)):
+        return m.group(0)
     return vergabe.platzhalter(klasse, m.group(0))
 
 
