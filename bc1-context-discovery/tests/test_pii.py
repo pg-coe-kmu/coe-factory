@@ -113,3 +113,13 @@ def test_leer_und_beliebiger_text_ohne_ausnahme():
     for text in ("[", "]]", "@", "+", "Dr.", "Herr ", "\n\t", "S-03, S-04",
                  "0" * 40, "[Person ]", "[Person A", "DE00"):
         assert isinstance(ersetze_pii(text), str)   # darf nie werfen
+
+
+# --- Zweitmeinung 2 (Codex, Code-Review 14.09.) ------------------------------
+
+def test_zwei_ibans_nebeneinander_werden_beide_im_ersten_lauf_ersetzt():
+    # Review 2, Critical 1: der Regex lief in die zweite IBAN hinein, die
+    # Soll-Laengen-Kuerzung gab den Rest ungeprueft zurueck (nur beim ZWEITEN
+    # Aufruf ersetzt = Idempotenz verletzt).
+    text = "AT61 1904 3002 3457 3201 GB82 WEST 1234 5698 7654 32"
+    assert ersetze_pii(text) == "[IBAN A] [IBAN B]"

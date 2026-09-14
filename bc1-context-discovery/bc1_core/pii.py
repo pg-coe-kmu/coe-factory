@@ -19,12 +19,23 @@ _HAUSNR = r"\d+[a-zA-Z]?(?:\s*[-–/]\s*\d+[a-zA-Z]?)?"
 _ORT = r"[A-ZÄÖÜ][a-zäöüß-]+(?:\s+[A-ZÄÖÜ][a-zäöüß-]+)?"
 _PLZ_ORT = r"(?:(?:,|\s+in)?\s+\d{5}\s+" + _ORT + r")"
 
+# Soll-Länge je Land (Zeichen ohne Leerzeichen): nur diese Länder gelten als IBAN,
+# Folgetext wird anhand der Länge nicht verschluckt.
+_IBAN_LAENGE = {"AT": 20, "BE": 16, "CH": 21, "CZ": 24, "DE": 22, "DK": 18, "ES": 24,
+                "FI": 18, "FR": 27, "GB": 22, "HU": 28, "IE": 22, "IT": 27, "LI": 21,
+                "LU": 20, "NL": 18, "NO": 15, "PL": 28, "PT": 25, "SE": 24, "SK": 24}
+# Leerzeichen zwischen den Gruppen: normal oder geschützt (U+00A0, beim Einfügen aus
+# Dokumenten), beliebig viele. Eine Gruppe, die selbst wie ein IBAN-Anfang aussieht
+# (Ländercode + Prüfziffern), beendet die IBAN — sonst frisst sie die nächste.
+_IBAN = re.compile(
+    r"\b(?:" + "|".join(_IBAN_LAENGE) + r")\d{2}"
+    r"(?:[  ]*(?![a-z]{2}\d{2}(?:[  ]|$))[a-z0-9]{4}){2,7}"
+    r"(?:[  ]*(?![a-z]{2}\d{2}(?:[  ]|$))[a-z0-9]{1,4})?\b", re.IGNORECASE)
+
 # Reihenfolge = Anwendungsreihenfolge: spezifisch vor allgemein.
 _MUSTER: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("E-Mail", re.compile(r"\b[\w.%+-]+@[\w.-]+\.[A-Za-z]{2,}\b")),
-    # Geschütztes Leerzeichen (U+00A0) kommt beim Einfügen aus Dokumenten vor.
-    ("IBAN", re.compile(r"\b[a-z]{2}\d{2}(?:[  ]?[a-z0-9]{4}){2,7}"
-                        r"(?:[  ]?[a-z0-9]{1,4})?\b", re.IGNORECASE)),
+    ("IBAN", _IBAN),
     ("Telefon", re.compile(r"(?<![\d,.])(?:\+\d{1,3}(?:[ /-]*\(0\))?|\b0)[ /-]*\d"
                            r"(?:[ /-]{0,3}\d){6,13}\b(?![:.]\d)")),
     # Straße/Allee/Gasse mit Hausnummer, optional PLZ + Ort; Weg/Platz/Ring/
@@ -38,10 +49,6 @@ _MUSTER: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("Person", re.compile(r"(?P<hinweis>\b" + _ANREDE + r"\s+|\b(?=(?:Dr|Prof)\.\s))"
                           r"(?P<name>" + _TITEL + r"*" + _WORT + r"(?:\s+" + _WORT + r"){0,2})")),
 )
-# Soll-Länge je Land (Zeichen ohne Leerzeichen): Folgetext wird nicht verschluckt.
-_IBAN_LAENGE = {"AT": 20, "BE": 16, "CH": 21, "CZ": 24, "DE": 22, "DK": 18, "ES": 24,
-                "FI": 18, "FR": 27, "GB": 22, "HU": 28, "IE": 22, "IT": 27, "LI": 21,
-                "LU": 20, "NL": 18, "NO": 15, "PL": 28, "PT": 25, "SE": 24, "SK": 24}
 # Datumsformen, die das Telefon-Muster sonst träfe ("01/02/2026", "01-02-2026").
 _DATUM = re.compile(r"\d{1,2}[./-]\d{1,2}[./-]\d{2,4}|\d{4}-\d{2}-\d{2}")
 
