@@ -94,3 +94,7 @@ def test_kein_treffer_ohne_hinweiswort_und_bei_kleingeschriebenem_folgewort():
                  "ich bin Sachbearbeiter", "Herr der Lage",
                  "Anfrage eines Kollegen oder Kunden"):
         assert ersetze_pii(text) == text
+
+
+def test_vorhandene_platzhalter_bleiben_und_kollidieren_nicht():
+    assert ersetze_pii("Frau [Person A] und Herr Muster") == "Frau [Person A] und Herr [Person B]"

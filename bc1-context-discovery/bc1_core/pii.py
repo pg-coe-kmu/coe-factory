@@ -56,20 +56,30 @@ def _buchstabe(n: int) -> str:
     return kennung
 
 
-class _Vergabe:
-    """Platzhalter je Klasse und Turn: gleicher Wert → gleicher Buchstabe."""
+_PLATZHALTER = re.compile(
+    r"\[(?P<klasse>Person|E-Mail|Telefon|IBAN|Adresse) (?P<kennung>[A-Z]+)\]")
 
-    def __init__(self) -> None:
+
+class _Vergabe:
+    """Platzhalter je Klasse und Turn: gleicher Wert → gleicher Buchstabe.
+    Schon vorhandene Platzhalter (Idempotenz, eingefügter Text) behalten ihre
+    Kennung; sie wird nicht neu vergeben."""
+
+    def __init__(self, text: str) -> None:
         self._kennung: dict[tuple[str, str], str] = {}
         self._belegt: dict[str, set[str]] = {}
+        for m in _PLATZHALTER.finditer(text):
+            self._belegt.setdefault(m.group("klasse"), set()).add(m.group("kennung"))
 
     def platzhalter(self, klasse: str, wert: str) -> str:
         schluessel = (klasse, " ".join(wert.split()).lower())
         if schluessel not in self._kennung:
             belegt = self._belegt.setdefault(klasse, set())
-            kennung = _buchstabe(len(belegt))
-            belegt.add(kennung)
-            self._kennung[schluessel] = f"[{klasse} {kennung}]"
+            n = 0
+            while _buchstabe(n) in belegt:
+                n += 1
+            belegt.add(_buchstabe(n))
+            self._kennung[schluessel] = f"[{klasse} {_buchstabe(n)}]"
         return self._kennung[schluessel]
 
 
@@ -95,8 +105,12 @@ def _ersatz(klasse: str, m: re.Match[str], vergabe: _Vergabe) -> str:
 
 
 def ersetze_pii(text: str) -> str:
-    """Ersetzt personenbezogene Angaben durch Platzhalter wie "[E-Mail A]"."""
-    vergabe = _Vergabe()
+    """Ersetzt personenbezogene Angaben durch Platzhalter wie "[Person A]".
+
+    Total, deterministisch, idempotent: vorhandene Platzhalter bleiben stehen
+    (kein Muster trifft ihren Wortlaut, ihre Kennungen werden nicht neu vergeben).
+    """
+    vergabe = _Vergabe(text)
     for klasse, muster in _MUSTER:
         text = muster.sub(lambda m, k=klasse: _ersatz(k, m, vergabe), text)
     return text
