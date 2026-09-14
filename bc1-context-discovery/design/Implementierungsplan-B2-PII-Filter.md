@@ -928,8 +928,8 @@ Zweitmeinung 1 (Plan, Codex, 14.09.) ist erledigt — Adjudikation unten. Zweitm
 
 - [ ] **Step 1:** Volle Suite final messen, Zahl im Abschlussplan eintragen.
 - [x] **Step 2:** Vertraulichkeits-Check: `git diff --name-only origin/bc1-db-profil-fundament...HEAD` → `git grep -n -i -E "passw|secret|supabase\.co|@gmail|sk-ant|AIza" -- <Dateien>` → nur Beispiel-Domains/Testwerte. Befund Richard vorlegen; **Push nur nach OK**.
-- [ ] **Step 3:** PR: Ziel `main`, falls PR #201 gemergt ist, sonst `bc1-db-profil-fundament`. PR-Text: Big Picture, Prüfung (Suite, Kennzahl), Abweichung von #50 (kein Mapping-Tresor), Zweitmeinungen.
-- [ ] **Step 4:** Kommentar in Issue #50 (öffentlich, nach OK): Stand, Kennzahl, Abweichung, Lücken mit Auslöser.
+- [x] **Step 3:** PR: Ziel `main`, falls PR #201 gemergt ist, sonst `bc1-db-profil-fundament`. PR-Text: Big Picture, Prüfung (Suite, Kennzahl), Abweichung von #50 (kein Mapping-Tresor), Zweitmeinungen.
+- [x] **Step 4:** Kommentar in Issue #50 (öffentlich, nach OK): Stand, Kennzahl, Abweichung, Lücken mit Auslöser.
 - [ ] **Step 5 (Richard):** BC0 informieren über den bestehenden Kanal zu BC0: BC1 liest keine Personennamen; das direkte SELECT-Recht von `bc1_role` auf `prozess_personen` ist für BC1 unnötig.
 - [ ] **Step 6:** `SESSION-HANDOFF.md` (lokal): B2-Stand, nächstes Paket B7.
 
