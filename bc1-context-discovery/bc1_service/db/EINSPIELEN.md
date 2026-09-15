@@ -39,6 +39,8 @@ Erteilt von BC0 am 02.09.2026, in der Ziel-Supabase nachgemessen:
 
 `bc1.profil_write_status` ist unsere interne Tabelle — BC0 muss dafür nichts vorbereiten.
 
+**Dauerregel (15.09.2026, an BC0 zugesichert):** Das SELECT von `bc1_role` auf `companies` — heute über `bc_leser` — ist keine Bequemlichkeit, sondern Voraussetzung für BC0s Löschkaskade: der Freeze-Trigger liest `public.companies` mit den Rechten von `bc1_role`, wenn BC0 einen Mandanten löscht. Fällt das Recht weg, bricht BC0s DSGVO-Löschung, nicht unser Dienst. Wer die Rechte umbaut, hält diesen Weg offen (Mitgliedschaft in `bc_leser` oder direktes SELECT).
+
 ## 2. Einspielen
 
 Aus `bc1-context-discovery/`, **als `bc1_role`**:
