@@ -40,7 +40,7 @@
     "process_id": {
       "type": "string",
       "pattern": "^KP-[0-9]{2}$",
-      "description": "Kernprozess. Von BC1 aus dem Präfix der Teilprozess-ID abgeleitet, nicht aus der Interview-Antwort — die dient nur dem Abgleich (profil.befunde.kp_tp_diskrepanz)."
+      "description": "Kernprozess. Von BC1 aus dem Präfix der Teilprozess-ID abgeleitet, nicht aus der Interview-Antwort — die dient nur dem Abgleich: nennt der Befragte eine andere kanonische KP-ID, steht in profil.befunde.kp_tp_diskrepanz ein Objekt {interview_kp, abgeleiteter_kp}; sonst fehlt der Schlüssel und profil.befunde ist {}."
     },
     "status": {
       "const": "fertig",
@@ -49,7 +49,7 @@
     "erhebung_id": {
       "type": "string",
       "minLength": 1,
-      "description": "HERKUNFTSANKER, keine Stand-Garantie. BC1 speichert die Erhebung mit dem jüngsten Stand — nicht die, aus der alle aktuellen Bewertungen stammen; die Sicht v_bewertung_aktuell ist itemweise aktuell. BC2 sagt hiermit zu, die Bitkom-Bewertungen über v_bewertung_aktuell zu holen und NIE über diese ID: wer über sie lädt, sieht zu wenig (Klärpunkt K-L, bc0_lesepfade.py). Der Zeitanker für BC2s Rechnung ist uebergeben_am gegen die Historisierung, nicht dieses Feld."
+      "description": "HERKUNFTSANKER, keine Stand-Garantie. BC1 speichert die Erhebung mit dem jüngsten Stand zu dem Zeitpunkt, an dem die Profilzeile angelegt wird (erster Turn mit gültiger Teilprozess-ID) — nicht die, aus der alle aktuellen Bewertungen stammen; die Sicht v_bewertung_aktuell ist itemweise aktuell. BC2 sagt hiermit zu, die Bitkom-Bewertungen über v_bewertung_aktuell zu holen und NIE über diese ID: wer über sie lädt, sieht zu wenig (Klärpunkt K-L, bc0_lesepfade.py). Der Zeitanker für BC2s Rechnung ist uebergeben_am gegen die Historisierung, nicht dieses Feld."
     },
     "paket_version": {
       "type": "string",
@@ -59,22 +59,22 @@
     "frequency_per_year": {
       "type": ["number", "null"],
       "minimum": 0,
-      "description": "PROZESSDURCHLÄUFE PRO JAHR, von BC1 normalisiert (Frage D1: '30 pro Monat' → 360). BC1 sagt zu, dass dieser Wert bei status='fertig' nicht null ist; BC2 weist eine Null-Zeile trotzdem nicht ab, verliert dann aber die monetäre Aussage (#163)."
+      "description": "PROZESSDURCHLÄUFE PRO JAHR des Prozesses, wie ihn der Befragte in process_name gerahmt hat (Frage D1: 'Wie oft läuft der gesamte Prozess?'), gespeichert auf der Zeile des Fokus-Schritts — Profile desselben Kernprozesses können sich darin widersprechen, BC2 summiert nicht je KP. Normalisiert, wenn Woche/Monat/Jahr genannt ist ('30 pro Monat' → 360); eine nackte Zahl gilt als pro Jahr; andere Perioden ('3 pro Tag') werden nachgefragt, nicht geraten. Null, wenn das Interview das Feld nach zwei Nachfragen aufgegeben hat (profil.ungeloeste_felder); BC2 weist eine Null-Zeile nicht ab, verliert dann aber die monetäre Aussage (#163)."
     },
     "executions_per_run": {
       "type": ["number", "null"],
       "minimum": 0,
-      "description": "FÄLLE JE PROZESSDURCHLAUF (Frage D4). KEIN MULTIPLIKATOR DER DAUER — siehe Invariante I2 im README. Der Wert ist Kontext für die Fallschwere, nicht für die Jahresminuten. Achtung: in den drei Zeilen vom 08.09.2026 ist er gleich frequency_per_year gesetzt (180/180, 260/260, 40/40); das ist mit BC1 als Eingabeartefakt der Testdaten zu klären."
+      "description": "FÄLLE JE PROZESSDURCHLAUF (Frage D4). KEIN MULTIPLIKATOR DER DAUER — siehe Invariante I2 im README. Der Wert ist Kontext für die Fallschwere, nicht für die Jahresminuten. In den drei Zeilen vom 08.09.2026 ist er gleich frequency_per_year gesetzt (180/180, 260/260, 40/40) — von BC1 als Eingabeartefakt der Testdaten bestätigt (#195), Version 3 folgt. Null nach aufgegebenem Nachfragen, wie frequency_per_year."
     },
     "total_duration_minutes": {
       "type": ["number", "null"],
       "minimum": 0,
-      "description": "MINUTEN JE PROZESSDURCHLAUF (Frage E1: 'ein kompletter Prozessdurchlauf'), einschließlich der darin bearbeiteten executions_per_run Fälle. Jahresminuten = frequency_per_year × total_duration_minutes."
+      "description": "MINUTEN JE PROZESSDURCHLAUF (Frage E1: 'Wie lange dauert ein kompletter Durchlauf im Schnitt?'), einschließlich der darin bearbeiteten executions_per_run Fälle. Jahresminuten = frequency_per_year × total_duration_minutes. Die Bezugsgröße ist eine Annahme aus dem Fragetext, von BC1 nicht geprüft: Einheiten werden auf Minuten gerechnet ('3 Stunden' → 180), Zusätze wie 'pro Fall' gehen verloren. Null nach aufgegebenem Nachfragen."
     },
     "focus_step_duration_minutes": {
       "type": ["number", "null"],
       "minimum": 0,
-      "description": "MINUTEN JE PROZESSDURCHLAUF für den Fokus-Schritt (Frage E2), dieselbe Bezugsgröße wie total_duration_minutes. Der Fokus-Schritt ist der Teilprozess aus focus_step_id."
+      "description": "MINUTEN JE PROZESSDURCHLAUF für den Fokus-Schritt (Frage E2: 'Wie lange dauert dieser Schritt im Schnitt?' — der Fragetext nennt keine Bezugsgröße; BC1 nimmt dieselbe wie bei total_duration_minutes an und schärft den Text mit der nächsten Paket-Revision). Der Fokus-Schritt ist der Teilprozess aus focus_step_id. Null nach aufgegebenem Nachfragen. Offen (README, Punkt 2): ob Frage D3 step_frequency_per_year die Häufigkeit des Fokus-Schritts überschreibt."
     },
     "focus_step_duration_source": {
       "type": ["string", "null"],
@@ -118,7 +118,7 @@
     },
     "erstellt_am": {
       "type": "string",
-      "description": "Anlage der Profilzeile. Postgres gibt den Zeitstempel mit Leerzeichen statt 'T' aus; BC2 nimmt beide Schreibweisen an (darum kein format: date-time)."
+      "description": "Anlage der Profilzeile. Die Schreibweise hängt vom Client ab — psql-Textausgabe trennt mit Leerzeichen, row_to_json mit 'T'; BC2 nimmt beide an (darum kein format: date-time)."
     },
     "aktualisiert_am": {
       "type": "string",
@@ -127,12 +127,12 @@
     "profil": {
       "type": "object",
       "description": "BC1s Profil-JSON. Verbindlich ist nur der unten benannte Ausschnitt; alles Weitere ist für BC2 Kontext und darf sich ohne Rücksprache ändern. ACHTUNG: jeder Wert unter felder.<name>.wert ist eine ZEICHENKETTE oder null — auch Zahlen und 1-bis-5-Skalen. Nur die typisierten Spalten oben tragen Zahlen.",
-      "required": ["felder"],
+      "required": ["felder", "ungeloeste_felder", "vollstaendigkeit"],
       "additionalProperties": true,
       "properties": {
         "felder": {
           "type": "object",
-          "description": "Alle 43 Interviewfelder mit Wert, Status und Herkunft. Nur Felder mit status='gueltig' sind in die typisierten Spalten geflossen; jeder andere Status ergab dort SQL NULL, während der Rohwert hier stehen bleibt.",
+          "description": "Alle 43 Interviewfelder mit Wert, Status und Herkunft — immer alle, auch nie berührte (status='fehlt'). Nur Felder mit status='gueltig' sind in die typisierten Spalten geflossen; jeder andere Status ergab dort SQL NULL, während hier der normalisierte Wert stehen bleibt, sofern je einer erfasst wurde. Den Rohtext speichert BC1 nirgends.",
           "additionalProperties": {
             "type": "object",
             "required": ["wert", "status"],
@@ -141,7 +141,7 @@
               "wert": { "type": ["string", "null"] },
               "status": { "enum": ["fehlt", "gueltig", "ungueltig", "unklar", "ungeloest"] },
               "quelle": { "type": ["string", "null"], "description": "ID der Nachricht, aus der der Wert stammt." },
-              "grund": { "type": ["string", "null"] },
+              "grund": { "type": ["string", "null"], "description": "Nur bei status='ungeloest': nachfrage_limit_erreicht, runden_limit_erreicht, identitaet_ungeklaert oder systemreferenz_beim_schreiben_entfallen." },
               "kandidaten": { "type": "array", "items": { "type": "object" } }
             }
           },
@@ -161,13 +161,13 @@
             "data_availability_score": { "$ref": "#/$defs/feld", "description": "G4, Skala 1–5: liegen die nötigen Daten strukturiert und digital vor?" },
             "stability_score": { "$ref": "#/$defs/feld", "description": "G5, Skala 1–5: wie stabil läuft der Prozess bei hoher Last?" },
             "focus_step_roles": { "$ref": "#/$defs/feld", "description": "F1: beteiligte Rollen als FREITEXT-Liste, z. B. 'Office Management, Consultants'. Daraus eine rolle_id abzuleiten wäre geraten — BC2 tut es nicht." },
-            "focus_step_systems": { "$ref": "#/$defs/feld", "description": "F2: genutzte IT-Systeme als S-NN-Kennungen aus den Systemen des Mandanten." },
+            "focus_step_systems": { "$ref": "#/$defs/feld", "description": "F2: genutzte IT-Systeme als FREITEXT-Liste ('SAP, Outlook' ist gültig). Darin enthaltene S-NN-Kennungen sind kanonisch und beim Mandanten bekannt — fremde entfernt BC1 vor dem Schreiben. Die Liste kann null Kennungen enthalten." },
             "focus_step_media_break": { "$ref": "#/$defs/feld", "description": "F3: muss zwischen Systemen gewechselt oder manuell übertragen werden? Die einzige Medienbruch-Angabe, der BC2 trauen kann — v_gate_prozessstand.tp_mit_medienbruch zählt nur nicht-leeren Freitext (#163)." },
-            "open_remarks": { "$ref": "#/$defs/feld", "description": "Freitext am Ende des Interviews. Trägt heute die Testdaten-Kennzeichnung ('Testdaten … nicht erhoben'). BC2 lehnt deshalb nicht ab, sondern reicht die Kennzeichnung als Herkunft an den mitgeführten Eingangswert durch (#187)." }
+            "open_remarks": { "$ref": "#/$defs/feld", "description": "Freitext am Ende des Interviews. Trägt heute die Testdaten-Kennzeichnung: beginnt mit dem Präfix 'Testdaten ' (das Wort, dann ein Leerzeichen — festgeschrieben in BC1s use_case_testprofile.py). BC2 lehnt deshalb nicht ab, sondern reicht die Kennzeichnung als Herkunft an den mitgeführten Eingangswert durch (#187)." }
           }
         },
-        "vollstaendigkeit": { "type": ["number", "null"], "description": "Anteil erfasster Pflichtfelder, von BC1 berechnet." },
-        "ungeloeste_felder": { "type": "array", "items": { "type": "string" }, "description": "Felder, die das Interview nicht klären konnte." },
+        "vollstaendigkeit": { "type": "number", "minimum": 0, "maximum": 1, "description": "GEBUNDEN. Anteil erfasster Pflichtfelder (0–1), von BC1 berechnet. 1.0 in den drei Zeilen vom 08.09.2026." },
+        "ungeloeste_felder": { "type": "array", "items": { "type": "string" }, "description": "GEBUNDEN. Pflichtfelder, die das Interview nach dem Nachfrage- oder Rundenlimit aufgegeben hat; ihre typisierte Spalte ist NULL, ihr Eintrag in felder trägt status='ungeloest' und einen grund. Leer in den drei Zeilen vom 08.09.2026." },
         "schema_version": { "type": ["string", "null"], "description": "Wie paket_version, hier innerhalb des Profil-JSON." }
       }
     }
@@ -181,7 +181,7 @@
         "wert": { "type": ["string", "null"] },
         "status": { "enum": ["fehlt", "gueltig", "ungueltig", "unklar", "ungeloest"] },
         "quelle": { "type": ["string", "null"] },
-        "grund": { "type": ["string", "null"] },
+        "grund": { "type": ["string", "null"], "description": "Nur bei status='ungeloest': nachfrage_limit_erreicht, runden_limit_erreicht, identitaet_ungeklaert oder systemreferenz_beim_schreiben_entfallen." },
         "kandidaten": { "type": "array", "items": { "type": "object" } }
       }
     }

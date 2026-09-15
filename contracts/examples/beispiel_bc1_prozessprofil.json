@@ -1,12 +1,12 @@
 {
-  "_hinweis": "Nachgebaut aus der Zeile, die BC1 am 08.09.2026 fuer KP-06.TP-2 geschrieben hat (Fall uc1-reisebuchung, Anhang A Rev. 12). Die Zahlen sind GESETZT, nicht erhoben; genau das sagt open_remarks.",
+  "_hinweis": "Die echte Zeile, die BC1 am 08.09.2026 fuer KP-06.TP-2 geschrieben hat (Version 2, Fall uc1-reisebuchung, Anhang A Rev. 12) — exportiert am 12.09.2026, unveraendert bis auf die Reihenfolge der Felder. Die Zahlen sind GESETZT, nicht erhoben; genau das sagt open_remarks. executions_per_run = frequency_per_year ist das bestaetigte Eingabeartefakt (#195), Version 3 folgt.",
   "company_id": "7c2d5ee9-2a9a-5990-810f-502ea2b2012d",
   "focus_step_id": "KP-06.TP-2",
   "profil_version": 2,
   "process_id": "KP-06",
   "status": "fertig",
   "erhebung_id": "E-2026-08",
-  "paket_version": "1.1+ctx-noroai",
+  "paket_version": "1.1+ctx-2537caf443d23ec2",
   "frequency_per_year": 180,
   "executions_per_run": 180,
   "total_duration_minutes": 180,
@@ -16,44 +16,318 @@
   "upstream_process_id": null,
   "downstream_process_id": null,
   "process_owner_rolle_id": null,
+  "erstellt_am": "2026-09-08T13:48:58.079383+00:00",
+  "aktualisiert_am": "2026-09-08T13:48:59.4794+00:00",
   "rollen": [],
-  "erstellt_am": "2026-09-08 14:02:11.418+00",
-  "aktualisiert_am": "2026-09-08 14:02:12.006+00",
   "profil": {
-    "schema_version": "1.1+ctx-noroai",
-    "vollstaendigkeit": 1.0,
-    "ungeloeste_felder": [],
     "felder": {
-      "request_intent": { "wert": "die Reise- und Einsatzplanung automatisieren", "status": "gueltig", "quelle": "m1", "grund": null, "kandidaten": [] },
-      "request_goal": { "wert": "zeit_sparen", "status": "gueltig", "quelle": "m1", "grund": null, "kandidaten": [] },
-      "scope_focus": { "wert": "ganzer_prozess", "status": "gueltig", "quelle": "m1", "grund": null, "kandidaten": [] },
-      "process_name": { "wert": "Reise- und Einsatzplanung", "status": "gueltig", "quelle": "m1", "grund": null, "kandidaten": [] },
-      "process_owner_role": { "wert": "Office Management", "status": "gueltig", "quelle": "m2", "grund": null, "kandidaten": [] },
-      "process_id": { "wert": "KP-06", "status": "gueltig", "quelle": "m2", "grund": null, "kandidaten": [] },
-      "process_steps": { "wert": "Bedarf melden, Termine abstimmen, Reise buchen, Abrechnung", "status": "gueltig", "quelle": "m2", "grund": null, "kandidaten": [] },
-      "trigger_text": { "wert": "Ein Einsatz beim Kunden steht an", "status": "gueltig", "quelle": "m3", "grund": null, "kandidaten": [] },
-      "input_text": { "wert": "Einsatztermine und Reisewunsch", "status": "gueltig", "quelle": "m3", "grund": null, "kandidaten": [] },
-      "input_format": { "wert": "mail", "status": "gueltig", "quelle": "m3", "grund": null, "kandidaten": [] },
-      "output_text": { "wert": "gebuchte Reise mit Bestaetigungen", "status": "gueltig", "quelle": "m3", "grund": null, "kandidaten": [] },
-      "frequency_per_year": { "wert": "180", "status": "gueltig", "quelle": "m4", "grund": null, "kandidaten": [] },
-      "executions_per_run": { "wert": "180", "status": "gueltig", "quelle": "m4", "grund": null, "kandidaten": [] },
-      "total_duration_minutes": { "wert": "180", "status": "gueltig", "quelle": "m4", "grund": null, "kandidaten": [] },
-      "focus_step": { "wert": "KP-06.TP-2", "status": "gueltig", "quelle": "m5", "grund": null, "kandidaten": [] },
-      "focus_step_duration_minutes": { "wert": "90", "status": "gueltig", "quelle": "m5", "grund": null, "kandidaten": [] },
-      "focus_step_duration_source": { "wert": "geschaetzt", "status": "gueltig", "quelle": "m5", "grund": null, "kandidaten": [] },
-      "focus_step_duration_confidence_pct": { "wert": "60", "status": "gueltig", "quelle": "m5", "grund": null, "kandidaten": [] },
-      "focus_step_roles": { "wert": "Office Management, Consultants", "status": "gueltig", "quelle": "m6", "grund": null, "kandidaten": [] },
-      "focus_step_systems": { "wert": "S-01, S-02", "status": "gueltig", "quelle": "m6", "grund": null, "kandidaten": [] },
-      "focus_step_media_break": { "wert": "ja", "status": "gueltig", "quelle": "m6", "grund": null, "kandidaten": [] },
-      "documentation_status": { "wert": "2", "status": "gueltig", "quelle": "m6", "grund": null, "kandidaten": [] },
-      "standardization_level": { "wert": "2", "status": "gueltig", "quelle": "m7", "grund": null, "kandidaten": [] },
-      "data_availability_score": { "wert": "3", "status": "gueltig", "quelle": "m7", "grund": null, "kandidaten": [] },
-      "stability_score": { "wert": "3", "status": "gueltig", "quelle": "m7", "grund": null, "kandidaten": [] },
-      "pii_involved": { "wert": "ja", "status": "gueltig", "quelle": "m7", "grund": null, "kandidaten": [] },
-      "rule_based_score": { "wert": null, "status": "fehlt", "quelle": null, "grund": null, "kandidaten": [] },
-      "acceptance_score": { "wert": null, "status": "fehlt", "quelle": null, "grund": null, "kandidaten": [] },
-      "automation_potential_estimate_pct": { "wert": null, "status": "fehlt", "quelle": null, "grund": null, "kandidaten": [] },
-      "open_remarks": { "wert": "Testdaten Use-Case-Definition 24.08., nicht erhoben. Quelle: Projektgruppe CoE-Factory.", "status": "gueltig", "quelle": "m7", "grund": null, "kandidaten": [] }
-    }
+      "request_intent": {
+        "wert": "die Reise- und Einsatzplanung automatisieren",
+        "grund": null,
+        "quelle": "m1",
+        "status": "gueltig",
+        "kandidaten": []
+      },
+      "request_goal": {
+        "wert": "zeit_sparen",
+        "grund": null,
+        "quelle": "m1",
+        "status": "gueltig",
+        "kandidaten": []
+      },
+      "scope_focus": {
+        "wert": "ganzer_prozess",
+        "grund": null,
+        "quelle": "m1",
+        "status": "gueltig",
+        "kandidaten": []
+      },
+      "process_name": {
+        "wert": "Reise- und Einsatzplanung",
+        "grund": null,
+        "quelle": "m1",
+        "status": "gueltig",
+        "kandidaten": []
+      },
+      "process_owner_role": {
+        "wert": "Office Management",
+        "grund": null,
+        "quelle": "m2",
+        "status": "gueltig",
+        "kandidaten": []
+      },
+      "process_id": {
+        "wert": "KP-06",
+        "grund": null,
+        "quelle": "m2",
+        "status": "gueltig",
+        "kandidaten": []
+      },
+      "process_category": {
+        "wert": null,
+        "grund": null,
+        "quelle": null,
+        "status": "fehlt",
+        "kandidaten": []
+      },
+      "process_steps": {
+        "wert": "Bedarf melden, Termine abstimmen, Reise buchen, Abrechnung",
+        "grund": null,
+        "quelle": "m2",
+        "status": "gueltig",
+        "kandidaten": []
+      },
+      "approval_steps": {
+        "wert": null,
+        "grund": null,
+        "quelle": null,
+        "status": "fehlt",
+        "kandidaten": []
+      },
+      "trigger_text": {
+        "wert": "Ein Einsatz beim Kunden steht an",
+        "grund": null,
+        "quelle": "m3",
+        "status": "gueltig",
+        "kandidaten": []
+      },
+      "input_text": {
+        "wert": "Einsatztermine und Reisewunsch",
+        "grund": null,
+        "quelle": "m3",
+        "status": "gueltig",
+        "kandidaten": []
+      },
+      "input_format": {
+        "wert": "mail",
+        "grund": null,
+        "quelle": "m3",
+        "status": "gueltig",
+        "kandidaten": []
+      },
+      "output_text": {
+        "wert": "gebuchte Reise mit Bestätigungen",
+        "grund": null,
+        "quelle": "m3",
+        "status": "gueltig",
+        "kandidaten": []
+      },
+      "output_format": {
+        "wert": null,
+        "grund": null,
+        "quelle": null,
+        "status": "fehlt",
+        "kandidaten": []
+      },
+      "frequency_per_year": {
+        "wert": "180",
+        "grund": null,
+        "quelle": "m4",
+        "status": "gueltig",
+        "kandidaten": []
+      },
+      "seasonal_peaks": {
+        "wert": null,
+        "grund": null,
+        "quelle": null,
+        "status": "fehlt",
+        "kandidaten": []
+      },
+      "step_frequency_per_year": {
+        "wert": null,
+        "grund": null,
+        "quelle": null,
+        "status": "fehlt",
+        "kandidaten": []
+      },
+      "executions_per_run": {
+        "wert": "180",
+        "grund": null,
+        "quelle": "m4",
+        "status": "gueltig",
+        "kandidaten": []
+      },
+      "total_duration_minutes": {
+        "wert": "180",
+        "grund": null,
+        "quelle": "m4",
+        "status": "gueltig",
+        "kandidaten": []
+      },
+      "focus_step": {
+        "wert": "KP-06.TP-2",
+        "grund": null,
+        "quelle": "m5",
+        "status": "gueltig",
+        "kandidaten": []
+      },
+      "focus_step_duration_minutes": {
+        "wert": "90",
+        "grund": null,
+        "quelle": "m5",
+        "status": "gueltig",
+        "kandidaten": []
+      },
+      "focus_step_duration_source": {
+        "wert": "geschaetzt",
+        "grund": null,
+        "quelle": "m5",
+        "status": "gueltig",
+        "kandidaten": []
+      },
+      "focus_step_duration_confidence_pct": {
+        "wert": "60",
+        "grund": null,
+        "quelle": "m5",
+        "status": "gueltig",
+        "kandidaten": []
+      },
+      "focus_step_roles": {
+        "wert": "Office Management, Consultants",
+        "grund": null,
+        "quelle": "m6",
+        "status": "gueltig",
+        "kandidaten": []
+      },
+      "focus_step_systems": {
+        "wert": "S-01, S-02",
+        "grund": null,
+        "quelle": "m6",
+        "status": "gueltig",
+        "kandidaten": []
+      },
+      "focus_step_media_break": {
+        "wert": "ja",
+        "grund": null,
+        "quelle": "m6",
+        "status": "gueltig",
+        "kandidaten": []
+      },
+      "systems_integrated": {
+        "wert": null,
+        "grund": null,
+        "quelle": null,
+        "status": "fehlt",
+        "kandidaten": []
+      },
+      "digital_logging": {
+        "wert": null,
+        "grund": null,
+        "quelle": null,
+        "status": "fehlt",
+        "kandidaten": []
+      },
+      "documentation_status": {
+        "wert": "2",
+        "grund": null,
+        "quelle": "m6",
+        "status": "gueltig",
+        "kandidaten": []
+      },
+      "standardization_level": {
+        "wert": "2",
+        "grund": null,
+        "quelle": "m7",
+        "status": "gueltig",
+        "kandidaten": []
+      },
+      "variant_share_pct": {
+        "wert": null,
+        "grund": null,
+        "quelle": null,
+        "status": "fehlt",
+        "kandidaten": []
+      },
+      "data_availability_score": {
+        "wert": "3",
+        "grund": null,
+        "quelle": "m7",
+        "status": "gueltig",
+        "kandidaten": []
+      },
+      "stability_score": {
+        "wert": "3",
+        "grund": null,
+        "quelle": "m7",
+        "status": "gueltig",
+        "kandidaten": []
+      },
+      "error_hotspots": {
+        "wert": null,
+        "grund": null,
+        "quelle": null,
+        "status": "fehlt",
+        "kandidaten": []
+      },
+      "pain_level": {
+        "wert": null,
+        "grund": null,
+        "quelle": null,
+        "status": "fehlt",
+        "kandidaten": []
+      },
+      "upstream_process": {
+        "wert": null,
+        "grund": null,
+        "quelle": null,
+        "status": "fehlt",
+        "kandidaten": []
+      },
+      "downstream_process": {
+        "wert": null,
+        "grund": null,
+        "quelle": null,
+        "status": "fehlt",
+        "kandidaten": []
+      },
+      "interface_data": {
+        "wert": null,
+        "grund": null,
+        "quelle": null,
+        "status": "fehlt",
+        "kandidaten": []
+      },
+      "rule_based_score": {
+        "wert": null,
+        "grund": null,
+        "quelle": null,
+        "status": "fehlt",
+        "kandidaten": []
+      },
+      "acceptance_score": {
+        "wert": null,
+        "grund": null,
+        "quelle": null,
+        "status": "fehlt",
+        "kandidaten": []
+      },
+      "pii_involved": {
+        "wert": "ja",
+        "grund": null,
+        "quelle": "m7",
+        "status": "gueltig",
+        "kandidaten": []
+      },
+      "automation_potential_estimate_pct": {
+        "wert": null,
+        "grund": null,
+        "quelle": null,
+        "status": "fehlt",
+        "kandidaten": []
+      },
+      "open_remarks": {
+        "wert": "Testdaten Use-Case-Definition 24.08., nicht erhoben. Quelle: Projektgruppe CoE-Factory.",
+        "grund": null,
+        "quelle": "m7",
+        "status": "gueltig",
+        "kandidaten": []
+      }
+    },
+    "befunde": {},
+    "pflicht_gesamt": 26,
+    "schema_version": "1.1+ctx-2537caf443d23ec2",
+    "pflicht_erfasst": 26,
+    "vollstaendigkeit": 1.0,
+    "ungeloeste_felder": []
   }
 }
