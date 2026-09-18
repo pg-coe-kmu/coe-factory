@@ -544,10 +544,23 @@ def test_die_liste_ist_nach_am_zug_sortiert(client, zustand_mandant):
     assert zustaende.count("wartet_bc1") == 1
 
 
-def test_entscheiden_ist_ohne_bc1_nicht_erreichbar(client, zustand_mandant):
-    """Solange `_bc1_angaben` nichts liefert, gibt es keinen entscheidungsreifen
-    Teilprozess. Das ist der Projektstand, kein Mangel — und deshalb ein Test:
-    Wird BC1 angeschlossen, muss diese Zusicherung bewusst fallen."""
-    assert anwendung._bc1_angaben(None, zustand_mandant, "KP-01.TP-1") is None
+def test_entscheiden_ist_ohne_lesbare_bc1_quelle_nicht_erreichbar(client, zustand_mandant):
+    """DIE ZUSICHERUNG IST AM 18.09.2026 BEWUSST GEFALLEN (v3.3, #P4).
+
+    Der Test hiess vorher `test_entscheiden_ist_ohne_bc1_nicht_erreichbar` und
+    prueft, dass `_bc1_angaben()` fest ``None`` liefert. Genau das war der
+    Mangel: BC1 hatte am 08.09.2026 drei fertige Profile abgelegt, und das Gate
+    meldete weiter "wartet auf BC1".
+
+    Was hier bleibt, ist die Aussage fuer den Fall **ohne lesbare Quelle** —
+    im Testlauf ist das SQLite, wo es kein Schema `bc1` gibt. Dann ist
+    `entscheiden` weiterhin unerreichbar, und das ist richtig: Ohne Angaben
+    keine Entscheidungsreife.
+
+    Dass `entscheiden` MIT Angaben erreichbar wird, steht in
+    `test_v33_bc1_anreicherung.py`.
+    """
+    assert anwendung._bc1_anreicherung(None, zustand_mandant) == {}
     zeilen = _liste(client, zustand_mandant)["teilprozesse"]
     assert not [z for z in zeilen if z["am_zug"] == "entscheiden"]
+    assert all(z["bc1"] is None for z in zeilen)

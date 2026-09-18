@@ -698,9 +698,21 @@ GATE_ANSPRECHPARTNER = ("mitwirkend", "vertretung", "sponsor")
 #: zu tun ist, steht oben; was abgeschlossen ist, unten.
 GATE_AM_ZUG = ("entscheiden", "bc0_pflege", "wartet_bc1", "entschieden")
 
-#: Die vier Angaben, die BC1 nachliefern muss. Nur als Wortlaut fuer die
-#: Begruendung — die Feldnamen sind noch nicht benannt, siehe _bc1_angaben().
+#: Die vier Angaben, die BC1 nachliefern muss — Wortlaut fuer die Begruendung.
+#: Seit v3.3 gibt es dazu die Feldnamen; die Zuordnung steht in
+#: BC1_FELD_ZU_PRUEFPUNKT und wird von _bc1_anreicherung() gelesen.
 GATE_BC1_FELDER = ("Dauer", "Haeufigkeit", "Menge", "Rollen mit Zeitanteil")
+
+#: Welche Spalte in bc1.prozessprofil welche der vier Angaben traegt.
+#: Reihenfolge wie GATE_BC1_FELDER, damit die Begruendung lesbar bleibt.
+#: `rollen` kommt nicht aus dem Profil, sondern aus bc1.profil_rollen —
+#: der Pruefpunkt verlangt Paare (rolle_id, zeitanteil), keine Namensliste.
+BC1_FELD_ZU_PRUEFPUNKT = (
+    ("Dauer", "dauer", "focus_step_duration_minutes"),
+    ("Haeufigkeit", "haeufigkeit", "frequency_per_year"),
+    ("Menge", "menge", "executions_per_run"),
+    ("Rollen mit Zeitanteil", "rollen", None),
+)
 
 #: Arten von Hindernissen, in der Reihenfolge, in der sie abzuarbeiten sind.
 #: `ansprechpartner` ist am 18.08.2026 entfallen — siehe GATE_ANSPRECHPARTNER.
@@ -3955,18 +3967,86 @@ def _gate_letzter_stand(c, cid, sub_process_id=None):
     return ergebnis
 
 
-def _bc1_angaben(c, cid, sub_process_id):
-    """Die BC1-Anreicherung zu einem Teilprozess — heute immer None.
+def _bc1_anreicherung(c, cid):
+    """Die BC1-Anreicherung aller Teilprozesse eines Mandanten, je Teilprozess.
 
-    HIER WIRD ANGESCHLOSSEN, sobald Richard die vier Feldnamen (Dauer,
-    Haeufigkeit, Menge, Rollen mit Zeitanteil) und die Profil-Version benannt hat.
-    Bis dahin gibt es keine lesbare BC1-Quelle; ein geratenes Schema waere eine
-    Behauptung ueber fremde Daten und schlimmer als keine Angabe.
+    ANGESCHLOSSEN AM 18.09.2026 (#P4). Bis dahin gab `_bc1_angaben()` fest
+    ``None`` zurueck, mit der Begruendung, die Feldnamen seien nicht benannt.
+    Sie stehen seit dem 08.09.2026 in ``bc1.prozessprofil``; das Gate zeigte
+    seither "wartet auf BC1", obwohl BC1 geliefert hatte.
 
-    Solange None zurueckkommt, ist `entscheiden` nicht erreichbar. Das ist die
-    Wahrheit ueber den Projektstand, kein Mangel dieser Funktion.
+    **Gelesen wird die juengste fertige Fassung je Teilprozess.** Ein Entwurf
+    (``status = 'in_erhebung'``) zaehlt nicht: Woran BC1 noch arbeitet, ist
+    keine Grundlage fuer eine Freigabe.
+
+    **Eine Zeile heisst nicht, dass alles dasteht.** ``fehlend`` nennt die
+    Angaben aus :data:`GATE_BC1_FELDER`, die leer sind — so kann die
+    Begruendung sagen, was fehlt, statt pauschal alle vier aufzuzaehlen.
+
+    Faellt der Zugriff aus — SQLite, fehlendes Schema, fehlendes Leserecht —
+    kommt ein leeres Verzeichnis zurueck. Das ergibt denselben Zustand wie
+    vorher (``wartet_bc1``) und niemals eine falsche Zuversicht.
+
+    Returns:
+        dict: ``{focus_step_id: {…, "fehlend": [...]}}``; leer, wenn es
+        keine lesbare BC1-Quelle gibt.
     """
-    return None
+    if not PG:
+        return {}
+    try:
+        da = c.execute("SELECT to_regclass('bc1.prozessprofil') IS NOT NULL AS ok").fetchone()
+        if not (da and da["ok"]):
+            return {}
+        zeilen = c.execute(
+            "SELECT DISTINCT ON (p.focus_step_id) "
+            "       p.focus_step_id, p.profil_version, p.erhebung_id, p.paket_version, "
+            "       p.frequency_per_year, p.executions_per_run, "
+            "       p.total_duration_minutes, p.focus_step_duration_minutes, "
+            "       p.focus_step_duration_source, p.focus_step_duration_confidence_pct, "
+            "       p.aktualisiert_am::text AS aktualisiert_am, "
+            "       (SELECT count(*) FROM bc1.profil_rollen r "
+            "         WHERE r.company_id = p.company_id "
+            "           AND r.focus_step_id = p.focus_step_id "
+            "           AND r.profil_version = p.profil_version) AS rollen_anzahl "
+            "  FROM bc1.prozessprofil p "
+            " WHERE p." + W_CO + " AND p.status = 'fertig' "
+            " ORDER BY p.focus_step_id, p.profil_version DESC", (cid,)).fetchall()
+    except Exception as e:                                   # noqa: BLE001
+        # Kein Abbruch: Das Gate ist ohne BC1 benutzbar, nur eingeschraenkt.
+        LOG.warning("BC1-Anreicherung nicht lesbar: %s", e)
+        return {}
+
+    ergebnis = {}
+    for r in zeilen:
+        z = dict(r)
+        for schluessel in ("frequency_per_year", "executions_per_run",
+                           "total_duration_minutes", "focus_step_duration_minutes"):
+            if z.get(schluessel) is not None:
+                z[schluessel] = float(z[schluessel])
+        z["rollen_anzahl"] = int(z.get("rollen_anzahl") or 0)
+        z["fehlend"] = _bc1_fehlende_angaben(z)
+        z["vollstaendig"] = not z["fehlend"]
+        ergebnis[z["focus_step_id"]] = z
+    return ergebnis
+
+
+def _bc1_fehlende_angaben(z):
+    """Welche der vier BC1-Angaben in dieser Profilzeile leer sind.
+
+    Eigene Funktion, damit die Regel ohne Datenbank pruefbar ist — und damit
+    an genau einer Stelle steht, was "geliefert" heisst. Die Rollen zaehlen
+    nur, wenn es Eintraege in ``bc1.profil_rollen`` gibt: Der Pruefpunkt
+    verlangt Paare (rolle_id, zeitanteil). Eine Namensliste im Profiltext
+    ist keine.
+    """
+    fehlend = []
+    for wortlaut, _punkt, spalte in BC1_FELD_ZU_PRUEFPUNKT:
+        if spalte is None:
+            if not z.get("rollen_anzahl"):
+                fehlend.append(wortlaut)
+        elif z.get(spalte) is None:
+            fehlend.append(wortlaut)
+    return fehlend
 
 
 def _gate_luecken(zeile):
@@ -4004,7 +4084,14 @@ def _gate_am_zug(zeile, bc1):
         return "bc0_pflege", ", ".join(t for _art, t in luecken)
     if bc1 is None:
         return "wartet_bc1", "Anreicherung fehlt: " + ", ".join(GATE_BC1_FELDER)
-    return "entscheiden", "Vorbedingungen erfuellt, BC1-Angaben liegen vor"
+    if bc1.get("fehlend"):
+        # Seit v3.3: Was da ist, wird nicht mehr mitverlangt. Die Begruendung
+        # nennt nur noch die tatsaechlich leeren Angaben — sonst liest sie sich
+        # wie "BC1 hat nichts geliefert", obwohl drei von vier Werten stehen.
+        return "wartet_bc1", ("Anreicherung unvollstaendig (Fassung %s): %s"
+                              % (bc1.get("profil_version"), ", ".join(bc1["fehlend"])))
+    return "entscheiden", ("Vorbedingungen erfuellt, BC1-Angaben liegen vor (Fassung %s)"
+                           % (bc1.get("profil_version"),))
 
 
 #: Der Wortlaut je Art. Steht am Kernprozess, nicht am Teilprozess — deshalb ohne
@@ -4047,6 +4134,9 @@ def _gate_bogen(c, cid, sub_process_id=None):
     eigner, ansprechpartner = _gate_beteiligungen(c, cid)
     reifegrade = _gate_reifegrade(c, cid)
     staende = _gate_letzter_stand(c, cid, sub_process_id)
+    # v3.3: Einmal je Mandant, nicht einmal je Teilprozess. Bei fuenfzig
+    # Teilprozessen waeren das sonst fuenfzig Abfragen fuer eine Liste.
+    bc1_alle = _bc1_anreicherung(c, cid)
     ausgabe = []
     for t in _gate_teilprozesse(c, cid, sub_process_id):
         items, mittel = reifegrade.get(t["sub_process_id"], (0, None))
@@ -4069,8 +4159,8 @@ def _gate_bogen(c, cid, sub_process_id=None):
             "entschieden_am": stand["entschieden_am"] if stand else None,
             "hinweis_an_bc2": stand["hinweis_an_bc2"] if stand else None,
         }
-        zeile["am_zug"], zeile["am_zug_grund"] = _gate_am_zug(
-            zeile, _bc1_angaben(c, cid, t["sub_process_id"]))
+        zeile["bc1"] = bc1_alle.get(t["sub_process_id"])
+        zeile["am_zug"], zeile["am_zug_grund"] = _gate_am_zug(zeile, zeile["bc1"])
         ausgabe.append(zeile)
     return ausgabe
 

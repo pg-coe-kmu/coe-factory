@@ -9,12 +9,13 @@
    der Name gleich, ueberlebte der beim ERSTEN Besuch abgelegte Stand von
    /static/index.html beliebig lange und wurde offline weiter ausgeliefert
    — am 28.08.2026 nachgemessen: 41.292 Zeichen gegenueber 158.706 live. */
-/* HUELLE c72eba15 — Pruefsumme (SHA-256, acht Stellen) von static/index.html.
+/* HUELLE 411c6983 — Pruefsumme (SHA-256, acht Stellen) von static/index.html.
    Aendert sich die Huelle, aendert sich dieser Wert. Der Test
    test_cache_name_haengt_an_der_huelle schlaegt dann fehl und zwingt zu der
    Entscheidung, die am 01.09.2026 unterblieben ist: CACHE erhoehen — ja oder nein?
    Am 02.09.2026 nachgeruestet, weil kein Test den vergessenen Namenswechsel sah. */
-const CACHE = "bc0-pwa-v12";  /* 04.09.2026, dritte Aenderung: Stand des Berichts und
+const CACHE = "bc0-pwa-v13";  /* 18.09.2026: BC1-Anreicherung im Gate-Bogen (#P4).
+                                 Davor v12 — 04.09.2026, dritte Aenderung: Stand des Berichts und
                                  Vorher/Nachher im Reifegradbericht (v2.9). Davor v10:
                                  04.09.2026, zweite Aenderung: Block "Erhebung" im Self-Rating
                                  (Stand, abschliessen, neu — v2.8 Nacherhebung). Davor v9:

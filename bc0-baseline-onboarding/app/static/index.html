@@ -2668,6 +2668,13 @@ async function oeffneG0Bogen(sid){
    sind — eine erfundene Vorbelegung wäre schlimmer als ein leeres Feld. */
 function g0Vorbelegung(punkt){
   var b=G0_BOGEN, p=cur.processes[b.process_id]||{};
+  /* v3.3: Die vier BC1-Angaben kommen jetzt aus bc1.prozessprofil.
+     100 heisst nur "ein Wert steht da" — ob er stimmt, sagt die Guete. */
+  var q=b.bc1;
+  if(punkt==='dauer')       return q?(q.focus_step_duration_minutes!=null?100:0):'';
+  if(punkt==='haeufigkeit') return q?(q.frequency_per_year!=null?100:0):'';
+  if(punkt==='menge')       return q?(q.executions_per_run!=null?100:0):'';
+  if(punkt==='rollen')      return q?(q.rollen_anzahl?100:0):'';
   if(punkt==='prozessbeschreibung') return (p.beschreibung||'').trim()?100:0;
   /* Der Eigner zählt mit: Wer den Prozess verantwortet, ist auskunftsfähig.
      Die Vorbelegung ist ein Vorschlag — quittiert wird von Hand. */
@@ -2751,7 +2758,29 @@ function zeichneG0Bogen(){
       +'<td><input class="g0-anm" value="'+esc(alt.anmerkung||'')+'"></td></tr>';
   });
   t+='</table>';
-  h+='<div class="panel"><h3>5 · Pflichtangaben</h3>'+t
+  /* v3.3 — was BC1 tatsaechlich geliefert hat, vor der Tabelle */
+  var q1=b.bc1, bc1h;
+  if(q1){
+    var bz=function(et,wert,zusatz){return '<div class="g0zeile"><span class="etikett">'+et+'</span>'
+      +(wert==null?'<span class="g0feld aus">nicht geliefert</span>':'<span class="g0feld">'+esc(''+wert)+'</span>')
+      +(zusatz?' <span class="mut">'+esc(zusatz)+'</span>':'')+'</div>';};
+    bc1h='<div class="hinw"><b>Aus BC1 — Fassung '+esc(''+q1.profil_version)+'</b>'
+      +' <span class="mut">Erhebung '+esc(q1.erhebung_id||'—')+', Stand '+esc((q1.aktualisiert_am||'').slice(0,10))+'</span>'
+      +bz('Dauer Fokusschritt', q1.focus_step_duration_minutes, 'Minuten'
+          +(q1.focus_step_duration_source?(' · '+q1.focus_step_duration_source):'')
+          +(q1.focus_step_duration_confidence_pct!=null?(' · Zuversicht '+q1.focus_step_duration_confidence_pct+' %'):''))
+      +bz('Dauer gesamt', q1.total_duration_minutes, 'Minuten je Durchlauf')
+      +bz('Häufigkeit', q1.frequency_per_year, 'je Jahr')
+      +bz('Menge', q1.executions_per_run, 'je Durchlauf')
+      +bz('Rollen mit Zeitanteil', (q1.rollen_anzahl?q1.rollen_anzahl:null), (q1.rollen_anzahl?'Einträge':'bc1.profil_rollen ist leer'))
+      +((q1.fehlend&&q1.fehlend.length)
+        ?('<p class="mut">Offen bei BC1: <b>'+esc(q1.fehlend.join(', '))+'</b>. Eine Freigabe ist trotzdem möglich — setzen Sie die Güte entsprechend (<i>geraten</i> oder <i>entfällt</i>) und schreiben Sie in die Anmerkung, worauf Sie sich stützen.</p>')
+        :'<p class="mut">Alle vier BC1-Angaben liegen vor.</p>')
+      +'</div>';
+  } else {
+    bc1h='<div class="hinw"><b>Aus BC1: nichts Lesbares.</b> Für diesen Teilprozess liegt kein fertiges Profil vor, oder die Quelle ist nicht erreichbar. Die vier BC1-Zeilen bleiben unvorbelegt — tragen Sie sie von Hand ein und setzen Sie die Güte.</div>';
+  }
+  h+='<div class="panel"><h3>5 · Pflichtangaben</h3>'+bc1h+t
    +'<div class="hinw"><b>Warum die Güte-Spalte:</b> „100 % vorhanden" heißt nur, dass ein Wert dasteht — nicht, dass er stimmt. Die Häufigkeit ist meist aus einem System zählbar, die Dauer fast nie. Die Güte wandert an BC2 mit; nur so kann BC2 entscheiden, ob es einen Punktwert oder eine Bandbreite rechnet. Bei einer Freigabe ist sie für jede rechnungsrelevante Angabe Pflicht.</div>'
    +'<p class="mut">Ein fehlender Haken verhindert die Freigabe nicht — er macht sie begründungspflichtig.</p></div>';
 
