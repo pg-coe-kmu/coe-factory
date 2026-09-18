@@ -1040,8 +1040,9 @@ def _bew_aktuell(spalten: str, grenze=None) -> str:
     reproduzierbar.
 
     Entspricht der Sicht ``v_bewertung_aktuell`` in
-    ``schema_v1.3_teil_c_erhebungen.sql``. Sie steht hier ein zweites Mal, weil
-    der SQLite-Entwicklungsmodus die Sicht nicht hat — eine bekannte
+    ``schema_v1.3_teil_c_erhebungen.sql``, seit v3.4 dort mit dem
+    ``aktiv``-Filter. Sie steht hier ein zweites Mal, weil der
+    SQLite-Entwicklungsmodus die Sicht nicht hat — eine bekannte
     Doppelführung. Wer die Regel ändert, muss **beide** Stellen ändern.
 
     Args:
@@ -1067,12 +1068,25 @@ def _bew_aktuell(spalten: str, grenze=None) -> str:
             raise ValueError("Grenze hat nicht die erwartete Form: %r" % (grenze,))
         filter_ = (" AND (e.stand < '%s' OR (e.stand = '%s' AND e.erhebung_id <= '%s'))"
                    % (stand, stand, kennung))
+    # v3.4: Stillgelegte Teilprozesse zaehlen nicht mehr mit — ABER NUR IM
+    # AKTUELLEN STAND. Mit `grenze` ist dies der Weg "Stand nach Erhebung X";
+    # dort wuerde ein Filter auf das HEUTIGE `aktiv` rueckwirkend Prozesse aus
+    # einem Bericht entfernen, den es damals anders gab. Genau das verbietet R9.
+    # Dieselbe Trennlinie zieht schema_v3.4 zwischen v_bewertung_aktuell
+    # (gefiltert) und bewertung_aktuell_zum() (ungefiltert).
+    aktiv_filter = ""
+    if not grenze:
+        aktiv_filter = (" AND EXISTS (SELECT 1 FROM ref_teilprozesse tp "
+                        "WHERE tp.company_id = bb.company_id "
+                        "AND tp.sub_process_id = bb.sub_process_id "
+                        "AND tp.aktiv" + ("" if PG else "=1") + ")")
     return ("(SELECT " + spalten + " FROM (SELECT bb.*, row_number() OVER ("
             "PARTITION BY bb.company_id, bb.sub_process_id, bb.item_nr "
             "ORDER BY e.stand DESC, e.erhebung_id DESC) AS rang "
             "FROM bitkom_bewertungen bb JOIN ref_erhebungen e "
             "ON e.company_id = bb.company_id AND e.erhebung_id = bb.erhebung_id "
-            "WHERE e.status <> 'verworfen'" + filter_ + ") t WHERE rang = 1) AS bitkom_bewertungen")
+            "WHERE e.status <> 'verworfen'" + filter_ + aktiv_filter +
+            ") t WHERE rang = 1) AS bitkom_bewertungen")
 
 
 if PG:
@@ -1219,12 +1233,14 @@ def init_db():
     CREATE TABLE IF NOT EXISTS ref_prozesse(
       company_id INTEGER, process_id TEXT, process_name TEXT, kategorie TEXT,
       owner_name TEXT, owner_role TEXT, trigger_text TEXT, input_text TEXT, output_text TEXT,
+      aktiv INTEGER NOT NULL DEFAULT 1,
       PRIMARY KEY(company_id,process_id),
       FOREIGN KEY(company_id) REFERENCES companies(id) ON DELETE CASCADE);
     CREATE TABLE IF NOT EXISTS ref_teilprozesse(
       company_id INTEGER, sub_process_id TEXT, process_id TEXT, step_no INTEGER,
       sub_process_name TEXT, notation TEXT,
       tools TEXT, medienbrueche TEXT, schnittstellen TEXT, api TEXT,
+      aktiv INTEGER NOT NULL DEFAULT 1,
       PRIMARY KEY(company_id,sub_process_id),
       FOREIGN KEY(company_id) REFERENCES companies(id) ON DELETE CASCADE);
     CREATE TABLE IF NOT EXISTS bitkom_bewertungen(
@@ -1241,6 +1257,13 @@ def init_db():
     except Exception: pass
     for col in ("tools", "medienbrueche", "schnittstellen", "api"):
         try: c.execute("ALTER TABLE ref_teilprozesse ADD COLUMN %s TEXT" % col)
+        except Exception: pass
+    # v3.4: `aktiv` gab es seit v2.2 NUR in PostgreSQL — die SQLite-Fassung ist
+    # dreizehn Schemastaende lang ohne sie gelaufen, und niemandem ist es
+    # aufgefallen, weil nichts danach fragte. Seit v3.4 fragt _bew_aktuell()
+    # danach. Dieselbe Doppelfuehrung wie bei _bew_aktuell() selbst.
+    for tabelle in ("ref_prozesse", "ref_teilprozesse"):
+        try: c.execute("ALTER TABLE %s ADD COLUMN aktiv INTEGER NOT NULL DEFAULT 1" % tabelle)
         except Exception: pass
     # Beschreibung je Kernprozess (Schema v1.2 Teil 2): Quelle fuer die Erklaerung
     # durch den BC1-Interview-Bot. In PostgreSQL legt das Schema-Skript sie an.
@@ -4060,7 +4083,11 @@ def _gate_luecken(zeile):
     if not zeile["eigner_benannt"]:
         luecken.append(("eigner", "Keine Person als Eigner zugeordnet"))
     if not zeile["vollstaendig_bewertet"]:
-        luecken.append(("bewertung", "Bewertung unvollstaendig: %d von %d Items"
+        # Die Skala hat 30 Items, 27 ist die Schwelle. Vorher stand hier
+        # "%d von %d" mit items und GATE_ITEMS_MIN — das las sich, als gaebe es
+        # nur 27 Items, und widersprach der Spalte daneben ("bewertet (0/30)").
+        luecken.append(("bewertung", "Bewertung unvollstaendig: %d von 30 Items bewertet "
+                        "(mindestens %d noetig)"
                         % (zeile["items_bewertet"], GATE_ITEMS_MIN)))
     return luecken
 
@@ -4354,14 +4381,24 @@ async def gate_entscheiden(cid: str, sub_process_id: str, req: Request,
             raise HTTPException(400, "Unbekannte Anfrage: %s" % anfrage_id)
 
         erhebung_id = _erhebung_massgeblich(c, cid)
+        # v3.3.2: Die BC1-Fassung wird MITGESCHRIEBEN, aus demselben Grund, aus dem
+        # die Erhebung als Wert kopiert wird: Schreibt BC1 danach eine neue Fassung,
+        # soll die Freigabe weiter sagen koennen, worauf sie beruhte. Bis heute
+        # stand hier immer NULL — `bc1_profil_stand` gab es seit v2.2 im Schema und
+        # keine Zeile Code setzte ihn. Aufgefallen an der ersten echten Freigabe
+        # (KP-05.TP-1, 18.09.2026): Das Paket waere ohne BC1-Stand an BC2 gegangen.
+        bc1_zeile = _bc1_anreicherung(c, cid).get(sub_process_id)
+        bc1_stand = None
+        if bc1_zeile and bc1_zeile.get("profil_version") is not None:
+            bc1_stand = str(bc1_zeile["profil_version"])
         felder = ("gate,company_id,objekt_typ,objekt_id,ereignis,benutzer_id,am,anfrage_id,"
-                  "erhebung_id,kette_bestaetigt,kette_ergaenzung,grund,massnahme")
+                  "erhebung_id,bc1_profil_stand,kette_bestaetigt,kette_ergaenzung,grund,massnahme")
         daten = ("bc0-bc2", cid, "teilprozess", sub_process_id, ereignis,
-                 benutzer.benutzer_id, _jetzt(), anfrage_id, erhebung_id,
+                 benutzer.benutzer_id, _jetzt(), anfrage_id, erhebung_id, bc1_stand,
                  _wahr(b.get("kette_bestaetigt")),
                  (b.get("kette_ergaenzung") or "").strip() or None,
                  grund or None, massnahme or None)
-        sql = "INSERT INTO gate_ereignisse(" + felder + ") VALUES(" + ",".join(["?"] * 13) + ")"
+        sql = "INSERT INTO gate_ereignisse(" + felder + ") VALUES(" + ",".join(["?"] * 14) + ")"
         if PG:
             ereignis_id = c.execute(sql + " RETURNING ereignis_id", daten).fetchone()["ereignis_id"]
         else:

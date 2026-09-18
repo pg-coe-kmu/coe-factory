@@ -2535,16 +2535,44 @@ function g0Hindernisse(){
 
 function zeichneG0Liste(){
   var reif=G0.teilprozesse.filter(function(z){return z.am_zug==='entscheiden';});
-  var wartet=G0.teilprozesse.filter(function(z){return z.am_zug==='wartet_bc1';}).length;
+  var wartend=G0.teilprozesse.filter(function(z){return z.am_zug==='wartet_bc1';});
+  var wartet=wartend.length;
   var oben=reif.length
     ? '<div class="panel" style="padding:0;overflow:auto">'+g0Tabelle(reif,false)+'</div>'
     : '<div class="panel"><div class="g0nichts">Nichts. Es liegt kein Teilprozess entscheidungsreif vor.</div></div>';
+  /* v3.3: Nicht mehr pauschal alle vier Angaben nennen. Seit das Gate BC1 liest,
+     fehlt bei manchen Teilprozessen nur noch eines — der alte Satz behauptete
+     dann etwas Falsches. Gruppiert wird nach dem, was tatsaechlich fehlt. */
+  var gruppen={}, folge=[];
+  wartend.forEach(function(z){
+    var was=(z.bc1&&z.bc1.fehlend&&z.bc1.fehlend.length)
+      ? z.bc1.fehlend.join(', ')
+      : 'Dauer, Häufigkeit, Menge und Rollen mit Zeitanteil';
+    if(gruppen[was]===undefined){gruppen[was]=0;folge.push(was);}
+    gruppen[was]++;
+  });
+  folge.sort(function(a,b){return gruppen[b]-gruppen[a];});
+  var teile=folge.map(function(was){
+    return (folge.length===1?'':gruppen[was]+'× ')+'<b>'+esc(was)+'</b>';
+  });
   var bc1=wartet
-    ? '<div class="hinw">Danach '+(wartet===1?'wartet 1 Teilprozess':'warten '+wartet+' Teilprozesse')+' auf die Anreicherung aus BC1 — Dauer, Häufigkeit, Menge und Rollen mit Zeitanteil liegen nicht vor.</div>'
+    ? '<div class="hinw">Danach '+(wartet===1?'wartet 1 Teilprozess':'warten '+wartet+' Teilprozesse')
+      +' auf die Anreicherung aus BC1. Es fehlt: '+teile.join(' · ')+'.</div>'
+    : '';
+  /* v3.3.2: Was heute entschieden werden KANN, stand bisher nur im zugeklappten
+     Sachstand — und dort hinter den Zeilen, an denen niemand etwas tun kann.
+     wartet_bc1 sperrt nichts; wer Eigner und 27 Items hat, ist freigabefaehig.
+     Das gehoert nach oben, nicht versteckt. */
+  var moeglich=G0.teilprozesse.filter(function(z){
+    return z.am_zug==='wartet_bc1' && z.bogen_ausfuellbar && !z.stand;});
+  var moeglichBlock=moeglich.length
+    ? '<h2 style="font-size:17px;margin:18px 0 8px">Freigabefähig — BC1-Angaben unvollständig ('+moeglich.length+')</h2>'
+      +'<div class="hinw">Die Vorbedingungen sind erfüllt: Eigner zugeordnet, mindestens '+G0.items_min+' von 30 Items bewertet. Von BC1 fehlt noch etwas — das <b>sperrt nicht</b>. Sie können freigeben, wenn Sie die Güte der fehlenden Angaben ehrlich setzen (<i>geraten</i> oder <i>entfällt</i>) und es in der Anmerkung begründen.</div>'
+      +'<div class="panel" style="padding:0;overflow:auto">'+g0Tabelle(moeglich,true)+'</div>'
     : '';
   $('g0').innerHTML='<div class="crumb">'+cr()+'Freigabe (Gate 0)</div><h1>Freigabe an BC2 (Gate 0)</h1>'
     +'<p class="lead">Human in the Loop nach der BC1-Anreicherung. Freigegeben wird der <b>Teilprozess</b>, nicht der Kernprozess — automatisiert wird auf Teilprozessebene. Die Entscheidung ist Administratoren vorbehalten.</p>'
-    +'<h2 style="font-size:17px;margin:0 0 8px">Zu entscheiden</h2>'+oben+g0Hindernisse()+bc1
+    +'<h2 style="font-size:17px;margin:0 0 8px">Zu entscheiden</h2>'+oben+moeglichBlock+g0Hindernisse()+bc1
     +'<details class="g0alle panel" style="margin-top:18px"><summary>Sachstand aller Teilprozesse ('
     +G0.teilprozesse.length+')</summary>'
     +'<div style="margin-top:12px;overflow:auto">'+g0Tabelle(G0.teilprozesse,true)+'</div></details>'
