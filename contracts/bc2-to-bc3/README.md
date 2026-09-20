@@ -4,70 +4,102 @@
 
 | Datei | Liefergegenstand | Version |
 |---|---|---|
-| `konzept.schema.json` | L2-01 Automatisierungskonzept | **2.0** |
-| `priorisierung.schema.json` | L2-02 Prozesspriorisierung | **2.0** |
+| `konzept.schema.json` | L2-01 Automatisierungskonzept, je **Kernprozess** | **3.0** |
+| `priorisierung.schema.json` | L2-02 Priorisierung, je **Analyselauf** | **3.0** |
+| [`archiv/`](archiv/) | eingefrorene v2.0-Fassung für die Lieferung vom 30.08.2026 | 2.0 |
 
-Beispieldaten liegen in [`../examples/`](../examples/):
-`mock_automatisierungskonzept.json`, `mock_prozesspriorisierung.json`,
-`mock_roi_report.md` und das Eingangsprofil `mock_prozessprofil.json`.
+Fixtures liegen in [`../examples/`](../examples/): `mock_automatisierungskonzept.json` (KP-06),
+`mock_automatisierungskonzept_KP-05.json`, `mock_prozesspriorisierung.json` und der
+menschenlesbare `mock_roi_report.md`. Sie tragen seit v3.0 **echten NoroAI-Inhalt** aus BC3s
+Formatvorlage vom 31.08.2026 statt des früheren erfundenen Krankentagegeld-Falls; der alte Stand
+liegt in [`../examples/archiv-v2/`](../examples/archiv-v2/).
+
+## Die Übergabeeinheit ist der Lauf, nicht das Konzept
+
+Ein **Analyselauf** ist `(company_id, paket_id)` — das Paket, das BC0 nach der Gate-0-Freigabe
+schnürt (ADR-005 · BC2). Übergeben wird er als Ganzes: **eine Priorisierung und ihre *n* Konzepte,
+ein Ereignis.** Ein einzeln freigegebenes Konzept hätte keine Reihenfolge, und BC3 bekäme Epics
+ohne den Rang, der sie sortiert.
+
+Daraus folgt der Zuschnitt: **ein Konzept deckt genau einen Kernprozess ab**, gelesen und bewertet
+wird auf Teilprozess-Ebene. Der Kernprozess ist das Präfix der Teilprozess-ID, keine eigene
+Erhebung.
 
 ## Lieferungen
 
-Echte Lieferungen an BC3 liegen unter [`lieferungen/`](lieferungen/) — getrennt von den
-Mocks, die reine Schema-Fixtures sind.
+Echte Lieferungen liegen unter [`lieferungen/`](lieferungen/), getrennt von den Fixtures.
+Künftige Lieferungen heißen `<company>-<paket_id>-f<n>/` und kommen **per Pull Request**, nicht
+direkt auf `main` — das Datum trägt keine Identität (zwei Läufe am selben Tag sind möglich), die
+`paket_id` schon. Details: [ADR-007 · BC2](../../bc2-strategic-advisor/docs/adr/ADR-007_Rueckrichtung_BC2_zu_BC3.md).
 
-| Lieferung | Stand | Art |
-| --- | --- | --- |
-| [`2026-08-30-vorlaeufig/`](lieferungen/2026-08-30-vorlaeufig/) | 30.08.2026 | ⚠️ **vorläufig** — echte Prozesse (KP-02/03/04), gesetzte Value-Zahlen |
+| Lieferung | Stand | Vertrag | Art |
+| --- | --- | --- | --- |
+| [`2026-08-30-vorlaeufig/`](lieferungen/2026-08-30-vorlaeufig/) | 30.08.2026 | **v2.0** (eingefroren) | ⚠️ **vorläufig** — echte Prozesse (KP-02/03/04), gesetzte Value-Zahlen |
 
-Die vorläufige Lieferung entblockt BC3 und BC4, solange das Value-Modell
-([#166](https://github.com/pg-coe-kmu/coe-factory/issues/166)) und die Akzeptanzkriterien
-([#160](https://github.com/pg-coe-kmu/coe-factory/issues/160)) offen sind. Erzeugt für
-[#168](https://github.com/pg-coe-kmu/coe-factory/issues/168); **nicht Gate-1-freigabefähig.**
-Details und die Trennung „echt vs. gesetzt" stehen in ihrer
-[README](lieferungen/2026-08-30-vorlaeufig/README.md).
+Die alte Lieferung wird **nicht** auf v3.0 nachgezogen: ein übergebenes Konzept wird nie ungültig,
+es veraltet. Neu rechnen zerstört, worauf eine übergebene Lieferung sich beruft; nur markieren
+reicht nicht, weil ein Potenzial bei anderen Zahlen anders *geschnitten* sein kann. Eine
+Neuberechnung entsteht als **neue Fassung**. Siehe [`archiv/README.md`](archiv/README.md).
 
 ## Dieser Pfad ist die Endlage
 
-Die Dateien lagen bis zum 30.08.2026 außerhalb des Repos unter `Projektgruppe/BC2/Lösung/`
-und davor in zwei weiteren, divergierenden Kopien. Sie liegen jetzt hier und werden **nicht
-noch einmal verschoben** — BC3 hatte am 20.08. darum gebeten, den Pfad nicht wiederholt
-nachziehen zu müssen. Aufgeräumt in
+Die Dateien lagen bis zum 30.08.2026 außerhalb des Repos und davor in zwei weiteren,
+divergierenden Kopien. Sie liegen jetzt hier und werden **nicht noch einmal verschoben** — BC3
+hatte am 20.08. darum gebeten. Aufgeräumt in
 [#162](https://github.com/pg-coe-kmu/coe-factory/issues/162).
 
-## Was sich von v1.0 auf v2.0 geändert hat
+## Was sich von v2.0 auf v3.0 geändert hat
 
-v1 ordnete **vorgegebene Automatisierungsmuster** zu (`use_cases[]` mit `empfohlenes_muster`
-als Enum, gestützt auf einen Qdrant-Musterkatalog). Das ist verworfen. v2 **erkennt Potenziale
-offen** aus dem Prozess und **berechnet** deren Value: `potenziale[]`, dazu neu je Potenzial
-`impact`, `umsetzungskomplexitaet`, `value{}`, `kategorie` und `potenzielle_loesung`
-(frei formuliert statt Enum).
+Zehn angesammelte Änderungen, in **einem** Zug geschnitten
+([#187](https://github.com/pg-coe-kmu/coe-factory/issues/187)) — jeder brechende Release kostet BC3
+eine Anpassung.
 
-Umbenennungen, die BC3 betreffen — von BC3 am 20.08. abgenommen („Die ID können wir ändern"):
+### Brechend
 
-| v1.0 | v2.0 |
-|---|---|
-| `use_cases[]` | `potenziale[]` |
-| `use_case_id` | `potenzial_id` |
-| `gesamtempfehlung.reihenfolge_use_case_ids` | `…reihenfolge_potenzial_ids` |
-| `gate1.approved_use_case_ids` | `gate1.approved_potenzial_ids` |
-| `roi{}` | `value{}` (zusätzlich `investition_eur_richtwert`, `annahmen[]`) |
-| `ersparnis_eur_jahr` | `einsparung_eur_jahr` |
+| Was | v2.0 | v3.0 | Warum |
+|---|---|---|---|
+| Herkunft des Laufs | `prozessprofil_ref` (ein String, drei Bedeutungen) | `company_id` + `paket_id` + `uebergeben_am` | Zwei Mandanten liegen in derselben Datenbank, und die Datenbank trennt sie nicht (#164) |
+| Skala Impact / Komplexität | vier Stufen `gering`…`sehr hoch` | **1–10** | Von BC3 am 06.09.2026 bestätigt (#186 F1); die vier Stufen in BC3s Vorlage waren Ist-Stand, keine Gegenposition |
+| Aufwand heute | Urteils-Enum | `{ stunden_jahr, herkunft }` | Das Glossar führt ihn als **gemessene** Größe aus Dauer und Häufigkeit, kein Urteil — das Enum widersprach dem |
+| Gate 1 | im Konzept, je Kernprozess | in der **Priorisierung**, je Lauf | Entschieden wurde an einer Stelle, protokolliert an einer anderen (ADR-007 · BC2) |
+| Value-Größen | Punktwerte | **Spannen** (`{min, max}`) | Bandbreite je Herkunft der Dauer (ADR-006 · BC2) |
+| Vierte Kategorie | `Long Bet` | `Zurueckgestellt` | Eine Wette verspricht einen Gewinn, den die Zahlen dort gerade nicht zeigen |
+| `rang` | Rang **innerhalb** des Konzepts | `potenzialrang`, über den **ganzen Lauf** | Rangiert wird über die Prozesse hinweg — das ist der Kern dessen, was BC2 liefert |
 
-`prozessprofil_ref` ist bewusst `string` statt `format: uuid`, damit derselbe Vertrag für
-Datei-, REST- und DB-Herkunft gilt.
+### Neu
 
-## Offener Punkt: Akzeptanzkriterien fehlen
+**Aus BC3s Vorlage übernommen** (die Form stand fest, sie war abzuschreiben, nicht zu entwerfen):
+`akzeptanzkriterien_geschaeftlich` (Given/When/Then), `fachliche_anforderungen`, ausführliches
+`to_be_vision`, `betroffene_teilprozess_ids` (Auflage BC0 vom 24.08.), und `value_quelle` um
+`annahme` erweitert.
 
-v1 trug je Use Case `akzeptanzkriterien_geschaeftlich`, `fachliche_anforderungen` und ein
-ausführliches `to_be_vision`. **v2 hat diese drei nicht mehr** — geblieben ist nur
-`potenzielle_loesung.to_be_kurz` („1–2 Sätze"). BC3 hat am 20.08. widersprochen:
+**Aus dem Value-Modell** (ADR-006 · BC2): `nutzwert` (fünf Kategorien mit Begründung),
+`impact_monetaer`, `automatisierungsgrad` (Klasse + Korridor), `komplexitaet_herkunft`,
+`prioritaetsgruppe`, `querschnitte` (Zukunftssicherheit, Reifegrad, Umsatzpotenzial,
+Abhängigkeiten), `eingangswerte` und `hinweise`.
 
-> „es fehlen Felder wie Akzeptanzkriterien, das bräuchten wir auf jeden Fall"
+**Aus der Rückrichtung** (ADR-007 · BC2): `ersetzt_konzept_id`, `fassung`, und in `gate1` die
+`finale_reihenfolge_potenzial_ids` samt `abweichungsbegruendung` sowie `nicht_freigegeben[]` mit
+Begründung je Potenzial.
 
-Die Felder kommen zurück; wie genau, entscheidet
-[#160 — Was BC3 von BC2 erwartet](https://github.com/pg-coe-kmu/coe-factory/issues/160).
-Bis dahin ist v2.0 als Ausgangspunkt gültig, aber nicht endgültig.
+**Neu als eigenes Ergebnis:** `prozess_raenge[]` in der Priorisierung. Bisher wurde nach
+Potenzialen rangiert; gefragt war aber, welcher **Prozess** zuerst automatisiert wird.
+
+### Die beiden Formen nicht verwechseln
+
+- `user_story` → **SOPHIST**: „Als … möchte … damit …"
+- `akzeptanzkriterien_geschaeftlich[].kriterium` → **Given/When/Then**: „Gegeben …, wenn …, dann …"
+- `akzeptanzkriterien_geschaeftlich[].messverfahren` → **füllt BC2**
+
+Diese Frage ist viermal beantwortet worden (#160 GWT → #186 SOPHIST → Meeting 07.09. GWT →
+Rückfrage 09.09. GWT). Die letzte Antwort erfolgte **in Kenntnis der vorherigen** und gilt.
+
+### Was bewusst gleich geblieben ist
+
+`aufwand_schaetzung_pt` und `risiken` **bleiben** — von BC3 am 06.09.2026 ausdrücklich bestätigt
+(#186 F3), obwohl `tickets.schema.json` v3.5 für beide kein Zielfeld hat. Die **Risiken bleiben
+dreistufig** (`low`/`med`/`high`): eine Matrix 1–10 × 1–10 suggeriert Genauigkeit, die es dort
+nicht gibt. Die Skalenänderung betrifft Impact und Komplexität, nicht die Risiken.
 
 ## Prüfen
 
@@ -76,15 +108,17 @@ python3 -m pip install jsonschema
 python3 bc2-strategic-advisor/tools/validate.py   # aus dem Repo-Wurzelverzeichnis
 ```
 
-Prüft beide Mocks gegen ihre Schemas und zusätzlich, dass
-`gesamtempfehlung.reihenfolge_potenzial_ids` mit dem Ranking der Priorisierung übereinstimmt
-und keine unbekannten Potenziale referenziert werden. Exit 0 = grün.
+Prüft die Fixtures gegen v3.0 und die alte Lieferung gegen die archivierten v2-Schemas, dann die
+fachliche Konsistenz: dass sich das Rechenmodell aus ADR-006 · BC2 nachrechnen lässt (Nutzwert,
+Impact, Score, Kategorie, Prioritätsgruppe), dass Konzepte und Priorisierung eines Laufs sich
+nicht widersprechen, dass der Prozessrang dem jeweils besten Potenzial folgt und dass die beiden
+Textformen eingehalten sind. Exit 0 = grün.
 
-`bc2-strategic-advisor/tools/gen_mocks.py` erzeugt die Mocks neu; die Value-/ROI-Rechnung darin
-ist deterministisch (kein LLM) und dient als Referenzimplementierung.
+`bc2-strategic-advisor/tools/migriere_bc3_vorlage.py` erzeugt die Fixtures neu. Der frühere
+`gen_mocks.py` ist nach `bc2-strategic-advisor/tools/archiv/gen_mocks_v2.py` eingefroren.
 
-> **Fachlicher Vorbehalt zu den Mocks:** `mock_prozessprofil.json` beschreibt
-> „Antragsbearbeitung Krankentagegeld, KP-07, Aurelia Krankenkasse". Das ist **frei erfunden** —
-> real ist KP-07 die Buchhaltung, und der Referenzmandant NoroAI ist eine KI-Beratung. Die Mocks
-> sind **Schema-Fixtures**, keine fachliche Vorlage. Fachliche Grundlage ist die gemeinsame
-> Datenbank ([#159](https://github.com/pg-coe-kmu/coe-factory/issues/159)).
+> **Die CI fasst diesen Ordner nicht an.** `.github/workflows/vertraege-pruefen.yml` läuft bei
+> jeder Änderung unter `contracts/**`, prüft aber **ausschließlich** `contracts/bc3-to-bc4`. Ohne
+> Erweiterung ist der PR-Weg aus ADR-007 · BC2 ein Verfahren ohne Netz, und eine schema-ungültige
+> Lieferung, die BC3 bereits gezogen hat, holt niemand zurück. `validate.py` läuft bis dahin von
+> Hand.
