@@ -1,0 +1,959 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PROTOTYP #167 — Frontend-Schnitt BC2</title>
+<!--
+  ===========================================================================
+  PROTOTYP zu Ticket #167 — WEGWERFCODE, kein Produktionscode.
+  ===========================================================================
+
+  Drei Fassungen der BC2-Oberfläche auf einer Seite, umschaltbar über
+  ?variant=A|B|C (auf file:// auch über #variant=A) und die Leiste unten.
+
+      A  Rangliste        — die Reihenfolge ist die Seite
+      B  Portfolio        — die Matrix ist die Seite
+      C  Freigabe-Assistent — der Entscheidungsweg ist die Seite
+
+  Die Zahlen stammen aus daten.js (erzeugt von daten_bauen.py, nach ADR-006
+  gerechnet). Kein Server, keine Datenbank, keine Persistenz: jede Freigabe
+  lebt im Arbeitsspeicher und ist beim Neuladen weg. Das ist Absicht — die
+  Frage ist, wie die Oberfläche aussieht, nicht ob die Rückseite trägt.
+
+  Technik mit Absicht nackt: eine Datei, kein Bauschritt, kein Rahmenwerk.
+  Genau so liegt BC0s PWA im Repo (app/static/index.html, 2903 Zeilen, von
+  FastAPI über StaticFiles ausgeliefert) — Punkt 8 des Tickets ist damit
+  weniger eine Frage als ein Vergleich.
+-->
+<style>
+:root{
+  /* Palette von BC0 übernommen — die Oberflächen sollen nicht wie zwei Produkte aussehen. */
+  --navy:#1F3A5F; --ink:#1f2933; --muted:#6b7280; --line:#dde2e8; --bg:#f4f6f9;
+  --panel:#fff; --accent:#3B6EA5; --ok:#1f9d57; --warn:#c0392b; --amber:#d98c1f;
+  --chip:#eef2f7; --prio1:#1f9d57; --prio2:#d98c1f; --prio3:#8a94a6;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",Calibri,Arial,sans-serif;color:var(--ink);
+     background:var(--bg);font-size:14px;padding-bottom:70px}
+h1{font-size:21px;margin:0 0 2px} h2{font-size:16px;margin:0 0 10px}
+h3{font-size:14px;margin:0 0 6px}
+a{color:var(--accent)}
+code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;
+     background:var(--chip);padding:1px 5px;border-radius:4px}
+table{border-collapse:collapse;width:100%}
+
+/* ---------- gemeinsamer Kopf (nur der Kopf ist geteilt, kein Layout) ------- */
+.topbar{display:flex;align-items:center;gap:14px;background:var(--navy);color:#fff;
+        padding:10px 18px;flex-wrap:wrap}
+.topbar .logo{font-weight:700} .topbar .sub{color:#b9c6d6;font-size:12.5px}
+.topbar .rechts{margin-left:auto;display:flex;align-items:center;gap:10px;
+                color:#cfe0f0;font-size:12.5px}
+.topbar select{background:#16324f;color:#fff;border:1px solid #2c4a6e;border-radius:7px;
+               padding:6px 9px;font-size:12.5px;font-family:inherit}
+.laufkopf{background:var(--panel);border-bottom:1px solid var(--line);padding:12px 22px;
+          display:flex;gap:26px;align-items:flex-start;flex-wrap:wrap}
+.laufkopf .kennung{font-size:12.5px;color:var(--muted)}
+.laufkopf .kennung b{color:var(--ink);display:block;font-size:14px;font-weight:600}
+
+.hinweis{margin:0;padding:10px 14px;border-radius:9px;font-size:13px;line-height:1.5}
+.hinweis.warn{background:#fdf0ee;border:1px solid #f0c7c0;color:#8d2b1c}
+.hinweis.info{background:#eef4fb;border:1px solid #cfe0f2;color:#23486f}
+.hinweis.luecke{background:#fbf5e9;border:1px solid #ecd9ae;color:#7a5a12}
+
+.notiz{margin:14px 22px 0;background:#fff;border:1px dashed #b8c4d4;border-radius:10px;
+       padding:0 14px;font-size:13px}
+.notiz summary{cursor:pointer;padding:10px 0;font-weight:600;color:var(--navy)}
+.notiz ol{margin:0 0 12px;padding-left:22px;line-height:1.65} .notiz li{margin-bottom:3px}
+
+.wrap{padding:16px 22px}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:11px;
+     background:var(--chip);color:var(--navy);white-space:nowrap}
+.tag.p1{background:#e4f5ec;color:var(--prio1)} .tag.p2{background:#fbf1e1;color:#a5691a}
+.tag.p3{background:#eef0f4;color:var(--prio3)}
+.tag.qw{background:#e4f5ec;color:var(--prio1)} .tag.st{background:#eef4fb;color:var(--accent)}
+.tag.op{background:#f2f3f6;color:var(--muted)} .tag.zg{background:#f7eef0;color:#8d4a58}
+.tag.geurteilt{background:#fbf5e9;color:#7a5a12} .tag.gemessen{background:#eef0f4;color:var(--muted)}
+.tag.fehlt{background:#fdf0ee;color:var(--warn)}
+
+.btn{background:var(--navy);color:#fff;border:none;border-radius:8px;padding:9px 16px;
+     font-size:13.5px;cursor:pointer;font-weight:600;font-family:inherit}
+.btn.sec{background:#fff;color:var(--navy);border:1px solid var(--navy)}
+.btn.sm{padding:5px 11px;font-size:12px}
+.btn:disabled{opacity:.42;cursor:not-allowed}
+.btn.warnfarbe{background:var(--warn)}
+
+/* Spanne als Balken — dieselbe Darstellung in allen drei Fassungen, damit die
+   Fassungen sich in der Struktur unterscheiden und nicht im Detail. */
+.spanne{display:flex;align-items:baseline;gap:8px;white-space:nowrap}
+.spanne .zahl{font-variant-numeric:tabular-nums;font-weight:600}
+.spanne .breite{font-size:11px;color:var(--muted)}
+.band{position:relative;height:7px;background:#e8ecf1;border-radius:4px;min-width:96px;flex:1}
+.band .fuellung{position:absolute;top:0;bottom:0;background:linear-gradient(90deg,#9fc1e4,#3B6EA5);
+                border-radius:4px}
+.band.keine{background:repeating-linear-gradient(45deg,#f0f1f4,#f0f1f4 4px,#e4e6ea 4px,#e4e6ea 8px)}
+
+/* =================== A — Rangliste =================== */
+#A table th{text-align:left;font-size:11px;letter-spacing:.5px;text-transform:uppercase;
+            color:var(--muted);font-weight:600;padding:0 10px 7px;border-bottom:1px solid var(--line)}
+#A tbody tr{background:#fff;border-bottom:1px solid var(--line);cursor:pointer}
+#A tbody tr:hover{background:#f8fafc}
+#A tbody tr.gewaehlt{background:#eef4fb}
+#A td{padding:9px 10px;vertical-align:middle}
+#A td.rang{font-variant-numeric:tabular-nums;color:var(--muted);font-weight:700;width:34px}
+#A tr.gruppenzeile td{background:var(--bg);padding:16px 10px 6px;border:none;
+                      font-size:12px;font-weight:700;letter-spacing:.4px;text-transform:uppercase}
+#A tr.gruppenzeile.leer td{color:var(--muted);font-weight:600;text-transform:none;
+                           letter-spacing:0;font-size:12.5px}
+#A .titelzelle{max-width:420px} #A .titelzelle b{font-weight:600}
+#A .titelzelle .unten{font-size:12px;color:var(--muted);margin-top:2px}
+#A .schublade{position:fixed;top:0;right:0;bottom:0;width:min(540px,92vw);background:#fff;
+              border-left:1px solid var(--line);box-shadow:-8px 0 26px #0002;overflow:auto;
+              padding:18px 20px 90px;z-index:40}
+#A .fussleiste{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);
+               padding:11px 22px;display:flex;align-items:center;gap:14px;z-index:30;
+               box-shadow:0 -3px 14px #0001}
+
+/* =================== B — Portfolio =================== */
+#B .buehne{display:grid;grid-template-columns:minmax(420px,1fr) 340px;gap:20px;align-items:start}
+#B .matrixkarte{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px}
+#B svg{width:100%;height:auto;display:block}
+#B .punkt{cursor:pointer}
+#B .punkt circle.kern{stroke:#fff;stroke-width:1.5}
+#B .punkt.gewaehlt circle.kern{stroke:var(--navy);stroke-width:2.5}
+#B .punkt text{font-size:9px;font-weight:700;fill:#fff;pointer-events:none}
+#B .parkbahn{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;
+             margin-top:16px}
+#B .seite{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;
+          position:sticky;top:14px}
+#B .listenzeile{display:flex;gap:9px;align-items:center;padding:7px 0;
+                border-bottom:1px solid #f0f2f5;cursor:pointer;font-size:13px}
+#B .listenzeile:hover{background:#f8fafc} #B .listenzeile.gewaehlt{background:#eef4fb}
+#B .listenzeile .nr{width:20px;color:var(--muted);font-weight:700;font-variant-numeric:tabular-nums}
+
+/* =================== C — Freigabe-Assistent =================== */
+#C .schritte{display:flex;gap:0;background:#fff;border:1px solid var(--line);border-radius:10px;
+             overflow:hidden;margin-bottom:18px;flex-wrap:wrap}
+#C .schritt{flex:1;min-width:150px;padding:11px 14px;font-size:12.5px;color:var(--muted);
+            border-right:1px solid var(--line);cursor:pointer}
+#C .schritt:last-child{border-right:none}
+#C .schritt b{display:block;color:var(--ink);font-size:13.5px}
+#C .schritt.aktiv{background:#eef4fb;color:var(--accent)} #C .schritt.aktiv b{color:var(--navy)}
+#C .schritt.erledigt b::after{content:' ✓';color:var(--ok)}
+#C .buehne{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px;
+           max-width:960px}
+#C .pkarte{border:1px solid var(--line);border-radius:10px;margin-bottom:12px;overflow:hidden}
+#C .pkarte>summary{cursor:pointer;padding:13px 15px;display:flex;gap:12px;align-items:center;
+                   background:#fbfcfd;font-size:13.5px}
+#C .pkarte>summary b{font-weight:600} #C .pkarte[open]>summary{border-bottom:1px solid var(--line)}
+#C .pkarteinhalt{padding:15px}
+#C .reihe{display:flex;gap:10px;align-items:center;padding:9px 12px;background:#fbfcfd;
+          border:1px solid var(--line);border-radius:9px;margin-bottom:7px;font-size:13px}
+#C .reihe.verschoben{border-color:var(--amber);background:#fdfaf3}
+#C .reihe .griff{color:var(--muted);font-variant-numeric:tabular-nums;font-weight:700;width:26px}
+#C textarea{width:100%;font-family:inherit;font-size:13px;padding:9px 11px;border-radius:8px;
+            border:1px solid var(--line);min-height:62px;resize:vertical}
+
+/* ---------- Detailblock, in allen Fassungen gleich aufgebaut -------------- */
+.detail h2{margin-bottom:4px} .detail .tp{font-size:12.5px;color:var(--muted);margin-bottom:14px}
+.detail .block{border-top:1px solid var(--line);padding:13px 0}
+.detail .block>h3{font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted)}
+.detail dl{display:grid;grid-template-columns:auto 1fr;gap:5px 14px;margin:0;font-size:13px}
+.detail dt{color:var(--muted)} .detail dd{margin:0}
+.detail .herleitung{font-size:12px;color:var(--muted);margin-top:5px;font-style:italic}
+.detail table.nachweise{font-size:12px} .detail table.nachweise td{padding:3px 8px 3px 0;
+       border-bottom:1px solid #f2f4f7;vertical-align:top}
+.detail .balken{display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:12.5px}
+.detail .balken .name{width:170px;color:var(--muted)}
+.detail .balken .stab{height:8px;background:var(--accent);border-radius:4px}
+.detail .gwt{font-size:12.5px;line-height:1.55;margin-bottom:9px}
+.detail .gwt .mess{color:var(--muted);font-size:12px}
+
+/* ---------- Umschaltleiste: sichtbar kein Teil des Entwurfs --------------- */
+/* 70px statt 14px: Fassung A hat eine eigene Fußleiste, auf der die Pille sonst klebt. */
+#umschalter{position:fixed;left:50%;transform:translateX(-50%);bottom:70px;z-index:90;
+            display:flex;align-items:center;gap:2px;background:#11161d;color:#fff;
+            border-radius:999px;padding:5px 7px;box-shadow:0 6px 22px #0005;font-size:13px}
+#umschalter button{background:#2a323d;color:#fff;border:none;width:30px;height:30px;
+                   border-radius:50%;cursor:pointer;font-size:15px;line-height:1}
+#umschalter button:hover{background:#3d4754}
+#umschalter .name{padding:0 13px;font-weight:600;white-space:nowrap}
+#umschalter .name small{color:#96a0ad;font-weight:400;margin-left:7px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="logo">BC2 · Strategic Advisor</span>
+  <span class="sub">Zwischen Gate 0 und Gate 1</span>
+  <span class="rechts">
+    <label for="laufwahl">Analyselauf</label>
+    <select id="laufwahl"></select>
+  </span>
+</div>
+
+<div class="laufkopf" id="laufkopf"></div>
+<div id="buehne"></div>
+
+<div id="umschalter" hidden>
+  <button id="zurueck" title="vorige Fassung (←)">‹</button>
+  <span class="name" id="umschaltername"></span>
+  <button id="vor" title="nächste Fassung (→)">›</button>
+</div>
+
+<script src="daten.js"></script>
+<script>
+"use strict";
+
+// ===========================================================================
+// Zustand — alles im Arbeitsspeicher (Prototyp-Regel 3)
+// ===========================================================================
+
+const FASSUNGEN = {
+  A: {name:"Rangliste",          zeichne:zeichneA},
+  B: {name:"Portfolio",          zeichne:zeichneB},
+  C: {name:"Freigabe-Assistent", zeichne:zeichneC},
+};
+
+const Z = {
+  fassung: "A",
+  laufIndex: 0,
+  gewaehlt: null,            // Potenzial-ID im Detail
+  freigegeben: new Set(),    // Gate-1-Auswahl
+  reihenfolge: null,         // vom Menschen überschriebene Reihenfolge (IDs)
+  abweichungsgrund: "",
+  schritt: 0,               // nur Fassung C
+  offen: new Set(),          // aufgeklappte Karten in C — überlebt das Neuzeichnen
+};
+
+const lauf = () => PROTOTYP_DATEN.laeufe[Z.laufIndex];
+const potenziale = () => lauf().potenziale;
+const potenzial = id => potenziale().find(p => p.id === id);
+
+/** Reihenfolge, die gilt: die überschriebene, sonst die gerechnete. */
+function geltendeReihenfolge(){
+  if (Z.reihenfolge) return Z.reihenfolge.map(potenzial);
+  return potenziale().slice().sort((a,b) => a.rang - b.rang);
+}
+const wurdeUmsortiert = () => !!Z.reihenfolge &&
+  Z.reihenfolge.join() !== potenziale().slice().sort((a,b)=>a.rang-b.rang).map(p=>p.id).join();
+
+// ===========================================================================
+// Formate
+// ===========================================================================
+
+const eur = n => n.toLocaleString("de-DE",{maximumFractionDigits:0}) + " €";
+/** Bandbreiten kurz: „8–28 T€/Jahr" statt „8.359–27.632 €" — Scheingenauigkeit
+    entsteht schon durch die Stellenzahl, nicht erst durch den Punktwert. */
+function spanneKurz(von,bis){
+  const t = n => n >= 10000 ? Math.round(n/1000)+"" : (n/1000).toFixed(1).replace(".",",");
+  return (bis >= 1000) ? `${t(von)}–${t(bis)} T€` : `${Math.round(von)}–${Math.round(bis)} €`;
+}
+const datum = s => s ? new Date(s).toLocaleString("de-DE",
+  {day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}) : "—";
+const KAT = {"Quick Win":"qw","Strategisch":"st","Optional":"op","Zurückgestellt":"zg"};
+const GRP = {"PRIO 1":"p1","PRIO 2":"p2","PRIO 3":"p3"};
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+/** Sehr kleine Teilmenge von Markdown — die Texte aus daten.js nutzen ** und `. */
+const md = s => esc(s).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/`(.+?)`/g,"<code>$1</code>");
+
+/** Der Balken, der eine Spanne zeigt, skaliert über alle Potenziale des Laufs. */
+function bandHtml(p){
+  if (!p.value) return `<div class="band keine" title="keine Value-Zahl"></div>`;
+  const alle = potenziale().filter(x=>x.value);
+  const max = Math.max(...alle.map(x=>x.value.einsparung_spanne[1]));
+  const [lo,hi] = p.value.einsparung_spanne;
+  const l = 100*lo/max, b = Math.max(1.5, 100*(hi-lo)/max);
+  return `<div class="band"><div class="fuellung" style="left:${l}%;width:${b}%"></div></div>`;
+}
+
+function valueZelle(p){
+  if (!p.value) return `<div class="spanne"><span class="tag fehlt">keine Value-Zahl</span></div>
+                        ${bandHtml(p)}`;
+  return `<div class="spanne">
+            <span class="zahl">${spanneKurz(...p.value.einsparung_spanne)}</span>
+            <span class="breite">/Jahr · ±${p.value.breite_pct} %</span>
+          </div>${bandHtml(p)}`;
+}
+
+// ===========================================================================
+// Detailblock — in allen drei Fassungen derselbe Inhalt, verschieden platziert
+// ===========================================================================
+
+function detailHtml(p){
+  const nw = Object.entries(p.nutzwert_kategorien).map(([k,v]) =>
+    `<div class="balken"><span class="name">${esc(k)}</span>
+       <span class="stab" style="width:${v*11}px"></span><span>${v}</span></div>`).join("");
+
+  const querschnitt = Object.entries(p.querschnitt).map(([k,v]) =>
+    `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("");
+
+  const nachweise = p.herkunftsnachweise.map(n =>
+    `<tr><td><code>${esc(n.quelle)}</code></td>
+         <td><b>${n.wert === null ? "NULL" : esc(n.wert)}</b> ${esc(n.einheit)}</td>
+         <td style="color:var(--muted)">${esc(n.bezug)}</td></tr>`).join("");
+
+  const luecken = p.datenluecken.length
+    ? `<div class="block"><h3>Was fehlt oder unsicher ist</h3>
+         ${p.datenluecken.map(l=>`<p class="hinweis luecke" style="margin-bottom:7px">${md(l)}</p>`).join("")}
+       </div>` : "";
+
+  const modellfragen = p.offene_modellfragen.length
+    ? `<div class="block"><h3>Offen im Modell (Prototyp-Befund)</h3>
+         ${p.offene_modellfragen.map(f=>`<p class="hinweis info" style="margin-bottom:7px">${md(f)}</p>`).join("")}
+       </div>` : "";
+
+  const ak = p.akzeptanzkriterien.map(k =>
+    `<div class="gwt">${md(k.text)}<br><span class="mess">Messverfahren: ${esc(k.messverfahren)}</span></div>`).join("");
+
+  const valueBlock = p.value ? `
+    <dl>
+      <dt>Jahresstunden heute</dt>
+      <dd>${p.value.jahresstunden_mitte.toLocaleString("de-DE")} h
+          <span style="color:var(--muted)">(${p.value.jahresstunden_spanne[0].toLocaleString("de-DE")}–${p.value.jahresstunden_spanne[1].toLocaleString("de-DE")} h)</span></dd>
+      <dt>Ist-Kosten</dt><dd>${eur(p.value.ist_kosten_mitte)} / Jahr · 43 €/h Mischsatz</dd>
+      <dt>Einsparung</dt>
+      <dd><b>${eur(p.value.einsparung_spanne[0])} – ${eur(p.value.einsparung_spanne[1])}</b> / Jahr</dd>
+      <dt>Investition</dt><dd>${eur(p.value.investition)} · ${p.aufwand_pt} PT × 800 €/PT Bausatz</dd>
+      <dt>Amortisation</dt><dd>${String(p.value.amortisation_monate).replace(".",",")} Monate
+          <span style="color:var(--muted)">— Ausweis, wirkt nicht auf den Rang</span></dd>
+    </dl>
+    <p class="herleitung">${esc(p.value_hinweis)}</p>`
+    : `<p class="hinweis warn">${md(p.value_hinweis)}</p>`;
+
+  return `<div class="detail">
+    <h2>${esc(p.titel)}</h2>
+    <div class="tp"><code>${p.id}</code> · Teilprozess <code>${p.tp_id}</code> ·
+      Kernprozess <code>${p.kp_id}</code></div>
+
+    <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:6px">
+      <span class="tag ${GRP[p.gruppe]}">${p.gruppe}</span>
+      <span class="tag ${KAT[p.kategorie]}">${p.kategorie}</span>
+      <span class="tag">Rang ${p.rang}</span>
+      <span class="tag">Score ${p.score}</span>
+    </div>
+
+    <div class="block"><h3>Lösungsansatz</h3>
+      <p style="margin:0 0 8px;line-height:1.55">${esc(p.loesungsansatz)}</p>
+      <dl>
+        <dt>Klasse</dt><dd>${esc(p.klasse)}</dd>
+        <dt>Automatisierungsgrad</dt>
+        <dd>Korridor ${p.korridor_pct[0]}–${p.korridor_pct[1]} %, verortet im
+            <b>${esc(p.lage_im_korridor)}</b></dd>
+      </dl>
+      <p class="herleitung">${esc(p.lage_begruendung)}</p>
+    </div>
+
+    <div class="block"><h3>Value — monetär</h3>${valueBlock}</div>
+
+    <div class="block"><h3>Nutzwert — nicht monetär · ${String(p.nutzwert).replace(".",",")} von 10</h3>
+      ${nw}
+      <p class="herleitung">Ungewichtetes Mittel aus fünf Kategorien. Kostenreduktion gehört nicht
+         dazu — sie ist der Value.</p>
+    </div>
+
+    <div class="block"><h3>Die beiden Achsen</h3>
+      <dl>
+        <dt>Impact</dt><dd><b>${p.impact}</b> von 10 · ${esc(p.impact_herleitung)}</dd>
+        <dt>Umsetzungskomplexität</dt>
+        <dd><b>${p.komplexitaet}</b> von 10
+            <span class="tag ${p.komplexitaet_herkunft}">${p.komplexitaet_herkunft}</span></dd>
+        <dt>Prioritätsscore</dt><dd>${esc(p.score_herleitung)}</dd>
+      </dl>
+      <p class="herleitung">${esc(p.komplexitaet_begruendung)}</p>
+    </div>
+
+    <div class="block"><h3>Querschnitte — angezeigt, nicht verrechnet</h3>
+      <dl>${querschnitt}</dl></div>
+
+    ${luecken}${modellfragen}
+
+    <div class="block"><h3>Was an BC3 geht</h3>
+      <p style="margin:0 0 9px;line-height:1.55"><b>User Story:</b> ${esc(p.user_story)}</p>
+      ${ak}
+    </div>
+
+    <div class="block"><h3>Eingangswerte — was in die Zahl eingegangen ist</h3>
+      <table class="nachweise">${nachweise}</table>
+      <p class="herleitung">Gelesen am ${datum(lauf().gelesen_am)}, Paketstand
+         ${datum(lauf().uebergeben_am)}. Mitgeführt, damit die Lieferung ohne Datenbankzugriff
+         prüfbar ist.</p>
+    </div>
+  </div>`;
+}
+
+// ===========================================================================
+// Kopf
+// ===========================================================================
+
+function zeichneKopf(){
+  const wahl = document.getElementById("laufwahl");
+  wahl.innerHTML = PROTOTYP_DATEN.laeufe.map((l,i) =>
+    `<option value="${i}">${l.paket_kurz} · ${l.mandant.split(" ")[0]} · ${l.zustand}` +
+    `${l.fassung > 1 ? " · Fassung "+l.fassung : ""}</option>`).join("");
+  wahl.value = Z.laufIndex;
+
+  const l = lauf();
+  const kpListe = l.konzepte.length
+    ? l.konzepte.map(k=>k.kp_id).join(", ")
+    : `${l.teilprozesse.length} Teilprozess(e), noch nicht gerechnet`;
+
+  document.getElementById("laufkopf").innerHTML = `
+    <div class="kennung">Mandant<b>${esc(l.mandant)}</b>
+      <code style="font-size:11px">${l.company_id}</code></div>
+    <div class="kennung">Paket<b><code>${l.paket_kurz}</code></b>
+      übergeben ${datum(l.uebergeben_am)}</div>
+    <div class="kennung">Zuschnitt<b>${esc(kpListe)}</b>
+      ${l.teilprozesse.length} Teilprozesse aus Gate 0</div>
+    <div class="kennung">Gate 1<b>${l.zustand === "freigegeben" ? "freigegeben" :
+        Z.freigegeben.size + " von " + potenziale().length + " gewählt"}</b>
+      ${wurdeUmsortiert() ? "Reihenfolge überschrieben" : "Vorschlag unverändert"}</div>`;
+}
+
+/** Ein leerer Lauf ist der Normalfall in der Liste — nicht jeder ist gerechnet. */
+function leererLaufHtml(){
+  const l = lauf();
+  return `<div class="wrap"><p class="hinweis info">
+    Für dieses Paket liegt <b>kein Ergebnis</b> vor.
+    ${l.zustand === "freigegeben"
+      ? "Es ist am Gate 1 freigegeben und an BC3 übergeben; der Prototyp führt nur den offenen Lauf."
+      : "Es wartet im Eingang. Es gehört zum <b>Übungsmandanten</b> — jede Abfrage filtert nach " +
+        "<code>company_id</code>, sonst mischen sich zwei Firmen."}
+    </p></div>`;
+}
+
+// ===========================================================================
+// FASSUNG A — Rangliste. Die Reihenfolge ist die Seite.
+// ===========================================================================
+
+function zeichneA(){
+  if (!potenziale().length) return leererLaufHtml();
+  const liste = geltendeReihenfolge();
+  const gruppen = ["PRIO 1","PRIO 2","PRIO 3"];
+  let zeilen = "";
+
+  for (const g of gruppen){
+    const drin = liste.filter(p => p.gruppe === g);
+    if (!drin.length){
+      // Eine leere Prioritätsgruppe wird gezeigt, nicht weggelassen: dass nichts
+      // „jetzt" ist, ist eine Aussage über den Lauf.
+      zeilen += `<tr class="gruppenzeile leer"><td colspan="7">
+        <span class="tag ${GRP[g]}">${g}</span> — kein Potenzial in diesem Lauf</td></tr>`;
+      continue;
+    }
+    zeilen += `<tr class="gruppenzeile"><td colspan="7">
+      <span class="tag ${GRP[g]}">${g}</span> ${drin.length} Potenzial(e)</td></tr>`;
+    for (const p of drin){
+      zeilen += `<tr data-id="${p.id}" class="${Z.gewaehlt===p.id?"gewaehlt":""}">
+        <td class="rang">${p.rang}</td>
+        <td class="titelzelle">
+          <b>${esc(p.titel)}</b>
+          <div class="unten"><code>${p.kp_id}</code> · ${esc(p.tp_id)}
+            ${p.datenluecken.length ? ` · <span style="color:var(--amber)">⚠ ${p.datenluecken.length} Hinweis(e)</span>` : ""}</div>
+        </td>
+        <td style="width:190px">${valueZelle(p)}</td>
+        <td style="width:74px">Impact <b>${p.impact}</b></td>
+        <td style="width:104px">Kompl. <b>${p.komplexitaet}</b>
+          ${p.komplexitaet_herkunft==="geurteilt"?`<span class="tag geurteilt">geurteilt</span>`:""}</td>
+        <td style="width:112px"><span class="tag ${KAT[p.kategorie]}">${p.kategorie}</span></td>
+        <td style="width:92px" onclick="event.stopPropagation()">
+          <label style="display:flex;gap:6px;align-items:center;cursor:pointer;font-size:12.5px">
+            <input type="checkbox" data-frei="${p.id}" ${Z.freigegeben.has(p.id)?"checked":""}>
+            freigeben</label></td>
+      </tr>`;
+    }
+  }
+
+  const schranke = lauf().schranke && lauf().schranke.gerissen
+    ? `<p class="hinweis warn" style="margin-bottom:14px">⚠ ${md(lauf().schranke.text)}</p>` : "";
+
+  return `
+  <details class="notiz"><summary>Was diese Fassung behauptet</summary><ol>
+    <li><b>Profilwahl gibt es nicht.</b> BC2 wird von BC0 angestoßen; der Eingang ist eine Liste
+        von Läufen, die Wahl gehört in den Kopf, nicht auf eine eigene Seite. Nicht bewertete oder
+        nicht freigegebene Prozesse kommen nicht vor — Gate 0 lässt sie nicht durch.</li>
+    <li><b>Ein Potenzial ist eine Zeile.</b> Übersicht trägt Rang, Titel, Spanne, beide Achsen,
+        Kategorie; alles Weitere in der Schublade rechts.</li>
+    <li><b>Bandbreite:</b> gerundet auf T€ plus Balken; die Breite steht als ±-Angabe daneben.</li>
+    <li><b>Priorisierung:</b> eine Liste, strikt nach Rang, mit den Prioritätsgruppen als
+        Zwischenzeilen. Kein Quadrant — die Frage ist „was zuerst", und das ist eine Reihenfolge.
+        Eine leere Gruppe wird gezeigt, nicht verschwiegen.</li>
+    <li><b>Gate 1:</b> Häkchen je Zeile, Bilanz in der Fußleiste. Umsortieren kann diese Fassung
+        <i>nicht</i> — das ist ihre bewusste Grenze.</li>
+    <li><b>Fehlende Daten:</b> „keine Value-Zahl" als Etikett statt einer 0, schraffierter Balken,
+        Warnzähler in der Zeile, Begründung im Detail.</li>
+  </ol></details>
+  <div class="wrap">
+    ${schranke}
+    <h1>Priorisierung</h1>
+    <p style="color:var(--muted);margin:0 0 14px">${potenziale().length} Potenziale aus
+      ${lauf().konzepte.length} Kernprozessen · Rangfolge ist ein <b>Vorschlag</b></p>
+    <table><thead><tr><th>#</th><th>Potenzial</th><th>Einsparung</th><th>Impact</th>
+      <th>Komplexität</th><th>Kategorie</th><th>Gate 1</th></tr></thead>
+      <tbody>${zeilen}</tbody></table>
+  </div>
+  ${Z.gewaehlt ? `<div class="schublade">
+      <button class="btn sec sm" data-zu="1" style="float:right">schließen</button>
+      ${detailHtml(potenzial(Z.gewaehlt))}</div>` : ""}
+  <div class="fussleiste">
+    <b>${Z.freigegeben.size} von ${potenziale().length}</b> freigegeben
+    <span style="color:var(--muted)">·
+      ${geltendeReihenfolge().filter(p=>Z.freigegeben.has(p.id)).map(p=>p.kp_id)
+        .filter((v,i,a)=>a.indexOf(v)===i).join(", ") || "noch nichts gewählt"}</span>
+    <span style="margin-left:auto"></span>
+    <button class="btn sec" ${!Z.freigegeben.size?"disabled":""} data-tat="ablehnen">ablehnen</button>
+    <button class="btn" ${!Z.freigegeben.size?"disabled":""} data-tat="freigeben">
+      Gate 1 freigeben und Präsentation herunterladen</button>
+  </div>`;
+}
+
+// ===========================================================================
+// FASSUNG B — Portfolio. Die Matrix ist die Seite.
+// ===========================================================================
+
+function zeichneB(){
+  if (!potenziale().length) return leererLaufHtml();
+
+  // Impact nach oben, Komplexität nach rechts: Quick Wins liegen oben links.
+  const B={l:56,r:22,o:22,u:44}, W=760, H=430;
+  const ix = k => B.l + (k-0.5)/10*(W-B.l-B.r);
+  const iy = i => H-B.u - (i-0.5)/10*(H-B.o-B.u);
+  const mitValue = potenziale().filter(p=>p.value);
+  const maxSpar = Math.max(...mitValue.map(p=>p.value.einsparung_spanne[1]), 1);
+  const radius = p => p.value
+    ? 9 + 15*Math.sqrt(p.value.einsparung_mitte/maxSpar)   // Fläche ~ Einsparung
+    : 9;
+
+  const gitter = [];
+  for (let k=1;k<=10;k++) gitter.push(`<line x1="${ix(k)}" y1="${B.o}" x2="${ix(k)}"
+    y2="${H-B.u}" stroke="#eef1f5"/>`);
+  for (let i=1;i<=10;i++) gitter.push(`<line x1="${B.l}" y1="${iy(i)}" x2="${W-B.r}"
+    y2="${iy(i)}" stroke="#eef1f5"/>`);
+
+  const quadranten = `
+    <rect x="${B.l}" y="${B.o}" width="${ix(5.5)-B.l}" height="${iy(5.5)-B.o}"
+          fill="#e4f5ec" opacity=".55"/>
+    <rect x="${ix(5.5)}" y="${B.o}" width="${W-B.r-ix(5.5)}" height="${iy(5.5)-B.o}"
+          fill="#eef4fb" opacity=".7"/>
+    <rect x="${B.l}" y="${iy(5.5)}" width="${ix(5.5)-B.l}" height="${H-B.u-iy(5.5)}"
+          fill="#f6f7f9" opacity=".8"/>
+    <rect x="${ix(5.5)}" y="${iy(5.5)}" width="${W-B.r-ix(5.5)}" height="${H-B.u-iy(5.5)}"
+          fill="#f7eef0" opacity=".55"/>
+    <text x="${B.l+10}" y="${B.o+18}" font-size="11" font-weight="700" fill="#1f9d57">QUICK WIN</text>
+    <text x="${ix(5.5)+10}" y="${B.o+18}" font-size="11" font-weight="700" fill="#3B6EA5">STRATEGISCH</text>
+    <text x="${B.l+10}" y="${H-B.u-8}" font-size="11" font-weight="700" fill="#8a94a6">OPTIONAL</text>
+    <text x="${ix(5.5)+10}" y="${H-B.u-8}" font-size="11" font-weight="700" fill="#8d4a58">ZURÜCKGESTELLT</text>`;
+
+  // Die Bandbreite als waagerechter Fühler wäre falsch — sie betrifft das Geld,
+  // nicht die Achsen. Sie steckt deshalb im Radius: zwei Ringe, außen das obere
+  // Ende der Spanne, gefüllt das untere.
+  const punkte = potenziale().map(p => {
+    const x=ix(p.komplexitaet), y=iy(p.impact), r=radius(p);
+    const rAussen = p.value ? 9 + 15*Math.sqrt(p.value.einsparung_spanne[1]/maxSpar) : r;
+    const rInnen  = p.value ? 9 + 15*Math.sqrt(p.value.einsparung_spanne[0]/maxSpar) : r;
+    const farbe = {"PRIO 1":"#1f9d57","PRIO 2":"#d98c1f","PRIO 3":"#8a94a6"}[p.gruppe];
+    return `<g class="punkt ${Z.gewaehlt===p.id?"gewaehlt":""}" data-id="${p.id}">
+      <circle cx="${x}" cy="${y}" r="${rAussen}" fill="${farbe}" opacity=".20"/>
+      <circle class="kern" cx="${x}" cy="${y}" r="${rInnen}" fill="${farbe}" opacity=".92"/>
+      <text x="${x}" y="${y+3.5}" text-anchor="middle">${p.rang}</text>
+      <title>${esc(p.titel)} — ${p.gruppe}, Score ${p.score}
+${p.value ? spanneKurz(...p.value.einsparung_spanne)+"/Jahr (Ring = Spanne)" : "keine Value-Zahl"}</title>
+    </g>`;
+  }).join("");
+
+  const ohneValue = potenziale().filter(p=>!p.value);
+  const parkbahn = ohneValue.length ? `
+    <div class="parkbahn">
+      <h3>Ohne Value-Zahl — steht in der Matrix, aber ohne Größe
+        <span class="tag fehlt">${ohneValue.length}</span></h3>
+      <p style="color:var(--muted);font-size:12.5px;margin:0 0 9px">
+        Impact und Komplexität sind bekannt, die Einsparung nicht. Der Punkt liegt an seiner
+        Stelle, hat aber den Mindestradius — eine Fläche zu zeichnen, die es nicht gibt, wäre
+        die Scheingenauigkeit, die die Bandbreite gerade vermeidet.</p>
+      ${ohneValue.map(p=>`<div class="listenzeile" data-id="${p.id}">
+        <span class="nr">${p.rang}</span><span style="flex:1">${esc(p.titel)}</span>
+        <span class="tag fehlt">Dauer nicht erhoben</span></div>`).join("")}
+    </div>` : "";
+
+  const schranke = lauf().schranke && lauf().schranke.gerissen
+    ? `<p class="hinweis warn" style="margin-bottom:14px">⚠ ${md(lauf().schranke.text)}</p>` : "";
+
+  const seitenliste = geltendeReihenfolge().map(p=>`
+    <div class="listenzeile ${Z.gewaehlt===p.id?"gewaehlt":""}" data-id="${p.id}">
+      <span class="nr">${p.rang}</span>
+      <span style="flex:1">${esc(p.titel)}
+        <div style="color:var(--muted);font-size:11.5px">${p.kp_id} · Score ${p.score}</div></span>
+      <input type="checkbox" data-frei="${p.id}" ${Z.freigegeben.has(p.id)?"checked":""}
+             onclick="event.stopPropagation()" title="für Gate 1 wählen">
+    </div>`).join("");
+
+  return `
+  <details class="notiz"><summary>Was diese Fassung behauptet</summary><ol>
+    <li><b>Profilwahl gibt es nicht</b> — wie in A: der Lauf kommt vom Trigger, die Wahl sitzt im Kopf.</li>
+    <li><b>Ein Potenzial ist ein Punkt.</b> Lage = beide Achsen, Fläche = Einsparung,
+        Nummer = Rang. Die Übersicht ist räumlich, nicht tabellarisch.</li>
+    <li><b>Bandbreite als zwei Ringe:</b> gefüllt das untere Ende, blass das obere. Wer eine
+        scharfe Scheibe sehen will, sieht stattdessen eine unscharfe.</li>
+    <li><b>Priorisierung:</b> Quadranten zuerst, Rangliste als Beiwerk rechts. Das beantwortet
+        „wo stehen wir" besser als „was zuerst".</li>
+    <li><b>Gate 1:</b> Häkchen in der Seitenliste; die Matrix bleibt Anzeige. Umsortieren
+        kann auch diese Fassung nicht.</li>
+    <li><b>Fehlende Daten:</b> eigener Kasten unter der Matrix plus Mindestradius — der Punkt
+        verschwindet nicht, er wird nur nicht groß.</li>
+    <li><b>Bekannte Schwäche, im Bild sichtbar:</b> zwei Potenziale mit gleichem Impact und
+        gleicher Komplexität liegen exakt übereinander — hier Rang 7 und 8, beide 4/4. Bei zwei
+        ganzzahligen Achsen von 1 bis 10 ist das kein Ausnahmefall. Eine Matrix braucht deshalb
+        eine Regel gegen Überdeckung; die Liste hat das Problem nicht.</li>
+  </ol></details>
+  <div class="wrap">
+    ${schranke}
+    <h1>Portfolio</h1>
+    <p style="color:var(--muted);margin:0 0 14px">Impact × Umsetzungskomplexität ·
+      Fläche = Einsparung pro Jahr · Ring = Bandbreite</p>
+    <div class="buehne">
+      <div>
+        <div class="matrixkarte">
+          <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Portfolio-Matrix">
+            ${quadranten}${gitter.join("")}
+            <line x1="${B.l}" y1="${H-B.u}" x2="${W-B.r}" y2="${H-B.u}" stroke="#c7cfd9"/>
+            <line x1="${B.l}" y1="${B.o}" x2="${B.l}" y2="${H-B.u}" stroke="#c7cfd9"/>
+            ${[1,3,5,7,9].map(k=>`<text x="${ix(k)}" y="${H-B.u+16}" font-size="10.5"
+                text-anchor="middle" fill="#6b7280">${k}</text>`).join("")}
+            ${[1,3,5,7,9].map(i=>`<text x="${B.l-9}" y="${iy(i)+4}" font-size="10.5"
+                text-anchor="end" fill="#6b7280">${i}</text>`).join("")}
+            <text x="${(B.l+W-B.r)/2}" y="${H-8}" font-size="11.5" text-anchor="middle"
+                  fill="#6b7280">Umsetzungskomplexität →</text>
+            <text x="14" y="${(B.o+H-B.u)/2}" font-size="11.5" text-anchor="middle"
+                  fill="#6b7280" transform="rotate(-90 14 ${(B.o+H-B.u)/2})">Impact →</text>
+            ${punkte}
+          </svg>
+        </div>
+        ${parkbahn}
+      </div>
+      <div class="seite">
+        <h3>Rangfolge <span style="color:var(--muted);font-weight:400">— Vorschlag</span></h3>
+        ${seitenliste}
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button class="btn sec sm" ${!Z.freigegeben.size?"disabled":""} data-tat="ablehnen">ablehnen</button>
+          <button class="btn sm" ${!Z.freigegeben.size?"disabled":""} data-tat="freigeben">
+            ${Z.freigegeben.size} freigeben</button>
+        </div>
+      </div>
+    </div>
+    ${Z.gewaehlt ? `<div class="matrixkarte" style="margin-top:18px;max-width:780px">
+        <button class="btn sec sm" data-zu="1" style="float:right">schließen</button>
+        ${detailHtml(potenzial(Z.gewaehlt))}</div>` : `
+      <p class="hinweis info" style="margin-top:18px">Punkt oder Zeile anklicken für das Detail.</p>`}
+  </div>`;
+}
+
+// ===========================================================================
+// FASSUNG C — Freigabe-Assistent. Der Entscheidungsweg ist die Seite.
+// ===========================================================================
+
+function zeichneC(){
+  if (!potenziale().length) return leererLaufHtml();
+
+  const konzepte = lauf().konzepte;
+  // Schritte: je Kernprozess einer (Konzept lesen), dann Reihenfolge, dann Entscheidung.
+  const schritte = [
+    ...konzepte.map(k => ({art:"konzept", kp:k, titel:`${k.kp_id} ${k.name}`,
+                           unter:`Prozessrang ${k.prozessrang} · ${k.potenzial_ids.length} Potenziale`})),
+    {art:"reihenfolge", titel:"Reihenfolge", unter:"Vorschlag prüfen, notfalls überschreiben"},
+    {art:"entscheidung", titel:"Gate 1", unter:"freigeben oder ablehnen"},
+  ];
+  const s = schritte[Math.min(Z.schritt, schritte.length-1)];
+
+  const leiste = schritte.map((x,i) => `<div class="schritt ${i===Z.schritt?"aktiv":""}
+      ${i<Z.schritt?"erledigt":""}" data-schritt="${i}">
+      <b>${esc(x.titel)}</b>${esc(x.unter)}</div>`).join("");
+
+  let inhalt = "";
+
+  if (s.art === "konzept"){
+    const k = s.kp;
+    const eigene = k.potenzial_ids.map(potenzial).sort((a,b)=>a.rang-b.rang);
+    const luecken = eigene.flatMap(p => p.datenluecken.map(l => ({p,l})));
+    inhalt = `
+      <h1>${k.kp_id} · ${esc(k.name)}</h1>
+      <p style="color:var(--muted);margin:0 0 16px">Konzept ${k.prozessrang} von
+        ${konzepte.length} · Reifegrad ${String(k.reifegrad).replace(".",",")} von 5</p>
+
+      <div class="detail"><div class="block" style="border-top:none;padding-top:0">
+        <h3>Ausgangslage</h3>
+        <p style="margin:0 0 10px;line-height:1.6">${esc(k.ausgangslage)}</p>
+        <dl><dt>Systeme</dt><dd>${k.systeme.map(esc).join(" · ")}</dd>
+            <dt>Schmerzpunkte</dt><dd>${k.schmerzpunkte.map(esc).join("<br>")}</dd></dl>
+      </div></div>
+
+      ${luecken.length ? `<div style="margin:16px 0">
+        <h3>Wo die Daten nicht tragen <span class="tag fehlt">${luecken.length}</span></h3>
+        ${luecken.map(({p,l}) => `<p class="hinweis luecke" style="margin-bottom:7px">
+            <b>${esc(p.id)}</b> ${md(l)}</p>`).join("")}</div>`
+        : `<p class="hinweis info" style="margin:16px 0">Für diesen Kernprozess sind alle
+             Rechengrößen vorhanden.</p>`}
+
+      <h3 style="margin-top:20px">Potenziale</h3>
+      ${eigene.map(p => `<details class="pkarte" data-karte="${p.id}"
+          ${Z.offen.has(p.id)?"open":""}>
+        <summary>
+          <span class="tag ${GRP[p.gruppe]}">${p.gruppe}</span>
+          <b style="flex:1">${esc(p.titel)}</b>
+          <span style="color:var(--muted);font-size:12.5px">
+            ${p.value ? spanneKurz(...p.value.einsparung_spanne)+"/J" : "keine Value-Zahl"}</span>
+          <label style="display:flex;gap:6px;align-items:center;font-size:12.5px"
+                 onclick="event.stopPropagation()">
+            <input type="checkbox" data-frei="${p.id}" ${Z.freigegeben.has(p.id)?"checked":""}>
+            freigeben</label>
+        </summary>
+        <div class="pkarteinhalt">${detailHtml(p)}</div>
+      </details>`).join("")}
+
+      <div style="display:flex;gap:9px;margin-top:18px">
+        <button class="btn sec" data-schritt="${Math.max(0,Z.schritt-1)}"
+          ${Z.schritt===0?"disabled":""}>zurück</button>
+        <button class="btn" data-weiter="1" data-schritt="${Z.schritt+1}">weiter</button>
+      </div>`;
+  }
+
+  if (s.art === "reihenfolge"){
+    const liste = geltendeReihenfolge();
+    const vorschlag = potenziale().slice().sort((a,b)=>a.rang-b.rang).map(p=>p.id);
+    inhalt = `
+      <h1>Reihenfolge</h1>
+      <p style="color:var(--muted);margin:0 0 16px">Der Score ist ein <b>Vorschlag</b>.
+        Überschreiben Sie ihn, wenn ein Querschnitt dagegen spricht — der Vorschlag bleibt
+        daneben stehen.</p>
+      ${liste.map((p,i) => {
+        const verschoben = vorschlag[i] !== p.id;
+        return `<div class="reihe ${verschoben?"verschoben":""}">
+          <span class="griff">${i+1}</span>
+          <span style="flex:1">${esc(p.titel)}
+            <span style="color:var(--muted);font-size:12px"> · ${p.kp_id} · Score ${p.score}</span>
+            ${verschoben ? `<span class="tag" style="background:#fbf1e1;color:#a5691a">
+                Vorschlag: ${vorschlag.indexOf(p.id)+1}</span>` : ""}</span>
+          <button class="btn sec sm" data-hoch="${p.id}" ${i===0?"disabled":""}>↑</button>
+          <button class="btn sec sm" data-runter="${p.id}"
+            ${i===liste.length-1?"disabled":""}>↓</button>
+        </div>`;
+      }).join("")}
+      ${wurdeUmsortiert() ? `
+        <div style="margin-top:16px">
+          <h3>Begründung der Abweichung <span class="tag fehlt">Pflicht</span></h3>
+          <p style="color:var(--muted);font-size:12.5px;margin:0 0 7px">Ohne sie ist die
+            Priorisierung nicht mehr nachvollziehbar — der Vorschlag wird nicht überschrieben,
+            sondern ergänzt.</p>
+          <textarea data-grund="1" placeholder="Warum weicht die Reihenfolge ab?">${esc(Z.abweichungsgrund)}</textarea>
+          <button class="btn sec sm" data-zurueck-reihenfolge="1" style="margin-top:9px">
+            Vorschlag wiederherstellen</button>
+        </div>` : ""}
+      <div style="display:flex;gap:9px;margin-top:18px">
+        <button class="btn sec" data-schritt="${Z.schritt-1}">zurück</button>
+        <button class="btn" data-weiter="1" data-schritt="${Z.schritt+1}"
+          ${wurdeUmsortiert() && !Z.abweichungsgrund.trim() ? "disabled" : ""}>weiter</button>
+      </div>`;
+  }
+
+  if (s.art === "entscheidung"){
+    const frei = geltendeReihenfolge().filter(p=>Z.freigegeben.has(p.id));
+    const raus = geltendeReihenfolge().filter(p=>!Z.freigegeben.has(p.id));
+    inhalt = `
+      <h1>Gate 1</h1>
+      <p style="color:var(--muted);margin:0 0 16px">Der Abschluss des Analyselaufs. Übergeben wird
+        <b>der Lauf</b> — eine Priorisierung plus ihre Konzepte, ein Ereignis.</p>
+
+      ${lauf().schranke && lauf().schranke.gerissen
+        ? `<p class="hinweis warn" style="margin-bottom:14px">⚠ ${md(lauf().schranke.text)}</p>` : ""}
+
+      <div class="detail"><div class="block" style="border-top:none;padding-top:0">
+        <h3>Was übergeben wird</h3>
+        <dl>
+          <dt>Potenziale</dt><dd><b>${frei.length}</b> von ${potenziale().length}</dd>
+          <dt>Konzepte</dt><dd>${[...new Set(frei.map(p=>p.kp_id))].join(", ") || "keine"}</dd>
+          <dt>Reihenfolge</dt>
+          <dd>${wurdeUmsortiert() ? "überschrieben, mit Begründung" : "wie vorgeschlagen"}</dd>
+          <dt>Ablage</dt>
+          <dd><code>contracts/bc2-to-bc3/lieferungen/noroai-${lauf().paket_kurz}-f${lauf().fassung}/</code>
+            <span style="color:var(--muted)">— per PR, BC3 zieht</span></dd>
+        </dl>
+      </div></div>
+
+      ${raus.length ? `<p class="hinweis luecke" style="margin:14px 0">
+        ${raus.length} Potenzial(e) bleiben ohne Freigabe und gehen nicht mit:
+        ${raus.map(p=>esc(p.id)).join(", ")}. Ein erneuter Lauf erzeugt eine <b>neue Fassung</b>;
+        diese bleibt abrufbar.</p>` : ""}
+
+      <div style="display:flex;gap:9px;margin-top:18px;flex-wrap:wrap">
+        <button class="btn sec" data-schritt="${Z.schritt-1}">zurück</button>
+        <button class="btn warnfarbe" data-tat="ablehnen">Lauf ablehnen</button>
+        <button class="btn" ${!frei.length?"disabled":""} data-tat="freigeben">
+          freigeben und Präsentation herunterladen</button>
+      </div>
+      <p style="color:var(--muted);font-size:12.5px;margin-top:10px">Die Präsentation ist
+        <b>Download</b>, keine Anzeige — sie trägt keine Information, die nicht in Konzept und
+        Priorisierung steht.</p>`;
+  }
+
+  return `
+  <details class="notiz"><summary>Was diese Fassung behauptet</summary><ol>
+    <li><b>Profilwahl gibt es nicht</b> — stattdessen führt der Assistent durch die Kernprozesse,
+        die das Paket ohnehin mitbringt.</li>
+    <li><b>Ein Potenzial ist eine aufklappbare Karte</b> innerhalb seines Kernprozesses. Der
+        Kernprozess ist die Gliederung, weil das <i>Konzept</i> je Kernprozess an BC3 geht.</li>
+    <li><b>Bandbreite</b> in der Kopfzeile kurz, im Detail vollständig mit Eckenrechnung.</li>
+    <li><b>Priorisierung:</b> ein eigener Schritt, und der einzige, der <b>Umsortieren</b> erlaubt
+        — mit Pflichtbegründung und sichtbar bleibendem Vorschlag.</li>
+    <li><b>Gate 1:</b> ein Weg mit Stationen statt eines Knopfs. Vor der Entscheidung steht die
+        Bilanz dessen, was übergeben wird.</li>
+    <li><b>Fehlende Daten:</b> ein eigener Abschnitt je Kernprozess („Wo die Daten nicht tragen"),
+        damit die Lücke gelesen wird, bevor entschieden wird.</li>
+  </ol></details>
+  <div class="wrap">
+    <div class="schritte">${leiste}</div>
+    <div class="buehne">${inhalt}</div>
+  </div>`;
+}
+
+// ===========================================================================
+// Zeichnen und Ereignisse
+// ===========================================================================
+
+function zeichne(){
+  zeichneKopf();
+  // Der Rahmen trägt die Kennung der Fassung — die Regeln #A/#B/#C hängen daran.
+  document.getElementById("buehne").innerHTML =
+    `<div id="${Z.fassung}">${FASSUNGEN[Z.fassung].zeichne()}</div>`;
+  document.getElementById("umschaltername").innerHTML =
+    `${Z.fassung} <small>${FASSUNGEN[Z.fassung].name}</small>`;
+}
+
+document.addEventListener("click", e => {
+  const t = e.target;
+
+  const fass = t.closest("[data-id]");
+  if (fass && !t.closest("[data-frei]")){
+    Z.gewaehlt = Z.gewaehlt === fass.dataset.id ? null : fass.dataset.id;
+    return zeichne();
+  }
+  if (t.closest("[data-zu]")){ Z.gewaehlt = null; return zeichne(); }
+
+  const schritt = t.closest("[data-schritt]");
+  if (schritt){ Z.schritt = +schritt.dataset.schritt; Z.gewaehlt = null; return zeichne(); }
+
+  const hoch = t.closest("[data-hoch]"), runter = t.closest("[data-runter]");
+  if (hoch || runter){
+    const ids = geltendeReihenfolge().map(p=>p.id);
+    const id = (hoch||runter).dataset[hoch?"hoch":"runter"];
+    const i = ids.indexOf(id), j = hoch ? i-1 : i+1;
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    Z.reihenfolge = ids;
+    return zeichne();
+  }
+  if (t.closest("[data-zurueck-reihenfolge]")){
+    Z.reihenfolge = null; Z.abweichungsgrund = ""; return zeichne();
+  }
+
+  const tat = t.closest("[data-tat]");
+  if (tat){
+    const frei = geltendeReihenfolge().filter(p=>Z.freigegeben.has(p.id));
+    if (tat.dataset.tat === "freigeben"){
+      alert(`PROTOTYP — nichts wird wirklich geschrieben.\n\n`
+        + `Gate 1 freigegeben: ${frei.length} Potenzial(e)\n`
+        + `Konzepte: ${[...new Set(frei.map(p=>p.kp_id))].join(", ")}\n`
+        + `Reihenfolge: ${wurdeUmsortiert() ? "überschrieben" : "wie vorgeschlagen"}\n`
+        + (wurdeUmsortiert() ? `Begründung: ${Z.abweichungsgrund || "(fehlt)"}\n` : "")
+        + `\nLieferung würde entstehen unter\n`
+        + `contracts/bc2-to-bc3/lieferungen/noroai-${lauf().paket_kurz}-f${lauf().fassung}/\n`
+        + `Präsentation: Download, keine Anzeige.`);
+    } else {
+      alert(`PROTOTYP — nichts wird wirklich geschrieben.\n\n`
+        + `Lauf abgelehnt. Es wird nichts ausgeliefert und nichts gelöscht.\n`
+        + `Ein erneuter Lauf erzeugt Fassung ${lauf().fassung + 1}; diese bleibt abrufbar.`);
+    }
+    return;
+  }
+});
+
+document.addEventListener("change", e => {
+  const frei = e.target.closest("[data-frei]");
+  if (frei){
+    const id = frei.dataset.frei;
+    Z.freigegeben.has(id) ? Z.freigegeben.delete(id) : Z.freigegeben.add(id);
+    return zeichne();
+  }
+  if (e.target.id === "laufwahl"){
+    Z.laufIndex = +e.target.value;
+    Z.gewaehlt = null; Z.freigegeben.clear(); Z.reihenfolge = null;
+    Z.abweichungsgrund = ""; Z.schritt = 0;
+    return zeichne();
+  }
+});
+
+document.addEventListener("input", e => {
+  if (e.target.closest("[data-grund]")){
+    Z.abweichungsgrund = e.target.value;
+    // Nicht neu zeichnen — das würde den Schreibfokus nehmen. Nur den Knopf freigeben.
+    // Über [data-weiter] und nicht über [data-schritt]: die Schrittleiste oben trägt
+    // dieselben Nummern und stünde sonst im Weg.
+    const weiter = document.querySelector("[data-weiter]");
+    if (weiter) weiter.disabled = !Z.abweichungsgrund.trim();
+  }
+});
+
+// Aufklappen merken, sonst fällt jede Karte beim nächsten Häkchen wieder zu.
+document.addEventListener("toggle", e => {
+  const karte = e.target.closest("[data-karte]");
+  if (!karte) return;
+  karte.open ? Z.offen.add(karte.dataset.karte) : Z.offen.delete(karte.dataset.karte);
+}, true);
+
+// ===========================================================================
+// Umschaltleiste — sichtbar kein Teil des Entwurfs
+// ===========================================================================
+
+const SCHLUESSEL = Object.keys(FASSUNGEN);
+
+/** Auf file:// gibt es keine Suchparameter zum Schreiben — dann trägt der Anker. */
+function leseFassung(){
+  const such = new URLSearchParams(location.search).get("variant");
+  const anker = new URLSearchParams(location.hash.replace(/^#/,"")).get("variant");
+  const f = (such || anker || "A").toUpperCase();
+  return SCHLUESSEL.includes(f) ? f : "A";
+}
+
+function setzeFassung(f){
+  Z.fassung = f; Z.gewaehlt = null; Z.schritt = 0;
+  try {
+    const u = new URL(location.href);
+    u.searchParams.set("variant", f);
+    history.replaceState(null, "", u);
+  } catch { location.hash = "variant=" + f; }
+  zeichne();
+}
+
+function blaettere(richtung){
+  const i = SCHLUESSEL.indexOf(Z.fassung);
+  setzeFassung(SCHLUESSEL[(i + richtung + SCHLUESSEL.length) % SCHLUESSEL.length]);
+}
+
+document.getElementById("zurueck").onclick = () => blaettere(-1);
+document.getElementById("vor").onclick     = () => blaettere(+1);
+
+document.addEventListener("keydown", e => {
+  const ziel = e.target;
+  if (ziel.matches("input, textarea, select, [contenteditable]")) return;
+  if (e.key === "ArrowLeft")  blaettere(-1);
+  if (e.key === "ArrowRight") blaettere(+1);
+});
+
+// Die Leiste wird nur gezeigt, wenn erkennbar kein Produktionsbetrieb läuft.
+// Ein versehentlich mitgeliefertes Prototyp-Bündel soll sie niemandem zeigen.
+const istEntwurf = ["localhost","127.0.0.1",""].includes(location.hostname)
+  || location.protocol === "file:";
+document.getElementById("umschalter").hidden = !istEntwurf;
+
+Z.fassung = leseFassung();
+zeichne();
+</script>
+</body>
+</html>
