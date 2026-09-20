@@ -55,7 +55,7 @@ erklärt die Priorisierung ihre eigenen Lücken nicht mehr.
 ### 2.2 BC3 zieht, BC2 schiebt nicht
 
 BC3 **beobachtet den Lieferordner und zieht selbst** — mündlich von BC3 bestätigt (ca. 06.09.2026;
-schriftlich ist es im Tracker nirgends festgehalten, siehe Abschnitt 5).
+schriftlich ist es im Tracker nirgends festgehalten, siehe Abschnitt 4 Punkt 2).
 
 Ablage: `contracts/bc2-to-bc3/lieferungen/<company>-<paket_id>-f<n>/` im Repo, mit den *n*
 Konzepten, der Priorisierung und der Nachricht an BC3 — der Aufbau der Lieferung vom 30.08.2026,
@@ -126,11 +126,11 @@ was der Unveränderlichkeit widerspricht.
 2. **Die Ablage- und Fassungskonvention ist BC3 noch nicht vorgelegt.** Bestätigt ist nur, dass BC3
    zieht. Ordnerschnitt, Fassungsnummer im Pfad und die neue `konzept_id` je Fassung betreffen BC3
    unmittelbar und sind vor dem Durchstich in KW 40
-   ([#206](https://github.com/pg-coe-kmu/coe-factory/issues/206)) zu bestätigen.
+   ([#206](https://github.com/pg-coe-kmu/coe-factory/issues/206)) zu bestätigen — vorgelegt mit [#242](https://github.com/pg-coe-kmu/coe-factory/issues/242).
 3. **Es gibt keinen Rückkanal an BC0.** Lehnt Gate 1 ab, bleibt BC0s Paket im Zustand „übergeben",
    ohne dass je ein Ergebnis folgt — dieselbe Lücke wie an Gate 0, eine Station weiter. Der Weg
    dahin ist Schema `bc2` (BC0 darf lesen), nicht ein Endpunkt bei BC0. Bis dahin erfährt BC0 einen
-   Reject **nur über Menschen**, und das ist BC0 zu sagen.
+   Reject **nur über Menschen**, und das ist BC0 zu sagen — gefragt mit [#241](https://github.com/pg-coe-kmu/coe-factory/issues/241), zusammen mit der Zusage aus 2.4, dass BC0 nach einer Nacherhebung neu schnürt.
 4. **Ein abgelehnter Lauf hat heute keinen Ablageort.** Er lebt nur im Arbeitsstand von BC2. „Die
    alte Fassung bleibt abrufbar" trägt erst, wenn Schema `bc2` steht — der Tabellenentwurf muss
    deshalb auch die **abgelehnten** Läufe tragen, nicht nur die ausgelieferten.
