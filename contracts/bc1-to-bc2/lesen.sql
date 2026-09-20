@@ -8,6 +8,11 @@
 -- Gilt: die JUENGSTE Version je Fokus-Schritt mit status='fertig'.
 -- 'in_erhebung' bedeutet, dass gerade jemand im Interview sitzt.
 --
+-- Nachlegen gewinnt immer: eine juengere fertige Version verdraengt die aeltere
+-- auch dann, wenn ihr Rechengroessen fehlen (NULL nach aufgegebenem Nachfragen,
+-- siehe README "Was BC1 zusagt"). Wer Werte braucht, prueft profil->'ungeloeste_felder'
+-- der gelieferten Zeile -- nicht die aeltere Version.
+--
 -- Der Zuschnitt kommt aus dem Paket (paket_id -> v_uebergabe_offen), nicht aus
 -- dieser Abfrage; hier steht nur, WELCHE Profilzeile fuer einen Teilprozess gilt.
 
