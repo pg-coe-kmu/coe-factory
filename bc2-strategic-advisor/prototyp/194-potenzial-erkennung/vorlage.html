@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>PROTOTYP #194 — Wie aus einem Paket Potenziale werden</title>
+<style>
+  :root{
+    --akzent:#7a3ba8; --rand:#e2ddea; --grau:#6b6577; --hell:#faf9fc;
+    --warn:#b4453a; --gut:#2d7a4f;
+  }
+  *{box-sizing:border-box}
+  body{font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif;
+       color:#231f2b; background:#fff; margin:0; padding:0 24px 120px}
+  .mitte{max-width:1080px; margin:0 auto}
+  header{padding:56px 0 8px; border-bottom:3px solid var(--akzent)}
+  h1{font-size:30px; margin:0 0 6px; letter-spacing:-.4px}
+  .prototyp{display:inline-block; background:var(--warn); color:#fff; font-size:11px;
+      font-weight:700; letter-spacing:1.4px; padding:3px 9px; border-radius:3px; margin-bottom:14px}
+  h2{font-size:21px; margin:52px 0 6px; letter-spacing:-.2px}
+  h3{font-size:16px; margin:26px 0 6px}
+  p{margin:8px 0}
+  .lead{font-size:17px; color:#3a3345; max-width:74ch}
+  .dezent{color:var(--grau); font-size:14px}
+  table{border-collapse:collapse; width:100%; margin:14px 0; font-size:14px}
+  th,td{border:1px solid var(--rand); padding:7px 10px; text-align:left; vertical-align:top}
+  th{background:var(--hell); font-weight:600}
+  code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:13px}
+  .karte{border:1px solid var(--rand); border-radius:7px; padding:16px 18px; margin:14px 0; background:#fff}
+  .karte.warn{border-left:4px solid var(--warn); background:#fdf6f5}
+  .karte.gut{border-left:4px solid var(--gut); background:#f4faf6}
+  .karte.merk{border-left:4px solid var(--akzent); background:var(--hell)}
+  button{font:inherit; font-size:14px; padding:7px 14px; border:1px solid var(--rand);
+      background:#fff; border-radius:5px; cursor:pointer}
+  button:hover{border-color:var(--akzent)}
+  button.an{background:var(--akzent); color:#fff; border-color:var(--akzent)}
+  .reiter{display:flex; gap:8px; margin:18px 0 0; flex-wrap:wrap}
+  .etikett{display:inline-block; font-size:11px; font-weight:700; letter-spacing:.7px;
+      padding:2px 7px; border-radius:3px; background:var(--hell); color:var(--grau);
+      border:1px solid var(--rand)}
+  .etikett.warn{background:#fdecea; color:var(--warn); border-color:#f3c7c2}
+  .etikett.gut{background:#e8f5ed; color:var(--gut); border-color:#bfe0cd}
+  details{margin:10px 0; border:1px solid var(--rand); border-radius:6px; padding:10px 14px}
+  summary{cursor:pointer; font-weight:600; font-size:14px}
+  pre{background:#faf9fc; border:1px solid var(--rand); border-radius:5px; padding:12px;
+      overflow:auto; max-height:420px; font-size:12px; line-height:1.5}
+  .pot{border:1px solid var(--rand); border-radius:6px; padding:12px 14px; margin:10px 0}
+  .pot h4{margin:0 0 4px; font-size:15px}
+  .pot .tp{font-family:ui-monospace,monospace; font-size:12px; color:var(--akzent)}
+  .raster{display:grid; grid-template-columns:repeat(3,1fr); gap:14px}
+  .urteil{display:flex; gap:6px; margin-top:8px; flex-wrap:wrap}
+  .zaehler{position:sticky; bottom:0; background:#fff; border-top:2px solid var(--akzent);
+      padding:12px 0; margin-top:20px; font-size:14px}
+  .rot{color:var(--warn); font-weight:600}
+  .gruen{color:var(--gut); font-weight:600}
+</style>
+</head>
+<body>
+<div class="mitte">
+
+<header>
+  <div class="prototyp">PROTOTYP · WEGWERFCODE · NICHT BEFÖRDERN</div>
+  <h1>Wie aus dem Datenstand eines Pakets Potenziale werden</h1>
+  <p class="lead">
+    Ticket <a href="https://github.com/pg-coe-kmu/coe-factory/issues/194">#194</a> ·
+    Karte <a href="https://github.com/pg-coe-kmu/coe-factory/issues/158">#158</a>.
+    Seit <a href="https://github.com/pg-coe-kmu/coe-factory/issues/164">#164</a> steht, <b>was</b> ein
+    Potenzial ist. Offen ist, <b>wie BC2 sie findet</b> — und ob der Trenntest an echten Daten trägt.
+  </p>
+  <p class="dezent">
+    Dieselben 16 freigegebenen Teilprozesse sind dreimal durch das Modell gelaufen, einmal je
+    Aufruf-Schnitt, jeder Aufruf in einer eigenen Sitzung ohne Gedächtnis an die anderen.
+    Datenstand: BC0s eingefrorener NoroAI-Snapshot v3 (27.08.2026). Modell: <span id="modell"></span>.
+  </p>
+</header>
+
+<h2>Bevor das Modell überhaupt läuft: was es je Schnitt zu sehen bekommt</h2>
+<p class="lead">
+  Frage 1 des Tickets lautete, ob ein Aufruf je Teilprozess „den Zusammenhang nicht sieht". Gemessen
+  am Bestand ist das nicht das Problem. Das Problem ist, dass ein Teilprozess seinen Geschwistern
+  fast vollständig gleicht.
+</p>
+<div id="aufloesung"></div>
+
+<h2>Die drei Schnitte</h2>
+<div class="reiter" id="schnittreiter"></div>
+<div id="schnittinhalt"></div>
+
+<h2>Gegenüberstellung: wer deckt welchen Teilprozess ab</h2>
+<p class="dezent">Eine Zeile je Teilprozess des Pakets, eine Spalte je Schnitt. Sichtbar wird, wo die
+Schnitte sich einig sind und wo nicht.</p>
+<div id="deckung"></div>
+
+<h2>Der Doppelgänger — und warum keine Prüfung ihn findet</h2>
+<p class="lead">
+  Das Entscheidende steht nicht in den Zahlen der Prüfung unten, sondern in den Titeln.
+</p>
+<div id="doppelgaenger"></div>
+
+<h2>Die mechanische Hälfte des Trenntests</h2>
+<p class="lead">
+  Bedingung 2 („die Nutzenrechnungen zählen sich nicht doppelt") hat einen prüfbaren Stellvertreter:
+  zwei Potenziale, die denselben Teilprozess berühren, stehen unter Doppelzählungsverdacht.
+  Bedingung 1 („unabhängig in Betrieb zu nehmen") hat keinen — das bleibt Menschenurteil.
+  Diese Prüfung läuft hier über alle drei Schnitte; sie ist der Teil, der in den echten Code wandern kann.
+</p>
+<div id="pruefung"></div>
+
+<h2>Trenntest-Werkstatt</h2>
+<p class="lead">
+  Hier urteilen Sie. Zu jedem Paar von Potenzialen im selben Kernprozess: ein Potenzial oder zwei?
+  Am Ende steht, wo Ihr Urteil vom Schnitt des Modells abweicht — das ist die Antwort auf Frage 4
+  des Tickets.
+</p>
+<div class="reiter" id="werkreiter"></div>
+<div id="werkstatt"></div>
+<div class="zaehler" id="zaehler"></div>
+
+</div>
+
+<script id="daten" type="application/json">/*DATEN*/</script>
+<script>
+// ---------------------------------------------------------------------------
+// Der liftbare Teil. Rein, ohne DOM. Prueft einen Satz Potenziale gegen die
+// mechanisch pruefbaren Teile des Vertrags aus CONTEXT.md.
+// ---------------------------------------------------------------------------
+function pruefeSchnitt(potenziale, teilprozesseImPaket) {
+  const deckung = new Map();
+  teilprozesseImPaket.forEach(tp => deckung.set(tp, []));
+  const fremd = [];
+
+  for (const p of potenziale) {
+    for (const tp of (p.beruehrte_teilprozesse || [])) {
+      if (!deckung.has(tp)) { fremd.push({potenzial: p.id, teilprozess: tp}); continue; }
+      deckung.get(tp).push(p.id);
+    }
+  }
+
+  const ueberschneidungen = [];
+  for (const [tp, ids] of deckung) {
+    for (let i = 0; i < ids.length; i++)
+      for (let j = i + 1; j < ids.length; j++)
+        ueberschneidungen.push({teilprozess: tp, a: ids[i], b: ids[j]});
+  }
+
+  const ueberKernprozess = potenziale.filter(p => {
+    const kps = new Set((p.beruehrte_teilprozesse || []).map(t => t.split('.')[0]));
+    return kps.size > 1;
+  }).map(p => p.id);
+
+  const zahlen = potenziale.filter(p =>
+    /\b\d+\s*(€|EUR|Euro|Stunden|h\b|Std|Minuten|%|PT|Punkte)/i.test(JSON.stringify(p))
+  ).map(p => p.id);
+
+  return {
+    unbedeckt: [...deckung].filter(([, ids]) => ids.length === 0).map(([tp]) => tp),
+    mehrfach: [...deckung].filter(([, ids]) => ids.length > 1).map(([tp, ids]) => ({teilprozess: tp, ids})),
+    ueberschneidungen,
+    ueberKernprozess,
+    fremd,
+    zahlenImText: zahlen,
+    anzahl: potenziale.length
+  };
+}
+
+// Paare im selben Kernprozess — die Vorlage fuer das Menschenurteil.
+function paareImKernprozess(potenziale) {
+  const paare = [];
+  for (let i = 0; i < potenziale.length; i++)
+    for (let j = i + 1; j < potenziale.length; j++) {
+      if (potenziale[i].kernprozess_id === potenziale[j].kernprozess_id)
+        paare.push([potenziale[i], potenziale[j]]);
+    }
+  return paare;
+}
+
+// ---------------------------------------------------------------------------
+// Ab hier: Wegwerf-Seite. Ruft nur hinein, nie umgekehrt.
+// ---------------------------------------------------------------------------
+const D = JSON.parse(document.getElementById('daten').textContent);
+const SCHNITT_NAME = {
+  A: 'A · ein Aufruf je Teilprozess',
+  B: 'B · ein Aufruf je Kernprozess',
+  C: 'C · ein Aufruf je Paket'
+};
+const TPS = D.paket.teilprozesse;
+document.getElementById('modell').textContent = D.modell || 'Claude Sonnet';
+
+function potenzialeVon(s) {
+  return (D.schnitte[s] || []).flatMap(a =>
+    ((a.ergebnis && a.ergebnis.potenziale) || []).map(p => ({...p, aufruf: a.aufruf,
+      id: (D.schnitte[s].length > 1 ? a.aufruf + '/' : '') + p.id}))
+  );
+}
+function nichtGeschnittenVon(s) {
+  return (D.schnitte[s] || []).flatMap(a => (a.ergebnis && a.ergebnis.nicht_geschnitten) || []);
+}
+const esc = t => String(t == null ? '' : t)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+// --- Auflösung -------------------------------------------------------------
+(function(){
+  const m = D.aufloesung;
+  let h = '<table><tr><th>Feld eines Teilprozesses</th><th>Bei wie vielen der 10 Kernprozesse ist es für <i>alle</i> Teilprozesse identisch?</th></tr>';
+  for (const [feld, n] of Object.entries(m.felder))
+    h += `<tr><td class="mono">${esc(feld)}</td><td>${n === 10
+      ? '<span class="etikett warn">10 von 10 — trägt nichts zur Unterscheidung bei</span>'
+      : n === 0 ? '<span class="etikett gut">0 von 10 — unterscheidet durchgehend</span>'
+      : n + ' von 10'}</td></tr>`;
+  h += '</table>';
+  h += `<div class="karte warn">
+    <b>Der Befund.</b> Von den sechs Textfeldern, die einen Teilprozess beschreiben, sind
+    <b>${m.identisch_bei_allen}</b> bei <i>allen zehn</i> Kernprozessen über sämtliche
+    Teilprozesse hinweg wortgleich. Es bleiben <code>name</code> und, bei sechs von zehn
+    Kernprozessen, <code>notation</code>.
+    <br><br>
+    Und die Belege: <b>bei allen sechs bewerteten Kernprozessen tragen alle 30 Bitkom-Items über
+    sämtliche Teilprozesse denselben Belegtext.</b> Die <i>Stufen</i> unterscheiden sich
+    (KP-01 bis KP-04: fünf Teilprozesse, fünf verschiedene Stufenmuster) — die <i>Begründung</i>
+    dahinter nicht. Eine 4 bei TP-1 und eine 3 bei TP-2 stützen sich auf denselben Satz.
+  </div>`;
+  h += `<div class="karte warn">
+    <b>Und wo gar nichts steht, steht eine 0.</b> ${m.ohne_bewertung} von 50 Teilprozessen tragen
+    null Bewertungen. In <code>prozessautomatisierung_matrix</code> stehen sie trotzdem — mit
+    <code>avg: 0</code> und 0 in allen sechs Kriterien. Wer das als Zahl liest statt als Lücke,
+    hält den unerhobenen Teilprozess für den am schlechtesten automatisierbaren im Bestand.
+    Das ist dieselbe Falle wie bei <code>v_gate_prozessstand.tp_mit_medienbruch</code>
+    (Nebel der Karte, Fund aus #163), und die Oberflächen-Regel aus #167 —
+    „fehlende Daten: Etikett statt Zahl, nie eine 0" — muss deshalb schon <i>hier</i> greifen,
+    nicht erst in der Anzeige.
+  </div>`;
+  h += `<div class="karte merk">
+    <b>Was daraus für Frage 1 folgt.</b> Die Ticketannahme war, ein Aufruf je Teilprozess sehe
+    „den Zusammenhang nicht". Gemessen ist das Gegenteil das Problem: er sieht <i>fast nichts
+    Eigenes</i>. Fünf Aufrufe für KP-03 bekämen fünfmal denselben Werkzeug-, Medienbruch- und
+    Belegtext, unterschieden nur durch einen Namen, eine Ablaufzeile und ein Stufenmuster ohne
+    eigene Begründung. Ein Modell, das dennoch fünf verschiedene Potenziale liefern soll, muss
+    die Unterschiede erfinden.
+  </div>`;
+  document.getElementById('aufloesung').innerHTML = h;
+})();
+
+// --- Schnitte --------------------------------------------------------------
+let schnittAn = 'C';
+function zeichneSchnitte(){
+  document.getElementById('schnittreiter').innerHTML = ['A','B','C'].map(s =>
+    `<button class="${s===schnittAn?'an':''}" onclick="schnittAn='${s}';zeichneSchnitte()">${esc(SCHNITT_NAME[s])}</button>`
+  ).join('');
+  const s = schnittAn, pots = potenzialeVon(s), ng = nichtGeschnittenVon(s);
+  const meta = D.meta[s] || {};
+  let h = `<div class="karte">
+    <b>${esc(SCHNITT_NAME[s])}</b> — ${meta.aufrufe} Aufruf(e),
+    je ${meta.min}–${meta.max} Zeichen Nutzlast, zusammen ${meta.summe} Zeichen.
+    Ergebnis: <b>${pots.length} Potenziale</b>${ng.length? `, ${ng.length} Teilprozesse bewusst nicht geschnitten`:''}.
+  </div>`;
+  if (D.schnitte[s] && D.schnitte[s][0]) {
+    h += `<details><summary>Was ein einzelner Aufruf zu sehen bekommt (Nutzlast <span class="mono">${esc(D.nutzlastBeispiel[s].aufruf)}</span>)</summary>
+      <pre>${esc(JSON.stringify(D.nutzlastBeispiel[s].inhalt, null, 2))}</pre></details>`;
+  }
+  for (const p of pots) {
+    h += `<div class="pot">
+      <h4>${esc(p.id)} · ${esc(p.titel)} <span class="etikett">${esc(p.kernprozess_id)}</span>
+        <span class="etikett">${esc(p.loesungsklasse||'—')}</span></h4>
+      <div class="tp">${esc((p.beruehrte_teilprozesse||[]).join('  ·  '))}</div>
+      <p>${esc(p.ausgangslage)}</p>
+      <p class="dezent"><b>Lösungsansatz:</b> ${esc(p.loesungsansatz)}</p>
+      <p class="dezent"><b>Trenntest laut Modell:</b> ${esc(p.trenntest_begruendung)}</p>
+      ${p.unsicherheit? `<p class="dezent"><b>Unsicherheit:</b> ${esc(p.unsicherheit)}</p>`:''}
+    </div>`;
+  }
+  if (ng.length) {
+    h += `<h3>Bewusst nicht geschnitten</h3><table><tr><th>Teilprozess</th><th>Grund</th></tr>` +
+      ng.map(n=>`<tr><td class="mono">${esc(n.teilprozess_id)}</td><td>${esc(n.grund)}</td></tr>`).join('') +
+      `</table>`;
+  }
+  document.getElementById('schnittinhalt').innerHTML = h;
+}
+
+// --- Deckung ---------------------------------------------------------------
+(function(){
+  let h = '<table><tr><th>Teilprozess</th><th>Schnitt A</th><th>Schnitt B</th><th>Schnitt C</th></tr>';
+  for (const tp of TPS) {
+    h += `<tr><td class="mono">${esc(tp)}</td>`;
+    for (const s of ['A','B','C']) {
+      const treffer = potenzialeVon(s).filter(p => (p.beruehrte_teilprozesse||[]).includes(tp));
+      h += `<td>${treffer.length===0
+        ? '<span class="etikett">nicht geschnitten</span>'
+        : treffer.map(t=>`<span class="mono">${esc(t.id)}</span> ${esc(t.titel)}`).join('<br>')}
+        ${treffer.length>1?'<br><span class="etikett warn">mehrfach</span>':''}</td>`;
+    }
+    h += '</tr>';
+  }
+  h += '</table>';
+  document.getElementById('deckung').innerHTML = h;
+})();
+
+// --- Doppelgänger ----------------------------------------------------------
+(function(){
+  const dg = D.doppelgaenger;
+  let h = '<table><tr><th>Derselbe Sachverhalt</th><th>Schnitt A</th><th>Schnitt B</th><th>Schnitt C</th></tr>';
+  for (const name of Object.keys(dg.C || dg.B || dg.A || {})) {
+    h += `<tr><td>${esc(name)}</td>`;
+    for (const s of ['A','B','C']) {
+      const tr = (dg[s]||{})[name] || [];
+      h += `<td>${tr.length>1
+        ? `<span class="etikett warn">${tr.length}× als eigenes Potenzial</span>`
+        : `<span class="etikett gut">${tr.length}×</span>`}
+        <div class="mono dezent">${esc(tr.join('<br>')).replace(/&lt;br&gt;/g,'<br>')}</div></td>`;
+    }
+    h += '</tr>';
+  }
+  h += '</table>';
+  h += `<div class="karte warn">
+    <b>Schnitt A erzeugt denselben Sachverhalt fünfmal.</b> „E-Mail-Anfragen ins CRM übernehmen"
+    taucht in <i>allen fünf</i> Aufrufen zu KP-02 als eigenes Potenzial auf — einmal je
+    Teilprozess, jedes Mal einem anderen zugeschrieben. Die AVV-Unterzeichnung dreimal.
+    Schnitt B und C schneiden beides je einmal.
+    <br><br>
+    <b>Warum:</b> <code>tools</code> und <code>medienbrueche</code> stehen auf Kernprozess-Ebene und
+    sind in jeden Teilprozess hineinkopiert (siehe oben, 10 von 10). Der Aufruf für
+    <span class="mono">KP-02.TP-5</span> („Vertragsabschluss") liest also den Medienbruch von TP-1
+    und schneidet pflichtschuldig ein Potenzial dafür. Er kann nicht wissen, dass der Satz gar
+    nicht ihm gehört.
+  </div>`;
+  h += `<div class="karte warn">
+    <b>Und die Prüfung unten meldet dafür null Überschneidungen.</b> Jede der fünf Kopien nennt
+    ausschließlich ihren eigenen Teilprozess — es <i>gibt</i> keine gemeinsame Kante zu finden.
+    Die mechanische Hälfte des Trenntests ist gegenüber genau der Doppelzählung blind, die
+    Bedingung 2 verbietet. Das ist kein Mangel der Prüfung: <b>Doppelzählung ist eine Aussage über
+    ein Paar, und in Schnitt A sieht kein Aufruf je beide Hälften eines Paares.</b>
+    Der Trenntest ist in einem Aufruf je Teilprozess nicht prüfbar — weder mechanisch noch vom Modell.
+  </div>`;
+  document.getElementById('doppelgaenger').innerHTML = h;
+})();
+
+// --- Prüfung ---------------------------------------------------------------
+(function(){
+  let h = '<div class="raster">';
+  for (const s of ['A','B','C']) {
+    const r = pruefeSchnitt(potenzialeVon(s), TPS);
+    const zeile = (t, arr, schlimm) => `<tr><td>${t}</td><td>${
+      arr.length===0 ? '<span class="etikett gut">0</span>'
+      : `<span class="etikett ${schlimm?'warn':''}">${arr.length}</span>`}</td></tr>`;
+    h += `<div class="karte"><b>${esc(SCHNITT_NAME[s])}</b>
+      <table style="font-size:13px">
+      <tr><td>Potenziale</td><td><b>${r.anzahl}</b></td></tr>
+      ${zeile('Teilprozesse ohne Potenzial', r.unbedeckt, false)}
+      ${zeile('Teilprozesse in mehreren Potenzialen', r.mehrfach, true)}
+      ${zeile('Paare unter Doppelzählungsverdacht', r.ueberschneidungen, true)}
+      ${zeile('Potenziale über zwei Kernprozesse (Vertragsbruch)', r.ueberKernprozess, true)}
+      ${zeile('Potenziale mit erfundenen Zahlen im Text', r.zahlenImText, true)}
+      </table>
+      ${r.unbedeckt.length? `<p class="dezent">Ohne Potenzial: <span class="mono">${esc(r.unbedeckt.join(', '))}</span></p>`:''}
+      ${r.ueberschneidungen.length? `<p class="dezent">Verdachtspaare: ${r.ueberschneidungen.map(u=>`<span class="mono">${esc(u.a)}↔${esc(u.b)}</span> an ${esc(u.teilprozess)}`).join('; ')}</p>`:''}
+      ${r.zahlenImText.length? `<p class="dezent rot">Zahlen trotz Verbot: <span class="mono">${esc(r.zahlenImText.join(', '))}</span></p>`:''}
+      </div>`;
+  }
+  h += '</div>';
+  document.getElementById('pruefung').innerHTML = h;
+})();
+
+// --- Werkstatt -------------------------------------------------------------
+let werkAn = 'C';
+const urteile = {};
+function urteilen(schluessel, wert){ urteile[schluessel]=wert; zeichneWerkstatt(); }
+function zeichneWerkstatt(){
+  document.getElementById('werkreiter').innerHTML = ['A','B','C'].map(s =>
+    `<button class="${s===werkAn?'an':''}" onclick="werkAn='${s}';zeichneWerkstatt()">${esc(SCHNITT_NAME[s])}</button>`
+  ).join('');
+  const paare = paareImKernprozess(potenzialeVon(werkAn));
+  let h = paare.length ? '' : '<div class="karte">In diesem Schnitt gibt es kein Paar im selben Kernprozess.</div>';
+  for (const [a,b] of paare) {
+    const k = werkAn+'|'+a.id+'|'+b.id;
+    const teilen = (a.beruehrte_teilprozesse||[]).filter(t=>(b.beruehrte_teilprozesse||[]).includes(t));
+    h += `<div class="karte">
+      <span class="etikett">${esc(a.kernprozess_id)}</span>
+      ${teilen.length? `<span class="etikett warn">berühren beide ${esc(teilen.join(', '))}</span>`:''}
+      <div class="raster" style="grid-template-columns:1fr 1fr; margin-top:8px">
+        <div><b>${esc(a.id)} ${esc(a.titel)}</b><div class="tp">${esc((a.beruehrte_teilprozesse||[]).join(' · '))}</div>
+          <p class="dezent">${esc(a.loesungsansatz)}</p></div>
+        <div><b>${esc(b.id)} ${esc(b.titel)}</b><div class="tp">${esc((b.beruehrte_teilprozesse||[]).join(' · '))}</div>
+          <p class="dezent">${esc(b.loesungsansatz)}</p></div>
+      </div>
+      <p class="dezent"><b>Könnten die beiden unabhängig voneinander in Betrieb gehen, und zählen
+        ihre Nutzen sich nicht doppelt?</b></p>
+      <div class="urteil">
+        <button class="${urteile[k]==='zwei'?'an':''}" onclick="urteilen('${k}','zwei')">Zwei Potenziale — das Modell hat recht</button>
+        <button class="${urteile[k]==='eins'?'an':''}" onclick="urteilen('${k}','eins')">Ein Potenzial — zu fein geschnitten</button>
+        <button class="${urteile[k]==='unklar'?'an':''}" onclick="urteilen('${k}','unklar')">Aus den Daten nicht entscheidbar</button>
+      </div>
+    </div>`;
+  }
+  document.getElementById('werkstatt').innerHTML = h;
+  const w = Object.values(urteile);
+  document.getElementById('zaehler').innerHTML =
+    `Geurteilt: <b>${w.length}</b> · <span class="gruen">${w.filter(x=>x==='zwei').length} bestätigt</span> · ` +
+    `<span class="rot">${w.filter(x=>x==='eins').length} zu fein</span> · ` +
+    `${w.filter(x=>x==='unklar').length} nicht entscheidbar ` +
+    `<button style="margin-left:12px" onclick="console.log(JSON.stringify(urteile,null,2));alert('Urteile in der Konsole (Rechtsklick → Untersuchen → Console)')">Urteile ausgeben</button>`;
+}
+
+zeichneSchnitte(); zeichneWerkstatt();
+</script>
+</body>
+</html>

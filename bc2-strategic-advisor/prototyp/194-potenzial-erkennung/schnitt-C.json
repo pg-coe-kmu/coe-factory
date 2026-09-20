@@ -1,0 +1,201 @@
+{
+  "C": [
+    {
+      "aufruf": "PROTOTYP-194",
+      "roh": "```json\n{\n  \"potenziale\": [\n    {\n      \"id\": \"P1\",\n      \"kernprozess_id\": \"KP-02\",\n      \"titel\": \"Lead-Intake automatisieren\",\n      \"beruehrte_teilprozesse\": [\"KP-02.TP-1\", \"KP-02.TP-2\"],\n      \"ausgangslage\": \"Eingehende Anfragen (Email, Recherche, LinkedIn) werden manuell ins CRM übertragen, Quelle und DSGVO-Check von Hand gesetzt; anschließend wird der Lead per Bedarfsanalyse bewertet und nur teilautomatisch gescored, bevor der Pipeline-Status gesetzt wird.\",\n      \"schmerzpunkte\": [\n        \"Manuelle CRM-Pflege bei Email-Anfragen\",\n        \"Scoring nur teilautomatisch, Bedarfsanalyse und Statuspflege liegen beim Menschen\"\n      ],\n      \"loesungsansatz\": \"Eingehende Anfragen automatisch auslesen, strukturiert ins CRM übertragen, DSGVO-Flag setzen und den Lead im selben Zug scoren sowie mit Pipeline-Status versehen.\",\n      \"loesungsklasse\": \"dokumentenverarbeitung\",\n      \"trenntest_begruendung\": \"Beide Teilprozesse hängen am selben Auslöser (eingehende Anfrage) und am selben Zielobjekt (dem CRM-Lead-Eintrag) — eine Erfassungsautomatisierung ohne die anschließende Bewertung ergäbe nur einen halb gefüllten Datensatz, die Bewertung ohne automatisierte Erfassung bliebe an von Hand eingetragenen Daten hängen. Bedingung 1 (unabhängig in Betrieb gehen) ist damit nicht erfüllt, und eine getrennte Nutzenrechnung würde denselben Anfrage-Durchlauf zweimal als Zeitersparnis zählen (Bedingung 2 verletzt).\",\n      \"unsicherheit\": null\n    },\n    {\n      \"id\": \"P2\",\n      \"kernprozess_id\": \"KP-02\",\n      \"titel\": \"Gesprächsdokumentation automatisieren\",\n      \"beruehrte_teilprozesse\": [\"KP-02.TP-3\"],\n      \"ausgangslage\": \"Nach dem Erstgespräch wird die Mitschrift von Hand in eine CRM-Notiz überführt und die Nachfass-Aufgabe manuell angelegt.\",\n      \"schmerzpunkte\": [\n        \"Mitschrift muss manuell in CRM-Notiz übertragen werden\",\n        \"Nachfass-Aufgabe wird von Hand erstellt — dieser Schritt ist beim Automatisierungsgrad (Item 4) und bei Medienbrüchen (Item 6) am schwächsten bewertet\"\n      ],\n      \"loesungsansatz\": \"Gesprächsmitschrift automatisch zusammenfassen, als CRM-Notiz ablegen und daraus die Nachfass-Aufgabe automatisch erzeugen.\",\n      \"loesungsklasse\": \"assistenz\",\n      \"trenntest_begruendung\": \"Hängt am Ereignis 'Gespräch geführt' und am Artefakt 'Gesprächsnotiz' — kann unabhängig von Lead-Intake (P1) und Angebot (P3) gebaut und betrieben werden, da es weder deren Auslöser noch deren Zielfeld berührt. Der Nutzen entsteht aus der Gesprächsnachbereitung, nicht aus Erfassung oder Angebotserstellung — keine Doppelzählung.\",\n      \"unsicherheit\": null\n    },\n    {\n      \"id\": \"P3\",\n      \"kernprozess_id\": \"KP-02\",\n      \"titel\": \"Engagement-Vorschlag automatisiert erstellen\",\n      \"beruehrte_teilprozesse\": [\"KP-02.TP-4\"],\n      \"ausgangslage\": \"Scope wird abgesteckt, Tagessätze nach vorhandener Vorlage kalkuliert und das Vorschlags-Dokument von Hand zusammengestellt und versendet.\",\n      \"schmerzpunkte\": [\n        \"Kalkulation und Dokumentenerstellung erfolgen manuell trotz vorhandener, detaillierter Tagessatz- und Branchen-Vorlagen (Item 13/14: Stufe 5)\",\n        \"Kein durchgängiger Fluss von Scope-Definition bis Versand\"\n      ],\n      \"loesungsansatz\": \"Vorschlags-Dokument aus Scope-Angaben und hinterlegten Tagessatz-/Branchen-Vorlagen automatisch generieren und versandfertig vorbereiten.\",\n      \"loesungsklasse\": \"dokumentenverarbeitung\",\n      \"trenntest_begruendung\": \"Eigenständig, da Auslöser (Scope steht fest) und Artefakt (Vorschlagsdokument) sich von Gesprächsdokumentation (P2) und Vertragsabschluss (P4) unterscheiden; der Nutzen liegt in Kalkulations- und Erstellungszeit des Angebots, nicht in Gesprächsnachbereitung oder Vertragsadministration.\",\n      \"unsicherheit\": null\n    },\n    {\n      \"id\": \"P4\",\n      \"kernprozess_id\": \"KP-02\",\n      \"titel\": \"Vertragsabschluss digitalisieren\",\n      \"beruehrte_teilprozesse\": [\"KP-02.TP-5\"],\n      \"ausgangslage\": \"Nach der Verhandlung wird der Vertrag unterzeichnet und die Übergabe ans Onboarding vorbereitet; dieser Schritt ist von allen Vertriebsschritten am wenigsten softwaregestützt (Item 4: Stufe 1).\",\n      \"schmerzpunkte\": [\n        \"Geschäftsprozess an dieser Stelle kaum durch Software abgedeckt (Item 4: Stufe 1)\",\n        \"Medienbruch bei der Unterzeichnung (Item 6: Stufe 2)\"\n      ],\n      \"loesungsansatz\": \"Vertragsdokument aus dem freigegebenen Vorschlag ableiten, zur elektronischen Unterzeichnung routen und die Übergabe ans Onboarding beim Abschluss automatisch auslösen.\",\n      \"loesungsklasse\": \"regelwerk\",\n      \"trenntest_begruendung\": \"Die Verhandlung bleibt menschlich, aber Vertragserzeugung, Signatur-Tracking und Übergabe-Trigger sind ein eigener, unabhängig baubarer Baustein mit eigenem Artefakt (Vertrag statt Vorschlag); der Nutzen liegt in Abschluss- und Übergabezeit, die von der Vorschlagserstellung (P3) nicht mitgezählt wird.\",\n      \"unsicherheit\": \"Der Beleg 'Manuelle CRM-Pflege bei Email-Anfragen' ist im Datensatz identisch für alle fünf KP-02-Teilprozesse hinterlegt und wirkt eher prozessweit als schrittspezifisch — die tatsächliche Schwere des Medienbruchs an dieser Stelle bleibt dadurch unscharf.\"\n    },\n    {\n      \"id\": \"P5\",\n      \"kernprozess_id\": \"KP-03\",\n      \"titel\": \"Kickoff-Vorbereitung automatisieren\",\n      \"beruehrte_teilprozesse\": [\"KP-03.TP-1\", \"KP-03.TP-2\"],\n      \"ausgangslage\": \"Nach Vertragsabschluss werden Engagement-Daten aus KP-02 gelesen, Agenda und Einladung von Hand erstellt; parallel werden Kunden-Personen identifiziert, Rollen/Kontakte erfasst und die Stakeholder-Map dokumentiert.\",\n      \"schmerzpunkte\": [\n        \"Agenda-Erstellung nutzt vorhandene Engagement-Daten nicht automatisch\",\n        \"Stakeholder-Map wird manuell aus denselben Kickoff-Daten zusammengetragen\"\n      ],\n      \"loesungsansatz\": \"Aus den vorhandenen Engagement-Daten automatisch einen Agenda-Entwurf, die Einladung und einen ersten Stakeholder-Map-Entwurf erzeugen, den das Team vor dem Kickoff nur noch prüft.\",\n      \"loesungsklasse\": \"assistenz\",\n      \"trenntest_begruendung\": \"Beide Teilprozesse laufen auf dasselbe Ereignis (Vertrag unterschrieben, Kickoff steht an) und dieselbe Datenquelle (Engagement-Daten aus KP-02) zu und werden im selben Arbeitsschritt vor demselben Termin erledigt — eine Agenda ohne Stakeholder-Übersicht oder umgekehrt ginge nicht unabhängig in Betrieb, und getrennte Nutzenrechnungen würden dieselbe Vorbereitungszeit doppelt zählen.\",\n      \"unsicherheit\": null\n    },\n    {\n      \"id\": \"P6\",\n      \"kernprozess_id\": \"KP-03\",\n      \"titel\": \"Onboarding-Tooling automatisch provisionieren\",\n      \"beruehrte_teilprozesse\": [\"KP-03.TP-3\"],\n      \"ausgangslage\": \"GitLab-Repo, Channel/Tracker und Zugriffsrechte werden je Kunde eingerichtet; das Repo-Setup läuft bereits teilautomatisch über n8n.\",\n      \"schmerzpunkte\": [\n        \"Channel-/Tracker-Anlage und Rechtevergabe noch nicht durchgängig automatisiert, obwohl das Repo-Setup es bereits ist\"\n      ],\n      \"loesungsansatz\": \"Repo-Setup, Channel-/Tracker-Anlage und Rechtevergabe zu einem einzigen, vollautomatischen Provisionierungs-Schritt zusammenführen.\",\n      \"loesungsklasse\": \"regelwerk\",\n      \"trenntest_begruendung\": \"Eigenständiger technischer Provisionierungs-Baustein, unabhängig von Agenda/Stakeholder-Map (P5) und AVV-Klärung (P7) baubar; der Nutzen liegt in der Einrichtungszeit der Werkzeuge, nicht in Vorbereitungs- oder Compliance-Zeit.\",\n      \"unsicherheit\": null\n    },\n    {\n      \"id\": \"P7\",\n      \"kernprozess_id\": \"KP-03\",\n      \"titel\": \"AVV- und DSGVO-Klärung automatisieren\",\n      \"beruehrte_teilprozesse\": [\"KP-03.TP-4\"],\n      \"ausgangslage\": \"AVV-Vorlage wird angepasst, Unterzeichnung eingeholt und ein VVT-Eintrag erstellt; dieser Schritt hat den schwächsten Medienbruch-Wert der Onboarding-Kette (Item 6: Stufe 2), weil die Unterzeichnung Papier sein kann.\",\n      \"schmerzpunkte\": [\n        \"AVV-Unterzeichnung kann papierbasiert ablaufen\",\n        \"VVT-Eintrag wird separat von Hand erstellt statt aus der AVV abgeleitet\"\n      ],\n      \"loesungsansatz\": \"AVV aus Vorlage und Kundendaten automatisch befüllen, elektronisch zur Unterzeichnung routen und den VVT-Eintrag direkt aus dem unterzeichneten Dokument erzeugen.\",\n      \"loesungsklasse\": \"dokumentenverarbeitung\",\n      \"trenntest_begruendung\": \"Eigenes Artefakt (AVV/VVT) und eigener regulatorischer Auslöser, unabhängig von Tooling-Provisionierung (P6) und Onboarding-Abschluss (P8) umsetzbar; der Nutzen betrifft Zeit für Compliance-Dokumentation, nicht technische Einrichtung oder Abschlussarbeiten.\",\n      \"unsicherheit\": null\n    },\n    {\n      \"id\": \"P8\",\n      \"kernprozess_id\": \"KP-03\",\n      \"titel\": \"Onboarding-Abschluss automatisieren\",\n      \"beruehrte_teilprozesse\": [\"KP-03.TP-5\"],\n      \"ausgangslage\": \"Checkliste wird abgehakt, Onboarding-NPS abgefragt und die Übergabe an KP-04 vorbereitet.\",\n      \"schmerzpunkte\": [\n        \"Checklisten-Abschluss, NPS-Abfrage und Übergabe sind separate manuelle Schritte am Ende des Onboardings\"\n      ],\n      \"loesungsansatz\": \"Bei vollständiger Checkliste automatisch die NPS-Abfrage auslösen und die Übergabe an KP-04 anstoßen.\",\n      \"loesungsklasse\": \"regelwerk\",\n      \"trenntest_begruendung\": \"Eigener Auslöser (Checkliste vollständig) und eigenes Zielereignis (Übergabe an KP-04), getrennt von Provisionierung (P6) und AVV-Klärung (P7) baubar; der Nutzen betrifft ausschließlich die Abschlussphase des Onboardings.\",\n      \"unsicherheit\": null\n    },\n    {\n      \"id\": \"P9\",\n      \"kernprozess_id\": \"KP-05\",\n      \"titel\": \"Wissenssuche automatisieren\",\n      \"beruehrte_teilprozesse\": [\"KP-05.TP-1\"],\n      \"ausgangslage\": \"Entsteht eine Frage, durchsuchen Mitarbeitende den Google-Drive-Ordner manuell, öffnen Dokumente einzeln, tragen die Antwort zusammen und geben sie mündlich oder per Mail weiter.\",\n      \"schmerzpunkte\": [\n        \"Manuelle Volltextsuche über unstrukturierten Drive-Ordner\",\n        \"Antwort wird jedes Mal neu von Hand aus mehreren Dokumenten zusammengetragen\",\n        \"Weitergabe mündlich oder per Mail, nicht zentral auffindbar\"\n      ],\n      \"loesungsansatz\": \"Fragen direkt gegen eine durchsuchbare Wissensbasis der Drive-Dokumente stellen und die Antwort mit Quellenverweis automatisch zusammenstellen.\",\n      \"loesungsklasse\": \"dialog\",\n      \"trenntest_begruendung\": \"Einziger bewerteter Teilprozess in KP-05; die übrigen Teilprozesse tragen keine Daten (siehe nicht_geschnitten), daher keine Abgrenzung zu weiteren Potenzialen nötig — deckt für sich den vollständigen Weg von Frage bis Antwortweitergabe ab.\",\n      \"unsicherheit\": \"Die Bitkom-Bewertungen dieses Teilprozesses sind laut Beleg ausdrücklich 'Testdaten zur Use-Case-Definition ... nicht erhoben, nicht gemessen' — die Einschätzung stützt sich daher nur auf die Ablaufbeschreibung, nicht auf geprüfte Kennzahlen.\"\n    },\n    {\n      \"id\": \"P10\",\n      \"kernprozess_id\": \"KP-06\",\n      \"titel\": \"Reise- und Einsatzplanung automatisieren\",\n      \"beruehrte_teilprozesse\": [\"KP-06.TP-2\"],\n      \"ausgangslage\": \"Reiseanfrage geht per Mail oder Formular ein, Verfügbarkeit wird geprüft, Angebot manuell erstellt, Bestätigung per Mail verschickt und die Buchung manuell vorgenommen.\",\n      \"schmerzpunkte\": [\n        \"Verfügbarkeitsprüfung, Angebotserstellung und Buchung sind durchgängig manuelle Einzelschritte\",\n        \"Medienbruch zwischen Anfrage-Formular/Mail und Buchungssystem\"\n      ],\n      \"loesungsansatz\": \"Anfrage automatisch gegen Verfügbarkeiten prüfen, Angebot regelbasiert erstellen und nach Bestätigung die Buchung automatisch auslösen.\",\n      \"loesungsklasse\": \"regelwerk\",\n      \"trenntest_begruendung\": \"Einziger bewerteter Teilprozess in KP-06; deckt für sich den gesamten Weg von Anfrage bis Buchung ab, keine weiteren Teilprozesse dieses Kernprozesses liegen im Bestand vor.\",\n      \"unsicherheit\": \"Die Bitkom-Bewertungen sind laut Beleg Testdaten ('nicht erhoben, nicht gemessen'); belastbarer ist hier die separat gemessene Jahresstundenzahl (bc1_profil: 540h, Ist-Kosten 23.220 EUR), nicht die Bitkom-Stufen.\"\n    }\n  ],\n  \"nicht_geschnitten\": [\n    {\"teilprozess_id\": \"KP-05.TP-2\", \"grund\": \"Platzhalter-Teilprozess ('Teilprozess 2') ohne Ablauf-Beschreibung und ohne Bitkom-Bewertungen (alle Werte 0) — keine Grundlage für ein Potenzial.\"},\n    {\"teilprozess_id\": \"KP-05.TP-3\", \"grund\": \"Platzhalter-Teilprozess ('Teilprozess 3') ohne Ablauf-Beschreibung und ohne Bitkom-Bewertungen (alle Werte 0) — keine Grundlage für ein Potenzial.\"},\n    {\"teilprozess_id\": \"KP-05.TP-4\", \"grund\": \"Platzhalter-Teilprozess ('Teilprozess 4') ohne Ablauf-Beschreibung und ohne Bitkom-Bewertungen (alle Werte 0) — keine Grundlage für ein Potenzial.\"},\n    {\"teilprozess_id\": \"KP-05.TP-5\", \"grund\": \"Platzhalter-Teilprozess ('Teilprozess 5') ohne Ablauf-Beschreibung und ohne Bitkom-Bewertungen (alle Werte 0) — keine Grundlage für ein Potenzial.\"}\n  ]\n}\n```\n",
+      "ergebnis": {
+        "potenziale": [
+          {
+            "id": "P1",
+            "kernprozess_id": "KP-02",
+            "titel": "Lead-Intake automatisieren",
+            "beruehrte_teilprozesse": [
+              "KP-02.TP-1",
+              "KP-02.TP-2"
+            ],
+            "ausgangslage": "Eingehende Anfragen (Email, Recherche, LinkedIn) werden manuell ins CRM übertragen, Quelle und DSGVO-Check von Hand gesetzt; anschließend wird der Lead per Bedarfsanalyse bewertet und nur teilautomatisch gescored, bevor der Pipeline-Status gesetzt wird.",
+            "schmerzpunkte": [
+              "Manuelle CRM-Pflege bei Email-Anfragen",
+              "Scoring nur teilautomatisch, Bedarfsanalyse und Statuspflege liegen beim Menschen"
+            ],
+            "loesungsansatz": "Eingehende Anfragen automatisch auslesen, strukturiert ins CRM übertragen, DSGVO-Flag setzen und den Lead im selben Zug scoren sowie mit Pipeline-Status versehen.",
+            "loesungsklasse": "dokumentenverarbeitung",
+            "trenntest_begruendung": "Beide Teilprozesse hängen am selben Auslöser (eingehende Anfrage) und am selben Zielobjekt (dem CRM-Lead-Eintrag) — eine Erfassungsautomatisierung ohne die anschließende Bewertung ergäbe nur einen halb gefüllten Datensatz, die Bewertung ohne automatisierte Erfassung bliebe an von Hand eingetragenen Daten hängen. Bedingung 1 (unabhängig in Betrieb gehen) ist damit nicht erfüllt, und eine getrennte Nutzenrechnung würde denselben Anfrage-Durchlauf zweimal als Zeitersparnis zählen (Bedingung 2 verletzt).",
+            "unsicherheit": null
+          },
+          {
+            "id": "P2",
+            "kernprozess_id": "KP-02",
+            "titel": "Gesprächsdokumentation automatisieren",
+            "beruehrte_teilprozesse": [
+              "KP-02.TP-3"
+            ],
+            "ausgangslage": "Nach dem Erstgespräch wird die Mitschrift von Hand in eine CRM-Notiz überführt und die Nachfass-Aufgabe manuell angelegt.",
+            "schmerzpunkte": [
+              "Mitschrift muss manuell in CRM-Notiz übertragen werden",
+              "Nachfass-Aufgabe wird von Hand erstellt — dieser Schritt ist beim Automatisierungsgrad (Item 4) und bei Medienbrüchen (Item 6) am schwächsten bewertet"
+            ],
+            "loesungsansatz": "Gesprächsmitschrift automatisch zusammenfassen, als CRM-Notiz ablegen und daraus die Nachfass-Aufgabe automatisch erzeugen.",
+            "loesungsklasse": "assistenz",
+            "trenntest_begruendung": "Hängt am Ereignis 'Gespräch geführt' und am Artefakt 'Gesprächsnotiz' — kann unabhängig von Lead-Intake (P1) und Angebot (P3) gebaut und betrieben werden, da es weder deren Auslöser noch deren Zielfeld berührt. Der Nutzen entsteht aus der Gesprächsnachbereitung, nicht aus Erfassung oder Angebotserstellung — keine Doppelzählung.",
+            "unsicherheit": null
+          },
+          {
+            "id": "P3",
+            "kernprozess_id": "KP-02",
+            "titel": "Engagement-Vorschlag automatisiert erstellen",
+            "beruehrte_teilprozesse": [
+              "KP-02.TP-4"
+            ],
+            "ausgangslage": "Scope wird abgesteckt, Tagessätze nach vorhandener Vorlage kalkuliert und das Vorschlags-Dokument von Hand zusammengestellt und versendet.",
+            "schmerzpunkte": [
+              "Kalkulation und Dokumentenerstellung erfolgen manuell trotz vorhandener, detaillierter Tagessatz- und Branchen-Vorlagen (Item 13/14: Stufe 5)",
+              "Kein durchgängiger Fluss von Scope-Definition bis Versand"
+            ],
+            "loesungsansatz": "Vorschlags-Dokument aus Scope-Angaben und hinterlegten Tagessatz-/Branchen-Vorlagen automatisch generieren und versandfertig vorbereiten.",
+            "loesungsklasse": "dokumentenverarbeitung",
+            "trenntest_begruendung": "Eigenständig, da Auslöser (Scope steht fest) und Artefakt (Vorschlagsdokument) sich von Gesprächsdokumentation (P2) und Vertragsabschluss (P4) unterscheiden; der Nutzen liegt in Kalkulations- und Erstellungszeit des Angebots, nicht in Gesprächsnachbereitung oder Vertragsadministration.",
+            "unsicherheit": null
+          },
+          {
+            "id": "P4",
+            "kernprozess_id": "KP-02",
+            "titel": "Vertragsabschluss digitalisieren",
+            "beruehrte_teilprozesse": [
+              "KP-02.TP-5"
+            ],
+            "ausgangslage": "Nach der Verhandlung wird der Vertrag unterzeichnet und die Übergabe ans Onboarding vorbereitet; dieser Schritt ist von allen Vertriebsschritten am wenigsten softwaregestützt (Item 4: Stufe 1).",
+            "schmerzpunkte": [
+              "Geschäftsprozess an dieser Stelle kaum durch Software abgedeckt (Item 4: Stufe 1)",
+              "Medienbruch bei der Unterzeichnung (Item 6: Stufe 2)"
+            ],
+            "loesungsansatz": "Vertragsdokument aus dem freigegebenen Vorschlag ableiten, zur elektronischen Unterzeichnung routen und die Übergabe ans Onboarding beim Abschluss automatisch auslösen.",
+            "loesungsklasse": "regelwerk",
+            "trenntest_begruendung": "Die Verhandlung bleibt menschlich, aber Vertragserzeugung, Signatur-Tracking und Übergabe-Trigger sind ein eigener, unabhängig baubarer Baustein mit eigenem Artefakt (Vertrag statt Vorschlag); der Nutzen liegt in Abschluss- und Übergabezeit, die von der Vorschlagserstellung (P3) nicht mitgezählt wird.",
+            "unsicherheit": "Der Beleg 'Manuelle CRM-Pflege bei Email-Anfragen' ist im Datensatz identisch für alle fünf KP-02-Teilprozesse hinterlegt und wirkt eher prozessweit als schrittspezifisch — die tatsächliche Schwere des Medienbruchs an dieser Stelle bleibt dadurch unscharf."
+          },
+          {
+            "id": "P5",
+            "kernprozess_id": "KP-03",
+            "titel": "Kickoff-Vorbereitung automatisieren",
+            "beruehrte_teilprozesse": [
+              "KP-03.TP-1",
+              "KP-03.TP-2"
+            ],
+            "ausgangslage": "Nach Vertragsabschluss werden Engagement-Daten aus KP-02 gelesen, Agenda und Einladung von Hand erstellt; parallel werden Kunden-Personen identifiziert, Rollen/Kontakte erfasst und die Stakeholder-Map dokumentiert.",
+            "schmerzpunkte": [
+              "Agenda-Erstellung nutzt vorhandene Engagement-Daten nicht automatisch",
+              "Stakeholder-Map wird manuell aus denselben Kickoff-Daten zusammengetragen"
+            ],
+            "loesungsansatz": "Aus den vorhandenen Engagement-Daten automatisch einen Agenda-Entwurf, die Einladung und einen ersten Stakeholder-Map-Entwurf erzeugen, den das Team vor dem Kickoff nur noch prüft.",
+            "loesungsklasse": "assistenz",
+            "trenntest_begruendung": "Beide Teilprozesse laufen auf dasselbe Ereignis (Vertrag unterschrieben, Kickoff steht an) und dieselbe Datenquelle (Engagement-Daten aus KP-02) zu und werden im selben Arbeitsschritt vor demselben Termin erledigt — eine Agenda ohne Stakeholder-Übersicht oder umgekehrt ginge nicht unabhängig in Betrieb, und getrennte Nutzenrechnungen würden dieselbe Vorbereitungszeit doppelt zählen.",
+            "unsicherheit": null
+          },
+          {
+            "id": "P6",
+            "kernprozess_id": "KP-03",
+            "titel": "Onboarding-Tooling automatisch provisionieren",
+            "beruehrte_teilprozesse": [
+              "KP-03.TP-3"
+            ],
+            "ausgangslage": "GitLab-Repo, Channel/Tracker und Zugriffsrechte werden je Kunde eingerichtet; das Repo-Setup läuft bereits teilautomatisch über n8n.",
+            "schmerzpunkte": [
+              "Channel-/Tracker-Anlage und Rechtevergabe noch nicht durchgängig automatisiert, obwohl das Repo-Setup es bereits ist"
+            ],
+            "loesungsansatz": "Repo-Setup, Channel-/Tracker-Anlage und Rechtevergabe zu einem einzigen, vollautomatischen Provisionierungs-Schritt zusammenführen.",
+            "loesungsklasse": "regelwerk",
+            "trenntest_begruendung": "Eigenständiger technischer Provisionierungs-Baustein, unabhängig von Agenda/Stakeholder-Map (P5) und AVV-Klärung (P7) baubar; der Nutzen liegt in der Einrichtungszeit der Werkzeuge, nicht in Vorbereitungs- oder Compliance-Zeit.",
+            "unsicherheit": null
+          },
+          {
+            "id": "P7",
+            "kernprozess_id": "KP-03",
+            "titel": "AVV- und DSGVO-Klärung automatisieren",
+            "beruehrte_teilprozesse": [
+              "KP-03.TP-4"
+            ],
+            "ausgangslage": "AVV-Vorlage wird angepasst, Unterzeichnung eingeholt und ein VVT-Eintrag erstellt; dieser Schritt hat den schwächsten Medienbruch-Wert der Onboarding-Kette (Item 6: Stufe 2), weil die Unterzeichnung Papier sein kann.",
+            "schmerzpunkte": [
+              "AVV-Unterzeichnung kann papierbasiert ablaufen",
+              "VVT-Eintrag wird separat von Hand erstellt statt aus der AVV abgeleitet"
+            ],
+            "loesungsansatz": "AVV aus Vorlage und Kundendaten automatisch befüllen, elektronisch zur Unterzeichnung routen und den VVT-Eintrag direkt aus dem unterzeichneten Dokument erzeugen.",
+            "loesungsklasse": "dokumentenverarbeitung",
+            "trenntest_begruendung": "Eigenes Artefakt (AVV/VVT) und eigener regulatorischer Auslöser, unabhängig von Tooling-Provisionierung (P6) und Onboarding-Abschluss (P8) umsetzbar; der Nutzen betrifft Zeit für Compliance-Dokumentation, nicht technische Einrichtung oder Abschlussarbeiten.",
+            "unsicherheit": null
+          },
+          {
+            "id": "P8",
+            "kernprozess_id": "KP-03",
+            "titel": "Onboarding-Abschluss automatisieren",
+            "beruehrte_teilprozesse": [
+              "KP-03.TP-5"
+            ],
+            "ausgangslage": "Checkliste wird abgehakt, Onboarding-NPS abgefragt und die Übergabe an KP-04 vorbereitet.",
+            "schmerzpunkte": [
+              "Checklisten-Abschluss, NPS-Abfrage und Übergabe sind separate manuelle Schritte am Ende des Onboardings"
+            ],
+            "loesungsansatz": "Bei vollständiger Checkliste automatisch die NPS-Abfrage auslösen und die Übergabe an KP-04 anstoßen.",
+            "loesungsklasse": "regelwerk",
+            "trenntest_begruendung": "Eigener Auslöser (Checkliste vollständig) und eigenes Zielereignis (Übergabe an KP-04), getrennt von Provisionierung (P6) und AVV-Klärung (P7) baubar; der Nutzen betrifft ausschließlich die Abschlussphase des Onboardings.",
+            "unsicherheit": null
+          },
+          {
+            "id": "P9",
+            "kernprozess_id": "KP-05",
+            "titel": "Wissenssuche automatisieren",
+            "beruehrte_teilprozesse": [
+              "KP-05.TP-1"
+            ],
+            "ausgangslage": "Entsteht eine Frage, durchsuchen Mitarbeitende den Google-Drive-Ordner manuell, öffnen Dokumente einzeln, tragen die Antwort zusammen und geben sie mündlich oder per Mail weiter.",
+            "schmerzpunkte": [
+              "Manuelle Volltextsuche über unstrukturierten Drive-Ordner",
+              "Antwort wird jedes Mal neu von Hand aus mehreren Dokumenten zusammengetragen",
+              "Weitergabe mündlich oder per Mail, nicht zentral auffindbar"
+            ],
+            "loesungsansatz": "Fragen direkt gegen eine durchsuchbare Wissensbasis der Drive-Dokumente stellen und die Antwort mit Quellenverweis automatisch zusammenstellen.",
+            "loesungsklasse": "dialog",
+            "trenntest_begruendung": "Einziger bewerteter Teilprozess in KP-05; die übrigen Teilprozesse tragen keine Daten (siehe nicht_geschnitten), daher keine Abgrenzung zu weiteren Potenzialen nötig — deckt für sich den vollständigen Weg von Frage bis Antwortweitergabe ab.",
+            "unsicherheit": "Die Bitkom-Bewertungen dieses Teilprozesses sind laut Beleg ausdrücklich 'Testdaten zur Use-Case-Definition ... nicht erhoben, nicht gemessen' — die Einschätzung stützt sich daher nur auf die Ablaufbeschreibung, nicht auf geprüfte Kennzahlen."
+          },
+          {
+            "id": "P10",
+            "kernprozess_id": "KP-06",
+            "titel": "Reise- und Einsatzplanung automatisieren",
+            "beruehrte_teilprozesse": [
+              "KP-06.TP-2"
+            ],
+            "ausgangslage": "Reiseanfrage geht per Mail oder Formular ein, Verfügbarkeit wird geprüft, Angebot manuell erstellt, Bestätigung per Mail verschickt und die Buchung manuell vorgenommen.",
+            "schmerzpunkte": [
+              "Verfügbarkeitsprüfung, Angebotserstellung und Buchung sind durchgängig manuelle Einzelschritte",
+              "Medienbruch zwischen Anfrage-Formular/Mail und Buchungssystem"
+            ],
+            "loesungsansatz": "Anfrage automatisch gegen Verfügbarkeiten prüfen, Angebot regelbasiert erstellen und nach Bestätigung die Buchung automatisch auslösen.",
+            "loesungsklasse": "regelwerk",
+            "trenntest_begruendung": "Einziger bewerteter Teilprozess in KP-06; deckt für sich den gesamten Weg von Anfrage bis Buchung ab, keine weiteren Teilprozesse dieses Kernprozesses liegen im Bestand vor.",
+            "unsicherheit": "Die Bitkom-Bewertungen sind laut Beleg Testdaten ('nicht erhoben, nicht gemessen'); belastbarer ist hier die separat gemessene Jahresstundenzahl (bc1_profil: 540h, Ist-Kosten 23.220 EUR), nicht die Bitkom-Stufen."
+          }
+        ],
+        "nicht_geschnitten": [
+          {
+            "teilprozess_id": "KP-05.TP-2",
+            "grund": "Platzhalter-Teilprozess ('Teilprozess 2') ohne Ablauf-Beschreibung und ohne Bitkom-Bewertungen (alle Werte 0) — keine Grundlage für ein Potenzial."
+          },
+          {
+            "teilprozess_id": "KP-05.TP-3",
+            "grund": "Platzhalter-Teilprozess ('Teilprozess 3') ohne Ablauf-Beschreibung und ohne Bitkom-Bewertungen (alle Werte 0) — keine Grundlage für ein Potenzial."
+          },
+          {
+            "teilprozess_id": "KP-05.TP-4",
+            "grund": "Platzhalter-Teilprozess ('Teilprozess 4') ohne Ablauf-Beschreibung und ohne Bitkom-Bewertungen (alle Werte 0) — keine Grundlage für ein Potenzial."
+          },
+          {
+            "teilprozess_id": "KP-05.TP-5",
+            "grund": "Platzhalter-Teilprozess ('Teilprozess 5') ohne Ablauf-Beschreibung und ohne Bitkom-Bewertungen (alle Werte 0) — keine Grundlage für ein Potenzial."
+          }
+        ]
+      }
+    }
+  ]
+}

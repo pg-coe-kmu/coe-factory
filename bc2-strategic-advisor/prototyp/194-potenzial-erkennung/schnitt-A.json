@@ -1,0 +1,480 @@
+{
+  "A": [
+    {
+      "aufruf": "KP-02.TP-1",
+      "roh": "```json\n{\n  \"potenziale\": [\n    {\n      \"id\": \"P1\",\n      \"kernprozess_id\": \"KP-02\",\n      \"titel\": \"Email-Lead-Erfassung ins CRM automatisieren\",\n      \"beruehrte_teilprozesse\": [\"KP-02.TP-1\"],\n      \"ausgangslage\": \"Eingehende Anfragen aus CRM, Email und LinkedIn werden entgegengenommen und im CRM erfasst. Für CRM- und LinkedIn-Quellen läuft das weitgehend digital und teilautomatisch (Lead-Scoring, EspoCRM ↔ NocoDB ↔ Grafana über n8n verbunden); bei Email-Anfragen wird der CRM-Eintrag dagegen manuell gepflegt.\",\n      \"schmerzpunkte\": [\n        \"Manuelle CRM-Pflege bei Email-Anfragen (expliziter Medienbruch)\",\n        \"Eingehende Informationen sind nur überwiegend, nicht vollständig digital verfügbar, weil der Email-Kanal aus dem automatisierten Fluss herausfällt\"\n      ],\n      \"loesungsansatz\": \"Eingehende Email-Anfragen automatisiert auslesen und strukturiert als CRM-Eintrag anlegen, inklusive Quelle-Kennzeichnung, statt sie händisch zu übertragen.\",\n      \"loesungsklasse\": \"dokumentenverarbeitung\",\n      \"trenntest_begruendung\": \"Kann unabhängig in Betrieb gehen: es ersetzt nur die manuelle Übertragung von Email-Inhalten ins CRM und setzt keine Änderung an der nachgelagerten Quelle-/DSGVO-Prüfung voraus. Der Nutzen (eingesparte manuelle Dateneingabe) betrifft eine andere Tätigkeit und einen anderen Zeitpunkt im Ablauf als die Prüfunterstützung in P2 und wird dort nicht mitgezählt.\",\n      \"unsicherheit\": \"Wie groß der Anteil der Email-Anfragen an allen Lead-Quellen ist, geht aus dem Bestand nicht hervor und bestimmt, wie oft dieser Weg überhaupt greift.\"\n    },\n    {\n      \"id\": \"P2\",\n      \"kernprozess_id\": \"KP-02\",\n      \"titel\": \"Prüfassistenz für Quelle- und DSGVO-Check\",\n      \"beruehrte_teilprozesse\": [\"KP-02.TP-1\"],\n      \"ausgangslage\": \"Nach der Erfassung prüft ein Senior Consultant den Lead im Rahmen von Quelle- und DSGVO-Check auf regulatorische Anforderungen; die Kontrolle selbst gilt als wirksam, ihre Durchführung liegt aber vollständig beim Menschen.\",\n      \"schmerzpunkte\": [\n        \"Lead-Qualitäts-Reviews laufen ausschließlich manuell durch Senior Consultants\",\n        \"Regulatorische Anforderungen werden nur mittelmäßig erfüllt, obwohl die Kontrollinstanz selbst als wirksam eingestuft ist — die Prüfung selbst bindet Seniorzeit ohne Unterstützung\"\n      ],\n      \"loesungsansatz\": \"Dem Senior vor der Freigabe eine vorstrukturierte Einschätzung zu Quelle-Plausibilität und DSGVO-relevanten Auffälligkeiten an die Seite stellen, die Entscheidung aber beim Menschen belassen.\",\n      \"loesungsklasse\": \"entscheidungsunterstuetzung\",\n      \"trenntest_begruendung\": \"Kann unabhängig von der Email-Erfassungsautomatisierung in Betrieb gehen, da sie an einem späteren, eigenständigen Ablaufschritt (Quelle + DSGVO-Check) ansetzt und keinen bestimmten Erfassungsweg voraussetzt. Der Nutzen liegt in der Entlastung der Senior-Prüfung und überschneidet sich nicht mit der in P1 eingesparten Dateneingabezeit, da unterschiedliche Rollen und Tätigkeiten betroffen sind.\",\n      \"unsicherheit\": \"Unklar, ob 'Lead-Qualitäts-Reviews durch Senior' organisatorisch zum erfassten Teilprozess gehört oder bereits Teil eines späteren, hier nicht erfassten Schritts ist; zudem ist offen, ob eine Automatisierung angesichts der bereits als wirksam bewerteten Kontrolle gewünscht ist.\"\n    }\n  ],\n  \"nicht_geschnitten\": []\n}\n```\n",
+      "ergebnis": {
+        "potenziale": [
+          {
+            "id": "P1",
+            "kernprozess_id": "KP-02",
+            "titel": "Email-Lead-Erfassung ins CRM automatisieren",
+            "beruehrte_teilprozesse": [
+              "KP-02.TP-1"
+            ],
+            "ausgangslage": "Eingehende Anfragen aus CRM, Email und LinkedIn werden entgegengenommen und im CRM erfasst. Für CRM- und LinkedIn-Quellen läuft das weitgehend digital und teilautomatisch (Lead-Scoring, EspoCRM ↔ NocoDB ↔ Grafana über n8n verbunden); bei Email-Anfragen wird der CRM-Eintrag dagegen manuell gepflegt.",
+            "schmerzpunkte": [
+              "Manuelle CRM-Pflege bei Email-Anfragen (expliziter Medienbruch)",
+              "Eingehende Informationen sind nur überwiegend, nicht vollständig digital verfügbar, weil der Email-Kanal aus dem automatisierten Fluss herausfällt"
+            ],
+            "loesungsansatz": "Eingehende Email-Anfragen automatisiert auslesen und strukturiert als CRM-Eintrag anlegen, inklusive Quelle-Kennzeichnung, statt sie händisch zu übertragen.",
+            "loesungsklasse": "dokumentenverarbeitung",
+            "trenntest_begruendung": "Kann unabhängig in Betrieb gehen: es ersetzt nur die manuelle Übertragung von Email-Inhalten ins CRM und setzt keine Änderung an der nachgelagerten Quelle-/DSGVO-Prüfung voraus. Der Nutzen (eingesparte manuelle Dateneingabe) betrifft eine andere Tätigkeit und einen anderen Zeitpunkt im Ablauf als die Prüfunterstützung in P2 und wird dort nicht mitgezählt.",
+            "unsicherheit": "Wie groß der Anteil der Email-Anfragen an allen Lead-Quellen ist, geht aus dem Bestand nicht hervor und bestimmt, wie oft dieser Weg überhaupt greift."
+          },
+          {
+            "id": "P2",
+            "kernprozess_id": "KP-02",
+            "titel": "Prüfassistenz für Quelle- und DSGVO-Check",
+            "beruehrte_teilprozesse": [
+              "KP-02.TP-1"
+            ],
+            "ausgangslage": "Nach der Erfassung prüft ein Senior Consultant den Lead im Rahmen von Quelle- und DSGVO-Check auf regulatorische Anforderungen; die Kontrolle selbst gilt als wirksam, ihre Durchführung liegt aber vollständig beim Menschen.",
+            "schmerzpunkte": [
+              "Lead-Qualitäts-Reviews laufen ausschließlich manuell durch Senior Consultants",
+              "Regulatorische Anforderungen werden nur mittelmäßig erfüllt, obwohl die Kontrollinstanz selbst als wirksam eingestuft ist — die Prüfung selbst bindet Seniorzeit ohne Unterstützung"
+            ],
+            "loesungsansatz": "Dem Senior vor der Freigabe eine vorstrukturierte Einschätzung zu Quelle-Plausibilität und DSGVO-relevanten Auffälligkeiten an die Seite stellen, die Entscheidung aber beim Menschen belassen.",
+            "loesungsklasse": "entscheidungsunterstuetzung",
+            "trenntest_begruendung": "Kann unabhängig von der Email-Erfassungsautomatisierung in Betrieb gehen, da sie an einem späteren, eigenständigen Ablaufschritt (Quelle + DSGVO-Check) ansetzt und keinen bestimmten Erfassungsweg voraussetzt. Der Nutzen liegt in der Entlastung der Senior-Prüfung und überschneidet sich nicht mit der in P1 eingesparten Dateneingabezeit, da unterschiedliche Rollen und Tätigkeiten betroffen sind.",
+            "unsicherheit": "Unklar, ob 'Lead-Qualitäts-Reviews durch Senior' organisatorisch zum erfassten Teilprozess gehört oder bereits Teil eines späteren, hier nicht erfassten Schritts ist; zudem ist offen, ob eine Automatisierung angesichts der bereits als wirksam bewerteten Kontrolle gewünscht ist."
+          }
+        ],
+        "nicht_geschnitten": []
+      }
+    },
+    {
+      "aufruf": "KP-02.TP-2",
+      "roh": "```json\n{\n  \"potenziale\": [\n    {\n      \"id\": \"P1\",\n      \"kernprozess_id\": \"KP-02\",\n      \"titel\": \"E-Mail-Lead-Erfassung automatisieren\",\n      \"beruehrte_teilprozesse\": [\"KP-02.TP-2\"],\n      \"ausgangslage\": \"Eingehende Anfragen aus Email werden nicht wie andere Kanäle direkt strukturiert im EspoCRM erfasst, sondern von Hand nachgepflegt, bevor Bedarfsanalyse und Scoring beginnen können.\",\n      \"schmerzpunkte\": [\n        \"Manuelle CRM-Pflege bei Email-Anfragen (expliziter Medienbruch)\",\n        \"Eingehende Informationen sind für diesen Kanal nur überwiegend, nicht vollständig digital verfügbar (Item 1, Stufe 3)\"\n      ],\n      \"loesungsansatz\": \"Email-Inhalte automatisiert auslesen (Absender, Anliegen, Kontext) und über die vorhandene EspoCRM-REST-API strukturiert als Lead mit initialem Pipeline-Status anlegen.\",\n      \"loesungsklasse\": \"dokumentenverarbeitung\",\n      \"trenntest_begruendung\": \"Kann unabhängig vom Scoring-Potenzial in Betrieb gehen, da nur die Dateneingabe für einen Kanal automatisiert wird, ohne die Bewertungslogik zu berühren. Der Nutzen liegt in eingesparter Erfassungszeit und überschneidet sich nicht mit dem Nutzen einer Scoring-Automatisierung, die erst nach erfolgter Erfassung ansetzt.\",\n      \"unsicherheit\": \"Anteil der Leads, die über den Email-Kanal eingehen, sowie strukturelle Varianz der Email-Anfragen sind aus dem Bestand nicht ersichtlich.\"\n    },\n    {\n      \"id\": \"P2\",\n      \"kernprozess_id\": \"KP-02\",\n      \"titel\": \"Lead-Scoring vervollständigen\",\n      \"beruehrte_teilprozesse\": [\"KP-02.TP-2\"],\n      \"ausgangslage\": \"Nach der Bedarfsanalyse läuft das Lead-Scoring bereits teilautomatisch; zusätzlich führen Senior Consultants eine manuelle Qualitäts-Review durch, bevor der Pipeline-Status final gesetzt wird.\",\n      \"schmerzpunkte\": [\n        \"Lead-Scoring nur teilautomatisch, verbleibender Anteil erfordert manuelle Einschätzung (Item 4)\",\n        \"Manuelle Qualitäts-Review durch Senior bindet Senior-Kapazität zusätzlich zum Scoring (Item 18)\"\n      ],\n      \"loesungsansatz\": \"Bestehende Scoring-Regeln um die bislang manuell beurteilten Aspekte erweitern und dem Senior eine vorstrukturierte, automatisch vorbewertete Grundlage liefern, die die Review verkürzt statt ersetzt.\",\n      \"loesungsklasse\": \"entscheidungsunterstuetzung\",\n      \"trenntest_begruendung\": \"Kann unabhängig von der Email-Erfassung in Betrieb gehen, da sie an der Bewertungslogik nach erfolgter CRM-Erfassung ansetzt, unabhängig vom Erfassungskanal. Der Nutzen liegt in eingesparter Scoring- und Review-Zeit und überschneidet sich nicht mit dem der Erfassungsautomatisierung.\",\n      \"unsicherheit\": \"Unklar, welcher Anteil des Scorings heute bereits regelbasiert läuft und wie stark sich die Senior-Review-Zeit durch bessere Vorstrukturierung tatsächlich verkürzen ließe.\"\n    }\n  ],\n  \"nicht_geschnitten\": []\n}\n```\n",
+      "ergebnis": {
+        "potenziale": [
+          {
+            "id": "P1",
+            "kernprozess_id": "KP-02",
+            "titel": "E-Mail-Lead-Erfassung automatisieren",
+            "beruehrte_teilprozesse": [
+              "KP-02.TP-2"
+            ],
+            "ausgangslage": "Eingehende Anfragen aus Email werden nicht wie andere Kanäle direkt strukturiert im EspoCRM erfasst, sondern von Hand nachgepflegt, bevor Bedarfsanalyse und Scoring beginnen können.",
+            "schmerzpunkte": [
+              "Manuelle CRM-Pflege bei Email-Anfragen (expliziter Medienbruch)",
+              "Eingehende Informationen sind für diesen Kanal nur überwiegend, nicht vollständig digital verfügbar (Item 1, Stufe 3)"
+            ],
+            "loesungsansatz": "Email-Inhalte automatisiert auslesen (Absender, Anliegen, Kontext) und über die vorhandene EspoCRM-REST-API strukturiert als Lead mit initialem Pipeline-Status anlegen.",
+            "loesungsklasse": "dokumentenverarbeitung",
+            "trenntest_begruendung": "Kann unabhängig vom Scoring-Potenzial in Betrieb gehen, da nur die Dateneingabe für einen Kanal automatisiert wird, ohne die Bewertungslogik zu berühren. Der Nutzen liegt in eingesparter Erfassungszeit und überschneidet sich nicht mit dem Nutzen einer Scoring-Automatisierung, die erst nach erfolgter Erfassung ansetzt.",
+            "unsicherheit": "Anteil der Leads, die über den Email-Kanal eingehen, sowie strukturelle Varianz der Email-Anfragen sind aus dem Bestand nicht ersichtlich."
+          },
+          {
+            "id": "P2",
+            "kernprozess_id": "KP-02",
+            "titel": "Lead-Scoring vervollständigen",
+            "beruehrte_teilprozesse": [
+              "KP-02.TP-2"
+            ],
+            "ausgangslage": "Nach der Bedarfsanalyse läuft das Lead-Scoring bereits teilautomatisch; zusätzlich führen Senior Consultants eine manuelle Qualitäts-Review durch, bevor der Pipeline-Status final gesetzt wird.",
+            "schmerzpunkte": [
+              "Lead-Scoring nur teilautomatisch, verbleibender Anteil erfordert manuelle Einschätzung (Item 4)",
+              "Manuelle Qualitäts-Review durch Senior bindet Senior-Kapazität zusätzlich zum Scoring (Item 18)"
+            ],
+            "loesungsansatz": "Bestehende Scoring-Regeln um die bislang manuell beurteilten Aspekte erweitern und dem Senior eine vorstrukturierte, automatisch vorbewertete Grundlage liefern, die die Review verkürzt statt ersetzt.",
+            "loesungsklasse": "entscheidungsunterstuetzung",
+            "trenntest_begruendung": "Kann unabhängig von der Email-Erfassung in Betrieb gehen, da sie an der Bewertungslogik nach erfolgter CRM-Erfassung ansetzt, unabhängig vom Erfassungskanal. Der Nutzen liegt in eingesparter Scoring- und Review-Zeit und überschneidet sich nicht mit dem der Erfassungsautomatisierung.",
+            "unsicherheit": "Unklar, welcher Anteil des Scorings heute bereits regelbasiert läuft und wie stark sich die Senior-Review-Zeit durch bessere Vorstrukturierung tatsächlich verkürzen ließe."
+          }
+        ],
+        "nicht_geschnitten": []
+      }
+    },
+    {
+      "aufruf": "KP-02.TP-3",
+      "roh": "```json\n{\n  \"potenziale\": [\n    {\n      \"id\": \"P1\",\n      \"kernprozess_id\": \"KP-02\",\n      \"titel\": \"E-Mail-Anfragen automatisiert ins CRM übernehmen\",\n      \"beruehrte_teilprozesse\": [\"KP-02.TP-3\"],\n      \"ausgangslage\": \"Bevor ein Erstgespräch terminiert werden kann, müssen eingehende Anfragen im EspoCRM erfasst sein. Bei Leads aus dem CRM-Formular oder LinkedIn läuft das automatisch, bei Anfragen per E-Mail wird der Datensatz manuell angelegt und gepflegt.\",\n      \"schmerzpunkte\": [\n        \"Email-Anfragen erzeugen manuellen Erfassungsaufwand im CRM statt automatischer Übernahme\",\n        \"Medienbruch zwischen Email-Postfach und EspoCRM verzögert den Beginn der Terminvereinbarung\"\n      ],\n      \"loesungsansatz\": \"Eingehende E-Mails strukturiert auslesen (Absender, Anliegen, Kontaktdaten) und automatisch als Lead-/Termin-Anfrage in EspoCRM anlegen, statt sie manuell abzutippen.\",\n      \"loesungsklasse\": \"dokumentenverarbeitung\",\n      \"trenntest_begruendung\": \"Kann unabhängig von der Nachbereitung des Gesprächs in Betrieb gehen, da sie ausschließlich am Anfang von TP-3 (Termin vereinbaren) ansetzt. Die Nutzenrechnung betrifft die Erfassungszeit vor dem Gespräch und überschneidet sich nicht mit P2, das die Zeit nach dem Gespräch betrifft.\",\n      \"unsicherheit\": \"Unklar, welcher Anteil der eingehenden Anfragen tatsächlich per Email statt über CRM-Formular oder LinkedIn eingeht — das bestimmt die Größe des Potenzials.\"\n    },\n    {\n      \"id\": \"P2\",\n      \"kernprozess_id\": \"KP-02\",\n      \"titel\": \"Gesprächsnachbereitung automatisieren\",\n      \"beruehrte_teilprozesse\": [\"KP-02.TP-3\"],\n      \"ausgangslage\": \"Nach dem Erstgespräch überträgt die beratende Person die Mitschrift manuell in eine CRM-Notiz und legt von Hand eine Nachfass-Aufgabe an.\",\n      \"schmerzpunkte\": [\n        \"Manuelle Übertragung der Gesprächsmitschrift in eine strukturierte CRM-Notiz\",\n        \"Nachfass-Aufgabe wird händisch formuliert und angelegt statt aus dem Gesprächsinhalt abgeleitet\"\n      ],\n      \"loesungsansatz\": \"Mitschrift des Erstgesprächs automatisiert zusammenfassen, als strukturierte CRM-Notiz ablegen und daraus einen Vorschlag für die Nachfass-Aufgabe (Inhalt, Frist) erzeugen.\",\n      \"loesungsklasse\": \"dokumentenverarbeitung\",\n      \"trenntest_begruendung\": \"Setzt erst nach dem eigentlichen Gespräch an und kann unabhängig von der Intake-Automatisierung eingehender Anfragen (P1) in Betrieb gehen. Die Nutzenrechnung betrifft die Nachbereitungszeit (CRM-Pflege, Aufgabenerstellung) und zählt damit nichts von P1 doppelt, das die Erfassungszeit vor dem Termin betrifft.\",\n      \"unsicherheit\": \"Unklar, in welcher Form die Mitschrift vorliegt (handschriftlich, digitale Notiz, Aufzeichnung) — das entscheidet, ob zusätzlich eine Transkription nötig ist oder reine Textstrukturierung reicht.\"\n    }\n  ],\n  \"nicht_geschnitten\": []\n}\n```\n",
+      "ergebnis": {
+        "potenziale": [
+          {
+            "id": "P1",
+            "kernprozess_id": "KP-02",
+            "titel": "E-Mail-Anfragen automatisiert ins CRM übernehmen",
+            "beruehrte_teilprozesse": [
+              "KP-02.TP-3"
+            ],
+            "ausgangslage": "Bevor ein Erstgespräch terminiert werden kann, müssen eingehende Anfragen im EspoCRM erfasst sein. Bei Leads aus dem CRM-Formular oder LinkedIn läuft das automatisch, bei Anfragen per E-Mail wird der Datensatz manuell angelegt und gepflegt.",
+            "schmerzpunkte": [
+              "Email-Anfragen erzeugen manuellen Erfassungsaufwand im CRM statt automatischer Übernahme",
+              "Medienbruch zwischen Email-Postfach und EspoCRM verzögert den Beginn der Terminvereinbarung"
+            ],
+            "loesungsansatz": "Eingehende E-Mails strukturiert auslesen (Absender, Anliegen, Kontaktdaten) und automatisch als Lead-/Termin-Anfrage in EspoCRM anlegen, statt sie manuell abzutippen.",
+            "loesungsklasse": "dokumentenverarbeitung",
+            "trenntest_begruendung": "Kann unabhängig von der Nachbereitung des Gesprächs in Betrieb gehen, da sie ausschließlich am Anfang von TP-3 (Termin vereinbaren) ansetzt. Die Nutzenrechnung betrifft die Erfassungszeit vor dem Gespräch und überschneidet sich nicht mit P2, das die Zeit nach dem Gespräch betrifft.",
+            "unsicherheit": "Unklar, welcher Anteil der eingehenden Anfragen tatsächlich per Email statt über CRM-Formular oder LinkedIn eingeht — das bestimmt die Größe des Potenzials."
+          },
+          {
+            "id": "P2",
+            "kernprozess_id": "KP-02",
+            "titel": "Gesprächsnachbereitung automatisieren",
+            "beruehrte_teilprozesse": [
+              "KP-02.TP-3"
+            ],
+            "ausgangslage": "Nach dem Erstgespräch überträgt die beratende Person die Mitschrift manuell in eine CRM-Notiz und legt von Hand eine Nachfass-Aufgabe an.",
+            "schmerzpunkte": [
+              "Manuelle Übertragung der Gesprächsmitschrift in eine strukturierte CRM-Notiz",
+              "Nachfass-Aufgabe wird händisch formuliert und angelegt statt aus dem Gesprächsinhalt abgeleitet"
+            ],
+            "loesungsansatz": "Mitschrift des Erstgesprächs automatisiert zusammenfassen, als strukturierte CRM-Notiz ablegen und daraus einen Vorschlag für die Nachfass-Aufgabe (Inhalt, Frist) erzeugen.",
+            "loesungsklasse": "dokumentenverarbeitung",
+            "trenntest_begruendung": "Setzt erst nach dem eigentlichen Gespräch an und kann unabhängig von der Intake-Automatisierung eingehender Anfragen (P1) in Betrieb gehen. Die Nutzenrechnung betrifft die Nachbereitungszeit (CRM-Pflege, Aufgabenerstellung) und zählt damit nichts von P1 doppelt, das die Erfassungszeit vor dem Termin betrifft.",
+            "unsicherheit": "Unklar, in welcher Form die Mitschrift vorliegt (handschriftlich, digitale Notiz, Aufzeichnung) — das entscheidet, ob zusätzlich eine Transkription nötig ist oder reine Textstrukturierung reicht."
+          }
+        ],
+        "nicht_geschnitten": []
+      }
+    },
+    {
+      "aufruf": "KP-02.TP-4",
+      "roh": "```json\n{\n  \"potenziale\": [\n    {\n      \"id\": \"P1\",\n      \"kernprozess_id\": \"KP-02\",\n      \"titel\": \"Automatisierte Erfassung eingehender Email-Anfragen ins CRM\",\n      \"beruehrte_teilprozesse\": [\"KP-02.TP-4\"],\n      \"ausgangslage\": \"Anfragen kommen unter anderem per Email herein und müssen von Hand ins EspoCRM übertragen werden, während andere Kanäle (Web, LinkedIn) bereits direkt ins CRM laufen.\",\n      \"schmerzpunkte\": [\n        \"Manuelle CRM-Pflege bei Email-Anfragen als expliziter Medienbruch\",\n        \"Eingehende Informationen sind nur überwiegend, nicht vollständig digital verfügbar\"\n      ],\n      \"loesungsansatz\": \"Eingehende Emails strukturiert auslesen und automatisiert als Lead/Vorgang im EspoCRM anlegen bzw. anreichern, statt die Übertragung von Hand vorzunehmen.\",\n      \"loesungsklasse\": \"dokumentenverarbeitung\",\n      \"trenntest_begruendung\": \"Kann unabhängig von einer Automatisierung der Vorschlagserstellung in Betrieb gehen, da es ausschließlich die Dateneingangsseite betrifft; die Nutzenrechnung (eingesparte manuelle Übertragungszeit bei Email-Anfragen) überschneidet sich nicht mit der Nutzenrechnung der Vorschlagserstellung, die erst nach vollständiger CRM-Erfassung ansetzt.\",\n      \"unsicherheit\": \"Unklar, wie strukturiert bzw. heterogen die eingehenden Emails tatsächlich sind und wie hoch der heute manuell betriebene Aufwand ist — dazu liegt kein Beleg vor.\"\n    },\n    {\n      \"id\": \"P2\",\n      \"kernprozess_id\": \"KP-02\",\n      \"titel\": \"Automatisierte Erstellung des Engagement-Vorschlags\",\n      \"beruehrte_teilprozesse\": [\"KP-02.TP-4\"],\n      \"ausgangslage\": \"Nach Scope-Abstimmung werden Tagessätze kalkuliert und ein Vorschlags-Dokument erstellt und versendet; dies geschieht auf Basis vorhandener Branchen- und Tagessatz-Vorlagen, aber ohne durchgängige Automatisierung.\",\n      \"schmerzpunkte\": [\n        \"Geschäftsprozess ist laut Bewertung nur teilautomatisiert abgedeckt\",\n        \"Kalkulation und Dokumenterstellung erfolgen manuell auf Basis vorhandener Vorlagen, statt automatisiert generiert zu werden\"\n      ],\n      \"loesungsansatz\": \"Tagessatz-Kalkulation und Vorschlags-Dokument auf Basis der bestehenden Branchen- und Tagessatz-Vorlagen sowie der CRM-Daten regelbasiert automatisiert erzeugen und zum Versand vorbereiten.\",\n      \"loesungsklasse\": \"regelwerk\",\n      \"trenntest_begruendung\": \"Kann unabhängig von einer Automatisierung der Email-CRM-Erfassung in Betrieb gehen, da die Kalkulation und Dokumenterstellung auf den bereits im CRM vorliegenden Daten aufsetzen, unabhängig davon, wie diese hineingelangt sind; die Nutzenrechnung (eingesparte Zeit bei Kalkulation und Dokumenterstellung) ist von der Nutzenrechnung der Email-Erfassung getrennt, da beide unterschiedliche Arbeitsschritte im Ablauf betreffen.\",\n      \"unsicherheit\": \"Belege deuten auf branchenspezifische Zuschnitte der Vorschläge hin (Item 20); unklar, wie weit sich diese Anpassung regelbasiert automatisieren lässt oder ob am Ende weiterhin eine fachliche Prüfung nötig bleibt.\"\n    }\n  ],\n  \"nicht_geschnitten\": []\n}\n```\n",
+      "ergebnis": {
+        "potenziale": [
+          {
+            "id": "P1",
+            "kernprozess_id": "KP-02",
+            "titel": "Automatisierte Erfassung eingehender Email-Anfragen ins CRM",
+            "beruehrte_teilprozesse": [
+              "KP-02.TP-4"
+            ],
+            "ausgangslage": "Anfragen kommen unter anderem per Email herein und müssen von Hand ins EspoCRM übertragen werden, während andere Kanäle (Web, LinkedIn) bereits direkt ins CRM laufen.",
+            "schmerzpunkte": [
+              "Manuelle CRM-Pflege bei Email-Anfragen als expliziter Medienbruch",
+              "Eingehende Informationen sind nur überwiegend, nicht vollständig digital verfügbar"
+            ],
+            "loesungsansatz": "Eingehende Emails strukturiert auslesen und automatisiert als Lead/Vorgang im EspoCRM anlegen bzw. anreichern, statt die Übertragung von Hand vorzunehmen.",
+            "loesungsklasse": "dokumentenverarbeitung",
+            "trenntest_begruendung": "Kann unabhängig von einer Automatisierung der Vorschlagserstellung in Betrieb gehen, da es ausschließlich die Dateneingangsseite betrifft; die Nutzenrechnung (eingesparte manuelle Übertragungszeit bei Email-Anfragen) überschneidet sich nicht mit der Nutzenrechnung der Vorschlagserstellung, die erst nach vollständiger CRM-Erfassung ansetzt.",
+            "unsicherheit": "Unklar, wie strukturiert bzw. heterogen die eingehenden Emails tatsächlich sind und wie hoch der heute manuell betriebene Aufwand ist — dazu liegt kein Beleg vor."
+          },
+          {
+            "id": "P2",
+            "kernprozess_id": "KP-02",
+            "titel": "Automatisierte Erstellung des Engagement-Vorschlags",
+            "beruehrte_teilprozesse": [
+              "KP-02.TP-4"
+            ],
+            "ausgangslage": "Nach Scope-Abstimmung werden Tagessätze kalkuliert und ein Vorschlags-Dokument erstellt und versendet; dies geschieht auf Basis vorhandener Branchen- und Tagessatz-Vorlagen, aber ohne durchgängige Automatisierung.",
+            "schmerzpunkte": [
+              "Geschäftsprozess ist laut Bewertung nur teilautomatisiert abgedeckt",
+              "Kalkulation und Dokumenterstellung erfolgen manuell auf Basis vorhandener Vorlagen, statt automatisiert generiert zu werden"
+            ],
+            "loesungsansatz": "Tagessatz-Kalkulation und Vorschlags-Dokument auf Basis der bestehenden Branchen- und Tagessatz-Vorlagen sowie der CRM-Daten regelbasiert automatisiert erzeugen und zum Versand vorbereiten.",
+            "loesungsklasse": "regelwerk",
+            "trenntest_begruendung": "Kann unabhängig von einer Automatisierung der Email-CRM-Erfassung in Betrieb gehen, da die Kalkulation und Dokumenterstellung auf den bereits im CRM vorliegenden Daten aufsetzen, unabhängig davon, wie diese hineingelangt sind; die Nutzenrechnung (eingesparte Zeit bei Kalkulation und Dokumenterstellung) ist von der Nutzenrechnung der Email-Erfassung getrennt, da beide unterschiedliche Arbeitsschritte im Ablauf betreffen.",
+            "unsicherheit": "Belege deuten auf branchenspezifische Zuschnitte der Vorschläge hin (Item 20); unklar, wie weit sich diese Anpassung regelbasiert automatisieren lässt oder ob am Ende weiterhin eine fachliche Prüfung nötig bleibt."
+          }
+        ],
+        "nicht_geschnitten": []
+      }
+    },
+    {
+      "aufruf": "KP-02.TP-5",
+      "roh": "```json\n{\n  \"potenziale\": [\n    {\n      \"id\": \"P1\",\n      \"kernprozess_id\": \"KP-02\",\n      \"titel\": \"Email-Anfragen automatisiert ins CRM übernehmen\",\n      \"beruehrte_teilprozesse\": [\"KP-02.TP-5\"],\n      \"ausgangslage\": \"Anfragen, die per Email eingehen, werden von Hand in EspoCRM nachgepflegt, während Leads aus dem CRM selbst und aus LinkedIn bereits digital und weitgehend automatisiert erfasst sind (Item 1, Item 7-8). Die Systemintegration zwischen EspoCRM, NocoDB und Grafana über n8n ist vorhanden (Item 5) und trägt den Prozess bis auf diese eine Stelle vollständig digital.\",\n      \"schmerzpunkte\": [\n        \"Manuelle CRM-Pflege bei Email-Anfragen — expliziter Medienbruch trotz sonst durchgängiger Digitalisierung\",\n        \"Prozess insgesamt nur schwach durch Software automatisiert (Item 4, Stufe 1), obwohl die Werkzeugkette (EspoCRM, n8n-Sync) dafür vorhanden wäre\"\n      ],\n      \"loesungsansatz\": \"Eingehende Emails strukturiert auslesen und die relevanten Informationen automatisiert als CRM-Datensatz bzw. Update in EspoCRM anlegen, statt sie von Hand zu übertragen — bestehender n8n-Sync als Andockpunkt.\",\n      \"loesungsklasse\": \"dokumentenverarbeitung\",\n      \"trenntest_begruendung\": \"Einziges im Bestand belegtes Potenzial für KP-02.TP-5: Die übrigen Ablaufschritte (Verhandlung führen, Unterzeichnung, Übergabe an KP-03) tragen keine eigenen Schmerzpunkte oder Medienbrüche im Bestand und würden ohne eigene Nutzenrechnung nur den hier beschriebenen Fall verdoppeln — sie sind daher nicht als eigenständiges Potenzial abgrenzbar.\",\n      \"unsicherheit\": \"Kein Mengengerüst im Bestand (Anteil/Zahl der Email-Anfragen an allen eingehenden Leads), daher unklar, wie groß der manuell gepflegte Anteil tatsächlich ist und wie strukturiert die Emails für eine automatisierte Auslese sind.\"\n    }\n  ],\n  \"nicht_geschnitten\": []\n}\n```\n",
+      "ergebnis": {
+        "potenziale": [
+          {
+            "id": "P1",
+            "kernprozess_id": "KP-02",
+            "titel": "Email-Anfragen automatisiert ins CRM übernehmen",
+            "beruehrte_teilprozesse": [
+              "KP-02.TP-5"
+            ],
+            "ausgangslage": "Anfragen, die per Email eingehen, werden von Hand in EspoCRM nachgepflegt, während Leads aus dem CRM selbst und aus LinkedIn bereits digital und weitgehend automatisiert erfasst sind (Item 1, Item 7-8). Die Systemintegration zwischen EspoCRM, NocoDB und Grafana über n8n ist vorhanden (Item 5) und trägt den Prozess bis auf diese eine Stelle vollständig digital.",
+            "schmerzpunkte": [
+              "Manuelle CRM-Pflege bei Email-Anfragen — expliziter Medienbruch trotz sonst durchgängiger Digitalisierung",
+              "Prozess insgesamt nur schwach durch Software automatisiert (Item 4, Stufe 1), obwohl die Werkzeugkette (EspoCRM, n8n-Sync) dafür vorhanden wäre"
+            ],
+            "loesungsansatz": "Eingehende Emails strukturiert auslesen und die relevanten Informationen automatisiert als CRM-Datensatz bzw. Update in EspoCRM anlegen, statt sie von Hand zu übertragen — bestehender n8n-Sync als Andockpunkt.",
+            "loesungsklasse": "dokumentenverarbeitung",
+            "trenntest_begruendung": "Einziges im Bestand belegtes Potenzial für KP-02.TP-5: Die übrigen Ablaufschritte (Verhandlung führen, Unterzeichnung, Übergabe an KP-03) tragen keine eigenen Schmerzpunkte oder Medienbrüche im Bestand und würden ohne eigene Nutzenrechnung nur den hier beschriebenen Fall verdoppeln — sie sind daher nicht als eigenständiges Potenzial abgrenzbar.",
+            "unsicherheit": "Kein Mengengerüst im Bestand (Anteil/Zahl der Email-Anfragen an allen eingehenden Leads), daher unklar, wie groß der manuell gepflegte Anteil tatsächlich ist und wie strukturiert die Emails für eine automatisierte Auslese sind."
+          }
+        ],
+        "nicht_geschnitten": []
+      }
+    },
+    {
+      "aufruf": "KP-03.TP-1",
+      "roh": "```json\n{\n  \"potenziale\": [\n    {\n      \"id\": \"P1\",\n      \"kernprozess_id\": \"KP-03\",\n      \"titel\": \"Kickoff-Agenda automatisch aus Engagement-Daten ableiten\",\n      \"beruehrte_teilprozesse\": [\"KP-03.TP-1\"],\n      \"ausgangslage\": \"Engagement-Daten werden aus KP-02 gelesen, daraus wird eine Kickoff-Agenda erstellt und die Einladung versendet. Die Tool-Kette (GitLab, EspoCRM, n8n) ist vollständig digital angebunden, das Ableiten der Agenda aus den Engagement-Daten sowie das Versenden erfolgen aber inhaltlich noch manuell pro Fall.\",\n      \"schmerzpunkte\": [\n        \"Agenda wird für jedes Engagement einzeln von Hand aus den Engagement-Daten zusammengestellt\",\n        \"Repo-Setup läuft nur teilautomatisch, nicht vollständig durch n8n\",\n        \"Qualität und Vollständigkeit der Agenda hängen von der bearbeitenden Person ab\"\n      ],\n      \"loesungsansatz\": \"Regelbasierte Ableitung der Kickoff-Agenda direkt aus den strukturierten Engagement-Daten (inkl. Repo-Setup-Parametern), automatischer Versand der Einladung darauf aufbauend\",\n      \"loesungsklasse\": \"regelwerk\",\n      \"trenntest_begruendung\": \"Kann unabhängig von der AVV-Digitalisierung gebaut und in Betrieb genommen werden, da sie ausschließlich die Ableitung und den Versand der Agenda betrifft. Der Nutzen liegt in eingesparter Bearbeitungszeit bei der Agenda-Erstellung und überschneidet sich nicht mit dem Nutzen aus der Vermeidung des Papier-Medienbruchs bei der AVV.\",\n      \"unsicherheit\": \"Ob die Engagement-Daten aus KP-02 durchgängig strukturiert genug vorliegen, um die Agenda ohne manuelle Nacharbeit vollautomatisch abzuleiten\"\n    },\n    {\n      \"id\": \"P2\",\n      \"kernprozess_id\": \"KP-03\",\n      \"titel\": \"AVV-Unterzeichnung medienbruchfrei digitalisieren\",\n      \"beruehrte_teilprozesse\": [\"KP-03.TP-1\"],\n      \"ausgangslage\": \"Die AVV-Vereinbarung, einer der Auslöser von KP-03, kann heute papierbasiert unterzeichnet werden, während der übrige Kickoff-Ablauf vollständig digital läuft.\",\n      \"schmerzpunkte\": [\n        \"Medienbruch mitten in einem sonst vollständig digitalen Prozess\",\n        \"Wartezeit bis zum Rücklauf des unterschriebenen Papierdokuments\",\n        \"Manuelle Nachverfolgung und Ablage der unterschriebenen AVV\"\n      ],\n      \"loesungsansatz\": \"Anbindung einer elektronischen Signatur an den bestehenden Tool-Stack (EspoCRM/GitLab), sodass die AVV digital unterschrieben und automatisch abgelegt wird\",\n      \"loesungsklasse\": \"dokumentenverarbeitung\",\n      \"trenntest_begruendung\": \"Kann unabhängig von der Agenda-Automatisierung eingeführt werden, da sie ausschließlich den Signaturweg der AVV betrifft. Der Nutzen liegt im Wegfall der Wartezeit und Nachverfolgung beim Papierprozess und zählt nicht in die Nutzenrechnung der Agenda-Ableitung hinein.\",\n      \"unsicherheit\": \"Welche rechtlichen bzw. Compliance-Anforderungen (DSGVO, AVV-Formvorgaben) an eine elektronische Signatur für diesen Vertragstyp gelten\"\n    }\n  ],\n  \"nicht_geschnitten\": []\n}\n```\n",
+      "ergebnis": {
+        "potenziale": [
+          {
+            "id": "P1",
+            "kernprozess_id": "KP-03",
+            "titel": "Kickoff-Agenda automatisch aus Engagement-Daten ableiten",
+            "beruehrte_teilprozesse": [
+              "KP-03.TP-1"
+            ],
+            "ausgangslage": "Engagement-Daten werden aus KP-02 gelesen, daraus wird eine Kickoff-Agenda erstellt und die Einladung versendet. Die Tool-Kette (GitLab, EspoCRM, n8n) ist vollständig digital angebunden, das Ableiten der Agenda aus den Engagement-Daten sowie das Versenden erfolgen aber inhaltlich noch manuell pro Fall.",
+            "schmerzpunkte": [
+              "Agenda wird für jedes Engagement einzeln von Hand aus den Engagement-Daten zusammengestellt",
+              "Repo-Setup läuft nur teilautomatisch, nicht vollständig durch n8n",
+              "Qualität und Vollständigkeit der Agenda hängen von der bearbeitenden Person ab"
+            ],
+            "loesungsansatz": "Regelbasierte Ableitung der Kickoff-Agenda direkt aus den strukturierten Engagement-Daten (inkl. Repo-Setup-Parametern), automatischer Versand der Einladung darauf aufbauend",
+            "loesungsklasse": "regelwerk",
+            "trenntest_begruendung": "Kann unabhängig von der AVV-Digitalisierung gebaut und in Betrieb genommen werden, da sie ausschließlich die Ableitung und den Versand der Agenda betrifft. Der Nutzen liegt in eingesparter Bearbeitungszeit bei der Agenda-Erstellung und überschneidet sich nicht mit dem Nutzen aus der Vermeidung des Papier-Medienbruchs bei der AVV.",
+            "unsicherheit": "Ob die Engagement-Daten aus KP-02 durchgängig strukturiert genug vorliegen, um die Agenda ohne manuelle Nacharbeit vollautomatisch abzuleiten"
+          },
+          {
+            "id": "P2",
+            "kernprozess_id": "KP-03",
+            "titel": "AVV-Unterzeichnung medienbruchfrei digitalisieren",
+            "beruehrte_teilprozesse": [
+              "KP-03.TP-1"
+            ],
+            "ausgangslage": "Die AVV-Vereinbarung, einer der Auslöser von KP-03, kann heute papierbasiert unterzeichnet werden, während der übrige Kickoff-Ablauf vollständig digital läuft.",
+            "schmerzpunkte": [
+              "Medienbruch mitten in einem sonst vollständig digitalen Prozess",
+              "Wartezeit bis zum Rücklauf des unterschriebenen Papierdokuments",
+              "Manuelle Nachverfolgung und Ablage der unterschriebenen AVV"
+            ],
+            "loesungsansatz": "Anbindung einer elektronischen Signatur an den bestehenden Tool-Stack (EspoCRM/GitLab), sodass die AVV digital unterschrieben und automatisch abgelegt wird",
+            "loesungsklasse": "dokumentenverarbeitung",
+            "trenntest_begruendung": "Kann unabhängig von der Agenda-Automatisierung eingeführt werden, da sie ausschließlich den Signaturweg der AVV betrifft. Der Nutzen liegt im Wegfall der Wartezeit und Nachverfolgung beim Papierprozess und zählt nicht in die Nutzenrechnung der Agenda-Ableitung hinein.",
+            "unsicherheit": "Welche rechtlichen bzw. Compliance-Anforderungen (DSGVO, AVV-Formvorgaben) an eine elektronische Signatur für diesen Vertragstyp gelten"
+          }
+        ],
+        "nicht_geschnitten": []
+      }
+    },
+    {
+      "aufruf": "KP-03.TP-2",
+      "roh": "```json\n{\n  \"potenziale\": [\n    {\n      \"id\": \"P1\",\n      \"kernprozess_id\": \"KP-03\",\n      \"titel\": \"Stakeholder-Erfassung aus Onboarding-Unterlagen automatisieren\",\n      \"beruehrte_teilprozesse\": [\"KP-03.TP-2\"],\n      \"ausgangslage\": \"Mitarbeitende identifizieren die Kunden-Personen anhand von Engagement-Vertrag, AVV-Vereinbarung und Kickoff-Gespräch von Hand, erfassen Rollen und Kontakte und tragen sie als Stakeholder-Map ein. Der Tool-Stack (GitLab, EspoCRM, n8n) ist vollständig digital und integriert, das Repo-Setup läuft bereits teilautomatisch über n8n — die inhaltliche Zusammenstellung von Personen, Rollen und Kontakten geschieht aber weiterhin manuell.\",\n      \"schmerzpunkte\": [\n        \"Die AVV-Unterzeichnung kann auf Papier erfolgen, wodurch Kontakt- und Rolleninformationen nicht born-digital vorliegen und von Hand übertragen werden müssen\",\n        \"Das Repo-/Onboarding-Setup ist nur teilautomatisch (n8n deckt nur einen Teil ab) — Identifikation und Rollenzuordnung der Stakeholder bleibt reine Kopfarbeit\",\n        \"Die Erhebung der Prozessdurchläufe selbst ist nur teilautomatisch, es gibt keine durchgängige, automatische Spur, wer wann welche Stakeholder erfasst hat\"\n      ],\n      \"loesungsansatz\": \"Informationen aus den vorhandenen Eingangsdokumenten (Engagement-Vertrag, AVV, Kickoff-Notizen) automatisiert auslesen und daraus einen Vorschlag für Rollen und Kontakte ableiten, der in EspoCRM vorbefüllt und als Stakeholder-Map dokumentiert wird. Mitarbeitende prüfen und ergänzen den Vorschlag nur noch, statt ihn von Grund auf zu erstellen.\",\n      \"loesungsklasse\": \"dokumentenverarbeitung\",\n      \"trenntest_begruendung\": \"Für diesen Aufruf liegt nur ein Teilprozess vor. Die Schritte 'identifizieren', 'erfassen' und 'dokumentieren' hängen an genau demselben Datensatz und derselben Übergabe aus KP-03.TP-1 (Engagement-Vertrag/AVV) — sie könnten nicht unabhängig voneinander in Betrieb gehen (Bedingung 1 verletzt), und eine Aufteilung würde denselben Zeitgewinn bei der Stakeholder-Map-Erstellung doppelt zählen (Bedingung 2 verletzt). Deshalb ein einziges Potenzial für ganz KP-03.TP-2.\",\n      \"unsicherheit\": \"Offen, wie häufig die AVV-Unterzeichnung tatsächlich auf Papier erfolgt und wie strukturiert Engagement-Vertrag bzw. Kickoff-Notizen als Eingangsdokumente vorliegen — davon hängt ab, wie weit sich die Extraktion von Rollen und Kontakten automatisieren lässt.\"\n    }\n  ],\n  \"nicht_geschnitten\": []\n}\n```\n",
+      "ergebnis": {
+        "potenziale": [
+          {
+            "id": "P1",
+            "kernprozess_id": "KP-03",
+            "titel": "Stakeholder-Erfassung aus Onboarding-Unterlagen automatisieren",
+            "beruehrte_teilprozesse": [
+              "KP-03.TP-2"
+            ],
+            "ausgangslage": "Mitarbeitende identifizieren die Kunden-Personen anhand von Engagement-Vertrag, AVV-Vereinbarung und Kickoff-Gespräch von Hand, erfassen Rollen und Kontakte und tragen sie als Stakeholder-Map ein. Der Tool-Stack (GitLab, EspoCRM, n8n) ist vollständig digital und integriert, das Repo-Setup läuft bereits teilautomatisch über n8n — die inhaltliche Zusammenstellung von Personen, Rollen und Kontakten geschieht aber weiterhin manuell.",
+            "schmerzpunkte": [
+              "Die AVV-Unterzeichnung kann auf Papier erfolgen, wodurch Kontakt- und Rolleninformationen nicht born-digital vorliegen und von Hand übertragen werden müssen",
+              "Das Repo-/Onboarding-Setup ist nur teilautomatisch (n8n deckt nur einen Teil ab) — Identifikation und Rollenzuordnung der Stakeholder bleibt reine Kopfarbeit",
+              "Die Erhebung der Prozessdurchläufe selbst ist nur teilautomatisch, es gibt keine durchgängige, automatische Spur, wer wann welche Stakeholder erfasst hat"
+            ],
+            "loesungsansatz": "Informationen aus den vorhandenen Eingangsdokumenten (Engagement-Vertrag, AVV, Kickoff-Notizen) automatisiert auslesen und daraus einen Vorschlag für Rollen und Kontakte ableiten, der in EspoCRM vorbefüllt und als Stakeholder-Map dokumentiert wird. Mitarbeitende prüfen und ergänzen den Vorschlag nur noch, statt ihn von Grund auf zu erstellen.",
+            "loesungsklasse": "dokumentenverarbeitung",
+            "trenntest_begruendung": "Für diesen Aufruf liegt nur ein Teilprozess vor. Die Schritte 'identifizieren', 'erfassen' und 'dokumentieren' hängen an genau demselben Datensatz und derselben Übergabe aus KP-03.TP-1 (Engagement-Vertrag/AVV) — sie könnten nicht unabhängig voneinander in Betrieb gehen (Bedingung 1 verletzt), und eine Aufteilung würde denselben Zeitgewinn bei der Stakeholder-Map-Erstellung doppelt zählen (Bedingung 2 verletzt). Deshalb ein einziges Potenzial für ganz KP-03.TP-2.",
+            "unsicherheit": "Offen, wie häufig die AVV-Unterzeichnung tatsächlich auf Papier erfolgt und wie strukturiert Engagement-Vertrag bzw. Kickoff-Notizen als Eingangsdokumente vorliegen — davon hängt ab, wie weit sich die Extraktion von Rollen und Kontakten automatisieren lässt."
+          }
+        ],
+        "nicht_geschnitten": []
+      }
+    },
+    {
+      "aufruf": "KP-03.TP-3",
+      "roh": "```json\n{\n  \"potenziale\": [\n    {\n      \"id\": \"P1\",\n      \"kernprozess_id\": \"KP-03\",\n      \"titel\": \"Tool-Provisionierung beim Onboarding vollautomatisieren\",\n      \"beruehrte_teilprozesse\": [\"KP-03.TP-3\"],\n      \"ausgangslage\": \"Beim Onboarding werden GitLab-Repo, Channel/Tracker und Zugriffsrechte nacheinander eingerichtet. Der Tool-Stack (GitLab, EspoCRM, n8n) ist vollständig digital und integriert, das Repo-Setup läuft bereits teilautomatisch über n8n. Channel/Tracker-Erstellung und Rechtevergabe sind laut Ablaufbeschreibung eigene, nicht als automatisiert vermerkte Schritte.\",\n      \"schmerzpunkte\": [\n        \"Repo-Setup ist nur teilautomatisch, nicht durchgängig\",\n        \"Channel/Tracker-Erstellung und Zugriffsrechte-Vergabe wirken als separate manuelle Handgriffe trotz vollständig digitalem und integriertem Tool-Stack\",\n        \"manuelle Rechtevergabe ist fehleranfällig und macht den Start des eigentlichen Onboardings von der Verfügbarkeit einer ausführenden Person abhängig\"\n      ],\n      \"loesungsansatz\": \"Bestehenden n8n-Workflow von Repo-Setup auf die gesamte Kette ausweiten: Trigger durch das Vorliegen des unterzeichneten Engagement-Vertrags löst automatisch Repo-Anlage, Channel/Tracker-Erstellung und Zugriffsrechte-Vergabe über die vorhandenen APIs von GitLab und EspoCRM aus, ohne manuellen Zwischenschritt.\",\n      \"loesungsklasse\": \"regelwerk\",\n      \"trenntest_begruendung\": \"Das Potenzial deckt ausschließlich die drei Provisionierungsschritte von KP-03.TP-3 ab und könnte unabhängig von jeder anderen Automatisierung im Kunden-Onboarding in Betrieb gehen, da es keine Daten oder Ergebnisse anderer Teilprozesse voraussetzt oder erzeugt; sein Nutzen (eingesparte Zeit/Fehlerquote bei Repo-, Channel/Tracker- und Rechte-Einrichtung) wird ausschließlich innerhalb dieses einen Teilprozesses erzeugt und fließt in keine andere Nutzenrechnung ein.\",\n      \"unsicherheit\": \"Bewertungsbogen spezifiziert nicht, welcher Anteil von Channel/Tracker-Erstellung und Rechtevergabe heute bereits automatisiert ist ('teilautomatisch' ist nur für das Repo-Setup belegt); bc1_profil liegt nicht vor, daher fehlt eine unabhängige Bestätigung des Ist-Ablaufs.\"\n    }\n  ],\n  \"nicht_geschnitten\": []\n}\n```\n",
+      "ergebnis": {
+        "potenziale": [
+          {
+            "id": "P1",
+            "kernprozess_id": "KP-03",
+            "titel": "Tool-Provisionierung beim Onboarding vollautomatisieren",
+            "beruehrte_teilprozesse": [
+              "KP-03.TP-3"
+            ],
+            "ausgangslage": "Beim Onboarding werden GitLab-Repo, Channel/Tracker und Zugriffsrechte nacheinander eingerichtet. Der Tool-Stack (GitLab, EspoCRM, n8n) ist vollständig digital und integriert, das Repo-Setup läuft bereits teilautomatisch über n8n. Channel/Tracker-Erstellung und Rechtevergabe sind laut Ablaufbeschreibung eigene, nicht als automatisiert vermerkte Schritte.",
+            "schmerzpunkte": [
+              "Repo-Setup ist nur teilautomatisch, nicht durchgängig",
+              "Channel/Tracker-Erstellung und Zugriffsrechte-Vergabe wirken als separate manuelle Handgriffe trotz vollständig digitalem und integriertem Tool-Stack",
+              "manuelle Rechtevergabe ist fehleranfällig und macht den Start des eigentlichen Onboardings von der Verfügbarkeit einer ausführenden Person abhängig"
+            ],
+            "loesungsansatz": "Bestehenden n8n-Workflow von Repo-Setup auf die gesamte Kette ausweiten: Trigger durch das Vorliegen des unterzeichneten Engagement-Vertrags löst automatisch Repo-Anlage, Channel/Tracker-Erstellung und Zugriffsrechte-Vergabe über die vorhandenen APIs von GitLab und EspoCRM aus, ohne manuellen Zwischenschritt.",
+            "loesungsklasse": "regelwerk",
+            "trenntest_begruendung": "Das Potenzial deckt ausschließlich die drei Provisionierungsschritte von KP-03.TP-3 ab und könnte unabhängig von jeder anderen Automatisierung im Kunden-Onboarding in Betrieb gehen, da es keine Daten oder Ergebnisse anderer Teilprozesse voraussetzt oder erzeugt; sein Nutzen (eingesparte Zeit/Fehlerquote bei Repo-, Channel/Tracker- und Rechte-Einrichtung) wird ausschließlich innerhalb dieses einen Teilprozesses erzeugt und fließt in keine andere Nutzenrechnung ein.",
+            "unsicherheit": "Bewertungsbogen spezifiziert nicht, welcher Anteil von Channel/Tracker-Erstellung und Rechtevergabe heute bereits automatisiert ist ('teilautomatisch' ist nur für das Repo-Setup belegt); bc1_profil liegt nicht vor, daher fehlt eine unabhängige Bestätigung des Ist-Ablaufs."
+          }
+        ],
+        "nicht_geschnitten": []
+      }
+    },
+    {
+      "aufruf": "KP-03.TP-4",
+      "roh": "```json\n{\n  \"potenziale\": [\n    {\n      \"id\": \"P1\",\n      \"kernprozess_id\": \"KP-03\",\n      \"titel\": \"AVV-Unterzeichnung digital schließen\",\n      \"beruehrte_teilprozesse\": [\"KP-03.TP-4\"],\n      \"ausgangslage\": \"Die AVV-Vorlage wird angepasst, die Unterzeichnung eingeholt und anschließend ein VVT-Eintrag erstellt. Der übrige Tool-Stack (GitLab, EspoCRM, n8n) ist für diesen Teilprozess vollständig digital und integriert; einzig die Unterzeichnung der AVV kann auf Papier erfolgen.\",\n      \"schmerzpunkte\": [\n        \"AVV-Unterzeichnung kann auf Papier erfolgen und durchbricht damit die sonst durchgängig digitale Kette (Item 6, Stufe 2)\",\n        \"Weil die Unterschrift der einzige nicht-digitale Schritt ist, hängt der anschließende VVT-Eintrag an einem manuell nachzuverfolgenden Papierdokument statt an einem sofort verfügbaren digitalen Beleg\"\n      ],\n      \"loesungsansatz\": \"Digitale Signatur in den bestehenden n8n-Workflow einbinden, sodass AVV-Vorlage, Unterzeichnung und VVT-Eintrag ohne Medienbruch durchlaufen und der VVT-Eintrag direkt aus dem signierten Dokument abgeleitet werden kann.\",\n      \"loesungsklasse\": \"regelwerk\",\n      \"trenntest_begruendung\": \"Die drei Ablaufschritte (Vorlage anpassen, Unterzeichnung, VVT-Eintrag) bilden hier ein Potenzial statt zwei oder drei: (1) eine separate Automatisierung nur der VVT-Erstellung könnte nicht unabhängig in Betrieb gehen, solange die Unterschrift papierbasiert bleibt, da der VVT-Eintrag auf dem Abschluss der Unterzeichnung aufsetzt; (2) der Nutzen beider Teile hängt an derselben Aktion (Schließen des Medienbruchs bei der Unterschrift) — getrennt gezählt würde derselbe Zeitgewinn doppelt erfasst.\",\n      \"unsicherheit\": \"Wie hoch der heutige manuelle Aufwand für die papierbasierte Unterzeichnung tatsächlich ist, ist hier nicht erhoben (bc1_profil fehlt); die Einschätzung stützt sich allein auf die Bitkom-Bewertung und deren Beleg-Text.\"\n    }\n  ],\n  \"nicht_geschnitten\": []\n}\n```\n",
+      "ergebnis": {
+        "potenziale": [
+          {
+            "id": "P1",
+            "kernprozess_id": "KP-03",
+            "titel": "AVV-Unterzeichnung digital schließen",
+            "beruehrte_teilprozesse": [
+              "KP-03.TP-4"
+            ],
+            "ausgangslage": "Die AVV-Vorlage wird angepasst, die Unterzeichnung eingeholt und anschließend ein VVT-Eintrag erstellt. Der übrige Tool-Stack (GitLab, EspoCRM, n8n) ist für diesen Teilprozess vollständig digital und integriert; einzig die Unterzeichnung der AVV kann auf Papier erfolgen.",
+            "schmerzpunkte": [
+              "AVV-Unterzeichnung kann auf Papier erfolgen und durchbricht damit die sonst durchgängig digitale Kette (Item 6, Stufe 2)",
+              "Weil die Unterschrift der einzige nicht-digitale Schritt ist, hängt der anschließende VVT-Eintrag an einem manuell nachzuverfolgenden Papierdokument statt an einem sofort verfügbaren digitalen Beleg"
+            ],
+            "loesungsansatz": "Digitale Signatur in den bestehenden n8n-Workflow einbinden, sodass AVV-Vorlage, Unterzeichnung und VVT-Eintrag ohne Medienbruch durchlaufen und der VVT-Eintrag direkt aus dem signierten Dokument abgeleitet werden kann.",
+            "loesungsklasse": "regelwerk",
+            "trenntest_begruendung": "Die drei Ablaufschritte (Vorlage anpassen, Unterzeichnung, VVT-Eintrag) bilden hier ein Potenzial statt zwei oder drei: (1) eine separate Automatisierung nur der VVT-Erstellung könnte nicht unabhängig in Betrieb gehen, solange die Unterschrift papierbasiert bleibt, da der VVT-Eintrag auf dem Abschluss der Unterzeichnung aufsetzt; (2) der Nutzen beider Teile hängt an derselben Aktion (Schließen des Medienbruchs bei der Unterschrift) — getrennt gezählt würde derselbe Zeitgewinn doppelt erfasst.",
+            "unsicherheit": "Wie hoch der heutige manuelle Aufwand für die papierbasierte Unterzeichnung tatsächlich ist, ist hier nicht erhoben (bc1_profil fehlt); die Einschätzung stützt sich allein auf die Bitkom-Bewertung und deren Beleg-Text."
+          }
+        ],
+        "nicht_geschnitten": []
+      }
+    },
+    {
+      "aufruf": "KP-03.TP-5",
+      "roh": "```json\n{\n  \"potenziale\": [\n    {\n      \"id\": \"P1\",\n      \"kernprozess_id\": \"KP-03\",\n      \"titel\": \"AVV-Unterzeichnung digitalisieren\",\n      \"beruehrte_teilprozesse\": [\"KP-03.TP-5\"],\n      \"ausgangslage\": \"Die AVV-Unterzeichnung kann heute papierbasiert erfolgen, obwohl alle übrigen Ein- und Ausgangsdaten des Teilprozesses vollständig digital vorliegen und über GitLab, EspoCRM und n8n verarbeitet werden.\",\n      \"schmerzpunkte\": [\n        \"Medienbruch an genau dieser Stelle, während der restliche Ablauf durchgängig digital ist\",\n        \"Papierunterschrift verzögert den Abschluss und die Übergabe an KP-04, solange das unterzeichnete Dokument nicht digital vorliegt\",\n        \"Manuelle Ablage/Digitalisierung eines Papierdokuments als Bruch im sonst durchgängigen Toolstack\"\n      ],\n      \"loesungsansatz\": \"Anbindung einer E-Signatur-Lösung an den bestehenden Vertrags-/Onboarding-Workflow, sodass die AVV direkt digital unterzeichnet und automatisch in EspoCRM/GitLab abgelegt wird.\",\n      \"loesungsklasse\": \"dokumentenverarbeitung\",\n      \"trenntest_begruendung\": \"Kann unabhängig vom Repo-Setup in Betrieb gehen, da es ein eigenständiges Werkzeug (E-Signatur) an einer eigenen Prozessstelle ergänzt; der Nutzen entsteht ausschließlich aus dem Wegfall des Papier-Medienbruchs und überschneidet sich nicht mit dem Nutzen einer Repo-Setup-Automatisierung.\",\n      \"unsicherheit\": \"Unklar aus dem Bestand, ob die AVV-Unterzeichnung tatsächlich innerhalb von KP-03.TP-5 stattfindet oder ob es sich um eine wiederholte Erwähnung des Kernprozess-Auslösers handelt, der bereits vor KP-03 liegt.\"\n    },\n    {\n      \"id\": \"P2\",\n      \"kernprozess_id\": \"KP-03\",\n      \"titel\": \"Repo-Setup vollautomatisieren\",\n      \"beruehrte_teilprozesse\": [\"KP-03.TP-5\"],\n      \"ausgangslage\": \"Das Repo-Setup läuft bereits teilautomatisch über n8n, ist damit aber nicht vollständig durch die Software-Lösung abgedeckt.\",\n      \"schmerzpunkte\": [\n        \"Verbleibender manueller Anteil im Repo-Setup trotz vorhandener n8n-Automatisierung\",\n        \"Teilautomatisierung schafft Wartezeit und Abhängigkeit von manueller Nacharbeit, bevor der Abschluss vollständig ist\"\n      ],\n      \"loesungsansatz\": \"Bestehenden n8n-Workflow um die verbleibenden manuellen Schritte des Repo-Setups erweitern, sodass die Einrichtung durchgängig ausgelöst und ohne manuellen Eingriff abgeschlossen wird.\",\n      \"loesungsklasse\": \"regelwerk\",\n      \"trenntest_begruendung\": \"Geht unabhängig von der AVV-Digitalisierung in Betrieb, da es eine bestehende technische Automatisierung (n8n-Workflow) vertieft statt ein neues Werkzeug einzuführen; der Nutzen liegt im Wegfall manueller Setup-Zeit und zählt nicht in die Nutzenrechnung der Signatur-Digitalisierung hinein.\",\n      \"unsicherheit\": \"Aus dem Bestand geht nicht hervor, welche konkreten Schritte im Repo-Setup noch manuell erfolgen — nur dass der Automatisierungsgrad laut Bewertung bei Stufe 3 statt vollständig liegt.\"\n    }\n  ],\n  \"nicht_geschnitten\": []\n}\n```\n",
+      "ergebnis": {
+        "potenziale": [
+          {
+            "id": "P1",
+            "kernprozess_id": "KP-03",
+            "titel": "AVV-Unterzeichnung digitalisieren",
+            "beruehrte_teilprozesse": [
+              "KP-03.TP-5"
+            ],
+            "ausgangslage": "Die AVV-Unterzeichnung kann heute papierbasiert erfolgen, obwohl alle übrigen Ein- und Ausgangsdaten des Teilprozesses vollständig digital vorliegen und über GitLab, EspoCRM und n8n verarbeitet werden.",
+            "schmerzpunkte": [
+              "Medienbruch an genau dieser Stelle, während der restliche Ablauf durchgängig digital ist",
+              "Papierunterschrift verzögert den Abschluss und die Übergabe an KP-04, solange das unterzeichnete Dokument nicht digital vorliegt",
+              "Manuelle Ablage/Digitalisierung eines Papierdokuments als Bruch im sonst durchgängigen Toolstack"
+            ],
+            "loesungsansatz": "Anbindung einer E-Signatur-Lösung an den bestehenden Vertrags-/Onboarding-Workflow, sodass die AVV direkt digital unterzeichnet und automatisch in EspoCRM/GitLab abgelegt wird.",
+            "loesungsklasse": "dokumentenverarbeitung",
+            "trenntest_begruendung": "Kann unabhängig vom Repo-Setup in Betrieb gehen, da es ein eigenständiges Werkzeug (E-Signatur) an einer eigenen Prozessstelle ergänzt; der Nutzen entsteht ausschließlich aus dem Wegfall des Papier-Medienbruchs und überschneidet sich nicht mit dem Nutzen einer Repo-Setup-Automatisierung.",
+            "unsicherheit": "Unklar aus dem Bestand, ob die AVV-Unterzeichnung tatsächlich innerhalb von KP-03.TP-5 stattfindet oder ob es sich um eine wiederholte Erwähnung des Kernprozess-Auslösers handelt, der bereits vor KP-03 liegt."
+          },
+          {
+            "id": "P2",
+            "kernprozess_id": "KP-03",
+            "titel": "Repo-Setup vollautomatisieren",
+            "beruehrte_teilprozesse": [
+              "KP-03.TP-5"
+            ],
+            "ausgangslage": "Das Repo-Setup läuft bereits teilautomatisch über n8n, ist damit aber nicht vollständig durch die Software-Lösung abgedeckt.",
+            "schmerzpunkte": [
+              "Verbleibender manueller Anteil im Repo-Setup trotz vorhandener n8n-Automatisierung",
+              "Teilautomatisierung schafft Wartezeit und Abhängigkeit von manueller Nacharbeit, bevor der Abschluss vollständig ist"
+            ],
+            "loesungsansatz": "Bestehenden n8n-Workflow um die verbleibenden manuellen Schritte des Repo-Setups erweitern, sodass die Einrichtung durchgängig ausgelöst und ohne manuellen Eingriff abgeschlossen wird.",
+            "loesungsklasse": "regelwerk",
+            "trenntest_begruendung": "Geht unabhängig von der AVV-Digitalisierung in Betrieb, da es eine bestehende technische Automatisierung (n8n-Workflow) vertieft statt ein neues Werkzeug einzuführen; der Nutzen liegt im Wegfall manueller Setup-Zeit und zählt nicht in die Nutzenrechnung der Signatur-Digitalisierung hinein.",
+            "unsicherheit": "Aus dem Bestand geht nicht hervor, welche konkreten Schritte im Repo-Setup noch manuell erfolgen — nur dass der Automatisierungsgrad laut Bewertung bei Stufe 3 statt vollständig liegt."
+          }
+        ],
+        "nicht_geschnitten": []
+      }
+    },
+    {
+      "aufruf": "KP-05.TP-1",
+      "roh": "```json\n{\n  \"potenziale\": [\n    {\n      \"id\": \"P1\",\n      \"kernprozess_id\": \"KP-05\",\n      \"titel\": \"Wissenssuche über KI-Assistent statt manueller Drive-Durchsicht\",\n      \"beruehrte_teilprozesse\": [\"KP-05.TP-1\"],\n      \"ausgangslage\": \"Entsteht eine Wissensfrage, durchsuchen Mitarbeitende den Google-Drive-Ordner manuell, öffnen mehrere Dokumente einzeln, lesen sie durch, tragen die Antwort selbst zusammen und geben sie mündlich oder per Mail weiter.\",\n      \"schmerzpunkte\": [\n        \"Suche nach der richtigen Information ist manuell und ordnerweise, kein gezielter Zugriff\",\n        \"Mehrere Dokumente müssen einzeln geöffnet und gelesen werden, bevor eine Antwort feststeht\",\n        \"Zusammentragen der Antwort liegt bei der einzelnen Person, keine wiederverwendbare Ablage der Antwort\",\n        \"Weitergabe mündlich oder per Mail ist nicht durchsuchbar und geht bei der nächsten gleichen Frage verloren\"\n      ],\n      \"loesungsansatz\": \"Ein Assistent, der die vorhandenen Drive-Dokumente als Wissensbasis erschließt und Fragen im Dialog direkt aus den relevanten Dokumentstellen beantwortet, statt die Mitarbeitenden auf die manuelle Ordnersuche zu verweisen.\",\n      \"loesungsklasse\": \"dialog\",\n      \"trenntest_begruendung\": \"Nur dieser eine Teilprozess liegt vor, daher kein Schnitt gegen andere Potenziale nötig. Innerhalb des Ablaufs (suchen, lesen, zusammentragen, weitergeben) lassen sich die Schritte nicht unabhängig in Betrieb nehmen -- eine Suche ohne zusammengetragene Antwort liefert keinen Nutzen -- und ihr Zeitgewinn bezieht sich auf denselben Frage-Antwort-Durchlauf, würde also bei getrennter Zählung doppelt erfasst. Deshalb ein einziges Potenzial.\",\n      \"unsicherheit\": \"Die 30 Bitkom-Bewertungen zu diesem Teilprozess sind laut Beleg Testdaten zur Use-Case-Definition vom 24.08.2026 und ausdrücklich 'nicht erhoben, nicht gemessen' -- sie taugen nicht als Grundlage, nur der Ablauftext. Werkzeuge, Schnittstellen, API und Medienbrüche sind null, es ist also offen, ob und wie die Drive-Dokumente technisch anbindbar sind. bc1_profil fehlt ebenfalls, daher keine zusätzliche Einordnung zu Umfang oder Struktur der Wissensbasis möglich.\"\n    }\n  ],\n  \"nicht_geschnitten\": []\n}\n```\n",
+      "ergebnis": {
+        "potenziale": [
+          {
+            "id": "P1",
+            "kernprozess_id": "KP-05",
+            "titel": "Wissenssuche über KI-Assistent statt manueller Drive-Durchsicht",
+            "beruehrte_teilprozesse": [
+              "KP-05.TP-1"
+            ],
+            "ausgangslage": "Entsteht eine Wissensfrage, durchsuchen Mitarbeitende den Google-Drive-Ordner manuell, öffnen mehrere Dokumente einzeln, lesen sie durch, tragen die Antwort selbst zusammen und geben sie mündlich oder per Mail weiter.",
+            "schmerzpunkte": [
+              "Suche nach der richtigen Information ist manuell und ordnerweise, kein gezielter Zugriff",
+              "Mehrere Dokumente müssen einzeln geöffnet und gelesen werden, bevor eine Antwort feststeht",
+              "Zusammentragen der Antwort liegt bei der einzelnen Person, keine wiederverwendbare Ablage der Antwort",
+              "Weitergabe mündlich oder per Mail ist nicht durchsuchbar und geht bei der nächsten gleichen Frage verloren"
+            ],
+            "loesungsansatz": "Ein Assistent, der die vorhandenen Drive-Dokumente als Wissensbasis erschließt und Fragen im Dialog direkt aus den relevanten Dokumentstellen beantwortet, statt die Mitarbeitenden auf die manuelle Ordnersuche zu verweisen.",
+            "loesungsklasse": "dialog",
+            "trenntest_begruendung": "Nur dieser eine Teilprozess liegt vor, daher kein Schnitt gegen andere Potenziale nötig. Innerhalb des Ablaufs (suchen, lesen, zusammentragen, weitergeben) lassen sich die Schritte nicht unabhängig in Betrieb nehmen -- eine Suche ohne zusammengetragene Antwort liefert keinen Nutzen -- und ihr Zeitgewinn bezieht sich auf denselben Frage-Antwort-Durchlauf, würde also bei getrennter Zählung doppelt erfasst. Deshalb ein einziges Potenzial.",
+            "unsicherheit": "Die 30 Bitkom-Bewertungen zu diesem Teilprozess sind laut Beleg Testdaten zur Use-Case-Definition vom 24.08.2026 und ausdrücklich 'nicht erhoben, nicht gemessen' -- sie taugen nicht als Grundlage, nur der Ablauftext. Werkzeuge, Schnittstellen, API und Medienbrüche sind null, es ist also offen, ob und wie die Drive-Dokumente technisch anbindbar sind. bc1_profil fehlt ebenfalls, daher keine zusätzliche Einordnung zu Umfang oder Struktur der Wissensbasis möglich."
+          }
+        ],
+        "nicht_geschnitten": []
+      }
+    },
+    {
+      "aufruf": "KP-05.TP-2",
+      "roh": "```json\n{\n  \"potenziale\": [],\n  \"nicht_geschnitten\": [\n    {\n      \"teilprozess_id\": \"KP-05.TP-2\",\n      \"grund\": \"Platzhalter-Name ('Teilprozess 2') ohne Ablauf, Werkzeuge, Medienbrüche, Schnittstellen oder BITKOM-Bewertungen; Automatisierungsgrad je Kriterium durchgehend 0 (= nicht erhoben, nicht 'schlecht'), bc1_profil fehlt. Keine belastbare Grundlage, um Ausgangslage, Schmerzpunkte oder Lösungsansatz zu beschreiben.\"\n    }\n  ]\n}\n```\n",
+      "ergebnis": {
+        "potenziale": [],
+        "nicht_geschnitten": [
+          {
+            "teilprozess_id": "KP-05.TP-2",
+            "grund": "Platzhalter-Name ('Teilprozess 2') ohne Ablauf, Werkzeuge, Medienbrüche, Schnittstellen oder BITKOM-Bewertungen; Automatisierungsgrad je Kriterium durchgehend 0 (= nicht erhoben, nicht 'schlecht'), bc1_profil fehlt. Keine belastbare Grundlage, um Ausgangslage, Schmerzpunkte oder Lösungsansatz zu beschreiben."
+          }
+        ]
+      }
+    },
+    {
+      "aufruf": "KP-05.TP-3",
+      "roh": "```json\n{\n  \"potenziale\": [],\n  \"nicht_geschnitten\": [\n    {\n      \"teilprozess_id\": \"KP-05.TP-3\",\n      \"grund\": \"Platzhalter-Name (\\\"Teilprozess 3\\\") ohne inhaltliche Beschreibung (ablauf, werkzeuge, medienbrueche, schnittstellen, api, bc1_profil alle leer/null) und keine Bewertungen (bitkom: [], automatisierungsgrad_je_kriterium in allen sechs Kriterien 0). Damit kein belastbarer Anhaltspunkt fuer Ausgangslage, Schmerzpunkt oder Loesungsklasse -- ein erfundenes Potenzial waere Spekulation.\"\n    }\n  ]\n}\n```\n",
+      "ergebnis": {
+        "potenziale": [],
+        "nicht_geschnitten": [
+          {
+            "teilprozess_id": "KP-05.TP-3",
+            "grund": "Platzhalter-Name (\"Teilprozess 3\") ohne inhaltliche Beschreibung (ablauf, werkzeuge, medienbrueche, schnittstellen, api, bc1_profil alle leer/null) und keine Bewertungen (bitkom: [], automatisierungsgrad_je_kriterium in allen sechs Kriterien 0). Damit kein belastbarer Anhaltspunkt fuer Ausgangslage, Schmerzpunkt oder Loesungsklasse -- ein erfundenes Potenzial waere Spekulation."
+          }
+        ]
+      }
+    },
+    {
+      "aufruf": "KP-05.TP-4",
+      "roh": "```json\n{\n  \"potenziale\": [],\n  \"nicht_geschnitten\": [\n    {\n      \"teilprozess_id\": \"KP-05.TP-4\",\n      \"grund\": \"Platzhalter-Name ('Teilprozess 4') ohne Ablaufbeschreibung (ablauf leer, werkzeuge/medienbrueche/schnittstellen/api null); keine Bitkom-Bewertungen erfasst (bitkom: []); automatisierungsgrad_je_kriterium durchgaengig 0 -- das heisst nicht erhoben, nicht schlecht; kein bc1_profil. Keine belastbare Grundlage, um daraus ein Potenzial zu schneiden.\"\n    }\n  ]\n}\n```\n",
+      "ergebnis": {
+        "potenziale": [],
+        "nicht_geschnitten": [
+          {
+            "teilprozess_id": "KP-05.TP-4",
+            "grund": "Platzhalter-Name ('Teilprozess 4') ohne Ablaufbeschreibung (ablauf leer, werkzeuge/medienbrueche/schnittstellen/api null); keine Bitkom-Bewertungen erfasst (bitkom: []); automatisierungsgrad_je_kriterium durchgaengig 0 -- das heisst nicht erhoben, nicht schlecht; kein bc1_profil. Keine belastbare Grundlage, um daraus ein Potenzial zu schneiden."
+          }
+        ]
+      }
+    },
+    {
+      "aufruf": "KP-05.TP-5",
+      "roh": "```json\n{\n  \"potenziale\": [],\n  \"nicht_geschnitten\": [\n    {\n      \"teilprozess_id\": \"KP-05.TP-5\",\n      \"grund\": \"Platzhalter-Name (\\\"Teilprozess 5\\\") ohne inhaltliche Beschreibung; ablauf, werkzeuge, medienbrueche, schnittstellen, api und bc1_profil sind leer oder null, bitkom ist eine leere Liste und alle Kriterien in automatisierungsgrad_je_kriterium stehen auf 0 — das ist als \\\"nicht erhoben\\\" zu lesen, nicht als schlechte Bewertung. Ohne jede fachliche Grundlage laesst sich weder eine Ausgangslage noch ein Schmerzpunkt noch ein Loesungsansatz benennen; ein Potenzial waere hier erfunden.\"\n    }\n  ]\n}\n```\n",
+      "ergebnis": {
+        "potenziale": [],
+        "nicht_geschnitten": [
+          {
+            "teilprozess_id": "KP-05.TP-5",
+            "grund": "Platzhalter-Name (\"Teilprozess 5\") ohne inhaltliche Beschreibung; ablauf, werkzeuge, medienbrueche, schnittstellen, api und bc1_profil sind leer oder null, bitkom ist eine leere Liste und alle Kriterien in automatisierungsgrad_je_kriterium stehen auf 0 — das ist als \"nicht erhoben\" zu lesen, nicht als schlechte Bewertung. Ohne jede fachliche Grundlage laesst sich weder eine Ausgangslage noch ein Schmerzpunkt noch ein Loesungsansatz benennen; ein Potenzial waere hier erfunden."
+          }
+        ]
+      }
+    },
+    {
+      "aufruf": "KP-06.TP-2",
+      "roh": "```json\n{\n  \"potenziale\": [\n    {\n      \"id\": \"P1\",\n      \"kernprozess_id\": \"KP-06\",\n      \"titel\": \"Reise- und Einsatzbuchung\",\n      \"beruehrte_teilprozesse\": [\"KP-06.TP-2\"],\n      \"ausgangslage\": \"Reiseanfragen gehen per Mail oder Formular ein, die Verfuegbarkeit wird geprueft, ein Angebot wird manuell erstellt, die Bestaetigung erfolgt per Mail und die Buchung wird anschliessend manuell vorgenommen -- der gesamte Weg von Anfrage bis Buchung liegt durchgaengig in Mitarbeiterhand.\",\n      \"schmerzpunkte\": [\n        \"Anfragen kommen unstrukturiert per Mail oder Formular an, ohne einheitliche Erfassung\",\n        \"Verfuegbarkeitspruefung erfolgt manuell statt automatisiert gegen die bestehende Planung\",\n        \"Angebotserstellung ist ein eigenstaendiger manueller Schritt ohne erkennbares Regelwerk oder Vorlage\",\n        \"Bestaetigung und Buchung laufen als getrennte manuelle Schritte per Mail statt als ein durchgaengiger Vorgang\",\n        \"Zwischen Mail-Eingang, Pruefung und Buchung liegen durch den beschriebenen Ablauf nahegelegte Medienbrueche, ohne dass Werkzeuge oder Schnittstellen dokumentiert sind\"\n      ],\n      \"loesungsansatz\": \"Ein Assistenzsystem nimmt eingehende Reiseanfragen aus Mail oder Formular strukturiert auf, gleicht die Verfuegbarkeit automatisiert ab, entwirft ein Angebot nach hinterlegten Regeln und stoesst Bestaetigung sowie Buchung an -- Mitarbeitende pruefen und geben frei, statt jeden Schritt selbst auszufuehren.\",\n      \"loesungsklasse\": \"assistenz\",\n      \"trenntest_begruendung\": \"Anfrage, Verfuegbarkeitspruefung, Angebotserstellung, Bestaetigung und Buchung haengen sequenziell voneinander ab -- keiner der Schritte koennte unabhaengig von den anderen in Betrieb gehen (Bedingung 1 nicht erfuellt), und eine Aufspaltung wuerde denselben Ablauf und denselben Nutzen doppelt zaehlen (Bedingung 2 nicht erfuellt). Da beide Bedingungen fuer eine Trennung fehlen, bleibt es EIN Potenzial. Im vorliegenden Bestand liegt zudem nur dieser eine Teilprozess vor, es gibt keinen weiteren Kandidaten zur Abgrenzung.\",\n      \"unsicherheit\": \"Werkzeuge, Medienbrueche, Schnittstellen und API-Anbindung sind fuer diesen Teilprozess nicht erfasst (Felder null); die BITKOM-Belege sind durchgaengig als Testdaten ('nicht erhoben, nicht gemessen') gekennzeichnet -- die Stufenwerte selbst liegen vor und wurden hier nur als qualitative Grundlage genutzt, nicht als gemessener Befund.\"\n    }\n  ],\n  \"nicht_geschnitten\": []\n}\n```\n",
+      "ergebnis": {
+        "potenziale": [
+          {
+            "id": "P1",
+            "kernprozess_id": "KP-06",
+            "titel": "Reise- und Einsatzbuchung",
+            "beruehrte_teilprozesse": [
+              "KP-06.TP-2"
+            ],
+            "ausgangslage": "Reiseanfragen gehen per Mail oder Formular ein, die Verfuegbarkeit wird geprueft, ein Angebot wird manuell erstellt, die Bestaetigung erfolgt per Mail und die Buchung wird anschliessend manuell vorgenommen -- der gesamte Weg von Anfrage bis Buchung liegt durchgaengig in Mitarbeiterhand.",
+            "schmerzpunkte": [
+              "Anfragen kommen unstrukturiert per Mail oder Formular an, ohne einheitliche Erfassung",
+              "Verfuegbarkeitspruefung erfolgt manuell statt automatisiert gegen die bestehende Planung",
+              "Angebotserstellung ist ein eigenstaendiger manueller Schritt ohne erkennbares Regelwerk oder Vorlage",
+              "Bestaetigung und Buchung laufen als getrennte manuelle Schritte per Mail statt als ein durchgaengiger Vorgang",
+              "Zwischen Mail-Eingang, Pruefung und Buchung liegen durch den beschriebenen Ablauf nahegelegte Medienbrueche, ohne dass Werkzeuge oder Schnittstellen dokumentiert sind"
+            ],
+            "loesungsansatz": "Ein Assistenzsystem nimmt eingehende Reiseanfragen aus Mail oder Formular strukturiert auf, gleicht die Verfuegbarkeit automatisiert ab, entwirft ein Angebot nach hinterlegten Regeln und stoesst Bestaetigung sowie Buchung an -- Mitarbeitende pruefen und geben frei, statt jeden Schritt selbst auszufuehren.",
+            "loesungsklasse": "assistenz",
+            "trenntest_begruendung": "Anfrage, Verfuegbarkeitspruefung, Angebotserstellung, Bestaetigung und Buchung haengen sequenziell voneinander ab -- keiner der Schritte koennte unabhaengig von den anderen in Betrieb gehen (Bedingung 1 nicht erfuellt), und eine Aufspaltung wuerde denselben Ablauf und denselben Nutzen doppelt zaehlen (Bedingung 2 nicht erfuellt). Da beide Bedingungen fuer eine Trennung fehlen, bleibt es EIN Potenzial. Im vorliegenden Bestand liegt zudem nur dieser eine Teilprozess vor, es gibt keinen weiteren Kandidaten zur Abgrenzung.",
+            "unsicherheit": "Werkzeuge, Medienbrueche, Schnittstellen und API-Anbindung sind fuer diesen Teilprozess nicht erfasst (Felder null); die BITKOM-Belege sind durchgaengig als Testdaten ('nicht erhoben, nicht gemessen') gekennzeichnet -- die Stufenwerte selbst liegen vor und wurden hier nur als qualitative Grundlage genutzt, nicht als gemessener Befund."
+          }
+        ],
+        "nicht_geschnitten": []
+      }
+    }
+  ]
+}
