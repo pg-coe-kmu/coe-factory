@@ -36,10 +36,10 @@ wird an BC2s **innerer** Grenze, wo aus einem Profil ein Potenzial wird, nicht h
 
 ## Was der Vertrag bindet
 
-**Die neun typisierten Spalten** — `frequency_per_year`, `executions_per_run`,
-`total_duration_minutes`, `focus_step_duration_minutes`, `focus_step_duration_source`,
-`focus_step_duration_confidence_pct`, `upstream_process_id`, `downstream_process_id`,
-`process_owner_rolle_id` — plus die Identität (`company_id`, `focus_step_id`,
+**Die zehn typisierten Spalten** — `frequency_per_year`, **`step_frequency_per_year`**,
+`executions_per_run`, `total_duration_minutes`, `focus_step_duration_minutes`,
+`focus_step_duration_source`, `focus_step_duration_confidence_pct`, `upstream_process_id`,
+`downstream_process_id`, `process_owner_rolle_id` — plus die Identität (`company_id`, `focus_step_id`,
 `profil_version`, `process_id`, `status`, `erhebung_id`, `paket_version`).
 
 **Dazu acht namentlich benannte Felder aus dem Profil-JSON:** `documentation_status`,
@@ -88,9 +88,19 @@ je Prozessdurchlauf, Kontext für die Bewertung — nicht ein Faktor der Jahresm
 Dreifache der Gesamtkapazität einer Firma mit zehn Mitarbeitenden, für **einen** Schritt.
 Richtig sind 270 Stunden.
 
-**I3 · Plausibilitätsschranke.** Übersteigen die Jahresminuten eines Prozesses die
-Kapazität des Mandanten, rechnet BC2 nicht weiter, sondern meldet. Eine Zahl, die
-niemand leisten kann, ist keine Wertaussage.
+**I3 · Plausibilitätsschranke — BC2 meldet, es bricht nicht ab.** Übersteigen die
+Jahresminuten eines Prozesses die Kapazität des Mandanten, **rechnet BC2 durch und hängt
+den Befund ans Potenzial**; es weist nichts zurück und rechnet nichts weg. Ob ein
+Eingangswert fachlich stimmt, entscheiden BC0 und BC1 — BC2 wertet aus, was es bekommt
+*(geändert am 20.09.2026, [#172](https://github.com/pg-coe-kmu/coe-factory/issues/172); die
+Vorgängerfassung ließ BC2 abbrechen, das wäre eine fachliche Prüfung gewesen)*.
+
+Die Kapazität ist seit #172 **beziffert**, aus dem NoroAI-Unternehmensprofil Kap. 9.4
+(`10 MA × 220 PT × 60 % Auslastung`): **880 PT (7.040 h)** interne Kapazität als
+Warnschwelle — die Kernprozesse KP-01…KP-10 *sind* die nicht-verrechenbare Arbeit —, und
+**2.200 PT (17.600 h)** brutto als harte Grenze, ab der es kein Warnsignal mehr ist,
+sondern ein Datenfehler. Eine Zahl, die niemand leisten kann, ist keine Wertaussage; sie
+wortlos durchzureichen wäre aber auch keine.
 
 **I4 · `erhebung_id` ist Herkunftsanker, keine Stand-Garantie.** BC1 speichert die
 Erhebung mit dem jüngsten Stand **zu dem Zeitpunkt, an dem die Profilzeile angelegt
@@ -121,6 +131,15 @@ dem Präfix `Testdaten ` (das Wort, dann ein Leerzeichen — so in BC1s
 die Kennzeichnung als **Herkunft** an den mitgeführten Eingangswert
 ([#187](https://github.com/pg-coe-kmu/coe-factory/issues/187)). In der erzeugten
 Präsentation muss sichtbar sein, dass die Zahl gesetzt und nicht erhoben war.
+
+**I8 · `step_frequency_per_year` hat Vorrang für den Fokus-Schritt.** Ist das Feld gesetzt,
+läuft der Fokus-Schritt **so oft** im Jahr — nicht `frequency_per_year`-mal. Seine
+Jahresminuten sind dann `step_frequency_per_year × focus_step_duration_minutes`. Ist es
+`null` oder ungelöst, bedeutet das „nicht abweichend", und BC2 fällt auf
+`frequency_per_year` zurück. *(Gebunden am 20.09.2026, offener Punkt 2.)* Das Risiko ist
+asymmetrisch: ein leeres Feld kostet nichts, ein ignoriertes gesetztes lässt BC2
+wissentlich falsch rechnen, obwohl der richtige Wert danebensteht. Dass BC2 an genau so
+einer Multiplikation schon einmal entgleist ist, steht in **I2**.
 
 ## Normalisierung der Zahlen
 
@@ -176,21 +195,30 @@ Lücke am Potenzial. Verloren geht allein die monetäre Wertaussage, nicht der L
 ([#163](https://github.com/pg-coe-kmu/coe-factory/issues/163)). Eine Zeile abzuweisen
 würde BC1 blockieren, ohne dass BC2 etwas gewinnt.
 
-## Was BC1 heute nicht liefert
+## Was BC1 nicht liefert — und was BC2 nicht mehr verlangt
 
-**Rollen.** `bc1.profil_rollen` ist strukturell abgenommen (inklusive `zeitanteil_pct`)
-und **leer**; `process_owner_rolle_id` ist immer `NULL`. Beteiligte stehen als Freitext
-in `focus_step_roles` („Office Management, Consultants"). Daraus eine `rolle_id`
-abzuleiten wäre geraten — BC2 tut es nicht. Befüllt wird die Tabelle mit BC1s
-Rollen-Lesepfad (Abschlussplan BC1, Paket C1); die Rollen-Stammdaten liegen bei BC0.
+**Die Rollenachse ist abgewählt** *(20.09.2026,
+[#172](https://github.com/pg-coe-kmu/coe-factory/issues/172))*. `bc1.profil_rollen` ist
+strukturell abgenommen (inklusive `zeitanteil_pct`) und **leer**, `process_owner_rolle_id`
+ist immer `NULL` — **und das bleibt so.** BC1 baut Paket C1b nicht; es war zuvor als
+Etappe 2 vorgesehen. Eine leere Rollenliste ist damit der **Dauerzustand**, nicht der
+Aufbaustand.
 
-**Zeitanteile.** `zeitanteil_pct` erhebt heute niemand — die Frage gehört zu BC1s
-Etappe 2. Damit fehlt der Eingang für die Kapazitätsachse
-([#172](https://github.com/pg-coe-kmu/coe-factory/issues/172), Option D). **BC2
-verdrahtet diese Achse nicht, bis sie trägt.**
+**BC2 rechnet stattdessen mit einem Mischsatz:** 341 €/PT ≈ **43 €/h** aus dem
+NoroAI-Unternehmensprofil Kap. 9.2 (750.000 € / 2.200 PT), nicht mit
+`rollen_kostensaetze` je Rolle. Für die **Rangfolge** ist das nachweislich gleichwertig —
+ein konstanter Faktor kürzt sich heraus, und rangiert wird, nicht beziffert. Zwei
+Einschränkungen sind bekannt und werden **am Potenzial vermerkt**, nicht verschwiegen:
+bei ungleicher Rollenbesetzung kürzt der Faktor sich *nicht* heraus (K1–K5 spannen
+40–140 EUR/h), und bei absoluten Beträgen untertreibt er, weil 43 €/h am unteren Rand
+dieser Spanne liegt.
 
-Beides steht als Struktur im Schema, damit die Form verbindlich ist, sobald sie befüllt
-wird. Ein Termin ist nicht Teil dieses Vertrags.
+Beteiligte stehen weiterhin als Freitext in `focus_step_roles` („Office Management,
+Consultants"). Daraus eine `rolle_id` abzuleiten wäre geraten — BC2 tut es nicht und
+braucht es nicht mehr.
+
+Die Struktur bleibt im Schema und in `lesen.sql`, damit die Form verbindlich ist, falls
+die Achse je gebraucht wird. Einen Termin dafür gibt es nicht mehr.
 
 ## Offene Punkte
 
@@ -199,12 +227,11 @@ wird. Ein Termin ist nicht Teil dieses Vertrags.
    korrigierte Testprofile als Version 3 nach; bis dahin trägt I2. Erledigt ist damit auch
    die Frage nach `focus_step_media_break`: in der Datenbank steht `ja`/`nein`,
    normalisiert — in allen sechs Zeilen gemessen.
-2. **An BC2: `step_frequency_per_year` (Frage D3, optional).** „Wie oft läuft dieser
-   einzelne Schritt, falls abweichend?" Ist das Feld `gueltig`, läuft der Fokus-Schritt
-   nicht `frequency_per_year`-mal, sondern so oft — und `frequency_per_year ×
-   focus_step_duration_minutes` wäre falsch. Heute ist D3 ungebunden, BC2 sieht es nicht.
-   BC2 entscheidet: binden (dann ins Schema, mit Vorrang vor `frequency_per_year` für den
-   Fokus-Schritt) oder ausdrücklich ignorieren (dann hier festhalten).
+2. **Entschieden: `step_frequency_per_year` wird gebunden** *(BC2, 20.09.2026)* — mit
+   Vorrang vor `frequency_per_year` für den Fokus-Schritt, siehe **Invariante I8**. Das
+   Feld ist ab Fassung 1.2 Vertragsbestandteil und steht in `lesen.sql`. **BC1 muss dafür
+   nichts ändern:** D3 wird ohnehin gefragt, das Feld war nur ungebunden. Damit sind beide
+   offenen Punkte geschlossen.
 
 **K-K wird hingenommen.** Dass eine *offene* Erhebung als aktuell gilt und BC0 sie später
 verwerfen kann, ohne dass der Fremdschlüssel es merkt, ist für BC2 folgenlos: der Anstoß
@@ -212,6 +239,14 @@ kommt seit [#165](https://github.com/pg-coe-kmu/coe-factory/issues/165) erst nac
 Gate-0-Freigabe. BC1 muss dafür nichts ändern.
 
 ## Stand
+
+**Fassung 1.2 — BC2, 20.09.2026.** Zwei Folgen aus
+[#172](https://github.com/pg-coe-kmu/coe-factory/issues/172): **`step_frequency_per_year`
+gebunden** (offener Punkt 2, neue Invariante **I8**) und **die Rollenachse abgewählt** —
+`profil_rollen` und `zeitanteil_pct` sind keine Lücke mehr, sondern verzichtet, BC1 baut
+Paket C1b nicht. Dazu **I3 nachgezogen**: BC2 bricht bei Kapazitätsüberschreitung nicht
+mehr ab, sondern rechnet durch und meldet — die Prüfung ist formal, nicht fachlich — und
+die Schwellen sind beziffert (880 PT intern, 2.200 PT brutto).
 
 **Fassung 1.1 — Vorschlag von BC1, 12.09.2026.** Nach Prüfung gegen den Bau (Branch
 `bc1-db-profil-fundament`) und die echte Zeile `KP-06.TP-2` Version 2 (gegen das Schema
