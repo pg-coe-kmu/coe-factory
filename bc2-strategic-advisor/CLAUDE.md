@@ -14,13 +14,14 @@ läuft im Betrieb und nimmt BC0s Pakete an ([#190](https://github.com/pg-coe-kmu
 (`app/modell/`) rechnet nach ADR-006 · BC2 ([#238](https://github.com/pg-coe-kmu/coe-factory/issues/238));
 die **Gate-1-Oberfläche** (`app/static/index.html`, `app/oberflaeche.py`) zeigt einen Lauf und nimmt
 die Freigabe entgegen ([#243](https://github.com/pg-coe-kmu/coe-factory/issues/243)).
-Offen sind Potenzial-Erkennung ([#194](https://github.com/pg-coe-kmu/coe-factory/issues/194) — dort
-liegt auch das Lesen auf `stand_zum(uebergeben_am)`), Präsentation
+Offen sind der **Bau** des Erkennungsschritts ([#248](https://github.com/pg-coe-kmu/coe-factory/issues/248) —
+der Schnitt selbst ist in [#194](https://github.com/pg-coe-kmu/coe-factory/issues/194) entschieden,
+Schnitt C; dort liegt auch das Lesen auf `stand_zum(uebergeben_am)`), Präsentation
 ([#244](https://github.com/pg-coe-kmu/coe-factory/issues/244)) und der **Tabellenentwurf für Schema
 `bc2`** ([#250](https://github.com/pg-coe-kmu/coe-factory/issues/250)).
 
 ⚠ **Die Oberfläche ist noch nicht betriebsfest**, und sie sagt das selbst an: ihre Läufe kommen aus
-einem Messsatz statt aus der Datenbank (das ist #194), und ihre Entscheidung liegt im
+einem Messsatz statt aus der Datenbank (das ist #248), und ihre Entscheidung liegt im
 **Arbeitsspeicher**, weil Schema `bc2` dafür keinen Ort hat (das ist #250). Beides hängt hinter je
 einem Protokoll — `Laufquelle` und `Gate1Buch` —, die Umsetzungen werden getauscht, nicht die
 Oberfläche.

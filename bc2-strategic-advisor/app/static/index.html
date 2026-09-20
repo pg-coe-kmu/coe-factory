@@ -50,8 +50,9 @@
     - Die Entscheidung liegt im ARBEITSSPEICHER des Dienstes. Schema `bc2` hat
       dafür noch keinen Ort (Nebel der Karte #158, eigenes Ticket).
     - Die Läufe stammen aus einem MESSSATZ, nicht aus der Datenbank. Die
-      Potenzial-Erkennung ist #194 und offen; die Zahlen sind darum nicht auf
-      stand_zum(uebergeben_am) gerechnet und nicht nachrechenbar.
+      Erkennungsschnitt ist in #194 entschieden, aber noch nicht gebaut (#248); die
+      Zahlen sind darum nicht auf stand_zum(uebergeben_am) gerechnet und nicht
+      nachrechenbar.
     - Der DOWNLOAD DER PRÄSENTATION fehlt: Format und Erzeugungsweg sind #244.
 -->
 <style>
@@ -802,7 +803,7 @@ function zeichneBuehne(){
   if (Z.ansicht.prozess_raenge.some(r => !Z.ansicht.kp_namen[r.kp_id]))
     warnungen.push(`<p class="hinweis info">Die <b>Klartextnamen der Kernprozesse</b> stehen in
       <code>public.ref_kernprozesse</code> und werden erst gelesen, wenn die Erkennung gegen die
-      Datenbank läuft (#194). Bis dahin steht hier die Kennung.</p>`);
+      Datenbank läuft (#248). Bis dahin steht hier die Kennung.</p>`);
 
   const kopfzeile = `
     <div style="display:flex;align-items:center;gap:12px;margin:14px 0;flex-wrap:wrap">
@@ -910,7 +911,7 @@ function notiz(){
     <li><b>Was Gate 1 nicht darf:</b> Annahmen ändern. Das wäre Rechnen von Hand und
       zerstörte die Reproduzierbarkeit. Umsortieren und Herausnehmen ja, Zahlen anfassen nein.</li>
     <li><b>Noch nicht da:</b> der Download der Präsentation (Format und Erzeugungsweg sind
-      #244) und die Klartextnamen der Kernprozesse (#194).</li>
+      #244) und die Klartextnamen der Kernprozesse (#248).</li>
   </ol></details>`;
 }
 

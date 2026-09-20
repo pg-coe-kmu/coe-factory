@@ -10,8 +10,8 @@ Modelltypen und sonst nichts — sie gehört dorthin, wo diese Typen definiert
 sind. Sie stand bis zum Bau der Oberfläche (#243) in
 ``tools/kalibrierung.py``; dort wäre sie ein zweites Mal entstanden, sobald ein
 zweiter Aufrufer sie braucht. Genau das trat ein: die Oberfläche zeigt einen
-Lauf, und solange die Potenzial-Erkennung (#194) nicht steht, ist ein Messsatz
-die einzige Quelle dafür.
+Lauf, und solange der Erkennungsschritt nicht gebaut ist (Schnitt entschieden in
+#194, Bau #248), ist ein Messsatz die einzige Quelle dafür.
 
 **Was ein Messsatz nicht ist: ein Lauf aus der Datenbank.** Die Zahlen sind
 erhoben oder erfunden, aber sie sind nicht auf ``stand_zum(uebergeben_am)``

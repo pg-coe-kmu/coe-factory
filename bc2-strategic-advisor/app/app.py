@@ -55,9 +55,9 @@ from laeufe import Laufquelle, MesssatzLaufquelle
 
 log = logging.getLogger("bc2.trigger")
 
-#: Die Messsätze sind die **Behelfsquelle** der Oberfläche, bis #194 die
-#: Potenziale aus dem echten Datenstand erkennt. Sie liegen ausserhalb von
-#: ``app/``, weil sie auch das Kalibrierungswerkzeug speist.
+#: Die Messsätze sind die **Behelfsquelle** der Oberfläche, bis der
+#: Erkennungsschritt die Potenziale aus dem echten Datenstand liest (#248). Sie
+#: liegen ausserhalb von ``app/``, weil sie auch das Kalibrierungswerkzeug speist.
 MESSSAETZE = os.environ.get("BC2_MESSSAETZE") or str(
     (Path(__file__).resolve().parent.parent / "kalibrierung")
 )
@@ -313,8 +313,8 @@ def erzeuge_app(
     ``laufquelle`` und ``gate1_buch`` tragen die Oberfläche (#243). Ohne Angabe
     entstehen die Behelfsfassungen: Läufe aus den Messsätzen unter
     ``kalibrierung/``, Entscheidungen im Arbeitsspeicher. **Beides ist
-    vorläufig** — die echte Quelle ist die Potenzial-Erkennung (#194), die echte
-    Ablage ein noch nicht entworfener Teil von Schema ``bc2``.
+    vorläufig** — die echte Quelle ist der Erkennungsschritt (#248), die echte
+    Ablage ein noch nicht entworfener Teil von Schema ``bc2`` (#250).
     """
     app = FastAPI(
         title="BC2 Strategic Advisor",

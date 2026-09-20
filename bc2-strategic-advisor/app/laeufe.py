@@ -13,9 +13,10 @@ nicht gesehen hat.
 
 - ``MesssatzLaufquelle`` rechnet einen Messsatz durch (siehe
   ``modell/laden.py``). **Das ist die heutige Quelle**, und sie ist eine
-  Behelfslösung: die Potenzial-Erkennung aus dem echten Datenstand ist #194 und
-  noch offen. Ein Messsatz ist nicht auf ``stand_zum(uebergeben_am)`` gelesen,
-  seine Zahlen sind darum nicht nachrechenbar — die Quelle reicht die Warnung
+  Behelfslösung: wie aus dem echten Datenstand Potenziale werden, ist in #194
+  entschieden (Schnitt C, ein Aufruf je Paket), aber noch nicht gebaut (#248).
+  Ein Messsatz ist nicht auf ``stand_zum(uebergeben_am)`` gelesen, seine Zahlen
+  sind darum nicht nachrechenbar — die Quelle reicht die Warnung
   der Datei bis in die Oberfläche durch, statt sie zu schlucken.
 - ``SpeicherLaufquelle`` nimmt fertige Ansichten entgegen; die Tests benutzen
   sie.
@@ -105,8 +106,8 @@ class Laufansicht:
 
     Was hier **fehlt**, fehlt ehrlich: ``beschreibung``, ``to_be_vision``,
     ``user_story``, die Akzeptanzkriterien und der Name des Kernprozesses
-    entstehen beim LLM (#194) bzw. stehen in ``public.ref_kernprozesse``. Die
-    Oberfläche zeigt an dieser Stelle die Kennung und sagt an, dass der Text
+    entstehen beim LLM (#194/#248) bzw. stehen in ``public.ref_kernprozesse``.
+    Die Oberfläche zeigt an dieser Stelle die Kennung und sagt an, dass der Text
     noch nicht da ist, statt einen Platzhalter zu erfinden.
     """
 
@@ -207,9 +208,9 @@ class Laufquelle(Protocol):
 class MesssatzLaufquelle:
     """Rechnet Messsätze aus einem Verzeichnis durch.
 
-    **Behelfsquelle bis #194.** Sie liest keine Datenbank und kann darum auch
-    nicht auf dem Freigabestand rechnen; die ``warnung`` der Datei reist
-    deshalb bis in die Kopfzeile der Oberfläche.
+    **Behelfsquelle, bis der Erkennungsschritt gebaut ist (#248).** Sie liest
+    keine Datenbank und kann darum auch nicht auf dem Freigabestand rechnen;
+    die ``warnung`` der Datei reist deshalb bis in die Kopfzeile der Oberfläche.
     """
 
     def __init__(self, verzeichnis: Path | str, uebergeben_am: datetime | None = None) -> None:
