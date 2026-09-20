@@ -42,14 +42,25 @@ import re
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+import oberflaeche
 from eingang import Eingangsbuch, Paket, PostgresEingangsbuch
+from gate1 import Gate1Buch, SpeicherGate1Buch
+from laeufe import Laufquelle, MesssatzLaufquelle
 
 log = logging.getLogger("bc2.trigger")
+
+#: Die Messsätze sind die **Behelfsquelle** der Oberfläche, bis #194 die
+#: Potenziale aus dem echten Datenstand erkennt. Sie liegen ausserhalb von
+#: ``app/``, weil sie auch das Kalibrierungswerkzeug speist.
+MESSSAETZE = os.environ.get("BC2_MESSSAETZE") or str(
+    (Path(__file__).resolve().parent.parent / "kalibrierung")
+)
 
 PFLICHTFELDER = ("paket_id", "company_id", "uebergeben_am")
 
@@ -291,14 +302,34 @@ async def lebenszyklus(app: FastAPI):
     yield
 
 
-def erzeuge_app(buch: Eingangsbuch | None = None) -> FastAPI:
-    """Baut die Anwendung. ``buch`` wird in den Tests untergeschoben."""
+def erzeuge_app(
+    buch: Eingangsbuch | None = None,
+    *,
+    laufquelle: Laufquelle | None = None,
+    gate1_buch: Gate1Buch | None = None,
+) -> FastAPI:
+    """Baut die Anwendung. Die drei Ablagen werden in den Tests untergeschoben.
+
+    ``laufquelle`` und ``gate1_buch`` tragen die Oberfläche (#243). Ohne Angabe
+    entstehen die Behelfsfassungen: Läufe aus den Messsätzen unter
+    ``kalibrierung/``, Entscheidungen im Arbeitsspeicher. **Beides ist
+    vorläufig** — die echte Quelle ist die Potenzial-Erkennung (#194), die echte
+    Ablage ein noch nicht entworfener Teil von Schema ``bc2``.
+    """
     app = FastAPI(
-        title="BC2 Strategic Advisor — Trigger",
-        description="Nimmt Paket-Anstoesse von BC0 entgegen (#190).",
+        title="BC2 Strategic Advisor",
+        description=(
+            "Nimmt Paket-Anstoesse von BC0 entgegen (#190) und traegt die "
+            "Gate-1-Oberflaeche (#243)."
+        ),
         lifespan=lebenszyklus,
     )
     app.state.buch = buch
+
+    quelle = laufquelle or MesssatzLaufquelle(MESSSAETZE)
+    entscheidungen = gate1_buch or SpeicherGate1Buch()
+    app.state.laufquelle = quelle
+    app.state.gate1_buch = entscheidungen
 
     @app.get("/health")
     def health() -> dict[str, str]:
@@ -400,6 +431,25 @@ def erzeuge_app(buch: Eingangsbuch | None = None) -> FastAPI:
                 {"fehler": "Datenbank nicht erreichbar."}, status_code=503
             )
         return JSONResponse({"nachgeholt": len(neu), "paket_ids": neu})
+
+    # --- Die Oberfläche (#243) ------------------------------------------------
+    #
+    # Sie weist sich mit demselben Schlüssel aus wie BC0s Ruf — ``Bearer``, nicht
+    # HMAC: eine Browser-Seite kann keinen Rumpf signieren, ohne das Geheimnis im
+    # Quelltext zu tragen. Damit ist die Oberfläche **so gut geschützt wie der
+    # Schlüssel geheim ist** und kennt die Identität des Entscheiders nicht; das
+    # steht als Befund am Ticket und in ``oberflaeche.py``.
+    app.include_router(
+        oberflaeche.erzeuge_router(
+            quelle,
+            entscheidungen,
+            _schluessel_stimmt,
+            ablage_art="arbeitsspeicher"
+            if isinstance(entscheidungen, SpeicherGate1Buch)
+            else "datenbank",
+        )
+    )
+    app.include_router(oberflaeche.erzeuge_seiten_router())
 
     return app
 

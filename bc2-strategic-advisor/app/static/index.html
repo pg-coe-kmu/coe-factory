@@ -1,0 +1,1251 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BC2 · Strategic Advisor — Gate 1</title>
+<!--
+  ===========================================================================
+  BC2 · Gate-1-Oberfläche — Fassung D (Ticket #243, entschieden in #167)
+  ===========================================================================
+
+  Eine Datei, kein Rahmenwerk, kein Bauschritt, über StaticFiles aus FastAPI.
+  Die Technikentscheidung fiel in #167 Frage 8 am Vergleich mit BC0s PWA: die
+  ist ebenfalls eine Datei und trägt den ganzen Onboarding-Ablauf. HTMX oder
+  ein SPA lösten hier ein Problem, das nicht vorliegt.
+
+  **Nicht der Prototyp.** Der lag auf `prototyp/167-frontend-schnitt` und wurde
+  ausdrücklich nicht befördert: keine Tests, keine Fehlerbehandlung, Daten aus
+  einer eingebetteten `daten.js`, Zustand im localStorage. Was von ihm bleibt,
+  ist der Schnitt — was neu ist, steht unten unter „Gegenüber dem Prototyp".
+
+  Was diese Fassung behauptet (aus #167):
+
+    1. Einstieg ist die LISTE DER LÄUFE, keine Profilwahl. BC0 stößt an (#165),
+       der Lauf ist das Paket (ADR-005). Jede Abfrage filtert nach company_id.
+    2. Gliederung nach KERNPROZESS als Akkordeon über einer Liste — der
+       Kernprozess ist die Einheit, in der das Konzept an BC3 geht.
+    3. Die MATRIX ist ein Knopf, keine zweite Seite. Sie zeigt die Lage, die
+       Liste trägt die Reihenfolge; ein Quadrant kann keine Folge ausdrücken.
+    4. ZIEHEN AUF ZWEI EBENEN — Zeile im Kernprozess, Kernprozess über seinen
+       Kopf. Quer über Prozessgrenzen gesperrt: das wäre Umhängen, keine
+       Reihenfolgefrage, und am Gate 1 nicht vorgesehen.
+    5. Der VORSCHLAG IST VORBELEGT (alles freigegeben). Begründet wird die
+       Abweichung, nicht die Zustimmung.
+    6. JEDE NICHT-FREIGABE BRAUCHT EINE BEGRÜNDUNG, sonst bleibt Gate 1 zu.
+    7. FEHLENDE DATEN: Etikett statt Zahl, nie eine 0.
+    8. PRÄSENTATION ALS DOWNLOAD, nicht als Anzeige.
+
+  Gegenüber dem Prototyp neu:
+
+    - Die Daten kommen vom Server (/api/oberflaeche/…), nicht aus einer Datei.
+    - Die Entscheidung geht an den Server und wird DORT geprüft. Im Prototyp
+      war die Begründungspflicht ein ausgegrauter Knopf — also eine Bitte.
+    - ↑/↓ neben dem Ziehen. Ziehen ist Maus-Bedienung; auf einem Tablet ginge
+      es nicht. Ausdrückliche Auflage aus #167.
+    - Fehlerbehandlung: jeder Ruf kann scheitern, und die Seite sagt das.
+
+  Drei Dinge, die die Seite ehrlich ansagt statt sie zu verstecken:
+
+    - Die Entscheidung liegt im ARBEITSSPEICHER des Dienstes. Schema `bc2` hat
+      dafür noch keinen Ort (Nebel der Karte #158, eigenes Ticket).
+    - Die Läufe stammen aus einem MESSSATZ, nicht aus der Datenbank. Die
+      Potenzial-Erkennung ist #194 und offen; die Zahlen sind darum nicht auf
+      stand_zum(uebergeben_am) gerechnet und nicht nachrechenbar.
+    - Der DOWNLOAD DER PRÄSENTATION fehlt: Format und Erzeugungsweg sind #244.
+-->
+<style>
+:root{
+  /* Von BC0s PWA übernommen — die beiden Oberflächen sollen nicht wie zwei
+     Produkte aussehen. */
+  --navy:#1F3A5F; --ink:#1f2933; --muted:#6b7280; --line:#dde2e8; --bg:#f4f6f9;
+  --panel:#fff; --accent:#3B6EA5; --ok:#1f9d57; --warn:#c0392b; --amber:#d98c1f;
+  --chip:#eef2f7; --prio1:#1f9d57; --prio2:#d98c1f; --prio3:#8a94a6;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",Calibri,Arial,sans-serif;color:var(--ink);
+     background:var(--bg);font-size:14px;padding-bottom:78px}
+h1{font-size:21px;margin:0 0 2px} h2{font-size:16px;margin:0 0 10px}
+h3{font-size:14px;margin:0 0 6px}
+a{color:var(--accent)}
+code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;
+     background:var(--chip);padding:1px 5px;border-radius:4px}
+button{font-family:inherit}
+
+/* ---------------------------------------------------------------- Kopf --- */
+.topbar{display:flex;align-items:center;gap:14px;background:var(--navy);color:#fff;
+        padding:10px 18px;flex-wrap:wrap}
+.topbar .logo{font-weight:700} .topbar .sub{color:#b9c6d6;font-size:12.5px}
+.topbar .rechts{margin-left:auto;display:flex;align-items:center;gap:10px;
+                color:#cfe0f0;font-size:12.5px}
+.topbar select{background:#16324f;color:#fff;border:1px solid #2c4a6e;border-radius:7px;
+               padding:6px 9px;font-size:12.5px;font-family:inherit;max-width:60vw}
+.laufkopf{background:var(--panel);border-bottom:1px solid var(--line);padding:12px 22px;
+          display:flex;gap:26px;align-items:flex-start;flex-wrap:wrap}
+.laufkopf .kennung{font-size:12.5px;color:var(--muted)}
+.laufkopf .kennung b{color:var(--ink);display:block;font-size:14px;font-weight:600}
+
+.hinweis{margin:0;padding:10px 14px;border-radius:9px;font-size:13px;line-height:1.5}
+.hinweis.warn{background:#fdf0ee;border:1px solid #f0c7c0;color:#8d2b1c}
+.hinweis.info{background:#eef4fb;border:1px solid #cfe0f2;color:#23486f}
+.hinweis.luecke{background:#fbf5e9;border:1px solid #ecd9ae;color:#7a5a12}
+.hinweis + .hinweis{margin-top:9px}
+
+.notiz{margin:14px 22px 0;background:#fff;border:1px dashed #b8c4d4;border-radius:10px;
+       padding:0 14px;font-size:13px}
+.notiz summary{cursor:pointer;padding:10px 0;font-weight:600;color:var(--navy)}
+.notiz ol{margin:0 0 12px;padding-left:22px;line-height:1.65} .notiz li{margin-bottom:3px}
+
+.wrap{padding:16px 22px}
+
+/* --------------------------------------------------------- Kleinteile --- */
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:11px;
+     background:var(--chip);color:var(--navy);white-space:nowrap}
+.tag.p1{background:#e4f5ec;color:var(--prio1)} .tag.p2{background:#fbf1e1;color:#a5691a}
+.tag.p3{background:#eef0f4;color:var(--prio3)}
+.tag.qw{background:#e4f5ec;color:var(--prio1)} .tag.st{background:#eef4fb;color:var(--accent)}
+.tag.op{background:#f2f3f6;color:var(--muted)} .tag.zg{background:#f7eef0;color:#8d4a58}
+.tag.geurteilt{background:#fbf5e9;color:#7a5a12} .tag.gemessen{background:#eef0f4;color:var(--muted)}
+.tag.fehlt{background:#fdf0ee;color:var(--warn)}
+
+.btn{background:var(--navy);color:#fff;border:none;border-radius:8px;padding:9px 16px;
+     font-size:13.5px;cursor:pointer;font-weight:600}
+.btn.sec{background:#fff;color:var(--navy);border:1px solid var(--navy)}
+.btn.sm{padding:5px 11px;font-size:12px}
+.btn:disabled{opacity:.42;cursor:not-allowed}
+.btn.warnfarbe{background:var(--warn)}
+
+/* Spanne als Balken. Nie ein Punktwert — das ist die Antwort auf #167 Frage 3. */
+.spanne{display:flex;align-items:baseline;gap:8px;white-space:nowrap}
+.spanne .zahl{font-variant-numeric:tabular-nums;font-weight:600}
+.spanne .breite{font-size:11px;color:var(--muted)}
+.band{position:relative;height:7px;background:#e8ecf1;border-radius:4px;min-width:96px;flex:1}
+.band .fuellung{position:absolute;top:0;bottom:0;background:linear-gradient(90deg,#9fc1e4,#3B6EA5);
+                border-radius:4px}
+.band.keine{background:repeating-linear-gradient(45deg,#f0f1f4,#f0f1f4 4px,#e4e6ea 4px,#e4e6ea 8px)}
+
+/* --------------------------------------------------- Akkordeon je KP --- */
+.kpblock{background:#fff;border:1px solid var(--line);border-radius:12px;margin-bottom:12px;
+         overflow:hidden}
+.kpblock[open]{box-shadow:0 1px 3px #0000000d}
+.kpblock summary{display:flex;align-items:center;gap:11px;padding:12px 15px;cursor:pointer;
+                 list-style:none;background:#fbfcfd;border-bottom:1px solid transparent}
+.kpblock[open] summary{border-bottom-color:var(--line)}
+.kpblock summary::-webkit-details-marker{display:none}
+.kpblock summary:hover{background:#f6f8fb}
+.kpblock summary.ziehziel{background:#eef4fb;box-shadow:inset 0 3px 0 var(--accent)}
+.kpinhalt{padding:12px 15px}
+.griff{color:#aab4c2;cursor:grab;font-size:15px;user-select:none;letter-spacing:-2px}
+.griff:active{cursor:grabbing}
+.pos{font-variant-numeric:tabular-nums;color:var(--muted);font-weight:700;min-width:20px;
+     text-align:right}
+.pfeile{display:inline-flex;flex-direction:column;gap:1px}
+.pfeile button{border:1px solid var(--line);background:#fff;color:var(--muted);width:22px;
+               height:15px;line-height:1;border-radius:4px;cursor:pointer;font-size:10px;padding:0}
+.pfeile button:hover:not(:disabled){background:var(--chip);color:var(--navy)}
+.pfeile button:disabled{opacity:.3;cursor:not-allowed}
+
+/* ------------------------------------------------------------ Zeilen --- */
+.dzeile{display:flex;align-items:center;gap:11px;padding:9px 6px;border-bottom:1px solid #eef1f4;
+        cursor:pointer}
+.dzeile:last-child{border-bottom:none}
+.dzeile:hover{background:#f8fafc}
+.dzeile.gewaehlt{background:#eef4fb}
+.dzeile.abgelehnt{opacity:.62}
+.dzeile.abgelehnt .titel b{text-decoration:line-through;text-decoration-color:#b9c0ca}
+.dzeile.ziehziel{box-shadow:inset 0 2px 0 var(--accent)}
+.dzeile .titel{flex:1;min-width:190px}
+.dzeile .titel b{font-weight:600}
+.dzeile .titel .unten{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.dzeile .wert{min-width:168px;text-align:right}
+.dzeile .achsen{color:var(--muted);font-size:12.5px;white-space:nowrap}
+.dzeile .achsen b{color:var(--ink);font-variant-numeric:tabular-nums}
+.dzeile .frei{display:flex;align-items:center;gap:5px;font-size:12.5px;color:var(--muted);
+              cursor:pointer;white-space:nowrap}
+
+.grundfeld{margin:0 6px 10px 44px;padding:10px 12px;background:#fbf5e9;border:1px solid #ecd9ae;
+           border-radius:9px}
+.grundfeld.fehlt{background:#fdf0ee;border-color:#f0c7c0}
+.grundfeld label{display:block;font-size:12.5px;color:#7a5a12;margin-bottom:6px}
+.grundfeld.fehlt label{color:#8d2b1c}
+.grundfeld textarea{width:100%;min-height:52px;border:1px solid var(--line);border-radius:7px;
+                    padding:8px 10px;font-family:inherit;font-size:13px;resize:vertical}
+
+/* ----------------------------------------------------------- Schublade --- */
+.schublade{position:fixed;top:0;right:0;bottom:0;width:min(560px,94vw);background:#fff;
+           border-left:1px solid var(--line);box-shadow:-8px 0 26px #0002;overflow:auto;
+           padding:18px 20px 96px;z-index:40}
+.schublade .block{border-top:1px solid var(--line);padding-top:12px;margin-top:14px}
+.schublade .tp{color:var(--muted);font-size:12.5px;margin:6px 0 12px}
+.schublade dl{display:grid;grid-template-columns:auto 1fr;gap:5px 14px;margin:0;font-size:13px}
+.schublade dt{color:var(--muted)} .schublade dd{margin:0}
+.schublade ul{margin:6px 0 0;padding-left:20px;line-height:1.6;font-size:13px}
+
+/* ------------------------------------------------------------- Matrix --- */
+.matrixkarte{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px}
+.matrixkarte svg{width:100%;height:auto;display:block}
+.punkt{cursor:pointer} .punkt circle{transition:r .12s}
+.punkt.gewaehlt circle{stroke:var(--navy);stroke-width:2.5}
+.parkbahn{margin-top:16px;background:#fff;border:1px solid var(--line);border-radius:12px;
+          padding:14px 16px}
+
+/* ---------------------------------------------------------- Fußleiste --- */
+.fussleiste{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);
+            padding:11px 22px;display:flex;align-items:center;gap:14px;z-index:30;
+            box-shadow:0 -3px 14px #0001;flex-wrap:wrap}
+
+/* --------------------------------------------------- Schlüssel / Fehler --- */
+.tor{max-width:520px;margin:80px auto;background:#fff;border:1px solid var(--line);
+     border-radius:12px;padding:26px 28px}
+.tor input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;
+           font-size:14px;font-family:inherit;margin:10px 0 14px}
+.laden{padding:60px 22px;text-align:center;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="logo">BC2 · Strategic Advisor</span>
+  <span class="sub">Gate 1 — Priorisierung freigeben</span>
+  <div class="rechts">
+    <label for="laufwahl">Lauf</label>
+    <select id="laufwahl"></select>
+    <button class="btn sec sm" id="abmelden" title="Schlüssel verwerfen">abmelden</button>
+  </div>
+</div>
+
+<div id="meldung"></div>
+<div id="laufkopf"></div>
+<div id="buehne" class="laden">wird geladen …</div>
+
+<script>
+"use strict";
+
+// ===========================================================================
+// Schlüssel
+// ===========================================================================
+//
+// BC2 hat keine Nutzerverwaltung (siehe oberflaeche.py). Die Seite weist sich
+// mit demselben Bearer-Schlüssel aus wie BC0s Ruf. Er liegt im sessionStorage
+// und nicht im localStorage: ein geschlossener Tab soll ihn vergessen.
+//
+// Daraus folgt: der Dienst weiß nicht, WER entscheidet. `entscheider` ist eine
+// Selbstauskunft. Für ein Studienprojekt vertretbar, für einen echten
+// Gate-1-Beschluss nicht.
+
+const SCHLUESSEL_FACH = "bc2-gate1-schluessel";
+let schluessel = sessionStorage.getItem(SCHLUESSEL_FACH) || "";
+
+async function ruf(pfad, optionen = {}){
+  const antwort = await fetch(pfad, {
+    ...optionen,
+    headers: {
+      "Authorization": "Bearer " + schluessel,
+      ...(optionen.body ? {"Content-Type": "application/json"} : {}),
+      ...(optionen.headers || {}),
+    },
+  });
+  let rumpf = null;
+  try { rumpf = await antwort.json(); } catch { /* leerer Rumpf ist erlaubt */ }
+  return {ok: antwort.ok, status: antwort.status, rumpf};
+}
+
+// ===========================================================================
+// Zustand
+// ===========================================================================
+//
+// Ein Objekt, kein Speicher über die Sitzung hinaus: der Stand der Entscheidung
+// gehört dem Server. Was hier liegt, ist der UNGESPEICHERTE Zwischenstand —
+// und die Seite sagt an, wenn er von dem abweicht, was der Server kennt.
+
+const Z = {
+  laeufe: [],
+  paket_id: null,
+  ansicht: null,          // die geladene Laufansicht
+  gate1: null,            // der Stand, den der Server kennt
+  freigegeben: new Set(),
+  ablehnungsgrund: {},    // potenzial_id -> Text
+  reihenfolge: null,      // gesetzte Potenzialfolge INNERHALB der Kernprozesse
+  prozessfolge: null,     // gesetzte Kernprozessfolge
+  abweichungsgrund: "",
+  entscheider: "",
+  gewaehlt: null,
+  sicht: "liste",         // liste | matrix
+  offen: new Set(),       // aufgeklappte Kernprozesse
+  fluechtig: true,
+  geaendert: false,       // seit dem letzten Speichern angefasst?
+  meldung: null,
+};
+
+function esc(s){
+  return String(s ?? "").replace(/[&<>"']/g, z =>
+    ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[z]));
+}
+function eur(n){ return new Intl.NumberFormat("de-DE").format(Math.round(n)) + " €"; }
+function zahl(n, stellen = 1){
+  return new Intl.NumberFormat("de-DE", {maximumFractionDigits: stellen}).format(n);
+}
+
+// ===========================================================================
+// Reihenfolge
+// ===========================================================================
+//
+// Zwei Ebenen, wie in #167 entschieden. Die GELTENDE Folge ist die Verkettung:
+// erst die Kernprozesse in ihrer (ggf. gezogenen) Folge, darin die Potenziale
+// in ihrer. Quer über Prozessgrenzen wird nicht sortiert — das wäre Umhängen.
+//
+// Der gerechnete Rang bleibt daneben stehen. Beide reisen in die Lieferung:
+// `potenzialrang` ist der Vorschlag, `gate1.finale_reihenfolge_potenzial_ids`
+// die gesetzte Folge (Vertrag v3.0, Auflage aus #167).
+
+function prozessOrdnung(){
+  return Z.prozessfolge || Z.ansicht.prozess_raenge.map(r => r.kp_id);
+}
+
+function potenzialeVon(kp_id){
+  const alle = Z.ansicht.eintraege.filter(e => e.kp_id === kp_id);
+  if (!Z.reihenfolge) return alle;
+  const rang = new Map(Z.reihenfolge.map((id, i) => [id, i]));
+  return [...alle].sort((a, b) =>
+    (rang.get(a.potenzial_id) ?? 1e9) - (rang.get(b.potenzial_id) ?? 1e9));
+}
+
+/** Die geltende Folge über den ganzen Lauf — Verkettung beider Ebenen. */
+function geltendeFolge(){
+  return prozessOrdnung().flatMap(kp => potenzialeVon(kp));
+}
+
+function gerechneteFolge(){
+  return Z.ansicht.eintraege.map(e => e.potenzial_id);
+}
+function gerechneteProzessfolge(){
+  return Z.ansicht.prozess_raenge.map(r => r.kp_id);
+}
+
+/**
+ * Hat der MENSCH umsortiert?
+ *
+ * Nicht: weicht die angezeigte Folge vom gerechneten Rang ab. Das tut sie
+ * nämlich immer — und zwar allein durch die Gliederung. Der Potenzialrang
+ * läuft nach ADR-006 · BC2 strikt nach Score über den ganzen Lauf; sobald
+ * nach Kernprozess gruppiert wird, steht jedes Potenzial eines vorderen
+ * Prozesses über allen Potenzialen der übrigen. Das ist Befund 2 aus #167,
+ * und es ist der Preis der Gliederung, nicht eine Entscheidung des Menschen.
+ *
+ * Würde hier die angezeigte gegen die gerechnete Folge verglichen, verlangte
+ * die Seite schon beim ersten Laden eine Begründung — für etwas, das niemand
+ * getan hat. Genau die Zumutung, die die Vorbelegung vermeiden soll.
+ *
+ * Verglichen wird deshalb gegen die AUSGANGSGLIEDERUNG — die Folge, die die
+ * Seite ohne jeden Eingriff zeigt. Wer etwas verschiebt und wieder
+ * zurückschiebt, schuldet damit auch keine Begründung.
+ */
+function ausgangsGliederung(){
+  return gerechneteProzessfolge().flatMap(kp =>
+    Z.ansicht.eintraege.filter(e => e.kp_id === kp).map(e => e.potenzial_id));
+}
+
+function wurdeUmsortiert(){
+  if (Z.reihenfolge === null && Z.prozessfolge === null) return false;
+  const folge = geltendeFolge().map(p => p.potenzial_id);
+  return JSON.stringify(folge) !== JSON.stringify(ausgangsGliederung())
+      || JSON.stringify(prozessOrdnung()) !== JSON.stringify(gerechneteProzessfolge());
+}
+
+/** Verschiebt ein Potenzial innerhalb SEINES Kernprozesses. */
+function verschiebePotenzial(potenzial_id, richtung){
+  const eintrag = Z.ansicht.eintraege.find(e => e.potenzial_id === potenzial_id);
+  const geschwister = potenzialeVon(eintrag.kp_id).map(e => e.potenzial_id);
+  const i = geschwister.indexOf(potenzial_id), j = i + richtung;
+  if (j < 0 || j >= geschwister.length) return;
+  [geschwister[i], geschwister[j]] = [geschwister[j], geschwister[i]];
+  setzePotenzialfolge(eintrag.kp_id, geschwister);
+}
+
+/** Schreibt die neue Folge eines Kernprozesses in die Gesamtfolge zurück. */
+function setzePotenzialfolge(kp_id, neue_ids){
+  const bisher = Z.reihenfolge || gerechneteFolge();
+  const fremde = bisher.filter(id =>
+    Z.ansicht.eintraege.find(e => e.potenzial_id === id).kp_id !== kp_id);
+  // Die Gesamtfolge wird aus den Kernprozessen neu zusammengesetzt, damit sie
+  // eine Permutation bleibt — der Server prüft genau das.
+  const nachKp = new Map();
+  for (const id of [...fremde, ...neue_ids]){
+    const kp = Z.ansicht.eintraege.find(e => e.potenzial_id === id).kp_id;
+    if (!nachKp.has(kp)) nachKp.set(kp, []);
+    nachKp.get(kp).push(id);
+  }
+  nachKp.set(kp_id, neue_ids);
+  Z.reihenfolge = prozessOrdnung().flatMap(kp => nachKp.get(kp) || []);
+  Z.geaendert = true;
+}
+
+function verschiebeProzess(kp_id, richtung){
+  const folge = [...prozessOrdnung()];
+  const i = folge.indexOf(kp_id), j = i + richtung;
+  if (j < 0 || j >= folge.length) return;
+  [folge[i], folge[j]] = [folge[j], folge[i]];
+  Z.prozessfolge = folge;
+  Z.reihenfolge = folge.flatMap(kp => potenzialeVon(kp).map(e => e.potenzial_id));
+  Z.geaendert = true;
+}
+
+// ===========================================================================
+// Freigabe
+// ===========================================================================
+
+/** Alles freigegeben, alle Kernprozesse offen — der Vorschlag als Ausgangspunkt. */
+function vorbelegen(){
+  Z.freigegeben = new Set(Z.ansicht.eintraege.map(e => e.potenzial_id));
+  Z.offen = new Set(Z.ansicht.prozess_raenge.map(r => r.kp_id));
+  Z.ablehnungsgrund = {};
+  Z.reihenfolge = null; Z.prozessfolge = null;
+  Z.abweichungsgrund = ""; Z.geaendert = false;
+}
+
+/** Übernimmt einen bereits gespeicherten Gate-1-Stand vom Server. */
+function ausGate1(g){
+  vorbelegen();
+  if (!g || g.status === "pending") return;
+  if (g.approved_potenzial_ids) Z.freigegeben = new Set(g.approved_potenzial_ids);
+  for (const n of g.nicht_freigegeben || []){
+    Z.freigegeben.delete(n.potenzial_id);
+    Z.ablehnungsgrund[n.potenzial_id] = n.begruendung;
+  }
+  if (g.finale_reihenfolge_potenzial_ids) Z.reihenfolge = g.finale_reihenfolge_potenzial_ids;
+  if (g.finale_prozessreihenfolge_kp_ids) Z.prozessfolge = g.finale_prozessreihenfolge_kp_ids;
+  Z.abweichungsgrund = g.abweichungsbegruendung || "";
+  Z.entscheider = g.entscheider || Z.entscheider;
+  Z.geaendert = false;
+}
+
+/** Die Potenziale, die herausgenommen wurden, ohne dass ein Grund dasteht. */
+function ohneBegruendung(){
+  return Z.ansicht.eintraege
+    .filter(e => !Z.freigegeben.has(e.potenzial_id))
+    .filter(e => (Z.ablehnungsgrund[e.potenzial_id] || "").trim().length < 5)
+    .map(e => e.potenzial_id);
+}
+
+function darfFreigeben(){
+  return Z.freigegeben.size > 0
+      && ohneBegruendung().length === 0
+      && (!wurdeUmsortiert() || Z.abweichungsgrund.trim().length >= 5);
+}
+
+// ===========================================================================
+// Darstellung der Zahlen
+// ===========================================================================
+
+/**
+ * Eine Spanne, nie ein Punktwert (#167 Frage 3). Gerundet auf T€, die Breite
+ * als ±-Angabe daneben. `null` heißt: keine Value-Zahl — dann ein Etikett und
+ * ein schraffierter Balken, NIE eine 0 (#167 Frage 6).
+ */
+function spanneKurz(s){
+  if (!s) return `<span class="tag fehlt">keine Value-Zahl</span>`;
+  const mitte = (s.min + s.max) / 2;
+  const breite = mitte ? Math.round(100 * (s.max - s.min) / (2 * mitte)) : 0;
+  const t = v => v >= 10000 ? zahl(v / 1000, 0) + " T€" : eur(v);
+  return `<span class="spanne"><span class="zahl">${t(s.min)}–${t(s.max)}</span>`
+       + `<span class="breite">±${breite} %</span></span>`;
+}
+
+function bandHtml(s, maximum){
+  if (!s) return `<div class="band keine" title="keine Value-Zahl"></div>`;
+  const links = 100 * s.min / maximum, rechts = 100 * s.max / maximum;
+  return `<div class="band"><div class="fuellung" style="left:${links}%;`
+       + `width:${Math.max(rechts - links, 1.5)}%"></div></div>`;
+}
+
+const KAT = {"Quick Win":"qw","Strategisch":"st","Optional":"op","Zurückgestellt":"zg"};
+const GRP = {"PRIO 1":"p1","PRIO 2":"p2","PRIO 3":"p3"};
+
+// ===========================================================================
+// Detail — die Schublade
+// ===========================================================================
+
+function detailHtml(id){
+  const p = Z.ansicht.potenziale[id];
+  const e = Z.ansicht.eintraege.find(x => x.potenzial_id === id);
+  if (!p) return `<p class="hinweis warn">Zu ${esc(id)} liegt kein Detail vor.</p>`;
+
+  const v = p.value;
+  const keinValue = v.value_quelle === "keine";
+  const aufwand = p.manueller_aufwand_heute;
+
+  const valueBlock = keinValue
+    ? `<p class="hinweis luecke"><b>Keine Value-Zahl.</b> ${esc(v.grund)}</p>`
+    : `<dl>
+        <dt>Ist-Kosten heute</dt><dd>${spanneKurz(v.ist_kosten_eur_jahr)} / Jahr</dd>
+        <dt>Einsparung</dt><dd>${spanneKurz(v.einsparung_eur_jahr)} / Jahr</dd>
+        <dt>Ersparnis</dt>
+        <dd>${zahl(v.ersparnis_prozent.min)}–${zahl(v.ersparnis_prozent.max)} %</dd>
+        <dt>Investition</dt><dd>${eur(v.investition_eur_richtwert)} (Richtwert)</dd>
+        <dt>Amortisation</dt>
+        <dd>${zahl(v.amortisation_monate.min)}–${zahl(v.amortisation_monate.max)} Monate</dd>
+       </dl>
+       ${v.annahmen ? `<div class="block"><h3>Annahmen — sie reisen mit</h3>
+         <ul>${v.annahmen.map(a => `<li>${esc(a)}</li>`).join("")}</ul></div>` : ""}`;
+
+  const nw = p.nutzwert;
+  const kategorien = [
+    ["Qualität", nw.qualitaet], ["Durchlaufzeit", nw.durchlaufzeit],
+    ["Fehlerreduktion", nw.fehlerreduktion],
+    ["Mitarbeiterzufriedenheit", nw.mitarbeiterzufriedenheit],
+    ["Compliance / Rechtssicherheit", nw.compliance],
+  ];
+
+  const g = p.automatisierungsgrad;
+
+  return `
+    <h2>${esc(p.titel)}</h2>
+    <div class="tp"><code>${esc(p.potenzial_id)}</code><br>
+      Kernprozess <code>${esc(e.kp_id)}</code> ·
+      Teilprozess ${p.betroffene_teilprozess_ids.map(t => `<code>${esc(t)}</code>`).join(" ")}<br>
+      <span class="tag ${GRP[p.prioritaetsgruppe]}">${p.prioritaetsgruppe}</span>
+      <span class="tag ${KAT[p.kategorie]}">${p.kategorie}</span>
+      Rang ${p.potenzialrang} · Score ${p.prioritaet_score}</div>
+
+    <div class="block"><h3>Aufwand heute</h3>
+      ${aufwand.herkunft === "unbekannt"
+        ? `<p class="hinweis luecke">Der manuelle Aufwand ist <b>nicht erhoben</b>.
+             BC1 liefert für diesen Teilprozess keine Herkunft der Dauer.</p>`
+        : `<dl><dt>Stunden im Jahr</dt><dd>${zahl(aufwand.stunden_jahr)} h</dd>
+             <dt>Herkunft</dt>
+             <dd><span class="tag ${aufwand.herkunft === "geschaetzt" ? "geurteilt" : "gemessen"}">
+                 ${esc(aufwand.herkunft)}</span></dd>
+             ${aufwand.konfidenz_pct != null
+               ? `<dt>Konfidenz</dt><dd>${zahl(aufwand.konfidenz_pct, 0)} %</dd>` : ""}
+           </dl>`}</div>
+
+    <div class="block"><h3>Automatisierungsgrad</h3>
+      <dl><dt>Lösungsklasse</dt><dd>${esc(g.klasse)}</dd>
+          <dt>angesetzt</dt>
+          <dd>${zahl(g.angesetzt_min_pct, 0)}–${zahl(g.angesetzt_max_pct, 0)} %</dd>
+          ${g.bc1_schaetzung_pct != null
+            ? `<dt>BC1 schätzt</dt><dd>${zahl(g.bc1_schaetzung_pct, 0)} %</dd>` : ""}
+      </dl>
+      <p style="color:var(--muted);margin:8px 0 0;font-size:12.5px;line-height:1.5">
+        ${esc(g.begruendung)}</p>
+      <p class="hinweis info" style="margin-top:9px">Den Automatisierungsgrad liefert
+        <b>niemand</b> — er wird im Korridor der Lösungsklasse verortet (ADR-006 · BC2, 2.2).
+        Er ist der größte Hebel der Rechnung.</p></div>
+
+    <div class="block"><h3>Value — monetär</h3>${valueBlock}</div>
+
+    <div class="block"><h3>Nutzwert — nicht monetär · ${zahl(nw.mittel)} von 10</h3>
+      <dl>${kategorien.map(([name, k]) =>
+        `<dt>${name}</dt><dd><b>${k.wert}</b> — ${esc(k.begruendung)}</dd>`).join("")}</dl>
+      <p style="color:var(--muted);font-size:12.5px;margin:8px 0 0">Fünf Kategorien,
+        <b>ungewichtet</b>. Kostenreduktion gehört nicht dazu — sie <i>ist</i> der Value.</p></div>
+
+    <div class="block"><h3>Die beiden Achsen</h3>
+      <dl><dt>Impact</dt>
+          <dd><b>${p.impact}</b> von 10 — Mittel aus monetär
+            ${p.impact_monetaer == null
+              ? `<span class="tag fehlt">keine</span>` : `<b>${p.impact_monetaer}</b>`}
+            und Nutzwert <b>${zahl(nw.mittel)}</b></dd>
+          <dt>Komplexität</dt>
+          <dd><b>${p.umsetzungskomplexitaet}</b> von 10
+            <span class="tag ${p.komplexitaet_herkunft}">${esc(p.komplexitaet_herkunft)}</span></dd>
+          ${p.aufwand_schaetzung_pt != null
+            ? `<dt>Bauaufwand</dt><dd>${zahl(p.aufwand_schaetzung_pt)} PT</dd>` : ""}
+      </dl>
+      ${p.komplexitaet_begruendung
+        ? `<p style="color:var(--muted);font-size:12.5px;margin:8px 0 0">
+             ${esc(p.komplexitaet_begruendung)}</p>` : ""}</div>
+
+    ${p.hinweise?.length ? `<div class="block"><h3>Hinweise</h3>
+      ${p.hinweise.map(h => `<p class="hinweis luecke"><b>${esc(h.art)}</b> — ${esc(h.text)}</p>`)
+        .join("")}</div>` : ""}`;
+}
+
+// ===========================================================================
+// Matrix — Anzeige, kein Bedienelement
+// ===========================================================================
+//
+// #167 Fund 4: bei zwei ganzzahligen Achsen von 1 bis 10 liegen Potenziale
+// regelmäßig exakt übereinander und verdecken sich. Der Prototyp ließ den Fall
+// sichtbar stehen. Hier bekommen gleiche Koordinaten einen kleinen Versatz auf
+// einem Kreis — die Lage bleibt ablesbar, und kein Punkt verschwindet.
+
+function matrixSvg(){
+  const B = {l:56, r:22, o:22, u:44}, W = 760, H = 430;
+  const iW = W - B.l - B.r, iH = H - B.o - B.u;
+  const x = k => B.l + (k - 0.5) / 10 * iW;          // Komplexität 1..10
+  const y = i => B.o + iH - (i - 0.5) / 10 * iH;     // Impact 1..10
+
+  const mit = Z.ansicht.eintraege.filter(e => e.einsparung_eur_jahr);
+  const maxE = Math.max(1, ...mit.map(e => e.einsparung_eur_jahr.max));
+
+  // Gleiche Koordinate -> Versatz auf einem kleinen Kreis.
+  const belegt = new Map();
+  const versatz = e => {
+    const schluessel = e.impact + ":" + e.umsetzungskomplexitaet;
+    const n = belegt.get(schluessel) || 0;
+    belegt.set(schluessel, n + 1);
+    if (!n) return [0, 0];
+    const winkel = (n - 1) * (2 * Math.PI / 6);
+    return [Math.cos(winkel) * 13, Math.sin(winkel) * 13];
+  };
+
+  const raster = [];
+  for (let k = 1; k <= 10; k++){
+    raster.push(`<line x1="${x(k)}" y1="${B.o}" x2="${x(k)}" y2="${B.o + iH}"
+                  stroke="#f0f2f5"/>`);
+    raster.push(`<text x="${x(k)}" y="${B.o + iH + 16}" text-anchor="middle"
+                  font-size="10" fill="#9aa4b1">${k}</text>`);
+  }
+  for (let i = 1; i <= 10; i++){
+    raster.push(`<line x1="${B.l}" y1="${y(i)}" x2="${B.l + iW}" y2="${y(i)}"
+                  stroke="#f0f2f5"/>`);
+    raster.push(`<text x="${B.l - 9}" y="${y(i) + 3.5}" text-anchor="end"
+                  font-size="10" fill="#9aa4b1">${i}</text>`);
+  }
+
+  const punkte = Z.ansicht.eintraege.map(e => {
+    const [dx, dy] = versatz(e);
+    // Ohne Value-Zahl behält der Punkt seine Lage, bekommt aber den
+    // Mindestradius: eine Fläche zu zeichnen, die es nicht gibt, wäre die
+    // Scheingenauigkeit, die die Bandbreite gerade vermeiden soll (#167).
+    const r = e.einsparung_eur_jahr
+      ? 6 + 12 * Math.sqrt(e.einsparung_eur_jahr.max / maxE)
+      : 5;
+    const farbe = {"PRIO 1":"#1f9d57","PRIO 2":"#d98c1f","PRIO 3":"#8a94a6"}[e.prioritaetsgruppe];
+    const abgelehnt = !Z.freigegeben.has(e.potenzial_id);
+    return `<g class="punkt ${Z.gewaehlt === e.potenzial_id ? "gewaehlt" : ""}"
+              data-id="${esc(e.potenzial_id)}">
+      <title>${esc(e.titel)} — Impact ${e.impact}, Komplexität ${e.umsetzungskomplexitaet}${
+        e.einsparung_eur_jahr ? "" : " (keine Value-Zahl)"}</title>
+      <circle cx="${x(e.umsetzungskomplexitaet) + dx}" cy="${y(e.impact) + dy}" r="${r}"
+        fill="${farbe}" fill-opacity="${abgelehnt ? .2 : .55}" stroke="${farbe}"
+        stroke-dasharray="${e.einsparung_eur_jahr ? "" : "3 2"}"/>
+      <text x="${x(e.umsetzungskomplexitaet) + dx}" y="${y(e.impact) + dy + 3.5}"
+        text-anchor="middle" font-size="10" font-weight="700"
+        fill="${abgelehnt ? "#98a2b0" : "#16324f"}">${e.potenzialrang}</text></g>`;
+  }).join("");
+
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Impact über Komplexität">
+    <rect x="${B.l}" y="${B.o}" width="${iW}" height="${iH}" fill="#fcfdfe" stroke="#e6eaef"/>
+    ${raster.join("")}
+    <line x1="${B.l}" y1="${y(5.5)}" x2="${B.l + iW}" y2="${y(5.5)}" stroke="#dbe1e8"
+      stroke-dasharray="4 3"/>
+    <line x1="${x(5.5)}" y1="${B.o}" x2="${x(5.5)}" y2="${B.o + iH}" stroke="#dbe1e8"
+      stroke-dasharray="4 3"/>
+    <text x="${B.l + 8}" y="${B.o + 16}" font-size="11" font-weight="700"
+      fill="#1f9d57">Quick Win</text>
+    <text x="${B.l + iW - 8}" y="${B.o + 16}" font-size="11" font-weight="700"
+      fill="#3B6EA5" text-anchor="end">Strategisch</text>
+    <text x="${B.l + 8}" y="${B.o + iH - 8}" font-size="11" font-weight="700"
+      fill="#6b7280">Optional</text>
+    <text x="${B.l + iW - 8}" y="${B.o + iH - 8}" font-size="11" font-weight="700"
+      fill="#8d4a58" text-anchor="end">Zurückgestellt</text>
+    ${punkte}
+    <text x="${B.l + iW / 2}" y="${H - 8}" text-anchor="middle" font-size="11"
+      fill="#6b7280">Umsetzungskomplexität →</text>
+    <text x="14" y="${B.o + iH / 2}" text-anchor="middle" font-size="11" fill="#6b7280"
+      transform="rotate(-90 14 ${B.o + iH / 2})">Impact →</text>
+  </svg>`;
+}
+
+// ===========================================================================
+// Zeichnen
+// ===========================================================================
+
+function zeichneMeldung(){
+  const ziel = document.getElementById("meldung");
+  if (!Z.meldung){ ziel.innerHTML = ""; return; }
+  ziel.innerHTML = `<div class="wrap" style="padding-bottom:0">
+    <div class="hinweis ${Z.meldung.art}">${Z.meldung.text}</div></div>`;
+}
+
+function zeichneKopf(){
+  const ziel = document.getElementById("laufkopf");
+  if (!Z.ansicht){ ziel.innerHTML = ""; return; }
+  const k = Z.ansicht.kopf;
+  const zustand = Z.gate1?.status || "pending";
+  const zeichen = {pending: "offen", approved: "freigegeben", rejected: "abgelehnt"}[zustand];
+
+  ziel.innerHTML = `<div class="laufkopf">
+    <div class="kennung">Mandant<b><code>${esc(k.company_id.slice(0, 8))}…</code></b></div>
+    <div class="kennung">Paket<b><code>${esc(k.paket_id)}</code></b></div>
+    <div class="kennung">Übergeben<b>${new Date(k.uebergeben_am).toLocaleString("de-DE")}</b></div>
+    <div class="kennung">Zuschnitt<b>${k.kp_ids.length} Kernprozesse ·
+      ${k.anzahl_potenziale} Potenziale</b></div>
+    <div class="kennung">Fassung<b>${k.fassung}</b></div>
+    <div class="kennung">Gate 1<b style="color:${
+      zustand === "approved" ? "var(--ok)" : zustand === "rejected" ? "var(--warn)" : "inherit"
+    }">${zeichen}</b></div>
+  </div>`;
+}
+
+/**
+ * `position` ist die Stelle in der geltenden Folge; sie wird nur geführt,
+ * wenn der Mensch umsortiert hat. Solange er das nicht tat, gilt der
+ * **gerechnete** Rang — und dann muss die Zeile den zeigen und nicht ihre
+ * Stelle in der Gliederung. Sonst sähe der Mensch eine dritte Ordnung, die
+ * weder gerechnet noch gesetzt ist, und gäbe sie frei.
+ */
+function zeichneZeile(e, position){
+  const id = e.potenzial_id;
+  const abgelehnt = !Z.freigegeben.has(id);
+  const grund = Z.ablehnungsgrund[id] || "";
+  const geschwister = potenzialeVon(e.kp_id).map(x => x.potenzial_id);
+  const i = geschwister.indexOf(id);
+  const gesetzt = wurdeUmsortiert();
+
+  return `
+  <div class="dzeile ${abgelehnt ? "abgelehnt" : ""} ${Z.gewaehlt === id ? "gewaehlt" : ""}"
+       draggable="true" data-zieh="${esc(id)}" data-kp="${esc(e.kp_id)}">
+    <span class="griff" title="ziehen zum Umsortieren">⠿</span>
+    <span class="pfeile">
+      <button data-hoch="${esc(id)}" ${i === 0 ? "disabled" : ""}
+        title="im Kernprozess nach oben" aria-label="nach oben">▲</button>
+      <button data-runter="${esc(id)}" ${i === geschwister.length - 1 ? "disabled" : ""}
+        title="im Kernprozess nach unten" aria-label="nach unten">▼</button>
+    </span>
+    <span class="pos" title="${gesetzt ? "gesetzte Stelle" : "gerechneter Rang"}">${
+      gesetzt ? position : e.potenzialrang}</span>
+    <span class="titel" data-id="${esc(id)}">
+      <b>${esc(e.titel)}</b>
+      <span class="unten"><code>${esc(e.betroffene_teilprozess_ids.join(", "))}</code> ·
+        Score ${e.score}${gesetzt ? ` · <b>Vorschlag Rang ${e.potenzialrang}</b>` : ""}</span>
+    </span>
+    <span class="wert" data-id="${esc(id)}">${spanneKurz(e.einsparung_eur_jahr)}</span>
+    <span class="achsen" data-id="${esc(id)}">I <b>${e.impact}</b> ·
+      K <b>${e.umsetzungskomplexitaet}</b></span>
+    <span class="tag ${KAT[e.kategorie]}">${e.kategorie}</span>
+    <span class="tag ${GRP[e.prioritaetsgruppe]}">${e.prioritaetsgruppe}</span>
+    <label class="frei"><input type="checkbox" data-frei="${esc(id)}"
+      ${abgelehnt ? "" : "checked"}> freigeben</label>
+  </div>
+  ${abgelehnt ? `
+    <div class="grundfeld ${grund.trim().length >= 5 ? "" : "fehlt"}">
+      <label>Warum geht <b>${esc(e.titel)}</b> nicht mit?
+        ${grund.trim().length >= 5 ? "" : `<span class="tag fehlt">Pflicht</span>`}</label>
+      <textarea data-ablehnung="${esc(id)}" placeholder="Die Rechnung schlägt es vor — was spricht dagegen? (Querschnitt, Abhängigkeit, Zeitpunkt …)">${esc(grund)}</textarea>
+    </div>` : ""}`;
+}
+
+function zeichneListe(){
+  const folge = geltendeFolge();
+  const ordnung = prozessOrdnung();
+
+  return ordnung.map((kp_id, idx) => {
+    const rang = Z.ansicht.prozess_raenge.find(r => r.kp_id === kp_id);
+    const eigene = potenzialeVon(kp_id);
+    const frei = eigene.filter(e => Z.freigegeben.has(e.potenzial_id)).length;
+    const mitValue = eigene.filter(e => e.einsparung_eur_jahr);
+    const summe = mitValue.reduce(
+      (s, e) => s + (e.einsparung_eur_jahr.min + e.einsparung_eur_jahr.max) / 2, 0);
+    const verschoben = rang.prozessrang !== idx + 1;
+    const name = Z.ansicht.kp_namen[kp_id];
+
+    return `
+    <details class="kpblock" data-kp-block="${esc(kp_id)}" ${Z.offen.has(kp_id) ? "open" : ""}>
+      <summary draggable="true" data-ziehkp="${esc(kp_id)}">
+        <span class="griff" title="ganzen Kernprozess ziehen">⠿</span>
+        <span class="pfeile">
+          <button data-kphoch="${esc(kp_id)}" ${idx === 0 ? "disabled" : ""}
+            title="Kernprozess nach oben" aria-label="Kernprozess nach oben">▲</button>
+          <button data-kprunter="${esc(kp_id)}" ${idx === ordnung.length - 1 ? "disabled" : ""}
+            title="Kernprozess nach unten" aria-label="Kernprozess nach unten">▼</button>
+        </span>
+        <span class="pos">${idx + 1}</span>
+        <b><code>${esc(kp_id)}</code>${name ? " · " + esc(name) : ""}</b>
+        ${verschoben ? `<span class="tag p2">Vorschlag: ${rang.prozessrang}</span>` : ""}
+        <span style="color:var(--muted);font-size:12.5px">${eigene.length} Potenziale</span>
+        <span style="margin-left:auto;color:var(--muted);font-size:12.5px">${
+          mitValue.length
+            ? "≈ " + eur(summe) + "/Jahr" + (mitValue.length < eigene.length
+                ? ` <span class="tag fehlt">${eigene.length - mitValue.length} ohne Zahl</span>`
+                : "")
+            : `<span class="tag fehlt">ohne Value-Zahl</span>`}</span>
+        <span class="tag ${frei === eigene.length ? "qw" : frei ? "p2" : "zg"}">
+          ${frei}/${eigene.length} freigegeben</span>
+      </summary>
+      <div class="kpinhalt">
+        ${eigene.map(e => zeichneZeile(e, folge.indexOf(e) + 1)).join("")}
+      </div>
+    </details>`;
+  }).join("");
+}
+
+function zeichneBuehne(){
+  const ziel = document.getElementById("buehne");
+  ziel.className = "";
+
+  if (!Z.ansicht){
+    ziel.innerHTML = `<div class="wrap"><p class="hinweis info">Kein Lauf ausgewählt.</p></div>`;
+    return;
+  }
+  if (!Z.ansicht.eintraege.length){
+    ziel.innerHTML = `<div class="wrap"><p class="hinweis luecke">
+      Dieser Lauf trägt <b>keine Potenziale</b>. Entweder hat die Erkennung nichts gefunden,
+      oder sie ist für dieses Paket noch nicht gelaufen.</p></div>`;
+    return;
+  }
+
+  const offen = ohneBegruendung();
+  const warnungen = [];
+  if (Z.ansicht.kopf.warnung)
+    warnungen.push(`<p class="hinweis warn"><b>Diese Zahlen sind nicht nachrechenbar.</b>
+      ${esc(Z.ansicht.kopf.warnung)}</p>`);
+  if (Z.fluechtig)
+    warnungen.push(`<p class="hinweis luecke"><b>Die Entscheidung überlebt keinen Neustart.</b>
+      Sie liegt im Arbeitsspeicher des Dienstes — ein Ort in Schema <code>bc2</code> ist noch
+      nicht entworfen.</p>`);
+  // Einmal für den ganzen Lauf, nicht je Kernprozess: derselbe Satz viermal
+  // untereinander ist Lärm und verdeckt die Hinweise, die wirklich an diesem
+  // einen Prozess hängen.
+  if (Z.ansicht.prozess_raenge.some(r => !Z.ansicht.kp_namen[r.kp_id]))
+    warnungen.push(`<p class="hinweis info">Die <b>Klartextnamen der Kernprozesse</b> stehen in
+      <code>public.ref_kernprozesse</code> und werden erst gelesen, wenn die Erkennung gegen die
+      Datenbank läuft (#194). Bis dahin steht hier die Kennung.</p>`);
+
+  const kopfzeile = `
+    <div style="display:flex;align-items:center;gap:12px;margin:14px 0;flex-wrap:wrap">
+      <div>
+        <h1>Priorisierung</h1>
+        <p style="color:var(--muted);margin:0">${Z.ansicht.eintraege.length} Potenziale in
+          ${Z.ansicht.prozess_raenge.length} Kernprozessen · Reihenfolge und Freigabe sind ein
+          <b>Vorschlag</b></p>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:7px;align-items:center">
+        <button class="btn sec sm" data-vorbelegen="1">Vorschlag wiederherstellen</button>
+        <div style="display:flex;border:1px solid var(--navy);border-radius:8px;overflow:hidden">
+          <button class="btn sm ${Z.sicht === "liste" ? "" : "sec"}"
+            style="border-radius:0;border:none" data-sicht="liste">Liste</button>
+          <button class="btn sm ${Z.sicht === "matrix" ? "" : "sec"}"
+            style="border-radius:0;border:none" data-sicht="matrix">Matrix</button>
+        </div>
+      </div>
+    </div>`;
+
+  const abweichung = wurdeUmsortiert() ? `
+    <div class="hinweis luecke" style="margin-bottom:14px">
+      <b>Die Reihenfolge weicht vom gerechneten Rang ab.</b> Der Vorschlag bleibt daneben
+      sichtbar; die Lieferung trägt beides. Eine Begründung gehört an den Lauf.
+      <div style="margin-top:8px">
+        <textarea data-abweichung="1" style="width:100%;min-height:52px;border:1px solid
+          var(--line);border-radius:7px;padding:8px 10px;font-family:inherit;font-size:13px"
+          placeholder="Warum weicht die Reihenfolge ab? (Pflicht, mindestens 5 Zeichen)"
+          >${esc(Z.abweichungsgrund)}</textarea>
+      </div>
+    </div>` : "";
+
+  const inhalt = Z.sicht === "matrix"
+    ? `<div class="matrixkarte">${matrixSvg()}</div>
+       <p class="hinweis info" style="margin-top:14px">Die Matrix ist <b>Anzeige</b>.
+         Umsortiert und freigegeben wird in der Liste — eine Reihenfolge lässt sich in einem
+         Quadranten nicht ausdrücken. Punkte auf derselben Koordinate werden leicht versetzt,
+         damit keiner verdeckt wird.</p>`
+    : zeichneListe();
+
+  ziel.innerHTML = `
+    ${notiz()}
+    <div class="wrap">
+      ${warnungen.join("")}
+      ${kopfzeile}
+      ${abweichung}
+      ${inhalt}
+    </div>
+    ${Z.gewaehlt ? `<div class="schublade">
+      <button class="btn sec sm" data-zu="1" style="float:right">schließen</button>
+      ${detailHtml(Z.gewaehlt)}</div>` : ""}
+    ${fussleiste(offen)}`;
+}
+
+function fussleiste(offen){
+  const frei = Z.freigegeben.size;
+  const gesamt = Z.ansicht.eintraege.length;
+  const fehltAbweichung = wurdeUmsortiert() && Z.abweichungsgrund.trim().length < 5;
+
+  return `<div class="fussleiste">
+    <b>${frei} von ${gesamt}</b> freigegeben
+    ${offen.length
+      ? `<span class="tag fehlt">${offen.length} Begründung(en) fehlen</span>`
+      : `<span style="color:var(--ok)">✓ vollständig begründet</span>`}
+    ${fehltAbweichung ? `<span class="tag fehlt">Abweichung unbegründet</span>` : ""}
+    ${Z.geaendert ? `<span class="tag p2">nicht gespeichert</span>` : ""}
+    <label style="color:var(--muted);font-size:12.5px;display:flex;align-items:center;gap:6px">
+      Entscheider
+      <input data-entscheider="1" value="${esc(Z.entscheider)}" placeholder="Name"
+        style="border:1px solid var(--line);border-radius:7px;padding:5px 9px;
+               font-family:inherit;font-size:12.5px;width:150px"></label>
+    <span style="margin-left:auto"></span>
+    <button class="btn sec" data-tat="rejected">ganzen Lauf ablehnen</button>
+    <button class="btn" ${darfFreigeben() ? "" : "disabled"} data-tat="approved">
+      Gate 1 freigeben</button>
+  </div>`;
+}
+
+function notiz(){
+  return `<details class="notiz"><summary>Was diese Oberfläche behauptet</summary><ol>
+    <li><b>Der Einstieg ist die Liste der Läufe</b>, keine Profilwahl: BC0 stößt an (#165),
+      und der Lauf ist das Paket (ADR-005 · BC2). Nicht bewertete oder nicht freigegebene
+      Prozesse kommen gar nicht vor — Gate 0 lässt sie nicht durch.</li>
+    <li><b>Gliederung nach Kernprozess</b> als Akkordeon über einer Liste. Der Kernprozess ist
+      die Einheit, in der das Konzept an BC3 geht; die Prioritätsgruppe ist ein Etikett in der
+      Zeile, keine Gliederungsebene.</li>
+    <li><b>Die Matrix ist ein Knopf</b>, keine zweite Seite: dieselben Daten, andere Frage.
+      Sie bleibt Anzeige.</li>
+    <li><b>Ziehen auf zwei Ebenen</b> — eine Zeile innerhalb ihres Kernprozesses, oder der
+      ganze Kernprozess über seinen Kopf. Quer über Prozessgrenzen ist gesperrt: das wäre
+      Umhängen, keine Reihenfolgefrage. <b>Zusätzlich ↑/↓</b>, weil Ziehen Maus-Bedienung ist.</li>
+    <li><b>Die Gliederung ist nicht die Rangfolge.</b> Der Potenzialrang läuft nach ADR-006 · BC2
+      strikt nach Score über den <i>ganzen</i> Lauf; die Liste gruppiert nach Kernprozess. Beides
+      nebeneinander zu zeigen ist Absicht — solange niemand eingreift, führt die Zeile den
+      <b>gerechneten</b> Rang, und genau der wird geliefert. Erst wenn umsortiert wurde, zeigt sie
+      die gesetzte Stelle und den Vorschlag daneben, und die Lieferung trägt beide Listen.</li>
+    <li><b>Der Vorschlag ist vorbelegt</b> — alles freigegeben. Begründet wird die
+      <b>Abweichung</b>, nicht die Zustimmung.</li>
+    <li><b>Jede Nicht-Freigabe braucht eine Begründung</b>, sonst bleibt Gate 1 zu. Die Prüfung
+      läuft auf dem <b>Server</b>; dieser Knopf spiegelt sie nur, damit niemand bis zum
+      Absenden warten muss.</li>
+    <li><b>Fehlende Daten: Etikett statt Zahl, nie eine 0.</b> In der Matrix behält der Punkt
+      seine Lage und bekommt den Mindestradius — eine Fläche zu zeichnen, die es nicht gibt,
+      wäre genau die Scheingenauigkeit, die die Bandbreite vermeiden soll.</li>
+    <li><b>Was Gate 1 nicht darf:</b> Annahmen ändern. Das wäre Rechnen von Hand und
+      zerstörte die Reproduzierbarkeit. Umsortieren und Herausnehmen ja, Zahlen anfassen nein.</li>
+    <li><b>Noch nicht da:</b> der Download der Präsentation (Format und Erzeugungsweg sind
+      #244) und die Klartextnamen der Kernprozesse (#194).</li>
+  </ol></details>`;
+}
+
+function zeichne(){
+  zeichneMeldung();
+  zeichneKopf();
+  zeichneBuehne();
+}
+
+// ===========================================================================
+// Laden und Speichern
+// ===========================================================================
+
+function zeigeTor(text){
+  document.getElementById("laufkopf").innerHTML = "";
+  document.getElementById("meldung").innerHTML = "";
+  document.getElementById("buehne").className = "";
+  document.getElementById("buehne").innerHTML = `<div class="tor">
+    <h2>Schlüssel</h2>
+    <p style="color:var(--muted);line-height:1.6">BC2 hat keine Nutzerverwaltung. Die
+      Oberfläche weist sich mit demselben Schlüssel aus wie BC0s Ruf
+      (<code>BC2_TRIGGER_TOKEN</code>). Er bleibt in diesem Tab und wird beim Schließen
+      vergessen.</p>
+    ${text ? `<p class="hinweis warn">${esc(text)}</p>` : ""}
+    <input id="schluesselfeld" type="password" placeholder="Schlüssel"
+      autocomplete="current-password">
+    <button class="btn" id="anmelden">weiter</button>
+  </div>`;
+  document.getElementById("schluesselfeld").focus();
+}
+
+async function ladeListe(){
+  const {ok, status, rumpf} = await ruf("/api/oberflaeche/laeufe");
+  if (status === 401){ zeigeTor("Der Schlüssel stimmt nicht."); return false; }
+  if (!ok){
+    Z.meldung = {art: "warn", text: `Die Liste der Läufe ist nicht erreichbar (${status}).`};
+    zeichne(); return false;
+  }
+  Z.laeufe = rumpf.laeufe;
+
+  const wahl = document.getElementById("laufwahl");
+  wahl.innerHTML = Z.laeufe.length
+    ? Z.laeufe.map(l => `<option value="${esc(l.paket_id)}">${esc(l.paket_id)} ·
+        ${l.anzahl_potenziale} Potenziale · ${
+          {pending: "offen", approved: "freigegeben", rejected: "abgelehnt"}[l.gate1_status]
+        }</option>`).join("")
+    : `<option value="">— kein Lauf —</option>`;
+  return true;
+}
+
+async function ladeLauf(paket_id){
+  if (!paket_id){ Z.ansicht = null; zeichne(); return; }
+  const {ok, status, rumpf} = await ruf("/api/oberflaeche/laeufe/" + encodeURIComponent(paket_id));
+  if (!ok){
+    Z.ansicht = null;
+    Z.meldung = {art: "warn", text: `Lauf ${esc(paket_id)} konnte nicht geladen werden (${status}).`};
+    zeichne(); return;
+  }
+  Z.paket_id = paket_id;
+  Z.ansicht = rumpf;
+  Z.gate1 = rumpf.gate1;
+  Z.gewaehlt = null;
+  Z.meldung = null;
+  ausGate1(rumpf.gate1);
+  zeichne();
+}
+
+/** Baut den Rumpf, den `POST …/gate1` erwartet — die Vertragsform v3.0. */
+function alsEntscheidung(status){
+  const folge = geltendeFolge().map(p => p.potenzial_id);
+  const rumpf = {
+    status,
+    entscheider: Z.entscheider,
+    approved_potenzial_ids: [...Z.freigegeben],
+    nicht_freigegeben: Z.ansicht.eintraege
+      .filter(e => !Z.freigegeben.has(e.potenzial_id))
+      .map(e => ({potenzial_id: e.potenzial_id,
+                  begruendung: (Z.ablehnungsgrund[e.potenzial_id] || "").trim()})),
+  };
+  if (wurdeUmsortiert()){
+    rumpf.finale_reihenfolge_potenzial_ids = folge;
+    rumpf.finale_prozessreihenfolge_kp_ids = prozessOrdnung();
+    rumpf.abweichungsbegruendung = Z.abweichungsgrund.trim();
+  }
+  if (status === "rejected"){
+    // Ein abgelehnter Lauf braucht EINE Begründung, nicht elf: der Server
+    // verlangt bei 'rejected' den Kommentar und keine Einzelbegründungen.
+    // Ausdrücklich NICHT die Abweichungsbegründung — die erklärt, warum die
+    // Reihenfolge anders ist, nicht warum der Lauf nicht taugt.
+    rumpf.kommentar = (prompt("Warum wird der ganze Lauf abgelehnt?") || "").trim();
+    rumpf.approved_potenzial_ids = [];
+    rumpf.nicht_freigegeben = [];
+    delete rumpf.finale_reihenfolge_potenzial_ids;
+    delete rumpf.finale_prozessreihenfolge_kp_ids;
+    delete rumpf.abweichungsbegruendung;
+  }
+  return rumpf;
+}
+
+async function entscheiden(status){
+  const rumpf = alsEntscheidung(status);
+  if (status === "rejected" && rumpf.kommentar.length < 5){
+    Z.meldung = {art: "warn",
+      text: "Ohne Begründung wird nichts abgelehnt — mindestens fünf Zeichen."};
+    return zeichne();
+  }
+
+  const antwort = await ruf(
+    `/api/oberflaeche/laeufe/${encodeURIComponent(Z.paket_id)}/gate1`,
+    {method: "POST", body: JSON.stringify(rumpf)});
+
+  if (antwort.status === 422){
+    Z.meldung = {art: "warn", text:
+      `<b>Die Entscheidung ist so nicht zulässig.</b><ul style="margin:7px 0 0">`
+      + (antwort.rumpf.maengel || []).map(m => `<li>${esc(m)}</li>`).join("")
+      + `</ul>`};
+    return zeichne();
+  }
+  if (!antwort.ok){
+    Z.meldung = {art: "warn",
+      text: `Speichern fehlgeschlagen (${antwort.status}). Die Entscheidung ist <b>nicht</b> abgelegt.`};
+    return zeichne();
+  }
+
+  Z.gate1 = antwort.rumpf.gate1;
+  Z.geaendert = false;
+  Z.meldung = {art: "info", text: status === "approved"
+    ? `<b>Gate 1 freigegeben.</b> ${Z.freigegeben.size} Potenzial(e) gehen an BC3.
+       Die Präsentation als Download fehlt noch — Format und Erzeugungsweg sind
+       <a href="https://github.com/pg-coe-kmu/coe-factory/issues/244">#244</a>.`
+    : `<b>Lauf abgelehnt.</b> Es wird nichts ausgeliefert und nichts gelöscht; ein erneuter
+       Lauf erzeugt Fassung ${Z.ansicht.kopf.fassung + 1}, diese bleibt abrufbar.`};
+  await ladeListe();
+  document.getElementById("laufwahl").value = Z.paket_id;
+  zeichne();
+}
+
+// ===========================================================================
+// Ereignisse
+// ===========================================================================
+
+document.addEventListener("click", async e => {
+  const t = e.target;
+
+  if (t.id === "anmelden"){
+    schluessel = document.getElementById("schluesselfeld").value.trim();
+    sessionStorage.setItem(SCHLUESSEL_FACH, schluessel);
+    return starten();
+  }
+  if (t.id === "abmelden"){
+    sessionStorage.removeItem(SCHLUESSEL_FACH); schluessel = "";
+    return zeigeTor("");
+  }
+  if (!Z.ansicht) return;
+
+  const hoch = t.closest("[data-hoch]"), runter = t.closest("[data-runter]");
+  if (hoch || runter){
+    verschiebePotenzial((hoch || runter).dataset[hoch ? "hoch" : "runter"], hoch ? -1 : 1);
+    return zeichne();
+  }
+  const kphoch = t.closest("[data-kphoch]"), kprunter = t.closest("[data-kprunter]");
+  if (kphoch || kprunter){
+    e.preventDefault();  // sonst klappt das <details> beim Klick im <summary> um
+    verschiebeProzess((kphoch || kprunter).dataset[kphoch ? "kphoch" : "kprunter"],
+                      kphoch ? -1 : 1);
+    return zeichne();
+  }
+
+  const sicht = t.closest("[data-sicht]");
+  if (sicht){ Z.sicht = sicht.dataset.sicht; Z.gewaehlt = null; return zeichne(); }
+
+  if (t.closest("[data-vorbelegen]")){
+    if (confirm("Freigaben, Begründungen und Reihenfolge auf den Vorschlag zurücksetzen?")){
+      vorbelegen(); zeichne();
+    }
+    return;
+  }
+  if (t.closest("[data-zu]")){ Z.gewaehlt = null; return zeichne(); }
+
+  const tat = t.closest("[data-tat]");
+  if (tat) return entscheiden(tat.dataset.tat);
+
+  // Zuletzt, damit Knöpfe INNERHALB einer Zeile zuerst greifen.
+  const ziel = t.closest("[data-id]");
+  if (ziel && !t.closest("[data-frei]")){
+    Z.gewaehlt = Z.gewaehlt === ziel.dataset.id ? null : ziel.dataset.id;
+    return zeichne();
+  }
+});
+
+document.addEventListener("change", async e => {
+  if (e.target.id === "laufwahl") return ladeLauf(e.target.value);
+
+  const frei = e.target.closest("[data-frei]");
+  if (frei){
+    const id = frei.dataset.frei;
+    Z.freigegeben.has(id) ? Z.freigegeben.delete(id) : Z.freigegeben.add(id);
+    Z.geaendert = true;
+    return zeichne();
+  }
+});
+
+document.addEventListener("input", e => {
+  // Beim Tippen NICHT neu zeichnen — das nähme den Schreibfokus mitten im Satz.
+  // Der Zustand wandert mit, die Seite holt beim nächsten Ereignis auf; nur die
+  // Anzeigen, die an der Eingabe hängen, werden von Hand nachgeführt.
+  const ablehnung = e.target.closest("[data-ablehnung]");
+  if (ablehnung){
+    Z.ablehnungsgrund[ablehnung.dataset.ablehnung] = e.target.value;
+    Z.geaendert = true;
+    const feld = ablehnung.closest(".grundfeld");
+    if (feld) feld.classList.toggle("fehlt", e.target.value.trim().length < 5);
+    return fussleisteNachfuehren();
+  }
+  const abweichung = e.target.closest("[data-abweichung]");
+  if (abweichung){
+    Z.abweichungsgrund = e.target.value; Z.geaendert = true;
+    return fussleisteNachfuehren();
+  }
+  const entscheider = e.target.closest("[data-entscheider]");
+  if (entscheider){ Z.entscheider = e.target.value; }
+});
+
+/** Führt die Fußleiste nach, ohne die Seite neu zu zeichnen. */
+function fussleisteNachfuehren(){
+  const leiste = document.querySelector(".fussleiste");
+  if (!leiste || !Z.ansicht) return;
+  const knopf = leiste.querySelector('[data-tat="approved"]');
+  if (knopf) knopf.disabled = !darfFreigeben();
+  const zaehler = leiste.querySelector(".tag.fehlt");
+  const offen = ohneBegruendung();
+  if (zaehler && offen.length) zaehler.textContent = `${offen.length} Begründung(en) fehlen`;
+}
+
+// --- Ziehen ----------------------------------------------------------------
+//
+// Zwei Ebenen, und quer über Prozessgrenzen gesperrt. Die Sperre ist keine
+// Bequemlichkeit: ein Potenzial in einen anderen Kernprozess zu ziehen wäre
+// UMHÄNGEN, und das ist am Gate 1 nicht vorgesehen — das Konzept geht je
+// Kernprozess an BC3.
+
+let gezogen = null;   // {art: "potenzial"|"prozess", id, kp}
+
+document.addEventListener("dragstart", e => {
+  const zeile = e.target.closest("[data-zieh]");
+  const kopf = e.target.closest("[data-ziehkp]");
+  if (zeile) gezogen = {art: "potenzial", id: zeile.dataset.zieh, kp: zeile.dataset.kp};
+  else if (kopf) gezogen = {art: "prozess", id: kopf.dataset.ziehkp};
+  else return;
+  e.dataTransfer.effectAllowed = "move";
+});
+
+document.addEventListener("dragover", e => {
+  if (!gezogen) return;
+  const ziel = gezogen.art === "potenzial"
+    ? e.target.closest("[data-zieh]")
+    : e.target.closest("[data-ziehkp]");
+  if (!ziel) return;
+  // Fremder Kernprozess: kein gültiges Ziel. Kein dropEffect, kein Rahmen —
+  // der Mauszeiger sagt dann von selbst, dass hier nichts abgelegt wird.
+  if (gezogen.art === "potenzial" && ziel.dataset.kp !== gezogen.kp) return;
+  e.preventDefault();
+  document.querySelectorAll(".ziehziel").forEach(x => x.classList.remove("ziehziel"));
+  ziel.classList.add("ziehziel");
+});
+
+document.addEventListener("drop", e => {
+  if (!gezogen) return;
+  document.querySelectorAll(".ziehziel").forEach(x => x.classList.remove("ziehziel"));
+
+  if (gezogen.art === "potenzial"){
+    const ziel = e.target.closest("[data-zieh]");
+    if (!ziel || ziel.dataset.kp !== gezogen.kp){ gezogen = null; return; }
+    e.preventDefault();
+    const ids = potenzialeVon(gezogen.kp).map(x => x.potenzial_id);
+    const von = ids.indexOf(gezogen.id), nach = ids.indexOf(ziel.dataset.zieh);
+    if (von !== -1 && nach !== -1 && von !== nach){
+      ids.splice(nach, 0, ids.splice(von, 1)[0]);
+      setzePotenzialfolge(gezogen.kp, ids);
+    }
+  } else {
+    const ziel = e.target.closest("[data-ziehkp]");
+    if (!ziel){ gezogen = null; return; }
+    e.preventDefault();
+    const folge = [...prozessOrdnung()];
+    const von = folge.indexOf(gezogen.id), nach = folge.indexOf(ziel.dataset.ziehkp);
+    if (von !== -1 && nach !== -1 && von !== nach){
+      folge.splice(nach, 0, folge.splice(von, 1)[0]);
+      Z.prozessfolge = folge;
+      Z.reihenfolge = folge.flatMap(kp => potenzialeVon(kp).map(x => x.potenzial_id));
+      Z.geaendert = true;
+    }
+  }
+  gezogen = null;
+  zeichne();
+});
+
+document.addEventListener("dragend", () => {
+  gezogen = null;
+  document.querySelectorAll(".ziehziel").forEach(x => x.classList.remove("ziehziel"));
+});
+
+// Auf- und Zuklappen merken, damit ein Neuzeichnen es nicht zurücksetzt.
+document.addEventListener("toggle", e => {
+  const block = e.target.closest("[data-kp-block]");
+  if (!block) return;
+  const kp = block.dataset.kpBlock;
+  block.open ? Z.offen.add(kp) : Z.offen.delete(kp);
+}, true);
+
+// Ungespeichertes nicht stillschweigend verlieren.
+window.addEventListener("beforeunload", e => {
+  if (Z.geaendert){ e.preventDefault(); e.returnValue = ""; }
+});
+
+// ===========================================================================
+// Start
+// ===========================================================================
+
+async function starten(){
+  if (!schluessel) return zeigeTor("");
+
+  const zustand = await ruf("/api/oberflaeche/zustand");
+  if (zustand.status === 401) return zeigeTor("Der Schlüssel stimmt nicht.");
+  if (!zustand.ok){
+    Z.meldung = {art: "warn", text: `Der Dienst antwortet nicht (${zustand.status}).`};
+    return zeichne();
+  }
+  Z.fluechtig = !!zustand.rumpf.fluechtig;
+
+  if (!await ladeListe()) return;
+  await ladeLauf(document.getElementById("laufwahl").value);
+}
+
+starten();
+</script>
+</body>
+</html>

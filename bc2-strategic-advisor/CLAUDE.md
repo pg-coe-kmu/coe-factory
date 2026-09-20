@@ -8,14 +8,22 @@ Erkennt aus BC0s Baseline **Automatisierungspotenziale**, bewertet ihren **Value
 und erzeugt eine entscheidungsreife Präsentation plus einen maschinenlesbaren Vertrag für BC3.
 Zwischen Gate 0 und Gate 1. Verantwortlich: **Sergio, allein** — Eike ist seit dem 30.08.2026 raus.
 
-**Stand (20.09.2026):** Zwei Teile stehen. Der **Trigger-Endpunkt** (`app/app.py`, `app/eingang.py`)
+**Stand (21.09.2026):** Drei Teile stehen. Der **Trigger-Endpunkt** (`app/app.py`, `app/eingang.py`)
 läuft im Betrieb und nimmt BC0s Pakete an ([#190](https://github.com/pg-coe-kmu/coe-factory/issues/190),
 [#205](https://github.com/pg-coe-kmu/coe-factory/issues/205)); das **Value- und Priorisierungsmodell**
-(`app/modell/`) rechnet nach ADR-006 · BC2 ([#238](https://github.com/pg-coe-kmu/coe-factory/issues/238)).
+(`app/modell/`) rechnet nach ADR-006 · BC2 ([#238](https://github.com/pg-coe-kmu/coe-factory/issues/238));
+die **Gate-1-Oberfläche** (`app/static/index.html`, `app/oberflaeche.py`) zeigt einen Lauf und nimmt
+die Freigabe entgegen ([#243](https://github.com/pg-coe-kmu/coe-factory/issues/243)).
 Offen sind Potenzial-Erkennung ([#194](https://github.com/pg-coe-kmu/coe-factory/issues/194) — dort
-liegt auch das Lesen auf `stand_zum(uebergeben_am)`), Oberfläche
-([#243](https://github.com/pg-coe-kmu/coe-factory/issues/243)) und Präsentation
-([#244](https://github.com/pg-coe-kmu/coe-factory/issues/244)).
+liegt auch das Lesen auf `stand_zum(uebergeben_am)`), Präsentation
+([#244](https://github.com/pg-coe-kmu/coe-factory/issues/244)) und der **Tabellenentwurf für Schema
+`bc2`** ([#250](https://github.com/pg-coe-kmu/coe-factory/issues/250)).
+
+⚠ **Die Oberfläche ist noch nicht betriebsfest**, und sie sagt das selbst an: ihre Läufe kommen aus
+einem Messsatz statt aus der Datenbank (das ist #194), und ihre Entscheidung liegt im
+**Arbeitsspeicher**, weil Schema `bc2` dafür keinen Ort hat (das ist #250). Beides hängt hinter je
+einem Protokoll — `Laufquelle` und `Gate1Buch` —, die Umsetzungen werden getauscht, nicht die
+Oberfläche.
 Owner-Angaben in den Alt-Issues (#84–#99) nennen teils Eike und sind damit hinfällig.
 *(Korrigiert am 20.09.2026: die Vorgängerfassung sagte „Es gibt noch keinen BC2-Code. Der Bau
 beginnt bei null" — ein Stand vom 30.08., der schon durch #190 überholt war.)*
@@ -87,7 +95,9 @@ divergierenden Kopien unter `Projektgruppe/BC2/` sind aufgelöst und liegen dort
 | `migriere_bc3_vorlage.py`, `validate.py`, `kalibrierung.py` | `bc2-strategic-advisor/tools/` — aus dem Repo-Wurzelverzeichnis aufrufen |
 | Systemarchitektur (27.06., teils überholt) | `bc2-strategic-advisor/architektur/` |
 | Trigger-Endpunkt (läuft im Betrieb) | `bc2-strategic-advisor/app/app.py`, `app/eingang.py` |
-| **Value- und Priorisierungsmodell** (ADR-006 · BC2) | `bc2-strategic-advisor/app/modell/` — `parameter.py` (Setzungen), `rechnen.py` (reiner Kern), `ausgabe.py` (Vertragsform) |
+| **Value- und Priorisierungsmodell** (ADR-006 · BC2) | `bc2-strategic-advisor/app/modell/` — `parameter.py` (Setzungen), `rechnen.py` (reiner Kern), `ausgabe.py` (Vertragsform), `laden.py` (Messsatz lesen) |
+| **Gate-1-Oberfläche** (Fassung D, #167/#243) | `app/static/index.html` (eine Datei), `app/oberflaeche.py` (die vier Rufe), `app/gate1.py` (Entscheidung, Prüfung, Ablage), `app/laeufe.py` (Laufquelle) |
+| Oberfläche ansehen, ohne Datenbank | `app/vorschau.py` — `python3 vorschau.py`, dann `http://127.0.0.1:8243/` |
 | Messsätze für die Kalibrierung | `bc2-strategic-advisor/kalibrierung/` |
 
 Der Vertrag verlor beim Sprung v1→v2 die Felder `akzeptanzkriterien_geschaeftlich`,

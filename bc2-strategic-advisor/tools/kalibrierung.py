@@ -34,34 +34,15 @@ from pathlib import Path
 # Der Rechenkern liegt unter app/; von tools/ aus eine Ebene hoch und hinein.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "app"))
 
-from modell import (  # noqa: E402
-    Nutzwert,
-    Nutzwertkategorie,
-    Parameter,
-    Potenzialeingang,
-    rechne_lauf,
-)
+from modell import Parameter, rechne_lauf  # noqa: E402
+
+# Das Lesen eines Messsatzes liegt seit #243 im Modell: die Oberfläche braucht
+# es auch, und eine zweite Fassung derselben Funktion liefe früher oder später
+# auseinander. Der Name bleibt hier erhalten, damit ein Aufruf von aussen
+# weiter trägt.
+from modell.laden import lies_eingaenge  # noqa: E402,F401
 
 GRUPPEN = ("PRIO 1", "PRIO 2", "PRIO 3")
-
-
-def lies_eingaenge(pfad: Path) -> tuple[str, str, list[Potenzialeingang], str | None]:
-    """Liest eine Eingangsdatei. Gibt (company_id, paket_id, Eingänge, Warnung)."""
-    roh = json.loads(pfad.read_text(encoding="utf-8"))
-    eingaenge = []
-    for p in roh["potenziale"]:
-        nw = p.pop("nutzwert")
-        p["nutzwert"] = Nutzwert(
-            **{
-                schluessel: Nutzwertkategorie(eintrag["wert"], eintrag["begruendung"])
-                for schluessel, eintrag in nw.items()
-            }
-        )
-        for schluessel in ("betroffene_teilprozess_ids", "reifeskalen"):
-            if p.get(schluessel) is not None:
-                p[schluessel] = tuple(p[schluessel])
-        eingaenge.append(Potenzialeingang(**p))
-    return roh["company_id"], roh["paket_id"], eingaenge, roh.get("warnung")
 
 
 def verteilung(lauf) -> dict[str, int]:
