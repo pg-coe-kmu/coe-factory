@@ -154,6 +154,56 @@ table{border-collapse:collapse;width:100%}
 #C textarea{width:100%;font-family:inherit;font-size:13px;padding:9px 11px;border-radius:8px;
             border:1px solid var(--line);min-height:62px;resize:vertical}
 
+/* =================== D — Mischung =================== */
+#D .matrixkarte{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px}
+#D svg{width:100%;height:auto;display:block}
+#D .punkt{cursor:pointer} #D .punkt circle.kern{stroke:#fff;stroke-width:1.5}
+#D .punkt.gewaehlt circle.kern{stroke:var(--navy);stroke-width:2.5}
+#D .punkt text{font-size:9px;font-weight:700;fill:#fff;pointer-events:none}
+#D .parkbahn{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;
+             margin-top:16px}
+#D .listenzeile{display:flex;gap:9px;align-items:center;padding:7px 0;
+                border-bottom:1px solid #f0f2f5;cursor:pointer;font-size:13px}
+#D .listenzeile .nr{width:20px;color:var(--muted);font-weight:700}
+
+#D .kpblock{background:#fff;border:1px solid var(--line);border-radius:11px;margin-bottom:11px;
+            overflow:hidden}
+#D .kpblock>summary{cursor:pointer;padding:12px 14px;display:flex;gap:11px;align-items:center;
+                    background:#fbfcfd;font-size:13.5px;flex-wrap:wrap}
+#D .kpblock[open]>summary{border-bottom:1px solid var(--line)}
+#D .kpblock>summary::-webkit-details-marker{display:none}
+#D .kpinhalt{padding:13px 14px}
+
+#D .dzeile{display:flex;gap:11px;align-items:center;padding:9px 10px;border-radius:9px;
+           border:1px solid transparent;cursor:pointer}
+#D .dzeile:hover{background:#f8fafc;border-color:var(--line)}
+#D .dzeile.gewaehlt{background:#eef4fb;border-color:#cfe0f2}
+#D .dzeile.abgelehnt{opacity:.62}
+#D .dzeile .titel{flex:1;min-width:190px} #D .dzeile .titel .unten{display:block;font-size:11.5px;
+           color:var(--muted);margin-top:2px}
+#D .dzeile .pos,#D .kpblock>summary .pos{width:24px;text-align:center;font-weight:700;
+           color:var(--muted);font-variant-numeric:tabular-nums}
+#D .dzeile .wert{width:150px} #D .dzeile .achsen{width:96px;font-size:12.5px;color:var(--muted)}
+#D .dzeile .kat{width:112px}
+#D .dzeile .frei{display:flex;gap:6px;align-items:center;font-size:12.5px;width:96px}
+#D .griff{cursor:grab;color:#b6bfca;font-size:15px;letter-spacing:-1px;user-select:none}
+#D .griff:active{cursor:grabbing}
+#D [draggable="true"]:active{opacity:.55}
+
+#D .grundfeld{margin:0 0 9px 46px;padding:10px 12px;border-radius:9px;
+              background:#fbf5e9;border:1px solid #ecd9ae}
+#D .grundfeld.fehlt{background:#fdf0ee;border-color:#f0c7c0}
+#D .grundfeld label{display:block;font-size:12.5px;margin-bottom:6px;color:#7a5a12}
+#D .grundfeld.fehlt label{color:#8d2b1c}
+#D .grundfeld textarea{width:100%;font-family:inherit;font-size:13px;padding:8px 10px;
+              border-radius:7px;border:1px solid var(--line);min-height:52px;resize:vertical}
+#D .schublade{position:fixed;top:0;right:0;bottom:0;width:min(540px,92vw);background:#fff;
+              border-left:1px solid var(--line);box-shadow:-8px 0 26px #0002;overflow:auto;
+              padding:18px 20px 90px;z-index:40}
+#D .fussleiste{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);
+               padding:11px 22px;display:flex;align-items:center;gap:12px;z-index:30;
+               box-shadow:0 -3px 14px #0001;flex-wrap:wrap}
+
 /* ---------- Detailblock, in allen Fassungen gleich aufgebaut -------------- */
 .detail h2{margin-bottom:4px} .detail .tp{font-size:12.5px;color:var(--muted);margin-bottom:14px}
 .detail .block{border-top:1px solid var(--line);padding:13px 0}
@@ -1844,6 +1894,7 @@ window.PROTOTYP_DATEN = {
 // ===========================================================================
 
 const FASSUNGEN = {
+  D: {name:"Mischung",           zeichne:zeichneD},
   A: {name:"Rangliste",          zeichne:zeichneA},
   B: {name:"Portfolio",          zeichne:zeichneB},
   C: {name:"Freigabe-Assistent", zeichne:zeichneC},
@@ -1858,7 +1909,62 @@ const Z = {
   abweichungsgrund: "",
   schritt: 0,               // nur Fassung C
   offen: new Set(),          // aufgeklappte Karten in C — überlebt das Neuzeichnen
+  // --- nur Fassung D ---
+  ansicht: "liste",          // "liste" | "matrix"
+  prozessReihenfolge: null,  // überschriebene Reihenfolge der Kernprozesse
+  ablehnungsgrund: {},       // Potenzial-ID -> Begründung der Nicht-Freigabe
+  vorbelegt: false,          // Vorschlag einmal übernommen?
+  speicherGeht: true,
+  zugezogen: null,           // was gerade gezogen wird
 };
+
+// ---------------------------------------------------------------------------
+// Speicherung
+// ---------------------------------------------------------------------------
+//
+// Ein Prototyp speichert normalerweise nichts. Hier doch: die Begründung einer
+// **Nicht**-Freigabe ist die eine Angabe, die nirgends sonst herkommt — sie
+// entsteht am Gate 1 und geht verloren, wenn sie niemand festhält. Der Ort ist
+// der Browser und trägt es ausdrücklich im Namen; im Betrieb gehört sie an den
+// Lauf (Schema `bc2`) und in die Lieferung.
+
+const SPEICHER = "PROTOTYP-167-wegwerfen";
+
+function speichern(){
+  try {
+    localStorage.setItem(SPEICHER, JSON.stringify({
+      paket: lauf().paket_id,
+      freigegeben: [...Z.freigegeben],
+      ablehnungsgrund: Z.ablehnungsgrund,
+      reihenfolge: Z.reihenfolge,
+      prozessReihenfolge: Z.prozessReihenfolge,
+      abweichungsgrund: Z.abweichungsgrund,
+      vorbelegt: Z.vorbelegt,
+    }));
+    Z.speicherGeht = true;
+  } catch { Z.speicherGeht = false; }
+}
+
+function laden(){
+  try {
+    const roh = localStorage.getItem(SPEICHER);
+    if (!roh) return;
+    const d = JSON.parse(roh);
+    if (d.paket !== lauf().paket_id) return;   // eine Entscheidung gehört zu ihrem Lauf
+    Z.freigegeben = new Set(d.freigegeben || []);
+    Z.ablehnungsgrund = d.ablehnungsgrund || {};
+    Z.reihenfolge = d.reihenfolge || null;
+    Z.prozessReihenfolge = d.prozessReihenfolge || null;
+    Z.abweichungsgrund = d.abweichungsgrund || "";
+    Z.vorbelegt = !!d.vorbelegt;
+  } catch { Z.speicherGeht = false; }
+}
+
+function verwerfen(){
+  try { localStorage.removeItem(SPEICHER); } catch {}
+  Z.freigegeben.clear(); Z.ablehnungsgrund = {}; Z.reihenfolge = null;
+  Z.prozessReihenfolge = null; Z.abweichungsgrund = ""; Z.vorbelegt = false;
+}
 
 const lauf = () => PROTOTYP_DATEN.laeufe[Z.laufIndex];
 const potenziale = () => lauf().potenziale;
@@ -1869,8 +1975,33 @@ function geltendeReihenfolge(){
   if (Z.reihenfolge) return Z.reihenfolge.map(potenzial);
   return potenziale().slice().sort((a,b) => a.rang - b.rang);
 }
-const wurdeUmsortiert = () => !!Z.reihenfolge &&
-  Z.reihenfolge.join() !== potenziale().slice().sort((a,b)=>a.rang-b.rang).map(p=>p.id).join();
+const vorschlagIds = () => potenziale().slice().sort((a,b)=>a.rang-b.rang).map(p=>p.id);
+const wurdeUmsortiert = () =>
+  (!!Z.reihenfolge && Z.reihenfolge.join() !== vorschlagIds().join()) ||
+  (!!Z.prozessReihenfolge &&
+   Z.prozessReihenfolge.join() !== lauf().konzepte.map(k=>k.kp_id).join());
+
+// --- Reihenfolge in Fassung D: zwei Ebenen, beide ziehbar ------------------
+//
+// Die Kernprozesse tragen eine Reihenfolge, und innerhalb jedes Kernprozesses
+// die Potenziale. Die geltende Gesamtfolge ist die Verkettung — der Prozessrang
+// wird damit zur ersten Sortierstufe, was er in der Rechnung nicht ist. Genau
+// das ist die Freiheit, die Gate 1 dem Menschen gibt.
+
+const prozessOrdnung = () => Z.prozessReihenfolge || lauf().konzepte.map(k=>k.kp_id);
+const potenzialOrdnung = () => Z.reihenfolge || vorschlagIds();
+
+function reihenfolgeD(){
+  const ids = potenzialOrdnung();
+  const raus = [];
+  for (const kp of prozessOrdnung())
+    for (const id of ids){ const p = potenzial(id); if (p && p.kp_id === kp) raus.push(p); }
+  return raus;
+}
+
+/** Ohne Begründung keine Nicht-Freigabe — das ist die Bedingung für Gate 1. */
+const ohneBegruendung = () => potenziale()
+  .filter(p => !Z.freigegeben.has(p.id) && !(Z.ablehnungsgrund[p.id] || "").trim());
 
 // ===========================================================================
 // Formate
@@ -2145,9 +2276,10 @@ function zeichneA(){
 // FASSUNG B — Portfolio. Die Matrix ist die Seite.
 // ===========================================================================
 
-function zeichneB(){
-  if (!potenziale().length) return leererLaufHtml();
-
+/** Die Matrix — von Fassung B und D gemeinsam benutzt. Das ist die eine Stelle,
+    an der zwei Fassungen sich etwas teilen dürfen: D soll ausdrücklich Bs Matrix
+    zeigen, nicht eine zweite, leicht andere. */
+function matrixSvg(){
   // Impact nach oben, Komplexität nach rechts: Quick Wins liegen oben links.
   const B={l:56,r:22,o:22,u:44}, W=760, H=430;
   const ix = k => B.l + (k-0.5)/10*(W-B.l-B.r);
@@ -2195,8 +2327,26 @@ ${p.value ? spanneKurz(...p.value.einsparung_spanne)+"/Jahr (Ring = Spanne)" : "
     </g>`;
   }).join("");
 
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Portfolio-Matrix">
+      ${quadranten}${gitter.join("")}
+      <line x1="${B.l}" y1="${H-B.u}" x2="${W-B.r}" y2="${H-B.u}" stroke="#c7cfd9"/>
+      <line x1="${B.l}" y1="${B.o}" x2="${B.l}" y2="${H-B.u}" stroke="#c7cfd9"/>
+      ${[1,3,5,7,9].map(k=>`<text x="${ix(k)}" y="${H-B.u+16}" font-size="10.5"
+          text-anchor="middle" fill="#6b7280">${k}</text>`).join("")}
+      ${[1,3,5,7,9].map(i=>`<text x="${B.l-9}" y="${iy(i)+4}" font-size="10.5"
+          text-anchor="end" fill="#6b7280">${i}</text>`).join("")}
+      <text x="${(B.l+W-B.r)/2}" y="${H-8}" font-size="11.5" text-anchor="middle"
+            fill="#6b7280">Umsetzungskomplexität →</text>
+      <text x="14" y="${(B.o+H-B.u)/2}" font-size="11.5" text-anchor="middle"
+            fill="#6b7280" transform="rotate(-90 14 ${(B.o+H-B.u)/2})">Impact →</text>
+      ${punkte}
+    </svg>`;
+}
+
+/** Der Kasten unter der Matrix für alles ohne Value-Zahl. Ebenfalls geteilt. */
+function parkbahnHtml(){
   const ohneValue = potenziale().filter(p=>!p.value);
-  const parkbahn = ohneValue.length ? `
+  return ohneValue.length ? `
     <div class="parkbahn">
       <h3>Ohne Value-Zahl — steht in der Matrix, aber ohne Größe
         <span class="tag fehlt">${ohneValue.length}</span></h3>
@@ -2208,7 +2358,18 @@ ${p.value ? spanneKurz(...p.value.einsparung_spanne)+"/Jahr (Ring = Spanne)" : "
         <span class="nr">${p.rang}</span><span style="flex:1">${esc(p.titel)}</span>
         <span class="tag fehlt">Dauer nicht erhoben</span></div>`).join("")}
     </div>` : "";
+}
 
+/** Der Warnstreifen für die gerissene Plausibilitätsschranke. */
+function schrankeHtml(){
+  return lauf().schranke && lauf().schranke.gerissen
+    ? `<p class="hinweis warn" style="margin-bottom:14px">⚠ ${md(lauf().schranke.text)}</p>` : "";
+}
+
+function zeichneB(){
+  if (!potenziale().length) return leererLaufHtml();
+
+  const parkbahn = parkbahnHtml();
   const schranke = lauf().schranke && lauf().schranke.gerissen
     ? `<p class="hinweis warn" style="margin-bottom:14px">⚠ ${md(lauf().schranke.text)}</p>` : "";
 
@@ -2246,22 +2407,7 @@ ${p.value ? spanneKurz(...p.value.einsparung_spanne)+"/Jahr (Ring = Spanne)" : "
       Fläche = Einsparung pro Jahr · Ring = Bandbreite</p>
     <div class="buehne">
       <div>
-        <div class="matrixkarte">
-          <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Portfolio-Matrix">
-            ${quadranten}${gitter.join("")}
-            <line x1="${B.l}" y1="${H-B.u}" x2="${W-B.r}" y2="${H-B.u}" stroke="#c7cfd9"/>
-            <line x1="${B.l}" y1="${B.o}" x2="${B.l}" y2="${H-B.u}" stroke="#c7cfd9"/>
-            ${[1,3,5,7,9].map(k=>`<text x="${ix(k)}" y="${H-B.u+16}" font-size="10.5"
-                text-anchor="middle" fill="#6b7280">${k}</text>`).join("")}
-            ${[1,3,5,7,9].map(i=>`<text x="${B.l-9}" y="${iy(i)+4}" font-size="10.5"
-                text-anchor="end" fill="#6b7280">${i}</text>`).join("")}
-            <text x="${(B.l+W-B.r)/2}" y="${H-8}" font-size="11.5" text-anchor="middle"
-                  fill="#6b7280">Umsetzungskomplexität →</text>
-            <text x="14" y="${(B.o+H-B.u)/2}" font-size="11.5" text-anchor="middle"
-                  fill="#6b7280" transform="rotate(-90 14 ${(B.o+H-B.u)/2})">Impact →</text>
-            ${punkte}
-          </svg>
-        </div>
+        <div class="matrixkarte">${matrixSvg()}</div>
         ${parkbahn}
       </div>
       <div class="seite">
@@ -2449,10 +2595,200 @@ function zeichneC(){
 }
 
 // ===========================================================================
+// FASSUNG D — die Mischung. Liste mit Akkordeon je Kernprozess (C-Gliederung,
+// A-Dichte), umschaltbar auf Bs Matrix, Reihenfolge per Ziehen, und jede
+// Nicht-Freigabe braucht eine Begründung, die gespeichert wird.
+// ===========================================================================
+
+/**
+ * Der Vorschlag ist der Ausgangspunkt: alles freigegeben, alle Kernprozesse
+ * aufgeklappt. Begründet werden muss die **Abweichung**, nicht die Zustimmung —
+ * sonst müsste der Mensch elf Mal erklären, warum er der Rechnung folgt.
+ *
+ * Läuft vor dem Kopf, nicht erst beim Zeichnen der Bühne: sonst zeigt die
+ * Kopfzeile den Stand von vorhin.
+ */
+function vorbelegenD(){
+  if (Z.vorbelegt || !potenziale().length) return;
+  potenziale().forEach(p => Z.freigegeben.add(p.id));
+  lauf().konzepte.forEach(k => Z.offen.add("D-" + k.kp_id));
+  Z.vorbelegt = true;
+  speichern();
+}
+
+function zeichneD(){
+  if (!potenziale().length) return leererLaufHtml();
+
+  const liste = reihenfolgeD();
+  const offen = ohneBegruendung();
+
+  const kopfzeile = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+      <div>
+        <h1>Priorisierung</h1>
+        <p style="color:var(--muted);margin:0">${potenziale().length} Potenziale in
+          ${lauf().konzepte.length} Kernprozessen · Reihenfolge und Freigabe sind ein
+          <b>Vorschlag</b></p>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:7px;align-items:center">
+        ${!Z.speicherGeht ? `<span class="tag fehlt">Speichern nicht möglich</span>` : ""}
+        <button class="btn sec sm" data-verwerfen="1">Entscheidung verwerfen</button>
+        <div style="display:flex;border:1px solid var(--navy);border-radius:8px;overflow:hidden">
+          <button class="btn sm ${Z.ansicht==="liste"?"":"sec"}" style="border-radius:0;border:none"
+                  data-ansicht="liste">Liste</button>
+          <button class="btn sm ${Z.ansicht==="matrix"?"":"sec"}" style="border-radius:0;border:none"
+                  data-ansicht="matrix">Matrix</button>
+        </div>
+      </div>
+    </div>`;
+
+  if (Z.ansicht === "matrix"){
+    return `
+    ${notizD()}
+    <div class="wrap">
+      ${schrankeHtml()}${kopfzeile}
+      <div class="matrixkarte">${matrixSvg()}</div>
+      ${parkbahnHtml()}
+      <p class="hinweis info" style="margin-top:14px">Die Matrix ist <b>Anzeige</b>. Umsortiert
+        und freigegeben wird in der Liste — eine Reihenfolge lässt sich in einem Quadranten nicht
+        ausdrücken.</p>
+      ${Z.gewaehlt ? `<div class="matrixkarte" style="margin-top:18px;max-width:780px">
+          <button class="btn sec sm" data-zu="1" style="float:right">schließen</button>
+          ${detailHtml(potenzial(Z.gewaehlt))}</div>` : ""}
+    </div>
+    ${fussleisteD(liste, offen)}`;
+  }
+
+  // --- Listenansicht: ein Akkordeon je Kernprozess ---
+  const bloecke = prozessOrdnung().map((kp_id, idx) => {
+    const k = lauf().konzepte.find(x => x.kp_id === kp_id);
+    const eigene = liste.filter(p => p.kp_id === kp_id);
+    const frei = eigene.filter(p => Z.freigegeben.has(p.id)).length;
+    const summe = eigene.filter(p => p.value)
+      .reduce((s,p) => s + p.value.einsparung_mitte, 0);
+    const verschoben = k.prozessrang !== idx + 1;
+
+    const zeilen = eigene.map((p, i) => {
+      const abgelehnt = !Z.freigegeben.has(p.id);
+      const grund = Z.ablehnungsgrund[p.id] || "";
+      return `
+      <div class="dzeile ${abgelehnt?"abgelehnt":""} ${Z.gewaehlt===p.id?"gewaehlt":""}"
+           draggable="true" data-zieh="${p.id}" data-kp="${kp_id}">
+        <span class="griff" title="ziehen zum Umsortieren">⠿</span>
+        <span class="pos">${liste.indexOf(p)+1}</span>
+        <span class="titel" data-id="${p.id}">
+          <b>${esc(p.titel)}</b>
+          <span class="unten">${esc(p.tp_id)} · Score ${p.score}
+            ${p.datenluecken.length ? ` · <span style="color:var(--amber)">⚠ ${p.datenluecken.length}</span>` : ""}
+          </span>
+        </span>
+        <span class="wert">${p.value
+            ? `<b>${spanneKurz(...p.value.einsparung_spanne)}</b>
+               <span style="color:var(--muted);font-size:11.5px">/J · ±${p.value.breite_pct} %</span>`
+            : `<span class="tag fehlt">keine Value-Zahl</span>`}</span>
+        <span class="achsen">I <b>${p.impact}</b> · K <b>${p.komplexitaet}</b></span>
+        <span class="kat"><span class="tag ${KAT[p.kategorie]}">${p.kategorie}</span></span>
+        <span class="tag ${GRP[p.gruppe]}">${p.gruppe}</span>
+        <label class="frei" onclick="event.stopPropagation()">
+          <input type="checkbox" data-frei="${p.id}" ${abgelehnt?"":"checked"}> freigeben</label>
+      </div>
+      ${abgelehnt ? `
+        <div class="grundfeld ${grund.trim()?"":"fehlt"}">
+          <label>Warum wird <b>${esc(p.id)}</b> nicht freigegeben?
+            ${grund.trim() ? "" : `<span class="tag fehlt">Pflicht</span>`}</label>
+          <textarea data-ablehnung="${p.id}"
+            placeholder="Die Rechnung schlägt es vor — was spricht dagegen? (Querschnitt, Abhängigkeit, Zeitpunkt …)">${esc(grund)}</textarea>
+        </div>` : ""}`;
+    }).join("");
+
+    return `
+    <details class="kpblock" data-karte="D-${kp_id}" ${Z.offen.has("D-"+kp_id)?"open":""}>
+      <summary draggable="true" data-ziehkp="${kp_id}">
+        <span class="griff" title="ganzen Kernprozess ziehen">⠿</span>
+        <span class="pos">${idx+1}</span>
+        <b>${kp_id} · ${esc(k.name)}</b>
+        ${verschoben ? `<span class="tag" style="background:#fbf1e1;color:#a5691a">
+            Vorschlag: ${k.prozessrang}</span>` : ""}
+        <span style="color:var(--muted);font-size:12.5px">${eigene.length} Potenziale ·
+          Reifegrad ${String(k.reifegrad).replace(".",",")}</span>
+        <span style="margin-left:auto;color:var(--muted);font-size:12.5px">
+          ${summe ? "≈ " + eur(summe) + "/Jahr" : "ohne Value-Zahl"}</span>
+        <span class="tag ${frei===eigene.length?"qw":(frei?"p2":"zg")}">
+          ${frei}/${eigene.length} freigegeben</span>
+      </summary>
+      <div class="kpinhalt">
+        <p style="color:var(--muted);font-size:12.5px;margin:0 0 12px;line-height:1.55">
+          ${esc(k.ausgangslage)}</p>
+        ${zeilen}
+      </div>
+    </details>`;
+  }).join("");
+
+  return `
+  ${notizD()}
+  <div class="wrap">
+    ${schrankeHtml()}${kopfzeile}
+    ${wurdeUmsortiert() ? `
+      <div class="hinweis luecke" style="margin-bottom:14px">
+        <b>Die Reihenfolge weicht vom Vorschlag ab.</b> Der Vorschlag bleibt daneben sichtbar;
+        eine Begründung gehört an den Lauf.
+        <div style="margin-top:8px">
+          <textarea data-grund="1" style="width:100%;min-height:52px"
+            placeholder="Warum weicht die Reihenfolge ab?">${esc(Z.abweichungsgrund)}</textarea>
+        </div>
+        <button class="btn sec sm" data-zurueck-reihenfolge="1" style="margin-top:8px">
+          Vorschlag wiederherstellen</button>
+      </div>` : ""}
+    ${bloecke}
+  </div>
+  ${Z.gewaehlt ? `<div class="schublade">
+      <button class="btn sec sm" data-zu="1" style="float:right">schließen</button>
+      ${detailHtml(potenzial(Z.gewaehlt))}</div>` : ""}
+  ${fussleisteD(liste, offen)}`;
+}
+
+function fussleisteD(liste, offen){
+  const frei = liste.filter(p => Z.freigegeben.has(p.id));
+  return `<div class="fussleiste">
+    <b>${frei.length} von ${liste.length}</b> freigegeben
+    ${offen.length ? `<span class="tag fehlt">${offen.length} Begründung(en) fehlen</span>`
+                   : `<span style="color:var(--ok)">✓ vollständig begründet</span>`}
+    <span style="color:var(--muted)">· gespeichert im Browser</span>
+    <span style="margin-left:auto"></span>
+    <button class="btn sec" data-tat="ablehnen">ganzen Lauf ablehnen</button>
+    <button class="btn" ${offen.length || !frei.length ? "disabled" : ""} data-tat="freigeben">
+      Gate 1 freigeben und Präsentation herunterladen</button>
+  </div>`;
+}
+
+function notizD(){
+  return `<details class="notiz"><summary>Was diese Fassung behauptet</summary><ol>
+    <li><b>Gliederung nach Kernprozess</b> (aus C), aber als <b>Akkordeon über einer Liste</b>
+        (Dichte aus A) — nicht nach Prioritätsgruppe. Die Gruppe wandert als Etikett in die Zeile.</li>
+    <li><b>Die Matrix ist ein Knopf</b>, keine eigene Seite: dieselben Daten, andere Frage.
+        Sie bleibt Anzeige — umsortiert wird in der Liste, weil ein Quadrant keine
+        Reihenfolge ausdrücken kann.</li>
+    <li><b>Ziehen auf zwei Ebenen:</b> eine Zeile innerhalb ihres Kernprozesses, oder der ganze
+        Kernprozess über seinen Kopf. Die geltende Folge ist die Verkettung; der Vorschlag bleibt
+        als Zahl daneben stehen.</li>
+    <li><b>Der Vorschlag ist vorbelegt</b> — alles freigegeben. Begründet wird die
+        <b>Abweichung</b>, nicht die Zustimmung.</li>
+    <li><b>Jede Nicht-Freigabe braucht eine Begründung</b>, und ohne sie geht Gate 1 nicht auf.
+        Die Begründung wird gespeichert (hier: im Browser; im Betrieb gehört sie an den Lauf
+        und in die Lieferung — <b>im Vertrag gibt es dafür heute kein Feld</b>).</li>
+    <li><b>Fehlende Daten</b> wie in A: Etikett statt Zahl, Warnzähler in der Zeile, Begründung
+        im Detail.</li>
+    <li><b>Grenze:</b> Ziehen ist Maus-Bedienung. Auf einem Tablet ginge es so nicht —
+        dann braucht es zusätzlich ↑/↓ wie in C.</li>
+  </ol></details>`;
+}
+
+// ===========================================================================
 // Zeichnen und Ereignisse
 // ===========================================================================
 
 function zeichne(){
+  if (Z.fassung === "D") vorbelegenD();
   zeichneKopf();
   // Der Rahmen trägt die Kennung der Fassung — die Regeln #A/#B/#C hängen daran.
   document.getElementById("buehne").innerHTML =
@@ -2484,18 +2820,32 @@ document.addEventListener("click", e => {
     return zeichne();
   }
   if (t.closest("[data-zurueck-reihenfolge]")){
-    Z.reihenfolge = null; Z.abweichungsgrund = ""; return zeichne();
+    Z.reihenfolge = null; Z.prozessReihenfolge = null; Z.abweichungsgrund = "";
+    speichern(); return zeichne();
+  }
+
+  const ansicht = t.closest("[data-ansicht]");
+  if (ansicht){ Z.ansicht = ansicht.dataset.ansicht; Z.gewaehlt = null; return zeichne(); }
+
+  if (t.closest("[data-verwerfen]")){
+    if (confirm("Freigaben, Begründungen und Reihenfolge verwerfen?")){ verwerfen(); zeichne(); }
+    return;
   }
 
   const tat = t.closest("[data-tat]");
   if (tat){
-    const frei = geltendeReihenfolge().filter(p=>Z.freigegeben.has(p.id));
+    const folge = Z.fassung === "D" ? reihenfolgeD() : geltendeReihenfolge();
+    const frei = folge.filter(p=>Z.freigegeben.has(p.id));
+    const raus = folge.filter(p=>!Z.freigegeben.has(p.id));
     if (tat.dataset.tat === "freigeben"){
       alert(`PROTOTYP — nichts wird wirklich geschrieben.\n\n`
         + `Gate 1 freigegeben: ${frei.length} Potenzial(e)\n`
         + `Konzepte: ${[...new Set(frei.map(p=>p.kp_id))].join(", ")}\n`
         + `Reihenfolge: ${wurdeUmsortiert() ? "überschrieben" : "wie vorgeschlagen"}\n`
         + (wurdeUmsortiert() ? `Begründung: ${Z.abweichungsgrund || "(fehlt)"}\n` : "")
+        + (raus.length ? `\nNicht freigegeben, mit Begründung:\n`
+            + raus.map(p => `  ${p.id}: ${Z.ablehnungsgrund[p.id] || "(fehlt)"}`).join("\n") + "\n"
+          : "")
         + `\nLieferung würde entstehen unter\n`
         + `contracts/bc2-to-bc3/lieferungen/noroai-${lauf().paket_kurz}-f${lauf().fassung}/\n`
         + `Präsentation: Download, keine Anzeige.`);
@@ -2513,19 +2863,38 @@ document.addEventListener("change", e => {
   if (frei){
     const id = frei.dataset.frei;
     Z.freigegeben.has(id) ? Z.freigegeben.delete(id) : Z.freigegeben.add(id);
+    speichern();
     return zeichne();
   }
   if (e.target.id === "laufwahl"){
     Z.laufIndex = +e.target.value;
     Z.gewaehlt = null; Z.freigegeben.clear(); Z.reihenfolge = null;
-    Z.abweichungsgrund = ""; Z.schritt = 0;
+    Z.prozessReihenfolge = null; Z.ablehnungsgrund = {}; Z.vorbelegt = false;
+    Z.abweichungsgrund = ""; Z.schritt = 0; Z.offen.clear();
+    laden();                    // für diesen Lauf Gespeichertes, falls vorhanden
     return zeichne();
   }
 });
 
 document.addEventListener("input", e => {
+  // Beim Tippen **nicht** neu zeichnen — das nähme den Schreibfokus mitten im Satz.
+  // Der Zustand wandert mit, die Oberfläche holt beim nächsten Ereignis auf.
+  const ablehnung = e.target.closest("[data-ablehnung]");
+  if (ablehnung){
+    Z.ablehnungsgrund[ablehnung.dataset.ablehnung] = e.target.value;
+    speichern();
+    const feld = ablehnung.closest(".grundfeld");
+    if (feld) feld.classList.toggle("fehlt", !e.target.value.trim());
+    const knopf = document.querySelector('[data-tat="freigeben"]');
+    if (knopf) knopf.disabled = ohneBegruendung().length > 0 || !Z.freigegeben.size;
+    const zaehler = document.querySelector(".fussleiste .tag.fehlt");
+    if (zaehler && ohneBegruendung().length)
+      zaehler.textContent = `${ohneBegruendung().length} Begründung(en) fehlen`;
+    return;
+  }
   if (e.target.closest("[data-grund]")){
     Z.abweichungsgrund = e.target.value;
+    speichern();
     // Nicht neu zeichnen — das würde den Schreibfokus nehmen. Nur den Knopf freigeben.
     // Über [data-weiter] und nicht über [data-schritt]: die Schrittleiste oben trägt
     // dieselben Nummern und stünde sonst im Weg.
@@ -2533,6 +2902,64 @@ document.addEventListener("input", e => {
     if (weiter) weiter.disabled = !Z.abweichungsgrund.trim();
   }
 });
+
+// ---------------------------------------------------------------------------
+// Ziehen und Fallenlassen (nur Fassung D)
+// ---------------------------------------------------------------------------
+//
+// Zwei Ebenen, die sich nicht vermischen dürfen: eine Zeile bewegt sich nur
+// innerhalb ihres Kernprozesses, ein Kernprozess nur unter seinesgleichen. Ein
+// Potenzial in einen fremden Prozess zu ziehen hieße, es umzuhängen — das ist
+// keine Reihenfolgefrage und am Gate 1 nicht vorgesehen.
+
+/** Ein Element in einer Liste vor ein anderes schieben. */
+function schiebe(ids, was, davor){
+  const raus = ids.filter(x => x !== was);
+  const i = raus.indexOf(davor);
+  raus.splice(i < 0 ? raus.length : i, 0, was);
+  return raus;
+}
+
+document.addEventListener("dragstart", e => {
+  const zeile = e.target.closest("[data-zieh]"), kopf = e.target.closest("[data-ziehkp]");
+  if (kopf) Z.zugezogen = {art:"kp", id:kopf.dataset.ziehkp};
+  else if (zeile) Z.zugezogen = {art:"zeile", id:zeile.dataset.zieh, kp:zeile.dataset.kp};
+  else return;
+  e.dataTransfer.effectAllowed = "move";
+  // Safari gibt den Zug ohne Nutzlast nicht frei.
+  e.dataTransfer.setData("text/plain", Z.zugezogen.id);
+});
+
+document.addEventListener("dragover", e => {
+  if (!Z.zugezogen) return;
+  const ziel = Z.zugezogen.art === "kp"
+    ? e.target.closest("[data-ziehkp]")
+    : e.target.closest("[data-zieh]");
+  if (!ziel) return;
+  if (Z.zugezogen.art === "zeile" && ziel.dataset.kp !== Z.zugezogen.kp) return;
+  e.preventDefault();                     // erst das erlaubt das Fallenlassen
+  e.dataTransfer.dropEffect = "move";
+});
+
+document.addEventListener("drop", e => {
+  if (!Z.zugezogen) return;
+  if (Z.zugezogen.art === "kp"){
+    const ziel = e.target.closest("[data-ziehkp]");
+    if (!ziel || ziel.dataset.ziehkp === Z.zugezogen.id) return;
+    e.preventDefault();
+    Z.prozessReihenfolge = schiebe(prozessOrdnung(), Z.zugezogen.id, ziel.dataset.ziehkp);
+  } else {
+    const ziel = e.target.closest("[data-zieh]");
+    if (!ziel || ziel.dataset.kp !== Z.zugezogen.kp || ziel.dataset.zieh === Z.zugezogen.id) return;
+    e.preventDefault();
+    Z.reihenfolge = schiebe(potenzialOrdnung(), Z.zugezogen.id, ziel.dataset.zieh);
+  }
+  Z.zugezogen = null;
+  speichern();
+  zeichne();
+});
+
+document.addEventListener("dragend", () => { Z.zugezogen = null; });
 
 // Aufklappen merken, sonst fällt jede Karte beim nächsten Häkchen wieder zu.
 document.addEventListener("toggle", e => {
@@ -2551,8 +2978,8 @@ const SCHLUESSEL = Object.keys(FASSUNGEN);
 function leseFassung(){
   const such = new URLSearchParams(location.search).get("variant");
   const anker = new URLSearchParams(location.hash.replace(/^#/,"")).get("variant");
-  const f = (such || anker || "A").toUpperCase();
-  return SCHLUESSEL.includes(f) ? f : "A";
+  const f = (such || anker || "D").toUpperCase();
+  return SCHLUESSEL.includes(f) ? f : "D";
 }
 
 function setzeFassung(f){
@@ -2592,6 +3019,7 @@ try {
   if (!window.PROTOTYP_DATEN || !PROTOTYP_DATEN.laeufe)
     throw new Error("Keine Daten eingebettet — daten_bauen.py laufen lassen: "
                   + "python3 daten_bauen.py");
+  laden();
   Z.fassung = leseFassung();
   zeichne();
 } catch (fehler) {
