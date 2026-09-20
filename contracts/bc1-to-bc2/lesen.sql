@@ -25,6 +25,7 @@ SELECT DISTINCT ON (p.focus_step_id)
        p.erhebung_id,
        p.paket_version,
        p.frequency_per_year,
+       p.step_frequency_per_year,   -- Vorrang fuer den Fokus-Schritt, wenn gesetzt (I8)
        p.executions_per_run,
        p.total_duration_minutes,
        p.focus_step_duration_minutes,
@@ -42,9 +43,14 @@ SELECT DISTINCT ON (p.focus_step_id)
    AND p.status = 'fertig'
  ORDER BY p.focus_step_id, p.profil_version DESC;
 
--- Die Rollen dazu. In BC1s Etappe 1 liefert das NULL ZEILEN -- die Tabelle ist
--- strukturell abgenommen und leer. Eine leere Liste ist hier der Normalfall,
--- kein Fehler (siehe README, "Was BC1 heute nicht liefert").
+-- Die Rollen dazu. ABGEWAEHLT am 20.09.2026 (#172): BC2 rechnet mit einem
+-- Mischsatz, nicht je Rolle, und BC1 baut Paket C1b nicht. Die Tabelle bleibt
+-- strukturell abgenommen und leer -- eine leere Liste ist damit der
+-- DAUERZUSTAND, nicht der Aufbaustand (siehe README, "Was BC1 nicht liefert --
+-- und was BC2 nicht mehr verlangt").
+--
+-- Die Abfrage bleibt stehen, damit die Form verbindlich ist, falls die Achse je
+-- gebraucht wird. BC2 ruft sie heute nicht.
 --
 -- SET CONSTRAINTS ist hier nicht noetig: der verzoegerte Fremdschluessel auf
 -- mandant_rollen betrifft nur BC1s Schreibpfad.

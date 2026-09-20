@@ -61,6 +61,11 @@
       "minimum": 0,
       "description": "PROZESSDURCHLÄUFE PRO JAHR des Prozesses, wie ihn der Befragte in process_name gerahmt hat (Frage D1: 'Wie oft läuft der gesamte Prozess?'), gespeichert auf der Zeile des Fokus-Schritts — Profile desselben Kernprozesses können sich darin widersprechen, BC2 summiert nicht je KP. Normalisiert, wenn Woche/Monat/Jahr genannt ist ('30 pro Monat' → 360); eine nackte Zahl gilt als pro Jahr; andere Perioden ('3 pro Tag') werden nachgefragt, nicht geraten. Null, wenn das Interview das Feld nach zwei Nachfragen aufgegeben hat (profil.ungeloeste_felder); BC2 weist eine Null-Zeile nicht ab, verliert dann aber die monetäre Aussage (#163)."
     },
+    "step_frequency_per_year": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "description": "DURCHLAEUFE PRO JAHR DES FOKUS-SCHRITTS, falls abweichend vom Prozess (Frage D3, optional: 'Wie oft laeuft dieser einzelne Schritt, falls abweichend?'). IST DAS FELD GESETZT, HAT ES VORRANG vor frequency_per_year fuer den Fokus-Schritt: dessen Jahresminuten sind dann step_frequency_per_year x focus_step_duration_minutes (Invariante I8 im README). Null oder ungeloest bedeutet 'nicht abweichend' — BC2 faellt auf frequency_per_year zurueck. Gebunden am 20.09.2026 (offener Punkt 2); BC1 musste dafuer nichts aendern, das Feld war nur ungebunden. Normalisiert wie frequency_per_year."
+    },
     "executions_per_run": {
       "type": ["number", "null"],
       "minimum": 0,
@@ -74,7 +79,7 @@
     "focus_step_duration_minutes": {
       "type": ["number", "null"],
       "minimum": 0,
-      "description": "MINUTEN JE PROZESSDURCHLAUF für den Fokus-Schritt (Frage E2: 'Wie lange dauert dieser Schritt im Schnitt?' — der Fragetext nennt keine Bezugsgröße; BC1 nimmt dieselbe wie bei total_duration_minutes an und schärft den Text mit der nächsten Paket-Revision). Der Fokus-Schritt ist der Teilprozess aus focus_step_id. Null nach aufgegebenem Nachfragen. Offen (README, Punkt 2): ob Frage D3 step_frequency_per_year die Häufigkeit des Fokus-Schritts überschreibt."
+      "description": "MINUTEN JE PROZESSDURCHLAUF für den Fokus-Schritt (Frage E2: 'Wie lange dauert dieser Schritt im Schnitt?' — der Fragetext nennt keine Bezugsgröße; BC1 nimmt dieselbe wie bei total_duration_minutes an und schärft den Text mit der nächsten Paket-Revision). Der Fokus-Schritt ist der Teilprozess aus focus_step_id. Null nach aufgegebenem Nachfragen. Wie oft der Fokus-Schritt laeuft, steht in step_frequency_per_year, sofern abweichend — dieses Feld hat dann Vorrang (Invariante I8)."
     },
     "focus_step_duration_source": {
       "type": ["string", "null"],
