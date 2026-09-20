@@ -35,6 +35,12 @@ direkt auf `main` — das Datum trägt keine Identität (zwei Läufe am selben T
 | Lieferung | Stand | Vertrag | Art |
 | --- | --- | --- | --- |
 | [`2026-08-30-vorlaeufig/`](lieferungen/2026-08-30-vorlaeufig/) | 30.08.2026 | **v2.0** (eingefroren) | ⚠️ **vorläufig** — echte Prozesse (KP-02/03/04), gesetzte Value-Zahlen |
+| [`noroai-SIM-UC3-2026-09-21-f1/`](lieferungen/noroai-SIM-UC3-2026-09-21-f1/) | 21.09.2026 | v3.0 | ⚠️ **simuliert** — Rückfallebene zum Durchstich in KW 40 ([#206](https://github.com/pg-coe-kmu/coe-factory/issues/206)), Zuschnitt UC3 |
+
+Die simulierte Lieferung ist die **erste im Ordnerschnitt nach ADR-007** und die erste, die mit
+`app/modell/` gerechnet wurde — also eine Probe des Weges, den der echte Lauf gehen soll. Ihre
+Zahlen sind gesetzt (`value_quelle: "annahme"`), und das steht in Titel, Beschreibung, Paket-ID
+und Ordnernamen.
 
 Die alte Lieferung wird **nicht** auf v3.0 nachgezogen: ein übergebenes Konzept wird nie ungültig,
 es veraltet. Neu rechnen zerstört, worauf eine übergebene Lieferung sich beruft; nur markieren
