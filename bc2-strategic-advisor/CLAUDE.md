@@ -8,8 +8,17 @@ Erkennt aus BC0s Baseline **Automatisierungspotenziale**, bewertet ihren **Value
 und erzeugt eine entscheidungsreife Präsentation plus einen maschinenlesbaren Vertrag für BC3.
 Zwischen Gate 0 und Gate 1. Verantwortlich: **Sergio, allein** — Eike ist seit dem 30.08.2026 raus.
 
-**Stand:** Es gibt noch keinen BC2-Code. Der Bau beginnt bei null. Owner-Angaben in den Alt-Issues
-(#84–#99) nennen teils Eike und sind damit hinfällig.
+**Stand (20.09.2026):** Zwei Teile stehen. Der **Trigger-Endpunkt** (`app/app.py`, `app/eingang.py`)
+läuft im Betrieb und nimmt BC0s Pakete an ([#190](https://github.com/pg-coe-kmu/coe-factory/issues/190),
+[#205](https://github.com/pg-coe-kmu/coe-factory/issues/205)); das **Value- und Priorisierungsmodell**
+(`app/modell/`) rechnet nach ADR-006 · BC2 ([#238](https://github.com/pg-coe-kmu/coe-factory/issues/238)).
+Offen sind Potenzial-Erkennung ([#194](https://github.com/pg-coe-kmu/coe-factory/issues/194) — dort
+liegt auch das Lesen auf `stand_zum(uebergeben_am)`), Oberfläche
+([#243](https://github.com/pg-coe-kmu/coe-factory/issues/243)) und Präsentation
+([#244](https://github.com/pg-coe-kmu/coe-factory/issues/244)).
+Owner-Angaben in den Alt-Issues (#84–#99) nennen teils Eike und sind damit hinfällig.
+*(Korrigiert am 20.09.2026: die Vorgängerfassung sagte „Es gibt noch keinen BC2-Code. Der Bau
+beginnt bei null" — ein Stand vom 30.08., der schon durch #190 überholt war.)*
 
 ## Erst lesen
 
@@ -75,8 +84,11 @@ divergierenden Kopien unter `Projektgruppe/BC2/` sind aufgelöst und liegen dort
 |---|---|
 | Verträge an BC3 (**v3.0**) | `contracts/bc2-to-bc3/` — **Endlage, wird nicht mehr verschoben**; `archiv/` hält v2.0 für die Lieferung vom 30.08. |
 | Mocks / Fixtures | `contracts/examples/` |
-| `migriere_bc3_vorlage.py`, `validate.py` | `bc2-strategic-advisor/tools/` — aus dem Repo-Wurzelverzeichnis aufrufen |
+| `migriere_bc3_vorlage.py`, `validate.py`, `kalibrierung.py` | `bc2-strategic-advisor/tools/` — aus dem Repo-Wurzelverzeichnis aufrufen |
 | Systemarchitektur (27.06., teils überholt) | `bc2-strategic-advisor/architektur/` |
+| Trigger-Endpunkt (läuft im Betrieb) | `bc2-strategic-advisor/app/app.py`, `app/eingang.py` |
+| **Value- und Priorisierungsmodell** (ADR-006 · BC2) | `bc2-strategic-advisor/app/modell/` — `parameter.py` (Setzungen), `rechnen.py` (reiner Kern), `ausgabe.py` (Vertragsform) |
+| Messsätze für die Kalibrierung | `bc2-strategic-advisor/kalibrierung/` |
 
 Der Vertrag verlor beim Sprung v1→v2 die Felder `akzeptanzkriterien_geschaeftlich`,
 `fachliche_anforderungen` und die Tiefe von `to_be_vision`. ✅ **Zurück seit v3.0**
@@ -104,7 +116,14 @@ verantwortet.
 - **`v_bewertung_aktuell` statt `bitkom_bewertungen`** für jede Auswertung — sonst fließen
   überschriebene Stände mit ein.
 - **Das LLM bewertet qualitativ, rechnet aber nicht.** Zahlen entstehen deterministisch in Python,
-  damit sie reproduzierbar und testbar bleiben.
+  damit sie reproduzierbar und testbar bleiben. Es urteilt an **genau vier** Stellen (ADR-006 · BC2,
+  2.0): Lösungsansatz-Klasse, Lage im Korridor, die fünf Nutzwert-Kategorien und das begründete
+  Überschreiben der Umsetzungskomplexität.
+- **`executions_per_run` ist KEIN Multiplikator** (Invariante I2 des BC1-Vertrags,
+  [#184](https://github.com/pg-coe-kmu/coe-factory/issues/184)). Dauern gelten **je
+  Prozessdurchlauf**; die Fallzahl multipliziert sie nicht. Wer es doch tut, erhält für die
+  Reisebuchung ein Vielfaches der Gesamtkapazität eines Zehn-Personen-Betriebs, für *einen* Schritt.
+  `modell.Potenzialeingang` kennt das Feld darum gar nicht.
 - **Jede Annahme reist mit dem Ergebnis.** Stundensätze sind `geschaetzt`, Aufwandsgrößen fehlen
   teils ganz — die Ausgabe macht das sichtbar, statt Genauigkeit vorzutäuschen.
 - **Es gilt die Checklisten-Skala** — `1 = 0–10 %` · `2 = >10–40 %` · `3 = >40–60 %` ·
