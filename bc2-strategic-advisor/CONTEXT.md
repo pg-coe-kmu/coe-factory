@@ -4,7 +4,9 @@ Der Kontext zwischen Gate 0 und Gate 1: er liest den freigegebenen Prozessbestan
 findet darin Automatisierungspotenziale, bewertet und ordnet sie und übergibt das Ergebnis an BC3.
 
 Dieses Dokument ist ein **Glossar** — es legt fest, was die Wörter bedeuten und wer sie setzt.
-Rechenregeln stehen nicht hier (die entscheidet [#166](https://github.com/pg-coe-kmu/coe-factory/issues/166)),
+Rechenregeln stehen nicht hier (die stehen in
+[ADR-006 · BC2](docs/adr/ADR-006_Value_und_Priorisierungsmodell.md), entschieden in
+[#166](https://github.com/pg-coe-kmu/coe-factory/issues/166)),
 Feldnamen und Schemastände auch nicht (die stehen im Vertrag unter `contracts/bc2-to-bc3/`).
 
 ## Language
@@ -106,16 +108,22 @@ _Avoid_: ROI, Wirtschaftlichkeit, Business Value
 
 **Nutzwert**:
 Der **nicht-monetäre** Nutzen eines Potenzials — Qualität, Durchlaufzeit, Fehlerreduktion,
-Mitarbeiterzufriedenheit. Die einzige Urteilsgröße auf der Nutzenseite. *(Korrigiert am 11.09.2026:
-die Ursprungsfassung zählte **Zukunftssicherheit** mit auf und machte sie damit über `impact` zum
-Formelterm — die Karte hat am 30.08.2026 ausdrücklich das Gegenteil entschieden. Sie ist ein
-Querschnitt.)*
+Mitarbeiterzufriedenheit und Compliance/Rechtssicherheit. Die einzige Urteilsgröße auf der
+Nutzenseite. **Kostenreduktion gehört nicht dazu** — sie ist der `value`; sie hier mitzuzählen
+zählte sie über `impact` doppelt. *(Korrigiert am 11.09.2026: die Ursprungsfassung zählte
+**Zukunftssicherheit** mit auf und machte sie damit über `impact` zum Formelterm — die Karte hat am
+30.08.2026 ausdrücklich das Gegenteil entschieden. Sie ist ein Querschnitt. Am 20.09.2026 um
+Compliance/Rechtssicherheit ergänzt, #166: sie ist bei NoroAI der eigentliche Grund für KP-03 und
+verschwand unter „Qualität".)*
 _Avoid_: Soft Benefits, qualitativer Nutzen
 
 **Querschnitt**:
 Ein Gesichtspunkt, der ein Potenzial betrifft, aber **bewusst in keine Rechnung eingeht** —
-Zukunftssicherheit und Abhängigkeiten zu anderen Potenzialen. Wird dem Entscheider am Gate 1
-angezeigt, nicht verrechnet: überschreiben kann er nur, was er sieht.
+Zukunftssicherheit, Abhängigkeiten zu anderen Potenzialen, der **Reifegrad** und das
+**Umsatzpotenzial**. Wird dem Entscheider am Gate 1 angezeigt, nicht verrechnet: überschreiben kann
+er nur, was er sieht. *(Ergänzt am 20.09.2026, #166. Das Umsatzpotenzial ist monetär und trotzdem
+Querschnitt: es ist keine Einsparung, und um es zu rechnen müsste BC2 wissen, wessen Zeit frei wird
+— die Rollenachse wird nach #172 nicht erhoben.)*
 _Avoid_: Achse, Kriterium, Faktor
 
 **Impact**:
@@ -124,8 +132,13 @@ Zahl zusammen und ist deshalb **gerechnet**, nicht geurteilt.
 _Avoid_: Mehrwert, Nutzen, Wirkung
 
 **Umsetzungskomplexität**:
-Die **Aufwands-Achse** der Priorisierung, ordinal von 1 bis 10. Die einzige geurteilte Achse — es
-gibt keine Messung dafür.
+Die **Aufwands-Achse** der Priorisierung, ordinal von 1 bis 10. **Gemessen** aus BC1s vier Skalen am
+Fokus-Schritt, vom LLM begründet überschreibbar; fehlen die Skalen, wird sie geurteilt. Ob sie
+gemessen oder geurteilt ist, reist als Herkunft mit. *(Korrigiert am 20.09.2026, #166: die
+Vorgängerfassung nannte sie „die einzige geurteilte Achse — es gibt keine Messung dafür". Der
+BC1-Vertrag vom 10.09.2026 bindet zehn Tage später genau vier gemessene 1-bis-5-Skalen an diese
+Achse, und BC0 misst sechs weitere in `v_prozessautomatisierung`. Die Zeile war schon beim
+Schreiben überholt.)*
 _Avoid_: Aufwand, Schwierigkeit, Komplexität (unqualifiziert)
 
 **Prioritätsscore**:
@@ -134,13 +147,20 @@ der Mensch am Gate 1 überschreiben darf.
 _Avoid_: Priorität, Ranking-Wert, Punktzahl
 
 **Kategorie**:
-Das **Etikett** eines Potenzials im Quadranten aus Impact und Umsetzungskomplexität. Sagt nichts über
-die Reihenfolge und darf mehrfach vorkommen — mehrere Potenziale eines Laufs können „Quick Win" sein.
-_Avoid_: Low Hanging Fruit, Priorität, Klasse
+Das **Etikett** eines Potenzials im Quadranten aus Impact und Umsetzungskomplexität — Quick Win,
+Strategisch, Optional, Zurückgestellt. Sagt nichts über die Reihenfolge und darf mehrfach vorkommen
+— mehrere Potenziale eines Laufs können „Quick Win" sein. *(Die vierte Ecke hieß bis zum 20.09.2026
+„Long Bet"; eine Wette verspricht einen Gewinn, den geringer Mehrwert bei hohem Aufwand gerade nicht
+zeigt.)*
+_Avoid_: Low Hanging Fruit, Long Bet, Priorität, Klasse
 
 **Prioritätsgruppe**:
-Der **Rangblock**, in dem ein Potenzial umgesetzt werden soll (PRIO 1, 2, 3). Trägt die Reihenfolge;
-jedes Potenzial steht in genau einer.
+Der **Rangblock**, in dem ein Potenzial umgesetzt werden soll (PRIO 1, 2, 3). Ein **Schnitt durch den
+Potenzialrang** entlang fester Score-Bänder; jedes Potenzial steht in genau einer. *(Präzisiert am
+20.09.2026, #166: die Vorgängerfassung sagte „trägt die Reihenfolge" und widersprach damit
+`Potenzialrang`, der sich „die primäre Rangfolge" nennt. Die Reihenfolge trägt der Rang, die Gruppe
+fasst zusammen. Nicht nach `Kategorie` geschnitten — Kategoriegruppen wären im Rang nicht
+zusammenhängend.)*
 _Avoid_: Welle, Stufe, Kategorie
 
 **Potenzialrang**:
