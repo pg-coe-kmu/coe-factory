@@ -2,9 +2,10 @@
 """
 PROTOTYP zu Ticket #167 — Datensatz für den Frontend-Schnitt. **Wegwerfcode.**
 
-Erzeugt ``daten.js`` (``window.PROTOTYP_DATEN``) für ``index.html``. Die Zahlen sind
-**erfunden, aber nach ADR-006 gerechnet** — der Prototyp soll über Bandbreiten,
-Impact und Score nicht etwas anderes behaupten als das Modell.
+Schreibt ``window.PROTOTYP_DATEN`` in ``index.html`` (zwischen die Marken
+``DATEN-ANFANG``/``DATEN-ENDE``). Die Zahlen sind **erfunden, aber nach ADR-006
+gerechnet** — der Prototyp soll über Bandbreiten, Impact und Score nicht etwas
+anderes behaupten als das Modell.
 
 Aufruf aus diesem Verzeichnis::
 
@@ -577,18 +578,30 @@ def baue() -> dict:
     }
 
 
+def schreibe_in_seite(daten: dict, seite: Path) -> None:
+    """Die Daten in ``index.html`` einbetten statt daneben zu legen.
+
+    Eine benachbarte ``.js`` lädt Safari von ``file://`` nicht — jede lokale Datei
+    gilt dort als eigene Herkunft. Eingebettet ist die Seite selbsttragend und der
+    Doppelklick genügt in jedem Browser.
+    """
+    text = seite.read_text(encoding="utf-8")
+    anfang, ende = "/* DATEN-ANFANG */", "/* DATEN-ENDE */"
+    i, j = text.index(anfang), text.index(ende)
+    block = (anfang + "\nwindow.PROTOTYP_DATEN = "
+             + json.dumps(daten, ensure_ascii=False, indent=1)
+             # ``</script>`` im Nutztext würde das Skript vorzeitig beenden.
+             .replace("</", "<\\/")
+             + ";\n")
+    seite.write_text(text[:i] + block + text[j:], encoding="utf-8")
+
+
 if __name__ == "__main__":
     daten = baue()
-    ziel = Path(__file__).with_name("daten.js")
-    ziel.write_text(
-        "// ERZEUGT von daten_bauen.py — nicht von Hand ändern. PROTOTYP zu #167.\n"
-        "window.PROTOTYP_DATEN = "
-        + json.dumps(daten, ensure_ascii=False, indent=1)
-        + ";\n",
-        encoding="utf-8",
-    )
+    ziel = Path(__file__).with_name("index.html")
+    schreibe_in_seite(daten, ziel)
     lauf = daten["laeufe"][0]
-    print(f"{ziel.name} geschrieben — {len(lauf['potenziale'])} Potenziale, "
+    print(f"{ziel.name} neu geschrieben — {len(lauf['potenziale'])} Potenziale, "
           f"{len(lauf['konzepte'])} Konzepte.")
     for p in lauf["potenziale"]:
         val = f"{p['value']['einsparung_spanne'][0]:>6}–{p['value']['einsparung_spanne'][1]:<6} EUR" \

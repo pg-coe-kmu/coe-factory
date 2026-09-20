@@ -23,9 +23,13 @@ acht Fragen des Tickets beantwortet. Die Unterschiede sind strukturell, nicht fa
 
 ## Daten
 
-`daten.js` wird von `daten_bauen.py` erzeugt:
+Die Daten stehen **in `index.html` eingebettet**, zwischen den Marken `DATEN-ANFANG` und
+`DATEN-ENDE`. Nicht von Hand ändern, sondern neu erzeugen:
 
     python3 daten_bauen.py
+
+*(Eingebettet und nicht als eigene `daten.js` daneben: Safari behandelt jede `file://`-Datei als
+eigene Herkunft und lädt eine benachbarte `.js` nicht — die Seite blieb weiß.)*
 
 Die Werte sind **erfunden, aber nach [ADR-006](../../../docs/adr/ADR-006_Value_und_Priorisierungsmodell.md)
 gerechnet** — Bandbreiten je Herkunft der Dauer, Eckenrechnung, Impact aus monetärem Teil-Score und
