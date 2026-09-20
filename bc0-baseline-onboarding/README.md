@@ -158,6 +158,22 @@ Deployment mit Docker Compose und Caddy: siehe `app/DEPLOY.md`. Backup und Wiede
 | **ADR-002** | DB-Schema v1.1 ist verbindliche Vorgabe für alle BCs, stabile IDs als Vertrag | angenommen 12.07.2026 |
 | **ADR-003** | SSoT-Schreibmodell: alle BCs schreiben additiv in die gemeinsame Datenbank | **angenommen 10.08.2026** |
 | **ADR-004** | Identität der Entitäten: IDs fachlich und lesbar, serverseitig vergeben, nie wiederverwendet, gesperrt statt gelöscht, Klarnamen an genau einer Stelle | **angenommen 12.08.2026** |
+| **ADR-005 · BC0** | Ergebnispflicht und Herkunftsnachweis: jeder Wert sagt, worauf er beruht — R1–R3 gelten für alle Bounded Contexts | **angenommen 01.09.2026** |
+| **ADR-005 · BC2** | ⚠️ Nummer doppelt — der Analyselauf ist das Paket, nicht der Mandant: `(company_id, paket_id)` | Entwurf 10.09.2026 |
+
+> ⚠️ **Die Nummer 005 ist zweimal vergeben.** BC0 hat sie am 17.08.2026 gezogen und am 01.09.2026
+> angenommen ([#209](https://github.com/pg-coe-kmu/coe-factory/issues/209)), BC2 am 10.09.2026
+> ([#164](https://github.com/pg-coe-kmu/coe-factory/issues/164)). **Beide Beschlüsse gelten, beide
+> werden bereits zitiert** — wer „ADR-005" schreibt, muss seitdem den Context dazusagen.
+>
+> Ob die Reihe künftig **projektweit** durchläuft oder **je Context** einen Vorsatz bekommt, entscheidet
+> [#220](https://github.com/pg-coe-kmu/coe-factory/issues/220). Bis dahin ist diese Tabelle die Stelle,
+> an der eine gezogene Nummer einzutragen ist — damit sich der Fall nicht wiederholt.
+>
+> **Ablage:** ADR-004 in `bc0-baseline-onboarding/app/`, ADR-005 · BC2 in
+> `bc2-strategic-advisor/docs/adr/`. **ADR-005 · BC0 liegt nicht im Repo** — Volltext laut #209 unter
+> `11_Entscheidungen_ADR/BC0_ADR-005_Ergebnispflicht_und_Herkunft.md`, also außerhalb. Genau das hat
+> die Doppelvergabe möglich gemacht: eine Nummer, die im Repo nicht auftaucht, sieht wie eine freie aus.
 
 ---
 
