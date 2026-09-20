@@ -2,35 +2,63 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://coe-factory/contracts/bc2/konzept.schema.json",
   "title": "BC2 Automatisierungskonzept (potenzial-zentriert)",
-  "description": "Output von BC2 (Strategic Advisor) an BC3 (Engineering Architect). BC2 ordnet KEINE vorgegebenen Muster zu, sondern ERKENNT Automatisierungspotenziale aus dem konkreten Prozessprofil (BC1) und BERECHNET deren Value. Pro Prozessprofil werden ein oder mehrere Potenziale erzeugt, jeweils mit Beschreibung, Impact, Umsetzungskomplexitaet, Value/ROI, Priorisierung und einer potenziellen Loesung -- ausfuehrlich genug, dass BC3 daraus Epics, User Stories und Tickets ableiten kann. Version: 2.0. Aenderung ggue. v1.0: 'use_cases[]' + 'empfohlenes_muster' (Enum) ersetzt durch 'potenziale[]' (offen erkannt); Qdrant/Musterkatalog entfaellt.",
+  "description": "Output von BC2 (Strategic Advisor) an BC3 (Engineering Architect). Ein Konzept deckt genau EINEN Kernprozess ab; ein Analyselauf erzeugt so viele Konzepte, wie sein Paket Kernprozesse beruehrt. BC2 ordnet KEINE vorgegebenen Muster zu, sondern ERKENNT Potenziale offen und BERECHNET ihren Value deterministisch in Python. Version: 3.0. Brechende Aenderungen ggue. v2.0 -- (1) 'prozessprofil_ref' ersetzt durch company_id + paket_id + uebergeben_am; (2) impact und umsetzungskomplexitaet von vier Stufen auf 1-10; (3) 'manueller_aufwand_heute' vom Urteils-Enum zur gemessenen Jahresstundenzahl; (4) 'gate1' entfaellt hier und lebt in priorisierung.schema.json (ADR-007 BC2); (5) Value-Groessen sind Spannen statt Punktwerte; (6) Kategorie 'Long Bet' heisst 'Zurueckgestellt'. Neu: betroffene_teilprozess_ids, user_story, akzeptanzkriterien_geschaeftlich, fachliche_anforderungen, to_be_vision, nutzwert, impact_monetaer, automatisierungsgrad, prioritaetsgruppe, querschnitte, eingangswerte, ersetzt_konzept_id, fassung, hinweise.",
   "type": "object",
   "required": [
     "konzept_id",
     "schema_version",
-    "prozessprofil_ref",
+    "company_id",
+    "paket_id",
+    "uebergeben_am",
+    "gelesen_am",
+    "fassung",
     "erzeugt_am",
     "kontext",
     "potenziale",
     "gesamtempfehlung",
-    "gate1"
+    "eingangswerte"
   ],
   "additionalProperties": false,
   "properties": {
     "konzept_id": {
       "type": "string",
       "format": "uuid",
-      "description": "Eindeutige ID dieses Konzepts."
+      "description": "Eindeutige ID dieses Konzepts. JEDE Fassung bekommt eine NEUE ID -- eine Kennung, ein Inhalt (ADR-007 BC2, 2.5). Eine ueber Fassungen stabile ID truege zwei verschiedene Inhalte und BC3 koennte nicht mehr sagen, welchen Stand es verarbeitet hat."
+    },
+    "ersetzt_konzept_id": {
+      "type": ["string", "null"],
+      "format": "uuid",
+      "description": "Die konzept_id der Vorgaengerfassung, oder null bei der ersten Fassung. Damit kann BC3 pruefen, ob das Konzept hinter einem Epic noch das juengste ist (ADR-007 BC2, 2.5)."
     },
     "schema_version": {
       "type": "string",
-      "const": "2.0",
+      "const": "3.0",
       "description": "SemVer dieses Schemas."
     },
-    "prozessprofil_ref": {
+    "company_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Mandant. PFLICHT seit v3.0 -- es liegen zwei Mandanten in derselben Datenbank, und die Datenbank trennt sie nicht. Ersetzt zusammen mit paket_id und uebergeben_am das alte 'prozessprofil_ref', das drei verschiedene Dinge trug (#164)."
+    },
+    "paket_id": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 200,
-      "description": "Referenz auf das BC1-Prozessprofil, aus dem das Konzept abgeleitet wurde. In v1 (File-Ingestion) ein Key/Dateiname (z. B. 'mock_prozessprofil'); im Zielzustand die UUID des Profils in Postgres. Bewusst 'string' statt 'format: uuid', damit derselbe Vertrag fuer File-, REST- und DB-ProfileProvider gilt (Port/Adapter)."
+      "description": "Das von BC0 nach der Gate-0-Freigabe geschnuerte Paket. Zusammen mit company_id ist es die Identitaet des Analyselaufs (ADR-005 BC2)."
+    },
+    "uebergeben_am": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Zeitreise-Anker aus BC0s Ruf. Gerechnet wird auf stand_zum(uebergeben_am) -- gleiches Paket, gleicher Stand, gleiche Zahlen (ADR-006 BC2, 2.9)."
+    },
+    "gelesen_am": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Wann BC2 die Eingangswerte tatsaechlich gelesen hat. Die Differenz zu uebergeben_am zeigt, wie viel sich zwischen Freigabe und Rechnung bewegt haben kann."
+    },
+    "fassung": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Laufende Fassung dieses Konzepts fuer dasselbe Paket. Entspricht dem f<n> im Lieferordner <company>-<paket_id>-f<n> (ADR-007 BC2, 2.2). Eine neue Fassung entsteht nach einem Reject oder einer Nacherhebung -- nie durch Ueberschreiben der alten."
     },
     "erzeugt_am": {
       "type": "string",
@@ -38,32 +66,32 @@
     },
     "erzeugt_von": {
       "type": "string",
-      "description": "Pipeline-Komponente / Prompt-Version, z. B. 'bc2-advisor@v2.0' oder 'potenzial-erkennung@v1.3'."
+      "description": "Pipeline-Komponente / Prompt-Version, z. B. 'bc2-advisor@v3.0'."
     },
     "kontext": {
       "type": "object",
-      "description": "Teil 1 der Ergebnis-Praesentation (Ausgangslage) in strukturierter Form -- fasst die Ist-Situation aus dem BC1-Profil zusammen.",
+      "description": "Teil 1 der Ergebnis-Praesentation (Ausgangslage) in strukturierter Form.",
       "required": ["prozess_kurzbeschreibung", "kp_id", "hauptschmerzpunkte"],
       "additionalProperties": false,
       "properties": {
         "prozess_kurzbeschreibung": {
           "type": "string",
           "maxLength": 280,
-          "description": "Kurzfassung des Prozesses aus BC1 -- Tweet-Laenge."
+          "description": "Kurzfassung des Prozesses -- Tweet-Laenge."
         },
         "kp_id": {
           "type": "string",
           "pattern": "^KP-(0[1-9]|10)$",
-          "description": "Kernprozess-Zuordnung aus der NoroAI-Baseline (KP-01 ... KP-10)."
+          "description": "Kernprozess-Zuordnung. Ausgeliefert wird auf Kernprozess-Ebene, gelesen und bewertet auf Teilprozess-Ebene (ADR-005 BC2)."
         },
         "unternehmen": {
           "type": "string",
-          "description": "Optional: Unternehmen/Bereich aus BC1 (z. B. 'Aurelia Krankenkasse, Abteilung Leistung')."
+          "description": "Optional: Anzeigename des Mandanten. Die maschinelle Identitaet ist company_id, nicht dieser Text."
         },
         "betroffene_systeme_landschaft": {
           "type": "array",
           "items": { "type": "string" },
-          "description": "Optional: uebergreifende Systemlandschaft aus BC1 (z. B. ['SAP', 'Outlook', 'Excel'])."
+          "description": "Optional: uebergreifende Systemlandschaft (z. B. ['Outlook', 'Excel'])."
         },
         "hauptschmerzpunkte": {
           "type": "array",
@@ -87,51 +115,107 @@
     "potenziale": {
       "type": "array",
       "minItems": 1,
-      "description": "Teil 2 der Praesentation: erkannte Automatisierungspotenziale. Offen aus dem Prozess erkannt (kein fester Katalog). BC3 leitet je Potenzial eigene Epics/Tickets ab.",
+      "description": "Teil 2 der Praesentation: erkannte Automatisierungspotenziale. Ein Potenzial ist ein eigenstaendig baubarer Schnitt (Trenntest: unabhaengig in Betrieb UND kein Doppelzaehlen). Potenzial zu Epic ist bei BC3 1:1 -- es gibt keine Zwischenschicht, die einen zu groben Schnitt repariert (#160).",
       "items": {
         "type": "object",
         "required": [
           "potenzial_id",
           "titel",
-          "rang",
+          "potenzialrang",
+          "prioritaetsgruppe",
           "beschreibung",
+          "to_be_vision",
+          "user_story",
+          "akzeptanzkriterien_geschaeftlich",
+          "fachliche_anforderungen",
+          "betroffene_teilprozess_ids",
           "betroffene_prozessschritte",
           "betroffene_systeme",
           "manueller_aufwand_heute",
+          "automatisierungsgrad",
+          "nutzwert",
           "impact",
           "umsetzungskomplexitaet",
           "value",
           "prioritaet_score",
           "kategorie",
+          "querschnitte",
           "potenzielle_loesung",
           "voraussetzungen"
         ],
         "additionalProperties": false,
         "properties": {
-          "potenzial_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "titel": {
-            "type": "string",
-            "minLength": 3,
-            "maxLength": 140
-          },
-          "rang": {
+          "potenzial_id": { "type": "string", "format": "uuid" },
+          "titel": { "type": "string", "minLength": 3, "maxLength": 140 },
+          "potenzialrang": {
             "type": "integer",
             "minimum": 1,
-            "description": "Rang innerhalb dieses Konzepts (1 = wichtigstes Potenzial). Redundant zu prioritaet_score, aber fuer Praesentation/BC3-Reihenfolge explizit."
+            "description": "Stellung in der Reihenfolge ueber den GANZEN Analyselauf, strikt nach Score -- nicht innerhalb dieses Konzepts (Aenderung ggue. v2.0 'rang'). Massgeblich ist die Liste in der Priorisierung; hier steht sie mit, damit ein einzeln gelesenes Konzept seinen Platz kennt."
+          },
+          "prioritaetsgruppe": {
+            "type": "string",
+            "enum": ["PRIO 1", "PRIO 2", "PRIO 3"],
+            "description": "Rangblock aus festen Score-Baendern (ADR-006 BC2, 2.7): PRIO 1 ab Score 50, PRIO 2 von 20 bis 49, PRIO 3 darunter. Ein Schnitt durch den Potenzialrang, NICHT nach Kategorie -- Kategoriegruppen waeren im Rang nicht zusammenhaengend. Die Baender stehen unter Kalibrierungsvorbehalt (#238)."
+          },
+          "freigabe_status": {
+            "type": "string",
+            "enum": ["offen", "freigegeben", "nicht_freigegeben"],
+            "description": "Sichtbare Markierung des Gate-1-Ergebnisses. Die Entscheidung selbst und ihre Begruendung stehen EINMAL, in priorisierung.gate1 -- hier steht nur der Status, damit ein nicht freigegebenes Potenzial im Konzept sichtbar bleibt (ADR-007 BC2, 2.1). Fehlt vor Gate 1."
           },
           "beschreibung": {
             "type": "string",
             "minLength": 300,
-            "description": "Markdown, Richtwert >= 300 Woerter (maschinell erzwungen: >= 300 Zeichen). Pflicht-Inhalt: (a) Was wird automatisiert, (b) in welchem/welchen Prozessschritt(en), (c) mit welchem Ergebnis, (d) Datenfluesse, (e) beteiligte Akteure/Rollen, (f) Vorbedingungen, (g) Sonderfaelle/Ausnahmen. Ziel: BC3 kann daraus User Stories + Akzeptanzkriterien ableiten."
+            "description": "Markdown, Richtwert >= 300 Woerter (maschinell erzwungen: >= 300 Zeichen). Pflicht-Inhalt: (a) Was wird automatisiert, (b) in welchem/welchen Prozessschritt(en), (c) mit welchem Ergebnis, (d) Datenfluesse, (e) beteiligte Akteure/Rollen, (f) Vorbedingungen, (g) Sonderfaelle/Ausnahmen."
+          },
+          "to_be_vision": {
+            "type": "string",
+            "minLength": 300,
+            "description": "Der Soll-Zustand, ausfuehrlich. Wiedereingefuehrt in v3.0 -- v2.0 hatte nur das knappe 'potenzielle_loesung.to_be_kurz', und BC3 braucht die Tiefe (#162, #160). Form abgeschrieben aus BC3s Vorlage vom 31.08.2026."
+          },
+          "user_story": {
+            "type": "string",
+            "minLength": 20,
+            "description": "SOPHIST-Schablone: 'Als <Rolle> moechte ich <Ziel>, damit <Nutzen>'. BC2 verantwortet sie (#186, bestaetigt 09.09.2026). Achtung, die Form ist hier eine ANDERE als bei den Akzeptanzkriterien -- Story SOPHIST, Kriterien Given/When/Then. Diese Frage ist viermal beantwortet worden; die letzte Antwort erfolgte in Kenntnis der vorherigen."
+          },
+          "akzeptanzkriterien_geschaeftlich": {
+            "type": "array",
+            "minItems": 1,
+            "description": "Given/When/Then, NICHT SOPHIST (#160, im Gruppenmeeting 07.09.2026 bestaetigt und am 09.09.2026 ein zweites Mal). Begruendung der Gruppe: Given/When/Then traegt die Transparenz und Interpretierbarkeit der KI-Ergebnisse. Das 'messverfahren' fuellt BC2 (#186, 09.09.2026) -- BC3s tickets.schema.json v3.5 fuehrt akzeptanzkriterien[] mit text UND messverfahren, und ohne Quelle bliebe das Feld dort leer.",
+            "items": {
+              "type": "object",
+              "required": ["kriterium", "messverfahren"],
+              "additionalProperties": false,
+              "properties": {
+                "kriterium": {
+                  "type": "string",
+                  "minLength": 20,
+                  "description": "Given/When/Then in einem Satz: 'Gegeben <Ausgangslage>, wenn <Ereignis>, dann <erwartetes Ergebnis>'."
+                },
+                "messverfahren": {
+                  "type": "string",
+                  "minLength": 5,
+                  "description": "Woran wird geprueft, ob das Kriterium erfuellt ist (z. B. 'Zeitstempel im Vorgangsprotokoll', 'Stichprobe 50 Vorgaenge')."
+                }
+              }
+            }
+          },
+          "fachliche_anforderungen": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string" },
+            "description": "Was fachlich gelten muss, als Saetze. Wiedereingefuehrt in v3.0 (#162, #160); Form abgeschrieben aus BC3s Vorlage."
+          },
+          "betroffene_teilprozess_ids": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "pattern": "^KP-(0[1-9]|10)\\.TP-[0-9]+$" },
+            "description": "PFLICHT seit v3.0. Auflage von BC0 vom 24.08.2026, von BC3s Vorlage vom 31.08.2026 unabhaengig bestaetigt -- damit von zwei Seiten. BC3s tickets.schema.json v3.5 Z. 152 benennt die Luecke namentlich. Der Kernprozess ist das Praefix, keine eigene Erhebung."
           },
           "betroffene_prozessschritte": {
             "type": "array",
             "minItems": 1,
             "items": { "type": "string" },
-            "description": "Namen der Prozessschritte aus dem BC1-Profil, die dieses Potenzial betrifft (z. B. ['Antrag erfassen', 'Sachliche Pruefung'])."
+            "description": "Namen der Prozessschritte, die dieses Potenzial betrifft."
           },
           "betroffene_systeme": {
             "type": "array",
@@ -142,10 +226,7 @@
               "additionalProperties": false,
               "properties": {
                 "name": { "type": "string" },
-                "rolle": {
-                  "type": "string",
-                  "enum": ["Quelle", "Ziel", "Quelle+Ziel"]
-                },
+                "rolle": { "type": "string", "enum": ["Quelle", "Ziel", "Quelle+Ziel"] },
                 "integration": {
                   "type": "string",
                   "enum": ["API", "RPA", "Datei", "DB", "Email", "OCR", "Manuell"]
@@ -154,84 +235,206 @@
             }
           },
           "manueller_aufwand_heute": {
-            "type": "string",
-            "enum": ["gering", "mittel", "hoch", "sehr hoch"],
-            "description": "Wie viel manuelle Arbeit der heutige Ist-Zustand fuer diesen Bereich verursacht."
-          },
-          "impact": {
-            "type": "string",
-            "enum": ["gering", "mittel", "hoch", "sehr hoch"],
-            "description": "Erwarteter Nutzen/Wirkung einer Automatisierung dieses Potenzials (qualitativ, vom LLM begruendet)."
-          },
-          "umsetzungskomplexitaet": {
-            "type": "string",
-            "enum": ["gering", "mittel", "hoch", "sehr hoch"],
-            "description": "Geschaetzte technische/organisatorische Komplexitaet der Umsetzung."
-          },
-          "value": {
             "type": "object",
-            "description": "Teil 3 der Praesentation (Kostenschaetzung), deterministisch in Python berechnet -- NICHT vom LLM. Reproduzierbar & testbar.",
+            "description": "Wie viel Handarbeit der heutige Ablauf je Jahr kostet. In v3.0 eine GEMESSENE Groesse statt eines Urteils-Enums: Jahresstunden = frequency_per_year x total_duration_minutes / 60 (ADR-006 BC2, 2.1). Das Glossar fuehrt sie seit #164 ausdruecklich als gemessen, kein Urteil; das alte Enum gering/mittel/hoch/sehr hoch widersprach dem. ACHTUNG: executions_per_run ist KEIN Faktor (Invariante I2 des BC1-Vertrags) -- multipliziert ergibt die Reisebuchung das Dreifache der Gesamtkapazitaet des Mandanten.",
+            "required": ["stunden_jahr", "herkunft"],
+            "additionalProperties": false,
+            "properties": {
+              "stunden_jahr": { "type": "number", "minimum": 0 },
+              "herkunft": {
+                "type": "string",
+                "enum": ["gemessen", "aus_system", "geschaetzt", "unbekannt"],
+                "description": "BC1s focus_step_duration_source. Bestimmt zugleich die Bandbreite in 'value' (ADR-006 BC2, 2.3). 'unbekannt' entspricht NULL -- dann gibt es keine Value-Zahl."
+              },
+              "konfidenz_pct": {
+                "type": ["number", "null"],
+                "minimum": 0,
+                "maximum": 100,
+                "description": "BC1s focus_step_duration_confidence_pct. Wird MITGEFUEHRT, verfeinert die Bandbreite aber NICHT -- aus einer geschaetzten Prozentzahl eine feinere Spanne zu rechnen erfaende die Genauigkeit, die die Spanne gerade eingestehen soll."
+              }
+            }
+          },
+          "automatisierungsgrad": {
+            "type": "object",
+            "description": "Der groesste Hebel des Modells, und er wird von niemandem geliefert (ADR-006 BC2, 2.2). BC2 setzt ihn ueber einen Korridor je Loesungsansatz-Klasse; das LLM verortet das Potenzial darin und begruendet die Lage. Geht NIE als Punktwert ins Ergebnis, immer als Spanne.",
+            "required": ["klasse", "angesetzt_min_pct", "angesetzt_max_pct", "begruendung"],
+            "additionalProperties": false,
+            "properties": {
+              "klasse": {
+                "type": "string",
+                "enum": [
+                  "Regelwerk/Weiterleitung",
+                  "Integration",
+                  "Extraktion",
+                  "Textgenerierung",
+                  "Assistenz"
+                ],
+                "description": "Korridore: Regelwerk/Weiterleitung 70-90 %, Integration 60-85 %, Extraktion 50-75 %, Textgenerierung 30-50 %, Assistenz 10-30 %."
+              },
+              "angesetzt_min_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+              "angesetzt_max_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+              "begruendung": { "type": "string", "minLength": 10 },
+              "bc1_schaetzung_pct": {
+                "type": ["number", "null"],
+                "minimum": 0,
+                "maximum": 100,
+                "description": "BC1s automation_potential_estimate_pct, falls gefuellt. HAT KEINEN VORRANG -- falsche Koernung: das Feld haengt am Fokus-Schritt, der Grad gehoert zum Loesungsansatz, und ein Teilprozess kann mehrere Potenziale mit verschiedenen Loesungen tragen. BC2 liest es als Plausibilitaetsprobe und haengt bei grosser Abweichung einen Hinweis an."
+              }
+            }
+          },
+          "nutzwert": {
+            "type": "object",
+            "description": "Die nicht-monetaere Nutzenseite: fuenf Kategorien, je 1-10, vom LLM geurteilt mit je einem Begruendungssatz, UNGEWICHTETES Mittel (ADR-006 BC2, 2.4). Ungewichtet aus demselben Grund, aus dem Bitkom es ist: eine Gewichtung waere reine Setzung. NICHT aus den Bitkom-Bewertungen abgeleitet -- die haengen am Teilprozess, der Nutzwert am Potenzial. Kostenreduktion gehoert NICHT dazu, sie ist der 'value' und wuerde ueber den impact doppelt zaehlen.",
             "required": [
-              "ist_kosten_eur_jahr",
-              "einsparung_eur_jahr",
-              "ersparnis_prozent",
-              "investition_eur_richtwert",
-              "amortisation_monate",
-              "value_quelle"
+              "qualitaet",
+              "durchlaufzeit",
+              "fehlerreduktion",
+              "mitarbeiterzufriedenheit",
+              "compliance",
+              "mittel"
             ],
             "additionalProperties": false,
             "properties": {
-              "ist_kosten_eur_jahr": {
+              "qualitaet": { "$ref": "#/$defs/nutzwert_kategorie" },
+              "durchlaufzeit": { "$ref": "#/$defs/nutzwert_kategorie" },
+              "fehlerreduktion": { "$ref": "#/$defs/nutzwert_kategorie" },
+              "mitarbeiterzufriedenheit": { "$ref": "#/$defs/nutzwert_kategorie" },
+              "compliance": {
+                "$ref": "#/$defs/nutzwert_kategorie",
+                "description": "Compliance/Rechtssicherheit. In v3.0 neu gegenueber dem Glossarstand: bei NoroAI der eigentliche Grund fuer KP-03 (AVV/DSGVO), und unter 'Qualitaet' verschwindet sie."
+              },
+              "mittel": {
                 "type": "number",
-                "minimum": 0,
-                "description": "Heutige jaehrliche Kosten des betroffenen Bereichs (aus Frequenz x Aufwand x Kostensatz)."
+                "minimum": 1,
+                "maximum": 10,
+                "description": "Ungewichtetes Mittel der fuenf Kategorien. Geht als eine Haelfte in den impact ein."
+              }
+            }
+          },
+          "impact": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10,
+            "description": "Die Mehrwert-Achse, 1-10. BRECHENDE Aenderung ggue. v2.0 (vier Stufen), von BC3 am 06.09.2026 bestaetigt (#186 F1). GERECHNET, nicht geurteilt: round((impact_monetaer + nutzwert.mittel) / 2). Gleichgewichtet, weil keine Seite den Vorrang beanspruchen kann -- bei NoroAI traegt die Monetaerrechnung fuer die Mehrzahl der Potenziale nicht."
+          },
+          "impact_monetaer": {
+            "type": ["integer", "null"],
+            "minimum": 1,
+            "maximum": 10,
+            "description": "Der monetaere Teil-Score, wird neben dem impact MITGEFUEHRT. Aus ABSOLUTEN Euro-Schwellen, logarithmisch zwischen 1.000 EUR/Jahr (1) und 50.000 EUR/Jahr (10), gekappt: clamp(1, 10, round(1 + 9 x (log10(E) - 3) / (log10(50000) - 3))). Absolut statt relativ zum Lauf, sonst bekaeme derselbe Prozess in zwei Lieferungen verschiedene Zahlen. null, wenn es keine Value-Zahl gibt -- dann traegt der Nutzwert den impact allein."
+          },
+          "umsetzungskomplexitaet": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10,
+            "description": "Die Aufwands-Achse, 1-10. BRECHENDE Aenderung ggue. v2.0 (vier Stufen). GEMESSEN aus BC1s vier 1-bis-5-Skalen am Fokus-Schritt: reife = Mittel(documentation_status, standardization_level, data_availability_score, stability_score); komplexitaet = round(11 - 2 x reife). Bekannter Schoenheitsfehler: die Formel erreicht die 10 nie, der Wertebereich ist 1-9. Jede Streckung waere willkuerlicher als die Luecke."
+          },
+          "komplexitaet_herkunft": {
+            "type": "string",
+            "enum": ["gemessen", "geurteilt"],
+            "description": "Ob die vier BC1-Skalen vorlagen ('gemessen') oder das LLM allein geurteilt hat ('geurteilt'). Der Vertrag sagt die Skalen bei status='fertig' zu, die Datenbank erzwingt es nicht -- fehlen sie, bleibt der Lauf vollstaendig und die Herkunft wechselt. Auch bei begruendetem Ueberschreiben durch das LLM: 'geurteilt'."
+          },
+          "komplexitaet_begruendung": {
+            "type": "string",
+            "description": "Pflicht, wenn das LLM den gemessenen Wert begruendet ueberschreibt. BC0s sechs Kriterien aus v_prozessautomatisierung sind dafuer das Begruendungsmaterial -- KEIN zweiter Rechenterm: zehn Zahlen aus zwei Koernungen zu mitteln erzeugte Scheingenauigkeit."
+          },
+          "value": {
+            "type": "object",
+            "description": "Teil 3 der Praesentation (Kostenschaetzung), deterministisch in Python berechnet -- NICHT vom LLM. In v3.0 SPANNEN statt Punktwerten (ADR-006 BC2, 2.3): Breite je Herkunft der Dauer -- gemessen +/-10 %, aus_system +/-15 %, geschaetzt +/-40 %, NULL gar keine Zahl. Zusammensetzung als Eckenrechnung (unteres Ende der Dauer x unteres Ende des Korridors, oberes x oberes); sie ist bewusst pessimistisch und in zwei Zeilen nachrechenbar. Monte-Carlo wurde verworfen -- es verlangt Verteilungsannahmen, die niemand erhoben hat.",
+            "required": ["value_quelle"],
+            "additionalProperties": false,
+            "properties": {
+              "value_quelle": {
+                "type": "string",
+                "enum": ["berechnet", "annahme", "default", "keine"],
+                "description": "'berechnet' aus BC1-Daten; 'annahme' wenn Groessen gesetzt statt erhoben sind (neu in v3.0 -- alle drei BC3-Beispiele tragen es, und das Enum kannte den Fall nicht, #168); 'default' fuer Fallback-Werte; 'keine' wenn die Herkunft der Dauer NULL ist. Bei 'keine' wird GAR KEINE Zahl ausgewiesen statt einer sehr breiten -- eine Spanne von +/-100 % ist keine Aussage mehr."
+              },
+              "ist_kosten_eur_jahr": {
+                "$ref": "#/$defs/spanne",
+                "description": "Jahresstunden x 43 EUR/h (Mischsatz aus dem NoroAI-Unternehmensprofil, #172). Die Rollenachse wird nicht erhoben; fuer die Rangfolge ist ein konstanter Faktor gleichwertig, bei absoluten Betraegen untertreibt er."
               },
               "einsparung_eur_jahr": {
-                "type": "number",
-                "minimum": 0,
-                "description": "Erwartete jaehrliche Einsparung durch die Automatisierung."
+                "$ref": "#/$defs/spanne",
+                "description": "Ist-Kosten x Automatisierungsgrad, als Eckenrechnung."
               },
-              "ersparnis_prozent": {
-                "type": "number",
-                "minimum": 0,
-                "maximum": 100
-              },
+              "ersparnis_prozent": { "$ref": "#/$defs/spanne" },
               "investition_eur_richtwert": {
                 "type": "number",
                 "minimum": 0,
-                "description": "Investitionsrahmen (Richtwert) auf Tagessatz-Basis (Aufwand PT x Tagessatz)."
+                "description": "aufwand_schaetzung_pt x 800 EUR/PT. Ein ANDERER Satz als die Einsparungsseite, mit Absicht: der Bau faellt beim CoE zu Marktkonditionen an, nicht zu NoroAIs Selbstkostensatz. Derselbe Satz auf beiden Seiten kuerzte sich in der Amortisation heraus und wiese sie systematisch zu guenstig aus. Der Bausatz ist eine Setzung."
               },
               "amortisation_monate": {
-                "type": "number",
-                "minimum": 0
-              },
-              "value_quelle": {
-                "type": "string",
-                "enum": ["berechnet", "default"],
-                "description": "'default' wenn Eingabedaten unvollstaendig waren und Fallback-Werte genutzt wurden (Resilienz R-04)."
+                "$ref": "#/$defs/spanne",
+                "description": "Reiner AUSWEIS, wirkt nicht auf die Rangfolge. Eine Schranke waere eine zweite, versteckte Schwelle neben dem Score und traefe gerade die Potenziale mit dem belegtesten Nutzen (bei NoroAI KP-03, Compliance, rechnerisch ueber 50 Monate)."
               },
               "annahmen": {
                 "type": "array",
                 "items": { "type": "string" },
-                "description": "Welche Defaults/Annahmen in die Berechnung eingingen (z. B. 'Tagessatz 800 EUR', 'Frequenz aus BC1 uebernommen')."
+                "description": "Jede Setzung, die in die Zahl eingegangen ist. Drei tragen das Modell und sind keine davon erhoben: Bausatz 800 EUR/PT, die fuenf Korridore, die Euro-Schwellen."
+              },
+              "grund": {
+                "type": "string",
+                "description": "Nur bei value_quelle='keine': warum keine Zahl ausgewiesen wird."
               }
+            },
+            "if": {
+              "properties": { "value_quelle": { "const": "keine" } }
+            },
+            "then": {
+              "required": ["value_quelle", "grund"]
+            },
+            "else": {
+              "required": [
+                "value_quelle",
+                "ist_kosten_eur_jahr",
+                "einsparung_eur_jahr",
+                "ersparnis_prozent",
+                "investition_eur_richtwert",
+                "amortisation_monate"
+              ]
             }
           },
           "aufwand_schaetzung_pt": {
             "type": "number",
             "minimum": 0,
-            "description": "Geschaetzter Umsetzungsaufwand in Personentagen (Basis fuer investition_eur_richtwert)."
+            "description": "Geschaetzter Umsetzungsaufwand in Personentagen (Basis fuer investition_eur_richtwert). BLEIBT -- von BC3 am 06.09.2026 ausdruecklich bestaetigt (#186 F3), obwohl tickets.schema.json v3.5 kein Zielfeld dafuer hat."
           },
           "prioritaet_score": {
             "type": "number",
-            "minimum": 0,
+            "minimum": 1,
             "maximum": 100,
-            "description": "Priorisierungs-Score aus Komplexitaet x Impact (Quick Wins zuerst). Formel siehe priorisierung.schema.json / README."
+            "description": "score = impact x (11 - umsetzungskomplexitaet), Bereich 1...100. Die LINEARE Umkehrung ist bewusst gesetzt und akzeptiert, obwohl der Sprung ins 'sehr aufwendig' fachlich ueberproportional waere -- offenlegen, nicht kaschieren. Ein VORSCHLAG, den der Mensch am Gate 1 ueberschreiben darf."
           },
           "kategorie": {
             "type": "string",
-            "enum": ["Quick Win", "Strategisch", "Optional", "Long Bet"],
-            "description": "Einordnung fuer die Praesentation. Quick Win = hoher Impact + geringe Komplexitaet."
+            "enum": ["Quick Win", "Strategisch", "Optional", "Zurueckgestellt"],
+            "description": "Etikett im Quadranten aus impact und umsetzungskomplexitaet; sagt NICHTS ueber die Reihenfolge und darf mehrfach vorkommen. Impact >= 6 und Komplexitaet <= 5: Quick Win; Impact >= 6 und Komplexitaet >= 6: Strategisch; Impact <= 5 und Komplexitaet <= 5: Optional; sonst Zurueckgestellt. Die vierte Ecke hiess bis zum 20.09.2026 'Long Bet' -- eine Wette verspricht einen Gewinn, den die Zahlen dort gerade nicht zeigen."
+          },
+          "querschnitte": {
+            "type": "object",
+            "description": "Gesichtspunkte, die ein Potenzial betreffen, aber BEWUSST in keine Rechnung eingehen (Glossar-Begriff seit #164). Sie werden dem Entscheider am Gate 1 angezeigt, nicht verrechnet: ueberschreiben kann er nur, was er sieht. Neu in v3.0 -- im v2-Schema gab es dafuer keinen Ort.",
+            "required": ["zukunftssicherheit"],
+            "additionalProperties": false,
+            "properties": {
+              "zukunftssicherheit": {
+                "type": "string",
+                "minLength": 10,
+                "description": "PFLICHT. Die KIsult-Referenzlieferung fuehrt sie je Potenzial und nennt sie ausdruecklich einen 'Querschnitt, keine Achse'. Beinahe waere sie das Gegenteil geworden: das Glossar zaehlte sie zunaechst unter nutzwert auf, und weil der nutzwert in den gerechneten impact eingeht, waere sie damit doch ein Formelterm gewesen (korrigiert in PR #198)."
+              },
+              "reifegrad": {
+                "type": "string",
+                "description": "Bitkom-Reifegrad des Prozesses. Querschnitt, weil er RANGIERT, aber NICHT TRENNT -- die Intervalle von KP-02/03/04 ueberlappen fast vollstaendig (#161). BC0 empfiehlt, aus einer Stufe keinen Prozentwert zurueckzurechnen."
+              },
+              "umsatzpotenzial": {
+                "type": "string",
+                "description": "Querschnitt, obwohl monetaer: es ist KEINE Einsparung, und um es zu rechnen muesste BC2 wissen, WESSEN Zeit frei wird -- die Rollenachse wird nach #172 nicht erhoben."
+              },
+              "abhaengigkeiten": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Fachliche Abhaengigkeiten zu anderen Potenzialen. In v2.0 gab es dafuer kein Feld; BC3s Beispiel vom 31.08.2026 musste sie in den Freitext der gesamtempfehlung schreiben."
+              }
+            }
           },
           "potenzielle_loesung": {
             "type": "object",
@@ -242,27 +445,28 @@
               "ansatz": {
                 "type": "string",
                 "minLength": 30,
-                "description": "Markdown: Wie koennte die Automatisierung technisch aussehen (z. B. 'OCR-Extraktion + LLM-gestuetzte Feldvalidierung, Rueckschreiben via SAP-API'). Frei formuliert statt Enum."
+                "description": "Markdown: wie die Automatisierung technisch aussehen koennte."
               },
               "tech_stack_empfehlung": {
                 "type": "array",
                 "minItems": 1,
                 "items": { "type": "string" },
-                "description": "z. B. ['n8n', 'Claude (Sonnet 4.6)', 'PostgreSQL', 'OCR-Service']. Muss Tech-Stack-Compliance des Unternehmens beachten."
+                "description": "Muss die Tech-Stack-Compliance des Unternehmens beachten."
               },
               "to_be_kurz": {
                 "type": "string",
-                "description": "Optional: 1-2 Saetze Soll-Zustand fuer die Praesentation."
+                "description": "Optional: 1-2 Saetze Soll-Zustand fuer die Praesentation. Die ausfuehrliche Fassung steht in to_be_vision."
               }
             }
           },
           "voraussetzungen": {
             "type": "array",
             "items": { "type": "string" },
-            "description": "Fachliche/technische Voraussetzungen (z. B. 'SAP-API-Zugang', 'OCR-Modell verfuegbar', 'DSGVO-Freigabe fuer Dokumentenverarbeitung')."
+            "description": "Fachliche/technische Voraussetzungen."
           },
           "risiken": {
             "type": "array",
+            "description": "BLEIBT (#186 F3). Weiterhin DREISTUFIG -- eine Risikomatrix 1-10 x 1-10 suggeriert Genauigkeit, die es dort nicht gibt (30.08.2026). Die Skalenaenderung auf 1-10 betrifft Impact und Komplexitaet, nicht die Risiken.",
             "items": {
               "type": "object",
               "required": ["beschreibung", "wahrscheinlichkeit", "auswirkung"],
@@ -272,6 +476,29 @@
                 "wahrscheinlichkeit": { "type": "string", "enum": ["low", "med", "high"] },
                 "auswirkung": { "type": "string", "enum": ["low", "med", "high"] },
                 "gegenmassnahme": { "type": "string" }
+              }
+            }
+          },
+          "hinweise": {
+            "type": "array",
+            "description": "Formale Pruefhinweise, die BC2 anhaengt statt zurueckzuweisen. Die Pruefung ist FORMAL, nicht fachlich -- Plausibilitaet liegt bei BC0/BC1, BC2 rechnet durch und weist nichts zurueck (#172).",
+            "items": {
+              "type": "object",
+              "required": ["art", "text"],
+              "additionalProperties": false,
+              "properties": {
+                "art": {
+                  "type": "string",
+                  "enum": [
+                    "kapazitaet_ueberschritten",
+                    "bc1_abweichung",
+                    "testdaten",
+                    "mischsatz_untertreibt",
+                    "sonstiges"
+                  ],
+                  "description": "'kapazitaet_ueberschritten': die Jahresminuten uebersteigen die Kapazitaet des Mandanten -- 880 PT / 7.040 h intern als Warnschwelle, 2.200 PT / 17.600 h brutto als harte Grenze (#172). 'bc1_abweichung': grosse Abweichung zwischen angesetztem Korridor und BC1s automation_potential_estimate_pct. 'testdaten': BC1s open_remarks traegt das Praefix 'Testdaten ' -- durchgereicht statt abgewiesen (#184). 'mischsatz_untertreibt': absolute Betraege liegen am unteren Rand, weil 43 EUR/h ein Mischsatz ist."
+                },
+                "text": { "type": "string" }
               }
             }
           }
@@ -285,38 +512,67 @@
       "properties": {
         "reihenfolge_potenzial_ids": {
           "type": "array",
+          "minItems": 1,
           "items": { "type": "string", "format": "uuid" },
-          "description": "Empfohlene Umsetzungsreihenfolge -- BC3 verarbeitet die Potenziale in dieser Reihenfolge (verhindert Ueberforderung bei mehreren Potenzialen, R-10)."
+          "description": "Empfohlene Umsetzungsreihenfolge INNERHALB dieses Konzepts. Der VORSCHLAG -- die finale Reihenfolge ueber den ganzen Lauf steht in priorisierung.gate1.finale_reihenfolge_potenzial_ids."
         },
         "begruendung": {
           "type": "string",
-          "description": "Markdown: warum diese Reihenfolge (Abhaengigkeiten, Quick Wins zuerst, Risiken etc.)."
+          "description": "Markdown: warum diese Reihenfolge. Fachliche Abhaengigkeiten gehoeren seit v3.0 nach potenziale[].querschnitte.abhaengigkeiten und muessen nicht mehr hier im Freitext stehen."
         }
       }
     },
-    "gate1": {
+    "eingangswerte": {
+      "type": "array",
+      "description": "Die Werte, die in die Zahlen eingegangen sind -- mit Herkunft, Wert, Einheit und Lesezeitpunkt. NICHT der ganze Bestand, nur das Gerechnete (ADR-006 BC2, 2.9). Grund: die Lieferung geht als Datei an BC3 und als Praesentation an den Mandanten, und beide muessen OHNE Datenbankzugriff pruefbar sein. Die Reproduzierbarkeit traegt dagegen die Historisierung (stand_zum(uebergeben_am)) -- zwei Dinge, die bis zum 20.09.2026 unter einem Wort liefen. Ein eigener Snapshot je Lauf bleibt verworfen (dupliziert fremdes Schema, ADR-002).",
+      "items": {
+        "type": "object",
+        "required": ["groesse", "wert", "herkunft_tabelle", "herkunft_spalte", "gelesen_am"],
+        "additionalProperties": false,
+        "properties": {
+          "groesse": {
+            "type": "string",
+            "description": "Fachlicher Name, z. B. 'frequency_per_year' oder 'total_duration_minutes'."
+          },
+          "wert": { "type": ["string", "number", "null"] },
+          "einheit": { "type": "string", "description": "z. B. 'Minuten', 'EUR/h', '1-5'." },
+          "herkunft_tabelle": { "type": "string", "description": "z. B. 'bc1.prozessprofil'." },
+          "herkunft_spalte": { "type": "string" },
+          "herkunft_id": {
+            "type": ["string", "null"],
+            "description": "Schluessel der gelesenen Zeile, z. B. die erhebung_id. Herkunftsanker -- Bewertungen kommen aus v_bewertung_aktuell, nie ueber diese ID (#184, BC1s Klaerpunkt K-L)."
+          },
+          "betrifft_teilprozess_id": {
+            "type": ["string", "null"],
+            "pattern": "^KP-(0[1-9]|10)\\.TP-[0-9]+$"
+          },
+          "gelesen_am": { "type": "string", "format": "date-time" },
+          "kennzeichnung": {
+            "type": ["string", "null"],
+            "description": "Herkunftsvermerk aus der Quelle, z. B. die Testdaten-Kennzeichnung aus BC1s open_remarks (Praefix 'Testdaten '). BC2 lehnt deshalb nicht ab, sondern reicht die Kennzeichnung durch (#184)."
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "spanne": {
       "type": "object",
-      "description": "Human-in-the-Loop Business Approval durch den CoE-Manager. Bei Erzeugung 'pending'.",
-      "required": ["status"],
+      "description": "Eine Bandbreite statt eines Punktwerts. min und max entstehen als Eckenrechnung; bei Herkunft 'gemessen' liegen sie +/-10 % auseinander, bei 'aus_system' +/-15 %, bei 'geschaetzt' +/-40 %.",
+      "required": ["min", "max"],
       "additionalProperties": false,
       "properties": {
-        "status": {
-          "type": "string",
-          "enum": ["pending", "approved", "rejected"]
-        },
-        "entscheider": { "type": "string" },
-        "kommentar": { "type": "string" },
-        "budget_eur": {
-          "type": "number",
-          "minimum": 0,
-          "description": "Optional am Gate 1 gesetztes Budget."
-        },
-        "entschieden_am": { "type": "string", "format": "date-time" },
-        "approved_potenzial_ids": {
-          "type": "array",
-          "items": { "type": "string", "format": "uuid" },
-          "description": "Nur diese Potenziale werden an BC3 uebergeben (falls Gate-1-Entscheider eine Teilmenge freigibt)."
-        }
+        "min": { "type": "number", "minimum": 0 },
+        "max": { "type": "number", "minimum": 0 }
+      }
+    },
+    "nutzwert_kategorie": {
+      "type": "object",
+      "required": ["wert", "begruendung"],
+      "additionalProperties": false,
+      "properties": {
+        "wert": { "type": "integer", "minimum": 1, "maximum": 10 },
+        "begruendung": { "type": "string", "minLength": 5 }
       }
     }
   }

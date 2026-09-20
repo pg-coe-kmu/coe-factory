@@ -1,53 +1,209 @@
 {
-  "priorisierung_id": "bb000000-0000-4000-8000-000000000001",
-  "schema_version": "2.0",
-  "erzeugt_am": "2026-06-27T12:00:00Z",
-  "score_formel": "score = impact_gewicht x (125 - komplexitaet_gewicht) / 100, mit Gewichten gering=25, mittel=50, hoch=75, sehr hoch=100. Geringe Umsetzungskomplexitaet erhoeht den Score, hoher Impact ebenso -> Quick Wins zuerst.",
+  "priorisierung_id": "5d4dc1de-8e52-534f-b4d2-73aa3253c2ea",
+  "schema_version": "3.0",
+  "company_id": "7c2d5ee9-2a9a-5990-810f-502ea2b2012d",
+  "paket_id": "FIXTURE-BC3-VORLAGE-2026-08-31",
+  "uebergeben_am": "2026-08-31T00:00:00+02:00",
+  "gelesen_am": "2026-09-20T00:00:00+02:00",
+  "fassung": 1,
+  "erzeugt_am": "2026-09-20T00:00:00+02:00",
+  "score_formel": "score = impact x (11 - umsetzungskomplexitaet), Bereich 1...100. impact = round((impact_monetaer + nutzwert) / 2); impact_monetaer aus absoluten Euro-Schwellen, logarithmisch zwischen 1.000 EUR/Jahr (1) und 50.000 EUR/Jahr (10). umsetzungskomplexitaet hier aus BC3s ordinaler Stufe, nicht aus BC1s vier Skalen. Die lineare Umkehrung ist bewusst gesetzt (ADR-006 BC2, 2.7).",
+  "konzept_ids": [
+    "ce8dfca0-1b0e-5966-a336-d1eb45ff3792",
+    "ddd6062d-edaa-5739-bd68-823eaff5f441"
+  ],
   "eintraege": [
     {
-      "rang": 1,
-      "potenzial_id": "aa000000-0000-4000-8000-000000000003",
-      "konzept_id": "3f9a1c22-0001-4a10-9c00-000000000001",
-      "titel": "Bescheid-Generator mit Textbausteinen und Vorlagen",
-      "kp_id": "KP-07",
+      "potenzialrang": 1,
+      "prioritaetsgruppe": "PRIO 1",
+      "potenzial_id": "b1000000-0000-4000-8000-000000000002",
+      "konzept_id": "ddd6062d-edaa-5739-bd68-823eaff5f441",
+      "titel": "Angebot erstellen und Buchung nach Freigabe auslösen",
+      "kp_id": "KP-06",
+      "betroffene_teilprozess_ids": [
+        "KP-06.TP-2"
+      ],
       "kategorie": "Quick Win",
-      "impact": "sehr hoch",
-      "umsetzungskomplexitaet": "gering",
-      "score": 100.0,
+      "impact": 7,
+      "impact_monetaer": 6,
+      "nutzwert_mittel": 7.8,
+      "umsetzungskomplexitaet": 3,
+      "komplexitaet_herkunft": "geurteilt",
+      "score": 56,
       "aufwand_pt": 15,
-      "einsparung_eur_jahr": 51750.0,
+      "einsparung_eur_jahr": {
+        "min": 3096.0,
+        "max": 12040.0
+      },
       "investition_eur_richtwert": 12000.0,
-      "amortisation_monate": 2.8
+      "amortisation_monate": {
+        "min": 12.0,
+        "max": 46.5
+      }
     },
     {
-      "rang": 2,
-      "potenzial_id": "aa000000-0000-4000-8000-000000000001",
-      "konzept_id": "3f9a1c22-0001-4a10-9c00-000000000001",
-      "titel": "Automatisierte Antragserfassung via OCR + LLM-Feldextraktion",
-      "kp_id": "KP-07",
+      "potenzialrang": 2,
+      "prioritaetsgruppe": "PRIO 2",
+      "potenzial_id": "b2000000-0000-4000-8000-000000000002",
+      "konzept_id": "ce8dfca0-1b0e-5966-a336-d1eb45ff3792",
+      "titel": "Interne Fragen mit Quellenangabe beantworten",
+      "kp_id": "KP-05",
+      "betroffene_teilprozess_ids": [
+        "KP-05.TP-1"
+      ],
       "kategorie": "Quick Win",
-      "impact": "hoch",
-      "umsetzungskomplexitaet": "mittel",
-      "score": 56.25,
-      "aufwand_pt": 25,
-      "einsparung_eur_jahr": 40250.0,
-      "investition_eur_richtwert": 20000.0,
-      "amortisation_monate": 6.0
+      "impact": 8,
+      "impact_monetaer": 6,
+      "nutzwert_mittel": 9.4,
+      "umsetzungskomplexitaet": 5,
+      "komplexitaet_herkunft": "geurteilt",
+      "score": 48,
+      "aufwand_pt": 15,
+      "einsparung_eur_jahr": {
+        "min": 3870.0,
+        "max": 15050.0
+      },
+      "investition_eur_richtwert": 12000.0,
+      "amortisation_monate": {
+        "min": 9.6,
+        "max": 37.2
+      }
     },
     {
-      "rang": 3,
-      "potenzial_id": "aa000000-0000-4000-8000-000000000002",
-      "konzept_id": "3f9a1c22-0001-4a10-9c00-000000000001",
-      "titel": "Gefuehrter Rueckfrage-Workflow bei unvollstaendigen Antraegen",
-      "kp_id": "KP-07",
+      "potenzialrang": 3,
+      "prioritaetsgruppe": "PRIO 2",
+      "potenzial_id": "b3000000-0000-4000-8000-000000000001",
+      "konzept_id": "ddd6062d-edaa-5739-bd68-823eaff5f441",
+      "titel": "Lebensläufe strukturiert erfassen und Kompetenzprofil aufbauen",
+      "kp_id": "KP-06",
+      "betroffene_teilprozess_ids": [
+        "KP-06.TP-1"
+      ],
+      "kategorie": "Quick Win",
+      "impact": 6,
+      "impact_monetaer": 5,
+      "nutzwert_mittel": 7.8,
+      "umsetzungskomplexitaet": 3,
+      "komplexitaet_herkunft": "geurteilt",
+      "score": 48,
+      "aufwand_pt": 8,
+      "einsparung_eur_jahr": {
+        "min": 2580.0,
+        "max": 9030.0
+      },
+      "investition_eur_richtwert": 6400.0,
+      "amortisation_monate": {
+        "min": 8.5,
+        "max": 29.8
+      }
+    },
+    {
+      "potenzialrang": 4,
+      "prioritaetsgruppe": "PRIO 2",
+      "potenzial_id": "b1000000-0000-4000-8000-000000000001",
+      "konzept_id": "ddd6062d-edaa-5739-bd68-823eaff5f441",
+      "titel": "Reiseanfrage automatisch erfassen und Verfügbarkeit prüfen",
+      "kp_id": "KP-06",
+      "betroffene_teilprozess_ids": [
+        "KP-06.TP-2"
+      ],
+      "kategorie": "Quick Win",
+      "impact": 7,
+      "impact_monetaer": 7,
+      "nutzwert_mittel": 7.8,
+      "umsetzungskomplexitaet": 5,
+      "komplexitaet_herkunft": "geurteilt",
+      "score": 42,
+      "aufwand_pt": 20,
+      "einsparung_eur_jahr": {
+        "min": 6450.0,
+        "max": 22575.0
+      },
+      "investition_eur_richtwert": 16000.0,
+      "amortisation_monate": {
+        "min": 8.5,
+        "max": 29.8
+      }
+    },
+    {
+      "potenzialrang": 5,
+      "prioritaetsgruppe": "PRIO 2",
+      "potenzial_id": "b3000000-0000-4000-8000-000000000002",
+      "konzept_id": "ddd6062d-edaa-5739-bd68-823eaff5f441",
+      "titel": "Projektanforderung mit Profilen abgleichen und Vorschlagsliste erzeugen",
+      "kp_id": "KP-06",
+      "betroffene_teilprozess_ids": [
+        "KP-06.TP-1"
+      ],
       "kategorie": "Strategisch",
-      "impact": "hoch",
-      "umsetzungskomplexitaet": "hoch",
-      "score": 37.5,
-      "aufwand_pt": 30,
-      "einsparung_eur_jahr": 16560.0,
-      "investition_eur_richtwert": 24000.0,
-      "amortisation_monate": 17.4
+      "impact": 8,
+      "impact_monetaer": 7,
+      "nutzwert_mittel": 9.6,
+      "umsetzungskomplexitaet": 7,
+      "komplexitaet_herkunft": "geurteilt",
+      "score": 32,
+      "aufwand_pt": 18,
+      "einsparung_eur_jahr": {
+        "min": 5572.8,
+        "max": 18421.2
+      },
+      "investition_eur_richtwert": 14400.0,
+      "amortisation_monate": {
+        "min": 9.4,
+        "max": 31.0
+      }
+    },
+    {
+      "potenzialrang": 6,
+      "prioritaetsgruppe": "PRIO 2",
+      "potenzial_id": "b2000000-0000-4000-8000-000000000001",
+      "konzept_id": "ce8dfca0-1b0e-5966-a336-d1eb45ff3792",
+      "titel": "Wissensquellen automatisch indexieren und aktuell halten",
+      "kp_id": "KP-05",
+      "betroffene_teilprozess_ids": [
+        "KP-05.TP-1"
+      ],
+      "kategorie": "Optional",
+      "impact": 5,
+      "impact_monetaer": 5,
+      "nutzwert_mittel": 5.6,
+      "umsetzungskomplexitaet": 5,
+      "komplexitaet_herkunft": "geurteilt",
+      "score": 30,
+      "aufwand_pt": 8,
+      "einsparung_eur_jahr": {
+        "min": 3096.0,
+        "max": 10836.0
+      },
+      "investition_eur_richtwert": 6400.0,
+      "amortisation_monate": {
+        "min": 7.1,
+        "max": 24.8
+      }
     }
-  ]
+  ],
+  "prozess_raenge": [
+    {
+      "prozessrang": 1,
+      "kp_id": "KP-06",
+      "konzept_id": "ddd6062d-edaa-5739-bd68-823eaff5f441",
+      "bestes_potenzial_id": "b1000000-0000-4000-8000-000000000002",
+      "bester_score": 56,
+      "anzahl_potenziale": 4,
+      "begruendung": "Bestes Potenzial auf Rang 1 des Laufs. Der Prozessrang folgt dem besten Potenzial, nicht der Summe oder dem Mittel -- angefangen wird mit dem, was sich zuerst lohnt."
+    },
+    {
+      "prozessrang": 2,
+      "kp_id": "KP-05",
+      "konzept_id": "ce8dfca0-1b0e-5966-a336-d1eb45ff3792",
+      "bestes_potenzial_id": "b2000000-0000-4000-8000-000000000002",
+      "bester_score": 48,
+      "anzahl_potenziale": 2,
+      "begruendung": "Bestes Potenzial auf Rang 2 des Laufs. Der Prozessrang folgt dem besten Potenzial, nicht der Summe oder dem Mittel -- angefangen wird mit dem, was sich zuerst lohnt."
+    }
+  ],
+  "gate1": {
+    "status": "pending",
+    "kommentar": "FIXTURE aus BC3s Formatvorlage vom 31.08.2026 -- keine BC2-Lieferung und nicht zur Freigabe bestimmt. Alle Zahlen sind hergeleitet (value_quelle 'annahme')."
+  }
 }

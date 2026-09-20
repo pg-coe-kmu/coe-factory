@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://coe-factory/contracts/bc2/priorisierung.schema.json",
+  "title": "BC2 Prozesspriorisierung (potenzial-zentriert)",
+  "description": "Ueber alle Konzepte hinweg sortierte Liste der erkannten Automatisierungspotenziale. Pflichtartefakt (L2-02) fuer Gate 1 und die Semester-1-Abnahme. Sortierung nach prioritaet_score (Komplexitaet x Impact -- Quick Wins zuerst). Version: 2.0.",
+  "type": "object",
+  "required": ["priorisierung_id", "schema_version", "erzeugt_am", "score_formel", "eintraege"],
+  "additionalProperties": false,
+  "properties": {
+    "priorisierung_id": { "type": "string", "format": "uuid" },
+    "schema_version": { "type": "string", "const": "2.0" },
+    "erzeugt_am": { "type": "string", "format": "date-time" },
+    "score_formel": {
+      "type": "string",
+      "description": "Markdown-Beschreibung der Score-Formel. v2 basiert auf Komplexitaet x Impact, z. B. 'score = impact_gewicht(impact) * (100 - komplexitaet_gewicht(umsetzungskomplexitaet)) / 100', mit gering=25, mittel=50, hoch=75, sehr hoch=100."
+    },
+    "eintraege": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "rang",
+          "potenzial_id",
+          "konzept_id",
+          "titel",
+          "kp_id",
+          "kategorie",
+          "impact",
+          "umsetzungskomplexitaet",
+          "score",
+          "einsparung_eur_jahr",
+          "investition_eur_richtwert",
+          "amortisation_monate"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "rang": { "type": "integer", "minimum": 1 },
+          "potenzial_id": { "type": "string", "format": "uuid" },
+          "konzept_id": { "type": "string", "format": "uuid" },
+          "titel": { "type": "string" },
+          "kp_id": { "type": "string", "pattern": "^KP-(0[1-9]|10)$" },
+          "kategorie": {
+            "type": "string",
+            "enum": ["Quick Win", "Strategisch", "Optional", "Long Bet"]
+          },
+          "impact": {
+            "type": "string",
+            "enum": ["gering", "mittel", "hoch", "sehr hoch"]
+          },
+          "umsetzungskomplexitaet": {
+            "type": "string",
+            "enum": ["gering", "mittel", "hoch", "sehr hoch"]
+          },
+          "score": { "type": "number", "minimum": 0, "maximum": 100 },
+          "aufwand_pt": { "type": "number", "minimum": 0 },
+          "einsparung_eur_jahr": { "type": "number", "minimum": 0 },
+          "investition_eur_richtwert": { "type": "number", "minimum": 0 },
+          "amortisation_monate": { "type": "number", "minimum": 0 },
+          "bemerkung": { "type": "string" }
+        }
+      }
+    }
+  }
+}

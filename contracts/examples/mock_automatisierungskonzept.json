@@ -1,255 +1,857 @@
 {
-  "konzept_id": "3f9a1c22-0001-4a10-9c00-000000000001",
-  "schema_version": "2.0",
-  "prozessprofil_ref": "mock_prozessprofil",
-  "erzeugt_am": "2026-06-27T12:00:00Z",
-  "erzeugt_von": "bc2-advisor@v2.0 (mock)",
+  "konzept_id": "ddd6062d-edaa-5739-bd68-823eaff5f441",
+  "ersetzt_konzept_id": null,
+  "schema_version": "3.0",
+  "company_id": "7c2d5ee9-2a9a-5990-810f-502ea2b2012d",
+  "paket_id": "FIXTURE-BC3-VORLAGE-2026-08-31",
+  "uebergeben_am": "2026-08-31T00:00:00+02:00",
+  "gelesen_am": "2026-09-20T00:00:00+02:00",
+  "fassung": 1,
+  "erzeugt_am": "2026-09-20T00:00:00+02:00",
+  "erzeugt_von": "migriere_bc3_vorlage.py -- Fixture aus BC3s Formatvorlage vom 31.08.2026, KEINE BC2-Lieferung. Texte uebernommen, Zahlen nach ADR-006 BC2 hergeleitet.",
   "kontext": {
-    "prozess_kurzbeschreibung": "Versicherte reichen Antraege auf Krankentagegeld ein; das Team prueft und bewilligt (Aurelia Krankenkasse).",
-    "kp_id": "KP-07",
-    "unternehmen": "Aurelia Krankenkasse, Abteilung Leistung",
+    "prozess_kurzbeschreibung": "KP-06: zwei Use Cases derselben Kernprozess-Zuordnung (beispiel_uc1_reisebuchung.json, beispiel_uc3_consultant_placement.json).",
+    "kp_id": "KP-06",
+    "unternehmen": "NoroAI Consulting GmbH",
     "betroffene_systeme_landschaft": [
-      "SAP",
+      "Bewerbungspostfach",
+      "Buchungsportale",
+      "Dokumentenablage",
+      "Excel-Liste",
       "Outlook",
-      "Excel",
-      "Dokumentenscanner"
+      "Web-Formular"
     ],
     "hauptschmerzpunkte": [
       {
-        "beschreibung": "Rueckfrage-Schleifen bei unvollstaendigen Antraegen",
-        "haeufigkeit": "30 % der Faelle",
-        "auswirkung": "+1-3 Tage Wartezeit, Hauptzeitfresser"
+        "beschreibung": "Anfragen kommen als Freitext und müssen manuell gelesen werden",
+        "haeufigkeit": "jede Anfrage",
+        "auswirkung": "25 Min je Vorgang, Hauptzeitfresser"
       },
       {
-        "beschreibung": "Excel-Liste 'Offene Antraege' veraltet oft",
-        "haeufigkeit": "woechentlich",
-        "auswirkung": "ca. 1 Antrag/Woche geht verloren und muss rekonstruiert werden"
+        "beschreibung": "Verfügbarkeiten werden nacheinander in mehreren Portalen geprüft",
+        "haeufigkeit": "jede Anfrage",
+        "auswirkung": "Bearbeitung dauert Stunden statt Minuten"
       },
       {
-        "beschreibung": "Bescheide manuell formuliert (keine Templates)",
-        "haeufigkeit": "jeder Bescheid",
-        "auswirkung": "verlangsamt Endphase, uneinheitliche Formulierungen"
+        "beschreibung": "Buchungsnummern werden von Hand in eine Excel-Liste übertragen",
+        "haeufigkeit": "jede Buchung",
+        "auswirkung": "Medienbruch, Liste veraltet"
+      },
+      {
+        "beschreibung": "Lebensläufe liegen unstrukturiert als Dateien im Ordner",
+        "haeufigkeit": "jeder Eingang",
+        "auswirkung": "rund 20 Min Ablage- und Lesearbeit je Dokument"
+      },
+      {
+        "beschreibung": "Abgleich mit Projektanforderungen erfolgt vollständig von Hand",
+        "haeufigkeit": "jede Ausschreibung",
+        "auswirkung": "rund 3 Stunden je Ausschreibung"
+      },
+      {
+        "beschreibung": "Auswahl hängt an der Erinnerung einzelner Personen",
+        "haeufigkeit": "laufend",
+        "auswirkung": "passende Profile werden übersehen"
       }
     ]
   },
   "potenziale": [
     {
-      "potenzial_id": "aa000000-0000-4000-8000-000000000001",
-      "titel": "Automatisierte Antragserfassung via OCR + LLM-Feldextraktion",
-      "rang": 2,
-      "beschreibung": "Im Schritt \"Antrag erfassen\" digitalisiert die Sachbearbeitung heute jeden eingehenden Krankentagegeld-Antrag manuell in SAP. Papier-Antraege werden zunaechst am Dokumentenscanner eingescannt, PDF-Antraege liegen bereits digital vor; anschliessend werden die relevanten Felder (Versichertennummer, Zeitraum, Diagnose-Bezug, Bankverbindung) von Hand in die SAP-Maske uebertragen. Das betrifft **alle** rund 13.800 Vorgaenge pro Jahr und kostet je Fall etwa fuenf Minuten reine Erfassungszeit. Zwei Automatisierungshindernisse sind bekannt: Papier-Antraege muessen gescannt werden, und die OCR-Qualitaet schwankt.\n\n**Was automatisiert wird:** Ein OCR-Service liest das gescannte oder hochgeladene Dokument, ein nachgelagertes LLM extrahiert die Felder strukturiert, prueft sie auf Plausibilitaet (z. B. gueltiges Datum, vorhandene Versichertennummer) und schreibt sie ueber die SAP-API in den Antragsdatensatz. Nur bei niedriger Extraktions-Konfidenz wird der Fall der Sachbearbeitung zur manuellen Nacherfassung vorgelegt (Human-in-the-Loop).\n\n**Prozessschritt:** \"Antrag erfassen\" (erster Schritt). **Ergebnis:** ein vollstaendig erfasster, strukturierter Antrag in SAP inklusive Konfidenz-Flag. **Datenfluesse:** Dokument (Scan/PDF) -> OCR -> LLM-Extraktion -> Validierung -> SAP-API. **Akteure:** Sachbearbeitung (nur noch Ausnahmefaelle), System (Regelfall). **Vorbedingungen:** SAP-API-Schreibzugriff, ein OCR-Modell, DSGVO-Freigabe fuer die Dokumentenverarbeitung. **Sonderfaelle/Ausnahmen:** unleserliche Scans, unbekannte Formulartypen und Antraege mit widerspruechlichen Angaben werden nicht automatisch gebucht, sondern eskaliert. Damit sinkt der manuelle Erfassungsaufwand deutlich, ohne die fachliche Kontrolle aufzugeben.",
-      "betroffene_prozessschritte": [
-        "Antrag erfassen"
-      ],
-      "betroffene_systeme": [
+      "potenzial_id": "b1000000-0000-4000-8000-000000000002",
+      "titel": "Angebot erstellen und Buchung nach Freigabe auslösen",
+      "potenzialrang": 1,
+      "prioritaetsgruppe": "PRIO 1",
+      "beschreibung": "Nach der Verfügbarkeitsprüfung stellt das Backoffice heute ein Angebot von Hand zusammen: die passenden Optionen werden aus den Portalen kopiert, in eine Word-Vorlage übertragen, Preise addiert und das Dokument per Mail verschickt. Die reisende Person antwortet formlos per Mail. Erst danach werden Flug, Hotel und Mietwagen einzeln in den Portalen gebucht und die Buchungsnummern wieder von Hand in die Excel-Liste eingetragen.\n\nAutomatisiert werden die Angebotserstellung aus den bereits strukturierten Optionen, der Versand mit eindeutiger Zuordnung, die Erfassung der Zusage und das Auslösen der Buchung. Der Datenfluss geht von der Vorgangsablage über die Angebotsvorlage zur reisenden Person und nach der Freigabe zurück in die Reise-API sowie in die Vorgangsablage.\n\nBeteiligte Rollen sind das Backoffice, die reisende Person und die Teamleitung als Freigebende. Vorbedingung ist ein Vorgang mit geprüften Optionen aus dem ersten Potenzial. Sonderfälle: läuft eine Option zwischen Angebot und Zusage ab, wird erneut geprüft und ein aktualisiertes Angebot erzeugt; bleibt die Zusage aus, erinnert der Prozess zweimal und schließt den Vorgang danach mit Begründung; eine Stornierung nach Buchung ist kein Abbruch, sondern ein eigener Statuswechsel mit Protokolleintrag.",
+      "to_be_vision": "Sobald geprüfte Optionen vorliegen, entsteht das Angebot ohne Zutun und geht innerhalb weniger Minuten hinaus. Die reisende Person sieht drei vergleichbare Varianten mit Gesamtpreis und Rahmenbedingungen und kann mit einer Antwort zusagen; die Zuordnung zum Vorgang passiert über die Vorgangsnummer und muss nicht von Hand hergestellt werden. Bleibt eine Antwort aus, erinnert der Prozess selbsttätig und schließt den Vorgang nach der zweiten Erinnerung mit einer nachvollziehbaren Begründung. Ist eine Option zwischenzeitlich abgelaufen, wird erneut geprüft und ein aktualisiertes Angebot erzeugt, statt den Vorgang scheitern zu lassen. Gebucht wird ausschließlich nach ausdrücklicher Freigabe durch einen Menschen; die Buchungsnummern laufen automatisch in die Vorgangsablage zurück, sodass die Excel-Liste entfällt. Stornierungen und nachträgliche Änderungen sind als Statuswechsel abgebildet und bleiben im Protokoll sichtbar.",
+      "user_story": "Als bearbeitende Person im Kernprozess KP-06 moechte ich den Schritt „Angebot erstellen und Buchung nach Freigabe auslösen“ automatisiert ausfuehren, damit gilt: Angebot entsteht automatisch, die Buchung läuft erst nach menschlicher Freigabe.",
+      "akzeptanzkriterien_geschaeftlich": [
         {
-          "name": "Dokumentenscanner",
-          "rolle": "Quelle",
-          "integration": "OCR"
+          "kriterium": "Gegeben ein Vorgang mit geprüften Optionen, wenn das Angebot erzeugt wird, dann enthält es drei Varianten mit Gesamtpreis und geht binnen fünf Minuten hinaus.",
+          "messverfahren": "Zeitstempelvergleich im Vorgangsprotokoll ueber eine Stichprobe von 50 Vorgaengen."
         },
         {
-          "name": "SAP",
-          "rolle": "Ziel",
-          "integration": "API"
-        }
-      ],
-      "manueller_aufwand_heute": "mittel",
-      "impact": "hoch",
-      "umsetzungskomplexitaet": "mittel",
-      "value": {
-        "ist_kosten_eur_jahr": 57500.0,
-        "einsparung_eur_jahr": 40250.0,
-        "ersparnis_prozent": 70.0,
-        "investition_eur_richtwert": 20000.0,
-        "amortisation_monate": 6.0,
-        "value_quelle": "berechnet",
-        "annahmen": [
-          "Jahresvolumen 13800 Vorgaenge (300/Woche x 46 Wochen)",
-          "Vollkostensatz 50 EUR/h",
-          "Umsetzungs-Tagessatz 800 EUR",
-          "betroffene Faelle/Jahr: 13800",
-          "manuelle Zeit heute: 5 Min/Fall",
-          "angenommener Einsparungsgrad: 70 %"
-        ]
-      },
-      "aufwand_schaetzung_pt": 25,
-      "prioritaet_score": 56.25,
-      "kategorie": "Quick Win",
-      "potenzielle_loesung": {
-        "ansatz": "OCR-Extraktion des Antragsdokuments, LLM-gestuetzte Feldextraktion und Plausibilitaetspruefung, Rueckschreiben der strukturierten Felder via SAP-API. Konfidenzschwelle steuert den Human-in-the-Loop: unsichere Faelle gehen an die Sachbearbeitung.",
-        "tech_stack_empfehlung": [
-          "OCR-Service",
-          "Claude (Sonnet 4.6)",
-          "n8n",
-          "SAP-API",
-          "PostgreSQL"
-        ],
-        "to_be_kurz": "Antraege werden automatisch erfasst; Menschen bearbeiten nur noch Ausnahmen."
-      },
-      "voraussetzungen": [
-        "SAP-API-Schreibzugriff",
-        "OCR-Modell verfuegbar",
-        "DSGVO-Freigabe Dokumentenverarbeitung"
-      ],
-      "risiken": [
+          "kriterium": "Gegeben eine Zusage per Mail mit Vorgangs-ID, wenn sie eingeht, dann wechselt der Vorgang in den Status freigabebereit und wird nicht automatisch gebucht.",
+          "messverfahren": "Statusfeld im Vorgang, Stichprobe von 50 Vorgaengen."
+        },
         {
-          "beschreibung": "OCR-Qualitaet bei schlechten Scans zu niedrig",
-          "wahrscheinlichkeit": "med",
-          "auswirkung": "med",
-          "gegenmassnahme": "Konfidenzschwelle + manueller Fallback"
+          "kriterium": "Gegeben eine erteilte Freigabe, wenn die Buchung ausgelöst wird, dann stehen die Buchungsnummern binnen fünf Minuten im Vorgang.",
+          "messverfahren": "Zeitstempelvergleich im Vorgangsprotokoll ueber eine Stichprobe von 50 Vorgaengen."
+        },
+        {
+          "kriterium": "Gegeben eine abgelaufene Option, wenn die Zusage eintrifft, dann wird erneut geprüft und ein aktualisiertes Angebot verschickt.",
+          "messverfahren": "Stichprobe von 50 Vorgaengen, je gegen das Kriterium geprueft."
+        },
+        {
+          "kriterium": "Gegeben eine ausbleibende Antwort, wenn 48 Stunden vergangen sind, dann geht eine Erinnerung hinaus; nach der zweiten wird der Vorgang mit Begründung geschlossen.",
+          "messverfahren": "Zeitstempelvergleich im Vorgangsprotokoll ueber eine Stichprobe von 50 Vorgaengen."
+        },
+        {
+          "kriterium": "Gegeben eine Stornierung nach Buchung, wenn sie erfasst wird, dann bleibt der Vorgang bestehen und trägt den Status storniert mit Zeitstempel.",
+          "messverfahren": "Statusfeld im Vorgang, Stichprobe von 50 Vorgaengen."
         }
-      ]
-    },
-    {
-      "potenzial_id": "aa000000-0000-4000-8000-000000000002",
-      "titel": "Gefuehrter Rueckfrage-Workflow bei unvollstaendigen Antraegen",
-      "rang": 3,
-      "beschreibung": "Rund 30 % aller Antraege sind unvollstaendig und loesen eine Rueckfrage an die Versicherten aus -- der laut BC1 groesste Zeitfresser des Prozesses. Heute formuliert die Sachbearbeitung die Rueckfrage manuell in Outlook, es entsteht ein Medienbruch zwischen Mail und SAP, und die Antwortzeit der Versicherten ist nicht kontrollierbar (Wartezeit +1 bis 3 Tage, faktisch oft laenger). Pro Rueckfrage fallen ueber Formulierung, Wiedervorlage und Nachverfolgung rund acht Minuten aktive Bearbeitungszeit an; das betrifft etwa 4.140 Faelle pro Jahr.\n\n**Was automatisiert wird:** Sobald die sachliche Pruefung eine definierte Luecke erkennt (z. B. fehlende Bescheinigung), erzeugt das System eine strukturierte, vollstaendige Nachforderung mit klarer Angabe der fehlenden Unterlagen und einem Ruecklauf-Link/Formular. Erinnerungen laufen automatisch, der Ruecklauf wird ohne manuelle Uebertragung dem SAP-Vorgang zugeordnet. **Prozessschritt:** \"Rueckfrage an Versicherten\". **Ergebnis:** vollstaendiger Antrag oder dokumentierte Nichtreaktion nach definierter Frist. **Datenfluesse:** SAP-Lueckenbefund -> Nachforderungsvorlage -> Versand (E-Mail/Portal) -> Ruecklauf -> automatische Zuordnung zum SAP-Vorgang. **Akteure:** Sachbearbeitung (nur Freigabe/Ausnahmen), Versicherte (extern), System. **Vorbedingungen:** definierte Luecken-Kategorien, Outlook-/Portal-Anbindung, Vorlagenkatalog. **Sonderfaelle:** mehrfache Rueckfragen, Teil-Rueckmeldungen und Fristablauf werden geregelt. Die eigentliche Kundenantwortzeit bleibt unbeeinflussbar -- deshalb ist die Einsparung auf den internen Aufwand begrenzt.",
+      ],
+      "fachliche_anforderungen": [
+        "Das Angebot wird aus den geprüften Optionen ohne manuelles Kopieren erzeugt.",
+        "Jedes Angebot enthält mindestens drei vergleichbare Varianten mit Gesamtpreis.",
+        "Der Versand trägt die Vorgangs-ID, damit die Antwort automatisch zugeordnet wird.",
+        "Eine Buchung wird ausschließlich nach ausdrücklicher menschlicher Freigabe ausgelöst.",
+        "Abgelaufene Optionen führen zu einer erneuten Prüfung, nicht zum Abbruch.",
+        "Ausbleibende Zusagen lösen zwei Erinnerungen aus, danach wird der Vorgang geschlossen.",
+        "Stornierung ist ein Statuswechsel mit Protokolleintrag, kein Löschvorgang.",
+        "Buchungsnummern werden in die Vorgangsablage zurückgeschrieben."
+      ],
+      "betroffene_teilprozess_ids": [
+        "KP-06.TP-2"
+      ],
       "betroffene_prozessschritte": [
-        "Sachliche Pruefung",
-        "Rueckfrage an Versicherten (bei Luecken)"
+        "Angebot erstellen",
+        "Bestätigung einholen",
+        "Buchung vornehmen"
       ],
       "betroffene_systeme": [
         {
-          "name": "SAP",
+          "name": "Vorgangsablage",
           "rolle": "Quelle+Ziel",
-          "integration": "API"
+          "integration": "DB"
         },
         {
-          "name": "Outlook",
+          "name": "Outlook-Postfach reisen@noroai",
           "rolle": "Quelle+Ziel",
           "integration": "Email"
-        }
-      ],
-      "manueller_aufwand_heute": "hoch",
-      "impact": "hoch",
-      "umsetzungskomplexitaet": "hoch",
-      "value": {
-        "ist_kosten_eur_jahr": 27600.0,
-        "einsparung_eur_jahr": 16560.0,
-        "ersparnis_prozent": 60.0,
-        "investition_eur_richtwert": 24000.0,
-        "amortisation_monate": 17.4,
-        "value_quelle": "berechnet",
-        "annahmen": [
-          "Jahresvolumen 13800 Vorgaenge (300/Woche x 46 Wochen)",
-          "Vollkostensatz 50 EUR/h",
-          "Umsetzungs-Tagessatz 800 EUR",
-          "betroffene Faelle/Jahr: 4140",
-          "manuelle Zeit heute: 8 Min/Fall",
-          "angenommener Einsparungsgrad: 60 %"
-        ]
-      },
-      "aufwand_schaetzung_pt": 30,
-      "prioritaet_score": 37.5,
-      "kategorie": "Strategisch",
-      "potenzielle_loesung": {
-        "ansatz": "Regelbasierte Luecken-Erkennung in der Pruefung, generierte strukturierte Nachforderung, automatischer Versand mit Erinnerungen und medienbruchfreie Rueckordnung zum SAP-Vorgang. LLM formuliert die Nachforderung verstaendlich, Regeln steuern den Ablauf.",
-        "tech_stack_empfehlung": [
-          "n8n",
-          "Claude (Sonnet 4.6)",
-          "SAP-API",
-          "Outlook/Graph-API",
-          "PostgreSQL"
-        ],
-        "to_be_kurz": "Nachforderungen laufen strukturiert und medienbruchfrei; Wiedervorlage automatisch."
-      },
-      "voraussetzungen": [
-        "Outlook-/Graph-Anbindung",
-        "SAP-API-Zugang",
-        "definierter Luecken-Katalog"
-      ],
-      "risiken": [
-        {
-          "beschreibung": "Medienbruch Mail<->SAP schwer aufzuloesen",
-          "wahrscheinlichkeit": "med",
-          "auswirkung": "high",
-          "gegenmassnahme": "eindeutige Vorgangs-IDs im Betreff + Rueckordnungslogik"
         },
         {
-          "beschreibung": "Kundenantwortzeit bleibt unkontrollierbar",
-          "wahrscheinlichkeit": "high",
-          "auswirkung": "med",
-          "gegenmassnahme": "automatische Eskalation nach Frist"
-        }
-      ]
-    },
-    {
-      "potenzial_id": "aa000000-0000-4000-8000-000000000003",
-      "titel": "Bescheid-Generator mit Textbausteinen und Vorlagen",
-      "rang": 1,
-      "beschreibung": "Im letzten Schritt \"Bescheid versenden\" wird heute **jeder** Bescheid manuell formuliert -- es gibt keine Templates. Das verlangsamt die Endphase und fuehrt zu uneinheitlichen Formulierungen; zusaetzlich fehlt eine Postversand-Schnittstelle. Betroffen sind alle rund 13.800 Vorgaenge pro Jahr mit geschaetzt sechs Minuten Formulierungs- und Pruefaufwand je Bescheid.\n\n**Was automatisiert wird:** Auf Basis von Pruefergebnis (Genehmigung/Ablehnung), Auszahlungsdaten und Ablehnungsgruenden erzeugt ein Template-Generator den vollstaendigen Bescheidtext aus versionierten, rechtssicher freigegebenen Textbausteinen. Die Sachbearbeitung prueft nur noch und gibt frei; der Versand wird ueber eine definierte Schnittstelle angestossen. **Prozessschritt:** \"Bescheid versenden\" (und Uebergabe aus \"Auszahlung anstossen / Ablehnung erstellen\"). **Ergebnis:** einheitlicher, korrekter Bescheid in Sekunden statt Minuten. **Datenfluesse:** SAP-Vorgangsdaten -> Template-Engine -> Bescheid-PDF -> Freigabe -> Versand. **Akteure:** Sachbearbeitung (Freigabe), System (Erzeugung). **Vorbedingungen:** freigegebener, versionierter Textbaustein-Katalog; Zugriff auf die Vorgangsdaten in SAP. **Sonderfaelle:** individuelle Begruendungen bei komplexen Ablehnungen bleiben editierbar. Wegen geringer Komplexitaet, hoher Fallzahl und niedriger Investition ist dies das wirtschaftlichste Potenzial des Prozesses.",
-      "betroffene_prozessschritte": [
-        "Auszahlung anstossen / Ablehnung erstellen",
-        "Bescheid versenden"
-      ],
-      "betroffene_systeme": [
-        {
-          "name": "SAP",
-          "rolle": "Quelle",
-          "integration": "API"
-        },
-        {
-          "name": "Outlook + Postversand",
+          "name": "Reise-API (travel-mock-api)",
           "rolle": "Ziel",
-          "integration": "Datei"
+          "integration": "API"
         }
       ],
-      "manueller_aufwand_heute": "hoch",
-      "impact": "sehr hoch",
-      "umsetzungskomplexitaet": "gering",
+      "manueller_aufwand_heute": {
+        "stunden_jahr": 400.0,
+        "herkunft": "geschaetzt",
+        "konfidenz_pct": null
+      },
+      "automatisierungsgrad": {
+        "klasse": "Textgenerierung",
+        "angesetzt_min_pct": 30,
+        "angesetzt_max_pct": 50,
+        "begruendung": "Klasse 'Textgenerierung' aus dem Loesungsansatz der Vorlage abgeleitet. Der Korridor wird ungeschmaelert uebernommen, weil keine LLM-Verortung vorliegt -- in der echten Lieferung engt das LLM ihn ein und begruendet die Lage.",
+        "bc1_schaetzung_pct": null
+      },
+      "nutzwert": {
+        "qualitaet": {
+          "wert": 7,
+          "begruendung": "Aus BC3s ordinalem impact 'hoch' hergeleitet; die Vorlage nennt keine eigene Qualitaetsaussage."
+        },
+        "durchlaufzeit": {
+          "wert": 8,
+          "begruendung": "Die to_be_vision der Vorlage beziffert durchgaengig eine kuerzere Bearbeitung als heute."
+        },
+        "fehlerreduktion": {
+          "wert": 8,
+          "begruendung": "Die Vorlage nennt einen Medienbruch oder eine Handuebertragung als Fehlerquelle."
+        },
+        "mitarbeiterzufriedenheit": {
+          "wert": 7,
+          "begruendung": "Ohne eigene Aussage in der Vorlage auf der Basis belassen."
+        },
+        "compliance": {
+          "wert": 9,
+          "begruendung": "Die Vorlage fuehrt ein DSGVO- oder Aufbewahrungsthema ausdruecklich."
+        },
+        "mittel": 7.8
+      },
+      "impact": 7,
+      "impact_monetaer": 6,
+      "umsetzungskomplexitaet": 3,
+      "komplexitaet_herkunft": "geurteilt",
+      "komplexitaet_begruendung": "BC3s ordinale Stufe 'gering' auf die Stufenmitte 3 abgebildet. BC1s vier Skalen am Fokus-Schritt liegen fuer diese Fixture nicht vor, die Herkunft ist deshalb 'geurteilt' statt 'gemessen'.",
       "value": {
-        "ist_kosten_eur_jahr": 69000.0,
-        "einsparung_eur_jahr": 51750.0,
-        "ersparnis_prozent": 75.0,
+        "value_quelle": "annahme",
+        "ist_kosten_eur_jahr": {
+          "min": 10320.0,
+          "max": 24080.0
+        },
+        "einsparung_eur_jahr": {
+          "min": 3096.0,
+          "max": 12040.0
+        },
+        "ersparnis_prozent": {
+          "min": 30.0,
+          "max": 50.0
+        },
         "investition_eur_richtwert": 12000.0,
-        "amortisation_monate": 2.8,
-        "value_quelle": "berechnet",
+        "amortisation_monate": {
+          "min": 12.0,
+          "max": 46.5
+        },
         "annahmen": [
-          "Jahresvolumen 13800 Vorgaenge (300/Woche x 46 Wochen)",
-          "Vollkostensatz 50 EUR/h",
-          "Umsetzungs-Tagessatz 800 EUR",
-          "betroffene Faelle/Jahr: 13800",
-          "manuelle Zeit heute: 6 Min/Fall",
-          "angenommener Einsparungsgrad: 75 %"
+          "FIXTURE -- hergeleitet aus BC3s Formatvorlage vom 31.08.2026, keine BC2-Lieferung.",
+          "Jahresstunden 400.0 aus BC3s ist_kosten_eur_jahr / 60 EUR/h zurueckgerechnet.",
+          "Mischsatz 43 EUR/h (NoroAI-Profil Kap. 9.2, #172).",
+          "Bausatz 800 EUR/PT -- Setzung, bewusst ein anderer Satz als die Einsparungsseite.",
+          "Automatisierungsgrad 30-50 % aus dem Korridor der Klasse 'Textgenerierung' (ADR-006 BC2, 2.2).",
+          "Bandbreite +/-40 % aus der Herkunft 'geschaetzt' (ADR-006 BC2, 2.3)."
         ]
       },
       "aufwand_schaetzung_pt": 15,
-      "prioritaet_score": 100.0,
+      "prioritaet_score": 56,
       "kategorie": "Quick Win",
+      "querschnitte": {
+        "zukunftssicherheit": "Nicht aus BC3s Vorlage uebernehmbar -- sie fuehrt keinen Querschnitt. Fuer die echte Lieferung urteilt das LLM; hier als Luecke ausgewiesen, statt sie zu erfinden.",
+        "abhaengigkeiten": []
+      },
       "potenzielle_loesung": {
-        "ansatz": "Versionierter Textbaustein-Katalog + Template-Engine, gespeist aus SAP-Vorgangsdaten. LLM formuliert nur individuelle Begruendungen; Standardbescheide entstehen regelbasiert. Sachbearbeitung gibt frei, Versand ueber definierte Schnittstelle.",
+        "ansatz": "Angebotsdokument wird aus versionierten Textbausteinen und den geprüften Optionen erzeugt. Versand mit Vorgangs-ID im Betreff, Rückordnung der Antwort über dieselbe ID. Zusage setzt den Status und löst die Buchung über die Reise-API aus. Buchungsnummern werden zurück in die Vorgangsablage geschrieben. Die Freigabe bleibt beim Menschen.",
         "tech_stack_empfehlung": [
-          "Template-Engine",
-          "Claude (Sonnet 4.6)",
-          "SAP-API",
-          "PostgreSQL"
+          "n8n",
+          "Mistral Large",
+          "PostgreSQL",
+          "travel-mock-api"
         ],
-        "to_be_kurz": "Bescheide entstehen einheitlich per Vorlage; Mensch prueft und gibt frei."
+        "to_be_kurz": "Angebot entsteht automatisch, die Buchung läuft erst nach menschlicher Freigabe."
       },
       "voraussetzungen": [
-        "freigegebener Textbaustein-Katalog",
-        "SAP-Vorgangsdaten-Zugriff"
+        "Freigegebene Angebotsvorlage mit versionierten Textbausteinen",
+        "Schreibender Zugriff auf die Reise-API",
+        "Definierte Freigabeberechtigung je Projekt oder Kostenstelle",
+        "Aufbewahrungsregel für Angebots- und Buchungsdaten"
       ],
       "risiken": [
         {
-          "beschreibung": "Rechtssichere Formulierungen muessen fachlich freigegeben werden",
+          "beschreibung": "Zuordnung der Mailantwort scheitert, wenn die Vorgangs-ID entfernt wird",
+          "wahrscheinlichkeit": "med",
+          "auswirkung": "high",
+          "gegenmassnahme": "ID zusätzlich im Body, Rückordnung über Absender und Zeitraum als Fallback"
+        },
+        {
+          "beschreibung": "Automatische Buchung ohne Freigabe verursacht Kosten",
+          "wahrscheinlichkeit": "low",
+          "auswirkung": "high",
+          "gegenmassnahme": "Freigabe technisch erzwingen, Buchungsschritt ohne Freigabe-Flag nicht ausführbar"
+        }
+      ],
+      "hinweise": [
+        {
+          "art": "mischsatz_untertreibt",
+          "text": "BC3s Vorlage rechnet mit 60 EUR/h, v3.0 mit dem Mischsatz 43 EUR/h (#172). Die absoluten Betraege liegen damit niedriger als in der Vorlage; fuer die Rangfolge ist ein konstanter Faktor gleichwertig."
+        },
+        {
+          "art": "testdaten",
+          "text": "Fixture aus beispiel_uc1_reisebuchung.json (BC3s Vorlage vom 31.08.2026). Die Zahlen sind gesetzt, nicht erhoben -- Gate 0 war fuer diesen Teilprozess nicht durchlaufen."
+        }
+      ]
+    },
+    {
+      "potenzial_id": "b3000000-0000-4000-8000-000000000001",
+      "titel": "Lebensläufe strukturiert erfassen und Kompetenzprofil aufbauen",
+      "potenzialrang": 3,
+      "prioritaetsgruppe": "PRIO 2",
+      "beschreibung": "Lebensläufe erreichen NoroAI heute unstrukturiert als PDF oder Word-Datei und werden von Hand in einem Ordner abgelegt. Wer später wissen will, wer welche Kompetenz hat, muss die Dateien einzeln öffnen. Es gibt keine einheitliche Erfassung von Fähigkeiten, Erfahrung und Verfügbarkeit. Automatisiert wird das Auslesen der Angaben und der Aufbau eines strukturierten Kompetenzprofils, nicht die Bewertung von Personen.\n\nErgebnis ist ein Profil je Person mit Kompetenzen, Erfahrungsjahren, Branchen, Sprachen und Verfügbarkeit, jeweils mit Belegstelle im Ausgangsdokument. Der Datenfluss läuft vom eingehenden Dokument über die Extraktion in das Profilregister.\n\nBeteiligte Rollen sind die Personalverantwortung als Pflegende, die betroffene Person als Auskunftsberechtigte und die Compliance-Rolle. Vorbedingung ist eine Einwilligung zur Verarbeitung. Sonderfälle: unklare oder widersprüchliche Angaben werden markiert statt geraten; die betroffene Person kann ihr Profil einsehen und korrigieren lassen; automatisierte Ableitungen über Eignung finden in diesem Schritt ausdrücklich nicht statt. Der Anwendungsfall fällt unter Anhang III der EU-KI-Verordnung, weil er Beschäftigung betrifft.",
+      "to_be_vision": "Ein eingehender Lebenslauf ist binnen Minuten als strukturiertes Profil verfügbar: Kompetenzen, Erfahrungsjahre, Branchen, Sprachen und Verfügbarkeit stehen in einheitlichen Feldern, und zu jedem Feld ist erkennbar, an welcher Stelle des Dokuments es steht. Die Personalverantwortung prüft nur noch die Felder, bei denen die Extraktion unsicher war, statt jedes Dokument vollständig zu lesen. Die betroffene Person kann ihr Profil einsehen und Korrekturen verlangen; jede Änderung bleibt nachvollziehbar. In diesem Schritt findet ausdrücklich keine Bewertung und keine Rangfolge statt: das Profil beschreibt, es beurteilt nicht. Verarbeitet wird nur mit vorliegender Einwilligung, und Profile ohne Weiterverwendung werden nach Ablauf der Aufbewahrungsfrist gelöscht. Damit ist die Grundlage für das Matching gelegt, ohne dass unterwegs eine Entscheidung über Menschen automatisiert wird.",
+      "user_story": "Als bearbeitende Person im Kernprozess KP-06 moechte ich den Schritt „Lebensläufe strukturiert erfassen und Kompetenzprofil aufbauen“ automatisiert ausfuehren, damit gilt: Lebensläufe liegen als strukturiertes, belegtes Kompetenzprofil vor statt als PDF im Ordner.",
+      "akzeptanzkriterien_geschaeftlich": [
+        {
+          "kriterium": "Gegeben ein PDF-Lebenslauf mit Einwilligung, wenn er eingeht, dann liegt binnen fünf Minuten ein strukturiertes Profil vor.",
+          "messverfahren": "Zeitstempelvergleich im Vorgangsprotokoll ueber eine Stichprobe von 50 Vorgaengen."
+        },
+        {
+          "kriterium": "Gegeben ein Lebenslauf ohne dokumentierte Einwilligung, wenn er eingeht, dann wird er nicht verarbeitet und der Vorgang wird gemeldet.",
+          "messverfahren": "Stichprobe von 50 Vorgaengen, je gegen das Kriterium geprueft."
+        },
+        {
+          "kriterium": "Gegeben eine unklare Angabe zur Erfahrungsdauer, wenn das Profil erzeugt wird, dann ist das Feld als unsicher markiert und leer statt geschätzt.",
+          "messverfahren": "Statusfeld im Vorgang, Stichprobe von 50 Vorgaengen."
+        },
+        {
+          "kriterium": "Gegeben ein erzeugtes Profil, wenn die betroffene Person Auskunft verlangt, dann ist das Profil vollständig mit Belegstellen ausgebbar.",
+          "messverfahren": "Stichprobe von 50 Vorgaengen, je gegen das Kriterium geprueft."
+        },
+        {
+          "kriterium": "Gegeben ein Profil nach Ablauf der Aufbewahrungsfrist, wenn der Löschlauf erfolgt, dann ist es entfernt und die Löschung protokolliert.",
+          "messverfahren": "Protokollauszug je Vorgang, gegen die geforderten Felder geprueft."
+        }
+      ],
+      "fachliche_anforderungen": [
+        "PDF- und Word-Lebensläufe münden in dasselbe Profilschema.",
+        "Je Profilfeld wird die Belegstelle im Ausgangsdokument mitgeführt.",
+        "Unsichere oder widersprüchliche Angaben werden markiert, nicht geraten.",
+        "Die Verarbeitung setzt eine dokumentierte Einwilligung voraus.",
+        "Die betroffene Person kann ihr Profil einsehen und korrigieren lassen.",
+        "In diesem Schritt findet keine Bewertung und keine Rangfolge statt.",
+        "Profile werden nach Ablauf der Aufbewahrungsfrist gelöscht.",
+        "Jedes Profil trägt die Teilprozess-ID KP-06.TP-1."
+      ],
+      "betroffene_teilprozess_ids": [
+        "KP-06.TP-1"
+      ],
+      "betroffene_prozessschritte": [
+        "Lebenslauf entgegennehmen",
+        "Lebenslauf ablegen",
+        "Kompetenzen erfassen"
+      ],
+      "betroffene_systeme": [
+        {
+          "name": "Bewerbungspostfach",
+          "rolle": "Quelle",
+          "integration": "Email"
+        },
+        {
+          "name": "Dokumentenablage Lebensläufe",
+          "rolle": "Quelle",
+          "integration": "Datei"
+        },
+        {
+          "name": "Profilregister",
+          "rolle": "Ziel",
+          "integration": "DB"
+        }
+      ],
+      "manueller_aufwand_heute": {
+        "stunden_jahr": 200.0,
+        "herkunft": "geschaetzt",
+        "konfidenz_pct": null
+      },
+      "automatisierungsgrad": {
+        "klasse": "Extraktion",
+        "angesetzt_min_pct": 50,
+        "angesetzt_max_pct": 75,
+        "begruendung": "Klasse 'Extraktion' aus dem Loesungsansatz der Vorlage abgeleitet. Der Korridor wird ungeschmaelert uebernommen, weil keine LLM-Verortung vorliegt -- in der echten Lieferung engt das LLM ihn ein und begruendet die Lage.",
+        "bc1_schaetzung_pct": null
+      },
+      "nutzwert": {
+        "qualitaet": {
+          "wert": 7,
+          "begruendung": "Aus BC3s ordinalem impact 'hoch' hergeleitet; die Vorlage nennt keine eigene Qualitaetsaussage."
+        },
+        "durchlaufzeit": {
+          "wert": 8,
+          "begruendung": "Die to_be_vision der Vorlage beziffert durchgaengig eine kuerzere Bearbeitung als heute."
+        },
+        "fehlerreduktion": {
+          "wert": 8,
+          "begruendung": "Die Vorlage nennt einen Medienbruch oder eine Handuebertragung als Fehlerquelle."
+        },
+        "mitarbeiterzufriedenheit": {
+          "wert": 7,
+          "begruendung": "Ohne eigene Aussage in der Vorlage auf der Basis belassen."
+        },
+        "compliance": {
+          "wert": 9,
+          "begruendung": "Die Vorlage fuehrt ein DSGVO- oder Aufbewahrungsthema ausdruecklich."
+        },
+        "mittel": 7.8
+      },
+      "impact": 6,
+      "impact_monetaer": 5,
+      "umsetzungskomplexitaet": 3,
+      "komplexitaet_herkunft": "geurteilt",
+      "komplexitaet_begruendung": "BC3s ordinale Stufe 'gering' auf die Stufenmitte 3 abgebildet. BC1s vier Skalen am Fokus-Schritt liegen fuer diese Fixture nicht vor, die Herkunft ist deshalb 'geurteilt' statt 'gemessen'.",
+      "value": {
+        "value_quelle": "annahme",
+        "ist_kosten_eur_jahr": {
+          "min": 5160.0,
+          "max": 12040.0
+        },
+        "einsparung_eur_jahr": {
+          "min": 2580.0,
+          "max": 9030.0
+        },
+        "ersparnis_prozent": {
+          "min": 50.0,
+          "max": 75.0
+        },
+        "investition_eur_richtwert": 6400.0,
+        "amortisation_monate": {
+          "min": 8.5,
+          "max": 29.8
+        },
+        "annahmen": [
+          "FIXTURE -- hergeleitet aus BC3s Formatvorlage vom 31.08.2026, keine BC2-Lieferung.",
+          "Jahresstunden 200.0 aus BC3s ist_kosten_eur_jahr / 60 EUR/h zurueckgerechnet.",
+          "Mischsatz 43 EUR/h (NoroAI-Profil Kap. 9.2, #172).",
+          "Bausatz 800 EUR/PT -- Setzung, bewusst ein anderer Satz als die Einsparungsseite.",
+          "Automatisierungsgrad 50-75 % aus dem Korridor der Klasse 'Extraktion' (ADR-006 BC2, 2.2).",
+          "Bandbreite +/-40 % aus der Herkunft 'geschaetzt' (ADR-006 BC2, 2.3)."
+        ]
+      },
+      "aufwand_schaetzung_pt": 8,
+      "prioritaet_score": 48,
+      "kategorie": "Quick Win",
+      "querschnitte": {
+        "zukunftssicherheit": "Nicht aus BC3s Vorlage uebernehmbar -- sie fuehrt keinen Querschnitt. Fuer die echte Lieferung urteilt das LLM; hier als Luecke ausgewiesen, statt sie zu erfinden.",
+        "abhaengigkeiten": []
+      },
+      "potenzielle_loesung": {
+        "ansatz": "Textextraktion aus PDF und Word, LLM-gestützte Strukturierung in ein festes Profilschema, Belegstelle je Feld. Unsichere Felder werden markiert und der Personalverantwortung vorgelegt. Keine Bewertung, keine Rangfolge in diesem Schritt.",
+        "tech_stack_empfehlung": [
+          "n8n",
+          "Mistral Large",
+          "PostgreSQL",
+          "OCR-Service"
+        ],
+        "to_be_kurz": "Lebensläufe liegen als strukturiertes, belegtes Kompetenzprofil vor statt als PDF im Ordner."
+      },
+      "voraussetzungen": [
+        "Dokumentierte Einwilligung je Person",
+        "Festgelegtes Profilschema und Kompetenzkatalog",
+        "Aufbewahrungs- und Löschregel für Bewerberdaten",
+        "Pseudonymisierung vor der LLM-Grenze nach ADR-004"
+      ],
+      "risiken": [
+        {
+          "beschreibung": "Verarbeitung von Bewerberdaten fällt unter Anhang III der EU-KI-Verordnung",
+          "wahrscheinlichkeit": "high",
+          "auswirkung": "high",
+          "gegenmassnahme": "Keine Bewertung in diesem Schritt, Transparenzhinweis, Auskunfts- und Korrekturrecht"
+        },
+        {
+          "beschreibung": "Extraktionsfehler wirken sich später im Matching aus",
           "wahrscheinlichkeit": "med",
           "auswirkung": "med",
-          "gegenmassnahme": "Freigabe-Workflow fuer Textbausteine, Versionierung"
+          "gegenmassnahme": "Belegstelle je Feld, unsichere Felder leer lassen statt raten"
+        }
+      ],
+      "hinweise": [
+        {
+          "art": "mischsatz_untertreibt",
+          "text": "BC3s Vorlage rechnet mit 60 EUR/h, v3.0 mit dem Mischsatz 43 EUR/h (#172). Die absoluten Betraege liegen damit niedriger als in der Vorlage; fuer die Rangfolge ist ein konstanter Faktor gleichwertig."
+        },
+        {
+          "art": "testdaten",
+          "text": "Fixture aus beispiel_uc3_consultant_placement.json (BC3s Vorlage vom 31.08.2026). Die Zahlen sind gesetzt, nicht erhoben -- Gate 0 war fuer diesen Teilprozess nicht durchlaufen."
+        }
+      ]
+    },
+    {
+      "potenzial_id": "b1000000-0000-4000-8000-000000000001",
+      "titel": "Reiseanfrage automatisch erfassen und Verfügbarkeit prüfen",
+      "potenzialrang": 4,
+      "prioritaetsgruppe": "PRIO 2",
+      "beschreibung": "Heute erreichen Reiseanfragen NoroAI auf zwei Wegen: als Freitext-Mail an das Backoffice oder über ein Web-Formular. Beide landen im selben Postfach und werden von Hand gelesen. Die Mitarbeitenden lesen Reiseziel, Zeitraum, Personenzahl und Budget heraus, tragen sie in eine Excel-Liste ein und prüfen anschließend nacheinander in den Buchungsportalen, ob Flug, Hotel und Mietwagen im gewünschten Zeitraum verfügbar sind. Automatisiert wird die Erfassung und die Verfügbarkeitsprüfung, nicht die Entscheidung.\n\nErgebnis der Automatisierung ist ein strukturierter Anfragedatensatz mit den Feldern Reiseziel, Hin- und Rückreisedatum, Anzahl Reisender, Budgetrahmen und Sonderwünschen, sowie eine Liste verfügbarer Optionen je Kategorie. Der Datenfluss läuft vom Postfach beziehungsweise Formular über die Feldextraktion in die Reise-API und von dort zurück in die Vorgangsablage.\n\nBeteiligte Rollen sind das Backoffice als Bearbeiter, die reisende Person als Anfragestellerin und die Teamleitung als Budgetfreigeberin. Vorbedingung ist ein eindeutig zugeordnetes Projekt oder eine Kostenstelle; ohne diese Zuordnung darf keine Prüfung starten. Sonderfälle: unvollständige Anfragen ohne Datum oder Ziel gehen mit einer strukturierten Rückfrage zurück an die anfragende Person; Anfragen über dem hinterlegten Budgetrahmen werden nicht automatisch weiterverarbeitet, sondern der Teamleitung zur Freigabe vorgelegt; bei Extraktionskonfidenz unter dem Schwellwert übernimmt ein Mensch.",
+      "to_be_vision": "Eine Reiseanfrage trifft ein und ist innerhalb von zwei Minuten strukturiert erfasst, geprüft und mit verfügbaren Optionen hinterlegt. Die anfragende Person erhält unmittelbar eine Eingangsbestätigung mit der Vorgangsnummer und den erkannten Eckdaten, sodass Missverständnisse sofort auffallen und nicht erst nach Tagen. Fehlen Pflichtangaben, geht automatisch eine strukturierte Rückfrage hinaus, die genau benennt, was fehlt; die Antwort wird demselben Vorgang zugeordnet, ohne dass jemand sie manuell zusammenführen muss. Das Backoffice sieht in der Vorgangsablage nur noch die Fälle, die eine Entscheidung brauchen: Anfragen über Budget, unklare Ziele oder Extraktionen unterhalb der Konfidenzschwelle. Gegenüber den Buchungssystemen tritt der Prozess ausschließlich lesend auf; es wird nichts gebucht, solange kein Mensch freigegeben hat. Jeder Schritt ist mit Zeitstempel, Vorgangs-ID und Teilprozess-ID protokolliert, sodass sich im Nachhinein nachvollziehen lässt, welche Option auf welcher Datengrundlage vorgeschlagen wurde.",
+      "user_story": "Als bearbeitende Person im Kernprozess KP-06 moechte ich den Schritt „Reiseanfrage automatisch erfassen und Verfügbarkeit prüfen“ automatisiert ausfuehren, damit gilt: Anfragen werden automatisch strukturiert erfasst und die Verfügbarkeit sofort geprüft.",
+      "akzeptanzkriterien_geschaeftlich": [
+        {
+          "kriterium": "Gegeben eine vollständige Reiseanfrage per Mail, wenn sie im Postfach eingeht, dann liegt binnen fünf Minuten ein strukturierter Vorgang mit Optionsliste vor.",
+          "messverfahren": "Zeitstempelvergleich im Vorgangsprotokoll ueber eine Stichprobe von 50 Vorgaengen."
+        },
+        {
+          "kriterium": "Gegeben eine Anfrage ohne Reisedatum, wenn sie verarbeitet wird, dann geht eine Rückfrage an die anfragende Person und der Vorgang bleibt offen.",
+          "messverfahren": "Statusfeld im Vorgang, Stichprobe von 50 Vorgaengen."
+        },
+        {
+          "kriterium": "Gegeben eine Anfrage über dem Budgetrahmen, wenn die Prüfung abgeschlossen ist, dann wird sie der Teamleitung zur Freigabe vorgelegt und nicht weiterverarbeitet.",
+          "messverfahren": "Stichprobe von 50 Vorgaengen, je gegen das Kriterium geprueft."
+        },
+        {
+          "kriterium": "Gegeben eine Extraktion unterhalb der Konfidenzschwelle, wenn der Vorgang angelegt wird, dann wird er als prüfbedürftig markiert und einem Menschen zugewiesen.",
+          "messverfahren": "Statusfeld im Vorgang, Stichprobe von 50 Vorgaengen."
+        },
+        {
+          "kriterium": "Gegeben ein abgeschlossener Vorgang, wenn das Protokoll gelesen wird, dann sind Vorgangs-ID, Teilprozess-ID und Zeitstempel je Schritt enthalten.",
+          "messverfahren": "Protokollauszug je Vorgang, gegen die geforderten Felder geprueft."
+        }
+      ],
+      "fachliche_anforderungen": [
+        "Anfragen aus Mail und Web-Formular werden in einem einheitlichen Datensatz zusammengeführt.",
+        "Reiseziel, Hin- und Rückreisedatum, Anzahl Reisender und Budgetrahmen werden als Pflichtfelder extrahiert.",
+        "Jede Anfrage wird einem Projekt oder einer Kostenstelle zugeordnet, bevor die Prüfung startet.",
+        "Unvollständige Anfragen lösen eine strukturierte Rückfrage aus, statt abgebrochen zu werden.",
+        "Anfragen über dem hinterlegten Budgetrahmen gehen an die Teamleitung zur Freigabe.",
+        "Die Verfügbarkeitsprüfung liefert je Kategorie mindestens drei Optionen, sofern vorhanden.",
+        "Es wird nichts gebucht; der Schritt endet mit einem Vorschlag.",
+        "Antwortzeit vom Eingang bis zur Optionsliste unter fünf Minuten im Regelfall.",
+        "Jede Verarbeitung wird mit Vorgangs-ID und KP-06.TP-2 protokolliert."
+      ],
+      "betroffene_teilprozess_ids": [
+        "KP-06.TP-2"
+      ],
+      "betroffene_prozessschritte": [
+        "Reiseanfrage entgegennehmen",
+        "Verfügbarkeit prüfen"
+      ],
+      "betroffene_systeme": [
+        {
+          "name": "Outlook-Postfach reisen@noroai",
+          "rolle": "Quelle",
+          "integration": "Email"
+        },
+        {
+          "name": "Web-Formular Reiseanfrage",
+          "rolle": "Quelle",
+          "integration": "API"
+        },
+        {
+          "name": "Reise-API (travel-mock-api)",
+          "rolle": "Quelle+Ziel",
+          "integration": "API"
+        },
+        {
+          "name": "Vorgangsablage",
+          "rolle": "Ziel",
+          "integration": "DB"
+        }
+      ],
+      "manueller_aufwand_heute": {
+        "stunden_jahr": 500.0,
+        "herkunft": "geschaetzt",
+        "konfidenz_pct": null
+      },
+      "automatisierungsgrad": {
+        "klasse": "Extraktion",
+        "angesetzt_min_pct": 50,
+        "angesetzt_max_pct": 75,
+        "begruendung": "Klasse 'Extraktion' aus dem Loesungsansatz der Vorlage abgeleitet. Der Korridor wird ungeschmaelert uebernommen, weil keine LLM-Verortung vorliegt -- in der echten Lieferung engt das LLM ihn ein und begruendet die Lage.",
+        "bc1_schaetzung_pct": null
+      },
+      "nutzwert": {
+        "qualitaet": {
+          "wert": 7,
+          "begruendung": "Aus BC3s ordinalem impact 'hoch' hergeleitet; die Vorlage nennt keine eigene Qualitaetsaussage."
+        },
+        "durchlaufzeit": {
+          "wert": 8,
+          "begruendung": "Die to_be_vision der Vorlage beziffert durchgaengig eine kuerzere Bearbeitung als heute."
+        },
+        "fehlerreduktion": {
+          "wert": 8,
+          "begruendung": "Die Vorlage nennt einen Medienbruch oder eine Handuebertragung als Fehlerquelle."
+        },
+        "mitarbeiterzufriedenheit": {
+          "wert": 7,
+          "begruendung": "Ohne eigene Aussage in der Vorlage auf der Basis belassen."
+        },
+        "compliance": {
+          "wert": 9,
+          "begruendung": "Die Vorlage fuehrt ein DSGVO- oder Aufbewahrungsthema ausdruecklich."
+        },
+        "mittel": 7.8
+      },
+      "impact": 7,
+      "impact_monetaer": 7,
+      "umsetzungskomplexitaet": 5,
+      "komplexitaet_herkunft": "geurteilt",
+      "komplexitaet_begruendung": "BC3s ordinale Stufe 'mittel' auf die Stufenmitte 5 abgebildet. BC1s vier Skalen am Fokus-Schritt liegen fuer diese Fixture nicht vor, die Herkunft ist deshalb 'geurteilt' statt 'gemessen'.",
+      "value": {
+        "value_quelle": "annahme",
+        "ist_kosten_eur_jahr": {
+          "min": 12900.0,
+          "max": 30100.0
+        },
+        "einsparung_eur_jahr": {
+          "min": 6450.0,
+          "max": 22575.0
+        },
+        "ersparnis_prozent": {
+          "min": 50.0,
+          "max": 75.0
+        },
+        "investition_eur_richtwert": 16000.0,
+        "amortisation_monate": {
+          "min": 8.5,
+          "max": 29.8
+        },
+        "annahmen": [
+          "FIXTURE -- hergeleitet aus BC3s Formatvorlage vom 31.08.2026, keine BC2-Lieferung.",
+          "Jahresstunden 500.0 aus BC3s ist_kosten_eur_jahr / 60 EUR/h zurueckgerechnet.",
+          "Mischsatz 43 EUR/h (NoroAI-Profil Kap. 9.2, #172).",
+          "Bausatz 800 EUR/PT -- Setzung, bewusst ein anderer Satz als die Einsparungsseite.",
+          "Automatisierungsgrad 50-75 % aus dem Korridor der Klasse 'Extraktion' (ADR-006 BC2, 2.2).",
+          "Bandbreite +/-40 % aus der Herkunft 'geschaetzt' (ADR-006 BC2, 2.3)."
+        ]
+      },
+      "aufwand_schaetzung_pt": 20,
+      "prioritaet_score": 42,
+      "kategorie": "Quick Win",
+      "querschnitte": {
+        "zukunftssicherheit": "Nicht aus BC3s Vorlage uebernehmbar -- sie fuehrt keinen Querschnitt. Fuer die echte Lieferung urteilt das LLM; hier als Luecke ausgewiesen, statt sie zu erfinden.",
+        "abhaengigkeiten": []
+      },
+      "potenzielle_loesung": {
+        "ansatz": "Mail- und Formulareingang laufen in einen gemeinsamen Eingangskanal. LLM-gestützte Feldextraktion erzeugt den strukturierten Anfragedatensatz; eine Konfidenzschwelle steuert den Human-in-the-Loop. Die Verfügbarkeitsprüfung erfolgt als parallele Abfrage der Reise-API für Flug, Hotel und Mietwagen. Ergebnisse werden mit der Anfrage-ID in der Vorgangsablage abgelegt.",
+        "tech_stack_empfehlung": [
+          "n8n",
+          "Mistral Large",
+          "PostgreSQL",
+          "travel-mock-api"
+        ],
+        "to_be_kurz": "Anfragen werden automatisch strukturiert erfasst und die Verfügbarkeit sofort geprüft."
+      },
+      "voraussetzungen": [
+        "Zugriff auf das Postfach reisen@noroai",
+        "Erreichbare Reise-API mit Flug-, Hotel- und Mietwagendaten",
+        "Hinterlegte Budgetrahmen je Projekt oder Kostenstelle",
+        "DSGVO-Freigabe für die Verarbeitung von Reisedaten Beschäftigter"
+      ],
+      "risiken": [
+        {
+          "beschreibung": "Freitext-Mails sind uneinheitlich, Extraktion schlägt fehl",
+          "wahrscheinlichkeit": "med",
+          "auswirkung": "med",
+          "gegenmassnahme": "Konfidenzschwelle mit manuellem Fallback, Formular bevorzugen"
+        },
+        {
+          "beschreibung": "Reisedaten Beschäftigter sind personenbezogen",
+          "wahrscheinlichkeit": "high",
+          "auswirkung": "med",
+          "gegenmassnahme": "Pseudonymisierung nach ADR-004 vor der LLM-Grenze"
+        }
+      ],
+      "hinweise": [
+        {
+          "art": "mischsatz_untertreibt",
+          "text": "BC3s Vorlage rechnet mit 60 EUR/h, v3.0 mit dem Mischsatz 43 EUR/h (#172). Die absoluten Betraege liegen damit niedriger als in der Vorlage; fuer die Rangfolge ist ein konstanter Faktor gleichwertig."
+        },
+        {
+          "art": "testdaten",
+          "text": "Fixture aus beispiel_uc1_reisebuchung.json (BC3s Vorlage vom 31.08.2026). Die Zahlen sind gesetzt, nicht erhoben -- Gate 0 war fuer diesen Teilprozess nicht durchlaufen."
+        }
+      ]
+    },
+    {
+      "potenzial_id": "b3000000-0000-4000-8000-000000000002",
+      "titel": "Projektanforderung mit Profilen abgleichen und Vorschlagsliste erzeugen",
+      "potenzialrang": 5,
+      "prioritaetsgruppe": "PRIO 2",
+      "beschreibung": "Heute liest die Personalverantwortung die Projektausschreibung, sichtet die abgelegten Lebensläufe von Hand, gleicht Fähigkeiten und Erfahrung mit den Anforderungen ab, stellt einen Personalvorschlag zusammen und versendet ihn per Mail an das Team. Der Abgleich dauert Stunden und ist von der Tagesform und der Erinnerung an einzelne Personen abhängig. Automatisiert wird das Auffinden und Vorsortieren passender Profile, nicht die Auswahl.\n\nErgebnis ist eine begründete Vorschlagsliste: je Person die erfüllten und die fehlenden Anforderungen, jeweils mit Bezug auf das Profilfeld. Der Datenfluss geht von der Ausschreibung über die Strukturierung der Anforderungen und den Abgleich mit dem Profilregister in die Vorschlagsliste.\n\nBeteiligte Rollen sind die Personalverantwortung als Entscheidende, die Projektleitung als Anfordernde und die betroffenen Personen. Vorbedingung sind gefüllte Profile aus dem ersten Potenzial. Sonderfälle: erfüllt niemand die Anforderungen, wird das gesagt statt die Liste aufgefüllt; die Reihenfolge ist ein Vorschlag und keine Entscheidung; eine Ablehnung allein auf Basis der Liste ist ausgeschlossen. Der Anwendungsfall fällt unter Anhang III der EU-KI-Verordnung.",
+      "to_be_vision": "Eine neue Projektausschreibung wird in ihre Anforderungen zerlegt, und binnen Minuten liegt eine Vorschlagsliste vor, in der zu jeder Person steht, welche Anforderungen sie erfüllt und welche nicht, jeweils mit Bezug auf das konkrete Profilfeld. Die Personalverantwortung liest damit eine begründete Grundlage statt einen Stapel Lebensläufe und kann sich auf die Entscheidung konzentrieren. Erfüllt niemand die Anforderungen, sagt das System genau das, statt die Liste mit unpassenden Vorschlägen aufzufüllen. Die Reihenfolge ist ausdrücklich ein Vorschlag: eine Absage oder Zusage allein auf dieser Grundlage ist ausgeschlossen, und jede getroffene Entscheidung wird mit Begründung protokolliert. Betroffene Personen können erfahren, dass ein solches Verfahren eingesetzt wird und auf welcher Datengrundlage es arbeitet. Das Matching sinkt von Stunden auf Minuten, ohne dass eine Entscheidung über Menschen an eine Maschine abgegeben wird.",
+      "user_story": "Als bearbeitende Person im Kernprozess KP-06 moechte ich den Schritt „Projektanforderung mit Profilen abgleichen und Vorschlagsliste erzeugen“ automatisiert ausfuehren, damit gilt: Passende Profile werden in Minuten vorgeschlagen und begründet; die Auswahl bleibt beim Menschen.",
+      "akzeptanzkriterien_geschaeftlich": [
+        {
+          "kriterium": "Gegeben eine Ausschreibung mit klaren Anforderungen, wenn der Abgleich läuft, dann liegt binnen zehn Minuten eine begründete Vorschlagsliste vor.",
+          "messverfahren": "Zeitstempelvergleich im Vorgangsprotokoll ueber eine Stichprobe von 50 Vorgaengen."
+        },
+        {
+          "kriterium": "Gegeben eine Person auf der Liste, wenn der Vorschlag geprüft wird, dann ist je Anforderung erkennbar, welches Profilfeld sie stützt.",
+          "messverfahren": "Stichprobe von 50 Vorgaengen, je gegen das Kriterium geprueft."
+        },
+        {
+          "kriterium": "Gegeben eine Ausschreibung, die niemand erfüllt, wenn der Abgleich läuft, dann bleibt die Liste leer und der Grund wird genannt.",
+          "messverfahren": "Statusfeld im Vorgang, Stichprobe von 50 Vorgaengen."
+        },
+        {
+          "kriterium": "Gegeben eine Vorschlagsliste, wenn eine Absage erteilt werden soll, dann ist dies ohne dokumentierte menschliche Entscheidung nicht möglich.",
+          "messverfahren": "Stichprobe von 50 Vorgaengen, je gegen das Kriterium geprueft."
+        },
+        {
+          "kriterium": "Gegeben eine getroffene Auswahl, wenn das Protokoll gelesen wird, dann sind Entscheidende, Zeitpunkt und Begründung nachvollziehbar.",
+          "messverfahren": "Protokollauszug je Vorgang, gegen die geforderten Felder geprueft."
+        },
+        {
+          "kriterium": "Gegeben eine betroffene Person, wenn sie Auskunft verlangt, dann ist der Einsatz des Verfahrens und die Datengrundlage darstellbar.",
+          "messverfahren": "Stichprobe von 50 Vorgaengen, je gegen das Kriterium geprueft."
+        }
+      ],
+      "fachliche_anforderungen": [
+        "Anforderungen werden aus der Ausschreibung strukturiert erfasst.",
+        "Je vorgeschlagener Person werden erfüllte und fehlende Anforderungen benannt.",
+        "Jede Aussage verweist auf das zugrunde liegende Profilfeld.",
+        "Erfüllt niemand die Anforderungen, wird die Liste nicht aufgefüllt.",
+        "Die Reihenfolge ist ein Vorschlag, keine Entscheidung.",
+        "Eine Ablehnung allein auf Basis der Liste ist technisch ausgeschlossen.",
+        "Jede Auswahlentscheidung wird mit Begründung protokolliert.",
+        "Betroffene werden über den Einsatz des Verfahrens informiert.",
+        "Jeder Vorgang trägt die Teilprozess-ID KP-06.TP-1."
+      ],
+      "betroffene_teilprozess_ids": [
+        "KP-06.TP-1"
+      ],
+      "betroffene_prozessschritte": [
+        "Projektausschreibung lesen",
+        "Profile sichten",
+        "Personalvorschlag zusammenstellen",
+        "Vorschlag versenden"
+      ],
+      "betroffene_systeme": [
+        {
+          "name": "Profilregister",
+          "rolle": "Quelle",
+          "integration": "DB"
+        },
+        {
+          "name": "Projektausschreibung",
+          "rolle": "Quelle",
+          "integration": "Datei"
+        },
+        {
+          "name": "Outlook",
+          "rolle": "Ziel",
+          "integration": "Email"
+        },
+        {
+          "name": "Entscheidungsprotokoll",
+          "rolle": "Ziel",
+          "integration": "DB"
+        }
+      ],
+      "manueller_aufwand_heute": {
+        "stunden_jahr": 360.0,
+        "herkunft": "geschaetzt",
+        "konfidenz_pct": null
+      },
+      "automatisierungsgrad": {
+        "klasse": "Integration",
+        "angesetzt_min_pct": 60,
+        "angesetzt_max_pct": 85,
+        "begruendung": "Klasse 'Integration' aus dem Loesungsansatz der Vorlage abgeleitet. Der Korridor wird ungeschmaelert uebernommen, weil keine LLM-Verortung vorliegt -- in der echten Lieferung engt das LLM ihn ein und begruendet die Lage.",
+        "bc1_schaetzung_pct": null
+      },
+      "nutzwert": {
+        "qualitaet": {
+          "wert": 9,
+          "begruendung": "Aus BC3s ordinalem impact 'sehr hoch' hergeleitet; die Vorlage nennt keine eigene Qualitaetsaussage."
+        },
+        "durchlaufzeit": {
+          "wert": 10,
+          "begruendung": "Die to_be_vision der Vorlage beziffert durchgaengig eine kuerzere Bearbeitung als heute."
+        },
+        "fehlerreduktion": {
+          "wert": 10,
+          "begruendung": "Die Vorlage nennt einen Medienbruch oder eine Handuebertragung als Fehlerquelle."
+        },
+        "mitarbeiterzufriedenheit": {
+          "wert": 9,
+          "begruendung": "Ohne eigene Aussage in der Vorlage auf der Basis belassen."
+        },
+        "compliance": {
+          "wert": 10,
+          "begruendung": "Die Vorlage fuehrt ein DSGVO- oder Aufbewahrungsthema ausdruecklich."
+        },
+        "mittel": 9.6
+      },
+      "impact": 8,
+      "impact_monetaer": 7,
+      "umsetzungskomplexitaet": 7,
+      "komplexitaet_herkunft": "geurteilt",
+      "komplexitaet_begruendung": "BC3s ordinale Stufe 'hoch' auf die Stufenmitte 7 abgebildet. BC1s vier Skalen am Fokus-Schritt liegen fuer diese Fixture nicht vor, die Herkunft ist deshalb 'geurteilt' statt 'gemessen'.",
+      "value": {
+        "value_quelle": "annahme",
+        "ist_kosten_eur_jahr": {
+          "min": 9288.0,
+          "max": 21672.0
+        },
+        "einsparung_eur_jahr": {
+          "min": 5572.8,
+          "max": 18421.2
+        },
+        "ersparnis_prozent": {
+          "min": 60.0,
+          "max": 85.0
+        },
+        "investition_eur_richtwert": 14400.0,
+        "amortisation_monate": {
+          "min": 9.4,
+          "max": 31.0
+        },
+        "annahmen": [
+          "FIXTURE -- hergeleitet aus BC3s Formatvorlage vom 31.08.2026, keine BC2-Lieferung.",
+          "Jahresstunden 360.0 aus BC3s ist_kosten_eur_jahr / 60 EUR/h zurueckgerechnet.",
+          "Mischsatz 43 EUR/h (NoroAI-Profil Kap. 9.2, #172).",
+          "Bausatz 800 EUR/PT -- Setzung, bewusst ein anderer Satz als die Einsparungsseite.",
+          "Automatisierungsgrad 60-85 % aus dem Korridor der Klasse 'Integration' (ADR-006 BC2, 2.2).",
+          "Bandbreite +/-40 % aus der Herkunft 'geschaetzt' (ADR-006 BC2, 2.3)."
+        ]
+      },
+      "aufwand_schaetzung_pt": 18,
+      "prioritaet_score": 32,
+      "kategorie": "Strategisch",
+      "querschnitte": {
+        "zukunftssicherheit": "Nicht aus BC3s Vorlage uebernehmbar -- sie fuehrt keinen Querschnitt. Fuer die echte Lieferung urteilt das LLM; hier als Luecke ausgewiesen, statt sie zu erfinden.",
+        "abhaengigkeiten": []
+      },
+      "potenzielle_loesung": {
+        "ansatz": "Strukturierung der Anforderungen aus der Ausschreibung, regelbasierter Abgleich gegen den Kompetenzkatalog, Begründung je Person mit Bezug auf das Profilfeld. Das Ergebnis ist ein Vorschlag; die Auswahl trifft ein Mensch und wird protokolliert.",
+        "tech_stack_empfehlung": [
+          "n8n",
+          "Mistral Large",
+          "PostgreSQL"
+        ],
+        "to_be_kurz": "Passende Profile werden in Minuten vorgeschlagen und begründet; die Auswahl bleibt beim Menschen."
+      },
+      "voraussetzungen": [
+        "Gefüllte Profile aus Potenzial 1",
+        "Kompetenzkatalog mit definierten Ausprägungen",
+        "Transparenzhinweis für Betroffene nach EU-KI-Verordnung",
+        "Festgelegte Zuständigkeit für die Auswahlentscheidung"
+      ],
+      "risiken": [
+        {
+          "beschreibung": "Hochrisiko-Anwendung nach Anhang III der EU-KI-Verordnung (Beschäftigung)",
+          "wahrscheinlichkeit": "high",
+          "auswirkung": "high",
+          "gegenmassnahme": "Menschliche Entscheidung technisch erzwingen, Protokollpflicht, Transparenzhinweis, Auskunftsrecht"
+        },
+        {
+          "beschreibung": "Systematische Benachteiligung durch unvollständige Profile",
+          "wahrscheinlichkeit": "med",
+          "auswirkung": "high",
+          "gegenmassnahme": "Fehlende Felder als fehlend ausweisen, nicht als Nichterfüllung werten"
+        }
+      ],
+      "hinweise": [
+        {
+          "art": "mischsatz_untertreibt",
+          "text": "BC3s Vorlage rechnet mit 60 EUR/h, v3.0 mit dem Mischsatz 43 EUR/h (#172). Die absoluten Betraege liegen damit niedriger als in der Vorlage; fuer die Rangfolge ist ein konstanter Faktor gleichwertig."
+        },
+        {
+          "art": "testdaten",
+          "text": "Fixture aus beispiel_uc3_consultant_placement.json (BC3s Vorlage vom 31.08.2026). Die Zahlen sind gesetzt, nicht erhoben -- Gate 0 war fuer diesen Teilprozess nicht durchlaufen."
         }
       ]
     }
   ],
   "gesamtempfehlung": {
     "reihenfolge_potenzial_ids": [
-      "aa000000-0000-4000-8000-000000000003",
-      "aa000000-0000-4000-8000-000000000001",
-      "aa000000-0000-4000-8000-000000000002"
+      "b1000000-0000-4000-8000-000000000002",
+      "b3000000-0000-4000-8000-000000000001",
+      "b1000000-0000-4000-8000-000000000001",
+      "b3000000-0000-4000-8000-000000000002"
     ],
-    "begruendung": "Empfohlen wird, mit dem **Bescheid-Generator** zu starten: hoechster Score (geringe Komplexitaet, sehr hoher Impact, Amortisation < 3 Monate). Danach die **OCR-/LLM-Antragserfassung** als zweiter Quick Win. Der **Rueckfrage-Workflow** folgt zuletzt: hoher Nutzen, aber hoehere Komplexitaet (Medienbruch, Kundeninteraktion, DSGVO) und laengere Amortisation -- als strategisches Potenzial bewusst nach den Quick Wins."
+    "begruendung": "Reihenfolge strikt nach Score. Fachliche Abhaengigkeiten stehen seit v3.0 in potenziale[].querschnitte.abhaengigkeiten und nicht mehr hier im Freitext -- BC3s Vorlage musste sie mangels Feld noch hierher schreiben."
   },
-  "gate1": {
-    "status": "pending"
-  }
+  "eingangswerte": [
+    {
+      "groesse": "ist_kosten_eur_jahr",
+      "wert": 24080.0,
+      "einheit": "EUR/Jahr",
+      "herkunft_tabelle": "bc3-engineering-architect/bc2-anforderung",
+      "herkunft_spalte": "potenziale[].value.ist_kosten_eur_jahr",
+      "herkunft_id": "b1000000-0000-4000-8000-000000000002",
+      "betrifft_teilprozess_id": "KP-06.TP-2",
+      "gelesen_am": "2026-09-20T00:00:00+02:00",
+      "kennzeichnung": "Vorlage BC3 vom 31.08.2026 -- Annahme, nicht erhoben."
+    },
+    {
+      "groesse": "ist_kosten_eur_jahr",
+      "wert": 12040.0,
+      "einheit": "EUR/Jahr",
+      "herkunft_tabelle": "bc3-engineering-architect/bc2-anforderung",
+      "herkunft_spalte": "potenziale[].value.ist_kosten_eur_jahr",
+      "herkunft_id": "b3000000-0000-4000-8000-000000000001",
+      "betrifft_teilprozess_id": "KP-06.TP-1",
+      "gelesen_am": "2026-09-20T00:00:00+02:00",
+      "kennzeichnung": "Vorlage BC3 vom 31.08.2026 -- Annahme, nicht erhoben."
+    },
+    {
+      "groesse": "ist_kosten_eur_jahr",
+      "wert": 30100.0,
+      "einheit": "EUR/Jahr",
+      "herkunft_tabelle": "bc3-engineering-architect/bc2-anforderung",
+      "herkunft_spalte": "potenziale[].value.ist_kosten_eur_jahr",
+      "herkunft_id": "b1000000-0000-4000-8000-000000000001",
+      "betrifft_teilprozess_id": "KP-06.TP-2",
+      "gelesen_am": "2026-09-20T00:00:00+02:00",
+      "kennzeichnung": "Vorlage BC3 vom 31.08.2026 -- Annahme, nicht erhoben."
+    },
+    {
+      "groesse": "ist_kosten_eur_jahr",
+      "wert": 21672.0,
+      "einheit": "EUR/Jahr",
+      "herkunft_tabelle": "bc3-engineering-architect/bc2-anforderung",
+      "herkunft_spalte": "potenziale[].value.ist_kosten_eur_jahr",
+      "herkunft_id": "b3000000-0000-4000-8000-000000000002",
+      "betrifft_teilprozess_id": "KP-06.TP-1",
+      "gelesen_am": "2026-09-20T00:00:00+02:00",
+      "kennzeichnung": "Vorlage BC3 vom 31.08.2026 -- Annahme, nicht erhoben."
+    }
+  ]
 }

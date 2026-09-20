@@ -50,7 +50,9 @@ Datenbank, danach die Karte. Diese Tabelle bewahrt davor, alte Schlüsse erneut 
 | Aussage in Altdokumenten | Tatsächlich |
 |---|---|
 | Qdrant + fester Musterkatalog (Issues #84–#99, Vorbereitungsaufgabe) | verworfen — Potenziale werden offen erkannt |
-| `use_cases[]` mit `empfohlenes_muster` (Schema v1.0) | `potenziale[]` (Schema v2.0) |
+| `use_cases[]` mit `empfohlenes_muster` (Schema v1.0) | `potenziale[]` (Schema **v3.0** seit 20.09.2026, #187) |
+| vier Stufen `gering`…`sehr hoch` für Impact und Komplexität | **1–10**; `manueller_aufwand_heute` ist gar kein Urteil mehr, sondern gemessene Jahresstunden |
+| `gate1` steht im Konzept | `gate1` steht in der **Priorisierung**, je Lauf (ADR-007 · BC2) |
 | n8n als Orchestrierung | reines Python, Agenten selbst gebaut |
 | Übergabe per JSON-Datei, GitHub-Ordner oder REST | gemeinsame Datenbank, Schema-Trennung (ADR-003) |
 | „Rollen und Kostensätze sind leer" (BC0-Papier 23.08.) | gefüllt seit 17.08.: K1–K5, 40–140 EUR/h, alle `geschaetzt` |
@@ -59,7 +61,10 @@ Datenbank, danach die Karte. Diese Tabelle bewahrt davor, alte Schlüsse erneut 
 
 `contracts/examples/mock_prozessprofil.json` beschreibt „Krankentagegeld, KP-07, Aurelia Krankenkasse".
 Real ist KP-07 die Buchhaltung und nicht erhoben; NoroAI ist eine KI-Beratung. Der Mock dient als
-**Schema-Fixture**; die fachliche Grundlage ist die Datenbank.
+**Schema-Fixture**; die fachliche Grundlage ist die Datenbank. *(Die Ausgabe-Fixtures tragen seit
+v3.0 echten NoroAI-Inhalt aus BC3s Formatvorlage — der erfundene Fall liegt nur noch in
+`contracts/examples/archiv-v2/`. Ihn auf v3.0 zu heben hätte geheißen, für einen erfundenen Prozess
+Nutzwerte, Querschnitte und Eingangswerte zu erfinden.)*
 
 ## Wo BC2 liegt
 
@@ -68,15 +73,16 @@ divergierenden Kopien unter `Projektgruppe/BC2/` sind aufgelöst und liegen dort
 
 | Was | Wo |
 |---|---|
-| Verträge an BC3 (v2.0) | `contracts/bc2-to-bc3/` — **Endlage, wird nicht mehr verschoben** |
+| Verträge an BC3 (**v3.0**) | `contracts/bc2-to-bc3/` — **Endlage, wird nicht mehr verschoben**; `archiv/` hält v2.0 für die Lieferung vom 30.08. |
 | Mocks / Fixtures | `contracts/examples/` |
-| `gen_mocks.py`, `validate.py` | `bc2-strategic-advisor/tools/` — aus dem Repo-Wurzelverzeichnis aufrufen |
+| `migriere_bc3_vorlage.py`, `validate.py` | `bc2-strategic-advisor/tools/` — aus dem Repo-Wurzelverzeichnis aufrufen |
 | Systemarchitektur (27.06., teils überholt) | `bc2-strategic-advisor/architektur/` |
 
 Der Vertrag verlor beim Sprung v1→v2 die Felder `akzeptanzkriterien_geschaeftlich`,
-`fachliche_anforderungen` und die Tiefe von `to_be_vision`. **BC3 braucht sie** (Nachricht vom
-20.08.2026); die Rückführung entscheidet
-[#160](https://github.com/pg-coe-kmu/coe-factory/issues/160).
+`fachliche_anforderungen` und die Tiefe von `to_be_vision`. ✅ **Zurück seit v3.0**
+([#187](https://github.com/pg-coe-kmu/coe-factory/issues/187), 20.09.2026) — in der Form aus BC3s
+Vorlage vom 31.08.2026, dazu `user_story` (SOPHIST) und `messverfahren` je Kriterium, die BC2
+verantwortet.
 
 ## Invarianten
 

@@ -1,0 +1,430 @@
+{
+  "konzept_id": "ce8dfca0-1b0e-5966-a336-d1eb45ff3792",
+  "ersetzt_konzept_id": null,
+  "schema_version": "3.0",
+  "company_id": "7c2d5ee9-2a9a-5990-810f-502ea2b2012d",
+  "paket_id": "FIXTURE-BC3-VORLAGE-2026-08-31",
+  "uebergeben_am": "2026-08-31T00:00:00+02:00",
+  "gelesen_am": "2026-09-20T00:00:00+02:00",
+  "fassung": 1,
+  "erzeugt_am": "2026-09-20T00:00:00+02:00",
+  "erzeugt_von": "migriere_bc3_vorlage.py -- Fixture aus BC3s Formatvorlage vom 31.08.2026, KEINE BC2-Lieferung. Texte uebernommen, Zahlen nach ADR-006 BC2 hergeleitet.",
+  "kontext": {
+    "prozess_kurzbeschreibung": "Wissenstransfer bei NoroAI Consulting: Frage entsteht, Mitarbeitende durchsuchen Google-Drive-Ordner manuell, Dokumente werden einzeln geöffnet und gelesen, die Antwort wird zusammengetragen und mündlich oder per Mail weitergegeben.",
+    "kp_id": "KP-05",
+    "unternehmen": "NoroAI Consulting GmbH",
+    "betroffene_systeme_landschaft": [
+      "Google Drive",
+      "Outlook",
+      "mündliche Weitergabe"
+    ],
+    "hauptschmerzpunkte": [
+      {
+        "beschreibung": "Wissen ist über gewachsene Drive-Ordner verstreut",
+        "haeufigkeit": "jede Recherche",
+        "auswirkung": "Suche dauert Stunden statt Sekunden"
+      },
+      {
+        "beschreibung": "Dokumente müssen einzeln geöffnet und gelesen werden",
+        "haeufigkeit": "jede Recherche",
+        "auswirkung": "rund 20 Min je Frage"
+      },
+      {
+        "beschreibung": "Antworten werden nicht festgehalten",
+        "haeufigkeit": "laufend",
+        "auswirkung": "dieselbe Frage verursacht mehrfach denselben Aufwand"
+      }
+    ]
+  },
+  "potenziale": [
+    {
+      "potenzial_id": "b2000000-0000-4000-8000-000000000002",
+      "titel": "Interne Fragen mit Quellenangabe beantworten",
+      "potenzialrang": 2,
+      "prioritaetsgruppe": "PRIO 2",
+      "beschreibung": "Heute entsteht eine interne Frage, und die fragende Person durchsucht die Drive-Ordner selbst oder fragt Kolleginnen und Kollegen. Dokumente werden einzeln geöffnet und gelesen, die Antwort wird zusammengetragen und mündlich oder per Mail weitergegeben. Sie ist danach nirgends festgehalten, sodass dieselbe Frage später erneut denselben Aufwand verursacht. Automatisiert wird das Auffinden der relevanten Stellen und das Formulieren einer belegten Antwort, nicht die fachliche Bewertung.\n\nErgebnis ist eine Antwort mit Quellenangabe je Aussage, aus der hervorgeht, aus welchem Dokument und welcher Fassung sie stammt. Der Datenfluss geht von der Frage über die Suche im Index zur Antwortformulierung und in ein Protokoll, das Frage, Antwort und verwendete Quellen festhält.\n\nBeteiligte Rollen sind alle Mitarbeitenden als Fragende und die Wissensträger als fachliche Instanz bei Zweifelsfällen. Vorbedingung ist ein gefüllter Index aus dem ersten Potenzial. Sonderfälle: findet die Suche keine ausreichend passende Stelle, wird das gesagt, statt eine Antwort zu erfinden; widersprechen sich Quellen, werden beide gezeigt und die Entscheidung an den Menschen gegeben; Fragen zu mandantenbezogenen Inhalten werden abgelehnt.",
+      "to_be_vision": "Wer eine interne Frage hat, stellt sie und bekommt binnen Sekunden eine Antwort, unter der steht, worauf sie sich stützt: Dokument, Fassung, Abschnitt. Damit ist jede Antwort überprüfbar, und niemand muss darauf vertrauen, dass das System recht hat. Findet sich keine ausreichend passende Stelle, sagt das System genau das und schlägt vor, wen man fragen könnte, statt eine plausibel klingende Antwort zu erfinden. Widersprechen sich zwei Quellen, werden beide gezeigt und die Entscheidung bleibt beim Menschen. Fragen, die auf mandantenbezogene Inhalte zielen, werden abgelehnt und nicht beantwortet. Jede Frage und jede Antwort wird protokolliert, sodass häufige Fragen sichtbar werden und gezielt in die Wissensbasis wandern können. Die Recherchezeit sinkt von Stunden auf Sekunden.",
+      "user_story": "Als bearbeitende Person im Kernprozess KP-05 moechte ich den Schritt „Interne Fragen mit Quellenangabe beantworten“ automatisiert ausfuehren, damit gilt: Fragen werden in Sekunden mit belegter Antwort beantwortet statt in Stunden Handarbeit.",
+      "akzeptanzkriterien_geschaeftlich": [
+        {
+          "kriterium": "Gegeben eine Frage mit passenden Quellen, wenn sie gestellt wird, dann kommt binnen zehn Sekunden eine Antwort mit Quellenangabe je Aussage.",
+          "messverfahren": "Zeitstempelvergleich im Vorgangsprotokoll ueber eine Stichprobe von 50 Vorgaengen."
+        },
+        {
+          "kriterium": "Gegeben eine Frage ohne passende Quelle, wenn sie gestellt wird, dann sagt das System, dass es keine Grundlage hat, und erfindet keine Antwort.",
+          "messverfahren": "Inhaltliche Stichprobe von 50 Vorgaengen gegen die geforderten Angaben."
+        },
+        {
+          "kriterium": "Gegeben zwei widersprechende Quellen, wenn die Antwort erzeugt wird, dann werden beide genannt und der Widerspruch benannt.",
+          "messverfahren": "Inhaltliche Stichprobe von 50 Vorgaengen gegen die geforderten Angaben."
+        },
+        {
+          "kriterium": "Gegeben eine Frage zu einem Mandantenprojekt, wenn sie gestellt wird, dann wird sie abgelehnt.",
+          "messverfahren": "Stichprobe von 50 Vorgaengen, je gegen das Kriterium geprueft."
+        },
+        {
+          "kriterium": "Gegeben eine beantwortete Frage, wenn das Protokoll gelesen wird, dann sind Frage, Antwort und Quellen nachvollziehbar.",
+          "messverfahren": "Protokollauszug je Vorgang, gegen die geforderten Felder geprueft."
+        }
+      ],
+      "fachliche_anforderungen": [
+        "Jede Antwort nennt je Aussage die Quelle mit Dokument und Fassung.",
+        "Ohne ausreichend passende Fundstellen wird keine Antwort erzeugt.",
+        "Widersprüchliche Quellen werden beide gezeigt, ohne Vorauswahl.",
+        "Fragen zu mandantenbezogenen Inhalten werden abgelehnt.",
+        "Frage, Antwort und verwendete Quellen werden protokolliert.",
+        "Antwortzeit im Regelfall unter zehn Sekunden.",
+        "Jede Anfrage trägt die Teilprozess-ID KP-05.TP-1."
+      ],
+      "betroffene_teilprozess_ids": [
+        "KP-05.TP-1"
+      ],
+      "betroffene_prozessschritte": [
+        "Frage entgegennehmen",
+        "Antwort zusammentragen",
+        "Antwort weitergeben"
+      ],
+      "betroffene_systeme": [
+        {
+          "name": "Vektorindex",
+          "rolle": "Quelle",
+          "integration": "DB"
+        },
+        {
+          "name": "Chat-Oberfläche",
+          "rolle": "Quelle+Ziel",
+          "integration": "API"
+        },
+        {
+          "name": "Frageprotokoll",
+          "rolle": "Ziel",
+          "integration": "DB"
+        }
+      ],
+      "manueller_aufwand_heute": {
+        "stunden_jahr": 500.0,
+        "herkunft": "geschaetzt",
+        "konfidenz_pct": null
+      },
+      "automatisierungsgrad": {
+        "klasse": "Textgenerierung",
+        "angesetzt_min_pct": 30,
+        "angesetzt_max_pct": 50,
+        "begruendung": "Klasse 'Textgenerierung' aus dem Loesungsansatz der Vorlage abgeleitet. Der Korridor wird ungeschmaelert uebernommen, weil keine LLM-Verortung vorliegt -- in der echten Lieferung engt das LLM ihn ein und begruendet die Lage.",
+        "bc1_schaetzung_pct": null
+      },
+      "nutzwert": {
+        "qualitaet": {
+          "wert": 9,
+          "begruendung": "Aus BC3s ordinalem impact 'sehr hoch' hergeleitet; die Vorlage nennt keine eigene Qualitaetsaussage."
+        },
+        "durchlaufzeit": {
+          "wert": 10,
+          "begruendung": "Die to_be_vision der Vorlage beziffert durchgaengig eine kuerzere Bearbeitung als heute."
+        },
+        "fehlerreduktion": {
+          "wert": 9,
+          "begruendung": "Kein eigener Fehlerhinweis in der Vorlage; auf der Basis belassen."
+        },
+        "mitarbeiterzufriedenheit": {
+          "wert": 9,
+          "begruendung": "Ohne eigene Aussage in der Vorlage auf der Basis belassen."
+        },
+        "compliance": {
+          "wert": 10,
+          "begruendung": "Die Vorlage fuehrt ein DSGVO- oder Aufbewahrungsthema ausdruecklich."
+        },
+        "mittel": 9.4
+      },
+      "impact": 8,
+      "impact_monetaer": 6,
+      "umsetzungskomplexitaet": 5,
+      "komplexitaet_herkunft": "geurteilt",
+      "komplexitaet_begruendung": "BC3s ordinale Stufe 'mittel' auf die Stufenmitte 5 abgebildet. BC1s vier Skalen am Fokus-Schritt liegen fuer diese Fixture nicht vor, die Herkunft ist deshalb 'geurteilt' statt 'gemessen'.",
+      "value": {
+        "value_quelle": "annahme",
+        "ist_kosten_eur_jahr": {
+          "min": 12900.0,
+          "max": 30100.0
+        },
+        "einsparung_eur_jahr": {
+          "min": 3870.0,
+          "max": 15050.0
+        },
+        "ersparnis_prozent": {
+          "min": 30.0,
+          "max": 50.0
+        },
+        "investition_eur_richtwert": 12000.0,
+        "amortisation_monate": {
+          "min": 9.6,
+          "max": 37.2
+        },
+        "annahmen": [
+          "FIXTURE -- hergeleitet aus BC3s Formatvorlage vom 31.08.2026, keine BC2-Lieferung.",
+          "Jahresstunden 500.0 aus BC3s ist_kosten_eur_jahr / 60 EUR/h zurueckgerechnet.",
+          "Mischsatz 43 EUR/h (NoroAI-Profil Kap. 9.2, #172).",
+          "Bausatz 800 EUR/PT -- Setzung, bewusst ein anderer Satz als die Einsparungsseite.",
+          "Automatisierungsgrad 30-50 % aus dem Korridor der Klasse 'Textgenerierung' (ADR-006 BC2, 2.2).",
+          "Bandbreite +/-40 % aus der Herkunft 'geschaetzt' (ADR-006 BC2, 2.3)."
+        ]
+      },
+      "aufwand_schaetzung_pt": 15,
+      "prioritaet_score": 48,
+      "kategorie": "Quick Win",
+      "querschnitte": {
+        "zukunftssicherheit": "Nicht aus BC3s Vorlage uebernehmbar -- sie fuehrt keinen Querschnitt. Fuer die echte Lieferung urteilt das LLM; hier als Luecke ausgewiesen, statt sie zu erfinden.",
+        "abhaengigkeiten": []
+      },
+      "potenzielle_loesung": {
+        "ansatz": "Semantische Suche im Index, Auswahl der besten Abschnitte, Antwortformulierung ausschließlich auf Basis der gefundenen Stellen, mit Quellenangabe je Aussage. Ohne ausreichende Treffer wird keine Antwort erzeugt. Frage, Antwort und Quellen werden protokolliert.",
+        "tech_stack_empfehlung": [
+          "n8n",
+          "Mistral Large",
+          "PostgreSQL",
+          "Vektordatenbank"
+        ],
+        "to_be_kurz": "Fragen werden in Sekunden mit belegter Antwort beantwortet statt in Stunden Handarbeit."
+      },
+      "voraussetzungen": [
+        "Gefüllter Index aus Potenzial 1",
+        "Definition, welche Inhalte als mandantenbezogen gelten",
+        "Aufbewahrungsregel für das Frageprotokoll"
+      ],
+      "risiken": [
+        {
+          "beschreibung": "Antwort klingt plausibel, ist aber nicht durch die Quelle gedeckt",
+          "wahrscheinlichkeit": "med",
+          "auswirkung": "high",
+          "gegenmassnahme": "Quellenangabe je Aussage erzwingen, Antwort ohne Treffer unterbinden"
+        },
+        {
+          "beschreibung": "Frageprotokoll enthält personenbezogene Angaben",
+          "wahrscheinlichkeit": "med",
+          "auswirkung": "med",
+          "gegenmassnahme": "Aufbewahrungsfrist, Pseudonymisierung der fragenden Person"
+        }
+      ],
+      "hinweise": [
+        {
+          "art": "mischsatz_untertreibt",
+          "text": "BC3s Vorlage rechnet mit 60 EUR/h, v3.0 mit dem Mischsatz 43 EUR/h (#172). Die absoluten Betraege liegen damit niedriger als in der Vorlage; fuer die Rangfolge ist ein konstanter Faktor gleichwertig."
+        },
+        {
+          "art": "testdaten",
+          "text": "Fixture aus beispiel_uc2_wissensbasis.json (BC3s Vorlage vom 31.08.2026). Die Zahlen sind gesetzt, nicht erhoben -- Gate 0 war fuer diesen Teilprozess nicht durchlaufen."
+        }
+      ]
+    },
+    {
+      "potenzial_id": "b2000000-0000-4000-8000-000000000001",
+      "titel": "Wissensquellen automatisch indexieren und aktuell halten",
+      "potenzialrang": 6,
+      "prioritaetsgruppe": "PRIO 2",
+      "beschreibung": "Das Wissen von NoroAI liegt heute in Google-Drive-Ordnern, die historisch gewachsen sind. Wer eine Frage hat, muss wissen, in welchem Ordner die Antwort stehen könnte, die Dokumente einzeln öffnen und lesen. Es gibt keine Übersicht darüber, welche Fassung eines Dokuments die gültige ist, und niemand pflegt die Ablage systematisch. Automatisiert wird das Erfassen, Zerlegen und Indexieren der Dokumente sowie das Nachführen bei Änderungen.\n\nErgebnis ist ein durchsuchbarer Index über alle freigegebenen Wissensquellen, in dem jeder Abschnitt seine Herkunft mitführt: Dokument, Fassung, Änderungsdatum und Ordner. Der Datenfluss läuft vom Drive über die Aufbereitung in den Index und von dort in die Beantwortung, die im zweiten Potenzial beschrieben ist.\n\nBeteiligte Rollen sind die Wissensträger als Autoren, das Team als Nutzende und die Compliance-Rolle für die Freigabe von Quellen. Vorbedingung ist eine Entscheidung, welche Ordner überhaupt in den Index dürfen; personenbezogene und mandantenbezogene Ablagen bleiben außen vor. Sonderfälle: Dokumente ohne auslesbaren Text werden gemeldet statt stillschweigend übergangen; gelöschte oder ersetzte Dokumente verschwinden aus dem Index, damit keine veralteten Antworten entstehen; sehr große Dokumente werden abschnittsweise verarbeitet.",
+      "to_be_vision": "Der Wissensbestand von NoroAI ist jederzeit vollständig und aktuell indexiert, ohne dass jemand daran denken muss. Neue oder geänderte Dokumente sind spätestens am nächsten Tag durchsuchbar, gelöschte verschwinden ebenso zuverlässig, sodass veraltete Stände nicht weiterleben. Jeder indexierte Abschnitt weiß, aus welchem Dokument, welcher Fassung und welchem Ordner er stammt; damit ist jede spätere Antwort belegbar. Welche Ordner überhaupt aufgenommen werden, ist eine bewusste Entscheidung und nicht das Ergebnis eines Zufalls: mandanten- und personenbezogene Ablagen bleiben außerhalb. Dateien, die sich nicht auslesen lassen, erscheinen in einer sichtbaren Fehlerliste, statt still zu fehlen. Die Wissensträger merken vom Index nichts, außer dass ihre Dokumente gefunden werden.",
+      "user_story": "Als bearbeitende Person im Kernprozess KP-05 moechte ich den Schritt „Wissensquellen automatisch indexieren und aktuell halten“ automatisiert ausfuehren, damit gilt: Alle freigegebenen Wissensquellen sind aktuell indexiert und mit Herkunft auffindbar.",
+      "akzeptanzkriterien_geschaeftlich": [
+        {
+          "kriterium": "Gegeben ein neues Dokument in einem freigegebenen Ordner, wenn der Abgleich läuft, dann ist es am nächsten Tag durchsuchbar.",
+          "messverfahren": "Stichprobe von 50 Vorgaengen, je gegen das Kriterium geprueft."
+        },
+        {
+          "kriterium": "Gegeben ein gelöschtes Dokument, wenn der Abgleich läuft, dann liefert der Index keine Abschnitte daraus mehr.",
+          "messverfahren": "Stichprobe von 50 Vorgaengen, je gegen das Kriterium geprueft."
+        },
+        {
+          "kriterium": "Gegeben ein gescanntes PDF ohne Textebene, wenn es verarbeitet wird, dann steht es mit Grund in der Fehlerliste.",
+          "messverfahren": "Stichprobe von 50 Vorgaengen, je gegen das Kriterium geprueft."
+        },
+        {
+          "kriterium": "Gegeben ein Ordner ohne Freigabe, wenn der Abgleich läuft, dann wird kein Inhalt daraus indexiert.",
+          "messverfahren": "Stichprobe von 50 Vorgaengen, je gegen das Kriterium geprueft."
+        },
+        {
+          "kriterium": "Gegeben ein indexierter Abschnitt, wenn er geprüft wird, dann sind Dokument, Fassung und Ordner erkennbar.",
+          "messverfahren": "Stichprobe von 50 Vorgaengen, je gegen das Kriterium geprueft."
+        }
+      ],
+      "fachliche_anforderungen": [
+        "Nur ausdrücklich freigegebene Ordner werden indexiert.",
+        "Mandanten- und personenbezogene Ablagen sind vom Index ausgeschlossen.",
+        "Jeder Abschnitt führt Dokument, Fassung, Änderungsdatum und Ordner mit.",
+        "Geänderte Dokumente sind spätestens am nächsten Tag im Index aktualisiert.",
+        "Gelöschte oder ersetzte Dokumente werden aus dem Index entfernt.",
+        "Nicht auslesbare Dateien erscheinen in einer Fehlerliste.",
+        "Der Index trägt die Teilprozess-ID KP-05.TP-1."
+      ],
+      "betroffene_teilprozess_ids": [
+        "KP-05.TP-1"
+      ],
+      "betroffene_prozessschritte": [
+        "Wissensquellen pflegen",
+        "Dokumente auffindbar machen"
+      ],
+      "betroffene_systeme": [
+        {
+          "name": "Google Drive Wissensordner",
+          "rolle": "Quelle",
+          "integration": "API"
+        },
+        {
+          "name": "Vektorindex",
+          "rolle": "Ziel",
+          "integration": "DB"
+        },
+        {
+          "name": "Freigaberegister Wissensquellen",
+          "rolle": "Quelle",
+          "integration": "DB"
+        }
+      ],
+      "manueller_aufwand_heute": {
+        "stunden_jahr": 240.0,
+        "herkunft": "geschaetzt",
+        "konfidenz_pct": null
+      },
+      "automatisierungsgrad": {
+        "klasse": "Extraktion",
+        "angesetzt_min_pct": 50,
+        "angesetzt_max_pct": 75,
+        "begruendung": "Klasse 'Extraktion' aus dem Loesungsansatz der Vorlage abgeleitet. Der Korridor wird ungeschmaelert uebernommen, weil keine LLM-Verortung vorliegt -- in der echten Lieferung engt das LLM ihn ein und begruendet die Lage.",
+        "bc1_schaetzung_pct": null
+      },
+      "nutzwert": {
+        "qualitaet": {
+          "wert": 5,
+          "begruendung": "Aus BC3s ordinalem impact 'mittel' hergeleitet; die Vorlage nennt keine eigene Qualitaetsaussage."
+        },
+        "durchlaufzeit": {
+          "wert": 6,
+          "begruendung": "Die to_be_vision der Vorlage beziffert durchgaengig eine kuerzere Bearbeitung als heute."
+        },
+        "fehlerreduktion": {
+          "wert": 5,
+          "begruendung": "Kein eigener Fehlerhinweis in der Vorlage; auf der Basis belassen."
+        },
+        "mitarbeiterzufriedenheit": {
+          "wert": 5,
+          "begruendung": "Ohne eigene Aussage in der Vorlage auf der Basis belassen."
+        },
+        "compliance": {
+          "wert": 7,
+          "begruendung": "Die Vorlage fuehrt ein DSGVO- oder Aufbewahrungsthema ausdruecklich."
+        },
+        "mittel": 5.6
+      },
+      "impact": 5,
+      "impact_monetaer": 5,
+      "umsetzungskomplexitaet": 5,
+      "komplexitaet_herkunft": "geurteilt",
+      "komplexitaet_begruendung": "BC3s ordinale Stufe 'mittel' auf die Stufenmitte 5 abgebildet. BC1s vier Skalen am Fokus-Schritt liegen fuer diese Fixture nicht vor, die Herkunft ist deshalb 'geurteilt' statt 'gemessen'.",
+      "value": {
+        "value_quelle": "annahme",
+        "ist_kosten_eur_jahr": {
+          "min": 6192.0,
+          "max": 14448.0
+        },
+        "einsparung_eur_jahr": {
+          "min": 3096.0,
+          "max": 10836.0
+        },
+        "ersparnis_prozent": {
+          "min": 50.0,
+          "max": 75.0
+        },
+        "investition_eur_richtwert": 6400.0,
+        "amortisation_monate": {
+          "min": 7.1,
+          "max": 24.8
+        },
+        "annahmen": [
+          "FIXTURE -- hergeleitet aus BC3s Formatvorlage vom 31.08.2026, keine BC2-Lieferung.",
+          "Jahresstunden 240.0 aus BC3s ist_kosten_eur_jahr / 60 EUR/h zurueckgerechnet.",
+          "Mischsatz 43 EUR/h (NoroAI-Profil Kap. 9.2, #172).",
+          "Bausatz 800 EUR/PT -- Setzung, bewusst ein anderer Satz als die Einsparungsseite.",
+          "Automatisierungsgrad 50-75 % aus dem Korridor der Klasse 'Extraktion' (ADR-006 BC2, 2.2).",
+          "Bandbreite +/-40 % aus der Herkunft 'geschaetzt' (ADR-006 BC2, 2.3)."
+        ]
+      },
+      "aufwand_schaetzung_pt": 8,
+      "prioritaet_score": 30,
+      "kategorie": "Optional",
+      "querschnitte": {
+        "zukunftssicherheit": "Nicht aus BC3s Vorlage uebernehmbar -- sie fuehrt keinen Querschnitt. Fuer die echte Lieferung urteilt das LLM; hier als Luecke ausgewiesen, statt sie zu erfinden.",
+        "abhaengigkeiten": []
+      },
+      "potenzielle_loesung": {
+        "ansatz": "Geplanter Abgleich der freigegebenen Drive-Ordner, Textextraktion je Dateityp, Zerlegung in Abschnitte mit Herkunftsangabe, Einbettung und Ablage im Vektorindex. Änderungen und Löschungen werden nachgeführt. Nicht lesbare Dateien landen in einer Fehlerliste.",
+        "tech_stack_empfehlung": [
+          "n8n",
+          "Mistral Large",
+          "PostgreSQL",
+          "Vektordatenbank"
+        ],
+        "to_be_kurz": "Alle freigegebenen Wissensquellen sind aktuell indexiert und mit Herkunft auffindbar."
+      },
+      "voraussetzungen": [
+        "Freigaberegister, welche Drive-Ordner aufgenommen werden dürfen",
+        "Lesender Zugriff auf die freigegebenen Ordner",
+        "Betrieb einer Vektordatenbank",
+        "DSGVO-Bewertung der aufgenommenen Inhalte"
+      ],
+      "risiken": [
+        {
+          "beschreibung": "Personenbezogene Dokumente gelangen versehentlich in den Index",
+          "wahrscheinlichkeit": "med",
+          "auswirkung": "high",
+          "gegenmassnahme": "Freigaberegister als Positivliste, keine Vererbung von Unterordnern"
+        },
+        {
+          "beschreibung": "Veraltete Fassungen bleiben im Index und erzeugen falsche Antworten",
+          "wahrscheinlichkeit": "med",
+          "auswirkung": "med",
+          "gegenmassnahme": "Löschabgleich bei jedem Lauf, Fassung im Abschnitt mitführen"
+        }
+      ],
+      "hinweise": [
+        {
+          "art": "mischsatz_untertreibt",
+          "text": "BC3s Vorlage rechnet mit 60 EUR/h, v3.0 mit dem Mischsatz 43 EUR/h (#172). Die absoluten Betraege liegen damit niedriger als in der Vorlage; fuer die Rangfolge ist ein konstanter Faktor gleichwertig."
+        },
+        {
+          "art": "testdaten",
+          "text": "Fixture aus beispiel_uc2_wissensbasis.json (BC3s Vorlage vom 31.08.2026). Die Zahlen sind gesetzt, nicht erhoben -- Gate 0 war fuer diesen Teilprozess nicht durchlaufen."
+        }
+      ]
+    }
+  ],
+  "gesamtempfehlung": {
+    "reihenfolge_potenzial_ids": [
+      "b2000000-0000-4000-8000-000000000002",
+      "b2000000-0000-4000-8000-000000000001"
+    ],
+    "begruendung": "Reihenfolge strikt nach Score. Fachliche Abhaengigkeiten stehen seit v3.0 in potenziale[].querschnitte.abhaengigkeiten und nicht mehr hier im Freitext -- BC3s Vorlage musste sie mangels Feld noch hierher schreiben."
+  },
+  "eingangswerte": [
+    {
+      "groesse": "ist_kosten_eur_jahr",
+      "wert": 30100.0,
+      "einheit": "EUR/Jahr",
+      "herkunft_tabelle": "bc3-engineering-architect/bc2-anforderung",
+      "herkunft_spalte": "potenziale[].value.ist_kosten_eur_jahr",
+      "herkunft_id": "b2000000-0000-4000-8000-000000000002",
+      "betrifft_teilprozess_id": "KP-05.TP-1",
+      "gelesen_am": "2026-09-20T00:00:00+02:00",
+      "kennzeichnung": "Vorlage BC3 vom 31.08.2026 -- Annahme, nicht erhoben."
+    },
+    {
+      "groesse": "ist_kosten_eur_jahr",
+      "wert": 14448.0,
+      "einheit": "EUR/Jahr",
+      "herkunft_tabelle": "bc3-engineering-architect/bc2-anforderung",
+      "herkunft_spalte": "potenziale[].value.ist_kosten_eur_jahr",
+      "herkunft_id": "b2000000-0000-4000-8000-000000000001",
+      "betrifft_teilprozess_id": "KP-05.TP-1",
+      "gelesen_am": "2026-09-20T00:00:00+02:00",
+      "kennzeichnung": "Vorlage BC3 vom 31.08.2026 -- Annahme, nicht erhoben."
+    }
+  ]
+}
