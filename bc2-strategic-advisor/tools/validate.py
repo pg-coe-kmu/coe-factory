@@ -31,6 +31,10 @@ FIXTURE_KONZEPTE = [
 ]
 FIXTURE_PRIO = "contracts/examples/mock_prozesspriorisierung.json"
 LIEFERUNG = "contracts/bc2-to-bc3/lieferungen/2026-08-30-vorlaeufig"
+#: Die simulierte Rueckfall-Lieferung (#168) -- v3.0, Ordnerschnitt nach ADR-007 BC2.
+#: Anders als die eingefrorene Lieferung vom 30.08. laeuft sie gegen den **aktuellen** Vertrag:
+#: sie probt den Weg, den der Durchstich in KW 40 gehen soll (#206).
+SIM = "contracts/bc2-to-bc3/lieferungen/noroai-SIM-UC3-2026-09-21-f1"
 
 PAARE = (
     [(KONZEPT_V3, p) for p in FIXTURE_KONZEPTE]
@@ -43,6 +47,9 @@ PAARE = (
         (KONZEPT_V2, f"{LIEFERUNG}/konzept_KP-03.json"),
         (KONZEPT_V2, f"{LIEFERUNG}/konzept_KP-04.json"),
         (PRIO_V2, f"{LIEFERUNG}/prozesspriorisierung.json"),
+        # Aktuell: die simulierte Rueckfall-Lieferung gegen v3.0.
+        (KONZEPT_V3, f"{SIM}/konzept_KP-06.json"),
+        (PRIO_V3, f"{SIM}/prozesspriorisierung.json"),
     ]
 )
 
@@ -341,6 +348,115 @@ pruefe(
     kennzeichnung_ok,
     f"Lieferung: Vorlaeufigkeits-Kennzeichnung vollstaendig ({MARKER})",
     "Lieferung: Kennzeichnung unvollstaendig",
+)
+
+# --- Die simulierte Rueckfall-Lieferung (#168) ------------------------------------------------
+# Dieselbe Pruefung wie oben, an den Vertrag v3.0 angepasst: `gate1` lebt seit v3.0 in der
+# Priorisierung, nicht im Konzept (ADR-007 BC2, 2.1). Sie steht hier, damit die Kennzeichnung
+# nicht unbemerkt herausfaellt -- eine simulierte Lieferung ohne Marker ist von einer echten
+# nicht mehr zu unterscheiden, und genau darum geht es in diesem Ticket.
+print("\n--- Simulierte Rueckfall-Lieferung UC3 (v3.0) ---")
+sim_konzept = lies(f"{SIM}/konzept_KP-06.json")
+sim_prio = lies(f"{SIM}/prozesspriorisierung.json")
+
+SIM_MARKER = "[SIMULIERT]"
+sim_ok = True
+kp = sim_konzept["kontext"]["kp_id"]
+for p in sim_konzept["potenziale"]:
+    if not p["titel"].startswith(SIM_MARKER):
+        sim_ok = False
+        print(f"FAIL  {kp}/{p['potenzial_id']}: Titel traegt den Marker {SIM_MARKER} nicht")
+    if p["value"]["value_quelle"] != "annahme":
+        sim_ok = False
+        print(f"FAIL  {kp}/{p['potenzial_id']}: value_quelle ist nicht 'annahme'")
+    if not p["value"].get("annahmen") or not p["value"]["annahmen"][0].startswith("GESETZT"):
+        sim_ok = False
+        print(f"FAIL  {kp}/{p['potenzial_id']}: erste Annahme ist keine Herkunftswarnung")
+    if not p["beschreibung"].startswith("SIMULIERT"):
+        sim_ok = False
+        print(f"FAIL  {kp}/{p['potenzial_id']}: beschreibung beginnt ohne Warnblock")
+if not sim_konzept["kontext"]["prozess_kurzbeschreibung"].startswith(SIM_MARKER):
+    sim_ok = False
+    print(f"FAIL  {kp}: prozess_kurzbeschreibung traegt den Marker nicht")
+if sim_prio["gate1"]["status"] != "pending":
+    sim_ok = False
+    print("FAIL  Priorisierung: gate1.status ist nicht 'pending'")
+if "FREIGABESPERRE" not in sim_prio["gate1"].get("kommentar", ""):
+    sim_ok = False
+    print("FAIL  Priorisierung: gate1.kommentar warnt nicht vor der Freigabe")
+for e in sim_prio["eintraege"]:
+    if not e["titel"].startswith(SIM_MARKER):
+        sim_ok = False
+        print(f"FAIL  Priorisierung/{e['potenzial_id']}: Titel traegt den Marker nicht")
+pruefe(
+    sim_ok,
+    f"Simulation: Kennzeichnung vollstaendig ({SIM_MARKER})",
+    "Simulation: Kennzeichnung unvollstaendig",
+)
+
+# Dateiuebergreifend: hier sitzen die Fehler, die der Generator machen kann. Die Arithmetik
+# selbst ist durch die Modelltests gedeckt (34 Tests, #238) -- das Zusammensetzen von Konzept
+# und Priorisierung ist es nicht, das tut erst `gen_lieferung_sim_uc3.py`.
+sim_lauf_k = (
+    sim_konzept["company_id"],
+    sim_konzept["paket_id"],
+    sim_konzept["uebergeben_am"],
+    sim_konzept["fassung"],
+)
+sim_lauf_p = (
+    sim_prio["company_id"],
+    sim_prio["paket_id"],
+    sim_prio["uebergeben_am"],
+    sim_prio["fassung"],
+)
+pruefe(
+    sim_lauf_k == sim_lauf_p,
+    "Simulation: Konzept und Priorisierung tragen denselben Lauf",
+    f"Simulation: Lauf uneinheitlich -- {sim_lauf_k} gegen {sim_lauf_p}",
+)
+pruefe(
+    sim_prio["konzept_ids"] == [sim_konzept["konzept_id"]],
+    "Simulation: die Priorisierung listet genau ihr Konzept",
+    f"Simulation: Priorisierung listet {sim_prio['konzept_ids']}, vorhanden ist "
+    f"{sim_konzept['konzept_id']}",
+)
+pruefe(
+    "gate1" not in sim_konzept,
+    "Simulation: gate1 steht nicht im Konzept",
+    "Simulation: gate1 steht im Konzept -- seit v3.0 gehoert er in die Priorisierung",
+)
+sim_konz_ids = [p["potenzial_id"] for p in sim_konzept["potenziale"]]
+sim_prio_ids = [e["potenzial_id"] for e in sim_prio["eintraege"]]
+pruefe(
+    sorted(sim_konz_ids) == sorted(sim_prio_ids) and len(set(sim_prio_ids)) == len(sim_prio_ids),
+    f"Simulation: Priorisierung und Konzept decken dieselben {len(sim_konz_ids)} Potenziale ab",
+    f"Simulation: Konzept fuehrt {sorted(sim_konz_ids)}, Priorisierung {sorted(sim_prio_ids)}",
+)
+sim_erwartet = [
+    e["potenzial_id"]
+    for e in sorted(sim_prio["eintraege"], key=lambda e: (-e["score"], e["potenzial_id"]))
+]
+sim_tatsaechlich = [
+    e["potenzial_id"] for e in sorted(sim_prio["eintraege"], key=lambda e: e["potenzialrang"])
+]
+pruefe(
+    sim_erwartet == sim_tatsaechlich,
+    "Simulation: Rangfolge entspricht dem Score",
+    "Simulation: Rangfolge widerspricht dem Score",
+)
+pruefe(
+    sim_konzept["gesamtempfehlung"]["reihenfolge_potenzial_ids"] == sim_tatsaechlich,
+    "Simulation: gesamtempfehlung == eigene Potenziale in Rangfolge",
+    "Simulation: gesamtempfehlung weicht von der Rangfolge ab",
+)
+
+# Der Ordnername sagt, was drin ist: ein Pfad, ein Inhalt (ADR-007 BC2, 2.5). Faellt die
+# paket_id aus dem Namen, zeigt ein `git pull` bei BC3 eine Lieferung, der man die Simulation
+# von aussen nicht mehr ansieht.
+pruefe(
+    sim_konzept["paket_id"] in SIM and sim_prio["paket_id"] == sim_konzept["paket_id"],
+    "Simulation: Ordnername traegt die paket_id der Lieferung",
+    "Simulation: Ordnername und paket_id gehen auseinander",
 )
 
 sys.exit(0 if ok else 1)

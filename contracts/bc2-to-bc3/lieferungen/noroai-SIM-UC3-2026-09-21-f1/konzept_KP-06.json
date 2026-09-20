@@ -1,0 +1,509 @@
+{
+  "konzept_id": "7780f764-245b-51f3-b5f7-791a2e283e94",
+  "schema_version": "3.0",
+  "company_id": "7c2d5ee9-2a9a-5990-810f-502ea2b2012d",
+  "paket_id": "SIM-UC3-2026-09-21",
+  "uebergeben_am": "2026-09-21T00:00:00+02:00",
+  "gelesen_am": "2026-09-21T00:00:00+02:00",
+  "fassung": 1,
+  "erzeugt_am": "2026-09-21T00:00:00+02:00",
+  "erzeugt_von": "gen_lieferung_sim_uc3.py -- SIMULIERTE Rueckfall-Lieferung (#168). Texte aus BC3s Vorlage vom 31.08.2026, Zahlen mit app/modell/ nach ADR-006 BC2 gerechnet, Eingaenge gesetzt.",
+  "kontext": {
+    "prozess_kurzbeschreibung": "[SIMULIERT] KP-06.TP-1 (UC3, Consultant Placement): Lebenslaeufe gehen unstrukturiert ein; fuer eine Ausschreibung werden sie von Hand gesichtet und abgeglichen. Zahlen sind Annahmen aus BC3s Vorlage.",
+    "kp_id": "KP-06",
+    "unternehmen": "NoroAI Consulting GmbH",
+    "betroffene_systeme_landschaft": [
+      "Bewerbungspostfach",
+      "Dokumentenablage",
+      "Outlook"
+    ],
+    "hauptschmerzpunkte": [
+      {
+        "beschreibung": "Lebensläufe liegen unstrukturiert als Dateien im Ordner",
+        "haeufigkeit": "jeder Eingang",
+        "auswirkung": "rund 20 Min Ablage- und Lesearbeit je Dokument"
+      },
+      {
+        "beschreibung": "Abgleich mit Projektanforderungen erfolgt vollständig von Hand",
+        "haeufigkeit": "jede Ausschreibung",
+        "auswirkung": "rund 3 Stunden je Ausschreibung"
+      },
+      {
+        "beschreibung": "Auswahl hängt an der Erinnerung einzelner Personen",
+        "haeufigkeit": "laufend",
+        "auswirkung": "passende Profile werden übersehen"
+      }
+    ]
+  },
+  "potenziale": [
+    {
+      "potenzial_id": "bacf16aa-4b72-529c-b520-39de76f01d98",
+      "titel": "[SIMULIERT] Lebensläufe strukturiert erfassen und Kompetenzprofil aufbauen",
+      "potenzialrang": 1,
+      "prioritaetsgruppe": "PRIO 2",
+      "betroffene_teilprozess_ids": [
+        "KP-06.TP-1"
+      ],
+      "manueller_aufwand_heute": {
+        "stunden_jahr": 200.0,
+        "herkunft": "geschaetzt",
+        "konfidenz_pct": null
+      },
+      "automatisierungsgrad": {
+        "klasse": "Extraktion",
+        "angesetzt_min_pct": 50.0,
+        "angesetzt_max_pct": 75.0,
+        "begruendung": "Klasse 'Extraktion' aus dem Loesungsansatz der Vorlage abgeleitet. Der Korridor wird ungeschmaelert uebernommen, weil keine LLM-Verortung vorliegt -- im echten Lauf engt das LLM ihn ein und begruendet die Lage.",
+        "bc1_schaetzung_pct": null
+      },
+      "nutzwert": {
+        "qualitaet": {
+          "wert": 7,
+          "begruendung": "Aus BC3s ordinalem impact 'hoch' hergeleitet; die Vorlage nennt keine eigene Qualitaetsaussage."
+        },
+        "durchlaufzeit": {
+          "wert": 8,
+          "begruendung": "Die to_be_vision der Vorlage beziffert durchgaengig eine kuerzere Bearbeitung als heute."
+        },
+        "fehlerreduktion": {
+          "wert": 8,
+          "begruendung": "Die Vorlage nennt einen Medienbruch oder eine Handuebertragung als Fehlerquelle."
+        },
+        "mitarbeiterzufriedenheit": {
+          "wert": 7,
+          "begruendung": "Ohne eigene Aussage in der Vorlage auf der Basis belassen."
+        },
+        "compliance": {
+          "wert": 9,
+          "begruendung": "Die Vorlage fuehrt ein DSGVO- oder Aufbewahrungsthema ausdruecklich."
+        },
+        "mittel": 7.8
+      },
+      "impact": 6,
+      "impact_monetaer": 5,
+      "umsetzungskomplexitaet": 3,
+      "komplexitaet_herkunft": "geurteilt",
+      "value": {
+        "value_quelle": "annahme",
+        "ist_kosten_eur_jahr": {
+          "min": 5160,
+          "max": 12040
+        },
+        "einsparung_eur_jahr": {
+          "min": 2580,
+          "max": 9030
+        },
+        "ersparnis_prozent": {
+          "min": 50.0,
+          "max": 75.0
+        },
+        "investition_eur_richtwert": 6400,
+        "amortisation_monate": {
+          "min": 8.5,
+          "max": 29.8
+        },
+        "annahmen": [
+          "GESETZT, NICHT ERHOBEN — Haeufigkeit und Dauer dieses Potenzials sind angenommen. Die Rechnung darunter ist korrekt, ihre Eingaenge sind es nicht. Nicht fuer Entscheidungen, Angebote oder Gate-1-Freigaben.",
+          "Mischsatz 43 EUR/h aus dem NoroAI-Unternehmensprofil (#172) — die Rollenachse wird nicht erhoben.",
+          "Bausatz 800 EUR/PT fuer die Investition; ein anderer Satz als die Einsparungsseite, mit Absicht (ADR-006, 2.1). Reine Setzung.",
+          "Automatisierungsgrad 50–75 % aus dem Korridor der Klasse 'Extraktion' — gesetzt, nicht erhoben.",
+          "Bandbreite ±40 % aus der Herkunft der Dauer (geschaetzt).",
+          "Zusammensetzung als Eckenrechnung: bewusst pessimistisch, sie unterstellt gleichsinnige Fehler."
+        ]
+      },
+      "prioritaet_score": 48,
+      "kategorie": "Quick Win",
+      "komplexitaet_begruendung": "BC3s ordinale Stufe 'gering' auf die Stufenmitte 3 abgebildet. BC1s vier Skalen am Fokus-Schritt liegen fuer KP-06.TP-1 nicht vor.",
+      "aufwand_schaetzung_pt": 8.0,
+      "hinweise": [
+        {
+          "art": "testdaten",
+          "text": "Die Quelle ist als Testdaten gekennzeichnet: 'Testdaten aus BC3s Vorlage vom 31.08.2026 (beispiel_uc3_consultant_placement.json) -- Annahme, nicht erhoben. BC3 rechnete mit 60 EUR/h, BC2 mit dem Mischsatz 43 EUR/h (#172); die absoluten Betraege liegen damit niedriger, die Rangfolge bleibt gleich.'. Durchgereicht statt abgewiesen (#184)."
+        }
+      ],
+      "beschreibung": "SIMULIERT -- KEINE BEWERTUNG. Haeufigkeit und Dauer sind aus BC3s Formatvorlage vom 31.08.2026 uebernommene Annahmen, nicht erhobene Groessen; Gate 0 ist fuer KP-06.TP-1 nicht durchlaufen. Diese Lieferung ist die Rueckfallebene zum Durchstich in KW 40 (#206) und dient dazu, den Weg zu proben. Nicht fuer Entscheidungen, Angebote oder Gate-1-Freigaben verwenden.\n\nLebensläufe erreichen NoroAI heute unstrukturiert als PDF oder Word-Datei und werden von Hand in einem Ordner abgelegt. Wer später wissen will, wer welche Kompetenz hat, muss die Dateien einzeln öffnen. Es gibt keine einheitliche Erfassung von Fähigkeiten, Erfahrung und Verfügbarkeit. Automatisiert wird das Auslesen der Angaben und der Aufbau eines strukturierten Kompetenzprofils, nicht die Bewertung von Personen.\n\nErgebnis ist ein Profil je Person mit Kompetenzen, Erfahrungsjahren, Branchen, Sprachen und Verfügbarkeit, jeweils mit Belegstelle im Ausgangsdokument. Der Datenfluss läuft vom eingehenden Dokument über die Extraktion in das Profilregister.\n\nBeteiligte Rollen sind die Personalverantwortung als Pflegende, die betroffene Person als Auskunftsberechtigte und die Compliance-Rolle. Vorbedingung ist eine Einwilligung zur Verarbeitung. Sonderfälle: unklare oder widersprüchliche Angaben werden markiert statt geraten; die betroffene Person kann ihr Profil einsehen und korrigieren lassen; automatisierte Ableitungen über Eignung finden in diesem Schritt ausdrücklich nicht statt. Der Anwendungsfall fällt unter Anhang III der EU-KI-Verordnung, weil er Beschäftigung betrifft.",
+      "to_be_vision": "Ein eingehender Lebenslauf ist binnen Minuten als strukturiertes Profil verfügbar: Kompetenzen, Erfahrungsjahre, Branchen, Sprachen und Verfügbarkeit stehen in einheitlichen Feldern, und zu jedem Feld ist erkennbar, an welcher Stelle des Dokuments es steht. Die Personalverantwortung prüft nur noch die Felder, bei denen die Extraktion unsicher war, statt jedes Dokument vollständig zu lesen. Die betroffene Person kann ihr Profil einsehen und Korrekturen verlangen; jede Änderung bleibt nachvollziehbar. In diesem Schritt findet ausdrücklich keine Bewertung und keine Rangfolge statt: das Profil beschreibt, es beurteilt nicht. Verarbeitet wird nur mit vorliegender Einwilligung, und Profile ohne Weiterverwendung werden nach Ablauf der Aufbewahrungsfrist gelöscht. Damit ist die Grundlage für das Matching gelegt, ohne dass unterwegs eine Entscheidung über Menschen automatisiert wird.",
+      "user_story": "Als bearbeitende Person im Kernprozess KP-06 moechte ich den Schritt „Lebensläufe strukturiert erfassen und Kompetenzprofil aufbauen“ automatisiert ausfuehren, damit gilt: Lebensläufe liegen als strukturiertes, belegtes Kompetenzprofil vor statt als PDF im Ordner.",
+      "akzeptanzkriterien_geschaeftlich": [
+        {
+          "kriterium": "Gegeben ein PDF-Lebenslauf mit Einwilligung, wenn er eingeht, dann liegt binnen fünf Minuten ein strukturiertes Profil vor.",
+          "messverfahren": "Zeitstempelvergleich im Vorgangsprotokoll ueber eine Stichprobe von 50 Vorgaengen."
+        },
+        {
+          "kriterium": "Gegeben ein Lebenslauf ohne dokumentierte Einwilligung, wenn er eingeht, dann wird er nicht verarbeitet und der Vorgang wird gemeldet.",
+          "messverfahren": "Stichprobe von 50 Vorgaengen, je gegen das Kriterium geprueft."
+        },
+        {
+          "kriterium": "Gegeben eine unklare Angabe zur Erfahrungsdauer, wenn das Profil erzeugt wird, dann ist das Feld als unsicher markiert und leer statt geschätzt.",
+          "messverfahren": "Statusfeld im Vorgang, Stichprobe von 50 Vorgaengen."
+        },
+        {
+          "kriterium": "Gegeben ein erzeugtes Profil, wenn die betroffene Person Auskunft verlangt, dann ist das Profil vollständig mit Belegstellen ausgebbar.",
+          "messverfahren": "Stichprobe von 50 Vorgaengen, je gegen das Kriterium geprueft."
+        },
+        {
+          "kriterium": "Gegeben ein Profil nach Ablauf der Aufbewahrungsfrist, wenn der Löschlauf erfolgt, dann ist es entfernt und die Löschung protokolliert.",
+          "messverfahren": "Protokollauszug je Vorgang, gegen die geforderten Felder geprueft."
+        }
+      ],
+      "fachliche_anforderungen": [
+        "PDF- und Word-Lebensläufe münden in dasselbe Profilschema.",
+        "Je Profilfeld wird die Belegstelle im Ausgangsdokument mitgeführt.",
+        "Unsichere oder widersprüchliche Angaben werden markiert, nicht geraten.",
+        "Die Verarbeitung setzt eine dokumentierte Einwilligung voraus.",
+        "Die betroffene Person kann ihr Profil einsehen und korrigieren lassen.",
+        "In diesem Schritt findet keine Bewertung und keine Rangfolge statt.",
+        "Profile werden nach Ablauf der Aufbewahrungsfrist gelöscht.",
+        "Jedes Profil trägt die Teilprozess-ID KP-06.TP-1."
+      ],
+      "betroffene_prozessschritte": [
+        "Lebenslauf entgegennehmen",
+        "Lebenslauf ablegen",
+        "Kompetenzen erfassen"
+      ],
+      "betroffene_systeme": [
+        {
+          "name": "Bewerbungspostfach",
+          "rolle": "Quelle",
+          "integration": "Email"
+        },
+        {
+          "name": "Dokumentenablage Lebensläufe",
+          "rolle": "Quelle",
+          "integration": "Datei"
+        },
+        {
+          "name": "Profilregister",
+          "rolle": "Ziel",
+          "integration": "DB"
+        }
+      ],
+      "potenzielle_loesung": {
+        "ansatz": "Textextraktion aus PDF und Word, LLM-gestützte Strukturierung in ein festes Profilschema, Belegstelle je Feld. Unsichere Felder werden markiert und der Personalverantwortung vorgelegt. Keine Bewertung, keine Rangfolge in diesem Schritt.",
+        "tech_stack_empfehlung": [
+          "n8n",
+          "Mistral Large",
+          "PostgreSQL",
+          "OCR-Service"
+        ],
+        "to_be_kurz": "Lebensläufe liegen als strukturiertes, belegtes Kompetenzprofil vor statt als PDF im Ordner."
+      },
+      "voraussetzungen": [
+        "Dokumentierte Einwilligung je Person",
+        "Festgelegtes Profilschema und Kompetenzkatalog",
+        "Aufbewahrungs- und Löschregel für Bewerberdaten",
+        "Pseudonymisierung vor der LLM-Grenze nach ADR-004"
+      ],
+      "risiken": [
+        {
+          "beschreibung": "Verarbeitung von Bewerberdaten fällt unter Anhang III der EU-KI-Verordnung",
+          "wahrscheinlichkeit": "high",
+          "auswirkung": "high",
+          "gegenmassnahme": "Keine Bewertung in diesem Schritt, Transparenzhinweis, Auskunfts- und Korrekturrecht"
+        },
+        {
+          "beschreibung": "Extraktionsfehler wirken sich später im Matching aus",
+          "wahrscheinlichkeit": "med",
+          "auswirkung": "med",
+          "gegenmassnahme": "Belegstelle je Feld, unsichere Felder leer lassen statt raten"
+        }
+      ],
+      "querschnitte": {
+        "zukunftssicherheit": "Nicht aus BC3s Vorlage uebernehmbar -- sie fuehrt keinen Querschnitt. Im echten Lauf urteilt das LLM; hier als Luecke ausgewiesen, statt sie zu erfinden.",
+        "abhaengigkeiten": []
+      }
+    },
+    {
+      "potenzial_id": "ffe3b7c0-e55c-596c-8f7b-b745571db1d3",
+      "titel": "[SIMULIERT] Projektanforderung mit Profilen abgleichen und Vorschlagsliste erzeugen",
+      "potenzialrang": 2,
+      "prioritaetsgruppe": "PRIO 2",
+      "betroffene_teilprozess_ids": [
+        "KP-06.TP-1"
+      ],
+      "manueller_aufwand_heute": {
+        "stunden_jahr": 360.0,
+        "herkunft": "geschaetzt",
+        "konfidenz_pct": null
+      },
+      "automatisierungsgrad": {
+        "klasse": "Integration",
+        "angesetzt_min_pct": 60.0,
+        "angesetzt_max_pct": 85.0,
+        "begruendung": "Klasse 'Integration' aus dem Loesungsansatz der Vorlage abgeleitet. Der Korridor wird ungeschmaelert uebernommen, weil keine LLM-Verortung vorliegt -- im echten Lauf engt das LLM ihn ein und begruendet die Lage.",
+        "bc1_schaetzung_pct": null
+      },
+      "nutzwert": {
+        "qualitaet": {
+          "wert": 9,
+          "begruendung": "Aus BC3s ordinalem impact 'sehr hoch' hergeleitet; die Vorlage nennt keine eigene Qualitaetsaussage."
+        },
+        "durchlaufzeit": {
+          "wert": 10,
+          "begruendung": "Die to_be_vision der Vorlage beziffert durchgaengig eine kuerzere Bearbeitung als heute."
+        },
+        "fehlerreduktion": {
+          "wert": 10,
+          "begruendung": "Die Vorlage nennt einen Medienbruch oder eine Handuebertragung als Fehlerquelle."
+        },
+        "mitarbeiterzufriedenheit": {
+          "wert": 9,
+          "begruendung": "Ohne eigene Aussage in der Vorlage auf der Basis belassen."
+        },
+        "compliance": {
+          "wert": 10,
+          "begruendung": "Die Vorlage fuehrt ein DSGVO- oder Aufbewahrungsthema ausdruecklich."
+        },
+        "mittel": 9.6
+      },
+      "impact": 8,
+      "impact_monetaer": 7,
+      "umsetzungskomplexitaet": 7,
+      "komplexitaet_herkunft": "geurteilt",
+      "value": {
+        "value_quelle": "annahme",
+        "ist_kosten_eur_jahr": {
+          "min": 9288,
+          "max": 21672
+        },
+        "einsparung_eur_jahr": {
+          "min": 5573,
+          "max": 18421
+        },
+        "ersparnis_prozent": {
+          "min": 60.0,
+          "max": 85.0
+        },
+        "investition_eur_richtwert": 14400,
+        "amortisation_monate": {
+          "min": 9.4,
+          "max": 31.0
+        },
+        "annahmen": [
+          "GESETZT, NICHT ERHOBEN — Haeufigkeit und Dauer dieses Potenzials sind angenommen. Die Rechnung darunter ist korrekt, ihre Eingaenge sind es nicht. Nicht fuer Entscheidungen, Angebote oder Gate-1-Freigaben.",
+          "Mischsatz 43 EUR/h aus dem NoroAI-Unternehmensprofil (#172) — die Rollenachse wird nicht erhoben.",
+          "Bausatz 800 EUR/PT fuer die Investition; ein anderer Satz als die Einsparungsseite, mit Absicht (ADR-006, 2.1). Reine Setzung.",
+          "Automatisierungsgrad 60–85 % aus dem Korridor der Klasse 'Integration' — gesetzt, nicht erhoben.",
+          "Bandbreite ±40 % aus der Herkunft der Dauer (geschaetzt).",
+          "Zusammensetzung als Eckenrechnung: bewusst pessimistisch, sie unterstellt gleichsinnige Fehler."
+        ]
+      },
+      "prioritaet_score": 32,
+      "kategorie": "Strategisch",
+      "komplexitaet_begruendung": "BC3s ordinale Stufe 'hoch' auf die Stufenmitte 7 abgebildet. BC1s vier Skalen am Fokus-Schritt liegen fuer KP-06.TP-1 nicht vor.",
+      "aufwand_schaetzung_pt": 18.0,
+      "hinweise": [
+        {
+          "art": "testdaten",
+          "text": "Die Quelle ist als Testdaten gekennzeichnet: 'Testdaten aus BC3s Vorlage vom 31.08.2026 (beispiel_uc3_consultant_placement.json) -- Annahme, nicht erhoben. BC3 rechnete mit 60 EUR/h, BC2 mit dem Mischsatz 43 EUR/h (#172); die absoluten Betraege liegen damit niedriger, die Rangfolge bleibt gleich.'. Durchgereicht statt abgewiesen (#184)."
+        }
+      ],
+      "beschreibung": "SIMULIERT -- KEINE BEWERTUNG. Haeufigkeit und Dauer sind aus BC3s Formatvorlage vom 31.08.2026 uebernommene Annahmen, nicht erhobene Groessen; Gate 0 ist fuer KP-06.TP-1 nicht durchlaufen. Diese Lieferung ist die Rueckfallebene zum Durchstich in KW 40 (#206) und dient dazu, den Weg zu proben. Nicht fuer Entscheidungen, Angebote oder Gate-1-Freigaben verwenden.\n\nHeute liest die Personalverantwortung die Projektausschreibung, sichtet die abgelegten Lebensläufe von Hand, gleicht Fähigkeiten und Erfahrung mit den Anforderungen ab, stellt einen Personalvorschlag zusammen und versendet ihn per Mail an das Team. Der Abgleich dauert Stunden und ist von der Tagesform und der Erinnerung an einzelne Personen abhängig. Automatisiert wird das Auffinden und Vorsortieren passender Profile, nicht die Auswahl.\n\nErgebnis ist eine begründete Vorschlagsliste: je Person die erfüllten und die fehlenden Anforderungen, jeweils mit Bezug auf das Profilfeld. Der Datenfluss geht von der Ausschreibung über die Strukturierung der Anforderungen und den Abgleich mit dem Profilregister in die Vorschlagsliste.\n\nBeteiligte Rollen sind die Personalverantwortung als Entscheidende, die Projektleitung als Anfordernde und die betroffenen Personen. Vorbedingung sind gefüllte Profile aus dem ersten Potenzial. Sonderfälle: erfüllt niemand die Anforderungen, wird das gesagt statt die Liste aufgefüllt; die Reihenfolge ist ein Vorschlag und keine Entscheidung; eine Ablehnung allein auf Basis der Liste ist ausgeschlossen. Der Anwendungsfall fällt unter Anhang III der EU-KI-Verordnung.",
+      "to_be_vision": "Eine neue Projektausschreibung wird in ihre Anforderungen zerlegt, und binnen Minuten liegt eine Vorschlagsliste vor, in der zu jeder Person steht, welche Anforderungen sie erfüllt und welche nicht, jeweils mit Bezug auf das konkrete Profilfeld. Die Personalverantwortung liest damit eine begründete Grundlage statt einen Stapel Lebensläufe und kann sich auf die Entscheidung konzentrieren. Erfüllt niemand die Anforderungen, sagt das System genau das, statt die Liste mit unpassenden Vorschlägen aufzufüllen. Die Reihenfolge ist ausdrücklich ein Vorschlag: eine Absage oder Zusage allein auf dieser Grundlage ist ausgeschlossen, und jede getroffene Entscheidung wird mit Begründung protokolliert. Betroffene Personen können erfahren, dass ein solches Verfahren eingesetzt wird und auf welcher Datengrundlage es arbeitet. Das Matching sinkt von Stunden auf Minuten, ohne dass eine Entscheidung über Menschen an eine Maschine abgegeben wird.",
+      "user_story": "Als bearbeitende Person im Kernprozess KP-06 moechte ich den Schritt „Projektanforderung mit Profilen abgleichen und Vorschlagsliste erzeugen“ automatisiert ausfuehren, damit gilt: Passende Profile werden in Minuten vorgeschlagen und begründet; die Auswahl bleibt beim Menschen.",
+      "akzeptanzkriterien_geschaeftlich": [
+        {
+          "kriterium": "Gegeben eine Ausschreibung mit klaren Anforderungen, wenn der Abgleich läuft, dann liegt binnen zehn Minuten eine begründete Vorschlagsliste vor.",
+          "messverfahren": "Zeitstempelvergleich im Vorgangsprotokoll ueber eine Stichprobe von 50 Vorgaengen."
+        },
+        {
+          "kriterium": "Gegeben eine Person auf der Liste, wenn der Vorschlag geprüft wird, dann ist je Anforderung erkennbar, welches Profilfeld sie stützt.",
+          "messverfahren": "Stichprobe von 50 Vorgaengen, je gegen das Kriterium geprueft."
+        },
+        {
+          "kriterium": "Gegeben eine Ausschreibung, die niemand erfüllt, wenn der Abgleich läuft, dann bleibt die Liste leer und der Grund wird genannt.",
+          "messverfahren": "Statusfeld im Vorgang, Stichprobe von 50 Vorgaengen."
+        },
+        {
+          "kriterium": "Gegeben eine Vorschlagsliste, wenn eine Absage erteilt werden soll, dann ist dies ohne dokumentierte menschliche Entscheidung nicht möglich.",
+          "messverfahren": "Stichprobe von 50 Vorgaengen, je gegen das Kriterium geprueft."
+        },
+        {
+          "kriterium": "Gegeben eine getroffene Auswahl, wenn das Protokoll gelesen wird, dann sind Entscheidende, Zeitpunkt und Begründung nachvollziehbar.",
+          "messverfahren": "Protokollauszug je Vorgang, gegen die geforderten Felder geprueft."
+        },
+        {
+          "kriterium": "Gegeben eine betroffene Person, wenn sie Auskunft verlangt, dann ist der Einsatz des Verfahrens und die Datengrundlage darstellbar.",
+          "messverfahren": "Stichprobe von 50 Vorgaengen, je gegen das Kriterium geprueft."
+        }
+      ],
+      "fachliche_anforderungen": [
+        "Anforderungen werden aus der Ausschreibung strukturiert erfasst.",
+        "Je vorgeschlagener Person werden erfüllte und fehlende Anforderungen benannt.",
+        "Jede Aussage verweist auf das zugrunde liegende Profilfeld.",
+        "Erfüllt niemand die Anforderungen, wird die Liste nicht aufgefüllt.",
+        "Die Reihenfolge ist ein Vorschlag, keine Entscheidung.",
+        "Eine Ablehnung allein auf Basis der Liste ist technisch ausgeschlossen.",
+        "Jede Auswahlentscheidung wird mit Begründung protokolliert.",
+        "Betroffene werden über den Einsatz des Verfahrens informiert.",
+        "Jeder Vorgang trägt die Teilprozess-ID KP-06.TP-1."
+      ],
+      "betroffene_prozessschritte": [
+        "Projektausschreibung lesen",
+        "Profile sichten",
+        "Personalvorschlag zusammenstellen",
+        "Vorschlag versenden"
+      ],
+      "betroffene_systeme": [
+        {
+          "name": "Profilregister",
+          "rolle": "Quelle",
+          "integration": "DB"
+        },
+        {
+          "name": "Projektausschreibung",
+          "rolle": "Quelle",
+          "integration": "Datei"
+        },
+        {
+          "name": "Outlook",
+          "rolle": "Ziel",
+          "integration": "Email"
+        },
+        {
+          "name": "Entscheidungsprotokoll",
+          "rolle": "Ziel",
+          "integration": "DB"
+        }
+      ],
+      "potenzielle_loesung": {
+        "ansatz": "Strukturierung der Anforderungen aus der Ausschreibung, regelbasierter Abgleich gegen den Kompetenzkatalog, Begründung je Person mit Bezug auf das Profilfeld. Das Ergebnis ist ein Vorschlag; die Auswahl trifft ein Mensch und wird protokolliert.",
+        "tech_stack_empfehlung": [
+          "n8n",
+          "Mistral Large",
+          "PostgreSQL"
+        ],
+        "to_be_kurz": "Passende Profile werden in Minuten vorgeschlagen und begründet; die Auswahl bleibt beim Menschen."
+      },
+      "voraussetzungen": [
+        "Gefüllte Profile aus Potenzial 1",
+        "Kompetenzkatalog mit definierten Ausprägungen",
+        "Transparenzhinweis für Betroffene nach EU-KI-Verordnung",
+        "Festgelegte Zuständigkeit für die Auswahlentscheidung"
+      ],
+      "risiken": [
+        {
+          "beschreibung": "Hochrisiko-Anwendung nach Anhang III der EU-KI-Verordnung (Beschäftigung)",
+          "wahrscheinlichkeit": "high",
+          "auswirkung": "high",
+          "gegenmassnahme": "Menschliche Entscheidung technisch erzwingen, Protokollpflicht, Transparenzhinweis, Auskunftsrecht"
+        },
+        {
+          "beschreibung": "Systematische Benachteiligung durch unvollständige Profile",
+          "wahrscheinlichkeit": "med",
+          "auswirkung": "high",
+          "gegenmassnahme": "Fehlende Felder als fehlend ausweisen, nicht als Nichterfüllung werten"
+        }
+      ],
+      "querschnitte": {
+        "zukunftssicherheit": "Nicht aus BC3s Vorlage uebernehmbar -- sie fuehrt keinen Querschnitt. Im echten Lauf urteilt das LLM; hier als Luecke ausgewiesen, statt sie zu erfinden.",
+        "abhaengigkeiten": []
+      }
+    }
+  ],
+  "gesamtempfehlung": {
+    "reihenfolge_potenzial_ids": [
+      "bacf16aa-4b72-529c-b520-39de76f01d98",
+      "ffe3b7c0-e55c-596c-8f7b-b745571db1d3"
+    ],
+    "begruendung": "Reihenfolge strikt nach Score (ADR-006 BC2, 2.7). BC3s Vorlage begruendet die eigene Reihenfolge fachlich -- der Abgleich setzt strukturierte Profile voraus; diese Abhaengigkeit steht seit v3.0 in potenziale[].querschnitte und geht nicht in den Score ein."
+  },
+  "eingangswerte": [
+    {
+      "groesse": "frequency_per_year",
+      "wert": 600.0,
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "frequency_per_year",
+      "gelesen_am": "2026-09-21T00:00:00+02:00",
+      "einheit": "Durchlaeufe/Jahr",
+      "herkunft_id": "b3000000-0000-4000-8000-000000000001",
+      "betrifft_teilprozess_id": "KP-06.TP-1",
+      "kennzeichnung": "Testdaten aus BC3s Vorlage vom 31.08.2026 (beispiel_uc3_consultant_placement.json) -- Annahme, nicht erhoben. BC3 rechnete mit 60 EUR/h, BC2 mit dem Mischsatz 43 EUR/h (#172); die absoluten Betraege liegen damit niedriger, die Rangfolge bleibt gleich."
+    },
+    {
+      "groesse": "total_duration_minutes",
+      "wert": 20.0,
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "total_duration_minutes",
+      "gelesen_am": "2026-09-21T00:00:00+02:00",
+      "einheit": "Minuten/Durchlauf",
+      "herkunft_id": "b3000000-0000-4000-8000-000000000001",
+      "betrifft_teilprozess_id": "KP-06.TP-1",
+      "kennzeichnung": "Testdaten aus BC3s Vorlage vom 31.08.2026 (beispiel_uc3_consultant_placement.json) -- Annahme, nicht erhoben. BC3 rechnete mit 60 EUR/h, BC2 mit dem Mischsatz 43 EUR/h (#172); die absoluten Betraege liegen damit niedriger, die Rangfolge bleibt gleich."
+    },
+    {
+      "groesse": "focus_step_duration_source",
+      "wert": "geschaetzt",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "focus_step_duration_source",
+      "gelesen_am": "2026-09-21T00:00:00+02:00",
+      "herkunft_id": "b3000000-0000-4000-8000-000000000001",
+      "betrifft_teilprozess_id": "KP-06.TP-1",
+      "kennzeichnung": "Testdaten aus BC3s Vorlage vom 31.08.2026 (beispiel_uc3_consultant_placement.json) -- Annahme, nicht erhoben. BC3 rechnete mit 60 EUR/h, BC2 mit dem Mischsatz 43 EUR/h (#172); die absoluten Betraege liegen damit niedriger, die Rangfolge bleibt gleich."
+    },
+    {
+      "groesse": "mischsatz_eur_h",
+      "wert": 43.0,
+      "herkunft_tabelle": "(Setzung)",
+      "herkunft_spalte": "NoroAI-Unternehmensprofil Kap. 9.2, #172",
+      "gelesen_am": "2026-09-21T00:00:00+02:00",
+      "einheit": "EUR/h"
+    },
+    {
+      "groesse": "bausatz_eur_pt",
+      "wert": 800.0,
+      "herkunft_tabelle": "(Setzung)",
+      "herkunft_spalte": "ADR-006 BC2, 2.1",
+      "gelesen_am": "2026-09-21T00:00:00+02:00",
+      "einheit": "EUR/PT"
+    },
+    {
+      "groesse": "frequency_per_year",
+      "wert": 120.0,
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "frequency_per_year",
+      "gelesen_am": "2026-09-21T00:00:00+02:00",
+      "einheit": "Durchlaeufe/Jahr",
+      "herkunft_id": "b3000000-0000-4000-8000-000000000002",
+      "betrifft_teilprozess_id": "KP-06.TP-1",
+      "kennzeichnung": "Testdaten aus BC3s Vorlage vom 31.08.2026 (beispiel_uc3_consultant_placement.json) -- Annahme, nicht erhoben. BC3 rechnete mit 60 EUR/h, BC2 mit dem Mischsatz 43 EUR/h (#172); die absoluten Betraege liegen damit niedriger, die Rangfolge bleibt gleich."
+    },
+    {
+      "groesse": "total_duration_minutes",
+      "wert": 180.0,
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "total_duration_minutes",
+      "gelesen_am": "2026-09-21T00:00:00+02:00",
+      "einheit": "Minuten/Durchlauf",
+      "herkunft_id": "b3000000-0000-4000-8000-000000000002",
+      "betrifft_teilprozess_id": "KP-06.TP-1",
+      "kennzeichnung": "Testdaten aus BC3s Vorlage vom 31.08.2026 (beispiel_uc3_consultant_placement.json) -- Annahme, nicht erhoben. BC3 rechnete mit 60 EUR/h, BC2 mit dem Mischsatz 43 EUR/h (#172); die absoluten Betraege liegen damit niedriger, die Rangfolge bleibt gleich."
+    },
+    {
+      "groesse": "focus_step_duration_source",
+      "wert": "geschaetzt",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "focus_step_duration_source",
+      "gelesen_am": "2026-09-21T00:00:00+02:00",
+      "herkunft_id": "b3000000-0000-4000-8000-000000000002",
+      "betrifft_teilprozess_id": "KP-06.TP-1",
+      "kennzeichnung": "Testdaten aus BC3s Vorlage vom 31.08.2026 (beispiel_uc3_consultant_placement.json) -- Annahme, nicht erhoben. BC3 rechnete mit 60 EUR/h, BC2 mit dem Mischsatz 43 EUR/h (#172); die absoluten Betraege liegen damit niedriger, die Rangfolge bleibt gleich."
+    },
+    {
+      "groesse": "mischsatz_eur_h",
+      "wert": 43.0,
+      "herkunft_tabelle": "(Setzung)",
+      "herkunft_spalte": "NoroAI-Unternehmensprofil Kap. 9.2, #172",
+      "gelesen_am": "2026-09-21T00:00:00+02:00",
+      "einheit": "EUR/h"
+    },
+    {
+      "groesse": "bausatz_eur_pt",
+      "wert": 800.0,
+      "herkunft_tabelle": "(Setzung)",
+      "herkunft_spalte": "ADR-006 BC2, 2.1",
+      "gelesen_am": "2026-09-21T00:00:00+02:00",
+      "einheit": "EUR/PT"
+    }
+  ]
+}

@@ -1,0 +1,86 @@
+{
+  "priorisierung_id": "35518e29-d320-58ab-aa62-15b92c341fcb",
+  "schema_version": "3.0",
+  "company_id": "7c2d5ee9-2a9a-5990-810f-502ea2b2012d",
+  "paket_id": "SIM-UC3-2026-09-21",
+  "uebergeben_am": "2026-09-21T00:00:00+02:00",
+  "gelesen_am": "2026-09-21T00:00:00+02:00",
+  "fassung": 1,
+  "erzeugt_am": "2026-09-21T00:00:00+02:00",
+  "score_formel": "score = impact x (11 - umsetzungskomplexitaet), Bereich 1...100. impact = round((impact_monetaer + nutzwert) / 2); impact_monetaer aus der Mitte der Eingaenge ueber absolute Euro-Schwellen (1.000...50.000 EUR/Jahr, logarithmisch). umsetzungskomplexitaet hier GEURTEILT aus BC3s ordinaler Stufe -- BC1s vier Skalen liegen fuer KP-06.TP-1 nicht vor.",
+  "konzept_ids": [
+    "7780f764-245b-51f3-b5f7-791a2e283e94"
+  ],
+  "eintraege": [
+    {
+      "potenzialrang": 1,
+      "prioritaetsgruppe": "PRIO 2",
+      "potenzial_id": "bacf16aa-4b72-529c-b520-39de76f01d98",
+      "konzept_id": "7780f764-245b-51f3-b5f7-791a2e283e94",
+      "titel": "[SIMULIERT] Lebensläufe strukturiert erfassen und Kompetenzprofil aufbauen",
+      "kp_id": "KP-06",
+      "betroffene_teilprozess_ids": [
+        "KP-06.TP-1"
+      ],
+      "kategorie": "Quick Win",
+      "impact": 6,
+      "impact_monetaer": 5,
+      "nutzwert_mittel": 7.8,
+      "umsetzungskomplexitaet": 3,
+      "komplexitaet_herkunft": "geurteilt",
+      "score": 48,
+      "aufwand_pt": 8.0,
+      "einsparung_eur_jahr": {
+        "min": 2580,
+        "max": 9030
+      },
+      "investition_eur_richtwert": 6400,
+      "amortisation_monate": {
+        "min": 8.5,
+        "max": 29.8
+      }
+    },
+    {
+      "potenzialrang": 2,
+      "prioritaetsgruppe": "PRIO 2",
+      "potenzial_id": "ffe3b7c0-e55c-596c-8f7b-b745571db1d3",
+      "konzept_id": "7780f764-245b-51f3-b5f7-791a2e283e94",
+      "titel": "[SIMULIERT] Projektanforderung mit Profilen abgleichen und Vorschlagsliste erzeugen",
+      "kp_id": "KP-06",
+      "betroffene_teilprozess_ids": [
+        "KP-06.TP-1"
+      ],
+      "kategorie": "Strategisch",
+      "impact": 8,
+      "impact_monetaer": 7,
+      "nutzwert_mittel": 9.6,
+      "umsetzungskomplexitaet": 7,
+      "komplexitaet_herkunft": "geurteilt",
+      "score": 32,
+      "aufwand_pt": 18.0,
+      "einsparung_eur_jahr": {
+        "min": 5573,
+        "max": 18421
+      },
+      "investition_eur_richtwert": 14400,
+      "amortisation_monate": {
+        "min": 9.4,
+        "max": 31.0
+      }
+    }
+  ],
+  "prozess_raenge": [
+    {
+      "prozessrang": 1,
+      "kp_id": "KP-06",
+      "konzept_id": "7780f764-245b-51f3-b5f7-791a2e283e94",
+      "bestes_potenzial_id": "bacf16aa-4b72-529c-b520-39de76f01d98",
+      "bester_score": 48,
+      "anzahl_potenziale": 2
+    }
+  ],
+  "gate1": {
+    "status": "pending",
+    "kommentar": "FREIGABESPERRE. Simulierte Rueckfall-Lieferung (#168): Haeufigkeit und Dauer sind Annahmen aus BC3s Vorlage vom 31.08.2026, Gate 0 ist fuer KP-06.TP-1 nicht durchlaufen, die Umsetzungskomplexitaet ist geurteilt statt gemessen. Diese Priorisierung darf nicht freigegeben werden. Der echte Lauf entsteht im Durchstich KW 40 (#206) und ersetzt sie als neue Fassung."
+  }
+}

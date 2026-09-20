@@ -222,6 +222,20 @@ class Potenzialeingang:
     # --- Herkunftsnachweise -------------------------------------------------
     erhebung_id: str | None = None
     kennzeichnung: str | None = None
+    #: Die gemessenen Größen sind **gesetzt, nicht erhoben** — dann trägt das
+    #: Ergebnis ``value_quelle = "annahme"`` statt ``"berechnet"``.
+    #:
+    #: Ohne dieses Feld wäre der Vertragswert ``annahme`` aus dem Kern
+    #: unerreichbar: er kennt sonst nur ``berechnet`` und ``keine``. Eine
+    #: simulierte Lieferung käme damit als ``berechnet`` heraus — der stärkste
+    #: Anspruch, auf erfundenen Eingängen, und genau der Zustand, gegen den
+    #: ``annahme`` in v3.0 aufgenommen wurde
+    #: ([#168](https://github.com/pg-coe-kmu/coe-factory/issues/168)).
+    #:
+    #: Es ändert **keine Zahl**. Die Rechnung ist dieselbe; nur ihre Herkunft
+    #: wird anders ausgewiesen — die Zahlen sind ja nicht falsch, sie ruhen nur
+    #: auf gesetzten statt erhobenen Eingängen.
+    groessen_gesetzt: bool = False
 
     def __post_init__(self) -> None:
         if self.reifeskalen is not None:
@@ -518,6 +532,16 @@ def _value_und_impact(
         "Zusammensetzung als Eckenrechnung: bewusst pessimistisch, sie unterstellt "
         "gleichsinnige Fehler.",
     ]
+    if e.groessen_gesetzt:
+        # An den Anfang, nicht ans Ende: wer nur die erste Zeile liest, muss
+        # genau das erfahren. Dieselbe Staffelung wie in der Lieferung vom
+        # 30.08.2026 (#168), wo `annahmen[0]` den Warntext trug.
+        annahmen.insert(
+            0,
+            "GESETZT, NICHT ERHOBEN — Haeufigkeit und Dauer dieses Potenzials sind "
+            "angenommen. Die Rechnung darunter ist korrekt, ihre Eingaenge sind es "
+            "nicht. Nicht fuer Entscheidungen, Angebote oder Gate-1-Freigaben.",
+        )
 
     investition = None
     amortisation = None
@@ -553,7 +577,9 @@ def _value_und_impact(
     impact = int(runde((impact_monetaer + nutzwert) / 2))
 
     value = Value(
-        value_quelle="berechnet",
+        # 'annahme' ist kein schwächeres 'berechnet', sondern eine Aussage über
+        # die **Eingänge**: gerechnet wurde gleich, erhoben wurde nichts.
+        value_quelle="annahme" if e.groessen_gesetzt else "berechnet",
         ist_kosten_eur_jahr=Spanne(ist_lo, ist_hi),
         einsparung_eur_jahr=Spanne(einsparung_lo, einsparung_hi),
         # Die Eckenrechnung macht den Prozentsatz **exakt** zum angesetzten
