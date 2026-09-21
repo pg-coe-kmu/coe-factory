@@ -10,7 +10,15 @@ Betriebsmuster von BC0 übernommen ([#136](https://github.com/pg-coe-kmu/coe-fac
 > keine Absicht mehr, sondern ein Protokoll — sie beschreibt, was tatsächlich
 > gemacht wurde, und dient dem Wiederaufbau.
 >
-> Offen ist nur die Übergabe des Geheimnisses an Simeon (Schritt 9).
+> **Schritt 9 ist seit dem 20.09.2026 erledigt** ([#205](https://github.com/pg-coe-kmu/coe-factory/issues/205)):
+> BC0s Token ist hinterlegt, und mit BC0s exakter Rufform gegengeprüft kommt
+> **202 angenommen** zurück. Die Zustellung ist damit erprobt, nicht nur der Endpunkt.
+>
+> *(Bis dahin stand hier »offen« — und genau das wurde zehn Tage lang übersehen: BC0s
+> erste beiden echten Pakete vom 18.09. liefen in `Unauthorized`, ohne dass es jemandem
+> auffiel. 48 grüne Tests belegen nicht, dass je ein echter Ruf durchging, denn sie
+> signieren mit ihrem **eigenen** Testschlüssel. Was ein einseitiger Test grundsätzlich
+> nicht erreicht, ist die Naht zwischen zwei Kontexten.)*
 
 **Nachgezogen an BC0s gebauten Ruf** (Commit `9ddda89`): BC0 weist sich mit
 einer HMAC-Signatur aus, nicht mit `Authorization: Bearer`, und schickt nur die
@@ -203,8 +211,17 @@ DELETE FROM bc2.eingang WHERE paket_id LIKE 'PROBE-%';
 Der Vertragstest gegen die echte Datenbank macht dasselbe automatisiert:
 
 ```bash
+set -a && . ./.env && set +a          # DATABASE_URL in die Umgebung
 BC2_ECHTE_DB=1 .venv/bin/python -m pytest tests/ -q
 ```
+
+**Hier und nur hier.** Am 21.09.2026 ist entschieden worden, die `DATABASE_URL` **nicht**
+auf dem Entwicklungsrechner verfügbar zu machen — weder über den Keychain noch über
+`~/.zshrc` oder Claude Codes `settings.json`. Dieses Dokument sagt, die echte `.env` liege
+ausschließlich auf dem Server, und das Fehlen der Variablen dort draußen ist eine
+Schutzmaßnahme: `tests/conftest.py` löscht sie aktiv, damit die Vorschleife nie
+versehentlich gegen die gemeinsame Datenbank läuft. Lokal gesetzt hätte **jede** Sitzung
+Schreibrecht auf Schema `bc2`, wo Daten liegen, auf die BC0 sich beruft.
 
 ⚠️ **Dieser Lauf ist nicht folgenlos.** `test_abgleich_laeuft_gegen_die_echte_view_durch`
 stößt den echten Nachhol-Abgleich an — und der holt **wartende Pakete von BC0
