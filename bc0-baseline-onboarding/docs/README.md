@@ -27,7 +27,10 @@ Die Schemadateien selbst liegen unter [`../app/`](../app/) (`schema_v*.sql`).
 — angenommen 12.08.2026.
 
 **ADR-005 (BC0) — „Ergebnispflicht und Herkunftsnachweis", angenommen am 01.09.2026 — fehlt hier
-noch.** Die Nummer 5 ist im Repository bereits an
+noch.** Die Nummer 5 ist im Repository auch an
 [`bc2-strategic-advisor/docs/adr/ADR-005_Analyselauf_ist_das_Paket.md`](../../bc2-strategic-advisor/docs/adr/ADR-005_Analyselauf_ist_das_Paket.md)
-vergeben. Die Doppelung ist ungeklärt und steht am 21.09.2026 auf der Tagesordnung; das Papier
-kommt hinzu, sobald entschieden ist, unter welcher Nummer.
+vergeben. Das Register in [`../README.md`](../README.md) weist beide Beschlüsse aus und benennt die
+Ursache; die Nummernvergabe selbst entscheidet
+[#220](https://github.com/pg-coe-kmu/coe-factory/issues/220). Das Papier kommt hinzu, sobald
+feststeht, unter welcher Nummer — ein Einchecken vorher würde die Doppelung im Repository
+festschreiben.
