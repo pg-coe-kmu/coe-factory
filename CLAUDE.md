@@ -27,29 +27,12 @@ Siehe `docs/agents/domain.md`.
 
 ## Vorgänge
 
-### ToDo-Vorgänge in BC0 (ab 18.09.2026)
+Wie ein Context seine Vorgänge führt, regelt er selbst — die Verfahren unterscheiden sich,
+und sie sollen es dürfen.
 
-> **Geltungsbereich: BC0.** Diese Regeln beschreiben BC0s Arbeitsweise und setzen `todo.db`
-> und das Drehbuch voraus — beides liegt im Projektordner `PG KI-CoE-KMU`, nicht im Repo, und
-> steht den übrigen Contexts nicht zur Verfügung. Wer sie für sein Vorgehen übernehmen will,
-> kann das; verbindlich sind sie für BC0. **BC2 führt seine Vorgänge über die Wayfinder-Karte
-> [#158](https://github.com/pg-coe-kmu/coe-factory/issues/158)**, in der das Auflösen eines
-> Tickets und sein Schließen ein Vorgang sind — die Begründung steht als Auflösungskommentar
-> am Ticket und als Zeile in der Karte, nicht in einem Drehbuch.
->
-> *(Eingegrenzt am 20.09.2026: Der Abschnitt stand ohne Geltungsbereich in der repo-weiten
-> Datei und galt damit dem Wortlaut nach für alle sechs Contexts — einschließlich der Pflicht,
-> jede Änderung in einer Datei festzuhalten, auf die fünf von ihnen keinen Zugriff haben.)*
+- **BC0**: [`bc0-baseline-onboarding/CLAUDE.md`](./bc0-baseline-onboarding/CLAUDE.md)
+- **BC2**: die Wayfinder-Karte [#158](https://github.com/pg-coe-kmu/coe-factory/issues/158)
 
-Vorgänge stehen in `todo.db` (Projekt „Zusammenführung") und, soweit
-gespiegelt, als GitHub Issues in `pg-coe-kmu/coe-factory`. Für beide Orte gilt:
-
-- **Anlegen nur mit ausdrücklicher Zustimmung des Maintainers.** Ein Befund wird berichtet;
-  ob daraus ein Vorgang oder ein Issue wird, entscheidet der Maintainer. „Vormerken" heißt
-  vormerken, nicht anlegen.
-- **Schließen nur mit ausdrücklicher Zustimmung** — `erledigt`, `verworfen`, `closed`. Eine
-  Prüfung liefert Befund und Vorschlag, nicht den Statuswechsel. Eine Zurückstellung mit
-  Bedingung ist kein Wegfall.
-- **Jede Änderung an einem Vorgang wird im Drehbuch festgehalten** —
-  `00_Start/Drehbuch_PG CoE_Chronologie_v2.md` im Projektordner `PG KI-CoE-KMU`, mit Nummer,
-  Anlass und Begründung.
+*(Die BC0-Regeln standen vom 18.09. bis zum 20.09.2026 in dieser Datei und galten dem Wortlaut
+nach für alle sechs Contexts. [#235](https://github.com/pg-coe-kmu/coe-factory/pull/235) hat den
+Geltungsbereich benannt; hier stehen sie nun dort, wo sie gelten.)*
