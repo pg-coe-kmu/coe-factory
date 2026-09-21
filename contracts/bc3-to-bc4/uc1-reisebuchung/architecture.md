@@ -1,6 +1,6 @@
 # Bauplan — uc1-reisebuchung
 
-**Lieferung:** `del-uc1-reisebuchung-2026-09-06-070613`  
+**Lieferung:** `del-uc1-reisebuchung-2026-09-06-104439`  
 **Konzept:** `b1000000-0000-4000-8000-0000000000c1`  
 **Erzeugt am:** 2026-09-06 durch den BC3-Slicer
 
@@ -15,8 +15,8 @@ flowchart LR
     s1WebFormularR["Web-Formular Reiseanfrage"]
   end
   subgraph Verarbeitung
-    e0Reiseanfrage["Reiseanfrage automatisch erfassen und V…<br/>6 Stories"]
-    e1Automatisier["Automatisierte Angebotserstellung und B…<br/>9 Stories"]
+    e0Reiseanfrage["Reiseanfrage automatisch erfassen und V…<br/>9 Stories"]
+    e1Automatisier["Automatisierte Angebotserstellung und B…<br/>7 Stories"]
   end
   subgraph "Lesend und schreibend"
     s0OutlookPostf["Outlook-Postfach reisen@noroai"]
@@ -54,36 +54,37 @@ flowchart LR
 ### Reiseanfrage automatisch erfassen und Verfügbarkeit prüfen
 
 `ep-7f86-9601-99bb-d235c7490f7d`  
-**Ziel:** Automatisierte Erfassung und Verfügbarkeitsprüfung von Reiseanfragen innerhalb von zwei Minuten mit strukturierter Rückmeldung und Protokollierung.  
-**Kategorien:** it:backend, it:integration
+**Ziel:** Automatisierte Erfassung und Verfügbarkeitsprüfung von Reiseanfragen innerhalb von fünf Minuten, um manuelle Bearbeitung zu reduzieren und strukturierte Vorgänge zu erzeugen.  
+**Kategorien:** it:backend, it:integration, it:ai-pipeline
 
 | Story | Titel | Akzeptanzkriterien |
 |---|---|---|
 | 1 | Anfragen aus Mail und Web-Formular einheitlich erfassen | 3 |
-| 2 | Pflichtfelder extrahieren und Projekt/Kostenstelle zuordnen | 4 |
-| 3 | Verfügbarkeitsprüfung in Reise-API durchführen | 3 |
-| 4 | Eingangsbestätigung und Rückfragen automatisiert versenden | 2 |
-| 5 | Vorgang mit Protokoll und Zeitstempeln in Ablage speichern | 2 |
-| 6 | Transparenzhinweis in automatisierten E-Mails einbauen | 2 |
+| 2 | Projekt- oder Kostenstellenzuordnung prüfen | 2 |
+| 3 | Verfügbarkeitsprüfung in Buchungsportalen durchführen | 2 |
+| 4 | Budgetprüfung und Freigabeprozess umsetzen | 1 |
+| 5 | Konfidenzprüfung und manuelle Zuweisung bei niedriger Konfi… | 1 |
+| 6 | Eingangsbestätigung und Rückfragen strukturiert versenden | 3 |
+| 7 | Protokollierung aller Verarbeitungsschritte | 1 |
+| 8 | Transparenzhinweis in Eingangsbestätigung und Angebot | 2 |
+| 9 | DSGVO-Hinweis in Eingangsbestätigung | 2 |
 
 ### Automatisierte Angebotserstellung und Buchungsauslösung nach Freigabe
 
 `ep-9539-ba84-470c-dc60f3f7c980`  
-**Ziel:** Automatisierte Erstellung, Versand und Verwaltung von Reiseangeboten mit anschließender Buchungsauslösung nach menschlicher Freigabe, inklusive Sonderfallbehandlung.  
+**Ziel:** Angebote aus geprüften Optionen automatisiert erstellen, Freigabe einholen und Buchungen nach menschlicher Freigabe auslösen, inklusive Erinnerungs- und Sonderfallmanagement.  
 **Kategorien:** it:backend, it:integration
 
 | Story | Titel | Akzeptanzkriterien |
 |---|---|---|
 | 1 | Angebot aus geprüften Optionen generieren | 2 |
 | 2 | Angebot mit Vorgangs-ID versenden und Antwort zuordnen | 2 |
-| 3 | Erneute Prüfung bei abgelaufenen Optionen durchführen | 1 |
-| 4 | Erinnerungen bei ausbleibender Zusage versenden und Vorgang… | 2 |
-| 5 | Buchung nach Freigabe auslösen und Buchungsnummern speichern | 1 |
-| 6 | Stornierung als Statuswechsel mit Protokolleintrag abbilden | 1 |
-| 7 | Freigabeprozess für Reisebuchungen einbauen | 3 |
-| 8 | Manuelle Übersteuerung der Reiseoptionen ermöglichen | 2 |
-| 9 | Notfall-Anhaltefunktion für das KI-System einbauen | 2 |
+| 3 | Erneute Verfügbarkeitsprüfung bei abgelaufenen Optionen dur… | 1 |
+| 4 | Erinnerungen bei ausbleibender Antwort senden und Vorgang s… | 2 |
+| 5 | Buchung nach menschlicher Freigabe auslösen | 2 |
+| 6 | Stornierung als Statuswechsel mit Protokolleintrag erfassen | 1 |
+| 7 | Menschliche Freigabe vor Buchungsauslösung mit Begründungsf… | 3 |
 
 ---
 
-2 Epics · 15 Stories · 4 Komponenten
+2 Epics · 16 Stories · 4 Komponenten

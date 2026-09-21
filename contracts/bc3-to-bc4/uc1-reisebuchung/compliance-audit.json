@@ -1,8 +1,8 @@
 {
-  "lieferung_id": "del-uc1-reisebuchung-2026-09-06-070613",
+  "lieferung_id": "del-uc1-reisebuchung-2026-09-06-104439",
   "schema_version": "3.5",
   "projekt_kurzname": "uc1-reisebuchung",
-  "erzeugt_am": "2026-09-06T07:06:13.302Z",
+  "erzeugt_am": "2026-09-06T10:44:39.778Z",
   "konzept_ref": {
     "konzept_id": "b1000000-0000-4000-8000-0000000000c1",
     "schema_version": "2.1-bc3",
@@ -18,22 +18,22 @@
     "ampel": "yellow",
     "ai_act_klasse": "high",
     "anhang_iii_kategorie": "Anhang III Nr. 4 Buchstabe b (Beschäftigung, Personalmanagement und Zugang zu Selbstständigkeit)",
-    "dsgvo_rechtsgrundlage": "Artikel 6 Absatz 1 Buchstabe b (Vertragserfüllung), Artikel 6 Absatz 1 Buchstabe f (berechigtes Interesse)",
+    "dsgvo_rechtsgrundlage": "Artikel 6 Absatz 1 Buchstabe b (Vertragserfüllung) und Artikel 6 Absatz 1 Buchstabe f (berech tigtes Interesse) für Reise- und Einsatzplanung; Artikel 22 Absatz 2 Buchstabe a (menschliche Entscheidung) für Zuweisungs- und Budgetentscheidungen",
     "betroffene_datenarten": [
       "E-Mail-Adresse (Stufe gering)",
       "Reise- und Termindaten (Stufe gering)",
       "Kostenstelle und Budget (Stufe gering)"
     ],
-    "begruendung_ampel": "Der Prozess fällt unter Anhang III Nr. 4 Buchstabe b der EU-KI-Verordnung und ist damit ein Hochrisiko-KI-System. Die Ampel steht auf yellow, weil die notwendigen Maßnahmen zur menschlichen Aufsicht (Artikel 14), Transparenz (Artikel 50) und Protokollierung (Artikel 17) in den Prozess eingebaut werden. Die Pseudonymisierung der Kontaktdaten (DSGVO Artikel 25) und die Freigabe vor Buchung (Artikel 22 DSGVO) sorgen dafür, dass der Prozess automatisiert laufen darf."
+    "begruendung_ampel": "Der Prozess fällt unter Anhang III Nr. 4 Buchstabe b der KI-Verordnung und ist damit Hochrisiko. Die Ampel ist gelb, weil menschliche Entscheidungen an den kritischen Stellen (Zuweisung, Budgetfreigabe, Buchungsauslösung) eingebaut sind, die Pseudonymisierung der Kontaktdaten vor dem Modellaufruf erfolgt und Transparenzhinweise gegeben werden. Die Plattform-Standards (Pseudonymisierung, EU-Verarbeitung, Audit-Log) mindern die Risiken weiter."
   },
   "pflichten": [
     {
       "id": "p1",
       "tag": "[AI-Act Art. 14]",
-      "text": "Vor der Buchungsauslösung muss ein Mensch die vorgeschlagenen Reiseoptionen und Kosten freigeben; das System darf ohne Freigabe-Flag keine Buchung auslösen.",
+      "text": "Vor jeder Zuweisung von Aufgaben oder Einsätzen muss ein Mensch die Entscheidung treffen; das System stellt eine begründete Vorschlagsliste bereit und protokolliert die menschliche Entscheidung mit Zeitstempel und Begründung.",
       "massnahme": "mensch_prueft",
       "datenkategorie": "gering",
-      "stelle": "Given eine erteilte Freigabe, When die Buchung ausgelöst wird, Then werden Flug, Hotel und Mietwagen in der Reise-API gebucht (ep-0002-5)",
+      "stelle": "Buchung nach menschlicher Freigabe auslösen (ep-0002-5)",
       "adressat": "bc4",
       "wird_zu_story": true,
       "owner": "BC3"
@@ -41,10 +41,10 @@
     {
       "id": "p2",
       "tag": "[AI-Act Art. 14]",
-      "text": "Die Freigabeentscheidung muss mit Zeitstempel, Freigebendem und Begründung im Protokoll gespeichert werden.",
-      "massnahme": "protokollieren",
+      "text": "Die Teamleitung muss die Möglichkeit haben, die automatisierte Verfügbarkeitsprüfung und Angebotserstellung zu übersteuern oder zu verwerfen, bevor die Buchung ausgelöst wird.",
+      "massnahme": "mensch_prueft",
       "datenkategorie": "gering",
-      "stelle": "Given eine erteilte Freigabe, When die Buchung ausgelöst wird (ep-0002-5)",
+      "stelle": "Angebot aus geprüften Optionen generieren (ep-0002-1) und Buchung nach menschlicher Freigabe auslösen (ep-0002-5)",
       "adressat": "bc4",
       "wird_zu_story": true,
       "owner": "BC3"
@@ -52,89 +52,89 @@
     {
       "id": "p3",
       "tag": "[AI-Act Art. 14]",
-      "text": "Das System muss eine Funktion bereitstellen, mit der ein Mensch die Ausgabe des Modells (Reiseoptionen) verwerfen oder ändern kann, bevor sie versendet wird.",
-      "massnahme": "mensch_prueft",
+      "text": "Jede menschliche Freigabe oder Ablehnung muss mit Zeitstempel, Vorgangs-ID und Begründung im Protokoll vermerkt werden, um die Aufsicht nachvollziehbar zu machen.",
+      "massnahme": "protokollieren",
       "datenkategorie": "gering",
-      "stelle": "Given ein Vorgang mit geprüften Optionen, When das Angebot erzeugt wird (ep-0002-1)",
+      "stelle": "Buchung nach menschlicher Freigabe auslösen (ep-0002-5) und Budgetprüfung und Freigabeprozess umsetzen (ep-0001-4)",
       "adressat": "bc4",
       "wird_zu_story": true,
       "owner": "BC3"
     },
     {
       "id": "p4",
-      "tag": "[AI-Act Art. 9]",
-      "text": "E-Mail-Adressen müssen vor der Verarbeitung durch das Modell durch eine laufende Nummer ersetzt und nach der Verarbeitung wieder eingesetzt werden (Pseudonymisierung).",
-      "massnahme": "pseudonymisieren",
+      "tag": "[AI-Act Art. 17]",
+      "text": "Alle Verarbeitungsschritte müssen mit Zeitstempel, Vorgangs-ID und Teilprozess-ID protokolliert werden, um die Qualität und Nachvollziehbarkeit zu gewährleisten.",
+      "massnahme": "protokollieren",
       "datenkategorie": "gering",
-      "stelle": "Given eine Reiseanfrage per Mail oder Web-Formular, When sie im Postfach oder Formular eingeht (ep-0001-1)",
+      "stelle": "Protokollierung aller Verarbeitungsschritte (ep-0001-7)",
       "adressat": "bc4",
       "wird_zu_story": false,
       "owner": "BC3"
     },
     {
       "id": "p5",
-      "tag": "[AI-Act Art. 17]",
-      "text": "Jeder Verarbeitungsschritt muss mit Vorgangs-ID, Teilprozess-ID und Zeitstempel protokolliert werden, um die Nachvollziehbarkeit zu gewährleisten.",
-      "massnahme": "protokollieren",
-      "datenkategorie": "gering",
-      "stelle": "Given ein abgeschlossener Vorgang, When das Protokoll gelesen wird (ep-0001-5)",
-      "adressat": "bc4",
-      "wird_zu_story": false,
-      "owner": "BC3"
-    },
-    {
-      "id": "p6",
       "tag": "[AI-Act Art. 50]",
-      "text": "In der Eingangsbestätigung und im Angebot muss ein Hinweis enthalten sein, dass die Reiseplanung automatisiert erfolgt und ein Mensch die Entscheidung freigibt.",
+      "text": "In der Eingangsbestätigung und im Angebot muss ein Hinweis auf die automatisierte Verarbeitung und das Recht auf menschliche Entscheidung nach Artikel 14 der KI-Verordnung gegeben werden.",
       "massnahme": "hinweis_geben",
       "datenkategorie": "gering",
-      "stelle": "Given eine vollständige Reiseanfrage, When sie verarbeitet wird (ep-0001-4); Given ein fertiges Angebot, When es versendet wird (ep-0002-2)",
+      "stelle": "Eingangsbestätigung und Rückfragen strukturiert versenden (ep-0001-6) und Angebot mit Vorgangs-ID versenden (ep-0002-2)",
       "adressat": "bc4",
       "wird_zu_story": true,
       "owner": "BC3"
     },
     {
-      "id": "p7",
-      "tag": "[DSGVO Art. 15]",
-      "text": "Das System muss eine Funktion bereitstellen, mit der betroffene Personen Auskunft über die zu ihrer Person verarbeiteten Daten und die Logik der automatisierten Verarbeitung erhalten können.",
-      "massnahme": "hinweis_geben",
+      "id": "p6",
+      "tag": "[DSGVO Art. 25]",
+      "text": "E-Mail-Adressen und Kontaktdaten müssen vor dem Modellaufruf pseudonymisiert werden, um den Datenschutz durch Technikgestaltung zu gewährleisten.",
+      "massnahme": "pseudonymisieren",
       "datenkategorie": "gering",
-      "stelle": "Given eine Anfrage auf Auskunft, When sie eingeht (Prozess außerhalb der Epics)",
-      "adressat": "organisation",
+      "stelle": "Anfragen aus Mail und Web-Formular einheitlich erfassen (ep-0001-1)",
+      "adressat": "bc4",
       "wird_zu_story": false,
       "owner": "BC3"
     },
     {
-      "id": "p8",
-      "tag": "[DSGVO Art. 25]",
-      "text": "Die Pseudonymisierung der E-Mail-Adressen muss technisch in den Entwurf eingebaut sein und darf nicht nachträglich hinzugefügt werden.",
-      "massnahme": "pseudonymisieren",
+      "id": "p7",
+      "tag": "[DSGVO Art. 32]",
+      "text": "Die Verarbeitung der personenbezogenen Daten muss in der EU erfolgen oder durch ein Modell, das den EU-Datenschutzstandards entspricht.",
+      "massnahme": "eu_modell",
       "datenkategorie": "gering",
-      "stelle": "Given eine Reiseanfrage per Mail oder Web-Formular, When sie im Postfach oder Formular eingeht (ep-0001-1)",
+      "stelle": "Anfragen aus Mail und Web-Formular einheitlich erfassen (ep-0001-1) und Verfügbarkeitsprüfung in Buchungsportalen durchführen (ep-0001-3)",
       "adressat": "plattform",
       "wird_zu_story": false,
       "owner": "BC3"
     },
     {
-      "id": "p9",
-      "tag": "[AI-Act Art. 14]",
-      "text": "Bei Extraktion mit Konfidenz unter dem Schwellwert muss der Vorgang als prüfbedürftig markiert und einem Menschen zugewiesen werden.",
-      "massnahme": "mensch_prueft",
+      "id": "p8",
+      "tag": "[DSGVO Art. 13, 14]",
+      "text": "In der Eingangsbestätigung muss ein Hinweis auf die Verarbeitung der personenbezogenen Daten, den Zweck und das Auskunftsrecht nach Artikel 15 DSGVO gegeben werden.",
+      "massnahme": "hinweis_geben",
       "datenkategorie": "gering",
-      "stelle": "Given eine Extraktion mit Konfidenz unter dem Schwellwert, When der Vorgang angelegt wird (ep-0001-2)",
+      "stelle": "Eingangsbestätigung und Rückfragen strukturiert versenden (ep-0001-6)",
       "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3"
+    },
+    {
+      "id": "p9",
+      "tag": "[DSGVO Art. 15]",
+      "text": "Die Organisation muss sicherstellen, dass betroffene Personen binnen eines Monats Auskunft über die sie betreffenden Verarbeitungen erhalten können, einschließlich der Protokolldaten.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "gering",
+      "stelle": "Protokollierung aller Verarbeitungsschritte (ep-0001-7)",
+      "adressat": "organisation",
       "wird_zu_story": false,
       "owner": "BC3"
     },
     {
       "id": "p10",
-      "tag": "[AI-Act Art. 14]",
-      "text": "Das System muss eine Funktion bereitstellen, mit der ein Mensch den Betrieb des Modells anhalten kann, falls systematische Fehler oder Risiken erkannt werden.",
+      "tag": "[AI-Act Art. 9]",
+      "text": "Bei der Extraktion von Freitexten muss eine Konfidenzschwelle implementiert werden, die bei Unterschreitung einen manuellen Fallback auslöst, um Risiken zu mindern.",
       "massnahme": "mensch_prueft",
       "datenkategorie": "gering",
-      "stelle": "Prozessweite Anforderung (keine spezifische Story)",
+      "stelle": "Konfidenzprüfung und manuelle Zuweisung bei niedriger Konfidenz (ep-0001-5)",
       "adressat": "bc4",
-      "wird_zu_story": true,
+      "wird_zu_story": false,
       "owner": "BC3"
     }
   ],
@@ -146,23 +146,24 @@
       "p4",
       "p5",
       "p6",
-      "p9",
+      "p8",
       "p10"
     ],
     "organisation": [
-      "p7"
+      "p9"
     ],
     "plattform": [
-      "p8"
+      "p7"
     ],
     "ohne_angabe": []
   },
   "nicht_an_bc4": [],
   "plattform_standards": [
-    "Pseudonymisierung der E-Mail-Adressen vor Modellaufruf (PII-Filter)",
+    "Pseudonymisierung der Kontaktdaten vor dem Modellaufruf (ADR-004)",
     "Zentrales Audit-Log für alle Verarbeitungsschritte",
-    "Verschlüsselung der Daten in Ruhe und bei Übertragung",
-    "Löschungs-Cron für abgeschlossene Vorgänge nach Aufbewahrungsfrist"
+    "Verschlüsselung der Daten in Transit und im Ruhezustand",
+    "EU-basierte Verarbeitung oder Modell mit EU-Datenschutzstandards",
+    "Löschungs-Cron für Protokolldaten nach Aufbewahrungsfrist"
   ],
   "zuordnung": [
     {
@@ -171,10 +172,17 @@
       "titel": "Reiseanfrage automatisch erfassen und Verfügbarkeit prüfen"
     },
     {
-      "story_id": "st-7f86-9601-99bb-d235c7490f7d-6",
+      "story_id": "st-7f86-9601-99bb-d235c7490f7d-8",
       "herkunft": "compliance",
       "pflicht_ids": [
-        "p6"
+        "p5"
+      ]
+    },
+    {
+      "story_id": "st-7f86-9601-99bb-d235c7490f7d-9",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p8"
       ]
     },
     {
@@ -188,20 +196,6 @@
       "pflicht_ids": [
         "p1"
       ]
-    },
-    {
-      "story_id": "st-9539-ba84-470c-dc60f3f7c980-8",
-      "herkunft": "compliance",
-      "pflicht_ids": [
-        "p3"
-      ]
-    },
-    {
-      "story_id": "st-9539-ba84-470c-dc60f3f7c980-9",
-      "herkunft": "compliance",
-      "pflicht_ids": [
-        "p10"
-      ]
     }
   ],
   "nicht_zugeordnete_compliance_stories": [],
@@ -209,7 +203,13 @@
     {
       "id": "p2",
       "tag": "[AI-Act Art. 14]",
-      "text": "Die Freigabeentscheidung muss mit Zeitstempel, Freigebendem und Begründung im Protokoll gespeichert werden.",
+      "text": "Die Teamleitung muss die Möglichkeit haben, die automatisierte Verfügbarkeitsprüfung und Angebotserstellung zu übersteuern oder zu verwerfen, bevor die Buchung ausgelöst wird.",
+      "owner": "BC3"
+    },
+    {
+      "id": "p3",
+      "tag": "[AI-Act Art. 14]",
+      "text": "Jede menschliche Freigabe oder Ablehnung muss mit Zeitstempel, Vorgangs-ID und Begründung im Protokoll vermerkt werden, um die Aufsicht nachvollziehbar zu machen.",
       "owner": "BC3"
     }
   ],
@@ -220,7 +220,7 @@
     "ergebnis": "bestanden",
     "befunde": [],
     "epics": 2,
-    "stories": 11,
+    "stories": 13,
     "potenziale": 2,
     "anforderungen_im_eingang": 17,
     "akzeptanzkriterien_im_eingang": 11,
