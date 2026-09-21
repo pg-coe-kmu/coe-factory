@@ -14,11 +14,11 @@ Betriebsmuster von BC0 übernommen ([#136](https://github.com/pg-coe-kmu/coe-fac
 > BC0s Token ist hinterlegt, und mit BC0s exakter Rufform gegengeprüft kommt
 > **202 angenommen** zurück. Die Zustellung ist damit erprobt, nicht nur der Endpunkt.
 >
-> *(Bis dahin stand hier »offen« — und genau das wurde zehn Tage lang übersehen: BC0s erste
-> beiden echten Pakete vom 18.09. liefen in `Unauthorized`, ohne dass es jemandem auffiel.
-> 48 grüne Tests belegen nicht, dass je ein echter Ruf durchging, denn sie signieren mit
-> ihrem **eigenen** Testschlüssel. Was ein einseitiger Test grundsätzlich nicht erreicht,
-> ist die Naht zwischen zwei Kontexten.)*
+> *(Bis dahin stand hier »offen« — und genau das wurde zehn Tage lang übersehen: BC0s
+> erste beiden echten Pakete vom 18.09. liefen in `Unauthorized`, ohne dass es jemandem
+> auffiel. 48 grüne Tests belegen nicht, dass je ein echter Ruf durchging, denn sie
+> signieren mit ihrem **eigenen** Testschlüssel. Was ein einseitiger Test grundsätzlich
+> nicht erreicht, ist die Naht zwischen zwei Kontexten.)*
 
 **Nachgezogen an BC0s gebauten Ruf** (Commit `9ddda89`): BC0 weist sich mit
 einer HMAC-Signatur aus, nicht mit `Authorization: Bearer`, und schickt nur die
@@ -211,8 +211,17 @@ DELETE FROM bc2.eingang WHERE paket_id LIKE 'PROBE-%';
 Der Vertragstest gegen die echte Datenbank macht dasselbe automatisiert:
 
 ```bash
+set -a && . ./.env && set +a          # DATABASE_URL in die Umgebung
 BC2_ECHTE_DB=1 .venv/bin/python -m pytest tests/ -q
 ```
+
+**Hier und nur hier.** Am 21.09.2026 ist entschieden worden, die `DATABASE_URL` **nicht**
+auf dem Entwicklungsrechner verfügbar zu machen — weder über den Keychain noch über
+`~/.zshrc` oder Claude Codes `settings.json`. Dieses Dokument sagt, die echte `.env` liege
+ausschließlich auf dem Server, und das Fehlen der Variablen dort draußen ist eine
+Schutzmaßnahme: `tests/conftest.py` löscht sie aktiv, damit die Vorschleife nie
+versehentlich gegen die gemeinsame Datenbank läuft. Lokal gesetzt hätte **jede** Sitzung
+Schreibrecht auf Schema `bc2`, wo Daten liegen, auf die BC0 sich beruft.
 
 ⚠️ **Dieser Lauf ist nicht folgenlos.** `test_abgleich_laeuft_gegen_die_echte_view_durch`
 stößt den echten Nachhol-Abgleich an — und der holt **wartende Pakete von BC0
@@ -267,34 +276,3 @@ cd bc2-strategic-advisor/app && docker compose up -d --build
 ```
 
 Die `.env` bleibt dabei unberührt; sie ist nicht im Repo.
-
-## Die Postgres-Vertragstests laufen hier, nicht lokal
-
-`tests/test_vertrag_postgres.py` prüft, was **nur** die Datenbank garantieren kann: dass
-`paket_id` Primärschlüssel ist und die Idempotenz durchsetzt, dass BC2 die Rechte aus ADR-003 hat,
-und dass `public.v_uebergabe_offen` noch die erwarteten Spalten trägt — ein Schema, das BC0 gehört
-und sich ändern kann, ohne dass jemand BC2 fragt.
-
-**Der Server ist der Ort dafür.** Am 21.09.2026 ist ausdrücklich entschieden worden, die DSN
-**nicht** lokal verfügbar zu machen: dieses Dokument sagt, die echte `.env` liege ausschließlich
-hier, und das Fehlen der Variablen auf dem Entwicklungsrechner ist eine Schutzmaßnahme —
-`tests/conftest.py` löscht sie aktiv, damit die Vorschleife nie versehentlich gegen die gemeinsame
-Datenbank läuft. Eine lokale Kopie hätte jeder Sitzung Schreibrecht auf Schema `bc2` gegeben, wo
-Daten liegen, auf die BC0 sich beruft.
-
-`tests/` ist per `.dockerignore` aus dem Image ausgeschlossen, liegt aber im Klon auf dem Host.
-`docker compose run --rm` startet darum einen **Wegwerf-Container**, erbt `DATABASE_URL` über die
-Variablensubstitution in `docker-compose.yml` aus der `.env` und lässt den laufenden Dienst in Ruhe:
-
-```bash
-cd /opt/bc2/bc2-strategic-advisor/app
-docker compose run --rm --no-deps -v "$PWD/tests:/app/tests" -e BC2_ECHTE_DB=1 app \
-    sh -c "pip install -q pytest && python -m pytest tests/test_vertrag_postgres.py -q"
-```
-
-`pytest` steht bewusst nicht in `requirements.txt` — es gehört nicht in das Betriebsabbild und wird
-im Wegwerf-Container nachinstalliert. Steht der Klon hinter `main`, vorher `git pull` (das baut das
-Image nicht neu).
-
-⚠️ **Das schreibt in die gemeinsame Datenbank.** Die Tests legen Pakete mit dem Präfix `TEST-` in
-`bc2.eingang` ab und löschen sie am Ende wieder. Kein Lauf nebenbei — jedes Mal bewusst auslösen.

@@ -1,26 +1,25 @@
 """
 Vertragstest gegen die **echte** gemeinsame Datenbank.
 
-Läuft nicht in der Vorschleife, und **nicht lokal**. Eine lokale ``DATABASE_URL`` ist am
-21.09.2026 bewusst abgelehnt worden: ``DEPLOY.md`` sagt, die echte ``.env`` liege ausschließlich
-auf dem Server, und das Fehlen der Variablen ist hier eine Schutzmaßnahme — ``conftest.py`` löscht
-sie aktiv, damit die Vorschleife nie versehentlich gegen die gemeinsame Datenbank läuft.
+Läuft nicht in der Vorschleife, und **nicht auf dem Entwicklungsrechner**: eine lokale
+``DATABASE_URL`` ist am 21.09.2026 bewusst abgelehnt worden. ``DEPLOY.md`` sagt, die echte
+``.env`` liege ausschließlich auf dem Server, und das Fehlen der Variablen ist hier eine
+Schutzmaßnahme — ``conftest.py`` löscht sie aktiv, damit die Vorschleife nie versehentlich gegen
+die gemeinsame Datenbank läuft.
 
-Gelaufen wird stattdessen in einem **Wegwerf-Container auf dem VPS**, wo die DSN ohnehin liegt.
-``docker compose run --rm`` erbt sie über die Variablensubstitution in ``docker-compose.yml`` aus
-der Server-``.env``; der laufende Dienst wird dabei nicht angefasst. ``tests/`` ist zwar per
-``.dockerignore`` aus dem Image ausgeschlossen, liegt aber im Klon unter ``/opt/bc2`` auf dem Host
-und wird hereingereicht::
+Gelaufen wird **auf dem Server**, wo die ``.env`` ohnehin liegt (``DEPLOY.md``, Schritt 8)::
 
-    ssh bc2 'cd /opt/bc2/bc2-strategic-advisor/app && \
-      docker compose run --rm --no-deps -v "$PWD/tests:/app/tests" -e BC2_ECHTE_DB=1 app \
-        sh -c "pip install -q pytest && python -m pytest tests/test_vertrag_postgres.py -q"'
+    ssh bc2
+    cd /opt/bc2/bc2-strategic-advisor/app
+    set -a && . ./.env && set +a          # DATABASE_URL in die Umgebung
+    BC2_ECHTE_DB=1 .venv/bin/python -m pytest tests/test_vertrag_postgres.py -q
 
-Steht der Serverklon hinter ``main``, vorher ``git pull`` in ``/opt/bc2`` — das baut das Image
-nicht neu und lässt den Betrieb unberührt.
+Steht der Klon hinter ``main``, vorher ``git pull`` — das baut das Image nicht neu und lässt den
+laufenden Dienst unberührt.
 
-**Das schreibt in die gemeinsame Datenbank** (``TEST-``-Pakete nach ``bc2.eingang``, die der
-``aufraeumen``-Fixture danach wieder löscht) und ist darum jedes Mal ausdrücklich freizugeben.
+⚠️ **Der volle Lauf ist nicht folgenlos.** ``test_abgleich_laeuft_gegen_die_echte_view_durch``
+stößt den echten Nachhol-Abgleich an und holt wartende Pakete von BC0 **tatsächlich** ab. Die
+Einzelheiten stehen in ``DEPLOY.md``, Schritt 8 — vor dem Lauf dort nachlesen.
 
 **Warum es diesen Test gibt.** Die Trigger-Tests laufen gegen
 ``SpeicherEingangsbuch``, einen Doppelgänger. Der ahmt die Semantik nach, aber
