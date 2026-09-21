@@ -26,11 +26,17 @@ Die Schemadateien selbst liegen unter [`../app/`](../app/) (`schema_v*.sql`).
 **ADR-004** liegt unter [`../app/ADR-004_Entitaeten_Identitaet.md`](../app/ADR-004_Entitaeten_Identitaet.md)
 — angenommen 12.08.2026.
 
-**ADR-005 (BC0) — „Ergebnispflicht und Herkunftsnachweis", angenommen am 01.09.2026 — fehlt hier
-noch.** Die Nummer 5 ist im Repository auch an
-[`bc2-strategic-advisor/docs/adr/ADR-005_Analyselauf_ist_das_Paket.md`](../../bc2-strategic-advisor/docs/adr/ADR-005_Analyselauf_ist_das_Paket.md)
-vergeben. Das Register in [`../README.md`](../README.md) weist beide Beschlüsse aus und benennt die
-Ursache; die Nummernvergabe selbst entscheidet
-[#220](https://github.com/pg-coe-kmu/coe-factory/issues/220). Das Papier kommt hinzu, sobald
-feststeht, unter welcher Nummer — ein Einchecken vorher würde die Doppelung im Repository
-festschreiben.
+**ADR-005 · BC0** — `BC0_ADR-005_Ergebnispflicht_und_Herkunft.md`, **angenommen 01.09.2026**.
+R1 Ergebnispflicht, R2 Herkunft je Wert, R3 kein Eingriff ohne Spur — gültig für alle Bounded
+Contexts.
+
+> ⚠️ **Die Nummer 005 ist zweimal vergeben.** Sie trägt auch
+> [`bc2-strategic-advisor/docs/adr/ADR-005_Analyselauf_ist_das_Paket.md`](../../bc2-strategic-advisor/docs/adr/ADR-005_Analyselauf_ist_das_Paket.md)
+> (Entwurf 10.09.2026). **Beide Beschlüsse gelten**, keiner wird umbenannt; beide sind im
+> [ADR-Register](../README.md) mit Warnhinweis ausgewiesen. Die Ursache steht im Papier selbst und
+> trifft BC0: es war drei Wochen lang nicht eingecheckt, deshalb sah die 5 frei aus. Wie die
+> Nummernvergabe künftig läuft, entscheidet
+> [#220](https://github.com/pg-coe-kmu/coe-factory/issues/220).
+
+Die ausführliche Fassung des Papiers (`BC0_ADR-005_Langfassung.md`) bleibt im Projektordner — sie
+trägt den Status „Vorschlag" von vor der Annahme und würde hier nur verwirren.
