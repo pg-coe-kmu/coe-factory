@@ -123,12 +123,16 @@ verantwortet.
 - **`v_bewertung_aktuell` statt `bitkom_bewertungen`** für jede Auswertung — sonst fließen
   überschriebene Stände mit ein.
 - **Eine fehlende Bewertung ist eine Lücke, keine Null — und die Regel greift beim _Lesen_.**
-  27 von 50 Teilprozessen tragen null Bewertungen und stehen in `prozessautomatisierung_matrix`
-  trotzdem, mit `avg: 0` und 0 in allen sechs Kriterien. Wer das als Zahl liest, hält den
-  unerhobenen Teilprozess für den am schlechtesten automatisierbaren im Bestand. Dieselbe Falle
-  wie `v_gate_prozessstand.tp_mit_medienbruch` (#163) und dieselbe Regel wie #167 — nur eine
-  Schicht früher: `erkennung.Teilprozess.bewertet` fragt nach dem **Vorhandensein**, nie nach
-  `avg > 0`. *(Auflage 4 aus [#248](https://github.com/pg-coe-kmu/coe-factory/issues/248).)*
+  `erkennung.Teilprozess.bewertet` fragt nach dem **Vorhandensein**, nie nach `avg > 0`. Wer eine
+  0 als Note liest, hält den unerhobenen Teilprozess für den am schlechtesten automatisierbaren
+  im Bestand — dieselbe Falle wie `v_gate_prozessstand.tp_mit_medienbruch` (#163), dieselbe Regel
+  wie #167. *(Auflage 4 aus [#248](https://github.com/pg-coe-kmu/coe-factory/issues/248).)*
+  **Wo die Null herkommt, ist am 21.09.2026 berichtigt worden** ([#249](https://github.com/pg-coe-kmu/coe-factory/issues/249)):
+  nicht aus der Datenbank. `v_prozessautomatisierung` hat 23 Zeilen und keine einzige Null — ein
+  `GROUP BY` über Bewertungen kann keinen unbewerteten Teilprozess erzeugen. Die »27 von 50 mit
+  `avg: 0`« aus #194 sind ein **Artefakt des Snapshot-Exports**. Die Lücke besteht trotzdem
+  (27 von 50 sind unbewertet), und weil BC2s Fixtures auf dem Snapshot laufen, wiegt die Regel
+  dort **schwerer** als im Produktionsweg, nicht leichter.
 - **Die fünf Lösungsklassen werden wörtlich geschrieben** — `Regelwerk/Weiterleitung`,
   `Integration`, `Extraktion`, `Textgenerierung`, `Assistenz`. An ihnen hängt der Korridor des
   Automatisierungsgrads; eine andere Schreibweise hat keinen. Der Prototyp zu #194 bot dem Modell

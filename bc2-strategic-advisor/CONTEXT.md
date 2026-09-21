@@ -112,7 +112,7 @@ Bewertungen trägt oder nur einen Platzhalter-Namen. Er wird **gemeldet, nicht w
 Paket hat ihn freigegeben, und sein lautloses Verschwinden wäre von einem Versäumnis nicht zu
 unterscheiden. Eine fehlende Bewertung ist eine **Lücke, keine Null** — wer sie als Zahl liest,
 hält den unerhobenen Teilprozess für den am schlechtesten automatisierbaren im Bestand.
-_Avoid_: übersprungen, ignoriert, leer
+_Avoid_: übersprungen, ignoriert, leer, unbewertet
 
 ### Wie BC2 bewertet
 

@@ -45,6 +45,16 @@ Auflage 1 — Obergrenze
 je Kernprozess. #194 hat erwiesen, dass B und C gleichwertig schneiden; der
 Unterschied liegt allein darin, dass B kernprozessübergreifende Doppelgänger
 nicht mehr sehen kann — der Preis des Notausgangs, nicht des Regelwegs.
+
+.. note::
+   **Die Grenze hat heute keinen Gegenstand, und zwar aus einem zweiten Grund.**
+   Die Gegenprobe am Livestand (#249, 21.09.2026) hat gemessen, dass die bisher
+   geschnürten Pakete **1–2 Teilprozesse aus genau einem Kernprozess** tragen —
+   Gate 0 hat bei NoroAI einen einzigen freigegeben. Bei einem Kernprozess
+   fallen B und C zusammen, bei einem Teilprozess alle drei Schnitte. Ob das
+   Aufbaustand oder Absicht ist, ist bei BC0 zu bestätigen (#256). Bis dahin
+   gilt: gebaut ist der Weg für Pakete, die es noch nicht gibt — was richtig
+   ist, aber nicht mit „erprobt" verwechselt werden darf.
 """
 
 from __future__ import annotations

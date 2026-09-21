@@ -15,14 +15,23 @@ gelaufen wird. Also: ein Protokoll ``Bestandsquelle``, dahinter
 :class:`PostgresBestand` für den Betrieb und :class:`SnapshotBestand` für Tests
 und Messungen ohne Zugangsdaten.
 
-**Auflage 4 aus #248 greift hier und nicht später.** 27 von 50 Teilprozessen
-tragen null Bewertungen und stehen in ``prozessautomatisierung_matrix``
-trotzdem — mit ``avg: 0`` und 0 in allen sechs Kriterien. Wer das als Zahl liest
-statt als Lücke, hält den unerhobenen Teilprozess für den am schlechtesten
-automatisierbaren im Bestand. Ein Teilprozess ohne Bewertungen bekommt deshalb
-gar kein Automatisierungsprofil (``None``), keines voller Nullen — dieselbe
-Falle wie ``v_gate_prozessstand.tp_mit_medienbruch`` (Fund aus #163) und
-dieselbe Regel wie #167 („Etikett statt Zahl, nie eine 0").
+**Auflage 4 aus #248 greift hier und nicht später.** Ein Teilprozess ohne
+Bewertungen bekommt gar kein Automatisierungsprofil (``None``), keines voller
+Nullen: ``bewertet`` fragt nach dem **Vorhandensein**, nie nach ``avg > 0``.
+Sonst hielte man den unerhobenen Teilprozess für den am schlechtesten
+automatisierbaren im Bestand — dieselbe Falle wie
+``v_gate_prozessstand.tp_mit_medienbruch`` (Fund aus #163), dieselbe Regel wie
+#167 („Etikett statt Zahl, nie eine 0").
+
+*(Berichtigt am 21.09.2026 nach der Gegenprobe #249: die Begründung aus #194 —
+„27 von 50 stehen in ``prozessautomatisierung_matrix`` mit ``avg: 0``" — gilt
+**nur für den Snapshot-Export**. An der laufenden Datenbank hat
+``v_prozessautomatisierung`` 23 Zeilen und keine einzige Null; ein ``GROUP BY``
+über die Bewertungen kann keinen unbewerteten Teilprozess erzeugen. Die Lücke
+besteht (27 von 50 sind unbewertet), nur erzeugt nicht die Datenbank die Null,
+sondern der Export. Für den Produktionsweg ist die Auflage damit
+gegenstandslos — **für die Test-Fixture wiegt sie schwerer**, und genau auf ihr
+läuft :class:`SnapshotBestand`.)*
 
 **Was diese Schicht nicht kann: BC1 in die Vergangenheit lesen.** BC0s
 Historisierung (``audit_log``) deckt ``public`` ab, nicht Schema ``bc1``.
@@ -356,16 +365,27 @@ SELECT s ->> 'company_name' AS name,
  LIMIT 1
 """
 
-#: Die Leseregel des BC1-Vertrags, wörtlich aus ``contracts/bc1-to-bc2/lesen.sql``.
+#: Die Leseregel des BC1-Vertrags, nach ``contracts/bc1-to-bc2/lesen.sql``.
 #: Sie ist Vertragsbestandteil: es liegen **mehrere** fertige Versionen je
 #: Fokus-Schritt vor, und wer „irgendeine" liest, liest still die falsche.
+#:
+#: **Eine Abweichung vom Vertragstext, mit Grund.** ``lesen.sql`` führt
+#: ``p.step_frequency_per_year`` als Spalte, und genau daran **bricht die
+#: Abfrage an der laufenden Datenbank** (``column p.step_frequency_per_year
+#: does not exist``, gemessen in #249 am 21.09.2026): BC1 führt D3 als
+#: JSON-Feld und hatte die Schema-Ergänzung ausdrücklich an das Binden
+#: geknüpft. Die Abfrage scheitert **beim Parsen**, BC2 liest über den
+#: Vertragsweg also *kein einziges* Profil — nicht eines weniger, keines.
+#: Hier wird das Feld darum aus ``profil`` gelesen statt aus einer Spalte, die
+#: es nicht gibt. Die Reparatur des Vertrags selbst ist
+#: `#255 <https://github.com/pg-coe-kmu/coe-factory/issues/255>`_; bis dahin
+#: liest BC2 wenigstens.
 _SQL_BC1 = """
 SELECT DISTINCT ON (p.focus_step_id)
        p.focus_step_id,
        p.profil_version,
        p.erhebung_id,
        p.frequency_per_year,
-       p.step_frequency_per_year,
        p.total_duration_minutes,
        p.focus_step_duration_minutes,
        p.focus_step_duration_source,
@@ -378,9 +398,14 @@ SELECT DISTINCT ON (p.focus_step_id)
  ORDER BY p.focus_step_id, p.profil_version DESC
 """
 
-#: Die acht namentlich gebundenen Felder aus BC1s Profil-JSON (#184). Nur diese
-#: — ein Profil trägt 43 Interviewfelder, gebunden sind acht.
+#: Die namentlich gebundenen Felder aus BC1s Profil-JSON (#184). Nur diese —
+#: ein Profil trägt 43 Interviewfelder, gebunden sind acht.
+#:
+#: ``step_frequency_per_year`` steht hier und **nicht** in der Spaltenliste:
+#: es ist die Größe mit Vorrang für den Fokus-Schritt (Invariante I8), aber
+#: es existiert in BC1s Schema nur im JSON (#249 → #255).
 _BC1_JSON_FELDER = (
+    "step_frequency_per_year",
     "documentation_status",
     "standardization_level",
     "data_availability_score",
@@ -557,7 +582,7 @@ def _bc1_aus_zeile(z: dict[str, Any]) -> Bc1Profil:
         profil_version=z.get("profil_version"),
         erhebung_id=z.get("erhebung_id"),
         frequency_per_year=z.get("frequency_per_year"),
-        step_frequency_per_year=z.get("step_frequency_per_year"),
+        step_frequency_per_year=werte.get("step_frequency_per_year"),
         total_duration_minutes=z.get("total_duration_minutes"),
         focus_step_duration_minutes=z.get("focus_step_duration_minutes"),
         focus_step_duration_source=z.get("focus_step_duration_source"),
