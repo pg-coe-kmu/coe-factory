@@ -91,6 +91,29 @@ Der vorgeschlagene Weg, ein Potenzial umzusetzen. Hängt am Potenzial und ist ni
 dasselbe Potenzial kann verschieden gelöst werden.
 _Avoid_: Muster, Pattern, empfohlenes Muster
 
+**Lösungsklasse**:
+Eine von **fünf** festen Einordnungen des Lösungsansatzes — `Regelwerk/Weiterleitung`,
+`Integration`, `Extraktion`, `Textgenerierung`, `Assistenz`. Sie ist kein Etikett, sondern trägt
+den **Automatisierungsgrad**: an ihr hängt der Korridor, in dem verortet wird (ADR-006 · BC2).
+Geschrieben wird sie **wörtlich so** wie hier — die Namen stehen im Vertrag als Aufzählung, und
+eine sechste oder eine andere Schreibweise hat keinen Korridor.
+_Avoid_: Lösungsansatz-Klasse, Automatisierungsklasse, Kategorie, Muster
+
+> **Drei Namen, eine Sache — und einer davon ist gefährlich.** Der Vertrag führt sie als
+> `automatisierungsgrad.klasse`, ADR-006 als „Lösungsansatz-Klasse", der Erkennungsschritt als
+> `loesungsklasse`. Das ist hinnehmbar, solange die **Werte** dieselben sind. Sie waren es nicht:
+> der Prototyp zu #194 bot dem Modell fünf ganz andere an, und **10 von 10** seiner Potenziale
+> trugen damit eine Klasse, die der Vertrag nicht kennt (Fund in #248). `Integration` fehlte ihm
+> ganz — ausgerechnet die Klasse für Medienbrüche, also NoroAIs Hauptbefund.
+
+**Nicht geschnitten**:
+Ein freigegebener Teilprozess, aus dem **bewusst kein** Potenzial entstand — weil er keine
+Bewertungen trägt oder nur einen Platzhalter-Namen. Er wird **gemeldet, nicht weggelassen**: ein
+Paket hat ihn freigegeben, und sein lautloses Verschwinden wäre von einem Versäumnis nicht zu
+unterscheiden. Eine fehlende Bewertung ist eine **Lücke, keine Null** — wer sie als Zahl liest,
+hält den unerhobenen Teilprozess für den am schlechtesten automatisierbaren im Bestand.
+_Avoid_: übersprungen, ignoriert, leer, unbewertet
+
 ### Wie BC2 bewertet
 
 **Manueller Aufwand heute**:
