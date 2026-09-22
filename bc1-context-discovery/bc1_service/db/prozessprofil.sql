@@ -155,7 +155,7 @@ INSERT INTO pg_temp.bc1_soll_signatur (zeile) VALUES
     ('constraint|prozessprofil|prozessprofil_upstream_fk|FOREIGN KEY (company_id, upstream_process_id) REFERENCES ref_prozesse(company_id, process_id)'),
     ('constraint|prozessprofil|prozessprofil_upstream_kein_selbstbezug|CHECK (((upstream_process_id IS NULL) OR ((upstream_process_id)::text <> (process_id)::text)))'),
     ('constraint|prozessprofil|prozessprofil_version_positiv|CHECK ((profil_version >= 1))'),
-    ('constraint|prozessprofil|prozessprofil_zahlen_wertebereich|CHECK ((((frequency_per_year IS NULL) OR ((frequency_per_year >= (0)::numeric) AND (frequency_per_year < ''Infinity''::numeric))) AND ((executions_per_run IS NULL) OR ((executions_per_run >= (0)::numeric) AND (executions_per_run < ''Infinity''::numeric))) AND ((total_duration_minutes IS NULL) OR ((total_duration_minutes >= (0)::numeric) AND (total_duration_minutes < ''Infinity''::numeric))) AND ((focus_step_duration_minutes IS NULL) OR ((focus_step_duration_minutes >= (0)::numeric) AND (focus_step_duration_minutes < ''Infinity''::numeric)))))'),
+    ('constraint|prozessprofil|prozessprofil_zahlen_wertebereich|CHECK ((((frequency_per_year IS NULL) OR ((frequency_per_year >= (0)::numeric) AND (frequency_per_year < ''Infinity''::numeric))) AND ((step_frequency_per_year IS NULL) OR ((step_frequency_per_year >= (0)::numeric) AND (step_frequency_per_year < ''Infinity''::numeric))) AND ((executions_per_run IS NULL) OR ((executions_per_run >= (0)::numeric) AND (executions_per_run < ''Infinity''::numeric))) AND ((total_duration_minutes IS NULL) OR ((total_duration_minutes >= (0)::numeric) AND (total_duration_minutes < ''Infinity''::numeric))) AND ((focus_step_duration_minutes IS NULL) OR ((focus_step_duration_minutes >= (0)::numeric) AND (focus_step_duration_minutes < ''Infinity''::numeric)))))'),
     ('effektiv_spalte|profil_rollen|bc1_role|INSERT'),
     ('effektiv_spalte|profil_rollen|bc1_role|REFERENCES'),
     ('effektiv_spalte|profil_rollen|bc1_role|SELECT'),
@@ -262,6 +262,7 @@ INSERT INTO pg_temp.bc1_soll_signatur (zeile) VALUES
     ('spalte|prozessprofil|profil_version|integer|notnull||-|-'),
     ('spalte|prozessprofil|profil|jsonb|notnull||-|-'),
     ('spalte|prozessprofil|status|text|notnull||-|-'),
+    ('spalte|prozessprofil|step_frequency_per_year|numeric|null||-|-'),
     ('spalte|prozessprofil|total_duration_minutes|numeric|null||-|-'),
     ('spalte|prozessprofil|upstream_process_id|character varying(8)|null||-|-'),
     ('trigger_intern|profil_rollen|profil_rollen_profil_fk|O'),
@@ -552,6 +553,10 @@ BEGIN
         upstream_process_id                 varchar(8),
         downstream_process_id               varchar(8),
         frequency_per_year                  numeric,
+        -- D3: Durchlaeufe pro Jahr des Fokus-Schritts, falls abweichend. Gebunden
+        -- von BC2 am 20.09.2026 (Vertrag 1.2, Invariante I8: gesetzt = Vorrang vor
+        -- frequency_per_year). Bestand wird per prozessprofil_d3.sql nachgezogen.
+        step_frequency_per_year             numeric,
         executions_per_run                  numeric,
         total_duration_minutes              numeric,
         focus_step_duration_minutes         numeric,
@@ -592,6 +597,9 @@ BEGIN
         CONSTRAINT prozessprofil_zahlen_wertebereich CHECK (
             (frequency_per_year IS NULL
                 OR (frequency_per_year >= 0 AND frequency_per_year < 'Infinity'::numeric))
+            AND (step_frequency_per_year IS NULL
+                OR (step_frequency_per_year >= 0
+                    AND step_frequency_per_year < 'Infinity'::numeric))
             AND (executions_per_run IS NULL
                 OR (executions_per_run >= 0 AND executions_per_run < 'Infinity'::numeric))
             AND (total_duration_minutes IS NULL

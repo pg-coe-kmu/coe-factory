@@ -218,9 +218,34 @@ def test_jede_typisierte_spalte_wird_belegt():
     inhalt = _bau(_state(focus_step=("KP-01.TP-1", FieldStatus.GUELTIG)))
     assert set(inhalt.spalten) == {
         "process_owner_rolle_id", "upstream_process_id", "downstream_process_id",
-        "frequency_per_year", "executions_per_run", "total_duration_minutes",
-        "focus_step_duration_minutes", "focus_step_duration_source",
-        "focus_step_duration_confidence_pct"}
+        "frequency_per_year", "step_frequency_per_year", "executions_per_run",
+        "total_duration_minutes", "focus_step_duration_minutes",
+        "focus_step_duration_source", "focus_step_duration_confidence_pct"}
+
+
+def test_step_frequency_liest_aus_d3_und_nicht_aus_frequency_per_year():
+    # D3 ist ein passives E-Feld (required=False); die Spalte kommt aus GENAU diesem
+    # Feld — unterscheidbarer Wert, damit eine Vertauschung mit D1 auffaellt (#255).
+    paket = UseCasePackage(
+        name="discovery", schema_version="1.1+ctx-eeeeeeeeeeeeeeee",
+        fields=(
+            FieldSpec("focus_step", "Welcher Schritt?", typ=AUSWAHL("KP-01.TP-1"),
+                      identitaetskritisch=True),
+            FieldSpec("frequency_per_year", "Wie oft?", typ=ZAHL),
+            FieldSpec("step_frequency_per_year", "Wie oft der Schritt?", typ=ZAHL,
+                      required=False),
+        ),
+    )
+    st = SessionState("s3", paket.schema_version, paket_name="discovery",
+                      company_id="11111111-1111-1111-1111-111111111111")
+    for name, wert in (("focus_step", "KP-01.TP-1"), ("frequency_per_year", "11"),
+                       ("step_frequency_per_year", "66")):
+        st.values[name] = FieldValue(value=wert, status=FieldStatus.GUELTIG,
+                                     source_message_id="m1")
+    inhalt = baue_profilinhalt(st, paket, kp_bekannt=lambda kp: False,
+                               bekannte_systeme=frozenset())
+    assert inhalt.spalten["step_frequency_per_year"] == Decimal("66")
+    assert inhalt.spalten["frequency_per_year"] == Decimal("11")
 
 
 def test_jede_spalte_liest_aus_ihrem_eigenen_feld():
@@ -242,7 +267,8 @@ def test_jede_spalte_liest_aus_ihrem_eigenen_feld():
         bekannte_systeme=frozenset({"S-01", "S-02"}))
     assert inhalt.spalten == {
         "process_owner_rolle_id": None,
-        "frequency_per_year": Decimal("11"), "executions_per_run": Decimal("22"),
+        "frequency_per_year": Decimal("11"), "step_frequency_per_year": None,
+        "executions_per_run": Decimal("22"),
         "total_duration_minutes": Decimal("33"),
         "focus_step_duration_minutes": Decimal("44"),
         "focus_step_duration_source": "gemessen",

@@ -37,6 +37,7 @@ KONFLIKT_LOG_ABSTAND_S = 60.0      # Rate-Limit fuer den stabilen Konflikt-Log
 # Spalte -> Feldname. Nur gueltige Werte werden konvertiert.
 _ZAHLENSPALTEN = {
     "frequency_per_year": "frequency_per_year",
+    "step_frequency_per_year": "step_frequency_per_year",   # D3, gebunden 20.09. (#255)
     "executions_per_run": "executions_per_run",
     "total_duration_minutes": "total_duration_minutes",
     "focus_step_duration_minutes": "focus_step_duration_minutes",
