@@ -12,7 +12,7 @@ dem passt, was sie erwartet. Sie läuft in **einer** Transaktion: entweder alles
 nichts. Trifft sie auf eine leere Datenbank, legt sie an (**Fall 1**); trifft sie den
 exakt erwarteten Bestand, tut sie nichts (**Fall 2**); weicht irgendetwas ab, **bricht sie
 ab und ändert nichts** (**Fall 3**). Die Prüfung vergleicht den Ist-Zustand des Katalogs
-Zeile für Zeile mit einer im Skript hinterlegten **Sollsignatur** (176 Zeilen). Wer die
+Zeile für Zeile mit einer im Skript hinterlegten **Sollsignatur** (177 Zeilen). Wer die
 DDL ändert, muss die Signatur neu erzeugen — sonst blockiert sich das Skript selbst.
 
 Seit B1 (13.09.2026) gibt es eine **zweite Datei `sessions.sql`** für die Sitzungstabelle
@@ -23,6 +23,16 @@ Fremdschlüssels zu `companies`. Sie läuft **nach** `prozessprofil.sql`; die er
 bleibt davon unberührt und meldet weiter Fall 2 (im Container in beide Richtungen
 getestet). Der Dienst legt die Sitzungstabelle nicht mehr selbst an — fehlt sie oder
 fehlen der DSN-Rolle die Rechte, bricht er beim Start mit Verweis auf diese Anleitung ab.
+
+Seit #255 (22.09.2026) gibt es eine **dritte Datei `prozessprofil_d3.sql`**, die **vor**
+`prozessprofil.sql` läuft: BC2 hat Frage D3 gebunden (Vertrag 1.2), `step_frequency_per_year`
+ist deshalb eine echte Spalte in `bc1.prozessprofil` (numeric, im Wertebereichs-CHECK). Weil
+`prozessprofil.sql` einen Bestand nie verändert (nur anlegen oder bestätigen), bringt diese
+Datei den **vorhandenen** Bestand auf den neuen Stand — eigene Vierfallregel: **M0** Tabelle
+fehlt → nichts zu tun (frische DB) · **M1** Spalte fehlt + alter CHECK → Spalte anlegen, CHECK
+erweitern, Nachprüfung in derselben Transaktion · **M2** schon migriert → nichts zu tun ·
+**M3** alles andere → Abbruch ohne Änderung. Der Nachweis, dass die Migration stimmt, ist
+`prozessprofil.sql` danach: **Fall 2**. Gleiches Muster wie BC0s `schema_v3.x`-Dateien.
 
 ---
 
@@ -46,7 +56,8 @@ Erteilt von BC0 am 02.09.2026, in der Ziel-Supabase nachgemessen:
 Aus `bc1-context-discovery/`, **als `bc1_role`**:
 
 ```bash
-psql "$BC1_DB_DSN" -v ON_ERROR_STOP=1 -1 -f bc1_service/db/prozessprofil.sql \
+psql "$BC1_DB_DSN" -v ON_ERROR_STOP=1 -1 -f bc1_service/db/prozessprofil_d3.sql \
+  && psql "$BC1_DB_DSN" -v ON_ERROR_STOP=1 -1 -f bc1_service/db/prozessprofil.sql \
   && psql "$BC1_DB_DSN" -v ON_ERROR_STOP=1 -1 -f bc1_service/db/sessions.sql
 ```
 
@@ -54,8 +65,9 @@ psql "$BC1_DB_DSN" -v ON_ERROR_STOP=1 -1 -f bc1_service/db/prozessprofil.sql \
 zurückrollt. Jede Datei ist eine eigene Transaktion und prüft **eigenständig** (beide auch
 die Mitgliedschafts-Kanten); jede meldet ihren eigenen Fall 1/2/3. Das `&&` ist Pflicht:
 meldet die erste Datei Fall 3, darf die zweite gar nicht erst laufen — erst die Abweichung
-verstehen. Reihenfolge erst `prozessprofil.sql`, dann `sessions.sql`, damit die Live-
-Meldungen in derselben Ordnung stehen wie die Tests (`tests/db_fixture.py`).
+verstehen. Reihenfolge `prozessprofil_d3.sql` (Migration, auf frischer DB M0 = nichts zu
+tun), dann `prozessprofil.sql`, dann `sessions.sql`, damit die Live-Meldungen in derselben
+Ordnung stehen wie die Tests (`tests/db_fixture.py`).
 
 ## 3. Die Dreifallregel lesen
 
@@ -267,3 +279,24 @@ Ausgeführt als `bc1_role` (Session Pooler), Signatur **40 Zeilen**, alle Zeilen
 Fremdschema liest sie, ein `GRANT` ist weder nötig noch erwünscht. Die Löschkaskade von
 `companies` läuft mit den Rechten von `bc1_role` (im Container unter einem rechtelosen
 Löschkonto gemessen, Test `test_kaskade_raeumt_die_sitzung_auch_unter_rechtelosem_loeschkonto`).
+
+## 11. Dritter Lauf: `prozessprofil_d3.sql` in der Supabase — steht aus (#255)
+
+Anlass: BC2 liest über `contracts/bc1-to-bc2/lesen.sql` `p.step_frequency_per_year`; ohne die
+Spalte parst die Abfrage nicht, BC2 liest **nichts** (#255, gemessen von BC2 am 21.09.2026).
+Dringlich vor dem Durchstich KW 40 (#206). Ausführung: Richard per `lauf.sh d3` (liest die
+Zugangsdaten selbst; Log `einspielen-d3.log` und Nachprüfung im SDD-Ordner).
+
+| Schritt | Erwartung | Gemessen |
+|---|---|---|
+| Vorprüfung | neue `prozessprofil.sql` am Altbestand: `Fall 3` mit genau `- fehlt: spalte\|prozessprofil\|step_frequency_per_year\|…`, `- fehlt:`/`+ zuviel:` für den CHECK — **Rollback, nichts geändert** | steht aus |
+| Lauf 1 | `NOTICE: M1: Bestand ohne Spalte — Spalte anlegen und CHECK erweitern.` + `NOTICE: M1: erledigt …` | steht aus |
+| Lauf 2 | `NOTICE: M2: Spalte und CHECK bereits auf Stand #255 — No-op.` | steht aus |
+| Nachweis | `prozessprofil.sql`: `NOTICE: Fall 2` | steht aus |
+| Nichtbeeinflussung | `sessions.sql`: `NOTICE: Fall 2` | steht aus |
+| Nachprüfung A–D | Spalte numeric/nullable · CHECK validiert und nennt die Spalte · 6 Zeilen, 0 mit Wert, 3 fertig · `lesen.sql`-Spaltenliste parst | steht aus |
+
+**Danach (Auflage aus #255, zu Recht):** `lesen.sql` an der laufenden Datenbank gegenprüfen —
+nicht aus dem Code schließen — und in #255 Bescheid geben. **Für BC0 heißt das:** nichts zu tun;
+Rechte an der Tabelle ändern sich nicht (`ADD COLUMN` erbt die Tabellen-ACL).
+
