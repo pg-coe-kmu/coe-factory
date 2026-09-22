@@ -1,11 +1,11 @@
-# Auswirkungsprüfung BC0-Schema v3.2–v3.6 auf BC1 — A7 (Gerüst gegen Live)
+# Auswirkungsprüfung BC0-Schema v3.2–v3.7 auf BC1 — A7 (Gerüst gegen Live)
 
 > Gemessen am 22.09.2026: dasselbe Lese-Skript wie bei A5 (`struktur_bc0.sql`, erweitert um die
 > zwei neuen Sichten, `owner_rolle_id`, den Eigner-Index und `ref_personen`) gegen die Supabase
 > (als `bc1_role`) und gegen einen frischen PG-17-Container mit dem nachgezogenen
 > `tests/db/bc0_geruest.sql`; beide Ausgaben per Mengen-Diff verglichen. Quellen im Repo: nur
-> `schema_v3.4_aktiv_und_owner.sql` (v3.3 war Code, v3.5/v3.6 sind nicht gepusht) — für v3.6 ist
-> die Live-Messung die einzige Quelle. Anlass: Simeons Brief vom 18.09. (v3.4) und sein
+> `schema_v3.4_aktiv_und_owner.sql` (v3.3 war Code; v3.5–v3.7 sind am 22.09. nicht gepusht) — dafür
+> sind die Live-Messung und Simeons Ticket-Kommentare (#216, #201/#214, #211) die Quellen. Anlass: Simeons Brief vom 18.09. (v3.4) und sein
 > PR-#201-Kommentar vom 22.09. (v3.6, Entzug der Betriebstabellen).
 
 ## Big Picture
@@ -27,15 +27,19 @@ Spalte, jeder Constraint und jedes Recht, das BC1 braucht, ist live vorhanden.
    (Owner als Auswahl mit Vorbelegung). Dafür ist `ref_personen` jetzt im Gerüst (die Sicht
    joint es) — das Gerüst hat damit auch den FK aus `prozess_personen`, der bisher bewusst
    fehlte; es ist an dieser Stelle nicht mehr laxer als BC0.
-3. **`bc1_role` hat kein direktes SELECT auf `prozess_personen` mehr.** A5 hatte es live gemessen;
-   heute sind für `bc1_role` weder Spalten noch ein Recht sichtbar. Das ist unser eigener
-   Verzicht aus dem Brief vom 15.09. („keine Namen gelesen, SELECT auf `prozess_personen`
-   unnötig") — BC0 hat ihn umgesetzt. Folgenlos: den Eigner liefert `v_prozesse_lesen`, und die
-   Sicht läuft mit den Rechten ihres Eigentümers. `ref_personen` (Klarnamen) war für uns nie
-   lesbar und ist es auch jetzt nicht — richtig so.
+3. **`bc1_role` hat kein direktes SELECT auf `prozess_personen` und `ref_personen` mehr —
+   Schema v3.5 (`schema_v3.5_revoke_personen_bc1.sql`, eingespielt 21.09., #216).** A5 hatte das
+   Recht auf `prozess_personen` live gemessen; heute sind für `bc1_role` weder Spalten noch ein
+   Recht sichtbar. Das ist unser eigener Verzicht aus dem Brief vom 15.09. („Ihr könnt es
+   entziehen") — BC0 hat ihn umgesetzt und in #216 selbst notiert, dass die Meldung an uns noch
+   aussteht; wir haben es per Messung gefunden. Folgenlos: den Eigner liefert `v_prozesse_lesen`,
+   und die Sicht läuft mit den Rechten ihres Eigentümers (BC0s Gegenprobe in #216: alle fünf
+   Wege `t`). Klarnamen (`ref_personen`) waren für uns nie lesbar — richtig so.
 
-**v3.6 (Entzug der fünf Betriebstabellen, 22.09.):** berührt keines unserer Objekte; alle Rechte,
-die BC1 braucht, sind unverändert da (Simeons Gegenprüfung bestätigt).
+**v3.6 (Entzug der fünf Betriebstabellen, 22.09., #201/#214) und v3.7 (App-Rolle `leser`, 22.09.,
+#211):** berühren keines unserer Objekte; alle Rechte, die BC1 braucht, sind unverändert da
+(Simeons Gegenprüfung bestätigt). v3.7 ist eine Rolle der Anwendung, nicht der Datenbank — unser
+Anwendungskonto bleibt `benutzer` (Schreibrechte für B4).
 
 ## Technischer Teil — die Dreispalten-Liste
 
@@ -47,7 +51,7 @@ die BC1 braucht, sind unverändert da (Simeons Gegenprüfung bestätigt).
 | `aktiv` auf `ref_prozesse`, `ref_teilprozesse`, `mandant_systeme` | live NOT NULL DEFAULT true; Gerüst jetzt ebenso (A5 hatte es als offen notiert) | nachgezogen; **BC1 filtert über die Sichten** (4 Tests) |
 | Spalten/Constraints der neun Tabellen aus A5, die BC1 nennt | live vorhanden, gleich | gilt unverändert |
 | `ref_personen` | live existiert, für `bc1_role` **unsichtbar** (kein Recht — Klarnamen); im Gerüst definitionsgleich (ohne `email`/`telefon` aus v1.5, die keine Sicht nennt) | neu im Gerüst, weil `v_prozesse_lesen` es joint |
-| `prozess_personen` | live: Constraints und Index sichtbar, **Spalten/SELECT für `bc1_role` nicht mehr** (A5: direktes SELECT vorhanden) | **geändert — gewollt** (unser Verzicht 15.09.), folgenlos |
+| `prozess_personen` | live: Constraints und Index sichtbar, **Spalten/SELECT für `bc1_role` nicht mehr** (A5: direktes SELECT vorhanden) | **geändert (v3.5, #216) — gewollt** (unser Verzicht 15.09.), folgenlos |
 | Rechte, die BC1 braucht (`bc_leser` SELECT auf alle vier Sichten + `companies`, `ref_teilprozesse`, `mandant_systeme`, `ref_erhebungen`, `mandant_rollen`; `REFERENCES` für FKs) | live vorhanden | gilt unverändert |
 | Zusätzliche Rechte live: `bc1_role` **direkt** SELECT auf `v_teilprozesse_lesen`, `v_systeme_lesen`, `v_anfrage_steller` (zusätzlich zu `bc_leser`); `bc_leser` SELECT auf `ref_items`, `bitkom_bewertungen` | mehr als das Gerüst (das vergibt nur über `bc_leser`, wie `schema_v3.4` es schreibt) | fremd, harmlos |
 | `v_anfrage_steller` | live mit GRANT (v3.4 Z. 173, „das Recht, das wir schuldig geblieben sind"); nicht im Gerüst | kommt mit **B5** ins Gerüst — nicht vorher (YAGNI) |
