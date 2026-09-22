@@ -4,8 +4,9 @@
 > zwei neuen Sichten, `owner_rolle_id`, den Eigner-Index und `ref_personen`) gegen die Supabase
 > (als `bc1_role`) und gegen einen frischen PG-17-Container mit dem nachgezogenen
 > `tests/db/bc0_geruest.sql`; beide Ausgaben per Mengen-Diff verglichen. Quellen im Repo: nur
-> `schema_v3.4_aktiv_und_owner.sql` (v3.3 war Code; v3.5–v3.7 sind am 22.09. nicht gepusht) — dafür
-> sind die Live-Messung und Simeons Ticket-Kommentare (#216, #201/#214, #211) die Quellen. Anlass: Simeons Brief vom 18.09. (v3.4) und sein
+> `schema_v3.4_aktiv_und_owner.sql` (v3.3 war Code; v3.5–v3.7 liegen auf BC0s Zweig `bc0-doku-und-entscheidungen`,
+> PR #259, am 22.09. noch nicht auf `main`) — dazu die Live-Messung und Simeons Ticket-Kommentare
+> (#216, #201/#214, #211). Anlass: Simeons Brief vom 18.09. (v3.4) und sein
 > PR-#201-Kommentar vom 22.09. (v3.6, Entzug der Betriebstabellen).
 
 ## Big Picture
