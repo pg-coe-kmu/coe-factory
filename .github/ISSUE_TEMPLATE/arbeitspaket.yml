@@ -52,6 +52,7 @@ body:
     attributes:
       label: Bounded Context
       options:
+        - bc0
         - bc1
         - bc2
         - bc3
