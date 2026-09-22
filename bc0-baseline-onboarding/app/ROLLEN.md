@@ -7,6 +7,24 @@
 
 ---
 
+> ### Namensgleichheit, die es zu trennen gilt — Nachtrag 22.09.2026
+>
+> Seit Vorgang **#211** gibt es zwei Dinge, die „Leser" heißen:
+>
+> | | `bc_leser` | `leser` |
+> |---|---|---|
+> | Was | PostgreSQL-**Gruppenrolle** | Rolle der **Anwendung** |
+> | Wer | BC1 bis BC4, über eine eigene Datenbankverbindung | ein Mensch, der sich an der PWA anmeldet |
+> | Wo steht es | `pg_roles`, `GRANT` | `app_benutzer.rolle` |
+> | Wer prüft | PostgreSQL | FastAPI (`bc0_auth`) |
+> | Beschrieben in | **dieser Datei** | `AUTH.md`, Abschnitt 2 |
+>
+> Die beiden haben nichts miteinander zu tun. `schema_v3.7_rolle_leser.sql`
+> ändert **nur** die Bedingung an `app_benutzer.rolle` und fasst keine
+> Datenbankrolle an.
+
+---
+
 ## Modell
 
 Jeder Bounded Context bekommt eine eigene Login-Rolle und ein eigenes Schema. Das Leserecht hängt an einer gemeinsamen Gruppenrolle.
@@ -64,6 +82,17 @@ Zeile = wer, Spalte = worauf.
 
 **Es gibt keine leeren Felder.** Lesen ist umfassend, entsprechend der Kaskade BC0 → BC1 → BC2 → BC3 → BC4: Jede Stufe braucht alles Vorherige. BC2 rechnet den ROI aus BC0-Baseline **und** BC1-Anreicherung — beides muss lesbar sein.
 
+> **Nachtrag 22.09.2026 — die Matrix gilt für Fachdaten, nicht für Betriebsdaten.**
+> Fünf Tabellen sind aus der Lesegruppe entfernt: `app_benutzer` (Passwort-Abdrücke),
+> `app_sitzungen`, `app_anmeldeversuche`, `app_benutzer_mandanten` und `bc_zustellungen`.
+> Sie betreffen den **Betrieb von BC0**, nicht die Kaskade. Entzogen für `bc_leser` **und**
+> für `bc1_role` bis `bc4_role` (`schema_v3.6_betriebstabellen_entzug.sql`, Vorgang #214).
+> Vorher waren alle fünf für alle vier Kontexte lesbar — gemessen am 22.09.2026.
+>
+> **Die Voreinstellung selbst steht weiter.** `pg_default_acl` gibt für `public` unverändert
+> `bc1_role=r` und `bc_leser=r`; die nächste neue Tabelle ist also wieder automatisch lesbar.
+> Das ist die offene Hälfte von #214.
+
 ### Was die Matrix nicht zeigt
 
 Die geplante **Anreicherung von BC0-Zeilen** — also dass BC1 unter derselben ID eine eigene Spalte in `public` beschreibt. Das wäre ein zusätzliches, sehr eng begrenztes `W` in der Spalte `public`, auf Spaltenebene statt auf Tabellenebene (`GRANT UPDATE (bc1_spalte_a, …)`). Es kommt erst, wenn ADR-003 entschieden ist — siehe „Noch offen".
@@ -73,6 +102,8 @@ Die geplante **Anreicherung von BC0-Zeilen** — also dass BC1 unter derselben I
 Die Matrix beschreibt das **gewollte** Modell. Die Datenbank folgt ihm nicht überall.
 
 Neben den Rechten aus `bc_leser` bestehen **direkte** Berechtigungen an `bc1_role`: bei `ref_personen` und `prozess_personen` ausschließlich direkt, bei sieben weiteren Tabellen doppelt. Praktische Folge: **Ein `REVOKE ... FROM bc_leser` ändert nichts.** Belegt am 23.08.2026 an `ref_prozesse` — das Entzugsskript meldete Vollzug, `bc1_role` las die Tabelle weiter.
+
+> **Nachtrag 21.09.2026:** Die beiden **ausschließlich direkt** vergebenen Rechte sind entzogen — `bc1_role` hat auf `ref_personen` und `prozess_personen` kein `SELECT` mehr (`schema_v3.5_revoke_personen_bc1.sql`, Vorgang #216). **Die sieben doppelt vergebenen bestehen weiter**, dort wirkt ein `REVOKE ... FROM bc_leser` nach wie vor nicht.
 
 Wer Rechte prüft, prüft deshalb mit `\dp <tabelle>` an der Datenbank und nicht anhand dieser Matrix. Wer Rechte entzieht, entzieht sie der Gruppenrolle **und** jeder direkt berechtigten Rolle.
 
@@ -221,7 +252,7 @@ Betrifft nur diese eine Rolle — die anderen BCs und BC0 bleiben davon unberüh
 
 **Row-Level-Security** für die Mandantentrennung (Schema v1.1, Abschnitt 7). Relevant, sobald mehr als ein echter Mandant in der Datenbank liegt.
 
-**Direkte Grants bereinigen.** Sieben Tabellen sind doppelt vergeben, zwei ausschließlich direkt. Solange das so ist, ist die Gruppenrolle Dokumentation und keine Steuerung. Eigenes Skript, zusammen mit der Korrektur an `schema_v1.3_teil_a2`, dessen Kopfkommentar („Wer den Namen zu einer `person_id` braucht, fragt in BC0 nach") das Gegenteil des eingerichteten Zustands behauptet.
+**Direkte Grants bereinigen.** Sieben Tabellen sind doppelt vergeben. Die zwei ausschließlich direkten sind **am 21.09.2026 entzogen** (Vorgang #216) — Anlass war BC1s schriftliche Erklärung vom 15.09.2026, beide Rechte nicht zu brauchen: Rollen kommen aus `mandant_rollen`, Eigner und Sponsor aus `v_prozesse_lesen`, der Steller aus `v_anfrage_steller`. Gegengeprüft: beide Rechte `f`, die fünf Wege, die BC1 nutzt, alle `t`, kein Fremdschlüssel aus `bc1.*` auf die beiden Tabellen. **`companies` wurde ausdrücklich nicht angefasst** — BC1s Löschkaskade liest es mit den Rechten von `bc1_role`; welcher Weg dort bleibt, entscheidet sich vor Etappe 4c. Solange die sieben doppelten bestehen, ist die Gruppenrolle Dokumentation und keine Steuerung. Eigenes Skript, zusammen mit der Korrektur an `schema_v1.3_teil_a2`, dessen Kopfkommentar („Wer den Namen zu einer `person_id` braucht, fragt in BC0 nach") das Gegenteil des eingerichteten Zustands behauptet.
 
 **Änderungsprotokoll.** ~~`audit_log` ist angelegt, wird aber nicht befüllt.~~ **Erledigt am 04.09.2026 (Schema v2.6, R9 aus #148):** `audit_log` hält seit 04:28 UTC jede Änderung an allen Fachtabellen mit Zeitstempel, Zeilenbild (`alt`/`neu`) und Akteur (`benutzer_id` aus der Anmeldung, sonst der Datenbankbenutzer). Klarnamen aus `ref_personen` werden vor dem Schreiben entfernt. Siehe Abschnitt „Seit 04.09.2026" unten.
 

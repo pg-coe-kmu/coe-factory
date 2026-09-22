@@ -100,8 +100,10 @@ def befehl_anlegen(dienst: AuthDienst, args) -> None:
         print(str(fehler), file=sys.stderr)
         raise SystemExit(1)
     print("Angelegt: %s (%s)" % (neuer.email, neuer.rolle.value))
-    if neuer.rolle is Rolle.BENUTZER and not neuer.mandanten:
-        print("Hinweis: Ohne Mandantenzuordnung sieht dieser Benutzer nichts.")
+    # Vorgang #211: gilt fuer `leser` genauso wie fuer `benutzer` -- beide sehen
+    # ausschliesslich die ihnen zugeordneten Mandanten. Nur der Admin sieht alle.
+    if neuer.rolle is not Rolle.ADMIN and not neuer.mandanten:
+        print("Hinweis: Ohne Mandantenzuordnung sieht dieses Konto nichts.")
         print("  python benutzer_verwalten.py mandanten --email %s --mandant <company_id>" % neuer.email)
 
 

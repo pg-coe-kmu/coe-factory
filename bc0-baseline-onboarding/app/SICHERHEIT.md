@@ -325,16 +325,40 @@ Die Anmerkung im Quelltext benennt die Abhängigkeit:
 
 Das halte ich weiter für richtig. Beides gehört in einen Schritt.
 
-### 3.6 Keine Nur-Lesen-Rolle — **niedrig, aber bewusst**
+### 3.6 Keine Nur-Lesen-Rolle — **niedrig, aber bewusst** · ✅ GESCHLOSSEN 22.09.2026
 
-Es gibt genau zwei Rollen: `benutzer` und `admin`. Wer den Reifegradbericht nur
-ansehen soll, braucht dennoch ein Konto mit Schreibrecht auf seinen Mandanten.
+~~Es gibt genau zwei Rollen: `benutzer` und `admin`. Wer den Reifegradbericht nur
+ansehen soll, braucht dennoch ein Konto mit Schreibrecht auf seinen Mandanten.~~
 
-**Der gewählte Ersatz:** ein eigener Übungsmandant mit zwölf Konten, alle mit
+~~**Der gewählte Ersatz:** ein eigener Übungsmandant mit zwölf Konten, alle mit
 Rolle `benutzer` und ausschließlich diesem Mandanten zugeordnet. Wer dort etwas
 kaputt macht, macht nur Übungsdaten kaputt. Das löst den Anwendungsfall
 „ausprobieren", nicht den Anwendungsfall „ansehen dürfen, ohne ändern zu
-können". Für die Halbzeitpräsentation reicht es.
+können". Für die Halbzeitpräsentation reicht es.~~
+
+**Erledigt am 22.09.2026 (Vorgang #211).** Es gibt jetzt drei Rollen. `leser`
+darf sehen und nichts ändern:
+
+- **Jeder** schreibende Endpunkt verlangt `Depends(schreibender_benutzer)` oder
+  `Depends(admin)` — 16 Endpunkte umgestellt, kein `POST`/`PUT`/`PATCH`/`DELETE`
+  unter `/api/` ohne Schutz.
+- **Belege bleiben zu**: weder Dateiabruf noch Volltextsuche über die
+  Belegtexte (`Depends(beleg_zugriff)`). Die Belegliste bleibt sichtbar — dass
+  eine Bewertung belegt ist, gehört zum Ergebnis; womit, nicht.
+- **Gate-0-Bogen und Übergabe** waren schon Admin-Sache und bleiben es.
+- **Mandantentrennung** unverändert: zugeordnete Mandanten, sonst 404.
+- **38 Tests** in `tests/test_rolle_leser.py`, beide Seiten — darf lesen, darf
+  nicht schreiben.
+
+**Was bleibt.** Nr. 1 dieser Testdatei zählt die schreibenden Endpunkte am
+Routenbaum ab und verlangt für jeden einen Schutz. Ein künftiger Endpunkt ohne
+Abhängigkeit bringt sie zu Fall. Die Oberfläche blendet zusätzlich aus, was ein
+Leser nicht darf — **das ist Bequemlichkeit und keine Sperre**; sie erkennt
+Knöpfe an ihrer Beschriftung, und ein neuer Knopf, der durchrutscht, führt zu
+einer 403-Meldung statt zu einer Änderung.
+
+Der Übungsmandant bleibt bestehen; er löst weiter den Anwendungsfall
+„ausprobieren".
 
 ### 3.7 Datenschutz-Folgenabschätzung und AVV offen — **organisatorisch, hoch**
 
@@ -349,7 +373,18 @@ Beschäftigtendaten).
 Das ist kein Programmierfehler, sondern die Lücke mit dem größten realen
 Risiko, sobald echte KMU-Daten eingehen.
 
-### 3.8 Direkte Tabellenrechte laufen an der Sammelrolle vorbei — **hoch**
+### 3.8 Direkte Tabellenrechte laufen an der Sammelrolle vorbei — **hoch** · ⚠️ ZUR HÄLFTE GESCHLOSSEN 21.09.2026
+
+> **Erledigt am 21.09.2026** (Vorgang #216, `schema_v3.5_revoke_personen_bc1.sql`): `bc1_role` hat auf
+> **`ref_personen` und `prozess_personen` kein `SELECT` mehr** — die beiden Tabellen mit den Klarnamen.
+> Damit gilt die Zusicherung aus 2.5 wieder: an BC1 bis BC4 geht nur die ID.
+>
+> BC1 hatte beide Rechte am 15.09.2026 **von sich aus zurückgegeben**, mit der Dauerregel „kein
+> Fremdschlüssel von `bc1.*` auf `ref_personen` oder `prozess_personen". Gegengeprüft am selben Tag:
+> beide Rechte `f`, die fünf Lesewege von BC1 alle `t`, null Fremdschlüssel.
+>
+> **Offen bleibt die zweite Hälfte:** die sieben doppelt vergebenen Tabellen. Solange sie bestehen, wirkt
+> ein `REVOKE ... FROM bc_leser` dort weiterhin nicht.
 
 Gefunden am 23.08.2026 beim Einspielen der Rechteumstellung — durch die Gegenprobe,
 nicht durch das Skript. Das Skript meldete Vollzug und hatte damit recht; die Wirkung
@@ -395,7 +430,8 @@ verlangt von BC1 die Antwort auf eine Frage — welche Felder braucht der Bot?
 | Rechteausweitung durch Selbst-Herabstufung | geprüft und verhindert | — |
 | Schadhafter Datei-Upload | Größe, Name, UUID-Schlüssel | keine Virenprüfung, kein MIME-Abgleich |
 | Denial of Service | Firewall | Anmeldemaske ist ein Hebel (3.1) |
-| Innentäter | Rollentrennung in der DB | **kein Protokoll** (3.4) |
+| Innentäter | Rollentrennung in der DB; **Betriebstabellen seit 22.09.2026 aus der Lesegruppe entfernt** | **kein Protokoll** (3.4) |
+| Passwort- und Sitzungsabdrücke für fremde Kontexte lesbar | **geschlossen 22.09.2026** — `app_benutzer`, `app_sitzungen`, `app_anmeldeversuche`, `app_benutzer_mandanten`, `bc_zustellungen` entzogen | die Voreinstellung in `public` steht weiter (#214) |
 | Datenabfluss an Sprachmodelle | nur IDs nach außen (ADR-004), Sichtentest | Pseudonymisierung, nicht Anonymisierung |
 | Klarnamen an nachgelagerte Kontexte | Sichten und Snapshot-Export geben nur IDs aus | **direkte Tabellenrechte umgehen beides (3.8)** |
 | Lieferkettenangriff | 5 Python-Pakete, 0 npm-Pakete | keine automatische Prüfung auf bekannte Schwachstellen |
@@ -417,8 +453,8 @@ einer Freigabe an externe Mandanten:
 1. ~~der fehlende Schutz gegen wiederholte Anmeldeversuche (3.1)~~ —
    **geschlossen am 02.09.2026**,
 2. ~~die fehlenden Sicherheitskopfzeilen (3.2)~~ — **geschlossen am 02.09.2026**,
-3. die direkten Tabellenrechte an `bc1_role` (3.8) — sie machen eine Zusicherung
-   ungültig, die dieses Papier bis zum 23.08.2026 geführt hat,
+3. ~~die direkten Tabellenrechte an `bc1_role` (3.8)~~ — **die beiden Klarnamen-Tabellen sind am
+   21.09.2026 entzogen**; die sieben doppelt vergebenen bestehen weiter,
 4. der fehlende Nachweis nach DSGVO (3.7) — organisatorisch, nicht technisch.
 
 Das fehlende Änderungsprotokoll (3.4) ist die Lücke, die mit dem Einsatzzweck

@@ -21,11 +21,43 @@ from typing import FrozenSet, Optional
 
 
 class Rolle(str, Enum):
-    """Die beiden Oberflächen der Anwendung.
+    """Die drei Oberflächen der Anwendung.
 
     Beschluss vom 10.08.2026: Es gibt genau zwei Rollen. Eine dritte Stufe
     (z. B. „nur lesen") ist bewusst nicht vorgesehen — sie hätte ohne konkreten
     Bedarf nur die Rechteprüfung verkompliziert.
+
+    **Berichtigt am 22.09.2026 (Vorgang #211).** Der Bedarf ist eingetreten:
+    Ein Prozessverantwortlicher, ein Kollege aus einem anderen Bounded Context
+    oder der Betreuer soll einen Reifegradbericht ansehen können. Mit zwei
+    Rollen bekäme er dafür zwangsläufig Schreibrechte — die Baseline ist aber
+    ein Nachweis, und ein Nachweis, den jeder Betrachter ändern kann, ist
+    keiner. Die dritte Stufe heißt ``leser``.
+
+    **Die Abgrenzung nach oben ist keine.** ``leser`` ist kein abgeschwächter
+    Benutzer mit einer Ausnahme, sondern die Rolle ohne jedes Schreibrecht:
+    Jeder schreibende Endpunkt weist sie ab, ausnahmslos. Was ein Leser
+    zusätzlich **nicht** sehen darf, ist am 22.09.2026 festgelegt:
+
+    ===========================  =========  ======  =======
+    was                          benutzer   admin   leser
+    ===========================  =========  ======  =======
+    Bericht, Prozesse, Historie  ja         ja      ja
+    Belegliste (Metadaten)       ja         ja      ja
+    Beleg **öffnen**             ja         ja      **nein**
+    Beleg-Volltextsuche          ja         ja      **nein**
+    Gate-0-Bogen                 nein       ja      **nein**
+    Schreiben, gleich was        ja         ja      **nein**
+    ===========================  =========  ======  =======
+
+    Der Gate-0-Bogen war schon vorher dem Admin vorbehalten; für den Leser
+    ändert sich dort nichts, er wird nur ausdrücklich genannt.
+
+    **Mandanten wie ein Benutzer.** Ein Leser bekommt seine Mandanten über
+    ``app_benutzer_mandanten`` zugeordnet, genau wie ein Benutzer, und sieht
+    ausschließlich diese. Die Regel steht unverändert in
+    :meth:`Benutzer.darf_mandanten_sehen` — die neue Rolle brauchte dort keine
+    Zeile.
 
     Der Wert wird als Text in der Datenbank abgelegt (nicht als Zahl), damit ein
     Blick in die Tabelle ohne Nachschlagewerk verständlich ist. Die Ableitung von
@@ -34,6 +66,7 @@ class Rolle(str, Enum):
 
     BENUTZER = "benutzer"
     ADMIN = "admin"
+    LESER = "leser"
 
     @classmethod
     def aus_text(cls, wert: str) -> "Rolle":
@@ -77,6 +110,39 @@ class Benutzer:
     rolle: Rolle
     mandanten: FrozenSet[str] = field(default_factory=frozenset)
     aktiv: bool = True
+
+    @property
+    def ist_leser(self) -> bool:
+        """Kurzform für die Rollenabfrage (Vorgang #211)."""
+        return self.rolle is Rolle.LESER
+
+    @property
+    def darf_schreiben(self) -> bool:
+        """Die eine Regel, an der die Leserolle hängt.
+
+        **Positiv formuliert und nicht als Verneinung der Leserolle.** Eine
+        vierte Rolle, die ebenfalls nicht schreiben darf, müsste sonst an jeder
+        Abfragestelle nachgetragen werden; hier reicht diese Zeile.
+        """
+        return self.rolle in (Rolle.BENUTZER, Rolle.ADMIN)
+
+    @property
+    def darf_belege_oeffnen(self) -> bool:
+        """Ob der Inhalt eines Belegdokuments ausgeliefert werden darf.
+
+        Festgelegt am 22.09.2026: **nein** für den Leser. Ein Beleg ist die
+        Rohunterlage hinter einer Bewertung — ein Vertragsauszug, ein
+        Bildschirmfoto aus einem Fachverfahren, eine Rechnung. Er wurde für die
+        Erhebung hochgeladen, nicht für den Kreis derer, die das Ergebnis
+        ansehen dürfen.
+
+        Die **Liste** der Belege bleibt sichtbar. Dass eine Bewertung belegt
+        ist, gehört zum Ergebnis und ist der Kern der Belegpflicht; *womit* sie
+        belegt ist, gehört zur Erhebung. Dieselbe Linie trennt die
+        Volltextsuche ab — sie liefert Auszüge aus dem Belegtext und damit
+        Inhalt, nicht Metadaten.
+        """
+        return not self.ist_leser
 
     @property
     def ist_admin(self) -> bool:
