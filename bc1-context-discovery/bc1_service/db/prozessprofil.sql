@@ -47,9 +47,11 @@ BEGIN
                         'fehlt es hier, stimmt das Ziel nicht).', array_to_string(fehlend, ', ');
     END IF;
 
+    -- Was der Dienst tatsaechlich liest (bc0_lesepfade.py, seit 22.09. nur Sichten —
+    -- BC0 v3.4: die Sichten filtern aktiv, die Tabellen dahinter nicht).
     SELECT array_agg(t) INTO fehlend FROM unnest(ARRAY[
-        'v_bewertung_aktuell', 'mandant_systeme', 'ref_teilprozesse', 'companies',
-        'v_prozesse_lesen', 'ref_erhebungen'
+        'v_bewertung_aktuell', 'v_prozesse_lesen', 'v_teilprozesse_lesen',
+        'v_systeme_lesen', 'companies', 'ref_erhebungen'
     ]) AS t WHERE NOT has_table_privilege(current_user, t, 'SELECT');
     IF fehlend IS NOT NULL THEN
         RAISE EXCEPTION 'GRANT SELECT fehlt auf: %.', array_to_string(fehlend, ', ');

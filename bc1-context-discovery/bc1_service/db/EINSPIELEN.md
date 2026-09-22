@@ -43,9 +43,9 @@ Erteilt von BC0 am 02.09.2026, in der Ziel-Supabase nachgemessen:
 | Recht | Auf | Weg |
 |---|---|---|
 | `REFERENCES` | `companies`, `ref_prozesse`, `ref_teilprozesse`, `mandant_rollen`, `ref_erhebungen` | direkt an `bc1_role` |
-| `SELECT` | `v_bewertung_aktuell`, `mandant_systeme`, `ref_teilprozesse`, `companies`, `v_prozesse_lesen` | über die Gruppenrolle `bc_leser` (in der `bc1_role` Mitglied ist) |
+| `SELECT` | `v_bewertung_aktuell`, `v_prozesse_lesen`, `v_teilprozesse_lesen`, `v_systeme_lesen`, `companies` (seit 22.09. nur Sichten — BC0 v3.4, sie filtern `aktiv`) | über die Gruppenrolle `bc_leser` (in der `bc1_role` Mitglied ist) |
 | `SELECT` | `ref_erhebungen` | erteilt, am 02.09. gemessen — Abschnitt 0 der DDL prüft es und bricht sonst ab |
-| `REFERENCES` | `ref_personen`, `prozess_personen` | direkt an `bc1_role`; in Etappe 1 ungenutzt |
+| — | `ref_personen`, `prozess_personen` | direktes SELECT mit BC0 v3.5 entzogen (#216, 21.09.) — auf unseren Wunsch; BC1 liest den Eigner über `v_prozesse_lesen.owner_rolle_id` |
 
 `bc1.profil_write_status` ist unsere interne Tabelle — BC0 muss dafür nichts vorbereiten.
 

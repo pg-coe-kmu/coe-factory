@@ -63,6 +63,19 @@ Anwendungskonto bleibt `benutzer` (Schreibrechte für B4).
 
 **Bricht uns:** nichts.
 
+**Zweitmeinung (Codex, 22.09.) — was daraus in den Bau ging:**
+
+- **Stilllegung nach Draft-Anlage:** `erhebung_id()` lief nur beim Anlegen; ein danach
+  stillgelegter Teilprozess wurde beim Abschluss trotzdem `fertig`. Der Freeze prüft jetzt erneut
+  (503 statt `fertig`, Test in `test_profil_writer.py`). Rest ist K-K (C4).
+- **Stillgelegter Kernprozess mit aktiven Kindern:** BC0s Sichten prüfen nur `tp.aktiv` — der
+  Teilprozess bliebe interviewbar. BC1 verlangt zusätzlich den aktiven Elternprozess
+  (`v_prozesse_lesen`); die Sichten bleiben wortgleich. **Frage an BC0:** kaskadiert die
+  Stilllegung eines Kernprozesses auf seine Teilprozesse, oder ist das bewusst getrennt?
+- **Snapshot-Modus (`BC1_SNAPSHOT_PFAD`):** die Kernprozess-Auswahl kommt dann aus der Datei und
+  kennt `aktiv` nicht — dokumentierte Ausnahme, Ablösung mit B4 (Kleinpunkt).
+- `prozessprofil.sql` §0 und `EINSPIELEN.md` §1 prüfen/nennen jetzt die Sichten statt der Tabellen.
+
 ## Werkzeug
 
 `struktur_bc0.sql` (nur SELECT; SDD-Ordner, git-ignoriert; Fassung vom 22.09. mit den vier
