@@ -22,13 +22,23 @@ def mandant_existiert(conn, company_id: str) -> bool:
     ).fetchone() is not None
 
 
+# BC0s Sichten pruefen nur den Teilprozess (tp.aktiv, v3.4). Ein stillgelegter
+# Kernprozess mit aktiven Kindern bliebe sonst interviewbar — BC1 verlangt zusaetzlich
+# den aktiven Elternprozess (v_prozesse_lesen filtert p.aktiv). Ob BC0 die Stilllegung
+# selbst kaskadiert, ist erfragt (22.09.); bis dahin ist die strengere Lesart die sichere.
+_AKTIVER_KERNPROZESS = (
+    " JOIN v_prozesse_lesen p ON p.company_id = t.company_id "
+    "                        AND p.process_id = t.process_id")
+
+
 def teilprozesse(conn, company_id: str) -> list[tuple[str, str]]:
     """(TP-ID, Schrittname) des Mandanten — ALLE, auch unbewertete. Seit Rev. 11 nur
     noch die Strukturpruefung beim Start; die Interview-Auswahl liefert
     bewertete_teilprozesse()."""
     return [(zeile[0], zeile[1]) for zeile in conn.execute(
-        "SELECT sub_process_id, sub_process_name FROM v_teilprozesse_lesen "
-        "WHERE company_id = %s ORDER BY sub_process_id", (company_id,)).fetchall()]
+        "SELECT t.sub_process_id, t.sub_process_name FROM v_teilprozesse_lesen t "
+        f"{_AKTIVER_KERNPROZESS} "
+        " WHERE t.company_id = %s ORDER BY t.sub_process_id", (company_id,)).fetchall()]
 
 
 def bewertete_teilprozesse(conn, company_id: str) -> list[tuple[str, str]]:
@@ -39,6 +49,7 @@ def bewertete_teilprozesse(conn, company_id: str) -> list[tuple[str, str]]:
     nicht. Die 27-von-30-Regel prueft das Gate, nicht BC1."""
     return [(zeile[0], zeile[1]) for zeile in conn.execute(
         "SELECT t.sub_process_id, t.sub_process_name FROM v_teilprozesse_lesen t "
+        f"{_AKTIVER_KERNPROZESS} "
         " WHERE t.company_id = %s AND EXISTS ("
         "       SELECT 1 FROM v_bewertung_aktuell v "
         "        WHERE v.company_id = t.company_id "
@@ -80,6 +91,9 @@ def erhebung_id(conn, company_id: str, focus_step_id: str) -> str:
         "SELECT v.erhebung_id FROM v_bewertung_aktuell v "
         "  JOIN ref_erhebungen e ON e.company_id = v.company_id "
         "                       AND e.erhebung_id = v.erhebung_id "
+        "  JOIN v_teilprozesse_lesen t ON t.company_id = v.company_id "
+        "                             AND t.sub_process_id = v.sub_process_id "
+        f"{_AKTIVER_KERNPROZESS} "
         " WHERE v.company_id = %s AND v.sub_process_id = %s "
         " ORDER BY e.stand DESC, e.erhebung_id DESC LIMIT 1",
         (company_id, focus_step_id)).fetchone()
