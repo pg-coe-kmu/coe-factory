@@ -349,7 +349,18 @@ Beschäftigtendaten).
 Das ist kein Programmierfehler, sondern die Lücke mit dem größten realen
 Risiko, sobald echte KMU-Daten eingehen.
 
-### 3.8 Direkte Tabellenrechte laufen an der Sammelrolle vorbei — **hoch**
+### 3.8 Direkte Tabellenrechte laufen an der Sammelrolle vorbei — **hoch** · ⚠️ ZUR HÄLFTE GESCHLOSSEN 21.09.2026
+
+> **Erledigt am 21.09.2026** (Vorgang #216, `schema_v3.5_revoke_personen_bc1.sql`): `bc1_role` hat auf
+> **`ref_personen` und `prozess_personen` kein `SELECT` mehr** — die beiden Tabellen mit den Klarnamen.
+> Damit gilt die Zusicherung aus 2.5 wieder: an BC1 bis BC4 geht nur die ID.
+>
+> BC1 hatte beide Rechte am 15.09.2026 **von sich aus zurückgegeben**, mit der Dauerregel „kein
+> Fremdschlüssel von `bc1.*` auf `ref_personen` oder `prozess_personen". Gegengeprüft am selben Tag:
+> beide Rechte `f`, die fünf Lesewege von BC1 alle `t`, null Fremdschlüssel.
+>
+> **Offen bleibt die zweite Hälfte:** die sieben doppelt vergebenen Tabellen. Solange sie bestehen, wirkt
+> ein `REVOKE ... FROM bc_leser` dort weiterhin nicht.
 
 Gefunden am 23.08.2026 beim Einspielen der Rechteumstellung — durch die Gegenprobe,
 nicht durch das Skript. Das Skript meldete Vollzug und hatte damit recht; die Wirkung
@@ -417,8 +428,8 @@ einer Freigabe an externe Mandanten:
 1. ~~der fehlende Schutz gegen wiederholte Anmeldeversuche (3.1)~~ —
    **geschlossen am 02.09.2026**,
 2. ~~die fehlenden Sicherheitskopfzeilen (3.2)~~ — **geschlossen am 02.09.2026**,
-3. die direkten Tabellenrechte an `bc1_role` (3.8) — sie machen eine Zusicherung
-   ungültig, die dieses Papier bis zum 23.08.2026 geführt hat,
+3. ~~die direkten Tabellenrechte an `bc1_role` (3.8)~~ — **die beiden Klarnamen-Tabellen sind am
+   21.09.2026 entzogen**; die sieben doppelt vergebenen bestehen weiter,
 4. der fehlende Nachweis nach DSGVO (3.7) — organisatorisch, nicht technisch.
 
 Das fehlende Änderungsprotokoll (3.4) ist die Lücke, die mit dem Einsatzzweck
