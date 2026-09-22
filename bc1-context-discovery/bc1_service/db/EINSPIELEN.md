@@ -283,27 +283,29 @@ Fremdschema liest sie, ein `GRANT` ist weder nötig noch erwünscht. Die Löschk
 `companies` läuft mit den Rechten von `bc1_role` (im Container unter einem rechtelosen
 Löschkonto gemessen, Test `test_kaskade_raeumt_die_sitzung_auch_unter_rechtelosem_loeschkonto`).
 
-## 11. Dritter Lauf: `prozessprofil_d3.sql` in der Supabase — steht aus (#255)
+## 11. Dritter Lauf: `prozessprofil_d3.sql` in der Supabase — 22.09.2026 (#255)
 
 Anlass: BC2 liest über `contracts/bc1-to-bc2/lesen.sql` `p.step_frequency_per_year`; ohne die
 Spalte parst die Vertragsabfrage nicht, BC2 liest **über den Vertragsweg** nichts (#255,
 gemessen von BC2 am 21.09.2026; BC2s Dienstcode liest D3 übergangsweise aus dem JSON).
-Dringlich vor dem Durchstich KW 40 (#206). Ausführung: Richard per `lauf.sh d3` (liest die
-Zugangsdaten selbst; Log `einspielen-d3.log` im SDD-Ordner).
+Ausgeführt am 22.09.2026 von Richard per `lauf.sh d3` als `bc1_role` (Session Pooler), alle
+Zeilen gemessen (`einspielen-d3.log` im SDD-Ordner). Damit läuft BC2s Vertragsabfrage wieder —
+vor dem Durchstich KW 40 (#206).
 
-**Bestandsannahmen (Stand 21.09., BC2-Messung #249 — keine Skriptgarantie):** 6 Zeilen,
-3 `fertig`, kein gültiger D3-Wert im JSON. Trifft die letzte Annahme nicht zu, bricht M1
-mit `… gueltigen D3-Wert im JSON …` ab — dann ist die Übernahme zu entscheiden (fertige
-Zeilen: neue Fassung, kein UPDATE), nicht das Skript zu lockern.
+**Bestandsannahmen vorab (BC2-Messung #249):** 6 Zeilen, kein gültiger D3-Wert im JSON.
+Gemessen: 6 Zeilen, **alle 6 `fertig`** (3 Teilprozesse × 2 Fassungen; `lesen.sql` nimmt die
+jüngste je Teilprozess), 0 JSON-D3 — M1 lief ohne Abbruch. Hätte eine Zeile einen gültigen
+JSON-D3-Wert getragen, wäre die Übernahme zu entscheiden gewesen (fertige Zeilen: neue
+Fassung, kein UPDATE), nicht das Skript zu lockern.
 
 | Schritt | Erwartung | Gemessen |
 |---|---|---|
-| Vorprüfung | neue `prozessprofil.sql` allein am Altbestand: `Fall 3` mit `- fehlt: spalte\|prozessprofil\|step_frequency_per_year\|…` und je einer `fehlt`/`zuviel`-Zeile für den CHECK — **Rollback, nichts geändert**. Mehr Zeilen = der Bestand weicht auch anderswo ab → STOPP | steht aus |
-| Lauf 1 (eine Transaktion) | `NOTICE: M1: Bestand ohne Spalte, kein JSON-D3-Wert — Spalte anlegen und CHECK erweitern.` · `NOTICE: M1: erledigt …` · `prozessprofil.sql`: `NOTICE: Fall 2` | steht aus |
-| Lauf 2 (Idempotenz) | `NOTICE: M2: Spalte und CHECK bereits auf Stand #255 — No-op.` · `Fall 2` | steht aus |
-| Nichtbeeinflussung | `sessions.sql`: `NOTICE: Fall 2` | steht aus |
-| Nachprüfung A–C | Spalte numeric/nullable · CHECK validiert und nennt die Spalte · Zeilen gesamt / mit Spaltenwert (0) / mit gültigem JSON-D3 (0) / fertig | steht aus |
-| Nachprüfung D | `lesen.sql` **wörtlich** per psycopg als `bc1_role` je Mandant ausgeführt: parst, liefert die fertigen Profile, D3 = NULL | steht aus |
+| Vorprüfung | neue `prozessprofil.sql` allein am Altbestand: `Fall 3` mit `- fehlt: spalte\|prozessprofil\|step_frequency_per_year\|…` und je einer `fehlt`/`zuviel`-Zeile für den CHECK — **Rollback, nichts geändert**. Mehr Zeilen = der Bestand weicht auch anderswo ab → STOPP | **genau 3 Zeilen** (`+ zuviel` alter CHECK, `- fehlt` neuer CHECK, `- fehlt` Spalte), `ERROR … Abbruch OHNE Aenderung`, Rollback |
+| Lauf 1 (eine Transaktion) | `NOTICE: M1: Bestand ohne Spalte, kein JSON-D3-Wert — Spalte anlegen und CHECK erweitern.` · `NOTICE: M1: erledigt …` · `prozessprofil.sql`: `NOTICE: Fall 2` | **genau so** — `M1: Bestand ohne Spalte, kein JSON-D3-Wert …`, `M1: erledigt …`, `Fall 2` (beide DO-Blöcke) |
+| Lauf 2 (Idempotenz) | `NOTICE: M2: Spalte und CHECK bereits auf Stand #255 — No-op.` · `Fall 2` | **genau so** — Idempotenz im Ziel bewiesen |
+| Nichtbeeinflussung | `sessions.sql`: `NOTICE: Fall 2` | **genau so** (Signatur 40 Zeilen) |
+| Nachprüfung A–C | Spalte numeric/nullable · CHECK validiert und nennt die Spalte · Zeilen gesamt / mit Spaltenwert (0) / mit gültigem JSON-D3 (0) / fertig | **`numeric`/`YES` · `convalidated = t`, nennt die Spalte · 6 / 0 / 0 / 6** |
+| Nachprüfung D | `lesen.sql` **wörtlich** per psycopg als `bc1_role` je Mandant ausgeführt: parst, liefert die fertigen Profile, D3 = NULL | **parst, 1 Mandant, 3 Profile (jüngste Fassung je TP), 20 Spalten, D3 in der Spaltenliste, Werte NULL** — KP-05.TP-1 (260 / 25 min), KP-06.TP-1 (40 / 60), KP-06.TP-2 (180 / 90) |
 
 **Was D nicht beweist:** den Lesezugriff von `bc2_role` — den kann nur BC2 messen (die
 Tabellen-ACL gilt für die neue Spalte mit, es gibt keine Spalten-ACLs; ein zusätzlicher GRANT
