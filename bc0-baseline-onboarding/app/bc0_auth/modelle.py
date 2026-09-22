@@ -40,7 +40,7 @@ class Rolle(str, Enum):
     zusätzlich **nicht** sehen darf, ist am 22.09.2026 festgelegt:
 
     ===========================  =========  ======  =======
-    \                            benutzer   admin   leser
+    was                          benutzer   admin   leser
     ===========================  =========  ======  =======
     Bericht, Prozesse, Historie  ja         ja      ja
     Belegliste (Metadaten)       ja         ja      ja

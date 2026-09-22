@@ -3094,7 +3094,7 @@ def _fundstelle(ocr_text, begriff):
 @app.post("/api/companies/{cid}/documents")
 async def upload_document(cid: str, ref_id: str = Form(...), file: UploadFile = File(...),
                           benutzer: Benutzer = Depends(schreibender_benutzer)):
-    """Nimmt ein Belegdokument entgegen und legt es ab.
+    r"""Nimmt ein Belegdokument entgegen und legt es ab.
 
     Die Prüfungen laufen in dieser Reihenfolge, und die Reihenfolge ist
     beabsichtigt — es wird nichts geschrieben, bevor nicht alles geprüft ist:
