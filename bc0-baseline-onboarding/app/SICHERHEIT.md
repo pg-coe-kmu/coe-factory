@@ -406,7 +406,8 @@ verlangt von BC1 die Antwort auf eine Frage — welche Felder braucht der Bot?
 | Rechteausweitung durch Selbst-Herabstufung | geprüft und verhindert | — |
 | Schadhafter Datei-Upload | Größe, Name, UUID-Schlüssel | keine Virenprüfung, kein MIME-Abgleich |
 | Denial of Service | Firewall | Anmeldemaske ist ein Hebel (3.1) |
-| Innentäter | Rollentrennung in der DB | **kein Protokoll** (3.4) |
+| Innentäter | Rollentrennung in der DB; **Betriebstabellen seit 22.09.2026 aus der Lesegruppe entfernt** | **kein Protokoll** (3.4) |
+| Passwort- und Sitzungsabdrücke für fremde Kontexte lesbar | **geschlossen 22.09.2026** — `app_benutzer`, `app_sitzungen`, `app_anmeldeversuche`, `app_benutzer_mandanten`, `bc_zustellungen` entzogen | die Voreinstellung in `public` steht weiter (#214) |
 | Datenabfluss an Sprachmodelle | nur IDs nach außen (ADR-004), Sichtentest | Pseudonymisierung, nicht Anonymisierung |
 | Klarnamen an nachgelagerte Kontexte | Sichten und Snapshot-Export geben nur IDs aus | **direkte Tabellenrechte umgehen beides (3.8)** |
 | Lieferkettenangriff | 5 Python-Pakete, 0 npm-Pakete | keine automatische Prüfung auf bekannte Schwachstellen |

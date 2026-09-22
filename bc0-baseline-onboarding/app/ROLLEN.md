@@ -64,6 +64,17 @@ Zeile = wer, Spalte = worauf.
 
 **Es gibt keine leeren Felder.** Lesen ist umfassend, entsprechend der Kaskade BC0 → BC1 → BC2 → BC3 → BC4: Jede Stufe braucht alles Vorherige. BC2 rechnet den ROI aus BC0-Baseline **und** BC1-Anreicherung — beides muss lesbar sein.
 
+> **Nachtrag 22.09.2026 — die Matrix gilt für Fachdaten, nicht für Betriebsdaten.**
+> Fünf Tabellen sind aus der Lesegruppe entfernt: `app_benutzer` (Passwort-Abdrücke),
+> `app_sitzungen`, `app_anmeldeversuche`, `app_benutzer_mandanten` und `bc_zustellungen`.
+> Sie betreffen den **Betrieb von BC0**, nicht die Kaskade. Entzogen für `bc_leser` **und**
+> für `bc1_role` bis `bc4_role` (`schema_v3.6_betriebstabellen_entzug.sql`, Vorgang #214).
+> Vorher waren alle fünf für alle vier Kontexte lesbar — gemessen am 22.09.2026.
+>
+> **Die Voreinstellung selbst steht weiter.** `pg_default_acl` gibt für `public` unverändert
+> `bc1_role=r` und `bc_leser=r`; die nächste neue Tabelle ist also wieder automatisch lesbar.
+> Das ist die offene Hälfte von #214.
+
 ### Was die Matrix nicht zeigt
 
 Die geplante **Anreicherung von BC0-Zeilen** — also dass BC1 unter derselben ID eine eigene Spalte in `public` beschreibt. Das wäre ein zusätzliches, sehr eng begrenztes `W` in der Spalte `public`, auf Spaltenebene statt auf Tabellenebene (`GRANT UPDATE (bc1_spalte_a, …)`). Es kommt erst, wenn ADR-003 entschieden ist — siehe „Noch offen".
