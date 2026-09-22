@@ -57,17 +57,20 @@ Aus `bc1-context-discovery/`, **als `bc1_role`**:
 
 ```bash
 psql "$BC1_DB_DSN" -v ON_ERROR_STOP=1 -1 -f bc1_service/db/prozessprofil_d3.sql \
-  && psql "$BC1_DB_DSN" -v ON_ERROR_STOP=1 -1 -f bc1_service/db/prozessprofil.sql \
+                                         -f bc1_service/db/prozessprofil.sql \
   && psql "$BC1_DB_DSN" -v ON_ERROR_STOP=1 -1 -f bc1_service/db/sessions.sql
 ```
 
 `-1` ist nicht optional: Die Dreifallregel verlässt sich darauf, dass ein Abbruch alles
-zurückrollt. Jede Datei ist eine eigene Transaktion und prüft **eigenständig** (beide auch
-die Mitgliedschafts-Kanten); jede meldet ihren eigenen Fall 1/2/3. Das `&&` ist Pflicht:
-meldet die erste Datei Fall 3, darf die zweite gar nicht erst laufen — erst die Abweichung
-verstehen. Reihenfolge `prozessprofil_d3.sql` (Migration, auf frischer DB M0 = nichts zu
-tun), dann `prozessprofil.sql`, dann `sessions.sql`, damit die Live-Meldungen in derselben
-Ordnung stehen wie die Tests (`tests/db_fixture.py`).
+zurückrollt. **`prozessprofil_d3.sql` und `prozessprofil.sql` laufen in EINER Transaktion**
+(zwei `-f` hinter einem `-1`): Die Migration prüft nur Spalte und CHECK (M0–M3), die volle
+Signaturprüfung macht erst `prozessprofil.sql` — meldet die Fall 3, rollt das die Migration
+mit zurück, statt sie committet stehen zu lassen (Codex-Review 22.09., Test
+`test_fall_3_von_prozessprofil_sql_rollt_die_migration_in_derselben_transaktion_zurueck`).
+`sessions.sql` ist eine eigene Transaktion und prüft eigenständig (wie `prozessprofil.sql`
+auch die Mitgliedschafts-Kanten). Das `&&` ist Pflicht: meldet die erste Klammer Fall 3,
+darf `sessions.sql` gar nicht erst laufen — erst die Abweichung verstehen. Reihenfolge wie
+in den Tests (`tests/db_fixture.py`), damit die Live-Meldungen in derselben Ordnung stehen.
 
 ## 3. Die Dreifallregel lesen
 
@@ -283,20 +286,26 @@ Löschkonto gemessen, Test `test_kaskade_raeumt_die_sitzung_auch_unter_rechtelos
 ## 11. Dritter Lauf: `prozessprofil_d3.sql` in der Supabase — steht aus (#255)
 
 Anlass: BC2 liest über `contracts/bc1-to-bc2/lesen.sql` `p.step_frequency_per_year`; ohne die
-Spalte parst die Abfrage nicht, BC2 liest **nichts** (#255, gemessen von BC2 am 21.09.2026).
+Spalte parst die Vertragsabfrage nicht, BC2 liest **über den Vertragsweg** nichts (#255,
+gemessen von BC2 am 21.09.2026; BC2s Dienstcode liest D3 übergangsweise aus dem JSON).
 Dringlich vor dem Durchstich KW 40 (#206). Ausführung: Richard per `lauf.sh d3` (liest die
-Zugangsdaten selbst; Log `einspielen-d3.log` und Nachprüfung im SDD-Ordner).
+Zugangsdaten selbst; Log `einspielen-d3.log` im SDD-Ordner).
+
+**Bestandsannahmen (Stand 21.09., BC2-Messung #249 — keine Skriptgarantie):** 6 Zeilen,
+3 `fertig`, kein gültiger D3-Wert im JSON. Trifft die letzte Annahme nicht zu, bricht M1
+mit `… gueltigen D3-Wert im JSON …` ab — dann ist die Übernahme zu entscheiden (fertige
+Zeilen: neue Fassung, kein UPDATE), nicht das Skript zu lockern.
 
 | Schritt | Erwartung | Gemessen |
 |---|---|---|
-| Vorprüfung | neue `prozessprofil.sql` am Altbestand: `Fall 3` mit genau `- fehlt: spalte\|prozessprofil\|step_frequency_per_year\|…`, `- fehlt:`/`+ zuviel:` für den CHECK — **Rollback, nichts geändert** | steht aus |
-| Lauf 1 | `NOTICE: M1: Bestand ohne Spalte — Spalte anlegen und CHECK erweitern.` + `NOTICE: M1: erledigt …` | steht aus |
-| Lauf 2 | `NOTICE: M2: Spalte und CHECK bereits auf Stand #255 — No-op.` | steht aus |
-| Nachweis | `prozessprofil.sql`: `NOTICE: Fall 2` | steht aus |
+| Vorprüfung | neue `prozessprofil.sql` allein am Altbestand: `Fall 3` mit `- fehlt: spalte\|prozessprofil\|step_frequency_per_year\|…` und je einer `fehlt`/`zuviel`-Zeile für den CHECK — **Rollback, nichts geändert**. Mehr Zeilen = der Bestand weicht auch anderswo ab → STOPP | steht aus |
+| Lauf 1 (eine Transaktion) | `NOTICE: M1: Bestand ohne Spalte, kein JSON-D3-Wert — Spalte anlegen und CHECK erweitern.` · `NOTICE: M1: erledigt …` · `prozessprofil.sql`: `NOTICE: Fall 2` | steht aus |
+| Lauf 2 (Idempotenz) | `NOTICE: M2: Spalte und CHECK bereits auf Stand #255 — No-op.` · `Fall 2` | steht aus |
 | Nichtbeeinflussung | `sessions.sql`: `NOTICE: Fall 2` | steht aus |
-| Nachprüfung A–D | Spalte numeric/nullable · CHECK validiert und nennt die Spalte · 6 Zeilen, 0 mit Wert, 3 fertig · `lesen.sql`-Spaltenliste parst | steht aus |
+| Nachprüfung A–C | Spalte numeric/nullable · CHECK validiert und nennt die Spalte · Zeilen gesamt / mit Spaltenwert (0) / mit gültigem JSON-D3 (0) / fertig | steht aus |
+| Nachprüfung D | `lesen.sql` **wörtlich** per psycopg als `bc1_role` je Mandant ausgeführt: parst, liefert die fertigen Profile, D3 = NULL | steht aus |
 
-**Danach (Auflage aus #255, zu Recht):** `lesen.sql` an der laufenden Datenbank gegenprüfen —
-nicht aus dem Code schließen — und in #255 Bescheid geben. **Für BC0 heißt das:** nichts zu tun;
-Rechte an der Tabelle ändern sich nicht (`ADD COLUMN` erbt die Tabellen-ACL).
-
+**Was D nicht beweist:** den Lesezugriff von `bc2_role` — den kann nur BC2 messen (die
+Tabellen-ACL gilt für die neue Spalte mit, es gibt keine Spalten-ACLs; ein zusätzlicher GRANT
+ist nicht nötig). Deshalb nach dem Lauf in #255 melden und BC2 um die Gegenprobe bitten.
+**Für BC0 heißt das:** nichts zu tun.

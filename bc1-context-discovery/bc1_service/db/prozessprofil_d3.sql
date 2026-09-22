@@ -36,6 +36,7 @@ DECLARE
     tabelle_da boolean;
     spalte_da  boolean;
     check_ist  text;
+    json_d3    bigint;
 BEGIN
     SELECT to_regclass('bc1.prozessprofil') IS NOT NULL INTO tabelle_da;
     IF NOT tabelle_da THEN
@@ -62,7 +63,18 @@ BEGIN
     END IF;
 
     IF NOT spalte_da AND check_ist = check_alt THEN
-        RAISE NOTICE 'M1: Bestand ohne Spalte — Spalte anlegen und CHECK erweitern.';
+        -- Vorbedingung (Codex-Review 22.09., Important 1): traegt eine Bestandszeile
+        -- bereits einen GUELTIGEN D3-Wert im JSON, liesse ADD COLUMN die Spalte NULL —
+        -- bei fertigen Zeilen dauerhaft (Freeze-Trigger). Die Uebernahme ist dann zu
+        -- entscheiden (Versionierungsregel), nicht stillschweigend zu ueberspringen.
+        SELECT count(*) INTO json_d3
+          FROM bc1.prozessprofil
+         WHERE profil->'felder'->'step_frequency_per_year'->>'status' = 'gueltig'
+           AND profil->'felder'->'step_frequency_per_year'->>'wert' IS NOT NULL;
+        IF json_d3 > 0 THEN
+            RAISE EXCEPTION 'M1: % Bestandszeile(n) tragen einen gueltigen D3-Wert im JSON — Uebernahme in die Spalte erst entscheiden. Abbruch OHNE Aenderung.', json_d3;
+        END IF;
+        RAISE NOTICE 'M1: Bestand ohne Spalte, kein JSON-D3-Wert — Spalte anlegen und CHECK erweitern.';
         ALTER TABLE bc1.prozessprofil ADD COLUMN step_frequency_per_year numeric;
         ALTER TABLE bc1.prozessprofil DROP CONSTRAINT prozessprofil_zahlen_wertebereich;
         -- Wortgleich mit prozessprofil.sql; ADD CONSTRAINT validiert den Bestand

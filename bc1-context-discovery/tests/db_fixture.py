@@ -45,9 +45,9 @@ def frische_db(dsn: str, *, mit_ddl: bool = True) -> None:
     """Setzt public + bc1 zurueck, baut das Geruest, spielt (optional) BEIDE DDL-Dateien ein.
 
     Reihenfolge wie im Betrieb (EINSPIELEN.md): prozessprofil_d3.sql (auf frischer DB
-    ein No-op, M0), dann prozessprofil.sql, dann sessions.sql, jede als bc1_role in einer
-    eigenen Transaktion. bc1.sessions entsteht damit NUR hier — der PostgresStateStore
-    legt seit B1 nichts mehr an.
+    ein No-op, M0) und prozessprofil.sql in EINER Transaktion, dann sessions.sql in einer
+    eigenen, alles als bc1_role. bc1.sessions entsteht damit NUR hier — der
+    PostgresStateStore legt seit B1 nichts mehr an.
     """
     pruefe_lokal(dsn)
     with psycopg.connect(dsn, autocommit=True) as conn:
@@ -57,8 +57,7 @@ def frische_db(dsn: str, *, mit_ddl: bool = True) -> None:
         conn.execute(_GERUEST.read_text(encoding="utf-8"))
         _testdaten(conn)
     if mit_ddl:
-        spiele_d3_ein(dsn)
-        spiele_ddl_ein(dsn)
+        spiele_migration_und_ddl_ein(dsn)
         spiele_sessions_ein(dsn)
 
 
@@ -79,6 +78,17 @@ def spiele_d3_ein(dsn: str) -> None:
     """prozessprofil_d3.sql — Migrations-Einheit fuer den Bestand (#255), laeuft VOR
     prozessprofil.sql. Auf einer frischen DB ein No-op."""
     spiele_datei_ein(dsn, _DDL_D3)
+
+
+def spiele_migration_und_ddl_ein(dsn: str) -> None:
+    """prozessprofil_d3.sql + prozessprofil.sql in EINER Transaktion — wie im Betrieb
+    (`psql -1 -f prozessprofil_d3.sql -f prozessprofil.sql`). Meldet prozessprofil.sql
+    Fall 3, rollt das die Migration mit zurueck (Codex-Review 22.09., Important 2)."""
+    with psycopg.connect(dsn) as conn:
+        conn.execute("SET ROLE bc1_role")
+        conn.execute(_DDL_D3.read_text(encoding="utf-8"))
+        conn.execute(_DDL.read_text(encoding="utf-8"))
+        conn.commit()
 
 
 def spiele_sessions_ein(dsn: str) -> None:
