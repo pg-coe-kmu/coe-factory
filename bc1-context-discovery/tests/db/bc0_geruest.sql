@@ -1,4 +1,6 @@
--- BC0-Gerüst für BC1-Tests. Abgeleitet aus schema_v1.1 / v1.2 / v1.3 (Teile A, B, C).
+-- BC0-Gerüst für BC1-Tests. Abgeleitet aus schema_v1.1 / v1.2 / v1.3 (Teile A, B, C),
+-- nachgezogen auf v2.2 (aktiv), v2.8 (Nacherhebung) und v3.4 (aktiv-Sichten, owner_rolle_id,
+-- eindeutiger Eigner) — Auswirkungsprüfung v3.2–v3.6, 22.09.2026.
 -- Wird als postgres (Superuser) eingespielt.
 --
 -- Anspruch, präzise (Codex R4-C3): Enthalten sind nur die Objekte, die BC1
@@ -48,6 +50,7 @@ CREATE TABLE ref_prozesse (
     input_text   text,
     output_text  text,
     created_at   timestamptz      NOT NULL DEFAULT now(),
+    aktiv        boolean          NOT NULL DEFAULT true,   -- v2.2: stillgelegt statt gelöscht
     PRIMARY KEY (company_id, process_id)
 );
 
@@ -59,6 +62,10 @@ CREATE TABLE ref_teilprozesse (
     sub_process_name text        NOT NULL,
     notation         text,
     tools            text,
+    medienbrueche    text,                    -- v_teilprozesse_lesen (v3.4) nennt sie —
+    schnittstellen   text,                    -- deshalb im Gerüst, BC1 liest sie nicht
+    api              text,
+    aktiv            boolean     NOT NULL DEFAULT true,   -- v2.2
     PRIMARY KEY (company_id, sub_process_id),
     FOREIGN KEY (company_id, process_id)
         REFERENCES ref_prozesse(company_id, process_id) ON DELETE CASCADE,
@@ -77,7 +84,11 @@ CREATE TABLE mandant_rollen (
 CREATE TABLE mandant_systeme (
     company_id  uuid NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
     system_id   text NOT NULL CHECK (system_id ~ '^S-[0-9]{2}$'),
-    bezeichnung text NOT NULL,
+    katalog_id  text,                        -- v_systeme_lesen (v3.4) nennt sie; BC0s FK auf
+    bezeichnung text NOT NULL,               -- ref_systeme_katalog fehlt hier (Tabelle nicht im
+    einsatz     text,                        -- Gerüst, BC1 nennt katalog_id nie)
+    hinweis     text,
+    aktiv       boolean NOT NULL DEFAULT true,   -- v1.3 Teil B
     PRIMARY KEY (company_id, system_id)
 );
 
@@ -120,6 +131,27 @@ CREATE TABLE bitkom_bewertungen (
     UNIQUE (company_id, erhebung_id, sub_process_id, item_nr)
 );
 
+CREATE TABLE ref_personen (
+    company_id   uuid    NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
+    person_id    text    NOT NULL CHECK (person_id ~ '^P-[0-9]{2}$'),
+    name         text,
+    funktion     text,
+    rolle_id     text,
+    extern       boolean NOT NULL DEFAULT false,
+    organisation text,
+    hinweis      text,
+    aktiv        boolean NOT NULL DEFAULT true,
+    angelegt_am  timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (company_id, person_id),
+    CONSTRAINT ck_person_bezeichnet
+        CHECK (coalesce(btrim(name), '') <> '' OR coalesce(btrim(funktion), '') <> ''),
+    CONSTRAINT fk_person_rolle
+        FOREIGN KEY (company_id, rolle_id) REFERENCES mandant_rollen(company_id, rolle_id)
+        ON DELETE CASCADE
+);
+-- ref_personen seit 22.09. im Gerüst (v3.4: v_prozesse_lesen leitet owner_rolle_id darüber ab).
+-- Klarnamen liest BC1 nie — die Sicht gibt nur rolle_id weiter.
+
 CREATE TABLE prozess_personen (
     company_id uuid NOT NULL,
     process_id varchar(8) NOT NULL,
@@ -128,13 +160,20 @@ CREATE TABLE prozess_personen (
         CHECK (funktion IN ('eigner','sponsor','mitwirkend','vertretung')),
     PRIMARY KEY (company_id, process_id, person_id, funktion),
     FOREIGN KEY (company_id, process_id)
-        REFERENCES ref_prozesse(company_id, process_id) ON DELETE CASCADE
+        REFERENCES ref_prozesse(company_id, process_id) ON DELETE CASCADE,
+    FOREIGN KEY (company_id, person_id)
+        REFERENCES ref_personen(company_id, person_id) ON DELETE CASCADE
 );
+-- v3.4 (18.09.2026): genau ein Eigner je Prozess — Antwort auf die Owner-Frage aus dem
+-- Brief vom 15.09.; Grundlage für owner_rolle_id in v_prozesse_lesen.
+CREATE UNIQUE INDEX ux_prozess_eigner_eindeutig
+    ON prozess_personen (company_id, process_id) WHERE funktion = 'eigner';
 
--- ---------- Sichten (wortgleich aus schema_v1.3 übernommen) ----------
+-- ---------- Sichten (wortgleich aus schema_v3.4 übernommen, 22.09.2026) ----------
+
 CREATE OR REPLACE VIEW v_bewertung_aktuell AS
-SELECT company_id, erhebung_id, id, sub_process_id, item_nr, stufe, beleg,
-       quelle, bewerter, bewertet_am
+SELECT company_id, erhebung_id, id, sub_process_id, item_nr,
+       stufe, beleg, quelle, bewerter, bewertet_am
   FROM (SELECT b.company_id, b.erhebung_id, b.id, b.sub_process_id, b.item_nr,
                b.stufe, b.beleg, b.quelle, b.bewerter, b.bewertet_am,
                row_number() OVER (PARTITION BY b.company_id, b.sub_process_id, b.item_nr
@@ -142,21 +181,54 @@ SELECT company_id, erhebung_id, id, sub_process_id, item_nr, stufe, beleg,
           FROM bitkom_bewertungen b
           JOIN ref_erhebungen e
             ON e.company_id = b.company_id AND e.erhebung_id = b.erhebung_id
-         WHERE e.status <> 'verworfen') t
+          JOIN ref_teilprozesse tp
+            ON tp.company_id = b.company_id AND tp.sub_process_id = b.sub_process_id
+         WHERE e.status <> 'verworfen'
+           AND tp.aktiv) t
  WHERE rang = 1;
 
 CREATE OR REPLACE VIEW v_prozesse_lesen AS
-SELECT p.company_id, p.process_id, p.process_name, p.beschreibung,
-       p.trigger_text, p.input_text, p.output_text, p.created_at,
+SELECT p.company_id,
+       p.process_id,
+       p.process_name,
+       p.beschreibung,
+       p.trigger_text,
+       p.input_text,
+       p.output_text,
+       p.created_at,
        (SELECT array_agg(pp.person_id ORDER BY pp.person_id)
           FROM prozess_personen pp
-         WHERE pp.company_id = p.company_id AND pp.process_id = p.process_id
-           AND pp.funktion = 'eigner')  AS eigner_ids,
+         WHERE pp.company_id = p.company_id
+           AND pp.process_id = p.process_id
+           AND pp.funktion = 'eigner')   AS eigner_ids,
        (SELECT array_agg(pp.person_id ORDER BY pp.person_id)
           FROM prozess_personen pp
-         WHERE pp.company_id = p.company_id AND pp.process_id = p.process_id
-           AND pp.funktion = 'sponsor') AS sponsor_ids
-  FROM ref_prozesse p;
+         WHERE pp.company_id = p.company_id
+           AND pp.process_id = p.process_id
+           AND pp.funktion = 'sponsor')  AS sponsor_ids,
+       (SELECT r.rolle_id
+          FROM prozess_personen pp
+          JOIN ref_personen r
+            ON r.company_id = pp.company_id AND r.person_id = pp.person_id
+         WHERE pp.company_id = p.company_id
+           AND pp.process_id = p.process_id
+           AND pp.funktion = 'eigner'
+         LIMIT 1)                        AS owner_rolle_id
+  FROM ref_prozesse p
+ WHERE p.aktiv;
+
+CREATE OR REPLACE VIEW v_teilprozesse_lesen AS
+SELECT t.company_id, t.sub_process_id, t.process_id, t.step_no,
+       t.sub_process_name, t.notation, t.tools, t.medienbrueche,
+       t.schnittstellen, t.api
+  FROM ref_teilprozesse t
+ WHERE t.aktiv;
+
+CREATE OR REPLACE VIEW v_systeme_lesen AS
+SELECT s.company_id, s.system_id, s.katalog_id, s.bezeichnung,
+       s.einsatz, s.hinweis
+  FROM mandant_systeme s
+ WHERE s.aktiv;
 
 -- ---------- Schema bc1 + Rechte wie in BC0s ROLLEN.md ----------
 CREATE SCHEMA IF NOT EXISTS bc1 AUTHORIZATION bc1_role;
@@ -181,15 +253,13 @@ GRANT REFERENCES ON companies, ref_prozesse, ref_teilprozesse, mandant_rollen,
                     ref_erhebungen TO bc1_role;
 GRANT SELECT ON v_bewertung_aktuell, mandant_systeme, ref_teilprozesse, companies,
                 v_prozesse_lesen, ref_erhebungen, mandant_rollen TO bc_leser;
+GRANT SELECT ON v_teilprozesse_lesen, v_systeme_lesen TO bc_leser;   -- v3.4 Z. 163
 -- mandant_rollen: SELECT fuer bc_leser live gemessen 12.09.2026 (A5) — Eingang fuer C1a
 -- (Owner-Auswahl statt Freitext).
 
 -- BEWUSST NICHT: SELECT auf ref_prozesse (BC0 hat das Recht entzogen, R14-I2).
 -- Ein Test beweist, dass der direkte Lesezugriff scheitert und v_prozesse_lesen trägt.
 --
--- ABWEICHUNG, bewusst und geprueft (25.08., Abgleich gegen origin/main): BC0s
--- prozess_personen traegt zusaetzlich einen FK auf ref_personen(company_id, person_id).
--- Den hat das Geruest nicht, weil ref_personen fehlt — das Geruest ist an dieser
--- Stelle also LAXER als BC0. Folgenlos, solange BC1 prozess_personen nur mittelbar
--- ueber v_prozesse_lesen liest und nie beschreibt. Schreibt BC1 dort je hinein,
--- muss ref_personen ins Geruest.
+-- Seit 22.09.2026 traegt prozess_personen wie in BC0 den FK auf ref_personen (Tabelle
+-- ist im Geruest, weil v_prozesse_lesen seit v3.4 owner_rolle_id darueber ableitet).
+-- Verbliebene bewusste Luecke: mandant_systeme.katalog_id ohne FK auf ref_systeme_katalog.
