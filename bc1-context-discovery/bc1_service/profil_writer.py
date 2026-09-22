@@ -388,6 +388,11 @@ class ProfilWriter:
             if bindung.status == "fertig":
                 # Freeze war committet, die Antwort ging verloren (R4-C2).
                 return self._gespeichertes_profil(conn, bindung)
+            # Der Draft wurde beim Anlegen geprueft — seitdem kann BC0 den Teilprozess
+            # stillgelegt oder die Bewertung verworfen haben. Vor dem Freeze erneut
+            # pruefen, sonst wuerde ein nicht mehr interviewbarer Teilprozess 'fertig'
+            # (Codex-Review A7, 22.09.). Die gespeicherte erhebung_id bleibt (K-K).
+            bc0_lesepfade.erhebung_id(conn, self._company_id, bindung.focus_step_id)
             return self._einfrieren(conn, bindung, inhalt)
 
     def _gespeichertes_profil(self, conn, bindung) -> dict:

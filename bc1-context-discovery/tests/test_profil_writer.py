@@ -85,6 +85,23 @@ def test_abschluss_friert_die_eigene_zeile_ein_und_liefert_den_payload(pool):
     assert payload["felder"]["focus_step"]["wert"] == "KP-01.TP-1"
 
 
+def test_abschluss_friert_einen_inzwischen_stillgelegten_teilprozess_nicht_ein(pool):
+    # Codex-Review 22.09. (A7, Important 1): erhebung_id() lief nur beim Anlegen des
+    # Drafts. Legt BC0 den Teilprozess danach still (aktiv = false, v2.2), darf der
+    # Abschluss ihn nicht mehr auf 'fertig' setzen — gleiches Verhalten wie ohne Draft:
+    # ProfilWriteError (HTTP 503), die Zeile bleibt in_erhebung.
+    writer = ProfilWriter(pool, MANDANT_A, PAKET)
+    writer.reconcile(_state(), FRAGE)
+    with verbindung(DSN, None) as conn:
+        conn.execute("UPDATE ref_teilprozesse SET aktiv = false "
+                     " WHERE company_id = %s AND sub_process_id = 'KP-01.TP-1'",
+                     (MANDANT_A,))
+        conn.commit()
+    with pytest.raises(ProfilWriteError, match="keine aktuelle Bewertung"):
+        writer.reconcile(_state(), FERTIG)
+    assert _zeilen() == [("KP-01.TP-1", 1, "in_erhebung")]
+
+
 def test_abschluss_ohne_vorherigen_draft_legt_ihn_jetzt_an(pool):
     payload = ProfilWriter(pool, MANDANT_A, PAKET).reconcile(_state(), FERTIG)
     assert payload is not None
