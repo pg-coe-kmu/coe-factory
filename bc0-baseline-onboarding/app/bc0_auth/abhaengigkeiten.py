@@ -96,6 +96,48 @@ def angemeldeter_benutzer(request: Request) -> Benutzer:
     return benutzer
 
 
+def schreibender_benutzer(benutzer: Benutzer = Depends(angemeldeter_benutzer)) -> Benutzer:
+    """Erzwingt ein Schreibrecht (Vorgang #211, ab 22.09.2026).
+
+    An **jedem** Endpunkt, der Daten anlegt, ändert oder löscht — also an jedem
+    ``POST``, ``PUT``, ``PATCH`` und ``DELETE``, der nicht ohnehin schon
+    :func:`admin` verlangt.
+
+    Warum eine eigene Abhängigkeit und keine Prüfung im Rumpf: Die Anforderung
+    steht damit in der Signatur und in der erzeugten API-Dokumentation. Und sie
+    ist **abzählbar** — ``grep`` über ``app.py`` liefert die Liste der
+    schreibenden Endpunkte, und ein vergessener fällt beim Vergleich mit der
+    Liste der Methoden auf. Genau das prüft ``test_rolle_leser.py`` Nr. 1.
+
+    Raises:
+        HTTPException: 403, wenn der Angemeldete nur lesen darf.
+    """
+    if not benutzer.darf_schreiben:
+        raise HTTPException(
+            status_code=403,
+            detail="Dieser Zugang darf nur lesen.",
+        )
+    return benutzer
+
+
+def beleg_zugriff(benutzer: Benutzer = Depends(angemeldeter_benutzer)) -> Benutzer:
+    """Erzwingt das Recht, den **Inhalt** eines Belegdokuments zu sehen.
+
+    Gilt für den Abruf der Datei und für die Volltextsuche über die Belegtexte.
+    Die Belegliste bleibt für alle sichtbar — die Begründung steht bei
+    :attr:`~bc0_auth.modelle.Benutzer.darf_belege_oeffnen`.
+
+    Raises:
+        HTTPException: 403, wenn der Angemeldete Belege nicht öffnen darf.
+    """
+    if not benutzer.darf_belege_oeffnen:
+        raise HTTPException(
+            status_code=403,
+            detail="Dieser Zugang darf Belegdokumente nicht öffnen.",
+        )
+    return benutzer
+
+
 def admin(benutzer: Benutzer = Depends(angemeldeter_benutzer)) -> Benutzer:
     """Erzwingt die Admin-Rolle.
 

@@ -23,6 +23,31 @@ Gesamtlauf am 20.08.2026: **130 Tests, alle grün, 19,3 s.**
 >
 > Drei Tests vom 20.08. sagen seit v2.8 das Gegenteil von damals — mit Begründung im Docstring: `test_erhebungen.py` (zweite Erhebung im Monat bekommt eine Nummer; Abschließen ist Admin-Sache) und `test_v26_einfrieren.py` Nr. 1 (nach dem Abschluss kein 400 mehr, sondern die nächste Erhebung). **Die Datenbankseite** (Trigger, Historie, Zeitreise, Paket, Kennungsregel, Stand nach Erhebung) läuft nur auf PostgreSQL und ist in `pruefung_v2.6_…`, `pruefung_v2.7_…`, `pruefung_v2.8_…`, `pruefung_v2.9_….sql` mit Erwartungswerten belegt (20 + 17 + 7 + 7 Proben, alle getroffen am 03./04.09.2026).
 
+> **Nachtrag 22.09.2026 — Gesamtlauf 366 Tests, alle grün, 67 s** (SQLite-Modus).
+> Seit dem 04.09. dazugekommen:
+>
+> | Datei | Prüfgegenstand | Tests |
+> |---|---|---|
+> | `test_v30_steller_und_am_gate.py` | Steller einer Anfrage, `angelegt_von`, Nachziehen am Gate (v3.0) | 4 |
+> | `test_v31_zustellung.py` | Zustellprotokoll `bc_zustellungen`, `v_zustellung_offen` (v3.1) | 5 |
+> | `test_v32_ruf_an_bc2.py` | Ruf an BC2, RFC-3339-Zeitstempel (v3.2) | 14 |
+> | `test_v33_bc1_anreicherung.py` | Anreicherung durch BC1, `_bc1_anreicherung()` (v3.3) | 12 |
+> | `test_v34_aktiv_und_owner.py` | `aktiv`-Filter, Lesesichten, Eindeutigkeit des Eigners (v3.4) | 7 |
+> | `test_rolle_leser.py` | **Rolle „leser" (#211)** — darf lesen, darf nicht schreiben | 38 |
+>
+> Damit ist die Bitte von BC1 vom 18.09.2026 erfüllt, die Testabdeckung um
+> v3.0 bis v3.4 fortzuschreiben.
+>
+> **`test_rolle_leser.py` Nr. 1 ist die einzige Prüfung dieser Sammlung, die
+> künftige Lücken findet, ohne selbst gepflegt zu werden.** Sie zählt nicht an
+> einer Liste ab, sondern am Routenbaum der laufenden Anwendung: Jeder
+> Endpunkt mit `POST`, `PUT`, `PATCH` oder `DELETE` unter `/api/` muss eine
+> Abhängigkeit `schreibender_benutzer` oder `admin` tragen. Wer nächstes Jahr
+> einen schreibenden Endpunkt ergänzt und die Abhängigkeit vergisst, bringt
+> diesen Test zu Fall und liest im Fehlertext den Pfad, den er vergessen hat.
+> Die übrigen 365 Tests prüfen, was jemand aufgeschrieben hat; dieser eine
+> prüft, was jemand **nicht** aufgeschrieben hat.
+
 ---
 
 ## 1. Verfahren

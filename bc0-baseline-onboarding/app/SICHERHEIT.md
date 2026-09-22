@@ -325,16 +325,40 @@ Die Anmerkung im Quelltext benennt die Abhängigkeit:
 
 Das halte ich weiter für richtig. Beides gehört in einen Schritt.
 
-### 3.6 Keine Nur-Lesen-Rolle — **niedrig, aber bewusst**
+### 3.6 Keine Nur-Lesen-Rolle — **niedrig, aber bewusst** · ✅ GESCHLOSSEN 22.09.2026
 
-Es gibt genau zwei Rollen: `benutzer` und `admin`. Wer den Reifegradbericht nur
-ansehen soll, braucht dennoch ein Konto mit Schreibrecht auf seinen Mandanten.
+~~Es gibt genau zwei Rollen: `benutzer` und `admin`. Wer den Reifegradbericht nur
+ansehen soll, braucht dennoch ein Konto mit Schreibrecht auf seinen Mandanten.~~
 
-**Der gewählte Ersatz:** ein eigener Übungsmandant mit zwölf Konten, alle mit
+~~**Der gewählte Ersatz:** ein eigener Übungsmandant mit zwölf Konten, alle mit
 Rolle `benutzer` und ausschließlich diesem Mandanten zugeordnet. Wer dort etwas
 kaputt macht, macht nur Übungsdaten kaputt. Das löst den Anwendungsfall
 „ausprobieren", nicht den Anwendungsfall „ansehen dürfen, ohne ändern zu
-können". Für die Halbzeitpräsentation reicht es.
+können". Für die Halbzeitpräsentation reicht es.~~
+
+**Erledigt am 22.09.2026 (Vorgang #211).** Es gibt jetzt drei Rollen. `leser`
+darf sehen und nichts ändern:
+
+- **Jeder** schreibende Endpunkt verlangt `Depends(schreibender_benutzer)` oder
+  `Depends(admin)` — 16 Endpunkte umgestellt, kein `POST`/`PUT`/`PATCH`/`DELETE`
+  unter `/api/` ohne Schutz.
+- **Belege bleiben zu**: weder Dateiabruf noch Volltextsuche über die
+  Belegtexte (`Depends(beleg_zugriff)`). Die Belegliste bleibt sichtbar — dass
+  eine Bewertung belegt ist, gehört zum Ergebnis; womit, nicht.
+- **Gate-0-Bogen und Übergabe** waren schon Admin-Sache und bleiben es.
+- **Mandantentrennung** unverändert: zugeordnete Mandanten, sonst 404.
+- **38 Tests** in `tests/test_rolle_leser.py`, beide Seiten — darf lesen, darf
+  nicht schreiben.
+
+**Was bleibt.** Nr. 1 dieser Testdatei zählt die schreibenden Endpunkte am
+Routenbaum ab und verlangt für jeden einen Schutz. Ein künftiger Endpunkt ohne
+Abhängigkeit bringt sie zu Fall. Die Oberfläche blendet zusätzlich aus, was ein
+Leser nicht darf — **das ist Bequemlichkeit und keine Sperre**; sie erkennt
+Knöpfe an ihrer Beschriftung, und ein neuer Knopf, der durchrutscht, führt zu
+einer 403-Meldung statt zu einer Änderung.
+
+Der Übungsmandant bleibt bestehen; er löst weiter den Anwendungsfall
+„ausprobieren".
 
 ### 3.7 Datenschutz-Folgenabschätzung und AVV offen — **organisatorisch, hoch**
 

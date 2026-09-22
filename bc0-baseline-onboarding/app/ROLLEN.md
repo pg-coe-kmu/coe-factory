@@ -7,6 +7,24 @@
 
 ---
 
+> ### Namensgleichheit, die es zu trennen gilt — Nachtrag 22.09.2026
+>
+> Seit Vorgang **#211** gibt es zwei Dinge, die „Leser" heißen:
+>
+> | | `bc_leser` | `leser` |
+> |---|---|---|
+> | Was | PostgreSQL-**Gruppenrolle** | Rolle der **Anwendung** |
+> | Wer | BC1 bis BC4, über eine eigene Datenbankverbindung | ein Mensch, der sich an der PWA anmeldet |
+> | Wo steht es | `pg_roles`, `GRANT` | `app_benutzer.rolle` |
+> | Wer prüft | PostgreSQL | FastAPI (`bc0_auth`) |
+> | Beschrieben in | **dieser Datei** | `AUTH.md`, Abschnitt 2 |
+>
+> Die beiden haben nichts miteinander zu tun. `schema_v3.7_rolle_leser.sql`
+> ändert **nur** die Bedingung an `app_benutzer.rolle` und fasst keine
+> Datenbankrolle an.
+
+---
+
 ## Modell
 
 Jeder Bounded Context bekommt eine eigene Login-Rolle und ein eigenes Schema. Das Leserecht hängt an einer gemeinsamen Gruppenrolle.

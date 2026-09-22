@@ -39,19 +39,58 @@ docker compose exec app python benutzer_verwalten.py liste
 
 ---
 
-## 2. Die beiden Rollen
+## 2. Die drei Rollen
 
-| | Benutzer | Admin |
-|---|---|---|
-| Mandanten sichtbar | nur die zugeordneten | **alle** |
-| anlegen, ändern, speichern | ja, im eigenen Mandanten | ja, überall |
-| **löschen** | nein | **ja** |
-| **freigeben** (an BC2) | nein | **ja** |
-| Benutzer verwalten | nein | ja |
+| | Benutzer | Admin | Leser |
+|---|---|---|---|
+| Mandanten sichtbar | nur die zugeordneten | **alle** | nur die zugeordneten |
+| Bericht, Prozesse, Historie lesen | ja | ja | ja |
+| Belegliste (Dateiname, Datum, Bezug) | ja | ja | ja |
+| **Beleg öffnen · Belegtexte durchsuchen** | ja | ja | **nein** |
+| anlegen, ändern, speichern | ja, im eigenen Mandanten | ja, überall | **nein** |
+| **löschen** | nein | **ja** | nein |
+| **Gate-0-Bogen sehen · freigeben** (an BC2) | nein | **ja** | nein |
+| Benutzer verwalten | nein | ja | nein |
+| eigenes Passwort ändern | ja | ja | **ja** |
 
-Beschlossen im Meeting vom 10.08.2026. Eine dritte Stufe („nur lesen") ist
-bewusst nicht vorgesehen — sie hätte ohne konkreten Bedarf nur die
-Rechteprüfung verkompliziert.
+Beschlossen im Meeting vom 10.08.2026 — damals mit zwei Rollen. Dort stand:
+*Eine dritte Stufe („nur lesen") ist bewusst nicht vorgesehen — sie hätte ohne
+konkreten Bedarf nur die Rechteprüfung verkompliziert.*
+
+**Ergänzt am 22.09.2026 (Vorgang #211).** Der Bedarf ist eingetreten. Wer einen
+Reifegradbericht ansehen soll — ein Prozessverantwortlicher, ein Kollege aus
+einem anderen Bounded Context, der Betreuer — bekam mit zwei Rollen
+zwangsläufig Schreibrechte. Die Baseline ist aber ein Nachweis, und ein
+Nachweis, den jeder Betrachter ändern kann, ist keiner.
+
+Drei Festlegungen dazu, getroffen am 22.09.2026:
+
+1. **Belege bleiben zu.** Ein Beleg ist die Rohunterlage hinter einer
+   Bewertung — ein Vertragsauszug, ein Bildschirmfoto aus einem Fachverfahren.
+   Er wurde für die Erhebung hochgeladen, nicht für den Kreis derer, die das
+   Ergebnis ansehen dürfen. *Dass* eine Bewertung belegt ist, gehört zum
+   Ergebnis und bleibt sichtbar; *womit* sie belegt ist, nicht. Dieselbe Linie
+   trennt die Volltextsuche ab — sie liefert Auszüge aus dem Belegtext.
+2. **Der Gate-0-Bogen bleibt zu.** Er war schon vorher dem Admin vorbehalten;
+   für den Leser ändert sich nichts, er wird nur ausdrücklich genannt.
+3. **Mandanten wie ein Benutzer.** Ein Leser bekommt seine Zuordnung in
+   `app_benutzer_mandanten` und sieht ausschließlich diese Mandanten.
+
+> **Nicht verwechseln mit `bc_leser`.** Das ist eine **PostgreSQL**-Rolle, über
+> die BC1 bis BC4 die Datenbank lesen (siehe `ROLLEN.md`). `leser` hier ist eine
+> Rolle der **Anwendung**: ein Mensch, der sich an der PWA anmeldet. Die
+> Namensähnlichkeit ist unglücklich und bleibt, weil beide Namen bereits in
+> Skripten und Verträgen stehen.
+
+Ein Leser wird angelegt wie jedes andere Konto:
+
+```bash
+docker compose exec app python benutzer_verwalten.py anlegen \
+  --email <adresse> --name "<Vorname Name>" --rolle leser --mandant <company_id>
+```
+
+Die Datenbankseite: `schema_v3.7_rolle_leser.sql` erweitert die Bedingung an
+`app_benutzer.rolle`. Ohne dieses Skript weist PostgreSQL das Anlegen ab.
 
 **Ein Benutzer ohne Mandantenzuordnung sieht nichts.** Das ist kein Fehler,
 sondern die sichere Vorbelegung. Zuordnen:
