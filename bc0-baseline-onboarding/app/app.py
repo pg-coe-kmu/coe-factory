@@ -372,6 +372,17 @@ CREATE TABLE IF NOT EXISTS prozess_personen (
   hinweis    TEXT,
   PRIMARY KEY (company_id, process_id, person_id, funktion)
 );
+-- v3.9 (29.09.2026, Vorgang 911): weitere Rollen je Person. ref_personen.rolle_id bleibt
+-- die Hauptrolle (aus ihr liest v_prozesse_lesen.owner_rolle_id). Massgeblich:
+-- schema_v3.9_person_rollen.sql.
+CREATE TABLE IF NOT EXISTS person_rollen (
+  company_id UUID NOT NULL,
+  person_id  TEXT NOT NULL,
+  rolle_id   TEXT NOT NULL,
+  PRIMARY KEY (company_id, person_id, rolle_id),
+  FOREIGN KEY (company_id, person_id) REFERENCES ref_personen(company_id, person_id) ON DELETE CASCADE,
+  FOREIGN KEY (company_id, rolle_id)  REFERENCES mandant_rollen(company_id, rolle_id)
+);
 CREATE TABLE IF NOT EXISTS ref_systeme_katalog (
   katalog_id  TEXT PRIMARY KEY,
   bezeichnung TEXT NOT NULL,
@@ -399,6 +410,9 @@ CREATE TABLE IF NOT EXISTS ref_personen(
   email TEXT, telefon TEXT,
   aktiv INTEGER NOT NULL DEFAULT 1, angelegt_am TEXT,
   PRIMARY KEY(company_id, person_id));
+CREATE TABLE IF NOT EXISTS person_rollen(
+  company_id INTEGER NOT NULL, person_id TEXT NOT NULL, rolle_id TEXT NOT NULL,
+  PRIMARY KEY(company_id, person_id, rolle_id));
 CREATE TABLE IF NOT EXISTS prozess_personen(
   company_id INTEGER NOT NULL, process_id TEXT NOT NULL, person_id TEXT NOT NULL,
   funktion TEXT NOT NULL, hinweis TEXT,
@@ -3721,11 +3735,17 @@ def entitaeten(cid: str, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
         katalog = [dict(r) for r in c.execute(
             "SELECT katalog_id, bezeichnung, kategorie, hersteller FROM ref_systeme_katalog "
             "ORDER BY kategorie, bezeichnung").fetchall()]
+        # v3.9: weitere Rollen je Person (die Hauptrolle steht in ref_personen.rolle_id).
+        weitere = {}
+        for r in c.execute("SELECT person_id, rolle_id FROM person_rollen WHERE " + W_CO +
+                           " ORDER BY person_id, rolle_id", (cid,)).fetchall():
+            weitere.setdefault(r["person_id"], []).append(r["rolle_id"])
     finally:
         c.close()
     for p in personen:
         p["aktiv"] = bool(p["aktiv"]) and str(p["aktiv"]) != "0"
         p["extern"] = bool(p["extern"]) and str(p["extern"]) != "0"
+        p["weitere_rollen"] = weitere.get(p["person_id"], [])
     for s in systeme:
         s["aktiv"] = bool(s["aktiv"]) and str(s["aktiv"]) != "0"
     return {"personen": personen, "systeme": systeme, "zuordnungen": zuordnungen,
@@ -3806,6 +3826,28 @@ async def save_entitaeten(cid: str, req: Request,
                               "VALUES(?,?,?,?,?,?,?,?,?,?,?)",
                               werte + (cid, person_id))
                 gesendet.add(person_id)
+
+                # v3.9 (Vorgang 911): weitere Rollen — nur wenn der Schluessel mitkommt,
+                # dann ersetzt die Liste den Bestand dieser Person. Die alte Oberflaeche
+                # schickt ihn nie und loescht damit nichts. Die Hauptrolle wird hier nicht
+                # doppelt gefuehrt.
+                if "weitere_rollen" in eintrag:
+                    liste = eintrag.get("weitere_rollen") or []
+                    if not isinstance(liste, list):
+                        raise HTTPException(400, "weitere_rollen muss eine Liste sein")
+                    weitere = []
+                    for w in liste:
+                        w = (str(w) if w is not None else "").strip()
+                        if not w or w == rolle_id or w in weitere:
+                            continue
+                        if w not in bekannte_rollen:
+                            raise HTTPException(400, "Unbekannte Rolle: %s" % w)
+                        weitere.append(w)
+                    c.execute("DELETE FROM person_rollen WHERE " + W_CO + " AND person_id=?",
+                              (cid, person_id))
+                    for w in weitere:
+                        c.execute("INSERT INTO person_rollen(company_id,person_id,rolle_id) VALUES(?,?,?)",
+                                  (cid, person_id, w))
 
             for verschwunden in vorhanden - gesendet:
                 c.execute("UPDATE ref_personen SET aktiv=? WHERE " + W_CO + " AND person_id=?",
