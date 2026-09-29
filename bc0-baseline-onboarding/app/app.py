@@ -87,7 +87,9 @@ SUPABASE_SERVICE_KEY = (os.environ.get("SUPABASE_SERVICE_KEY") or "").strip()
 SUPABASE_BUCKET = os.environ.get("SUPABASE_BUCKET", "belege")
 SB_STORAGE = bool(SUPABASE_URL and SUPABASE_SERVICE_KEY)
 MAX_DOC_MB = int(os.environ.get("MAX_DOC_MB", "15"))
-REF_RE = re.compile(r"^KP-\d{2}(\.TP-\d+)?$")
+# "MANDANT" (30.09.2026, V2/Vorgang 910): Dokumente zum ganzen Unternehmen, nicht zu einem
+# Prozess — Grundlage fuer die manuell erfassten Unternehmensdaten und spaeter OCR.
+REF_RE = re.compile(r"^(KP-\d{2}(\.TP-\d+)?|MANDANT)$")
 
 def _sb(method, path, data=None, ctype=None, extra=None):
     """Ruft die Supabase-REST-Schnittstelle auf — der einzige Weg dorthin.
@@ -1312,8 +1314,10 @@ from bc0_auth import AuthDienst, Benutzer                            # noqa: E40
 from bc0_auth.abhaengigkeiten import (                               # noqa: E402
     admin,
     angemeldeter_benutzer,
+    beleg_zugriff,
     dienst_setzen,
     pruefe_mandant,
+    schreibender_benutzer,
 )
 from bc0_auth.middleware import AnmeldepflichtMiddleware             # noqa: E402
 from bc0_auth.routen import router as auth_router                    # noqa: E402
@@ -1478,7 +1482,7 @@ def get_company(cid:str, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
             "ratings":ratings,"erhebung":dict(erh) if erh else None}
 
 @app.put("/api/companies/{cid}/profile")
-async def save_profile(cid:str, req:Request, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+async def save_profile(cid:str, req:Request, benutzer: Benutzer = Depends(schreibender_benutzer)):
     """Speichert Unternehmensdaten und Profil.
 
     ``name`` ist über ``COALESCE(?,name)`` geschützt: Ein nicht mitgeschicktes
@@ -1499,10 +1503,25 @@ async def save_profile(cid:str, req:Request, benutzer: Benutzer = Depends(angeme
             (b.get("name"),b.get("branche"),b.get("rechtsform"),b.get("ma") or None,b.get("region"),cid))
     c.execute("UPDATE company_profile SET geschaeftsmodell=?,tech_stack=? WHERE "+W_CO,
         (b.get("geschaeftsmodell"),b.get("tech_stack"),cid))
+    # Unternehmensdaten manuell (30.09.2026, V2/Vorgang 910). Bisher schrieb nur der
+    # YAML-Import ``profile_json``. Nur wenn der Schluessel mitkommt — sonst bleibt der
+    # Bestand unangetastet (die alte Oberflaeche schickt ihn nie). Erlaubt ist ein
+    # Objekt (Abschnitt -> Inhalt), als Objekt oder als JSON-Text.
+    if "profile_json" in b:
+        pj = b.get("profile_json")
+        if isinstance(pj, str):
+            try: pj = json.loads(pj) if pj.strip() else {}
+            except ValueError:
+                c.close(); raise HTTPException(400, "profile_json ist kein gueltiges JSON")
+        if pj is None: pj = {}
+        if not isinstance(pj, dict):
+            c.close(); raise HTTPException(400, "profile_json muss ein Objekt sein (Abschnitt -> Inhalt)")
+        c.execute("UPDATE company_profile SET profile_json=? WHERE "+W_CO,
+            (json.dumps(pj, ensure_ascii=False), cid))
     c.commit(); c.close(); return {"ok":True}
 
 @app.put("/api/companies/{cid}/process")
-async def save_process(cid:str, req:Request, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+async def save_process(cid:str, req:Request, benutzer: Benutzer = Depends(schreibender_benutzer)):
     """Speichert einen Kernprozess samt seiner fünf Teilprozesse.
 
     Ausschließlich ``UPDATE``, kein ``INSERT``: Der Prozessbaum entsteht beim
@@ -1563,7 +1582,7 @@ def _naechste_kp_nummer(c, cid):
 
 
 @app.post("/api/companies/{cid}/process/add")
-async def add_process(cid:str, req:Request, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+async def add_process(cid:str, req:Request, benutzer: Benutzer = Depends(schreibender_benutzer)):
     """Nimmt einen weiteren Kernprozess in den Umfang auf.
 
     **Geaendert am 27.08.2026.** Bis dahin nahm dieser Endpunkt einen
@@ -1631,7 +1650,7 @@ async def add_process(cid:str, req:Request, benutzer: Benutzer = Depends(angemel
 
 
 @app.post("/api/companies/{cid}/process/{pid}/subprocess/add")
-async def add_subprocess(cid:str, pid:str, req:Request, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+async def add_subprocess(cid:str, pid:str, req:Request, benutzer: Benutzer = Depends(schreibender_benutzer)):
     """Haengt einen weiteren Teilprozess an einen Kernprozess.
 
     **Neu am 27.08.2026.** Diesen Weg gab es bisher gar nicht:
@@ -1673,7 +1692,7 @@ async def add_subprocess(cid:str, pid:str, req:Request, benutzer: Benutzer = Dep
     return {"ok": True, "sub_process_id": sid, "step_no": n}
 
 @app.post("/api/companies/{cid}/rating")
-async def save_rating(cid:str, req:Request, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+async def save_rating(cid:str, req:Request, benutzer: Benutzer = Depends(schreibender_benutzer)):
     """Speichert die Bitkom-Bewertungen eines Teilprozesses.
 
     Drei Eigenschaften, die hier zusammenkommen:
@@ -2574,7 +2593,7 @@ def ki_readiness_lesen(cid:str, benutzer: Benutzer = Depends(angemeldeter_benutz
 
 
 @app.put("/api/companies/{cid}/ki_readiness")
-async def ki_readiness_speichern(cid:str, req:Request, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+async def ki_readiness_speichern(cid:str, req:Request, benutzer: Benutzer = Depends(schreibender_benutzer)):
     """Eine Erhebung mit ihren vier Dimensionswerten.
 
     Die Kennung wird aus dem Stichtag gebildet (KR-JJJJ-MM) und nicht vom
@@ -2701,7 +2720,7 @@ PD_PFLICHT = ["bezeichnung","zweck","ersteller","version","ablauf","grenzen"]
 
 @app.put("/api/companies/{cid}/prozessdok/{sid}")
 async def prozessdok_speichern(cid:str, sid:str, req:Request,
-                               benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+                               benutzer: Benutzer = Depends(schreibender_benutzer)):
     """Blatt, Werkzeuge, Agenten und Tests in einem Zug.
 
     Werkzeuge, Agenten und Tests werden ERSETZT, nicht zusammengefuehrt: Die
@@ -3091,14 +3110,14 @@ def _fundstelle(ocr_text, begriff):
 
 @app.post("/api/companies/{cid}/documents")
 async def upload_document(cid: str, ref_id: str = Form(...), file: UploadFile = File(...),
-                          benutzer: Benutzer = Depends(angemeldeter_benutzer)):
-    """Nimmt ein Belegdokument entgegen und legt es ab.
+                          benutzer: Benutzer = Depends(schreibender_benutzer)):
+    r"""Nimmt ein Belegdokument entgegen und legt es ab.
 
     Die Prüfungen laufen in dieser Reihenfolge, und die Reihenfolge ist
     beabsichtigt — es wird nichts geschrieben, bevor nicht alles geprüft ist:
 
     1. Mandantenrecht (:func:`pruefe_mandant`),
-    2. ``ref_id`` gegen :data:`REF_RE` — nur ``KP-XX`` oder ``KP-XX.TP-Y``. Der
+    2. ``ref_id`` gegen :data:`REF_RE` — nur ``KP-XX``, ``KP-XX.TP-Y`` oder ``MANDANT``. Der
        Wert geht in den Ablagepfad ein; das ist die Stelle, an der ein
        Pfaddurchstieg entstünde,
     3. Mandant existiert,
@@ -3125,7 +3144,7 @@ async def upload_document(cid: str, ref_id: str = Form(...), file: UploadFile = 
     """
     pruefe_mandant(benutzer, cid)
     if not REF_RE.match(ref_id or ""):
-        raise HTTPException(400, "ref_id muss 'KP-XX' oder 'KP-XX.TP-Y' sein")
+        raise HTTPException(400, "ref_id muss 'KP-XX', 'KP-XX.TP-Y' oder 'MANDANT' sein")
     c = db()
     if not c.execute(SEL_CO + " WHERE " + KEY_CO, (cid,)).fetchone():
         c.close(); raise HTTPException(404, "Mandant unbekannt")
@@ -3161,7 +3180,7 @@ async def upload_document(cid: str, ref_id: str = Form(...), file: UploadFile = 
 
 @app.get("/api/companies/{cid}/documents/suche")
 def suche_belege(cid: str, q: str = "",
-                 benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+                 benutzer: Benutzer = Depends(beleg_zugriff)):
     """Volltextsuche ueber die Belege eines Mandanten (Stufe 2, Schritt 6).
 
     **Wofuer.** BC0 erzwingt eine Belegpflicht — keine Bewertung ohne
@@ -3257,7 +3276,7 @@ def list_documents(cid: str, ref_id: str = None,
 
 @app.get("/api/companies/{cid}/documents/{doc_id}/file")
 def get_document_file(cid: str, doc_id: str,
-                      benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+                      benutzer: Benutzer = Depends(beleg_zugriff)):
     """Liefert den Inhalt eines Belegdokuments aus.
 
     Der einzige Weg zu den Dateien: Der Ablagekorb ist nicht öffentlich, und
@@ -3311,7 +3330,7 @@ def get_document_file(cid: str, doc_id: str,
 
 @app.delete("/api/companies/{cid}/documents/{doc_id}")
 def delete_document(cid: str, doc_id: str,
-                    benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+                    benutzer: Benutzer = Depends(schreibender_benutzer)):
     """Löscht ein Belegdokument — Datei und Datenbankzeile.
 
     Die Reihenfolge ist Datei zuerst, Zeile danach. :func:`delete_file`
@@ -3549,7 +3568,7 @@ def rollen_kosten(cid: str, benutzer: Benutzer = Depends(angemeldeter_benutzer))
 
 @app.put("/api/companies/{cid}/rollen_kosten")
 async def save_rollen_kosten(cid: str, req: Request,
-                             benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+                             benutzer: Benutzer = Depends(schreibender_benutzer)):
     """Speichert Rollen und Kostensaetze.
 
     Zwei Eigenheiten, beide mit Absicht:
@@ -3716,7 +3735,7 @@ def entitaeten(cid: str, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
 
 @app.put("/api/companies/{cid}/entitaeten")
 async def save_entitaeten(cid: str, req: Request,
-                          benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+                          benutzer: Benutzer = Depends(schreibender_benutzer)):
     """Speichert Personen, Systeme und Zuordnungen.
 
     **Jeder Block ist einzeln optional.** Fehlt der Schluessel im Rumpf, wird der
@@ -4941,7 +4960,7 @@ def anfragen(cid: str, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
 
 
 @app.post("/api/companies/{cid}/anfragen")
-async def anfrage_anlegen(cid: str, req: Request, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+async def anfrage_anlegen(cid: str, req: Request, benutzer: Benutzer = Depends(schreibender_benutzer)):
     """Eine Anfrage aufnehmen.
 
     Der `originaltext` wird nie veraendert — weder gekuerzt noch umformuliert noch
@@ -5375,7 +5394,7 @@ def anfrage_vorschlaege(cid: str, anfrage_id: str,
 
 @app.put("/api/companies/{cid}/anfragen/{anfrage_id}/zuordnung")
 async def anfrage_zuordnen(cid: str, anfrage_id: str, req: Request,
-                           benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+                           benutzer: Benutzer = Depends(schreibender_benutzer)):
     """Traegt den Prozessbezug einer Anfrage nach.
 
     **Wofuer.** Eine Anfrage darf ohne Prozessbezug entstehen — der
@@ -5479,7 +5498,7 @@ async def anfrage_zuordnen(cid: str, anfrage_id: str, req: Request,
 
 
 @app.post("/api/companies/{cid}/anfragen/gate_nachziehen")
-def anfrage_gate_nachziehen(cid: str, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+def anfrage_gate_nachziehen(cid: str, benutzer: Benutzer = Depends(schreibender_benutzer)):
     """Zieht Anfragen auf ``am_gate`` nach, deren BC1-Profile fertig sind.
 
     **Wofuer.** ``am_gate`` stand seit v2.2 in der Wertemenge — und **keine
@@ -5520,7 +5539,7 @@ def anfrage_gate_nachziehen(cid: str, benutzer: Benutzer = Depends(angemeldeter_
 
 @app.put("/api/companies/{cid}/anfragen/{anfrage_id}/status")
 async def anfrage_status_setzen(cid: str, anfrage_id: str, req: Request,
-                                benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+                                benutzer: Benutzer = Depends(schreibender_benutzer)):
     """Setzt den Status einer Anfrage.
 
     **Wofuer.** Der Status stand seit v2.2 in der Datenbank, wurde angezeigt —
@@ -5588,7 +5607,7 @@ async def anfrage_status_setzen(cid: str, anfrage_id: str, req: Request,
 
 @app.post("/api/companies/{cid}/prozesskanten")
 async def prozesskante_anlegen(cid: str, req: Request,
-                               benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+                               benutzer: Benutzer = Depends(schreibender_benutzer)):
     """Traegt eine Kante zwischen zwei Kernprozessen nach.
 
     **Wofuer.** BC0 erhebt die Kanten und liefert sie als gegeben. Fehlt eine

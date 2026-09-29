@@ -58,7 +58,7 @@ DDL_POSTGRES = (
       email             TEXT NOT NULL UNIQUE,
       name              TEXT NOT NULL,
       passwort_hash     TEXT NOT NULL,
-      rolle             TEXT NOT NULL CHECK (rolle IN ('benutzer','admin')),
+      rolle             TEXT NOT NULL CHECK (rolle IN ('benutzer','admin','leser')),
       aktiv             BOOLEAN NOT NULL DEFAULT TRUE,
       angelegt_am       TIMESTAMPTZ NOT NULL DEFAULT now(),
       letzte_anmeldung  TIMESTAMPTZ
@@ -100,7 +100,7 @@ DDL_SQLITE = (
       email             TEXT NOT NULL UNIQUE,
       name              TEXT NOT NULL,
       passwort_hash     TEXT NOT NULL,
-      rolle             TEXT NOT NULL CHECK (rolle IN ('benutzer','admin')),
+      rolle             TEXT NOT NULL CHECK (rolle IN ('benutzer','admin','leser')),
       aktiv             INTEGER NOT NULL DEFAULT 1,
       angelegt_am       TEXT NOT NULL,
       letzte_anmeldung  TEXT

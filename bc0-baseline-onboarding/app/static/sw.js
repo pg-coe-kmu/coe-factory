@@ -9,12 +9,16 @@
    der Name gleich, ueberlebte der beim ERSTEN Besuch abgelegte Stand von
    /static/index.html beliebig lange und wurde offline weiter ausgeliefert
    — am 28.08.2026 nachgemessen: 41.292 Zeichen gegenueber 158.706 live. */
-/* HUELLE 3ac7210c — Pruefsumme (SHA-256, acht Stellen) von static/index.html.
+/* HUELLE e2ce189f — Pruefsumme (SHA-256, acht Stellen) von static/index.html.
    Aendert sich die Huelle, aendert sich dieser Wert. Der Test
    test_cache_name_haengt_an_der_huelle schlaegt dann fehl und zwingt zu der
    Entscheidung, die am 01.09.2026 unterblieben ist: CACHE erhoehen — ja oder nein?
    Am 02.09.2026 nachgeruestet, weil kein Test den vergessenen Namenswechsel sah. */
-const CACHE = "bc0-pwa-v15";  /* 18.09.2026, dritte Aenderung: Block "Freigabefaehig" ueber dem Sachstand.
+const CACHE = "bc0-pwa-v16";  /* 22.09.2026: Rolle "leser" (#211) — die Huelle blendet aus,
+                                 was ein Nur-Lese-Zugang nicht darf. Bedienung geaendert, also
+                                 erhoeht: Ein Leser mit der alten Huelle im Cache saehe Knoepfe,
+                                 die der Server ihm mit 403 beantwortet.
+                                 Davor v15 — 18.09.2026, dritte Aenderung: Block "Freigabefaehig" ueber dem Sachstand.
                                  Davor v14 — der Sammelsatz nennt, was wirklich fehlt.
                                  Davor v13 — BC1-Anreicherung im Gate-Bogen (#P4).
                                  Davor v12 — 04.09.2026, dritte Aenderung: Stand des Berichts und
