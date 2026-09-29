@@ -414,6 +414,39 @@ verlangt von BC1 die Antwort auf eine Frage — welche Felder braucht der Bot?
 
 ---
 
+### 3.9 Supabase-Data-API: `anon`/`authenticated` mit Vollrechten auf alle Tabellen — **kritisch** · ✅ GESCHLOSSEN 29.09.2026
+
+**Befund (gemessen 29.09.2026):** Alle 36 Tabellen in `public` ohne Zeilensperre
+(RLS); die Supabase-Rollen `anon` und `authenticated` hatten `SELECT`, `INSERT`,
+`UPDATE`, `DELETE`, `TRUNCATE` auf **71 Objekte** — auch `app_benutzer`,
+`app_sitzungen`, `ref_personen`. Ursache: Supabase-Voreinstellung (Default
+Privileges für die Data-API-Rollen). Die **Data API war eingeschaltet** und gab
+`public` frei; wer den anon-Schlüssel kannte, konnte per REST lesen und schreiben.
+Der anon-Schlüssel gilt bei Supabase ausdrücklich nicht als geheim.
+
+**Niemand braucht die Schnittstelle.** BC0 nutzt Supabase nur für Storage (mit
+dem Service-Schlüssel), BC1–BC4 verbinden sich über eigene Postgres-Rollen. Im
+Repository gibt es weder `rest/v1` noch `supabase-js`.
+
+**Behoben:**
+1. Data API im Dashboard **abgeschaltet** („Data API is disabled").
+2. `schema_v3.10_supabase_rechte.sql`: `REVOKE ALL` auf alle Tabellen, Sequenzen,
+   Funktionen in `public` von `anon` und `authenticated`; dieselbe Voreinstellung
+   für künftige Objekte (`ALTER DEFAULT PRIVILEGES FOR ROLE postgres`). Ergebnis:
+   **71 → 0**; BC1–BC4 lesen ihre Sichten unverändert; `service_role` unberührt.
+3. Nebenbei: `person_rollen` (v3.9) war für `bc1_role` über die Gruppe `bc_leser`
+   lesbar — dort ebenfalls entzogen (wie `ref_personen`, `prozess_personen`).
+
+**Was sich nicht belegen lässt:** ob die Lücke vor dem 28.09.2026 genutzt wurde —
+der Free-Plan hält die API-Logs 24 Stunden. In diesen 24 Stunden: **keine**
+Anfrage auf `rest/v1` oder `graphql`. Kontenbestand geprüft: ein Admin (der
+bekannte), keine Konten nach dem 02.09., eine gültige Sitzung. Sitzungsschlüssel
+liegen nur als SHA-256-Abdruck, Passwörter als PBKDF2 — ein bloßer Lesezugriff
+hätte keine Sitzung übernehmen können.
+
+**Merksatz für jedes neue Supabase-Projekt:** Data API abschalten, bevor die
+erste Tabelle entsteht — oder RLS auf jeder Tabelle.
+
 ## 4. Bedrohungen und ihre Abdeckung
 
 | Bedrohung | Abdeckung | Rest |
