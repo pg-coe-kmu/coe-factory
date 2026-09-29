@@ -87,7 +87,9 @@ SUPABASE_SERVICE_KEY = (os.environ.get("SUPABASE_SERVICE_KEY") or "").strip()
 SUPABASE_BUCKET = os.environ.get("SUPABASE_BUCKET", "belege")
 SB_STORAGE = bool(SUPABASE_URL and SUPABASE_SERVICE_KEY)
 MAX_DOC_MB = int(os.environ.get("MAX_DOC_MB", "15"))
-REF_RE = re.compile(r"^KP-\d{2}(\.TP-\d+)?$")
+# "MANDANT" (30.09.2026, V2/Vorgang 910): Dokumente zum ganzen Unternehmen, nicht zu einem
+# Prozess — Grundlage fuer die manuell erfassten Unternehmensdaten und spaeter OCR.
+REF_RE = re.compile(r"^(KP-\d{2}(\.TP-\d+)?|MANDANT)$")
 
 def _sb(method, path, data=None, ctype=None, extra=None):
     """Ruft die Supabase-REST-Schnittstelle auf — der einzige Weg dorthin.
@@ -1501,6 +1503,21 @@ async def save_profile(cid:str, req:Request, benutzer: Benutzer = Depends(schrei
             (b.get("name"),b.get("branche"),b.get("rechtsform"),b.get("ma") or None,b.get("region"),cid))
     c.execute("UPDATE company_profile SET geschaeftsmodell=?,tech_stack=? WHERE "+W_CO,
         (b.get("geschaeftsmodell"),b.get("tech_stack"),cid))
+    # Unternehmensdaten manuell (30.09.2026, V2/Vorgang 910). Bisher schrieb nur der
+    # YAML-Import ``profile_json``. Nur wenn der Schluessel mitkommt — sonst bleibt der
+    # Bestand unangetastet (die alte Oberflaeche schickt ihn nie). Erlaubt ist ein
+    # Objekt (Abschnitt -> Inhalt), als Objekt oder als JSON-Text.
+    if "profile_json" in b:
+        pj = b.get("profile_json")
+        if isinstance(pj, str):
+            try: pj = json.loads(pj) if pj.strip() else {}
+            except ValueError:
+                c.close(); raise HTTPException(400, "profile_json ist kein gueltiges JSON")
+        if pj is None: pj = {}
+        if not isinstance(pj, dict):
+            c.close(); raise HTTPException(400, "profile_json muss ein Objekt sein (Abschnitt -> Inhalt)")
+        c.execute("UPDATE company_profile SET profile_json=? WHERE "+W_CO,
+            (json.dumps(pj, ensure_ascii=False), cid))
     c.commit(); c.close(); return {"ok":True}
 
 @app.put("/api/companies/{cid}/process")
@@ -3100,7 +3117,7 @@ async def upload_document(cid: str, ref_id: str = Form(...), file: UploadFile = 
     beabsichtigt — es wird nichts geschrieben, bevor nicht alles geprüft ist:
 
     1. Mandantenrecht (:func:`pruefe_mandant`),
-    2. ``ref_id`` gegen :data:`REF_RE` — nur ``KP-XX`` oder ``KP-XX.TP-Y``. Der
+    2. ``ref_id`` gegen :data:`REF_RE` — nur ``KP-XX``, ``KP-XX.TP-Y`` oder ``MANDANT``. Der
        Wert geht in den Ablagepfad ein; das ist die Stelle, an der ein
        Pfaddurchstieg entstünde,
     3. Mandant existiert,
@@ -3127,7 +3144,7 @@ async def upload_document(cid: str, ref_id: str = Form(...), file: UploadFile = 
     """
     pruefe_mandant(benutzer, cid)
     if not REF_RE.match(ref_id or ""):
-        raise HTTPException(400, "ref_id muss 'KP-XX' oder 'KP-XX.TP-Y' sein")
+        raise HTTPException(400, "ref_id muss 'KP-XX', 'KP-XX.TP-Y' oder 'MANDANT' sein")
     c = db()
     if not c.execute(SEL_CO + " WHERE " + KEY_CO, (cid,)).fetchone():
         c.close(); raise HTTPException(404, "Mandant unbekannt")
