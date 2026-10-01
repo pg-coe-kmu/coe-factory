@@ -1,0 +1,10 @@
+{
+  "dataset_version": "1.0",
+  "knowledge_as_of": "2026-09-01",
+  "documents": [
+    {"document_id": "AUR-01", "file_path": "knowledge/company/01_unternehmensprofil.md"},
+    {"document_id": "AUR-02", "file_path": "knowledge/organisation/02_ansprechpartner.md"},
+    {"document_id": "AUR-05", "file_path": "knowledge/processes/05_reklamationen.md"}
+  ],
+  "note": "Paths are relative to the UC2 directory. Index only these files for stage 1; do not index tests or docs."
+}
