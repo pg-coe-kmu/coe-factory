@@ -1,0 +1,71 @@
+{
+  "date": "2026-10-03",
+  "status": "Finaler Referenzprototyp; vereinbarte begleitete Abschlussprüfungen abgeschlossen",
+  "workflow_version": "uc2-qa-v2.4-14docs",
+  "prompt_version": "uc2-prompt-v2.2",
+  "schema_version": "uc2_grounded_answer_v2_2",
+  "validator_version": "uc2-validator-v2.4",
+  "files": [
+    {
+      "file": "database/001_uc2_basistabellen.sql",
+      "sha256": "11820ff11f25ca62443d96314a68d69fcde2a386c72657dfb2f1b38f924af664"
+    },
+    {
+      "file": "database/002_uc2_indexierung.sql",
+      "sha256": "10aaf5c8cf61b8571d259c95f14f1f37a33025abacd01ac3208a0d3eac03cd17"
+    },
+    {
+      "file": "database/003_uc2_indexierung_selbsttest.sql",
+      "sha256": "2e023101754022f81ed6d237c04ba5a0f40dc13e4b51ffd230881c63162e2693"
+    },
+    {
+      "file": "database/004_uc2_suche.sql",
+      "sha256": "899121d20b85ab71040a9706118945e030717ef622366ccea54870bc104bf634"
+    },
+    {
+      "file": "database/005_uc2_suche_selbsttest.sql",
+      "sha256": "44061474abaf9eb614db0d655043b499b38cf56ba9ddc021a37440f54e1c58b3"
+    },
+    {
+      "file": "database/006_uc2_testprotokoll.sql",
+      "sha256": "46d2cbe39c7e664a2ef22bce2528ace309dbfebef19a87bc647207be46fc8cd4"
+    },
+    {
+      "file": "database/007_uc2_testprotokoll_selbsttest.sql",
+      "sha256": "3fba50dc75f11c9744de0403a27deb6cc3d1b4384048d7d9c82c1f88e050ec7a"
+    },
+    {
+      "file": "README.md",
+      "sha256": "fae894b230343e2c3b8d206db7c9c33236118ceeebcc2e03ac266c5739239901"
+    },
+    {
+      "file": "tests/ABSCHLUSSTESTS.md",
+      "sha256": "db75b42b9d7db78d10699f3a626284ecb319db24aee1877630888474fe1a19e6"
+    },
+    {
+      "file": "tests/LOKALE_PAKETPRUEFUNG.md",
+      "sha256": "7afb81754ee6048e77ec791b9c2105b5064bbadb31699242571bf5b03c5452d0"
+    },
+    {
+      "file": "tests/UC2_TEST_Quellenkonflikt.json",
+      "sha256": "18fbe6a32eeba864851e8450aab6e8fc59351fe48c9b9a630395041d7f00e4b0"
+    },
+    {
+      "file": "workflows/UC2_Fragenbeantwortung_14_Dokumente_v2_4.json",
+      "sha256": "8f7d75d0a2f37bb0c0026c5cc5e3e5d44a59024c52ccaf872688c7038733317f"
+    },
+    {
+      "file": "workflows/UC2_Indexierung_14_Dokumente.json",
+      "sha256": "e0c0718c17a03f12657e461349fd5c76c1f792028ebde65636009e9e0756f7ae"
+    }
+  ],
+  "knowledge_revision": {
+    "document": "AUR-10",
+    "version": "1.1",
+    "date": "2026-10-03",
+    "commit": "f893524e8bd84b305ff50c4259053d57da2a7fbb",
+    "blob": "0679171353c22bd789228a8f46dfb99cad27b9d4",
+    "documents": 14,
+    "chunks": 76
+  }
+}
