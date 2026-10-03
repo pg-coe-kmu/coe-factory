@@ -1,8 +1,8 @@
 ---
 document_id: AUR-10
 title: Dienstreisen und Reisekosten
-version: '1.0'
-stand: '2026-09-01'
+version: '1.1'
+stand: '2026-10-03'
 verantwortlich: Personal
 kategorie: Personal
 status: freigegeben
@@ -24,6 +24,8 @@ Die reguläre Hotelkostengrenze beträgt 120 Euro brutto je Person und Nacht ein
 Übersteigen die Unterkunftskosten diese Grenze, ist vor der Buchung eine ausdrückliche dokumentierte Ausnahmegenehmigung der Bereichsleitung erforderlich. Der Antrag nennt Preis und Begründung, beispielsweise fehlende günstigere Verfügbarkeit. Eine allgemeine Reisegenehmigung reicht für die Überschreitung nicht aus.
 
 Ein Hotel für 145 Euro darf daher erst nach dieser zusätzlichen Ausnahmegenehmigung gebucht werden. Genau 120 Euro überschreiten die Grenze nicht.
+
+Technischer Revisionshinweis für den fiktiven Testbestand: Aktualisierungsprüfung UC2-20261003-A; die fachlichen Kostengrenzen bleiben unverändert.
 
 ## Buchung und Änderungen
 
