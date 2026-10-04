@@ -403,6 +403,94 @@ CREATE TABLE IF NOT EXISTS mandant_systeme (
   PRIMARY KEY (company_id, system_id)
 );
 """
+# ---- KI-Controlling (Schema v3.11, 04.10.2026, Vorgang 915) ----------------------------
+# Fachkonzept: 13_Konzepte_Architektur/BC0_Konzept_KI-Transformation_KI-Controlling_v1.
+# Massgeblich ist schema_v3.11_ki_controlling.sql (traegt zusaetzlich die Rechte).
+KIC_DDL_PG = """
+CREATE TABLE IF NOT EXISTS ki_schulungen (
+  id          BIGSERIAL PRIMARY KEY,
+  company_id  UUID NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
+  person_id   TEXT,
+  thema       TEXT NOT NULL,
+  termin      DATE,
+  erledigt_am DATE,
+  nachweis    TEXT
+);
+CREATE TABLE IF NOT EXISTS ki_research_bereiche (
+  company_id  UUID NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
+  bereich     TEXT NOT NULL,
+  person_id   TEXT,
+  PRIMARY KEY (company_id, bereich)
+);
+CREATE TABLE IF NOT EXISTS ki_research_notizen (
+  id          BIGSERIAL PRIMARY KEY,
+  company_id  UUID NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
+  bereich     TEXT NOT NULL,
+  datum       DATE NOT NULL,
+  person_id   TEXT,
+  notiz       TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS ki_wissensdb (
+  company_id      UUID PRIMARY KEY REFERENCES companies(company_id) ON DELETE CASCADE,
+  vorhanden       TEXT NOT NULL CHECK (vorhanden IN ('ja','nein','im_aufbau')),
+  system          TEXT,
+  ort             TEXT,
+  person_id       TEXT,
+  aktualisiert_am DATE,
+  takt_tage       INTEGER
+);
+CREATE TABLE IF NOT EXISTS ki_strategie (
+  company_id       UUID PRIMARY KEY REFERENCES companies(company_id) ON DELETE CASCADE,
+  sachstand        TEXT NOT NULL CHECK (sachstand IN ('keine','entwurf','beschlossen','in_umsetzung')),
+  beschreibung     TEXT,
+  person_id        TEXT,
+  beschlossen_am   DATE,
+  ueberarbeitet_am DATE
+);
+CREATE TABLE IF NOT EXISTS ki_meilensteine (
+  id          BIGSERIAL PRIMARY KEY,
+  company_id  UUID NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
+  titel       TEXT NOT NULL,
+  zieldatum   DATE NOT NULL,
+  erreicht_am DATE
+);
+CREATE TABLE IF NOT EXISTS ki_laufdaten (
+  id             BIGSERIAL PRIMARY KEY,
+  company_id     UUID NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
+  zeitpunkt      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  process_id     TEXT,
+  sub_process_id TEXT,
+  kontext        TEXT NOT NULL DEFAULT 'betrieb',
+  modell         TEXT NOT NULL,
+  input_tokens   INTEGER,
+  output_tokens  INTEGER,
+  kosten_eur     NUMERIC(12,6),
+  status         TEXT NOT NULL DEFAULT 'ok' CHECK (status IN ('ok','fehler','abgebrochen')),
+  korrigiert     BOOLEAN,
+  dauer_ms       INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_ki_laufdaten_co_zeit ON ki_laufdaten(company_id, zeitpunkt);
+"""
+KIC_DDL_SQLITE = """
+CREATE TABLE IF NOT EXISTS ki_schulungen(id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER NOT NULL,
+  person_id TEXT, thema TEXT NOT NULL, termin TEXT, erledigt_am TEXT, nachweis TEXT);
+CREATE TABLE IF NOT EXISTS ki_research_bereiche(company_id INTEGER NOT NULL, bereich TEXT NOT NULL, person_id TEXT,
+  PRIMARY KEY(company_id, bereich));
+CREATE TABLE IF NOT EXISTS ki_research_notizen(id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER NOT NULL,
+  bereich TEXT NOT NULL, datum TEXT NOT NULL, person_id TEXT, notiz TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS ki_wissensdb(company_id INTEGER PRIMARY KEY,
+  vorhanden TEXT NOT NULL CHECK (vorhanden IN ('ja','nein','im_aufbau')), system TEXT, ort TEXT, person_id TEXT,
+  aktualisiert_am TEXT, takt_tage INTEGER);
+CREATE TABLE IF NOT EXISTS ki_strategie(company_id INTEGER PRIMARY KEY,
+  sachstand TEXT NOT NULL CHECK (sachstand IN ('keine','entwurf','beschlossen','in_umsetzung')),
+  beschreibung TEXT, person_id TEXT, beschlossen_am TEXT, ueberarbeitet_am TEXT);
+CREATE TABLE IF NOT EXISTS ki_meilensteine(id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER NOT NULL,
+  titel TEXT NOT NULL, zieldatum TEXT NOT NULL, erreicht_am TEXT);
+CREATE TABLE IF NOT EXISTS ki_laufdaten(id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER NOT NULL,
+  zeitpunkt TEXT NOT NULL, process_id TEXT, sub_process_id TEXT, kontext TEXT NOT NULL DEFAULT 'betrieb',
+  modell TEXT NOT NULL, input_tokens INTEGER, output_tokens INTEGER, kosten_eur REAL,
+  status TEXT NOT NULL DEFAULT 'ok' CHECK (status IN ('ok','fehler','abgebrochen')), korrigiert INTEGER, dauer_ms INTEGER);
+"""
 ENTITAET_DDL_SQLITE = """
 CREATE TABLE IF NOT EXISTS ref_personen(
   company_id INTEGER NOT NULL, person_id TEXT NOT NULL, name TEXT, funktion TEXT,
@@ -1225,6 +1313,7 @@ def init_db():
         c.execute(DOC_DDL_PG)
         c.execute(STAMM_DDL_PG)
         c.execute(ENTITAET_DDL_PG)
+        c.execute(KIC_DDL_PG)
         c.execute(ERHEBUNG_DDL_PG)
         c.execute(GATE0_DDL_PG)
         c.executemany("INSERT INTO ref_gate_pruefpunkte(pruefpunkt,bezeichnung,erlaeuterung,"
@@ -1288,6 +1377,7 @@ def init_db():
     c.c.executescript(DOC_DDL_SQLITE)
     c.c.executescript(STAMM_DDL_SQLITE)
     c.c.executescript(ENTITAET_DDL_SQLITE)
+    c.c.executescript(KIC_DDL_SQLITE)
     c.c.executescript(ERHEBUNG_DDL_SQLITE)
     c.c.executescript(GATE0_DDL_SQLITE)
     # Nachtrag: dienstliche Kontaktdaten (Schema v1.5). SQLite kennt kein
@@ -5793,6 +5883,174 @@ def anfrage_sw():
     return FileResponse(os.path.join(HERE, "static", "anfrage", "sw.js"),
                         media_type="application/javascript",
                         headers={"Cache-Control": "no-cache"})
+
+
+# =============================================================================
+# KI-Controlling (Schema v3.11, 04.10.2026, Vorgang 915)
+# =============================================================================
+# Sechs Bausteine nach dem Fachkonzept S-153. Bausteine 3-6 (Schulungen,
+# Bereichs-Research, Wissensdatenbank, Strategie mit Meilensteinen) erfasst BC0.
+# Bausteine 1-2 (Drift, Tokenverbrauch) stammen aus ki_laufdaten — diese Tabelle
+# SCHREIBT BC4 je Modellaufruf (Entscheidung Simeon 04.10.2026). Solange sie leer
+# ist, zeigt die Oberflaeche Platzhalter und sagt das.
+KIC_DATUM_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+def _kic_datum(wert, feld, pflicht=False):
+    w = (str(wert).strip() if wert is not None else "")
+    if not w:
+        if pflicht: raise HTTPException(400, "%s fehlt" % feld)
+        return None
+    if not KIC_DATUM_RE.match(w):
+        raise HTTPException(400, "%s muss JJJJ-MM-TT sein: %s" % (feld, w))
+    try: datetime.date.fromisoformat(w)
+    except ValueError: raise HTTPException(400, "%s ist kein gueltiges Datum: %s" % (feld, w))
+    return w
+
+def _kic_text(wert):
+    w = (str(wert).strip() if wert is not None else "")
+    return w or None
+
+def _kic_person(wert, bekannte):
+    p = _kic_text(wert)
+    if p and p not in bekannte:
+        raise HTTPException(400, "Unbekannte Person: %s" % p)
+    return p
+
+def _kic_iso(v):
+    return v.isoformat() if hasattr(v, "isoformat") else v
+
+@app.get("/api/companies/{cid}/ki_controlling")
+def ki_controlling(cid: str, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+    """Alle Bausteine des KI-Controllings fuer einen Mandanten.
+
+    ``laufdaten`` ist verdichtet: je Tag und Modell die Token-Summe, je Tag und
+    Teilprozess Laeufe/Korrekturen/Fehler. Leer, solange BC4 nichts geschrieben hat
+    (``laufdaten.vorhanden`` = false) — die Oberflaeche zeigt dann Platzhalter.
+    """
+    pruefe_mandant(benutzer, cid)
+    c = db()
+    try:
+        def alle(sql, *p):
+            return [{k: _kic_iso(v) for k, v in dict(r).items()} for r in c.execute(sql, (cid,) + p).fetchall()]
+        schulungen = alle("SELECT id, person_id, thema, termin, erledigt_am, nachweis FROM ki_schulungen WHERE "
+                          + W_CO + " ORDER BY termin, id")
+        bereiche = alle("SELECT bereich, person_id FROM ki_research_bereiche WHERE " + W_CO + " ORDER BY bereich")
+        notizen = alle("SELECT id, bereich, datum, person_id, notiz FROM ki_research_notizen WHERE " + W_CO
+                       + " ORDER BY datum DESC, id DESC")
+        w = alle("SELECT vorhanden, system, ort, person_id, aktualisiert_am, takt_tage FROM ki_wissensdb WHERE " + W_CO)
+        st = alle("SELECT sachstand, beschreibung, person_id, beschlossen_am, ueberarbeitet_am FROM ki_strategie WHERE " + W_CO)
+        meilensteine = alle("SELECT id, titel, zieldatum, erreicht_am FROM ki_meilensteine WHERE " + W_CO
+                            + " ORDER BY zieldatum, id")
+        tag = "date(zeitpunkt)" if not PG else "zeitpunkt::date"
+        token = alle("SELECT " + tag + " AS tag, modell, sum(coalesce(input_tokens,0)+coalesce(output_tokens,0)) AS token, "
+                     "sum(coalesce(kosten_eur,0)) AS kosten_eur, count(*) AS aufrufe FROM ki_laufdaten WHERE " + W_CO
+                     + " GROUP BY 1,2 ORDER BY 1,2")
+        token_prozess = alle("SELECT " + tag + " AS tag, coalesce(sub_process_id, process_id, '—') AS prozess, "
+                             "sum(coalesce(input_tokens,0)+coalesce(output_tokens,0)) AS token FROM ki_laufdaten WHERE "
+                             + W_CO + " GROUP BY 1,2 ORDER BY 1,2")
+        korr = "CASE WHEN korrigiert THEN 1 ELSE 0 END" if PG else "coalesce(korrigiert,0)"
+        laeufe = alle("SELECT " + tag + " AS tag, coalesce(sub_process_id, process_id, '—') AS prozess, count(*) AS laeufe, "
+                      "sum(" + korr + ") AS korrigiert, sum(CASE WHEN status<>'ok' THEN 1 ELSE 0 END) AS fehler "
+                      "FROM ki_laufdaten WHERE " + W_CO + " GROUP BY 1,2 ORDER BY 2,1")
+    finally:
+        c.close()
+    for z in token + token_prozess:
+        z["token"] = int(z["token"] or 0)
+    for z in token:
+        z["kosten_eur"] = float(z["kosten_eur"] or 0)
+    for z in laeufe:
+        for k in ("laeufe", "korrigiert", "fehler"): z[k] = int(z[k] or 0)
+    return {"schulungen": schulungen, "research_bereiche": bereiche, "research_notizen": notizen,
+            "wissensdb": w[0] if w else None, "strategie": st[0] if st else None, "meilensteine": meilensteine,
+            "laufdaten": {"vorhanden": bool(token or laeufe), "token_tag_modell": token,
+                          "token_tag_prozess": token_prozess, "laeufe_tag_prozess": laeufe}}
+
+@app.put("/api/companies/{cid}/ki_controlling")
+async def save_ki_controlling(cid: str, req: Request, benutzer: Benutzer = Depends(schreibender_benutzer)):
+    """Speichert die Bausteine 3-6. **Jeder Block ist einzeln optional**: fehlt der
+    Schluessel, bleibt der Block unberuehrt. Listen (Schulungen, Bereiche, Notizen,
+    Meilensteine) ersetzen den Bestand des Mandanten — sie tragen keine IDs, auf
+    die von aussen verwiesen wird. Laufdaten schreibt BC4, nicht dieser Endpunkt.
+    Erst wird alles geprueft, dann geschrieben; ein Fehler schreibt nichts.
+    """
+    pruefe_mandant(benutzer, cid)
+    b = await req.json()
+    if not isinstance(b, dict): raise HTTPException(400, "Objekt erwartet")
+    c = db()
+    try:
+        bekannte = {r["person_id"] for r in c.execute("SELECT person_id FROM ref_personen WHERE " + W_CO, (cid,)).fetchall()}
+        def liste(name):
+            v = b.get(name)
+            if not isinstance(v, list): raise HTTPException(400, "%s muss eine Liste sein" % name)
+            return v
+        plan = []
+        if "schulungen" in b:
+            zeilen = []
+            for e in liste("schulungen"):
+                thema = _kic_text(e.get("thema"))
+                if not thema: continue
+                zeilen.append((cid, _kic_person(e.get("person_id"), bekannte), thema, _kic_datum(e.get("termin"), "termin"),
+                               _kic_datum(e.get("erledigt_am"), "erledigt_am"), _kic_text(e.get("nachweis"))))
+            plan.append(("DELETE FROM ki_schulungen WHERE " + W_CO, [(cid,)]))
+            plan.append(("INSERT INTO ki_schulungen(company_id,person_id,thema,termin,erledigt_am,nachweis) VALUES(?,?,?,?,?,?)", zeilen))
+        if "research_bereiche" in b:
+            zeilen, gesehen = [], set()
+            for e in liste("research_bereiche"):
+                bereich = _kic_text(e.get("bereich"))
+                if not bereich or bereich in gesehen: continue
+                gesehen.add(bereich)
+                zeilen.append((cid, bereich, _kic_person(e.get("person_id"), bekannte)))
+            plan.append(("DELETE FROM ki_research_bereiche WHERE " + W_CO, [(cid,)]))
+            plan.append(("INSERT INTO ki_research_bereiche(company_id,bereich,person_id) VALUES(?,?,?)", zeilen))
+        if "research_notizen" in b:
+            zeilen = []
+            for e in liste("research_notizen"):
+                bereich, notiz = _kic_text(e.get("bereich")), _kic_text(e.get("notiz"))
+                if not bereich or not notiz: continue
+                zeilen.append((cid, bereich, _kic_datum(e.get("datum"), "datum", pflicht=True),
+                               _kic_person(e.get("person_id"), bekannte), notiz))
+            plan.append(("DELETE FROM ki_research_notizen WHERE " + W_CO, [(cid,)]))
+            plan.append(("INSERT INTO ki_research_notizen(company_id,bereich,datum,person_id,notiz) VALUES(?,?,?,?,?)", zeilen))
+        if "wissensdb" in b:
+            w = b.get("wissensdb") or {}
+            if not isinstance(w, dict): raise HTTPException(400, "wissensdb muss ein Objekt sein")
+            vorhanden = (w.get("vorhanden") or "nein")
+            if vorhanden not in ("ja", "nein", "im_aufbau"): raise HTTPException(400, "vorhanden: ja / nein / im_aufbau")
+            takt = w.get("takt_tage")
+            if takt not in (None, ""):
+                try: takt = int(takt)
+                except (TypeError, ValueError): raise HTTPException(400, "takt_tage muss eine Zahl sein")
+                if takt <= 0: raise HTTPException(400, "takt_tage muss groesser 0 sein")
+            else: takt = None
+            plan.append(("DELETE FROM ki_wissensdb WHERE " + W_CO, [(cid,)]))
+            plan.append(("INSERT INTO ki_wissensdb(company_id,vorhanden,system,ort,person_id,aktualisiert_am,takt_tage) VALUES(?,?,?,?,?,?,?)",
+                         [(cid, vorhanden, _kic_text(w.get("system")), _kic_text(w.get("ort")),
+                           _kic_person(w.get("person_id"), bekannte), _kic_datum(w.get("aktualisiert_am"), "aktualisiert_am"), takt)]))
+        if "strategie" in b:
+            st = b.get("strategie") or {}
+            if not isinstance(st, dict): raise HTTPException(400, "strategie muss ein Objekt sein")
+            sachstand = st.get("sachstand") or "keine"
+            if sachstand not in ("keine", "entwurf", "beschlossen", "in_umsetzung"):
+                raise HTTPException(400, "sachstand: keine / entwurf / beschlossen / in_umsetzung")
+            plan.append(("DELETE FROM ki_strategie WHERE " + W_CO, [(cid,)]))
+            plan.append(("INSERT INTO ki_strategie(company_id,sachstand,beschreibung,person_id,beschlossen_am,ueberarbeitet_am) VALUES(?,?,?,?,?,?)",
+                         [(cid, sachstand, _kic_text(st.get("beschreibung")), _kic_person(st.get("person_id"), bekannte),
+                           _kic_datum(st.get("beschlossen_am"), "beschlossen_am"), _kic_datum(st.get("ueberarbeitet_am"), "ueberarbeitet_am"))]))
+        if "meilensteine" in b:
+            zeilen = []
+            for e in liste("meilensteine"):
+                titel = _kic_text(e.get("titel"))
+                if not titel: continue
+                zeilen.append((cid, titel, _kic_datum(e.get("zieldatum"), "zieldatum", pflicht=True),
+                               _kic_datum(e.get("erreicht_am"), "erreicht_am")))
+            plan.append(("DELETE FROM ki_meilensteine WHERE " + W_CO, [(cid,)]))
+            plan.append(("INSERT INTO ki_meilensteine(company_id,titel,zieldatum,erreicht_am) VALUES(?,?,?,?)", zeilen))
+        for sql, werte in plan:
+            for w in werte: c.execute(sql, w)
+        c.commit()
+    finally:
+        c.close()
+    return {"ok": True}
 
 @app.get("/anfrage/manifest.json")
 def anfrage_manifest():
