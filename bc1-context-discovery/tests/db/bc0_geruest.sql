@@ -230,6 +230,99 @@ SELECT s.company_id, s.system_id, s.katalog_id, s.bezeichnung,
   FROM mandant_systeme s
  WHERE s.aktiv;
 
+-- ---------- Anfrage (B5, 05.10.2026) — Ausschnitt; Sichten wortgleich ----------
+-- ref_anfragen: nur die Spalten, die v_anfrage_prozessbezug/_teilprozesse brauchen.
+-- originaltext, steller_id u. a. fehlen bewusst — BC1 liest sie nicht.
+CREATE TABLE ref_anfragen (
+    company_id       uuid NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
+    anfrage_id       text NOT NULL CHECK (anfrage_id ~ '^A-[0-9]{4}-[0-9]{2}$'),
+    eingang_am       date NOT NULL,
+    process_id       text,
+    sub_process_id   text,
+    zuordnung_quelle text,
+    status           text NOT NULL DEFAULT 'eingegangen',
+    PRIMARY KEY (company_id, anfrage_id),
+    CONSTRAINT ck_anfrage_status
+      CHECK (status IN ('eingegangen','zugeordnet','im_interview','am_gate','uebergeben',
+                        'bewertet','beauftragt','erledigt','abgelehnt'))
+);
+
+-- v2.7 Z. 57-84 (ohne Trigger ap_haupt_spiegeln/historie — das Gerüst pflegt
+-- ref_anfragen.process_id in den Testdaten selbst konsistent).
+CREATE TABLE anfrage_prozesse (
+  bezug_id         BIGSERIAL PRIMARY KEY,
+  company_id       UUID        NOT NULL,
+  anfrage_id       TEXT        NOT NULL,
+  process_id       VARCHAR(8)  NOT NULL,
+  sub_process_id   VARCHAR(16),
+  rolle            TEXT        NOT NULL DEFAULT 'beteiligt'
+                   CHECK (rolle IN ('haupt','beteiligt')),
+  zuordnung_quelle TEXT        NOT NULL
+                   CHECK (zuordnung_quelle IN ('anfrage','vorschlag_bc0','vorschlag_bc1','interview')),
+  angelegt_am      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT fk_ap_anfrage FOREIGN KEY (company_id, anfrage_id)
+    REFERENCES ref_anfragen (company_id, anfrage_id) ON DELETE CASCADE,
+  CONSTRAINT fk_ap_prozess FOREIGN KEY (company_id, process_id)
+    REFERENCES ref_prozesse (company_id, process_id) ON DELETE CASCADE,
+  CONSTRAINT fk_ap_teilprozess FOREIGN KEY (company_id, sub_process_id)
+    REFERENCES ref_teilprozesse (company_id, sub_process_id) ON DELETE CASCADE,
+  CONSTRAINT ck_ap_tp_gehoert_kp CHECK (sub_process_id IS NULL OR sub_process_id LIKE process_id || '.%')
+);
+
+-- Stummel: v_anfrage_teilprozesse liest Freigabe und Paketinhalt. Im Gerüst leer —
+-- BC1 nutzt freigegeben/im_paket nicht; die Typen folgen v1.4/v2.6.
+CREATE TABLE gate_paket_inhalt (
+  company_id           uuid   NOT NULL,
+  paket_id             uuid   NOT NULL,
+  sub_process_id       text   NOT NULL,
+  freigabe_ereignis_id bigint NOT NULL,
+  anfrage_id           text,
+  PRIMARY KEY (company_id, paket_id, sub_process_id)
+);
+CREATE VIEW v_gate_freigabe_aktuell AS
+SELECT NULL::uuid AS company_id, NULL::text AS sub_process_id, NULL::text AS stand,
+       NULL::bigint AS ereignis_id, NULL::timestamptz AS entschieden_am
+ WHERE false;
+
+-- v2.3 Z. 143-153, wortgleich
+CREATE OR REPLACE VIEW v_anfrage_prozessbezug AS
+SELECT company_id,
+       anfrage_id,
+       process_id,
+       sub_process_id,
+       zuordnung_quelle,
+       eingang_am,
+       status
+  FROM ref_anfragen;
+
+-- v2.7 Z. 129-154, wortgleich
+CREATE OR REPLACE VIEW v_anfrage_teilprozesse AS
+WITH bezuege AS (
+  SELECT p.company_id, p.anfrage_id, p.process_id, p.rolle, p.zuordnung_quelle,
+         coalesce(p.sub_process_id, t.sub_process_id) AS sub_process_id,
+         (p.sub_process_id IS NULL) AS aus_kernprozess
+    FROM anfrage_prozesse p
+    LEFT JOIN ref_teilprozesse t
+      ON p.sub_process_id IS NULL
+     AND t.company_id = p.company_id AND t.process_id = p.process_id AND t.aktiv
+)
+SELECT DISTINCT ON (b.company_id, b.anfrage_id, b.sub_process_id)
+       b.company_id, b.anfrage_id, b.process_id, b.sub_process_id, b.rolle,
+       b.zuordnung_quelle, b.aus_kernprozess,
+       (f.stand = 'freigegeben')                       AS freigegeben,
+       f.ereignis_id                                   AS freigabe_ereignis_id,
+       f.entschieden_am,
+       EXISTS (SELECT 1 FROM gate_paket_inhalt i
+                WHERE i.company_id = b.company_id AND i.anfrage_id = b.anfrage_id
+                  AND i.sub_process_id = b.sub_process_id
+                  AND i.freigabe_ereignis_id = f.ereignis_id) AS im_paket
+  FROM bezuege b
+  LEFT JOIN v_gate_freigabe_aktuell f
+    ON f.company_id = b.company_id AND f.sub_process_id = b.sub_process_id
+ WHERE b.sub_process_id IS NOT NULL
+ ORDER BY b.company_id, b.anfrage_id, b.sub_process_id,
+          (b.rolle = 'haupt') DESC, b.aus_kernprozess;
+
 -- ---------- Schema bc1 + Rechte wie in BC0s ROLLEN.md ----------
 CREATE SCHEMA IF NOT EXISTS bc1 AUTHORIZATION bc1_role;
 GRANT USAGE, CREATE ON SCHEMA bc1 TO bc1_role;
@@ -254,6 +347,8 @@ GRANT REFERENCES ON companies, ref_prozesse, ref_teilprozesse, mandant_rollen,
 GRANT SELECT ON v_bewertung_aktuell, mandant_systeme, ref_teilprozesse, companies,
                 v_prozesse_lesen, ref_erhebungen, mandant_rollen TO bc_leser;
 GRANT SELECT ON v_teilprozesse_lesen, v_systeme_lesen TO bc_leser;   -- v3.4 Z. 163
+GRANT SELECT ON v_anfrage_prozessbezug TO bc_leser;                     -- v2.3 Z. 153
+GRANT SELECT ON v_anfrage_teilprozesse TO bc_leser;                     -- v2.7 Z. 323
 -- mandant_rollen: SELECT fuer bc_leser live gemessen 12.09.2026 (A5) — Eingang fuer C1a
 -- (Owner-Auswahl statt Freitext).
 

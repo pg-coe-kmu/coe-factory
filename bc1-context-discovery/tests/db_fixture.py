@@ -18,6 +18,15 @@ DSN = os.environ.get("BC1_TEST_DB_DSN")
 MANDANT_A = "11111111-1111-1111-1111-111111111111"
 MANDANT_B = "22222222-2222-2222-2222-222222222222"
 
+# B5: Anfragen. ANFRAGE_B hat BEWUSST dieselbe ID wie ANFRAGE_A — BC0-IDs wiederholen
+# sich ueber Mandanten; ein fehlender company_id-Filter faellt nur so auf.
+ANFRAGE_A = "A-2026-01"
+ANFRAGE_A_KERNPROZESS = "A-2026-02"
+ANFRAGE_A_EINGEGANGEN = "A-2026-03"
+ANFRAGE_A_UNBEWERTET = "A-2026-04"
+ANFRAGE_A_OHNE_TP = "A-2026-05"
+ANFRAGE_B = "A-2026-01"
+
 _GERUEST = Path(__file__).parent / "db" / "bc0_geruest.sql"
 _DDL = Path(__file__).parents[1] / "bc1_service" / "db" / "prozessprofil.sql"
 _DDL_D3 = Path(__file__).parents[1] / "bc1_service" / "db" / "prozessprofil_d3.sql"
@@ -224,3 +233,25 @@ def _testdaten(conn) -> None:
         "(%s, 'E-2026-09', 'KP-01.TP-1.I-01', 'KP-01.TP-1', 1, 5, 'B-Aufnahme'), "
         "(%s, 'E-2026-10', 'KP-01.TP-1.I-02', 'KP-01.TP-1', 2, 4, 'B-Gleichstand')",
         (MANDANT_B, MANDANT_B))
+    conn.execute(
+        "INSERT INTO ref_anfragen (company_id, anfrage_id, eingang_am, process_id, "
+        "sub_process_id, zuordnung_quelle, status) VALUES "
+        "(%s, %s, '2026-09-01', 'KP-01', 'KP-01.TP-1', 'anfrage', 'zugeordnet'), "
+        "(%s, %s, '2026-09-02', 'KP-01', NULL, 'anfrage', 'im_interview'), "
+        "(%s, %s, '2026-09-03', NULL, NULL, NULL, 'eingegangen'), "
+        "(%s, %s, '2026-09-04', 'KP-01', 'KP-01.TP-3', 'anfrage', 'zugeordnet'), "
+        "(%s, %s, '2026-09-05', 'KP-02', NULL, 'anfrage', 'zugeordnet'), "
+        "(%s, %s, '2026-09-05', 'KP-02', 'KP-02.TP-2', 'anfrage', 'zugeordnet')",
+        (MANDANT_A, ANFRAGE_A, MANDANT_A, ANFRAGE_A_KERNPROZESS,
+         MANDANT_A, ANFRAGE_A_EINGEGANGEN, MANDANT_A, ANFRAGE_A_UNBEWERTET,
+         MANDANT_A, ANFRAGE_A_OHNE_TP, MANDANT_B, ANFRAGE_B))
+    conn.execute(
+        "INSERT INTO anfrage_prozesse (company_id, anfrage_id, process_id, sub_process_id, "
+        "rolle, zuordnung_quelle) VALUES "
+        "(%s, %s, 'KP-01', 'KP-01.TP-1', 'haupt', 'anfrage'), "
+        "(%s, %s, 'KP-01', 'KP-01.TP-2', 'beteiligt', 'anfrage'), "
+        "(%s, %s, 'KP-01', NULL, 'haupt', 'anfrage'), "
+        "(%s, %s, 'KP-01', 'KP-01.TP-3', 'haupt', 'anfrage'), "
+        "(%s, %s, 'KP-02', 'KP-02.TP-2', 'haupt', 'anfrage')",
+        (MANDANT_A, ANFRAGE_A, MANDANT_A, ANFRAGE_A, MANDANT_A, ANFRAGE_A_KERNPROZESS,
+         MANDANT_A, ANFRAGE_A_UNBEWERTET, MANDANT_B, ANFRAGE_B))
