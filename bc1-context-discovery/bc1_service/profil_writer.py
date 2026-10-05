@@ -477,10 +477,13 @@ class ProfilWriter:
         erhebung = bc0_lesepfade.erhebung_id(
             conn, self._company_id, inhalt.focus_step_id)
         spalten = inhalt.spalten
+        # anfrage_id aus der SITZUNG (B5) — der Anfrage-Guard in api.py stellt sicher,
+        # dass sie zur Instanz passt. Kein Status-Recheck beim Abschluss (Spec).
         namen = ["company_id", "focus_step_id", "profil_version", "process_id",
-                 "status", "erhebung_id", "paket_version", "profil", *spalten]
+                 "status", "erhebung_id", "paket_version", "anfrage_id", "profil",
+                 *spalten]
         werte = [self._company_id, inhalt.focus_step_id, 1, inhalt.process_id,
-                 "in_erhebung", erhebung, state.schema_version,
+                 "in_erhebung", erhebung, state.schema_version, state.anfrage_id,
                  Jsonb(inhalt.profil), *spalten.values()]
         platzhalter = ", ".join(["%s"] * len(namen))
         version = conn.execute(

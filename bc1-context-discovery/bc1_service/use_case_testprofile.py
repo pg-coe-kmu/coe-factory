@@ -139,7 +139,7 @@ def fuehre_interview(store, paket, fall: Fall, *, company_id: str, writer=None) 
     antwort: dict = {}
     for i, (text, _) in enumerate(fall.nachrichten, start=1):
         antwort = process_turn(store, llm, paket, fall.session_id, f"m{i}", text,
-                               company_id=company_id)
+                               company_id=company_id, anfrage_id=fall.anfrage_id)
         if writer is not None:
             db_profil = writer.reconcile(store.load(fall.session_id), antwort)
             if db_profil is not None:

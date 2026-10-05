@@ -21,7 +21,7 @@ pytestmark = pytest.mark.skipif(not DSN, reason="BC1_TEST_DB_DSN nicht gesetzt")
 KONTEXT = Bc0Kontext(
     company_id=MANDANT_A,
     teilprozesse=(("KP-01.TP-1", "Erfassen"), ("KP-01.TP-2", "Pruefen")),
-    system_ids=("S-01", "S-02"))
+    system_ids=("S-01", "S-02"), anfrage_id=ANFRAGE_A)
 
 # Alle 26 Pflichtfelder des Discovery-Pakets in einer Nachricht — so ist der
 # Durchstich ein Turn und der Test bleibt lesbar.
@@ -76,7 +76,7 @@ def _client(umgebung, ohne=(), abweichend=None):
     pool, paket = umgebung
     return TestClient(create_app(
         InMemoryStateStore(), _llm(ohne, abweichend), paket, company_id=MANDANT_A,
-        writer=ProfilWriter(pool, MANDANT_A, paket)))
+        anfrage_id=ANFRAGE_A, writer=ProfilWriter(pool, MANDANT_A, paket)))
 
 
 def _turn(client, mid, text, session="s1", **extra):
@@ -92,10 +92,11 @@ def test_durchstich_schreibt_genau_eine_eingefrorene_zeile(umgebung):
         zeilen = conn.execute(
             "SELECT focus_step_id, process_id, status, erhebung_id, "
             "       frequency_per_year, focus_step_duration_confidence_pct, "
-            "       paket_version, profil "
+            "       paket_version, profil, anfrage_id "
             "  FROM bc1.prozessprofil").fetchall()
     assert len(zeilen) == 1
     zeile = zeilen[0]
+    assert zeile[8] == ANFRAGE_A
     assert zeile[0] == "KP-01.TP-1" and zeile[1] == "KP-01"
     assert zeile[2] == "fertig" and zeile[3] == "E-2026-02"
     assert zeile[4] == 120 and zeile[5] == 70

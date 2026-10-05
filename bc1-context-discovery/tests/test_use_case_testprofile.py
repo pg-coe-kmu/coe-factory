@@ -132,6 +132,15 @@ def test_schreibe_legt_drei_fertige_gekennzeichnete_zeilen_an(pool):
                    "WHERE profil->'felder'->'open_remarks'->>'wert' LIKE 'Testdaten%'") == [(3,)]
 
 
+def test_testprofile_tragen_ihre_anfrage(pool):
+    schreibe_testprofile(pool, MANDANT_A)
+    with verbindung(DSN) as conn:
+        zeilen = dict(conn.execute(
+            "SELECT focus_step_id, anfrage_id FROM bc1.prozessprofil "
+            "WHERE company_id = %s", (MANDANT_A,)).fetchall())
+    assert zeilen == {f.fokus_tp: f.anfrage_id for f in FAELLE}
+
+
 # Unabhaengige Erwartung (NICHT aus FAELLE abgeleitet): die Spaltenwerte, die am
 # 08.09.2026 in der Supabase gemessen wurden. Aendert jemand einen Rohwert im Modul,
 # widerspricht das Repo dem Ist-Stand — und dieser Test sagt es.
