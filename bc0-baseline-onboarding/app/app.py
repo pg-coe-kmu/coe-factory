@@ -820,7 +820,7 @@ BC1_FELD_ZU_PRUEFPUNKT = (
 
 #: Arten von Hindernissen, in der Reihenfolge, in der sie abzuarbeiten sind.
 #: `ansprechpartner` ist am 18.08.2026 entfallen — siehe GATE_ANSPRECHPARTNER.
-GATE_HINDERNIS_ARTEN = ("eigner", "bewertung")
+GATE_HINDERNIS_ARTEN = ("eigner", "bewertung", "dokument")   # v3.12: dokument
 
 #: Startbestand des Systemkatalogs. Global wie ITEMS, deshalb im Code und nicht
 #: je Mandant. Die ersten vier stammen aus dem NoroAI-Bestand, die uebrigen sind
@@ -1852,9 +1852,31 @@ async def save_rating(cid:str, req:Request, benutzer: Benutzer = Depends(schreib
                          ON CONFLICT(company_id,erhebung_id,id) DO UPDATE SET stufe=excluded.stufe,beleg=excluded.beleg,quelle=excluded.quelle,bewertet_am=excluded.bewertet_am""",
                 (cid,eid,rid,key,pid,int(nr),int(v["stufe"]),v.get("beleg","").strip(),v.get("quelle","manuell"),now()))
     c.execute("UPDATE companies SET status='laeuft' WHERE "+KEY_CO+" AND status='neu'", (cid,))
-    c.commit(); c.close()
+    c.commit()
+    # v3.12: Ohne Dokument am Teilprozess ist das Speichern eine Zwischenspeicherung.
+    n_dok = _tp_dokumente(c, cid).get(key, 0); c.close()
     return {"ok": True, "saved": len([1 for v in items.values() if v.get('stufe')]),
-            "erhebung_id": eid, "erhebung_neu": erhebung_neu}   # v2.8
+            "erhebung_id": eid, "erhebung_neu": erhebung_neu,   # v2.8
+            "dokumente": n_dok, "belegt": n_dok > 0, "zwischenstand": n_dok == 0,
+            "hinweis": None if n_dok else DOK_HINWEIS_ZWISCHENSTAND}
+
+#: v3.12 (Vorgang 917, 05.10.2026): Je Teilprozess MUSS mindestens ein Dokument
+#: hochgeladen sein. Es zaehlt nur ein Dokument genau am Teilprozess (ref_id
+#: ``KP-XX.TP-Y``) in jedem Status ausser ``verworfen`` — auch ein Scan, dessen Text
+#: noch fehlt. Ein Dokument am Kernprozess oder am Mandanten belegt keinen
+#: Teilprozess. Die Text-Belegpflicht je Item (ADR-005) bleibt unveraendert.
+DOK_HINWEIS_ZWISCHENSTAND = ("Zwischenstand gespeichert — für diesen Teilprozess ist noch kein Dokument "
+                             "hochgeladen. Ohne Dokument gilt er als nicht belegt; Gate 0 bleibt gesperrt.")
+
+
+def _tp_dokumente(c, cid):
+    """Anzahl Dokumente je Teilprozess (nur ref_id KP-XX.TP-Y, ohne verworfene)."""
+    status = "status::text" if PG else "status"
+    zeilen = c.execute("SELECT ref_id, count(*) AS n FROM beleg_dokumente WHERE " + W_CO +
+                       " AND ref_id LIKE ? AND " + status + " <> 'verworfen' GROUP BY ref_id",
+                       (cid, "KP-%.TP-%")).fetchall()
+    return {z["ref_id"]: int(z["n"]) for z in zeilen}
+
 
 def _avg(rows):
     """Mittelwert über die gesetzten Werte, auf zwei Stellen gerundet.
@@ -2126,6 +2148,13 @@ def _satz_kurzfassung(rep, tp, offen):
     if rep["beleg_quote"] == 100:
         s.append("Grundlage sind %d Einzelbewertungen; jede von ihnen ist mit einem Beleg hinterlegt."
                  % rep["n_bewertungen"])
+    # v3.12: Dokumentpflicht je Teilprozess — die Zahl rechnet mit, der Satz warnt.
+    nb = rep.get("nicht_belegt") or []
+    if nb:
+        s.append("Nicht belegt! %d von %d Teilprozessen fehlt das Pflichtdokument (%s); ihre Werte sind "
+                 "mitgerechnet, aber nicht belegt." % (len(nb), len(tp), ", ".join(nb)))
+    elif tp:
+        s.append("Für jeden der %d Teilprozesse liegt mindestens ein Dokument vor." % len(tp))
     else:
         s.append("Grundlage sind %d Einzelbewertungen; %d Prozent von ihnen sind mit einem Beleg "
                  "hinterlegt." % (rep["n_bewertungen"], rep["beleg_quote"]))
@@ -2477,6 +2506,7 @@ def report(cid:str, bis: str = None, benutzer: Benutzer = Depends(angemeldeter_b
     # dagegen den vollen Wert — sonst vergleicht er eine Auswahl mit einer
     # Schwelle, die fuer das ganze Modell gesetzt wurde.
     tp_rows=[]
+    tp_dok=_tp_dokumente(c, cid)   # v3.12
     for p in procs:
         pid=p["process_id"]
         for tp in c.execute(SEL_TP+" WHERE "+W_CO+" AND process_id=? ORDER BY step_no",(cid,pid)).fetchall():
@@ -2486,7 +2516,8 @@ def report(cid:str, bis: str = None, benutzer: Benutzer = Depends(angemeldeter_b
                             "avg":_avg([b["stufe"] for b in bt]),
                             "dims":{d:_avg([b["stufe"] for b in bt if dim_of.get(b["item_nr"])==d]) for d in DIMS},
                             "n_bew":len(bt),
-                            "ohne_beleg":sum(1 for b in bt if not (b["beleg"] or "").strip())})
+                            "ohne_beleg":sum(1 for b in bt if not (b["beleg"] or "").strip()),
+                            "dokumente":tp_dok.get(sid,0),"belegt":tp_dok.get(sid,0)>0})
 
     # ---- Herkunft: welche Erhebungen stecken im massgeblichen Stand? ----
     # ADR-005. Ein Bericht ohne diese Angabe ist eine Behauptung.
@@ -2514,6 +2545,10 @@ def report(cid:str, bis: str = None, benutzer: Benutzer = Depends(angemeldeter_b
          "kette":kette,"cockpit":cockpit,"kategorien":list(KATEGORIEN),
          "cf_delta":CF_DELTA,"cockpit_stufen":[t for _,t in COCKPIT_STUFEN],
          "schwelle":SCHWELLE,"erstellt_am":datetime.date.today().isoformat(),
+         # v3.12: Dokumentpflicht je Teilprozess. Der Reifegrad rechnet weiter mit,
+         # die nicht belegten Teilprozesse stehen aber ausdruecklich daneben.
+         "dok_quote":(round(100*sum(1 for t in tp_rows if t["belegt"])/len(tp_rows)) if tp_rows else 0),
+         "nicht_belegt":[t["sub_process_id"] for t in tp_rows if not t["belegt"]],
          "bis":({"erhebung_id":grenze["erhebung_id"],"bezeichnung":grenze["bezeichnung"],
                  "stand":str(grenze["stand"]),"status":grenze["status"],"fest":bool(grenze["fest"])}
                 if grenze else None)}   # v2.9
@@ -2913,6 +2948,18 @@ async def import_yaml(req: Request, _: Benutzer = Depends(admin)):
         raise HTTPException(400, "YAML-Fehler: %s" % e)
     if not isinstance(data, dict):
         raise HTTPException(400, "YAML-Wurzel muss ein Objekt sein (company:/profile:/prozesse:).")
+    # v3.12 (Befund N6, 05.10.2026): Bisher wurde ein leerer Beleg zu „Aus YAML
+    # uebernommen" — die Belegpflicht war auf diesem Weg umgangen und die Belegquote
+    # zeigte trotzdem 100 %. Jetzt: erst alles pruefen, dann schreiben.
+    ohne = []
+    for p in (data.get("prozesse", []) or []):
+        for tp in (p.get("teilprozesse", []) or []):
+            for nr, b in (tp.get("bewertungen", {}) or {}).items():
+                if b and b.get("stufe") and not str(b.get("beleg") or "").strip():
+                    ohne.append("%s.TP-%s I-%02d" % (p.get("process_id"), tp.get("step"), int(nr)))
+    if ohne:
+        raise HTTPException(400, "Beleg fehlt fuer %d Bewertung(en), z. B. %s — nichts importiert."
+                            % (len(ohne), ", ".join(ohne[:5])))
     co = data.get("company", {}) or {}
     c = db()
     if PG:
@@ -2946,7 +2993,7 @@ async def import_yaml(req: Request, _: Benutzer = Depends(admin)):
                  tp.get("tools"), tp.get("medienbrueche"), tp.get("schnittstellen"), tp.get("api")))
             for nr, b in (tp.get("bewertungen", {}) or {}).items():
                 if not b or not b.get("stufe"): continue
-                nr = int(nr); beleg = (b.get("beleg") or "").strip() or "Aus YAML übernommen"
+                nr = int(nr); beleg = str(b.get("beleg") or "").strip()   # v3.12: oben geprueft
                 rid = "%s.I-%02d" % (sid, nr)
                 if PG:
                     c.execute("""INSERT INTO bitkom_bewertungen(company_id,erhebung_id,id,sub_process_id,item_nr,stufe,beleg,quelle,bewertet_am) VALUES(?,?,?,?,?,?,?,?,?)
@@ -4240,6 +4287,8 @@ def _gate_luecken(zeile):
         luecken.append(("bewertung", "Bewertung unvollstaendig: %d von 30 Items bewertet "
                         "(mindestens %d noetig)"
                         % (zeile["items_bewertet"], GATE_ITEMS_MIN)))
+    if not zeile.get("dokument_vorhanden", True):
+        luecken.append(("dokument", "Kein Dokument am Teilprozess hochgeladen"))
     return luecken
 
 
@@ -4278,6 +4327,7 @@ GATE_HINDERNIS_TEXT = {
     "eigner": "Dem Prozess ist keine Person als Eigner zugeordnet",
     "bewertung": "Selbsteinschaetzung unvollstaendig (mindestens %d von 30 Items je "
                  "Teilprozess)" % GATE_ITEMS_MIN,
+    "dokument": "Nicht belegt: am Teilprozess ist kein Dokument hochgeladen",
 }
 
 
@@ -4311,6 +4361,7 @@ def _gate_bogen(c, cid, sub_process_id=None):
     """Vorbelegung des Bogens je Teilprozess: Vorbedingungen, Reifegrad, Stand."""
     eigner, ansprechpartner = _gate_beteiligungen(c, cid)
     reifegrade = _gate_reifegrade(c, cid)
+    dokumente = _tp_dokumente(c, cid)   # v3.12
     staende = _gate_letzter_stand(c, cid, sub_process_id)
     # v3.3: Einmal je Mandant, nicht einmal je Teilprozess. Bei fuenfzig
     # Teilprozessen waeren das sonst fuenfzig Abfragen fuer eine Liste.
@@ -4321,6 +4372,7 @@ def _gate_bogen(c, cid, sub_process_id=None):
         hat_eigner = t["process_id"] in eigner
         hat_ansprechpartner = t["process_id"] in ansprechpartner
         vollstaendig = items >= GATE_ITEMS_MIN
+        n_dok = dokumente.get(t["sub_process_id"], 0)
         stand = staende.get(t["sub_process_id"])
         zeile = {
             "sub_process_id": t["sub_process_id"], "process_id": t["process_id"],
@@ -4332,7 +4384,9 @@ def _gate_bogen(c, cid, sub_process_id=None):
             # Zwei Vorbedingungen, nicht drei: Ein zugeordneter Eigner ist die
             # zugeordnete Person UND die auskunftsfaehige. Deckungsgleich mit
             # v_gate_bogen.bogen_ausfuellbar.
-            "bogen_ausfuellbar": hat_eigner and vollstaendig,
+            # v3.12: dritte Vorbedingung — mindestens ein Dokument am Teilprozess.
+            "dokumente": n_dok, "dokument_vorhanden": n_dok > 0,
+            "bogen_ausfuellbar": hat_eigner and vollstaendig and n_dok > 0,
             "stand": stand["stand"] if stand else None,
             "entschieden_am": stand["entschieden_am"] if stand else None,
             "hinweis_an_bc2": stand["hinweis_an_bc2"] if stand else None,
@@ -4379,6 +4433,8 @@ def _gate_fehlende_vorbedingungen(zeile):
     if not zeile["vollstaendig_bewertet"]:
         fehlt.append("nur %d von 30 Items bewertet (mindestens %d noetig)"
                      % (zeile["items_bewertet"], GATE_ITEMS_MIN))
+    if not zeile.get("dokument_vorhanden", True):
+        fehlt.append("am Teilprozess ist kein Dokument hochgeladen (Dokumentpflicht je Teilprozess)")
     return fehlt
 
 
