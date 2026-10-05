@@ -49,9 +49,11 @@ BEGIN
 
     -- Was der Dienst tatsaechlich liest (bc0_lesepfade.py, seit 22.09. nur Sichten —
     -- BC0 v3.4: die Sichten filtern aktiv, die Tabellen dahinter nicht).
+    -- B5: Start liest die Anfrage (v_anfrage_prozessbezug, v_anfrage_teilprozesse).
     SELECT array_agg(t) INTO fehlend FROM unnest(ARRAY[
         'v_bewertung_aktuell', 'v_prozesse_lesen', 'v_teilprozesse_lesen',
-        'v_systeme_lesen', 'companies', 'ref_erhebungen'
+        'v_systeme_lesen', 'companies', 'ref_erhebungen',
+        'v_anfrage_prozessbezug', 'v_anfrage_teilprozesse'
     ]) AS t WHERE NOT has_table_privilege(current_user, t, 'SELECT');
     IF fehlend IS NOT NULL THEN
         RAISE EXCEPTION 'GRANT SELECT fehlt auf: %.', array_to_string(fehlend, ', ');
@@ -140,6 +142,7 @@ INSERT INTO pg_temp.bc1_soll_signatur (zeile) VALUES
     ('constraint|profil_write_status|profil_write_status_je_zeile|UNIQUE (company_id, focus_step_id, profil_version)'),
     ('constraint|profil_write_status|profil_write_status_pkey|PRIMARY KEY (session_id)'),
     ('constraint|profil_write_status|profil_write_status_profil_fk|FOREIGN KEY (company_id, focus_step_id, profil_version) REFERENCES bc1.prozessprofil(company_id, focus_step_id, profil_version) ON DELETE CASCADE'),
+    ('constraint|prozessprofil|prozessprofil_anfrage_format|CHECK (((anfrage_id IS NULL) OR (anfrage_id ~ ''^A-[0-9]{4}-[0-9]{2}$''::text)))'),
     ('constraint|prozessprofil|prozessprofil_company_fk|FOREIGN KEY (company_id) REFERENCES companies(company_id) ON DELETE CASCADE'),
     ('constraint|prozessprofil|prozessprofil_confidence_bereich|CHECK (((focus_step_duration_confidence_pct IS NULL) OR ((focus_step_duration_confidence_pct >= 0) AND (focus_step_duration_confidence_pct <= 100))))'),
     ('constraint|prozessprofil|prozessprofil_downstream_fk|FOREIGN KEY (company_id, downstream_process_id) REFERENCES ref_prozesse(company_id, process_id)'),
@@ -248,6 +251,7 @@ INSERT INTO pg_temp.bc1_soll_signatur (zeile) VALUES
     ('spalte|profil_write_status|profil_version|integer|notnull||-|-'),
     ('spalte|profil_write_status|session_id|text|notnull||-|-'),
     ('spalte|prozessprofil|aktualisiert_am|timestamp with time zone|notnull|now()|-|-'),
+    ('spalte|prozessprofil|anfrage_id|text|null||-|-'),
     ('spalte|prozessprofil|company_id|uuid|notnull||-|-'),
     ('spalte|prozessprofil|downstream_process_id|character varying(8)|null||-|-'),
     ('spalte|prozessprofil|erhebung_id|text|notnull||-|-'),
@@ -566,6 +570,10 @@ BEGIN
         focus_step_duration_confidence_pct  integer,
         erhebung_id                         text        NOT NULL,
         paket_version                       text        NOT NULL,
+        -- B5 (05.10.2026): die BC0-Anfrage, zu der interviewt wurde. NULL nur fuer
+        -- Bestand vor B5 (eingefroren, keine Nachzuordnung). Kein FK auf ref_anfragen
+        -- (Entscheidung Richard 05.10.: kein REFERENCES-Recht, Freeze-Konflikt).
+        anfrage_id                          text,
         profil                              jsonb       NOT NULL,
         erstellt_am                         timestamptz NOT NULL DEFAULT now(),
         aktualisiert_am                     timestamptz NOT NULL DEFAULT now(),
@@ -592,6 +600,8 @@ BEGIN
         CONSTRAINT prozessprofil_confidence_bereich
             CHECK (focus_step_duration_confidence_pct IS NULL
                    OR focus_step_duration_confidence_pct BETWEEN 0 AND 100),
+        CONSTRAINT prozessprofil_anfrage_format
+            CHECK (anfrage_id IS NULL OR anfrage_id ~ '^A-[0-9]{4}-[0-9]{2}$'),
         -- Weiche Zahlenpruefung (Klaerpunkt K-C mit BC2 offen): nicht negativ und
         -- endlich. In PostgreSQLs numeric-Ordnung sortiert NaN UEBER Infinity —
         -- '< Infinity' schliesst NaN damit mit aus; explizit dokumentiert, weil das

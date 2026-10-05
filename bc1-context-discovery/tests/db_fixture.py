@@ -30,6 +30,7 @@ ANFRAGE_B = "A-2026-01"
 _GERUEST = Path(__file__).parent / "db" / "bc0_geruest.sql"
 _DDL = Path(__file__).parents[1] / "bc1_service" / "db" / "prozessprofil.sql"
 _DDL_D3 = Path(__file__).parents[1] / "bc1_service" / "db" / "prozessprofil_d3.sql"
+_DDL_B5 = Path(__file__).parents[1] / "bc1_service" / "db" / "prozessprofil_b5.sql"
 _DDL_SESSIONS = Path(__file__).parents[1] / "bc1_service" / "db" / "sessions.sql"
 
 
@@ -53,8 +54,9 @@ def pruefe_lokal(dsn: str) -> None:
 def frische_db(dsn: str, *, mit_ddl: bool = True) -> None:
     """Setzt public + bc1 zurueck, baut das Geruest, spielt (optional) BEIDE DDL-Dateien ein.
 
-    Reihenfolge wie im Betrieb (EINSPIELEN.md): prozessprofil_d3.sql (auf frischer DB
-    ein No-op, M0) und prozessprofil.sql in EINER Transaktion, dann sessions.sql in einer
+    Reihenfolge wie im Betrieb (EINSPIELEN.md): prozessprofil_d3.sql, prozessprofil_b5.sql
+    (auf frischer DB je ein No-op, M0) und prozessprofil.sql in EINER Transaktion
+    (d3 -> b5 -> prozessprofil), dann sessions.sql in einer
     eigenen, alles als bc1_role. bc1.sessions entsteht damit NUR hier — der
     PostgresStateStore legt seit B1 nichts mehr an.
     """
@@ -89,13 +91,20 @@ def spiele_d3_ein(dsn: str) -> None:
     spiele_datei_ein(dsn, _DDL_D3)
 
 
+def spiele_b5_ein(dsn: str) -> None:
+    """prozessprofil_b5.sql — Migrations-Einheit B5, laeuft nach d3, vor prozessprofil.sql."""
+    spiele_datei_ein(dsn, _DDL_B5)
+
+
 def spiele_migration_und_ddl_ein(dsn: str) -> None:
-    """prozessprofil_d3.sql + prozessprofil.sql in EINER Transaktion — wie im Betrieb
-    (`psql -1 -f prozessprofil_d3.sql -f prozessprofil.sql`). Meldet prozessprofil.sql
-    Fall 3, rollt das die Migration mit zurueck (Codex-Review 22.09., Important 2)."""
+    """d3 -> b5 -> prozessprofil in EINER Transaktion — wie im Betrieb
+    (`psql -1 -f prozessprofil_d3.sql -f prozessprofil_b5.sql -f prozessprofil.sql`).
+    Meldet prozessprofil.sql Fall 3, rollt das die Migrationen mit zurueck
+    (Codex-Review 22.09., Important 2)."""
     with psycopg.connect(dsn) as conn:
         conn.execute("SET ROLE bc1_role")
         conn.execute(_DDL_D3.read_text(encoding="utf-8"))
+        conn.execute(_DDL_B5.read_text(encoding="utf-8"))
         conn.execute(_DDL.read_text(encoding="utf-8"))
         conn.commit()
 

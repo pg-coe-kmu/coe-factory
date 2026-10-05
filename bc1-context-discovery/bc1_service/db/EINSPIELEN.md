@@ -12,7 +12,7 @@ dem passt, was sie erwartet. Sie läuft in **einer** Transaktion: entweder alles
 nichts. Trifft sie auf eine leere Datenbank, legt sie an (**Fall 1**); trifft sie den
 exakt erwarteten Bestand, tut sie nichts (**Fall 2**); weicht irgendetwas ab, **bricht sie
 ab und ändert nichts** (**Fall 3**). Die Prüfung vergleicht den Ist-Zustand des Katalogs
-Zeile für Zeile mit einer im Skript hinterlegten **Sollsignatur** (177 Zeilen). Wer die
+Zeile für Zeile mit einer im Skript hinterlegten **Sollsignatur** (179 Zeilen). Wer die
 DDL ändert, muss die Signatur neu erzeugen — sonst blockiert sich das Skript selbst.
 
 Seit B1 (13.09.2026) gibt es eine **zweite Datei `sessions.sql`** für die Sitzungstabelle
