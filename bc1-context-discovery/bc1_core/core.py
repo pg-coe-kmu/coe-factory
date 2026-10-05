@@ -16,6 +16,9 @@ class PaketKonfliktError(ValueError):
 class MandantKonfliktError(ValueError):
     """Session gehoert zu einem anderen Mandanten — oder zu gar keinem."""
 
+class AnfrageKonfliktError(ValueError):
+    """Session gehoert zu einer anderen Anfrage — oder zu gar keiner (B5)."""
+
 def ist_terminal(state: SessionState) -> bool:
     return state.status in TERMINALE_STATUS
 
@@ -30,6 +33,14 @@ def pruefe_mandant(state: SessionState, company_id: str) -> None:
         raise MandantKonfliktError(
             f"Session {state.session_id} gehoert zu Mandant {state.company_id}, "
             f"der Aufruf kam mit {company_id}")
+
+def pruefe_anfrage(state: SessionState, anfrage_id: str) -> None:
+    """Anfrage-Guard (B5), gleiche Strenge wie pruefe_mandant: keine Ausnahme, auch
+    nicht fuer den Recovery-Replay; Alt-Sessions ohne anfrage_id werden abgewiesen."""
+    if state.anfrage_id != anfrage_id:
+        raise AnfrageKonfliktError(
+            f"Session {state.session_id} gehoert zu Anfrage {state.anfrage_id}, "
+            f"der Dienst laeuft mit {anfrage_id}")
 
 def _basis(schema_version: str) -> str:
     return schema_version.split("+", 1)[0]
@@ -85,15 +96,18 @@ def profil_payload(state: SessionState, conf: ConfidenceResult,
 
 def process_turn(store: StateStore, llm: LLMClient, package: UseCasePackage,
                  session_id: str, message_id: str, message: str,
-                 *, company_id: str,
+                 *, company_id: str, anfrage_id: str | None = None,
                  mitgesendete_version: str | None = None) -> dict:
     state = store.load(session_id)
     if state is None:
         # Mandanten-Bindung VOR dem ersten dauerhaften Speichern (R12-I1).
         state = SessionState(session_id, package.schema_version,
-                             paket_name=package.name, company_id=company_id)
+                             paket_name=package.name, company_id=company_id,
+                             anfrage_id=anfrage_id)
     else:
         pruefe_mandant(state, company_id)          # als ERSTES nach dem load
+        if anfrage_id is not None:
+            pruefe_anfrage(state, anfrage_id)      # vor dem Paket-Guard
 
     if (state.schema_version != package.schema_version
             or state.paket_name not in (None, package.name)):

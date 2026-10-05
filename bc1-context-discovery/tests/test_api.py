@@ -364,6 +364,88 @@ def test_alt_session_ohne_company_id_bekommt_409():
     assert _turn(client, "m1", "hallo").status_code == 409
 
 
+ANFRAGE = "A-2026-01"
+
+
+def test_fremde_anfrage_bekommt_409_anfrage_konflikt():
+    store = InMemoryStateStore()
+    alt = TestClient(create_app(store, _fake_llm(), TOY_PROZESS,
+                                company_id=MANDANT, anfrage_id=ANFRAGE))
+    assert _turn(alt, "m1", "Der Prozess heißt Urlaubsantrag").status_code == 200
+    neu = TestClient(create_app(store, _fake_llm(), TOY_PROZESS,
+                                company_id=MANDANT, anfrage_id="A-2026-02"))
+    antwort = _turn(neu, "m2", "Ausgelöst durch einen Antrag")
+    assert antwort.status_code == 409
+    assert antwort.json()["detail"] == "anfrage_konflikt"
+
+
+def test_dieselbe_anfrage_setzt_die_sitzung_ueber_mehrere_turns_fort():
+    # Pinnt, dass der Dienst die Anfrage beim ersten Turn in die Sitzung schreibt
+    # (sonst wiese der Guard schon den zweiten Turn derselben Anfrage ab).
+    store = InMemoryStateStore()
+    client = TestClient(create_app(store, _fake_llm(), TOY_PROZESS,
+                                   company_id=MANDANT, anfrage_id=ANFRAGE))
+    assert _turn(client, "m1", "Der Prozess heißt Urlaubsantrag").status_code == 200
+    assert _turn(client, "m2", "Ausgelöst durch einen Antrag").status_code == 200
+    assert store.load("s1").anfrage_id == ANFRAGE
+
+
+class _StoreMitAnfrageWechselImKern(InMemoryStateStore):
+    """Der zweite load MIT Zustand (der des Kerns, nach dem Gate der API) liefert
+    eine fremde Anfrage — nur so ist der Kern-Guard hinter dem API-Guard messbar."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.geladen = 0
+
+    def load(self, session_id: str):
+        state = super().load(session_id)
+        if state is None:
+            return None
+        self.geladen += 1
+        if self.geladen == 2:
+            state.anfrage_id = "A-FREMD"
+        return state
+
+
+def test_anfrage_konflikt_des_kerns_wird_zu_409_anfrage_konflikt():
+    store = _StoreMitAnfrageWechselImKern()
+    client = TestClient(create_app(store, _fake_llm(), TOY_PROZESS,
+                                   company_id=MANDANT, anfrage_id=ANFRAGE))
+    assert _turn(client, "m1", "Der Prozess heißt Urlaubsantrag").status_code == 200
+    antwort = _turn(client, "m2", "Ausgelöst durch einen Antrag")
+    assert antwort.status_code == 409
+    assert antwort.json()["detail"] == "anfrage_konflikt"
+
+
+def test_alt_sitzung_ohne_anfrage_wird_abgewiesen():
+    store = InMemoryStateStore()
+    store.save(SessionState("s1", TOY_PROZESS.schema_version, paket_name=TOY_PROZESS.name,
+                            company_id=MANDANT))
+    client = TestClient(create_app(store, _fake_llm(), TOY_PROZESS,
+                                   company_id=MANDANT, anfrage_id=ANFRAGE))
+    antwort = _turn(client, "m1", "hallo")
+    assert antwort.status_code == 409
+    assert antwort.json()["detail"] == "anfrage_konflikt"
+
+
+def test_recovery_replay_wechselt_nie_die_anfrage():
+    # Der Paket-Guard laesst einen abweichenden ctx-Hash beim terminalen Replay
+    # passieren (darf_recovery_replay) — der Anfrage-Guard darf das NICHT.
+    store = InMemoryStateStore()
+    llm = FakeLLM()
+    alt = TestClient(create_app(store, llm, IDENT_PAKET, company_id=MANDANT,
+                                anfrage_id=ANFRAGE))
+    _turn(alt, "m1", "a")
+    _turn(alt, "m2", "b")
+    neues_paket = replace(IDENT_PAKET, schema_version="1.1+ctx-bbbbbbbbbbbbbbbb")
+    neu = TestClient(create_app(store, llm, neues_paket, company_id=MANDANT,
+                                anfrage_id="A-2026-02"))
+    antwort = _turn(neu, "m2", "b", schema_version="1.1+ctx-aaaaaaaaaaaaaaaa")
+    assert antwort.status_code == 409
+    assert antwort.json()["detail"] == "anfrage_konflikt"
+
+
 def test_recovery_replay_mit_alter_schema_version_geht_durch():
     store = InMemoryStateStore()
     llm = FakeLLM()

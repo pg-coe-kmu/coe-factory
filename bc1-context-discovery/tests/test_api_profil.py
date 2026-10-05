@@ -354,6 +354,33 @@ def test_fremder_mandant_beim_nachladen_wird_abgewiesen_statt_geschrieben(umgebu
                             ).fetchone()[0] == 0
 
 
+class _StoreMitFremderAnfrageBeimNachladen(_StoreMitFremdemNachladen):
+    """Wie oben, nur kippt die Anfrage statt des Mandanten (B5)."""
+
+    def load(self, session_id: str):
+        state = InMemoryStateStore.load(self, session_id)
+        if state is None:
+            return None
+        self.geladen += 1
+        if self.geladen == 1:
+            state.anfrage_id = "A-FREMD"
+        return state
+
+
+def test_fremde_anfrage_beim_nachladen_wird_abgewiesen_statt_geschrieben(umgebung):
+    pool, paket = umgebung
+    client = TestClient(create_app(
+        _StoreMitFremderAnfrageBeimNachladen(), _llm(), paket,
+        company_id=MANDANT_A, anfrage_id=ANFRAGE_A,
+        writer=ProfilWriter(pool, MANDANT_A, paket)))
+    antwort = _turn(client, "m1", "alles")
+    assert antwort.status_code == 409
+    assert antwort.json()["detail"] == "anfrage_konflikt"
+    with verbindung(DSN) as conn:
+        assert conn.execute("SELECT count(*) FROM bc1.prozessprofil"
+                            ).fetchone()[0] == 0
+
+
 def test_main_verdrahtet_den_profil_writer(umgebung, monkeypatch):
     # Ohne diesen Test bliebe die Produktions-Verdrahtung ungeschuetzt: faellt
     # das writer-Argument in main.py weg, bleibt die ganze Suite gruen — und der

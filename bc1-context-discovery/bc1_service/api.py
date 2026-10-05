@@ -2,7 +2,7 @@
 
 Zustandslos gegenüber der Fachlogik: Persistenz macht der Kern (Architektur-
 Invariante). Hier liegen nur die laut Design-Spec an die Transportschicht
-delegierten Pflichten: Mandanten-Guard vor jeder anderen Prüfung,
+delegierten Pflichten: Mandanten- und Anfrage-Guard vor jeder anderen Prüfung,
 schema_version-Check im Request (mit Ausnahme für den terminalen Recovery-
 Replay, den der Kern über darf_recovery_replay entscheidet) und aktives
 Zurückweisen neuer Nachrichten an Sessions in einem Endzustand (fertig oder
@@ -15,8 +15,9 @@ import threading
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from bc1_core.core import (MandantKonfliktError, PaketKonfliktError,
-                           darf_recovery_replay, ist_terminal, process_turn,
+from bc1_core.core import (AnfrageKonfliktError, MandantKonfliktError,
+                           PaketKonfliktError, darf_recovery_replay,
+                           ist_terminal, process_turn, pruefe_anfrage,
                            pruefe_mandant)
 from bc1_core.llm import LLMClient
 from bc1_core.package import UseCasePackage
@@ -67,6 +68,8 @@ def create_app(
     lifespan=None,
     *,
     company_id: str,
+    # None nur in Tests ohne BC0-Kontext; main.py setzt immer (BC1_ANFRAGE_ID Pflicht).
+    anfrage_id: str | None = None,
     writer: ProfilWriter | None = None,
 ) -> FastAPI:
     # lifespan: Aufhaenger fuers Hoch-/Herunterfahren (main.py schliesst dort
@@ -113,8 +116,14 @@ def create_app(
                     pruefe_mandant(state, company_id)
                 except MandantKonfliktError:
                     raise HTTPException(status_code=409, detail="mandant_konflikt")
+                if anfrage_id is not None:
+                    try:
+                        pruefe_anfrage(state, anfrage_id)
+                    except AnfrageKonfliktError:
+                        raise HTTPException(status_code=409,
+                                            detail="anfrage_konflikt")
 
-            recovery = state is not None and darf_recovery_replay(
+            recovery =state is not None and darf_recovery_replay(
                 state, package, req.message_id, req.schema_version)
 
             if (req.schema_version is not None
@@ -134,11 +143,14 @@ def create_app(
                 antwort = process_turn(store, llm, package, req.session_id,
                                        req.message_id, req.message,
                                        company_id=company_id,
+                                       anfrage_id=anfrage_id,
                                        mitgesendete_version=req.schema_version)
             except PaketKonfliktError:  # Paket-/Versions-Guard des Kerns
                 raise HTTPException(status_code=409, detail="paket_konflikt")
             except MandantKonfliktError:
                 raise HTTPException(status_code=409, detail="mandant_konflikt")
+            except AnfrageKonfliktError:
+                raise HTTPException(status_code=409, detail="anfrage_konflikt")
             except StaleStateError:
                 # Verlorener Schreib-Wettlauf: fachlich ein Konflikt, kein
                 # Serverfehler. Der Client darf die Nachricht wiederholen.
@@ -152,6 +164,12 @@ def create_app(
                     pruefe_mandant(stand, company_id)
                 except MandantKonfliktError:
                     raise HTTPException(status_code=409, detail="mandant_konflikt")
+                if anfrage_id is not None:
+                    try:
+                        pruefe_anfrage(stand, anfrage_id)
+                    except AnfrageKonfliktError:
+                        raise HTTPException(status_code=409,
+                                            detail="anfrage_konflikt")
                 try:
                     db_profil = writer.reconcile(stand, antwort)
                 except ProfilWriteError:

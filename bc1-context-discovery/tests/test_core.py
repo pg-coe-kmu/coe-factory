@@ -8,8 +8,8 @@ from bc1_core.package import TOY_PROZESS, FieldSpec, UseCasePackage
 from bc1_core.dialog import MAX_ROUNDS
 from bc1_core.store import InMemoryStateStore
 from bc1_core.llm import FakeLLM, ExtractionCandidate
-from bc1_core.core import (MandantKonfliktError, PaketKonfliktError,
-                           process_turn)
+from bc1_core.core import (AnfrageKonfliktError, MandantKonfliktError,
+                           PaketKonfliktError, process_turn)
 from bc1_core.serialize import state_to_dict
 
 MANDANT = "11111111-1111-1111-1111-111111111111"
@@ -511,6 +511,27 @@ def test_mandanten_guard_weist_fremden_mandanten_immer_ab():
         _turn(store, llm, TOY_PROZESS, "s1", "m2", "hallo", company_id=MANDANT_B)
     with pytest.raises(MandantKonfliktError):        # auch der bekannte Replay
         _turn(store, llm, TOY_PROZESS, "s1", "m1", "hallo", company_id=MANDANT_B)
+
+
+def test_neue_sitzung_traegt_die_anfrage_und_fremde_anfrage_scheitert():
+    store = InMemoryStateStore()
+    process_turn(store, FakeLLM(), TOY_PROZESS, "s1", "m1", "hallo",
+                 company_id=MANDANT, anfrage_id="A-2026-01")
+    assert store.load("s1").anfrage_id == "A-2026-01"
+    with pytest.raises(AnfrageKonfliktError):
+        process_turn(store, FakeLLM(), TOY_PROZESS, "s1", "m2", "weiter",
+                     company_id=MANDANT, anfrage_id="A-2026-02")
+
+
+def test_alt_session_ohne_anfrage_bekommt_anfrage_konflikt_vor_paket_konflikt():
+    # Reihenfolge: der Anfrage-Check laeuft vor dem Paket-Guard — eine Session
+    # von vor B5 (ohne anfrage_id) zeigt "falsche Anfrage", nicht "falsches Paket".
+    store = InMemoryStateStore()
+    store.save(SessionState("s1", "0.0-alt", paket_name="toy_prozess",
+                            company_id=MANDANT))
+    with pytest.raises(AnfrageKonfliktError):
+        process_turn(store, FakeLLM(), TOY_PROZESS, "s1", "m1", "hallo",
+                     company_id=MANDANT, anfrage_id="A-2026-01")
 
 
 def test_alt_session_ohne_company_id_wird_immer_abgewiesen():
