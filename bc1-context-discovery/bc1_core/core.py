@@ -183,6 +183,8 @@ def process_turn(store: StateStore, llm: LLMClient, package: UseCasePackage,
         # der Retry setzt fort. Retries/Backoff → echter LLM-Client (Roadmap).
         state = store.load(session_id)
         pruefe_mandant(state, company_id)      # auch dieser load wird geprueft
+        if anfrage_id is not None:
+            pruefe_anfrage(state, anfrage_id)
         state.status = SessionStatus.FEHLER
         store.save(state)
         return {"status": "fehler_fortsetzbar",

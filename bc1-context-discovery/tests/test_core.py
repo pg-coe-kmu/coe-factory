@@ -627,6 +627,29 @@ def test_except_pfad_prueft_mandant_beim_erneuten_load():
         _turn(store, ExplodierendesLLM(), TOY_PROZESS, "s1", "m2", "kaputt")
 
 
+# B5: dieselbe Strenge fuer den Anfrage-Guard — auch der erneute load im
+# Fehlerpfad wird geprueft.
+def test_except_pfad_prueft_anfrage_beim_erneuten_load():
+    class _AnfrageWechselStore(InMemoryStateStore):
+        def __init__(self):
+            super().__init__()
+            self._loads = 0
+
+        def load(self, session_id):
+            self._loads += 1
+            st = super().load(session_id)
+            if self._loads == 3 and st is not None:
+                st.anfrage_id = "A-FREMD"   # aendert sich zwischen den beiden loads
+            return st
+
+    store = _AnfrageWechselStore()
+    process_turn(store, FakeLLM(), TOY_PROZESS, "s1", "m1", "hallo",
+                 company_id=MANDANT, anfrage_id="A-2026-01")
+    with pytest.raises(AnfrageKonfliktError):
+        process_turn(store, ExplodierendesLLM(), TOY_PROZESS, "s1", "m2", "kaputt",
+                     company_id=MANDANT, anfrage_id="A-2026-01")
+
+
 # --- B2 PII-Filter: kein Klartext im Store, keiner beim Anbieter -------------
 
 class _ProtokollStore(InMemoryStateStore):
