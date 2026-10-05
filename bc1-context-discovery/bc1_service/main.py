@@ -1,6 +1,6 @@
 """Produktions-Verdrahtung: uvicorn bc1_service.main:app
 
-Pflicht: BC1_DB_DSN, BC1_COMPANY_ID. Optional: BC1_SNAPSHOT_PFAD (BC0-Baseline), BC1_CLAUDE_MODELL,
+Pflicht: BC1_DB_DSN, BC1_COMPANY_ID, BC1_ANFRAGE_ID. Optional: BC1_SNAPSHOT_PFAD (BC0-Baseline), BC1_CLAUDE_MODELL,
 ANTHROPIC_API_KEY (liest das SDK selbst), BC1_LLM ("claude" | "ollama" | "gemini",
 Default claude — ollama = lokaler Test-/Dev-Ersatz ohne API-Key; gemini = Gemini API,
 braucht GEMINI_API_KEY), BC1_OLLAMA_MODELL, BC1_GEMINI_MODELL,
@@ -19,7 +19,7 @@ from bc1_service.paket_wahl import waehle_paket
 from bc1_service.postgres_store import PostgresStateStore
 from bc1_service.profil_writer import ProfilWriter
 from bc1_service.snapshot import lade_snapshot
-from bc1_service.start import lade_kontext, lies_company_id
+from bc1_service.start import lade_kontext, lies_anfrage_id, lies_company_id
 
 _dsn = os.environ.get("BC1_DB_DSN")
 if not _dsn:
@@ -30,6 +30,7 @@ if not _dsn:
     )
 
 _company_id = lies_company_id(os.environ)
+_anfrage_id = lies_anfrage_id(os.environ)
 
 _snapshot_pfad = os.environ.get("BC1_SNAPSHOT_PFAD")
 _snapshot = lade_snapshot(_snapshot_pfad) if _snapshot_pfad else None
@@ -44,7 +45,7 @@ _store = PostgresStateStore(_dsn)
 _profil_pool = ConnectionPool(_dsn, min_size=1, max_size=5, open=True)
 try:
     with _profil_pool.connection() as _conn:
-        _kontext = lade_kontext(_conn, _company_id)
+        _kontext = lade_kontext(_conn, _company_id, _anfrage_id)
 except Exception:
     # Wie beim Session-Store (postgres_store.py): beide Pools sind bereits
     # offen — ohne close() blieben ihre Verbindungen und Worker-Threads als
@@ -73,5 +74,6 @@ app = create_app(
     _snapshot,
     lifespan=_lebenszyklus,
     company_id=_company_id,
+    anfrage_id=_anfrage_id,
     writer=ProfilWriter(_profil_pool, _company_id, _paket),
 )

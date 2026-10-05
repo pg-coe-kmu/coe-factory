@@ -45,6 +45,9 @@ class Bc0Kontext:
     # unbewerteten Teilprozess entsteht kein Profil; die Menge geht in den Fingerprint ein.
     teilprozesse: tuple[tuple[str, str], ...]
     system_ids: tuple[str, ...]
+    # B5: die Anfrage, zu der interviewt wird. None nur in kontextfreien Tests —
+    # main.py setzt sie immer (BC1_ANFRAGE_ID ist Pflicht).
+    anfrage_id: str | None = None
 
 
 def _ctx_fingerprint(kontext: Bc0Kontext, kp_ids: list[str]) -> str:
@@ -53,8 +56,12 @@ def _ctx_fingerprint(kontext: Bc0Kontext, kp_ids: list[str]) -> str:
     # unten fliessen nur die IDs ein, nicht die Anzeige-Namen — eine reine
     # Umbenennung im BC0-Snapshot aendert die Validator-Semantik nicht und
     # soll die Paket-Identitaet nicht unnoetig churnen lassen.
+    # Die Anfrage ist Teil der Paketidentitaet. Den Schutz gegen eine fremde Anfrage
+    # traegt aber `pruefe_anfrage` (core) — der Recovery-Replay darf einen
+    # abweichenden ctx-Hash passieren.
     roh = json.dumps(
-        {"company_id": kontext.company_id.lower(),
+        {"anfrage": kontext.anfrage_id,
+         "company_id": kontext.company_id.lower(),
          "kp": sorted(kp_ids),
          "snn": sorted(kontext.system_ids),
          "tp": sorted(tp for tp, _ in kontext.teilprozesse)},

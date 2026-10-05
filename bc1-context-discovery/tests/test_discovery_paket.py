@@ -1,5 +1,6 @@
 """Integrität des Discovery-Pakets gegen die Spec-Feldliste (P3)."""
 import re
+from dataclasses import replace
 
 import pytest
 
@@ -250,6 +251,15 @@ def test_fingerprint_reagiert_auf_jede_grundlage_aber_nicht_auf_reihenfolge():
         Bc0Kontext(KONTEXT.company_id, KONTEXT.teilprozesse, ("S-01",)),
     ):
         assert baue_discovery_paket(kontext=abweichung).schema_version != basis
+
+
+def test_fingerabdruck_reagiert_auf_die_anfrage():
+    basis = Bc0Kontext(company_id="11111111-1111-1111-1111-111111111111",
+                       teilprozesse=(("KP-01.TP-1", "Erfassen"),), system_ids=("S-01",),
+                       anfrage_id="A-2026-01")
+    andere = replace(basis, anfrage_id="A-2026-02")
+    assert (baue_discovery_paket(kontext=basis).schema_version
+            != baue_discovery_paket(kontext=andere).schema_version)
 
 
 def test_kp_liste_bleibt_teil_der_paket_identitaet():

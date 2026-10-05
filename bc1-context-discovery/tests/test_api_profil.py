@@ -14,7 +14,7 @@ from bc1_core.store import InMemoryStateStore
 from bc1_service.api import HINWEIS_GUELTIG, HINWEIS_UNGELOEST, create_app
 from bc1_service.discovery_paket import Bc0Kontext, baue_discovery_paket
 from bc1_service.profil_writer import ProfilWriter
-from tests.db_fixture import DSN, MANDANT_A, MANDANT_B, frische_db, verbindung
+from tests.db_fixture import ANFRAGE_A, DSN, MANDANT_A, MANDANT_B, frische_db, verbindung
 
 pytestmark = pytest.mark.skipif(not DSN, reason="BC1_TEST_DB_DSN nicht gesetzt")
 
@@ -372,11 +372,13 @@ def test_main_verdrahtet_den_profil_writer(umgebung, monkeypatch):
     monkeypatch.setattr(api_modul, "create_app", _stub_create_app)
     monkeypatch.setenv("BC1_DB_DSN", DSN)
     monkeypatch.setenv("BC1_COMPANY_ID", MANDANT_A)
+    monkeypatch.setenv("BC1_ANFRAGE_ID", ANFRAGE_A)
     monkeypatch.setenv("BC1_LLM", "ollama")     # kein API-Key noetig
     monkeypatch.delitem(sys.modules, "bc1_service.main", raising=False)
     main = importlib.import_module("bc1_service.main")
     try:
         assert gesehen["company_id"] == MANDANT_A
+        assert gesehen["anfrage_id"] == ANFRAGE_A
         assert isinstance(gesehen["writer"], ProfilWriter)
         # Dasselbe Paket-Objekt fuer Kern und Writer: zwei getrennte Bauten
         # koennten auseinanderlaufen (Reihenfolge der BC0-Mengen).
