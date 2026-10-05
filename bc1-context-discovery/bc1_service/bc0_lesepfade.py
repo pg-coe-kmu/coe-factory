@@ -1,4 +1,4 @@
-"""Lesende Zugriffe auf BC0-Objekte — die sechs, die Etappe 1 braucht.
+"""Lesende Zugriffe auf BC0-Objekte — die Lesepfade, die der Dienst braucht (Etappe 1 + B5).
 
 Normativ (Spec R5-I5): JEDER Lookup filtert ueber company_id. BC0 nutzt
 zusammengesetzte Schluessel — IDs wie 'KP-01.TP-1' oder 'S-01' wiederholen sich
@@ -110,3 +110,22 @@ def kp_existiert(conn, company_id: str, process_id: str) -> bool:
     return conn.execute(
         "SELECT 1 FROM v_prozesse_lesen WHERE company_id = %s AND process_id = %s",
         (company_id, process_id)).fetchone() is not None
+
+
+def anfrage_status(conn, company_id: str, anfrage_id: str) -> str | None:
+    """Status der Anfrage (B5) — None, wenn es sie bei DIESEM Mandanten nicht gibt.
+    Anfrage-IDs wiederholen sich ueber Mandanten (A-JJJJ-NN je Mandant)."""
+    zeile = conn.execute(
+        "SELECT status FROM v_anfrage_prozessbezug "
+        " WHERE company_id = %s AND anfrage_id = %s", (company_id, anfrage_id)).fetchone()
+    return zeile[0] if zeile else None
+
+
+def anfrage_teilprozesse(conn, company_id: str, anfrage_id: str) -> list[str]:
+    """Teilprozess-IDs der Anfrage (B5). Die Sicht loest einen Kernprozess-Bezug in
+    seine AKTIVEN Teilprozesse auf; einen direkt zugeordneten TP liefert sie auch
+    stillgelegt — den Abgleich mit dem Lesepfad macht start.lade_kontext."""
+    return [zeile[0] for zeile in conn.execute(
+        "SELECT sub_process_id FROM v_anfrage_teilprozesse "
+        " WHERE company_id = %s AND anfrage_id = %s ORDER BY sub_process_id",
+        (company_id, anfrage_id)).fetchall()]
