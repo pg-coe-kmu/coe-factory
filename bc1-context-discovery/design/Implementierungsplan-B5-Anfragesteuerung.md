@@ -15,6 +15,8 @@
 - Arbeitsverzeichnis für alle Befehle: `coe-factory/bc1-context-discovery/`; Zweig `bc1-b5-anfragesteuerung`.
 - Tests: `uv run pytest …`; DB-Tests brauchen `BC1_TEST_DB_DSN` (lokaler PG-17-Container), sonst skippen sie.
 - **TDD-Guard aktiv, NIE umgehen.** Bei einem Block das Skill `tdd-guard` aufrufen; jeden neu gelösten Block dort in die Lessons-Tabelle eintragen.
+- **Ein neuer Test je Edit** (Guard-Regel „Multiple test addition“): Die Testblöcke eines Steps einzeln einfügen, jeweils RED laufen lassen, dann die Implementierung für genau diesen RED. Die Code-Blöcke unten zeigen den Endstand eines Steps, nicht einen einzigen Edit.
+- **Bestandsaufrufer mitziehen:** Jede Signaturänderung wird in allen Aufrufern im selben Task nachgezogen — gefunden per `git grep -n '<name>('` über `bc1_core bc1_service tests`.
 - `BC1_ANFRAGE_ID` ist Pflicht, Format `^A-[0-9]{4}-[0-9]{2}$` (BC0-CHECK `ref_anfragen.anfrage_id`, v1.4).
 - Interviewbar nur Status `zugeordnet` oder `im_interview`.
 - Kein Fremdschlüssel auf `ref_anfragen`; kein Status-Recheck vor dem Freeze; keine Spalte in `bc1.sessions`; `sessions.sql` bleibt unverändert; C4 (b) NICHT in B5.
@@ -98,7 +100,7 @@ SELECT 'check|' || conname || '|' || pg_get_constraintdef(oid)
 - Test: `tests/test_db_fixture.py`
 
 **Interfaces:**
-- Produces: Tabellen `ref_anfragen` (Ausschnitt), `anfrage_prozesse`, `gate_paket_inhalt` (Stummel), Sichten `v_gate_freigabe_aktuell` (Stummel), `v_anfrage_prozessbezug`, `v_anfrage_teilprozesse`; Fixture-Konstanten `ANFRAGE_A = "A-2026-01"` (Mandant A, `zugeordnet`, Haupt-TP KP-01.TP-1 + beteiligt KP-01.TP-2), `ANFRAGE_A_KERNPROZESS = "A-2026-02"` (A, `im_interview`, Kernprozess KP-01 ohne TP), `ANFRAGE_A_EINGEGANGEN = "A-2026-03"` (A, `eingegangen`, kein Bezug), `ANFRAGE_A_UNBEWERTET = "A-2026-04"` (A, `zugeordnet`, TP KP-01.TP-3 = nur verworfen bewertet), `ANFRAGE_B = "A-2026-01"` existiert auch bei Mandant B (gleiche ID!, `zugeordnet`, KP-02.TP-2).
+- Produces: Tabellen `ref_anfragen` (Ausschnitt), `anfrage_prozesse`, `gate_paket_inhalt` (Stummel), Sichten `v_gate_freigabe_aktuell` (Stummel), `v_anfrage_prozessbezug`, `v_anfrage_teilprozesse`; Fixture-Konstanten `ANFRAGE_A = "A-2026-01"` (Mandant A, `zugeordnet`, Haupt-TP KP-01.TP-1 + beteiligt KP-01.TP-2), `ANFRAGE_A_KERNPROZESS = "A-2026-02"` (A, `im_interview`, Kernprozess KP-01 ohne TP), `ANFRAGE_A_EINGEGANGEN = "A-2026-03"` (A, `eingegangen`, kein Bezug), `ANFRAGE_A_UNBEWERTET = "A-2026-04"` (A, `zugeordnet`, TP KP-01.TP-3 = nur verworfen bewertet), `ANFRAGE_A_OHNE_TP = "A-2026-05"` (A, `zugeordnet`, `process_id` KP-02 gesetzt, aber **keine** Zeile in `anfrage_prozesse` — Altbestand vor v2.7), `ANFRAGE_B = "A-2026-01"` existiert auch bei Mandant B (gleiche ID!, `zugeordnet`, KP-02.TP-2).
 
 - [ ] **Step 1: Failing test** — in `tests/test_db_fixture.py` ergänzen:
 
@@ -258,6 +260,7 @@ ANFRAGE_A = "A-2026-01"
 ANFRAGE_A_KERNPROZESS = "A-2026-02"
 ANFRAGE_A_EINGEGANGEN = "A-2026-03"
 ANFRAGE_A_UNBEWERTET = "A-2026-04"
+ANFRAGE_A_OHNE_TP = "A-2026-05"
 ANFRAGE_B = "A-2026-01"
 ```
 
@@ -271,10 +274,11 @@ und am Ende von `_testdaten` (nach den Bewertungen):
         "(%s, %s, '2026-09-02', 'KP-01', NULL, 'anfrage', 'im_interview'), "
         "(%s, %s, '2026-09-03', NULL, NULL, NULL, 'eingegangen'), "
         "(%s, %s, '2026-09-04', 'KP-01', 'KP-01.TP-3', 'anfrage', 'zugeordnet'), "
+        "(%s, %s, '2026-09-05', 'KP-02', NULL, 'anfrage', 'zugeordnet'), "
         "(%s, %s, '2026-09-05', 'KP-02', 'KP-02.TP-2', 'anfrage', 'zugeordnet')",
         (MANDANT_A, ANFRAGE_A, MANDANT_A, ANFRAGE_A_KERNPROZESS,
          MANDANT_A, ANFRAGE_A_EINGEGANGEN, MANDANT_A, ANFRAGE_A_UNBEWERTET,
-         MANDANT_B, ANFRAGE_B))
+         MANDANT_A, ANFRAGE_A_OHNE_TP, MANDANT_B, ANFRAGE_B))
     conn.execute(
         "INSERT INTO anfrage_prozesse (company_id, anfrage_id, process_id, sub_process_id, "
         "rolle, zuordnung_quelle) VALUES "
@@ -469,6 +473,16 @@ def test_stillgelegter_direkt_zugeordneter_teilprozess_bricht_den_start_ab():
 
 
 @pytest.mark.skipif(not DSN, reason="BC1_TEST_DB_DSN nicht gesetzt")
+def test_anfrage_ohne_teilprozesse_bricht_den_start_ab():
+    frische_db(DSN)
+    with verbindung(DSN) as conn:
+        with pytest.raises(RuntimeError) as fehler:
+            lade_kontext(conn, MANDANT_A, ANFRAGE_A_OHNE_TP)
+    assert str(fehler.value) == MELDUNG_ANFRAGE_OHNE_TEILPROZESSE.format(
+        anfrage_id=ANFRAGE_A_OHNE_TP)
+
+
+@pytest.mark.skipif(not DSN, reason="BC1_TEST_DB_DSN nicht gesetzt")
 def test_kernprozess_bezug_ohne_bewertung_aller_tps_bricht_ab():
     # A-2026-02 = ganzer KP-01 -> TP-1, TP-2, TP-3; TP-3 ist nur verworfen bewertet.
     frische_db(DSN)
@@ -478,7 +492,24 @@ def test_kernprozess_bezug_ohne_bewertung_aller_tps_bricht_ab():
     assert "KP-01.TP-3" in str(fehler.value)
 ```
 
-Bestehende Aufrufe `lade_kontext(conn, MANDANT_A)` / `lade_kontext(conn, leer)` in `test_start.py` auf `lade_kontext(conn, MANDANT_A, ANFRAGE_A)` bzw. `(conn, leer, ANFRAGE_A)` umstellen. `test_kontext_kommt_mandantengefiltert_aus_der_db` erwartet danach `["KP-01.TP-1", "KP-01.TP-2"]` (Anfrage statt Mandantenliste) — die Erwartung bewusst anpassen und im Kommentar begründen.
+**Alle vier** bestehenden Aufrufe in `test_start.py` um `ANFRAGE_A` erweitern: Z. 32 `lade_kontext(conn, MANDANT_A, ANFRAGE_A)`, Z. 43 `lade_kontext(conn, "99999999-9999-9999-9999-999999999999", ANFRAGE_A)`, Z. 73 `(conn, leer, ANFRAGE_A)`, Z. 93 `(conn, ohne, ANFRAGE_A)` (agy F2: `pytest.raises(RuntimeError)` fängt den `TypeError` sonst nicht). `test_kontext_kommt_mandantengefiltert_aus_der_db` erwartet danach `["KP-01.TP-1", "KP-01.TP-2"]` (Anfrage statt Mandantenliste) — die Erwartung bewusst anpassen und im Kommentar begründen.
+
+`tests/test_postgres_init.py` — neben `test_main_ohne_company_id_meldet_die_fehlende_variable` (Z. 125) den Zwilling nach demselben Muster:
+
+```python
+def test_main_ohne_anfrage_id_meldet_die_fehlende_variable(monkeypatch):
+    monkeypatch.setenv("BC1_DB_DSN", "postgresql://x@localhost/y")
+    monkeypatch.setenv("BC1_COMPANY_ID", "11111111-1111-1111-1111-111111111111")
+    monkeypatch.delenv("BC1_ANFRAGE_ID", raising=False)
+    monkeypatch.delitem(sys.modules, "bc1_service.main", raising=False)
+    with pytest.raises(RuntimeError) as fehler:
+        importlib.import_module("bc1_service.main")
+    assert "BC1_ANFRAGE_ID" in str(fehler.value)
+```
+
+(Imports/DSN-Wert wie im Zwilling Z. 125–132 übernehmen, falls dort abweichend.)
+
+`tests/test_api_profil.py` Z. 373–377 (`test_main_verdrahtet_writer_…`): `monkeypatch.setenv("BC1_ANFRAGE_ID", ANFRAGE_A)` ergänzen und `assert gesehen["anfrage_id"] == ANFRAGE_A` (agy F3; `ANFRAGE_A` aus `tests.db_fixture` importieren).
 
 In `tests/test_discovery_paket.py` ergänzen:
 
@@ -586,7 +617,47 @@ Modul-Docstring ergänzen: „Seit B5 (05.10.2026) ist BC1_ANFRAGE_ID ebenfalls 
 
 - [ ] **Step 5: `main.py`** — Import `lies_anfrage_id`; nach `_company_id = …` die Zeile `_anfrage_id = lies_anfrage_id(os.environ)`; `lade_kontext(_conn, _company_id, _anfrage_id)`; `create_app(…, anfrage_id=_anfrage_id, …)` (Parameter entsteht in Task 4 — bis dahin den Aufruf in Task 4 Step 6 nachziehen). Docstring: „Pflicht: BC1_DB_DSN, BC1_COMPANY_ID, BC1_ANFRAGE_ID.“
 
-- [ ] **Step 6: Lauf, erwartet PASS** — `uv run pytest tests/test_start.py tests/test_discovery_paket.py tests/test_paket_wahl.py -v`; dann volle Suite. Fällt ein Test mit wörtlich gepinntem ctx-Hash: Erwartung bewusst neu setzen und im Commit nennen.
+- [ ] **Step 5b: Use-Case-Testprofile auf die Anfrage umstellen** (agy F1 — Werkzeug + 7 DB-Tests brechen sonst). Jeder `Fall` trägt schon `anfrage_id` (`use_case_testprofile.py:46-54`, bisher nur dokumentarisch). `schreibe_testprofile` lädt Kontext, Paket und Writer **je Fall**:
+
+```python
+def schreibe_testprofile(pool, company_id: str) -> list[dict]:
+    """Schreibt alle Faelle ueber den regulaeren Writer-Pfad; Session-Store
+    bewusst In-Memory — kein ungeprueftes bc1.sessions in der Ziel-DB.
+    Seit B5 je Fall mit dessen Anfrage: Auswahl, Fingerabdruck und Writer haengen an ihr."""
+    ergebnis = []
+    for fall in FAELLE:
+        with pool.connection() as conn:
+            kontext = lade_kontext(conn, company_id, fall.anfrage_id)
+        paket = baue_discovery_paket(kontext=kontext)
+        writer = ProfilWriter(pool, company_id, paket)
+        antwort = fuehre_interview(InMemoryStateStore(), paket, fall,
+                                   company_id=company_id, writer=writer)
+        ergebnis.append({"session_id": fall.session_id, "status": antwort["status"],
+                         "vollstaendigkeit": antwort["payload"].get("vollstaendigkeit")})
+    return ergebnis
+```
+
+Docstring von `Fall`: „anfrage_id ist seit B5 die Anfrage, zu der der Fall interviewt wird (BC1_ANFRAGE_ID-Äquivalent).“ In `tests/test_use_case_testprofile.py`: `_noro_geruest` legt die Anfragen der Fälle an — **vorher** die Basis-Anfragen von Mandant A löschen, weil `A-2026-01..03` sonst mit den Fixture-Anfragen aus Task 1 kollidieren (dieselben IDs, andere TPs):
+
+```python
+    conn.execute("DELETE FROM ref_anfragen WHERE company_id = %s", (MANDANT_A,))
+    for fall in FAELLE:
+        kp = fall.fokus_tp.split(".")[0]
+        conn.execute(
+            "INSERT INTO ref_anfragen (company_id, anfrage_id, eingang_am, process_id, "
+            "sub_process_id, zuordnung_quelle, status) "
+            "VALUES (%s, %s, '2026-09-01', %s, %s, 'anfrage', 'zugeordnet')",
+            (MANDANT_A, fall.anfrage_id, kp, fall.fokus_tp))
+        conn.execute(
+            "INSERT INTO anfrage_prozesse (company_id, anfrage_id, process_id, "
+            "sub_process_id, rolle, zuordnung_quelle) "
+            "VALUES (%s, %s, %s, %s, 'haupt', 'anfrage')",
+            (MANDANT_A, fall.anfrage_id, kp, fall.fokus_tp))
+```
+
+(`FAELLE` aus `bc1_service.use_case_testprofile` importieren.) Z. 176 `lade_kontext(conn, MANDANT_A)` → `lade_kontext(conn, MANDANT_A, FAELLE[0].anfrage_id)` und die Erwartung an die Auswahl auf den einen TP dieser Anfrage anpassen. Hinweis in den Zwischenbericht: Der Live-Lauf des Werkzeugs (`--echt`) braucht ab B5 die drei Anfragen bei BC0 im Stand `zugeordnet`/`im_interview`.
+
+- [ ] **Step 6: Lauf, erwartet PASS** — `uv run pytest tests/test_start.py tests/test_discovery_paket.py tests/test_paket_wahl.py tests/test_use_case_testprofile.py tests/test_postgres_init.py tests/test_api_profil.py -v`; dann volle Suite. Fällt ein Test mit wörtlich gepinntem ctx-Hash: Erwartung bewusst neu setzen und im Commit nennen.
 
 - [ ] **Step 7: Commit** — `"BC1 B5: Start nur mit Anfrage — Pflicht, Statusprüfung, Auswahl aus der Anfrage, Anfrage im Fingerabdruck"`.
 
@@ -665,7 +736,10 @@ def test_neue_sitzung_traegt_die_anfrage_und_fremde_anfrage_scheitert():
 
 `tests/test_store_postgres.py` — im bestehenden Rundlauf-Test einen State mit `anfrage_id="A-2026-01"` speichern und laden; Assertion `geladen.anfrage_id == "A-2026-01"`. Falls es dort keinen Rundlauf-Test mit Feldvergleich gibt, neuen Test nach dem Muster des vorhandenen `save/load`-Tests anlegen.
 
-- [ ] **Step 2: Lauf, erwartet FAIL** — `uv run pytest tests/test_api.py tests/test_core.py -k anfrage -v` → `TypeError: create_app() got an unexpected keyword argument 'anfrage_id'`.
+- [ ] **Step 2: Drei getrennte TDD-Zyklen statt eines Laufs** (agy F5 — sonst blockiert der Guard die Edits an `types.py`/`serialize.py` als „Premature implementation“):
+  1. **Zustand:** nur den Rundlauf-Test (`test_store_postgres.py`) einfügen → `uv run pytest tests/test_store_postgres.py -k anfrage -v` → RED (`TypeError: unexpected keyword 'anfrage_id'` bzw. Attribut fehlt) → Step 3 + Step 4 → GREEN.
+  2. **Kern:** nur `test_neue_sitzung_traegt_die_anfrage_und_fremde_anfrage_scheitert` einfügen → `uv run pytest tests/test_core.py -k anfrage -v` → RED → Step 5 → GREEN.
+  3. **API:** die drei `test_api.py`-Tests einzeln einfügen, je RED (`TypeError: create_app() got an unexpected keyword argument 'anfrage_id'`, danach 200 statt 409) → Step 6 → GREEN.
 
 - [ ] **Step 3: `types.py`** — nach `company_id`:
 
@@ -954,7 +1028,13 @@ def spiele_b5_ein(dsn: str) -> None:
 
 und in `spiele_migration_und_ddl_ein` zwischen d3 und prozessprofil: `conn.execute(_DDL_B5.read_text(encoding="utf-8"))`; Docstrings „d3 → b5 → prozessprofil“.
 
-- [ ] **Step 7: Sollsignatur neu erzeugen**
+- [ ] **Step 7: Sollsignatur neu erzeugen** — zuerst in `prozessprofil.sql` den alten Block zwischen `INSERT INTO pg_temp.bc1_soll_signatur (zeile) VALUES` und dessen abschließendem `;` durch genau diese eine Zeile ersetzen (der Generator verlangt sie, `signatur_erzeugen.py:84-86`, agy F4):
+
+```sql
+    ('platzhalter|wird|in|step7|ersetzt');
+```
+
+Dann:
 
 ```bash
 uv run python tests/db/signatur_erzeugen.py bc1_service/db/prozessprofil.sql
@@ -987,7 +1067,7 @@ Danach `git diff bc1_service/db/prozessprofil.sql` lesen: erwartet sind nur neue
             (MANDANT_A,)).fetchall() == [("A-2026-01",)]
 ```
 
-In `tests/test_api_profil.py` den `umgebung`-Fixture-Aufbau auf `create_app(…, anfrage_id=ANFRAGE_A)` und `KONTEXT = Bc0Kontext(…, anfrage_id=ANFRAGE_A)` umstellen und im Durchstich-Test (fertig) zusätzlich `anfrage_id` der fertigen Zeile prüfen (`== ANFRAGE_A`). Außerdem den Umbinden-Test: nach TP-Wechsel trägt die neue Zeile weiter `ANFRAGE_A`.
+In `tests/test_api_profil.py` den Aufruf in der Hilfsfunktion `_client` auf `create_app(…, anfrage_id=ANFRAGE_A)` und die Modulkonstante `KONTEXT = Bc0Kontext(…, anfrage_id=ANFRAGE_A)` umstellen und im Durchstich-Test (fertig) zusätzlich `anfrage_id` der fertigen Zeile prüfen (`== ANFRAGE_A`). Außerdem den Umbinden-Test: nach TP-Wechsel trägt die neue Zeile weiter `ANFRAGE_A`.
 
 - [ ] **Step 2: Lauf, erwartet FAIL** — `uv run pytest tests/test_profil_writer.py tests/test_api_profil.py -k anfrage -v` → `[(None,)] != [('A-2026-01',)]`.
 
@@ -1002,6 +1082,18 @@ In `tests/test_api_profil.py` den `umgebung`-Fixture-Aufbau auf `create_app(…,
 ```
 
 Kommentar: „anfrage_id aus der SITZUNG (B5) — der Anfrage-Guard in api.py stellt sicher, dass sie zur Instanz passt.“ Kein Status-Recheck in `_abgleich` (Spec Big Picture 3).
+
+Zusätzlich `use_case_testprofile.fuehre_interview`: `process_turn(…, company_id=company_id, anfrage_id=fall.anfrage_id)`; dazu in `tests/test_use_case_testprofile.py` ein Test (eigener Edit, vorher RED), der nach `schreibe_testprofile` je Fall `anfrage_id` der Profilzeile prüft:
+
+```python
+def test_testprofile_tragen_ihre_anfrage(pool):
+    schreibe_testprofile(pool, MANDANT_A)
+    with verbindung(DSN) as conn:
+        zeilen = dict(conn.execute(
+            "SELECT focus_step_id, anfrage_id FROM bc1.prozessprofil "
+            "WHERE company_id = %s", (MANDANT_A,)).fetchall())
+    assert zeilen == {f.fokus_tp: f.anfrage_id for f in FAELLE}
+```
 
 - [ ] **Step 4: Lauf, erwartet PASS** — Ziel-Tests, dann volle Suite.
 
