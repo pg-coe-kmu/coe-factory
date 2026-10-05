@@ -66,13 +66,14 @@ docker run -d --rm --name bc1-test-pg -e POSTGRES_PASSWORD=test -p 55432:5432 po
 BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" .venv/bin/pytest -q -W error
 ```
 
-Dienst starten (Pflicht: `BC1_DB_DSN` als `bc1_role`, `BC1_COMPANY_ID`; LLM-Wahl über `BC1_LLM` = `claude` | `ollama` | `gemini`, Key des Anbieters aus der Umgebung):
+Dienst starten (Pflicht: `BC1_DB_DSN` als `bc1_role`, `BC1_COMPANY_ID`, `BC1_ANFRAGE_ID` — seit B5 die BC0-Anfrage, zu der interviewt wird, Form `A-JJJJ-NN`; LLM-Wahl über `BC1_LLM` = `claude` | `ollama` | `gemini`, Key des Anbieters aus der Umgebung):
 
 ```bash
 export BC1_DB_DSN="postgresql://…"        # Datenbank mit eingespielter DDL, siehe unten
 export BC1_COMPANY_ID="<uuid des Mandanten>"
+export BC1_ANFRAGE_ID="A-2026-03"         # Pflicht seit B5; Beispielwert
 export BC1_LLM=ollama                      # lokal, ohne API-Key
 .venv/bin/uvicorn bc1_service.main:app --port 8000
 ```
 
-Der Dienst startet nur, wenn der Mandant bewertete Teilprozesse hat — die beiden regulären Startabbrüche und der Chat-Aufbau stehen in [`bc1_service/n8n/SMOKE.md`](bc1_service/n8n/SMOKE.md). Die Datenbanktabellen kommen aus [`bc1_service/db/prozessprofil.sql`](bc1_service/db/prozessprofil.sql); wie man sie einspielt und was die Dreifallregel bedeutet, steht in [`bc1_service/db/EINSPIELEN.md`](bc1_service/db/EINSPIELEN.md). Was das Interview fragt und in welche Spalte es fließt: [`design/Spalte-zu-Feld-Tabelle.md`](design/Spalte-zu-Feld-Tabelle.md). Was noch fehlt: [`design/Abschlussplan-BC1.md`](design/Abschlussplan-BC1.md).
+Der Dienst startet nur, wenn der Mandant bewertete Teilprozesse hat und die Anfrage interviewbar ist (Stand `zugeordnet`/`im_interview`, alle ihre Teilprozesse bewertet) — die regulären Startabbrüche und der Chat-Aufbau stehen in [`bc1_service/n8n/SMOKE.md`](bc1_service/n8n/SMOKE.md). Die Datenbanktabellen kommen aus [`bc1_service/db/prozessprofil.sql`](bc1_service/db/prozessprofil.sql); wie man sie einspielt und was die Dreifallregel bedeutet, steht in [`bc1_service/db/EINSPIELEN.md`](bc1_service/db/EINSPIELEN.md). Was das Interview fragt und in welche Spalte es fließt: [`design/Spalte-zu-Feld-Tabelle.md`](design/Spalte-zu-Feld-Tabelle.md). Was noch fehlt: [`design/Abschlussplan-BC1.md`](design/Abschlussplan-BC1.md).
