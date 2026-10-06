@@ -5,6 +5,10 @@
 > dabei die Selbstheilung beim Start nach eigenem Befund wieder gestrichen). Quelle der
 > Anforderung: Abschlussplan B4, #206 (Durchstich „ohne Eingriff von Hand"), BC0-Endpunkte in
 > `bc0-baseline-onboarding/app/app.py` (v3.12) und `bc0_auth/routen.py`, nachgelesen 06.10.
+> Überarbeitet nach Zweitmeinung (agy, 06.10., `Review-agy-Spec-B4-2026-10-06.md`): fehlender
+> Mandant = 404 statt 403 · DB-Verbindung vor dem BC0-Aufruf zurückgeben · Adressprüfung über
+> den Hostnamen · Admin-Konto in der Probe · keine Ausnahmeverkettung aus `httpx` · Antworten
+> ohne JSON · Mindestwartezeit 1 Minute · kein eigener „Aus-Melder" (Aus = `None`).
 > Nächster Schritt nach Abnahme dieser Spec: Implementierungsplan.
 
 ## Big Picture
@@ -67,9 +71,14 @@ den Mandanten sieht.
 | Aufruf | Rumpf | Recht | Antworten, die BC1 behandelt |
 |---|---|---|---|
 | `POST /api/auth/login` | `{"email", "passwort"}` | — | 200 + Cookie `bc0_sitzung` (HttpOnly, Secure, 8 h) · 401 „E-Mail-Adresse oder Passwort ist falsch." · 429 mit `Retry-After` (Sekunden) |
-| `PUT /api/companies/{cid}/anfragen/{anfrage_id}/status` | `{"status": "im_interview"}` | `schreibender_benutzer` + Mandant | 200 `{status_alt, status}` · 400 (kein Prozessbezug, Rückschritt) · 401 · 403 · 404 |
-| `POST /api/companies/{cid}/anfragen/gate_nachziehen` | — | `schreibender_benutzer` + Mandant | 200 `{geprueft, gesetzt[], anfragen[]}` · 401 · 403 |
-| `GET /api/auth/me` (nur Live-Probe) | — | angemeldet | 200 `{rolle, darf_schreiben, mandanten[], …}` |
+| `PUT /api/companies/{cid}/anfragen/{anfrage_id}/status` | `{"status": "im_interview"}` | `schreibender_benutzer` + Mandant | 200 `{status_alt, status}` · 400 (kein Prozessbezug, Rückschritt) · 401 · 403 (kein Schreibrecht) · 404 („Mandant unbekannt." oder „Unbekannte Anfrage: …") |
+| `POST /api/companies/{cid}/anfragen/gate_nachziehen` | — | `schreibender_benutzer` + Mandant | 200 `{geprueft, gesetzt[], anfragen[]}` · 401 · 403 (kein Schreibrecht) · 404 („Mandant unbekannt.") · 501 (BC0 ohne Postgres) |
+| `GET /api/auth/me` (nur Live-Probe) | — | angemeldet | 200 `{rolle, ist_admin, darf_schreiben, mandanten[], …}` |
+
+**Rechte bei BC0 (`bc0_auth`):** 403 kommt nur bei fehlendem Schreibrecht (`darf_schreiben` =
+Rolle `benutzer` oder `admin`). Ein Konto, dem der Mandant nicht zugewiesen ist, bekommt
+**bewusst 404 „Mandant unbekannt."** (`pruefe_mandant`, verbirgt fremde Mandanten). Ein Admin
+sieht alle Mandanten, auch mit leerer `mandanten`-Liste (`darf_mandanten_sehen`).
 
 `cid` = `BC1_COMPANY_ID` (dieselbe ID, über die BC1 schon BC0s Sichten liest). Gemessen mit dem
 installierten `httpx` 0.28.1: ein Cookie mit `Secure` wird über `http://localhost` **nicht**
@@ -85,20 +94,28 @@ zurückgeschickt — ein lokales BC0 braucht deshalb `BC0_COOKIE_UNSICHER=1` (BC
     (Tippfehler schaltet nicht still ab).
   - sonst Pflicht: `BC1_BC0_URL`, `BC1_BC0_KONTO_EMAIL`, `BC1_BC0_KONTO_PASSWORT`; **eine**
     Meldung nennt alle fehlenden Namen.
-  - `BC1_BC0_URL` muss `https://` sein; Ausnahme `http://localhost` / `http://127.0.0.1`.
-    Abschließender `/` wird entfernt.
+  - `BC1_BC0_URL` geprüft über `urllib.parse.urlsplit`: Schema `https`, oder Schema `http` mit
+    Hostname genau `localhost` / `127.0.0.1` (kein Präfixvergleich — `http://localhost.example.org`
+    ist abzuweisen). Abschließender `/` wird entfernt.
 - **`Bc0Melder(zugang, company_id, *, transport=None)`** — `transport` nur für Tests
   (`httpx.MockTransport`). Je Meldung: neuer `httpx.Client(base_url=…, timeout=10,
   transport=…)` → Login → Aufruf → schließen.
   - `melde_interview_laeuft(anfrage_id) -> None`
   - `ziehe_gate_nach() -> list[str]` (die von BC0 gemeldeten `gesetzt`)
   - Fehler → **`Bc0MeldungFehler(RuntimeError)`** mit einem der Sätze aus Abschnitt 5.
-- **`AusgeschalteterMelder`** — dieselben zwei Methoden, tun nichts (`ziehe_gate_nach` → `[]`).
-- **`baue_melder(umgebung, company_id)`** — liefert den einen oder anderen; beim „aus" schreibt
-  es die Warnzeile (Logger `bc1_service.bc0_meldungen`, Stufe WARNING).
+  - **Keine Verkettung mit `httpx`-Ausnahmen** (`raise … from None`): eine `httpx`-Ausnahme trägt
+    die Anfrage samt Rumpf (`e.request.content` — beim Login also das Passwort; gemessen 06.10.).
+    `str()`/`repr()` der Ausnahme enthalten es nicht, ein Traceback-Werkzeug, das Objekte
+    aufschlüsselt, aber schon. Ausnahmeobjekte von `httpx` werden nie geloggt.
+- **`baue_melder(umgebung, company_id) -> Bc0Melder | None`** — `None` beim „aus" (dann schreibt
+  es die Warnzeile; Logger `bc1_service.bc0_meldungen`, Stufe WARNING). **Kein eigener
+  Aus-Melder:** Start und `api.py` prüfen auf `None` — so entsteht beim „aus" auch keine
+  irreführende Log-Zeile nach jedem Abschluss.
 - **Live-Probe** `python -m bc1_service.bc0_meldungen --probe` (liest dieselben Variablen +
   `BC1_COMPANY_ID`): Login + `GET /api/auth/me`, gibt Rolle, `darf_schreiben` und „Mandant
-  zugewiesen: ja/nein" aus. Ändert nichts bei BC0. Exit-Code ≠ 0, wenn eines fehlt.
+  sichtbar: ja/nein" aus (`ist_admin` **oder** `company_id` in `mandanten` — wie BC0s
+  `darf_mandanten_sehen`). Ändert nichts bei BC0. Exit-Code ≠ 0, wenn Schreibrecht oder Mandant
+  fehlt.
 - Abhängigkeit: `httpx` zusätzlich in die Gruppe `service` (`pyproject.toml`, `uv.lock`; ist als
   Dev-Abhängigkeit schon 0.28.1 gepinnt).
 
@@ -109,18 +126,21 @@ Reihenfolge in `main.py`:
 1. wie heute: `BC1_DB_DSN`, `lies_company_id`, `lies_anfrage_id`
 2. **neu:** `_melder = baue_melder(os.environ, _company_id)` — **vor** dem Öffnen der Pools, damit
    ein Konfigurationsfehler ohne offene Verbindungen abbricht
-3. wie heute: Pools öffnen, `lade_kontext(...)` (B5-Prüfungen unverändert)
-4. **neu, im selben `try`-Block wie `lade_kontext`** (Pools werden beim Abbruch geschlossen):
-   `melde_interview_beginn(conn, _melder, _company_id, _anfrage_id)` in `start.py` — liest den
-   Status über `bc0_lesepfade.anfrage_status` und ruft `melde_interview_laeuft` nur bei
-   `zugeordnet`. `Bc0MeldungFehler` geht als Startabbruch durch.
+3. wie heute: Pools öffnen, im `with _profil_pool.connection()`-Block `lade_kontext(...)`
+   (B5-Prüfungen unverändert); **neu, im selben Block:** `_status =
+   bc0_lesepfade.anfrage_status(...)`
+4. **neu, nach dem `with`-Block, aber im selben `try`** (die DB-Verbindung ist schon zurück im
+   Pool und wartet nicht bis zu 10 s auf BC0; beim Abbruch werden die Pools weiter geschlossen):
+   `melde_interview_beginn(_melder, _anfrage_id, _status)` in `start.py` — ruft
+   `melde_interview_laeuft` nur bei `_melder is not None` und `_status == "zugeordnet"`.
+   `Bc0MeldungFehler` geht als Startabbruch durch.
 
 Der Status kommt **nicht** in `Bc0Kontext`: der Kontext geht in den Fingerabdruck ein, und der
 Wechsel `zugeordnet` → `im_interview` darf laufende Sitzungen nicht in `paket_konflikt` stürzen.
 
 ### 4. Abschluss (`api.py`)
 
-- `create_app(..., melder=None)`; `main.py` übergibt `_melder`. `None` nur in Tests.
+- `create_app(..., melder=None)`; `main.py` übergibt `_melder` (`None` beim „aus" und in Tests).
 - `turn(req, hintergrund: BackgroundTasks)`: **nach** erfolgreichem `writer.reconcile` und nur
   bei `antwort["status"] == "fertig"` und `melder is not None` →
   `hintergrund.add_task(_gate_im_hintergrund, melder, anfrage_id)`. Ohne Writer kein Aufruf
@@ -143,13 +163,17 @@ Wechsel `zugeordnet` → `im_interview` darf laufende Sitzungen nicht in `paket_
 | Warnung „aus" | „Meldungen an BC0 sind ausgeschaltet (BC1_BC0_MELDUNGEN=aus) — 'im_interview' und das Gate setzt BC0 von Hand." |
 | 401 beim Login | „BC0 lehnt die Anmeldung ab (E-Mail oder Passwort falsch). BC1_BC0_KONTO_EMAIL und BC1_BC0_KONTO_PASSWORT prüfen." |
 | 429 beim Login | „BC0 sperrt die Anmeldung nach zu vielen Fehlversuchen noch {minuten} Minute(n). Erst den Zugang prüfen, dann warten." |
-| 403 | „BC0 verweigert '{aktion}' (403): {detail} Das Anwendungskonto braucht Schreibrecht und den Mandanten {company_id}." |
+| 403 | „BC0 verweigert '{aktion}' (403): {detail} Das Anwendungskonto braucht Schreibrecht (Rolle 'benutzer' oder 'admin')." |
+| 404 „Mandant unbekannt." | „BC0 kennt den Mandanten {company_id} für dieses Anwendungskonto nicht (404). Das Konto braucht den Mandanten zugewiesen." |
 | andere HTTP-Antwort | „BC0 antwortet auf '{aktion}' mit {code}: {detail}" |
 | nicht erreichbar / Zeitlimit | „BC0 unter {url} ist nicht erreichbar ({art}). Läuft BC0, stimmt BC1_BC0_URL?" |
 | Gate im Hintergrund fehlgeschlagen (WARNING) | „Gate nachziehen bei BC0 fehlgeschlagen: {grund} — Anfrage {anfrage_id} bitte bei BC0 von Hand nachziehen (POST /api/companies/{company_id}/anfragen/gate_nachziehen)." |
 
-`{detail}` = BC0s `detail`-Text, auf 200 Zeichen gekürzt; `{art}` = Name der Ausnahmeklasse
-(nicht deren Text). **Das Passwort steht in keinem Satz, keinem Log und keinem `repr`.**
+`{detail}` = BC0s `detail`-Text; ist die Antwort kein JSON oder ohne `detail` (z. B. 502 vom
+vorgeschalteten Proxy), der Antworttext — beides auf 200 Zeichen gekürzt. `{minuten}` =
+`max(1, round(Retry-After / 60))`, fehlt oder ist der Kopf unlesbar: 1 (wie BC0 selbst rechnet).
+`{art}` = Name der Ausnahmeklasse (nicht deren Text). **Das Passwort steht in keinem Satz,
+keinem Log und keinem `repr`.**
 `{aktion}` ∈ {`Anmeldung`, `Status im_interview`, `Gate nachziehen`, `Konto lesen`}.
 
 ### 6. Tests (TDD, tdd-guard)
@@ -157,16 +181,21 @@ Wechsel `zugeordnet` → `im_interview` darf laufende Sitzungen nicht in `paket_
 - **Neu `tests/test_bc0_meldungen.py`** (ohne Netz, `httpx.MockTransport` als nachgebautes BC0):
   Login-Rumpf · Cookie geht in den Folgeaufruf · `PUT …/status` mit `{"status":"im_interview"}`
   an der richtigen Adresse · `POST …/gate_nachziehen` → `gesetzt` · je Fehlerfall der Satz aus
-  Abschnitt 5 (401, 429 mit `Retry-After`, 403, 400/404/500, `ConnectError`, `TimeoutException`,
-  Weiterleitung 302) · das Passwort steht in keiner Meldung und nicht im `repr(Bc0Zugang)` ·
-  `lies_bc0_zugang`: vollständig, je ein Name fehlt, alle fehlen, `aus`, unbekannter Schalter,
-  `http://` fremd, `http://localhost` erlaubt, Schrägstrich am Ende · `AusgeschalteterMelder` +
-  Warnzeile · Live-Probe gegen den Fake (Ausgabe, Exit-Code).
-- **`tests/test_start.py`** (erweitern): `melde_interview_beginn` ruft bei
-  `zugeordnet` genau einmal, bei `im_interview` nie; `Bc0MeldungFehler` geht durch.
+  Abschnitt 5 (401, 429 mit `Retry-After` / ohne / unter 30 s, 403, 404 „Mandant unbekannt.",
+  404 sonst, 400, 500, 502 ohne JSON, `ConnectError`, `TimeoutException`, Weiterleitung 302) ·
+  das Passwort steht in keiner Meldung und nicht im `repr(Bc0Zugang)` · `Bc0MeldungFehler` hat
+  weder `__cause__` noch einen nicht unterdrückten `__context__` · `lies_bc0_zugang`:
+  vollständig, je ein Name fehlt, alle fehlen, `aus`, unbekannter Schalter, `http://` fremd,
+  `http://localhost.example.org` abgewiesen, `http://localhost` und `http://127.0.0.1` erlaubt,
+  Schrägstrich am Ende · `baue_melder` beim „aus" → `None` + Warnzeile · Live-Probe gegen den
+  Fake (Benutzer mit Mandant, Admin ohne Mandantenliste, Leser, Benutzer ohne Mandant —
+  Ausgabe und Exit-Code).
+- **`tests/test_start.py`** (erweitern): `melde_interview_beginn` ruft bei `zugeordnet` genau
+  einmal, bei `im_interview` nie, mit `None` nie; `Bc0MeldungFehler` geht durch.
 - **`tests/test_api.py`** (erweitern): `fertig` mit Writer → genau ein Gate-Aufruf; Zwischenstand → keiner;
-  ohne Writer → keiner; Melder wirft → Antwort unverändert 200, WARNING-Zeile mit
-  Handlungsanweisung; Replay `fertig` → erneuter Aufruf.
+  ohne Writer → keiner; ohne Melder (`None`) → keiner und keine Log-Zeile; Melder wirft →
+  Antwort unverändert 200, WARNING-Zeile mit Handlungsanweisung; Replay `fertig` → erneuter
+  Aufruf.
 - **`tests/test_postgres_init.py`**: Startabbruch bei fehlendem Zugang (ohne `aus`), wie die
   bestehenden Abbruchtests. **`tests/test_api_profil.py`** (importiert `main`) setzt
   `BC1_BC0_MELDUNGEN=aus`.
