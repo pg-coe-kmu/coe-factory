@@ -123,7 +123,7 @@ def create_app(
                         raise HTTPException(status_code=409,
                                             detail="anfrage_konflikt")
 
-            recovery =state is not None and darf_recovery_replay(
+            recovery = state is not None and darf_recovery_replay(
                 state, package, req.message_id, req.schema_version)
 
             if (req.schema_version is not None
