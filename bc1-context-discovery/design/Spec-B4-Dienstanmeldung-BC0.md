@@ -163,6 +163,7 @@ Wechsel `zugeordnet` → `im_interview` darf laufende Sitzungen nicht in `paket_
 | Warnung „aus" | „Meldungen an BC0 sind ausgeschaltet (BC1_BC0_MELDUNGEN=aus) — 'im_interview' und das Gate setzt BC0 von Hand." |
 | 401 beim Login | „BC0 lehnt die Anmeldung ab (E-Mail oder Passwort falsch). BC1_BC0_KONTO_EMAIL und BC1_BC0_KONTO_PASSWORT prüfen." |
 | 429 beim Login | „BC0 sperrt die Anmeldung nach zu vielen Fehlversuchen noch {minuten} Minute(n). Erst den Zugang prüfen, dann warten." |
+| 401 nach geglückter Anmeldung (Cookie nicht angenommen, z. B. lokales BC0 ohne https) | „BC0 nimmt die Anmeldung bei '{aktion}' nicht an (401), obwohl sie geklappt hat. Bei einem lokalen BC0 ohne https muss dort BC0_COOKIE_UNSICHER=1 gesetzt sein." |
 | 403 | „BC0 verweigert '{aktion}' (403): {detail} Das Anwendungskonto braucht Schreibrecht (Rolle 'benutzer' oder 'admin')." |
 | 404 „Mandant unbekannt." | „BC0 kennt den Mandanten {company_id} für dieses Anwendungskonto nicht (404). Das Konto braucht den Mandanten zugewiesen." |
 | andere HTTP-Antwort | „BC0 antwortet auf '{aktion}' mit {code}: {detail}" |
