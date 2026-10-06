@@ -10,6 +10,8 @@
 
 **Spec:** `bc1-context-discovery/design/Spec-B4-Dienstanmeldung-BC0.md` (abgenommen 06.10.2026, nach agy-Zweitmeinung überarbeitet).
 
+**Zweitmeinung zum Plan (agy, 06.10., `Review-agy-Plan-B4-2026-10-06.md`) eingearbeitet:** C1 Start-Tests mit nicht startfähiger Fixture-Anfrage → `ANFRAGE_A` (+ `UPDATE` auf `im_interview`) · I1 `"gesetzt": null` → `or []` + Test · I2 Melder-Erwartung in `start.py` im Docstring benannt (kein `Protocol` — ein Aufrufer) · I3 401-nach-Login auch für das Gate · M1 Log-Assert ohne Tupel-Entpacken. **Nicht übernommen:** M2 (`anfrage_id or "unbekannt"` im Gate-Log) — im Betrieb ist `BC1_ANFRAGE_ID` Pflicht, `None` gibt es nur in Tests; ein Ersatztext wäre Fehlerbehandlung für einen unmöglichen Fall.
+
 ## Global Constraints
 
 - Arbeitsverzeichnis für alle Befehle: `coe-factory/bc1-context-discovery/`; Zweig `bc1-b4-dienstanmeldung`.
@@ -371,6 +373,12 @@ def test_gate_nachziehen_liefert_die_gesetzten_anfragen():
     assert gate.url.path == f"/api/companies/{MANDANT}/anfragen/gate_nachziehen"
 
 
+def test_gate_ohne_gesetzte_anfragen_auch_bei_null():
+    bc0 = FakeBc0(aktion=lambda r: httpx.Response(
+        200, json={"geprueft": 0, "gesetzt": None, "anfragen": []}))
+    assert _melder(bc0).ziehe_gate_nach() == []
+
+
 def test_jede_meldung_meldet_sich_frisch_an():
     bc0 = FakeBc0()
     melder = _melder(bc0)
@@ -413,11 +421,13 @@ def test_gesperrte_anmeldung_nennt_die_wartezeit(kopf, minuten):
     assert str(_fehler(bc0)) == MELDUNG_GESPERRT.format(minuten=minuten)
 
 
-def test_lokales_bc0_ohne_https_nimmt_das_sichere_cookie_nicht_zurueck():
+@pytest.mark.parametrize("aufruf, aktion", [
+    ("status", "Status im_interview"), ("gate", "Gate nachziehen")])
+def test_lokales_bc0_ohne_https_nimmt_das_sichere_cookie_nicht_zurueck(aufruf, aktion):
     # Gemessen 06.10.: httpx schickt ein Secure-Cookie nicht ueber http://localhost.
     bc0 = FakeBc0()
-    fehler = _fehler(bc0, aufruf="status", url="http://localhost:8000")
-    assert str(fehler) == MELDUNG_SITZUNG_NICHT_ANGENOMMEN.format(aktion="Status im_interview")
+    fehler = _fehler(bc0, aufruf=aufruf, url="http://localhost:8000")
+    assert str(fehler) == MELDUNG_SITZUNG_NICHT_ANGENOMMEN.format(aktion=aktion)
 
 
 def test_kein_schreibrecht():
@@ -572,7 +582,7 @@ class Bc0Melder:
         daten = self._melden(
             "Gate nachziehen", "POST",
             f"/api/companies/{self._company_id}/anfragen/gate_nachziehen")
-        return list(daten.get("gesetzt", []))
+        return list(daten.get("gesetzt") or [])          # auch bei "gesetzt": null
 
     def lies_konto(self) -> dict:
         return self._melden("Konto lesen", "GET", "/api/auth/me")
@@ -819,7 +829,10 @@ def test_fehler_der_meldung_geht_als_startabbruch_durch():
 def melde_interview_beginn(melder, anfrage_id: str, status: str | None) -> None:
     """B4: BC0 erfaehrt, dass interviewt wird. Nur aus 'zugeordnet' — bei 'im_interview'
     nicht erneut, sonst ueberschriebe jeder Neustart BC0s status_seit. melder None =
-    Meldungen bewusst aus (BC1_BC0_MELDUNGEN=aus). Ein Bc0MeldungFehler bricht den Start ab."""
+    Meldungen bewusst aus (BC1_BC0_MELDUNGEN=aus). Ein Bc0MeldungFehler bricht den Start ab.
+
+    melder: bc0_meldungen.Bc0Melder oder Ersatz mit melde_interview_laeuft(anfrage_id) —
+    bewusst ohne Import (start.py bleibt frei von der HTTP-Seite)."""
     if melder is not None and status == "zugeordnet":
         melder.melde_interview_laeuft(anfrage_id)
 ```
@@ -896,8 +909,15 @@ def test_main_meldet_eine_zugeordnete_anfrage_beim_start(umgebung, monkeypatch):
 def test_main_meldet_eine_anfrage_im_interview_nicht_erneut(umgebung, monkeypatch):
     import sys
 
+    # ANFRAGE_A (startfaehig: alle TPs bewertet) auf 'im_interview' stellen — die
+    # Fixture-Anfrage im Stand 'im_interview' (A-2026-02, ganzer KP-01) bricht schon an
+    # der B5-Pruefung ab (KP-01.TP-3 unbewertet, test_start.py).
+    with verbindung(DSN, None) as conn:
+        conn.execute("UPDATE ref_anfragen SET status = 'im_interview' "
+                     "WHERE company_id = %s AND anfrage_id = %s", (MANDANT_A, ANFRAGE_A))
+        conn.commit()
     melder = _StartMelder()
-    main = _main_mit_melder(monkeypatch, ANFRAGE_A_KERNPROZESS, melder)   # 'im_interview'
+    main = _main_mit_melder(monkeypatch, ANFRAGE_A, melder)
     try:
         assert melder.gemeldet == []
     finally:
@@ -906,7 +926,7 @@ def test_main_meldet_eine_anfrage_im_interview_nicht_erneut(umgebung, monkeypatc
         sys.modules.pop("bc1_service.main", None)
 ```
 
-(`ANFRAGE_A_KERNPROZESS` aus `tests.db_fixture` importieren; die Fixture-Stände stehen in `tests/db_fixture.py` Z. 248–253: `ANFRAGE_A` = `zugeordnet`, `ANFRAGE_A_KERNPROZESS` = `im_interview` — vor dem Schreiben nachsehen, ob das noch gilt.)
+(Fixture-Stand laut `tests/db_fixture.py` Z. 248: `ANFRAGE_A` = `zugeordnet`, alle Teilprozesse bewertet — die einzige startfähige Anfrage von Mandant A. Die `umgebung`-Fixture spielt die DB je Test frisch ein, das `UPDATE` wirkt nur im eigenen Test. agy-Befund C1, 06.10.)
 
 Dazu ein Test, dass ein Fehler der Meldung die Pools schließt:
 
@@ -1076,9 +1096,10 @@ def test_unerwartete_ausnahme_im_hintergrund_nennt_nur_die_klasse(caplog):
     with caplog.at_level(logging.WARNING, logger="bc1_service.api"):
         antwort = _bis_fertig(_gate_client(melder))
     assert antwort.status_code == 200
-    (eintrag,) = _api_log(caplog)
-    assert "AttributeError" in eintrag.getMessage()
-    assert "geheimnis" not in eintrag.getMessage()
+    eintraege = _api_log(caplog)
+    assert len(eintraege) == 1
+    assert "AttributeError" in eintraege[0].getMessage()
+    assert "geheimnis" not in eintraege[0].getMessage()
 
 
 def test_replay_des_abschlusses_zieht_erneut_nach():
@@ -1155,7 +1176,7 @@ def test_main_reicht_den_melder_an_die_app_durch(umgebung, monkeypatch):
 
     melder = _StartMelder()
     gesehen: dict = {}
-    main = _main_mit_melder(monkeypatch, ANFRAGE_A_KERNPROZESS, melder, gesehen)
+    main = _main_mit_melder(monkeypatch, ANFRAGE_A, melder, gesehen)
     try:
         assert gesehen["melder"] is melder
     finally:
