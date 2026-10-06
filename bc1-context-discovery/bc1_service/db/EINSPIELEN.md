@@ -326,7 +326,7 @@ CHECK fehlen → anlegen und nachprüfen · M2 schon auf Stand → No-op · M3 a
 Abbruch ohne Änderung). Der Bestand bleibt unberührt: die Altzeilen behalten `anfrage_id`
 NULL (eingefroren, keine Nachzuordnung); es gibt keinen FK auf `ref_anfragen`.
 
-**Stand:** vorbereitet, **noch nicht in der Supabase ausgeführt** — das macht Richard per
+**Stand:** vorbereitet, **noch nicht in der Supabase ausgeführt** — das macht die BC1-Projektleitung per
 `lauf.sh b5` (SDD-Ordner, lokal), danach werden die Messwerte hier nachgetragen.
 
 **Reihenfolge ist normativ:** `prozessprofil_d3.sql` → `prozessprofil_b5.sql` →

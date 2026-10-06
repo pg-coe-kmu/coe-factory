@@ -22,7 +22,7 @@
 - Kein Fremdschlüssel auf `ref_anfragen`; kein Status-Recheck vor dem Freeze; keine Spalte in `bc1.sessions`; `sessions.sql` bleibt unverändert; C4 (b) NICHT in B5.
 - Lesen aus BC0 nur über Sichten, immer mit `company_id`-Filter.
 - Deutsche Anführungszeichen („ “) nie in Python-String-Literale; Meldungstexte mit `'…'`.
-- Kein Push, kein PR, kein Posten auf GitHub ohne Richards OK. Live-Skripte (`lauf.sh`) startet Richard.
+- Kein Push, kein PR, kein Posten auf GitHub ohne OK der BC1-Projektleitung. Live-Skripte (`lauf.sh`) startet die BC1-Projektleitung.
 - Commit-Nachrichten enden mit `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 
 ## Review Focus
@@ -62,7 +62,7 @@
 **Files:**
 - Modify: `coe-factory/.superpowers/sdd/Implementierungsplan-DB-Profil-Fundament/struktur_bc0.sql`
 
-**Interfaces:** Produces: Messausgabe (live vs. Repo) als Grundlage für Task 1. Weicht live von den Repo-Dateien ab → **anhalten, Richard melden, nicht anpassen.**
+**Interfaces:** Produces: Messausgabe (live vs. Repo) als Grundlage für Task 1. Weicht live von den Repo-Dateien ab → **anhalten, der BC1-Projektleitung melden, nicht anpassen.**
 
 - [ ] **Step 1: Messblock ergänzen** — am Ende von `struktur_bc0.sql` anhängen:
 
@@ -82,7 +82,7 @@ SELECT 'check|' || conname || '|' || pg_get_constraintdef(oid)
   FROM pg_constraint WHERE conname IN ('ck_anfrage_status') ORDER BY 1;
 ```
 
-- [ ] **Step 2: Richard startet die Messung** (Claude liest `ZUGAENGE-LOKAL.env` nie):
+- [ ] **Step 2: Die BC1-Projektleitung startet die Messung** (Claude liest `ZUGAENGE-LOKAL.env` nie):
 
 ```bash
 ./lauf.sh sql struktur_bc0.sql
@@ -918,7 +918,7 @@ def test_vorpruefung_meldet_fehlende_anfrage_sicht():
 ```sql
         -- B5 (05.10.2026): die BC0-Anfrage, zu der interviewt wurde. NULL nur fuer
         -- Bestand vor B5 (eingefroren, keine Nachzuordnung). Kein FK auf ref_anfragen
-        -- (Entscheidung Richard 05.10.: kein REFERENCES-Recht, Freeze-Konflikt).
+        -- (Entscheidung BC1 05.10.: kein REFERENCES-Recht, Freeze-Konflikt).
         anfrage_id                          text,
 ```
 
@@ -1128,7 +1128,7 @@ SELECT 'bestand_gesamt|' || count(*) FROM bc1.prozessprofil;
 
 Erwartet: `spalte|text|YES`, `bestand_ohne_anfrage` = `bestand_gesamt`. Danach `lesen_gegenprobe.py` wie bei D3 (Ausgabe `lesen.sql` wörtlich unverändert).
 
-- [ ] **Step 3: `lauf.sh b5`** — Zweig analog `d3` anlegen (gleiche Variablen, gleiche Logdatei-Konvention `einspielen-b5.log`). Claude schreibt das Skript; **Richard führt es aus.**
+- [ ] **Step 3: `lauf.sh b5`** — Zweig analog `d3` anlegen (gleiche Variablen, gleiche Logdatei-Konvention `einspielen-b5.log`). Claude schreibt das Skript; **Die BC1-Projektleitung führt es aus.**
 
 - [ ] **Step 4: SMOKE.md / README** — `BC1_ANFRAGE_ID` als Pflicht, Beispielwert `A-2026-03`, die vier neuen Startabbrüche mit Wortlaut-Verweis auf `start.py`; Hinweis „Für den Durchstich einen Teilprozess wählen, zu dem es noch kein fertiges BC1-Profil gibt (BC0s Gate-Funktion verknüpft noch nicht über anfrage_id).“
 
@@ -1140,14 +1140,14 @@ Erwartet: `spalte|text|YES`, `bestand_ohne_anfrage` = `bestand_gesamt`. Danach `
 
 **Files:**
 - Modify: `bc1-context-discovery/design/Abschlussplan-BC1.md`
-- Create (lokal, Projektwurzel, NICHT im Repo): `Entwurf-Kommentar-Issue-226-B5.md`, `Entwurf-Kommentar-Issue-206-Stand.md`; Modify: `Sammelliste-an-Simeon.md` (Runde 2)
+- Create (lokal, Projektwurzel, NICHT im Repo): `Entwurf-Kommentar-Issue-226-B5.md`, `Entwurf-Kommentar-Issue-206-Stand.md`; Modify: `Sammelliste an BC0 (lokal)` (Runde 2)
 
 - [ ] **Step 1: Volle Suite mit Container** — `uv run pytest -q`; Ergebnis (passed/skipped) wörtlich in den Zwischenbericht. Kein „grün“ ohne diese Ausgabe.
 
-- [ ] **Step 2: Zweitmeinung (Pflicht, Datenmodell)** — Codex-Review über `git diff main...bc1-b5-anfragesteuerung`; Befunde nach Schwere adjudizieren (Critical/Important fixen, Minor fixen oder mit Ziel vertagen), jeden Fix mit Test verifizieren, Ergebnis Richard vorlegen.
+- [ ] **Step 2: Zweitmeinung (Pflicht, Datenmodell)** — Codex-Review über `git diff main...bc1-b5-anfragesteuerung`; Befunde nach Schwere adjudizieren (Critical/Important fixen, Minor fixen oder mit Ziel vertagen), jeden Fix mit Test verifizieren, Ergebnis der BC1-Projektleitung vorlegen.
 
-- [ ] **Step 3: Abschlussplan** — B5 auf „gebaut (Live-Einspielen offen)“; Rückstellungen aus der Spec-Tabelle als eigene Zeilen/Kleinpunkte mit Ziel (Variante B → B3 Teil 2; Status setzen + `gate_nachziehen` → B4; C4 (b) → eigenes Paket direkt nach B5; vorbestehender Erhebungs-Recheck-Hänger → B3 Teil 1; Fragesteller → nach C1a; Anliegen-Kontext → nach #226; 409-`chat_text` → P3); offene Punkte aus Simeons Brief 23.09. (R-07 entfällt, P-07/#R1 geschlossen); BC0 v3.8–v3.11 geprüft (Spec-Abschnitt). Commit.
+- [ ] **Step 3: Abschlussplan** — B5 auf „gebaut (Live-Einspielen offen)“; Rückstellungen aus der Spec-Tabelle als eigene Zeilen/Kleinpunkte mit Ziel (Variante B → B3 Teil 2; Status setzen + `gate_nachziehen` → B4; C4 (b) → eigenes Paket direkt nach B5; vorbestehender Erhebungs-Recheck-Hänger → B3 Teil 1; Fragesteller → nach C1a; Anliegen-Kontext → nach #226; 409-`chat_text` → P3); offene Punkte aus der BC0-Antwort vom 23.09. (R-07 entfällt, P-07/#R1 geschlossen); BC0 v3.8–v3.11 geprüft (Spec-Abschnitt). Commit.
 
-- [ ] **Step 4: Entwürfe (nicht posten)** — #226: Felderliste (Anliegen-Text ohne Personenbezug, `status`; Rückmeldung über die Sicht, BC1 liest beim Start) + Klärpunkte (Sperren `eigner_benannt`/`items_bewertet` sichtbar?; interviewbare Status bestätigt?). #206: KW 40 verfehlt, B5 gebaut, B4 folgt, neuer Terminvorschlag (Richard). Sammelliste Runde 2: Gate-Funktion über `anfrage_id`; Kopplung (FK) gewünscht?; `ref_anfragen.originaltext` für `bc_leser` lesbar; `ki_*` (v3.11) über Default-Rechte lesbar.
+- [ ] **Step 4: Entwürfe (nicht posten)** — #226: Felderliste (Anliegen-Text ohne Personenbezug, `status`; Rückmeldung über die Sicht, BC1 liest beim Start) + Klärpunkte (Sperren `eigner_benannt`/`items_bewertet` sichtbar?; interviewbare Status bestätigt?). #206: KW 40 verfehlt, B5 gebaut, B4 folgt, neuer Terminvorschlag (BC1-Projektleitung). Sammelliste Runde 2: Gate-Funktion über `anfrage_id`; Kopplung (FK) gewünscht?; `ref_anfragen.originaltext` für `bc_leser` lesbar; `ki_*` (v3.11) über Default-Rechte lesbar.
 
-- [ ] **Step 5: Zwischenbericht an Richard und auf Go warten** — Inhalt: Suite-Ergebnis, Review-Adjudikation, was öffentlich würde (Vertraulichkeits-Check des Diffs), Push/PR nur nach OK; danach Live-Lauf durch Richard (`./lauf.sh b5`).
+- [ ] **Step 5: Zwischenbericht an die BC1-Projektleitung und auf Go warten** — Inhalt: Suite-Ergebnis, Review-Adjudikation, was öffentlich würde (Vertraulichkeits-Check des Diffs), Push/PR nur nach OK; danach Live-Lauf durch die BC1-Projektleitung (`./lauf.sh b5`).

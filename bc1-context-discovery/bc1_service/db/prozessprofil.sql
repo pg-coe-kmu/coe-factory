@@ -572,7 +572,7 @@ BEGIN
         paket_version                       text        NOT NULL,
         -- B5 (05.10.2026): die BC0-Anfrage, zu der interviewt wurde. NULL nur fuer
         -- Bestand vor B5 (eingefroren, keine Nachzuordnung). Kein FK auf ref_anfragen
-        -- (Entscheidung Richard 05.10.: kein REFERENCES-Recht, Freeze-Konflikt).
+        -- (Entscheidung BC1 05.10.: kein REFERENCES-Recht, Freeze-Konflikt).
         anfrage_id                          text,
         profil                              jsonb       NOT NULL,
         erstellt_am                         timestamptz NOT NULL DEFAULT now(),

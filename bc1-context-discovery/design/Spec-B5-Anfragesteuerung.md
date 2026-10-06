@@ -1,6 +1,6 @@
 # Spec B5 — Anfragesteuerung (BC1 interviewt nur noch zu einer BC0-Anfrage)
 
-> Stand 05.10.2026. Entschieden mit Richard in vier Schritten (Variante A, Pflicht, keine
+> Stand 05.10.2026. Entschieden von der BC1-Projektleitung in vier Schritten (Variante A, Pflicht, keine
 > DB-Kopplung, Abschnitte 1–3 abgenommen). Überarbeitet nach Zweitmeinung (agy, 05.10.):
 > Status-Recheck vor dem Freeze gestrichen, C4 (b) ausgelagert, Anfrage-Guard ergänzt. Quelle der Anforderung: Abschlussplan B5,
 > BC0-Papier „Vom Anliegen zum Paket" (21.09.), #206 (Durchstich), #226 (Felderliste).
@@ -52,7 +52,7 @@ Teilprozess wählen, zu dem es noch kein fertiges BC1-Profil gibt.
 | `chat_text` für 409-Antworten | Gilt für alle 409 | P3 (#269) |
 | Anliegen-Text als Gesprächskontext | Sicht fehlt bei BC0 (#226) | nach BC0s Sicht; Felderliste geht mit B5 an #226 |
 | Fragesteller vorbelegen (`v_anfrage_steller`) | Liefert Klarnamen, für Durchstich unnötig | nach C1a |
-| Datenbank-Kopplung an `ref_anfragen` (Fremdschlüssel) | Braucht neues Recht von BC0 und kollidiert mit eingefrorenen Profilen | Frage an Simeon (Sammelliste Runde 2) |
+| Datenbank-Kopplung an `ref_anfragen` (Fremdschlüssel) | Braucht neues Recht von BC0 und kollidiert mit eingefrorenen Profilen | Frage an BC0 (Sammelliste Runde 2) |
 | Zwei Anfragen zum selben Teilprozess gleichzeitig | Heute ein offener Entwurf je Teilprozess; Durchstich betrifft es nicht | wenn der Fall real auftritt |
 
 **Wer ist betroffen.** BC0 liest `bc1.prozessprofil` schon (`bc_leser`) und sieht die Spalte
@@ -134,7 +134,7 @@ Schema-Kommentar; vier `ki_*`-Tabellen aus v3.11 sind über die Default-Rechte f
   `v_anfrage_teilprozesse` sie braucht.
 - `v_anfrage_prozessbezug` (v2.3) und `v_anfrage_teilprozesse` (v2.7) **wortgleich**; GRANTs an
   `bc_leser` wie live.
-- Vorher Live-Struktur messen (`struktur_bc0.sql` erweitern; Lauf durch Richard). Abweichung
+- Vorher Live-Struktur messen (`struktur_bc0.sql` erweitern; Lauf durch die BC1-Projektleitung). Abweichung
   live ↔ Repo → anhalten und melden, nicht anpassen.
 
 ### 6. Tests (TDD, bestehende Dateien erweitern)
@@ -157,15 +157,15 @@ Schema-Kommentar; vier `ki_*`-Tabellen aus v3.11 sind über die Default-Rechte f
 
 ### 7. Prüfung, Live, Mitteilungen
 
-- Codex-Zweitmeinung (Pflicht, Datenmodell); Befunde nach Schwere adjudiziert, Richard vorgelegt.
-- Lokal auf `bc1-b5-anfragesteuerung`; Push/PR nur nach Richards OK mit Vorab-Prüfung, was
+- Codex-Zweitmeinung (Pflicht, Datenmodell); Befunde nach Schwere adjudiziert, der BC1-Projektleitung vorgelegt.
+- Lokal auf `bc1-b5-anfragesteuerung`; Push/PR nur nach OK der BC1-Projektleitung mit Vorab-Prüfung, was
   öffentlich wird.
 - Live nach Merge: `lauf.sh b5` (Vorprüfung, Umstellung, Nachprüfung: Spalte da, alte Zeilen
-  `NULL`, `lesen.sql` wörtlich unverändert) — ausgeführt von Richard.
+  `NULL`, `lesen.sql` wörtlich unverändert) — ausgeführt von der BC1-Projektleitung.
 - Doku: `EINSPIELEN.md`, `n8n/SMOKE.md`, README (`BC1_ANFRAGE_ID`).
 - Entwürfe (Posten nur nach OK): #226 Felderliste + Klärpunkte · #206 Stand und neuer Termin ·
   Sammelliste Runde 2 (+ Gate-Funktion über `anfrage_id`, + Kopplung gewünscht?, + zwei
   Rechte-Befunde).
 - Abschlussplan: B5 erledigt; Rückstellungen aus der Tabelle oben mit Ziel; C4 (b) als eigenes
   Paket direkt nach B5;
-  offene Punkte aus Simeons Brief 23.09. (R-07 entfällt, P-07/#R1 geschlossen).
+  offene Punkte aus der BC0-Antwort vom 23.09. (R-07 entfällt, P-07/#R1 geschlossen).
