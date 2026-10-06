@@ -8,8 +8,8 @@ from bc1_core.package import TOY_PROZESS, FieldSpec, UseCasePackage
 from bc1_core.dialog import MAX_ROUNDS
 from bc1_core.store import InMemoryStateStore
 from bc1_core.llm import FakeLLM, ExtractionCandidate
-from bc1_core.core import (MandantKonfliktError, PaketKonfliktError,
-                           process_turn)
+from bc1_core.core import (AnfrageKonfliktError, MandantKonfliktError,
+                           PaketKonfliktError, process_turn)
 from bc1_core.serialize import state_to_dict
 
 MANDANT = "11111111-1111-1111-1111-111111111111"
@@ -513,6 +513,27 @@ def test_mandanten_guard_weist_fremden_mandanten_immer_ab():
         _turn(store, llm, TOY_PROZESS, "s1", "m1", "hallo", company_id=MANDANT_B)
 
 
+def test_neue_sitzung_traegt_die_anfrage_und_fremde_anfrage_scheitert():
+    store = InMemoryStateStore()
+    process_turn(store, FakeLLM(), TOY_PROZESS, "s1", "m1", "hallo",
+                 company_id=MANDANT, anfrage_id="A-2026-01")
+    assert store.load("s1").anfrage_id == "A-2026-01"
+    with pytest.raises(AnfrageKonfliktError):
+        process_turn(store, FakeLLM(), TOY_PROZESS, "s1", "m2", "weiter",
+                     company_id=MANDANT, anfrage_id="A-2026-02")
+
+
+def test_alt_session_ohne_anfrage_bekommt_anfrage_konflikt_vor_paket_konflikt():
+    # Reihenfolge: der Anfrage-Check laeuft vor dem Paket-Guard — eine Session
+    # von vor B5 (ohne anfrage_id) zeigt "falsche Anfrage", nicht "falsches Paket".
+    store = InMemoryStateStore()
+    store.save(SessionState("s1", "0.0-alt", paket_name="toy_prozess",
+                            company_id=MANDANT))
+    with pytest.raises(AnfrageKonfliktError):
+        process_turn(store, FakeLLM(), TOY_PROZESS, "s1", "m1", "hallo",
+                     company_id=MANDANT, anfrage_id="A-2026-01")
+
+
 def test_alt_session_ohne_company_id_wird_immer_abgewiesen():
     store = InMemoryStateStore()
     store.save(SessionState("s1", "0.1", paket_name="toy_prozess"))   # company_id=None
@@ -604,6 +625,29 @@ def test_except_pfad_prueft_mandant_beim_erneuten_load():
     _turn(store, FakeLLM(), TOY_PROZESS, "s1", "m1", "hallo")
     with pytest.raises(MandantKonfliktError):
         _turn(store, ExplodierendesLLM(), TOY_PROZESS, "s1", "m2", "kaputt")
+
+
+# B5: dieselbe Strenge fuer den Anfrage-Guard — auch der erneute load im
+# Fehlerpfad wird geprueft.
+def test_except_pfad_prueft_anfrage_beim_erneuten_load():
+    class _AnfrageWechselStore(InMemoryStateStore):
+        def __init__(self):
+            super().__init__()
+            self._loads = 0
+
+        def load(self, session_id):
+            self._loads += 1
+            st = super().load(session_id)
+            if self._loads == 3 and st is not None:
+                st.anfrage_id = "A-FREMD"   # aendert sich zwischen den beiden loads
+            return st
+
+    store = _AnfrageWechselStore()
+    process_turn(store, FakeLLM(), TOY_PROZESS, "s1", "m1", "hallo",
+                 company_id=MANDANT, anfrage_id="A-2026-01")
+    with pytest.raises(AnfrageKonfliktError):
+        process_turn(store, ExplodierendesLLM(), TOY_PROZESS, "s1", "m2", "kaputt",
+                     company_id=MANDANT, anfrage_id="A-2026-01")
 
 
 # --- B2 PII-Filter: kein Klartext im Store, keiner beim Anbieter -------------

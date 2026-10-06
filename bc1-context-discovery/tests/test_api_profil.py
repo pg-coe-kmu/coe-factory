@@ -14,14 +14,14 @@ from bc1_core.store import InMemoryStateStore
 from bc1_service.api import HINWEIS_GUELTIG, HINWEIS_UNGELOEST, create_app
 from bc1_service.discovery_paket import Bc0Kontext, baue_discovery_paket
 from bc1_service.profil_writer import ProfilWriter
-from tests.db_fixture import DSN, MANDANT_A, MANDANT_B, frische_db, verbindung
+from tests.db_fixture import ANFRAGE_A, DSN, MANDANT_A, MANDANT_B, frische_db, verbindung
 
 pytestmark = pytest.mark.skipif(not DSN, reason="BC1_TEST_DB_DSN nicht gesetzt")
 
 KONTEXT = Bc0Kontext(
     company_id=MANDANT_A,
     teilprozesse=(("KP-01.TP-1", "Erfassen"), ("KP-01.TP-2", "Pruefen")),
-    system_ids=("S-01", "S-02"))
+    system_ids=("S-01", "S-02"), anfrage_id=ANFRAGE_A)
 
 # Alle 26 Pflichtfelder des Discovery-Pakets in einer Nachricht — so ist der
 # Durchstich ein Turn und der Test bleibt lesbar.
@@ -76,7 +76,7 @@ def _client(umgebung, ohne=(), abweichend=None):
     pool, paket = umgebung
     return TestClient(create_app(
         InMemoryStateStore(), _llm(ohne, abweichend), paket, company_id=MANDANT_A,
-        writer=ProfilWriter(pool, MANDANT_A, paket)))
+        anfrage_id=ANFRAGE_A, writer=ProfilWriter(pool, MANDANT_A, paket)))
 
 
 def _turn(client, mid, text, session="s1", **extra):
@@ -92,10 +92,11 @@ def test_durchstich_schreibt_genau_eine_eingefrorene_zeile(umgebung):
         zeilen = conn.execute(
             "SELECT focus_step_id, process_id, status, erhebung_id, "
             "       frequency_per_year, focus_step_duration_confidence_pct, "
-            "       paket_version, profil "
+            "       paket_version, profil, anfrage_id "
             "  FROM bc1.prozessprofil").fetchall()
     assert len(zeilen) == 1
     zeile = zeilen[0]
+    assert zeile[8] == ANFRAGE_A
     assert zeile[0] == "KP-01.TP-1" and zeile[1] == "KP-01"
     assert zeile[2] == "fertig" and zeile[3] == "E-2026-02"
     assert zeile[4] == 120 and zeile[5] == 70
@@ -354,6 +355,33 @@ def test_fremder_mandant_beim_nachladen_wird_abgewiesen_statt_geschrieben(umgebu
                             ).fetchone()[0] == 0
 
 
+class _StoreMitFremderAnfrageBeimNachladen(_StoreMitFremdemNachladen):
+    """Wie oben, nur kippt die Anfrage statt des Mandanten (B5)."""
+
+    def load(self, session_id: str):
+        state = InMemoryStateStore.load(self, session_id)
+        if state is None:
+            return None
+        self.geladen += 1
+        if self.geladen == 1:
+            state.anfrage_id = "A-FREMD"
+        return state
+
+
+def test_fremde_anfrage_beim_nachladen_wird_abgewiesen_statt_geschrieben(umgebung):
+    pool, paket = umgebung
+    client = TestClient(create_app(
+        _StoreMitFremderAnfrageBeimNachladen(), _llm(), paket,
+        company_id=MANDANT_A, anfrage_id=ANFRAGE_A,
+        writer=ProfilWriter(pool, MANDANT_A, paket)))
+    antwort = _turn(client, "m1", "alles")
+    assert antwort.status_code == 409
+    assert antwort.json()["detail"] == "anfrage_konflikt"
+    with verbindung(DSN) as conn:
+        assert conn.execute("SELECT count(*) FROM bc1.prozessprofil"
+                            ).fetchone()[0] == 0
+
+
 def test_main_verdrahtet_den_profil_writer(umgebung, monkeypatch):
     # Ohne diesen Test bliebe die Produktions-Verdrahtung ungeschuetzt: faellt
     # das writer-Argument in main.py weg, bleibt die ganze Suite gruen — und der
@@ -372,11 +400,13 @@ def test_main_verdrahtet_den_profil_writer(umgebung, monkeypatch):
     monkeypatch.setattr(api_modul, "create_app", _stub_create_app)
     monkeypatch.setenv("BC1_DB_DSN", DSN)
     monkeypatch.setenv("BC1_COMPANY_ID", MANDANT_A)
+    monkeypatch.setenv("BC1_ANFRAGE_ID", ANFRAGE_A)
     monkeypatch.setenv("BC1_LLM", "ollama")     # kein API-Key noetig
     monkeypatch.delitem(sys.modules, "bc1_service.main", raising=False)
     main = importlib.import_module("bc1_service.main")
     try:
         assert gesehen["company_id"] == MANDANT_A
+        assert gesehen["anfrage_id"] == ANFRAGE_A
         assert isinstance(gesehen["writer"], ProfilWriter)
         # Dasselbe Paket-Objekt fuer Kern und Writer: zwei getrennte Bauten
         # koennten auseinanderlaufen (Reihenfolge der BC0-Mengen).

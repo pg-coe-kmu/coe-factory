@@ -32,6 +32,13 @@ class TestPostgresStore(StoreVertrag):
                 " WHERE session_id = 's1'").fetchone()
         assert zeile == (MANDANT_A, 1)
 
+    def test_anfrage_id_ueberlebt_den_rundlauf_durch_die_datenbank(self, store):
+        st = _fetter_state("s1")
+        st.anfrage_id = "A-2026-01"
+        store.save(st)
+        geladen = store.load("s1")
+        assert geladen.anfrage_id == "A-2026-01"
+
     def test_session_ohne_mandant_wird_von_der_datenbank_abgewiesen(self, store):
         # Der Kern setzt company_id beim ersten Turn (core.py); die Datenbank haelt
         # das als NOT NULL fest — keine mandantenlose Sitzung, auch nicht aus Versehen.

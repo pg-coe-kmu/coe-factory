@@ -84,6 +84,22 @@ def _noro_geruest(conn) -> None:
         "(%s, 'E-2026-01', 'KP-06.TP-1.I-01', 'KP-06.TP-1', 1, 2, 'Testdaten', '2026-01-15'), "
         "(%s, 'E-2026-01', 'KP-06.TP-2.I-01', 'KP-06.TP-2', 1, 2, 'Testdaten', '2026-01-15')",
         (MANDANT_A, MANDANT_A, MANDANT_A))
+    # B5: der Start haengt an der Anfrage. Die Basis-Anfragen von Mandant A (aus dem
+    # Geruest) tragen dieselben IDs A-2026-01..03 wie die Faelle — erst raeumen.
+    # (anfrage_prozesse faellt per ON DELETE CASCADE mit.)
+    conn.execute("DELETE FROM ref_anfragen WHERE company_id = %s", (MANDANT_A,))
+    for fall in FAELLE:
+        kp = fall.fokus_tp.split(".")[0]
+        conn.execute(
+            "INSERT INTO ref_anfragen (company_id, anfrage_id, eingang_am, process_id, "
+            "sub_process_id, zuordnung_quelle, status) "
+            "VALUES (%s, %s, '2026-09-01', %s, %s, 'anfrage', 'zugeordnet')",
+            (MANDANT_A, fall.anfrage_id, kp, fall.fokus_tp))
+        conn.execute(
+            "INSERT INTO anfrage_prozesse (company_id, anfrage_id, process_id, "
+            "sub_process_id, rolle, zuordnung_quelle) "
+            "VALUES (%s, %s, %s, %s, 'haupt', 'anfrage')",
+            (MANDANT_A, fall.anfrage_id, kp, fall.fokus_tp))
 
 
 @pytest.fixture
@@ -114,6 +130,15 @@ def test_schreibe_legt_drei_fertige_gekennzeichnete_zeilen_an(pool):
                       ("KP-06.TP-2", "fertig", "E-2026-01")]
     assert _zeilen("SELECT count(*) FROM bc1.prozessprofil "
                    "WHERE profil->'felder'->'open_remarks'->>'wert' LIKE 'Testdaten%'") == [(3,)]
+
+
+def test_testprofile_tragen_ihre_anfrage(pool):
+    schreibe_testprofile(pool, MANDANT_A)
+    with verbindung(DSN) as conn:
+        zeilen = dict(conn.execute(
+            "SELECT focus_step_id, anfrage_id FROM bc1.prozessprofil "
+            "WHERE company_id = %s", (MANDANT_A,)).fetchall())
+    assert zeilen == {f.fokus_tp: f.anfrage_id for f in FAELLE}
 
 
 # Unabhaengige Erwartung (NICHT aus FAELLE abgeleitet): die Spaltenwerte, die am
@@ -173,7 +198,7 @@ def test_wiederholung_meldet_den_gespeicherten_stand_nicht_den_neuen_kern(pool):
     # DAS — nicht, was der Kern in diesem Lauf frisch extrahiert hat.
     schreibe_testprofile(pool, MANDANT_A)
     with pool.connection() as conn:
-        kontext = lade_kontext(conn, MANDANT_A)
+        kontext = lade_kontext(conn, MANDANT_A, FAELLE[0].anfrage_id)
     paket = baue_discovery_paket(kontext=kontext)
     fall = FAELLE[0]
     nachrichten = tuple(
@@ -216,11 +241,25 @@ def test_main_echt_ohne_dsn_bricht_mit_klarer_meldung_ab(monkeypatch, capsys):
     assert "BC1_DB_DSN" in capsys.readouterr().err
 
 
-def test_main_echt_meldet_fehler_wenn_ein_fall_nicht_fertig_wird(pool, monkeypatch, capsys):
-    # Mandant B hat die drei Fokus-TPs nicht: der Kern lehnt focus_step ab, kein Fall
-    # wird fertig -> Exit 1, FEHLER-Zeilen, und der Writer hat nichts eingefroren.
+def test_main_echt_bricht_im_start_ab_wenn_die_anfrage_nicht_bereit_ist(pool, monkeypatch):
+    # Mandant B hat zwar A-2026-01 (dieselbe ID wie A), aber nicht deren Teilprozesse:
+    # der Start meldet es, statt halbe Profile zu schreiben.
     monkeypatch.setenv("BC1_DB_DSN", DSN)
-    assert main(["--company-id", MANDANT_B, "--echt"]) == 1
-    assert capsys.readouterr().out.count("FEHLER") == 3
+    with pytest.raises(RuntimeError) as fehler:
+        main(["--company-id", MANDANT_B, "--echt"])
+    assert "A-2026-01" in str(fehler.value)
+    assert _zeilen("SELECT count(*) FROM bc1.prozessprofil") == [(0,)]
+
+
+def test_main_echt_meldet_fehler_wenn_ein_fall_nicht_fertig_wird(pool, monkeypatch, capsys):
+    # Seit B5 bricht Mandant B schon im Start ab (seine Anfrage hat die Fokus-TPs nicht,
+    # s. test_main_echt_bricht_im_start_ab...). Den FEHLER-Pfad erreicht man jetzt mit
+    # einem Fall, dessen Interview nach der ersten Nachricht endet: nicht fertig ->
+    # Exit 1, FEHLER-Zeile, und der Writer hat nichts eingefroren.
+    monkeypatch.setenv("BC1_DB_DSN", DSN)
+    abgebrochen = dataclasses.replace(FAELLE[0], nachrichten=FAELLE[0].nachrichten[:1])
+    monkeypatch.setattr("bc1_service.use_case_testprofile.FAELLE", (abgebrochen,))
+    assert main(["--company-id", MANDANT_A, "--echt"]) == 1
+    assert capsys.readouterr().out.count("FEHLER") == 1
     assert _zeilen("SELECT count(*) FROM bc1.prozessprofil "
                    "WHERE status = 'fertig'") == [(0,)]

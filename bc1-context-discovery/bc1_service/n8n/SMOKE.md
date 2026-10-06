@@ -11,13 +11,16 @@
 export BC1_DB_DSN="postgresql://postgres:test@localhost:55432/postgres"   # oder Supabase-DSN
 export BC1_COMPANY_ID="11111111-1111-1111-1111-111111111111"              # Pflicht seit Task 10
                        # ^ Test-Container: Fixture-Mandant A · Supabase: echte company_id
+export BC1_ANFRAGE_ID="A-2026-03"                                         # Pflicht seit B5 (Form A-JJJJ-NN)
+                       # ^ die BC0-Anfrage, zu der interviewt wird; Beispielwert, in der
+                       #   Supabase die echte Nummer einer Anfrage im Stand zugeordnet/im_interview
 export ANTHROPIC_API_KEY="..."                                            # nie committen
 .venv/bin/uvicorn bc1_service.main:app --port 8000
 ```
 
-**Zwei Startabbrüche sind regulär, kein Fehler** (BC0-Antwort 10 vom 02.09.; der erste
-Wortlaut stammt von BC0 und ist mit ihnen abgestimmt). Der Dienst startet nicht und sagt
-warum:
+**Startabbrüche sind regulär, kein Fehler.** Der Dienst startet nicht und sagt warum. Die
+ersten beiden (BC0-Antwort 10 vom 02.09.; der erste Wortlaut stammt von BC0 und ist mit
+ihnen abgestimmt):
 
 - Mandant ohne Teilprozesse:
   „Für diesen Mandanten sind noch keine Teilprozesse erfasst. Das Interview kann erst
@@ -26,10 +29,32 @@ warum:
   „Für diesen Mandanten ist noch kein Teilprozess bewertet. Das Interview kann erst
   geführt werden, wenn mindestens ein Teilprozess im Self-Rating bewertet ist."
 
+Seit B5 kommen **vier weitere** dazu, alle aus `lade_kontext` in
+`bc1_service/start.py` — dort steht der verbindliche Wortlaut (`MELDUNG_ANFRAGE_UNBEKANNT`,
+`MELDUNG_ANFRAGE_NICHT_IM_INTERVIEW`, `MELDUNG_ANFRAGE_OHNE_TEILPROZESSE`,
+`MELDUNG_TEILPROZESSE_NICHT_BEREIT`); hier nur, was sie bedeuten:
+
+| Meldung beginnt mit | Bedeutung | Was tun |
+|---|---|---|
+| „Die Anfrage … gibt es bei diesem Mandanten nicht." | `BC1_ANFRAGE_ID` passt zu keiner Anfrage des Mandanten | Nummer prüfen |
+| „Die Anfrage … steht auf '…'." | Status weder `zugeordnet` noch `im_interview` | Anfrage bei BC0 klären |
+| „Die Anfrage … ist keinem Teilprozess zugeordnet." | BC0 hat noch nicht zugeordnet | auf BC0 warten |
+| „Zur Anfrage … sind diese Teilprozesse nicht bewertet oder stillgelegt: …" | BC0 übergibt nur vollständig — ein Teilprozess ohne Bewertung/aktiv blockiert | bewerten bzw. bei BC0 klären |
+
+Fehlt `BC1_ANFRAGE_ID` oder hat sie nicht die Form `A-JJJJ-NN`, bricht der Start schon
+vorher mit einem eigenen Hinweis ab (`lies_anfrage_id`).
+
 **Interviewbar sind nur BEWERTETE Teilprozesse** (mindestens eine aktuelle Bewertung in
 `v_bewertung_aktuell`; verworfene Erhebungen zählen nicht). Zu einem unbewerteten
 Teilprozess entsteht kein Profil — die Auswahl im Interview zeigt ihn deshalb gar nicht
 erst an.
+
+Seit B5 sind es zusätzlich nur die Teilprozesse **der** Anfrage `BC1_ANFRAGE_ID` (so
+viele, wie BC0 ihr zugeordnet hat).
+
+**Für den Durchstich** einen Teilprozess wählen, zu dem es noch kein fertiges BC1-Profil
+gibt — BC0s Gate-Funktion verknüpft noch nicht über `anfrage_id`, ein schon vorhandenes
+fertiges Profil würde den Durchstich verfälschen.
 
 *Ohne Claude-Key (FakeLLM-Demo, so lief der Smoke am 05.08.2026):* statt `main:app` eine
 lokale, NICHT committete Demo-Verdrahtung nutzen — Wegwerf-Datei `demo_fake.py` außerhalb
@@ -67,6 +92,7 @@ app = create_app(
     TOY_PROZESS,
     lade_snapshot(_snapshot_pfad) if _snapshot_pfad else None,
     company_id=os.environ["BC1_COMPANY_ID"],   # Pflicht-Argument seit Task 10
+    anfrage_id=os.environ["BC1_ANFRAGE_ID"],   # seit B5; der Guard prüft sie je Turn
 )
 ```
 

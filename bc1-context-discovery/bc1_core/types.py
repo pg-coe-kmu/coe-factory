@@ -57,6 +57,9 @@ class SessionState:
     # gesetzt und danach bei JEDEM Turn geprueft — der Paket-Fingerprint taugt
     # dafuer nicht, weil der Recovery-Replay ihn passieren darf.
     company_id: str | None = None
+    # Anfrage-Bindung (B5): beim ersten Turn gesetzt, danach bei JEDEM Turn
+    # geprueft (pruefe_anfrage) — wie company_id, aus demselben Grund.
+    anfrage_id: str | None = None
     status: SessionStatus = SessionStatus.AKTIV
     version: int = 0
     rounds: int = 0

@@ -129,3 +129,16 @@ def test_main_ohne_company_id_meldet_die_fehlende_variable(monkeypatch):
     monkeypatch.delenv("BC1_COMPANY_ID", raising=False)
     with pytest.raises(RuntimeError, match="BC1_COMPANY_ID"):
         importlib.import_module("bc1_service.main")
+
+
+# B5: ohne Anfrage gibt es keine Teilprozess-Auswahl — der Dienst bleibt stehen.
+def test_main_ohne_anfrage_id_meldet_die_fehlende_variable(monkeypatch):
+    import importlib
+    import sys
+
+    monkeypatch.setenv("BC1_DB_DSN", "postgresql://egal/egal")
+    monkeypatch.setenv("BC1_COMPANY_ID", "11111111-1111-1111-1111-111111111111")
+    monkeypatch.delenv("BC1_ANFRAGE_ID", raising=False)
+    monkeypatch.delitem(sys.modules, "bc1_service.main", raising=False)
+    with pytest.raises(RuntimeError, match="BC1_ANFRAGE_ID"):
+        importlib.import_module("bc1_service.main")
