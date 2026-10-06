@@ -326,8 +326,17 @@ CHECK fehlen → anlegen und nachprüfen · M2 schon auf Stand → No-op · M3 a
 Abbruch ohne Änderung). Der Bestand bleibt unberührt: die Altzeilen behalten `anfrage_id`
 NULL (eingefroren, keine Nachzuordnung); es gibt keinen FK auf `ref_anfragen`.
 
-**Stand:** vorbereitet, **noch nicht in der Supabase ausgeführt** — das macht die BC1-Projektleitung per
-`lauf.sh b5` (SDD-Ordner, lokal), danach werden die Messwerte hier nachgetragen.
+**Stand:** **live eingespielt am 06.10.2026** per `lauf.sh b5` als `bc1_role` (nach Merge von #277).
+Gemessen — alles wie erwartet:
+
+| Schritt | Live gemessen |
+|---|---|
+| Vorprüfung | `Fall 3`, Rollback; Abweichung **nur** `constraint\|…\|prozessprofil_anfrage_format\|…` und `spalte\|prozessprofil\|anfrage_id\|text\|null\|\|-\|-` (die zwei „Fehlerzeilen“ des Laufs sind genau dieser gewollte Abbruch) |
+| Lauf 1 | d3 `M2` · b5 `M1: Bestand ohne Spalte — anfrage_id anlegen.` + `M1: erledigt` · prozessprofil `Fall 2` |
+| Lauf 2 (Idempotenz) | d3 `M2` · b5 `M2` · prozessprofil `Fall 2` |
+| `sessions.sql` | `Fall 2` |
+| Nachprüfung | `spalte\|text\|YES` · `bestand_ohne_anfrage\|6` = `bestand_gesamt\|6` |
+| Gegenprobe `lesen.sql` | parst, 1 Mandant, 3 Profile, 20 Spalten, Werte unverändert (`step_frequency_per_year` in der Spaltenliste) |
 
 **Reihenfolge ist normativ:** `prozessprofil_d3.sql` → `prozessprofil_b5.sql` →
 `prozessprofil.sql`, **eine** Transaktion. Danach `sessions.sql` (eigene Transaktion).
