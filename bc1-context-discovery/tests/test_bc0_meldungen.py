@@ -27,6 +27,7 @@ from bc1_service.bc0_meldungen import (
     Bc0Zugang,
     baue_melder,
     lies_bc0_zugang,
+    probe,
 )
 
 MANDANT = "11111111-1111-1111-1111-111111111111"
@@ -397,3 +398,49 @@ def test_nicht_erreichbar_beim_fachaufruf():
     fehler = _fehler(FakeBc0(aktion=_wirft(httpx.ConnectError)))
     assert str(fehler) == MELDUNG_NICHT_ERREICHBAR.format(
         url="https://bc0.example.org", art="ConnectError")
+
+
+def _probe(konto=None, login=None, umgebung=None):
+    zeilen: list[str] = []
+    bc0 = FakeBc0(konto=konto, login=login)
+    code = probe(umgebung or {**VOLL, "BC1_COMPANY_ID": MANDANT},
+                 transport=httpx.MockTransport(bc0), ausgabe=zeilen.append)
+    return code, zeilen, bc0
+
+
+def test_probe_benutzer_mit_mandant_ist_bereit_und_aendert_nichts():
+    code, zeilen, bc0 = _probe()
+    assert code == 0
+    assert zeilen == ["Rolle: benutzer", "Schreibrecht: ja",
+                      f"Mandant {MANDANT} sichtbar: ja"]
+    assert [a.method for a in bc0.anfragen] == ["POST", "GET"]   # Login + /me, sonst nichts
+
+
+def test_probe_admin_ohne_mandantenliste_sieht_den_mandanten():
+    code, zeilen, _ = _probe(konto={"rolle": "admin", "ist_admin": True,
+                                    "darf_schreiben": True, "mandanten": []})
+    assert code == 0 and zeilen[2] == f"Mandant {MANDANT} sichtbar: ja"
+
+
+def test_probe_leser_ist_nicht_bereit():
+    code, zeilen, _ = _probe(konto={"rolle": "leser", "ist_admin": False,
+                                    "darf_schreiben": False, "mandanten": [MANDANT]})
+    assert code == 1 and zeilen[1] == "Schreibrecht: nein"
+
+
+def test_probe_benutzer_ohne_mandant_ist_nicht_bereit():
+    code, zeilen, _ = _probe(konto={"rolle": "benutzer", "ist_admin": False,
+                                    "darf_schreiben": True, "mandanten": []})
+    assert code == 1 and zeilen[2] == f"Mandant {MANDANT} sichtbar: nein"
+
+
+def test_probe_mit_falschem_passwort_meldet_den_satz():
+    code, zeilen, _ = _probe(login=lambda r: httpx.Response(401, json={"detail": "x"}))
+    assert code == 1 and zeilen == [MELDUNG_ANMELDUNG_ABGELEHNT]
+
+
+def test_probe_ohne_mandant_oder_mit_aus_ist_ein_konfigurationsfehler():
+    code, zeilen, _ = _probe(umgebung=dict(VOLL))
+    assert code == 2 and "BC1_COMPANY_ID" in zeilen[0]
+    code, zeilen, _ = _probe(umgebung={"BC1_BC0_MELDUNGEN": "aus", "BC1_COMPANY_ID": MANDANT})
+    assert code == 2 and zeilen == ["BC1_BC0_MELDUNGEN=aus — nichts zu prüfen."]

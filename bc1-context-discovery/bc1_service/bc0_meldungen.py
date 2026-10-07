@@ -11,11 +11,15 @@ beim Login also das Passwort (gemessen 06.10.2026: e.request.content).
 from __future__ import annotations
 
 import logging
+import os
+import sys
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from urllib.parse import urlsplit
 
 import httpx
+
+from bc1_service.start import lies_company_id
 
 log = logging.getLogger(__name__)
 
@@ -197,3 +201,37 @@ def baue_melder(umgebung: Mapping[str, str], company_id: str) -> Bc0Melder | Non
         log.warning(MELDUNG_AUS)
         return None
     return Bc0Melder(zugang, company_id)
+
+
+def probe(umgebung: Mapping[str, str], *, transport=None, ausgabe=print) -> int:
+    """Live-Probe (nur lesend): darf das Konto schreiben, sieht es den Mandanten?
+
+    Mandant sichtbar wie bei BC0 (darf_mandanten_sehen): Admin sieht alle, sonst
+    nur die zugewiesenen. Aendert nichts bei BC0."""
+    try:
+        company_id = lies_company_id(umgebung)
+        zugang = lies_bc0_zugang(umgebung)
+    except RuntimeError as fehler:
+        ausgabe(str(fehler))
+        return 2
+    if zugang is None:
+        ausgabe("BC1_BC0_MELDUNGEN=aus — nichts zu prüfen.")
+        return 2
+    try:
+        konto = Bc0Melder(zugang, company_id, transport=transport).lies_konto()
+    except Bc0MeldungFehler as fehler:
+        ausgabe(str(fehler))
+        return 1
+    schreiben = konto.get("darf_schreiben") is True
+    mandant = konto.get("ist_admin") is True or company_id in konto.get("mandanten", [])
+    ausgabe(f"Rolle: {konto.get('rolle')}")
+    ausgabe(f"Schreibrecht: {'ja' if schreiben else 'nein'}")
+    ausgabe(f"Mandant {company_id} sichtbar: {'ja' if mandant else 'nein'}")
+    return 0 if schreiben and mandant else 1
+
+
+if __name__ == "__main__":
+    if sys.argv[1:] != ["--probe"]:
+        print("Aufruf: python -m bc1_service.bc0_meldungen --probe")
+        sys.exit(2)
+    sys.exit(probe(os.environ))
