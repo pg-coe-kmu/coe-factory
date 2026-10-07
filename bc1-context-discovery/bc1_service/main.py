@@ -1,6 +1,8 @@
 """Produktions-Verdrahtung: uvicorn bc1_service.main:app
 
-Pflicht: BC1_DB_DSN, BC1_COMPANY_ID, BC1_ANFRAGE_ID. Optional: BC1_SNAPSHOT_PFAD (BC0-Baseline), BC1_CLAUDE_MODELL,
+Pflicht: BC1_DB_DSN, BC1_COMPANY_ID, BC1_ANFRAGE_ID — seit B4 außerdem BC1_BC0_URL,
+BC1_BC0_KONTO_EMAIL, BC1_BC0_KONTO_PASSWORT (oder bewusst BC1_BC0_MELDUNGEN=aus).
+Optional: BC1_SNAPSHOT_PFAD (BC0-Baseline), BC1_CLAUDE_MODELL,
 ANTHROPIC_API_KEY (liest das SDK selbst), BC1_LLM ("claude" | "ollama" | "gemini",
 Default claude — ollama = lokaler Test-/Dev-Ersatz ohne API-Key; gemini = Gemini API,
 braucht GEMINI_API_KEY), BC1_OLLAMA_MODELL, BC1_GEMINI_MODELL,
@@ -13,13 +15,15 @@ from contextlib import asynccontextmanager
 
 from psycopg_pool import ConnectionPool
 
+from bc1_service import bc0_lesepfade, bc0_meldungen
 from bc1_service.api import create_app
 from bc1_service.llm_wahl import waehle_llm
 from bc1_service.paket_wahl import waehle_paket
 from bc1_service.postgres_store import PostgresStateStore
 from bc1_service.profil_writer import ProfilWriter
 from bc1_service.snapshot import lade_snapshot
-from bc1_service.start import lade_kontext, lies_anfrage_id, lies_company_id
+from bc1_service.start import (lade_kontext, lies_anfrage_id, lies_company_id,
+                               melde_interview_beginn)
 
 _dsn = os.environ.get("BC1_DB_DSN")
 if not _dsn:
@@ -31,6 +35,9 @@ if not _dsn:
 
 _company_id = lies_company_id(os.environ)
 _anfrage_id = lies_anfrage_id(os.environ)
+
+# B4: vor den Pools — ein Konfigurationsfehler bricht ohne offene Verbindungen ab.
+_melder = bc0_meldungen.baue_melder(os.environ, _company_id)
 
 _snapshot_pfad = os.environ.get("BC1_SNAPSHOT_PFAD")
 _snapshot = lade_snapshot(_snapshot_pfad) if _snapshot_pfad else None
@@ -46,6 +53,10 @@ _profil_pool = ConnectionPool(_dsn, min_size=1, max_size=5, open=True)
 try:
     with _profil_pool.connection() as _conn:
         _kontext = lade_kontext(_conn, _company_id, _anfrage_id)
+        _status = bc0_lesepfade.anfrage_status(_conn, _company_id, _anfrage_id)
+    # Nach dem with: die Verbindung ist zurueck im Pool und wartet nicht bis zu
+    # 10 s auf BC0. Im try: scheitert die Meldung, schliessen beide Pools.
+    melde_interview_beginn(_melder, _anfrage_id, _status)
 except Exception:
     # Wie beim Session-Store (postgres_store.py): beide Pools sind bereits
     # offen — ohne close() blieben ihre Verbindungen und Worker-Threads als

@@ -1,5 +1,6 @@
 import pytest
 
+from bc1_service.bc0_meldungen import Bc0MeldungFehler
 from bc1_service.start import (
     MELDUNG_ANFRAGE_NICHT_IM_INTERVIEW,
     MELDUNG_ANFRAGE_OHNE_TEILPROZESSE,
@@ -10,6 +11,7 @@ from bc1_service.start import (
     lade_kontext,
     lies_anfrage_id,
     lies_company_id,
+    melde_interview_beginn,
 )
 from tests.db_fixture import (
     ANFRAGE_A,
@@ -219,3 +221,36 @@ def test_mandant_mit_teilprozessen_aber_ohne_bewertung_startet_nicht():
         with pytest.raises(RuntimeError) as fehler:
             lade_kontext(conn, ohne, ANFRAGE_A)
     assert str(fehler.value) == MELDUNG_KEINE_BEWERTUNG
+
+
+class _Melder:
+    def __init__(self, fehler=None):
+        self.gemeldet: list[str] = []
+        self._fehler = fehler
+
+    def melde_interview_laeuft(self, anfrage_id):
+        self.gemeldet.append(anfrage_id)
+        if self._fehler:
+            raise self._fehler
+
+
+def test_zugeordnete_anfrage_wird_einmal_als_im_interview_gemeldet():
+    melder = _Melder()
+    melde_interview_beginn(melder, "A-2026-01", "zugeordnet")
+    assert melder.gemeldet == ["A-2026-01"]
+
+
+def test_anfrage_schon_im_interview_wird_nicht_erneut_gemeldet():
+    # Sonst ueberschriebe jeder Neustart BC0s status_seit.
+    melder = _Melder()
+    melde_interview_beginn(melder, "A-2026-01", "im_interview")
+    assert melder.gemeldet == []
+
+
+def test_ohne_melder_wird_nichts_gemeldet():
+    melde_interview_beginn(None, "A-2026-01", "zugeordnet")     # darf nicht werfen
+
+
+def test_fehler_der_meldung_geht_als_startabbruch_durch():
+    with pytest.raises(Bc0MeldungFehler, match="kaputt"):
+        melde_interview_beginn(_Melder(Bc0MeldungFehler("kaputt")), "A-2026-01", "zugeordnet")

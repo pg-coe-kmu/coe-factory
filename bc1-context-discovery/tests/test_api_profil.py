@@ -402,6 +402,7 @@ def test_main_verdrahtet_den_profil_writer(umgebung, monkeypatch):
     monkeypatch.setenv("BC1_COMPANY_ID", MANDANT_A)
     monkeypatch.setenv("BC1_ANFRAGE_ID", ANFRAGE_A)
     monkeypatch.setenv("BC1_LLM", "ollama")     # kein API-Key noetig
+    monkeypatch.setenv("BC1_BC0_MELDUNGEN", "aus")
     monkeypatch.delitem(sys.modules, "bc1_service.main", raising=False)
     main = importlib.import_module("bc1_service.main")
     try:
@@ -411,10 +412,96 @@ def test_main_verdrahtet_den_profil_writer(umgebung, monkeypatch):
         # Dasselbe Paket-Objekt fuer Kern und Writer: zwei getrennte Bauten
         # koennten auseinanderlaufen (Reihenfolge der BC0-Mengen).
         assert gesehen["writer"]._package is gesehen["package"]
+        # B4: BC1_BC0_MELDUNGEN=aus -> kein Melder (die Uebergabe an create_app prueft Task 5).
+        assert main._melder is None
     finally:
         main._store.close()
         main._profil_pool.close()
         sys.modules.pop("bc1_service.main", None)
+
+
+class _StartMelder:
+    def __init__(self):
+        self.gemeldet: list[str] = []
+
+    def melde_interview_laeuft(self, anfrage_id):
+        self.gemeldet.append(anfrage_id)
+
+
+def _main_mit_melder(monkeypatch, anfrage_id, melder, gesehen=None):
+    import importlib
+    import sys
+
+    from bc1_service import api as api_modul
+    from bc1_service import bc0_meldungen
+
+    def _stub_create_app(*a, **kw):
+        if gesehen is not None:
+            gesehen.update(kw)
+        return "app"
+
+    monkeypatch.setattr(api_modul, "create_app", _stub_create_app)
+    monkeypatch.setattr(bc0_meldungen, "baue_melder", lambda umgebung, cid: melder)
+    monkeypatch.setenv("BC1_DB_DSN", DSN)
+    monkeypatch.setenv("BC1_COMPANY_ID", MANDANT_A)
+    monkeypatch.setenv("BC1_ANFRAGE_ID", anfrage_id)
+    monkeypatch.setenv("BC1_LLM", "ollama")
+    monkeypatch.delitem(sys.modules, "bc1_service.main", raising=False)
+    return importlib.import_module("bc1_service.main")
+
+
+def test_main_meldet_eine_zugeordnete_anfrage_beim_start(umgebung, monkeypatch):
+    import sys
+
+    melder = _StartMelder()
+    main = _main_mit_melder(monkeypatch, ANFRAGE_A, melder)        # Fixture: 'zugeordnet'
+    try:
+        assert melder.gemeldet == [ANFRAGE_A]
+        assert main._melder is melder
+    finally:
+        main._store.close()
+        main._profil_pool.close()
+        sys.modules.pop("bc1_service.main", None)
+
+
+def test_main_meldet_eine_anfrage_im_interview_nicht_erneut(umgebung, monkeypatch):
+    import sys
+
+    # ANFRAGE_A (startfaehig: alle TPs bewertet) auf 'im_interview' stellen — die
+    # Fixture-Anfrage im Stand 'im_interview' (A-2026-02, ganzer KP-01) bricht schon an
+    # der B5-Pruefung ab (KP-01.TP-3 unbewertet, test_start.py).
+    with verbindung(DSN, None) as conn:
+        conn.execute("UPDATE ref_anfragen SET status = 'im_interview' "
+                     "WHERE company_id = %s AND anfrage_id = %s", (MANDANT_A, ANFRAGE_A))
+        conn.commit()
+    melder = _StartMelder()
+    main = _main_mit_melder(monkeypatch, ANFRAGE_A, melder)
+    try:
+        assert melder.gemeldet == []
+    finally:
+        main._store.close()
+        main._profil_pool.close()
+        sys.modules.pop("bc1_service.main", None)
+
+
+def test_main_schliesst_die_pools_wenn_die_meldung_scheitert(umgebung, monkeypatch):
+    from bc1_service.bc0_meldungen import Bc0MeldungFehler
+
+    geschlossen: list[str] = []
+    original = ConnectionPool.close
+
+    def _close(self, *a, **kw):
+        geschlossen.append("pool")
+        return original(self, *a, **kw)
+
+    class _Kaputt(_StartMelder):
+        def melde_interview_laeuft(self, anfrage_id):
+            raise Bc0MeldungFehler("BC0 unter https://x ist nicht erreichbar (ConnectError).")
+
+    monkeypatch.setattr(ConnectionPool, "close", _close)
+    with pytest.raises(Bc0MeldungFehler, match="nicht erreichbar"):
+        _main_mit_melder(monkeypatch, ANFRAGE_A, _Kaputt())
+    assert len(geschlossen) >= 2          # Session-Store-Pool + Profil-Pool
 
 
 def test_abbruch_mit_blockiertem_aufraeumen_liefert_trotzdem_200(umgebung, caplog):
