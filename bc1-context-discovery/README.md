@@ -66,14 +66,26 @@ docker run -d --rm --name bc1-test-pg -e POSTGRES_PASSWORD=test -p 55432:5432 po
 BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" .venv/bin/pytest -q -W error
 ```
 
-Dienst starten (Pflicht: `BC1_DB_DSN` als `bc1_role`, `BC1_COMPANY_ID`, `BC1_ANFRAGE_ID` — seit B5 die BC0-Anfrage, zu der interviewt wird, Form `A-JJJJ-NN`; LLM-Wahl über `BC1_LLM` = `claude` | `ollama` | `gemini`, Key des Anbieters aus der Umgebung):
+Dienst starten (Pflicht: `BC1_DB_DSN` als `bc1_role`, `BC1_COMPANY_ID`, `BC1_ANFRAGE_ID` — seit B5 die BC0-Anfrage, zu der interviewt wird, Form `A-JJJJ-NN`; seit B4 der BC0-Zugang (`BC1_BC0_URL`, `BC1_BC0_KONTO_EMAIL`, `BC1_BC0_KONTO_PASSWORT`) — lokal ohne echtes BC0 bewusst `BC1_BC0_MELDUNGEN=aus`; LLM-Wahl über `BC1_LLM` = `claude` | `ollama` | `gemini`, Key des Anbieters aus der Umgebung):
 
 ```bash
 export BC1_DB_DSN="postgresql://…"        # Datenbank mit eingespielter DDL, siehe unten
 export BC1_COMPANY_ID="<uuid des Mandanten>"
 export BC1_ANFRAGE_ID="A-2026-03"         # Pflicht seit B5; Beispielwert
+export BC1_BC0_MELDUNGEN=aus               # lokal ohne BC0; im Betrieb stattdessen:
+# export BC1_BC0_URL="https://bc0.perspektivwechsel.ai"
+# export BC1_BC0_KONTO_EMAIL="$BC0_APP_KONTO_EMAIL"      # aus der lokalen Zugangsdatei
+# export BC1_BC0_KONTO_PASSWORT="$BC0_APP_KONTO_PASSWORT"
 export BC1_LLM=ollama                      # lokal, ohne API-Key
 .venv/bin/uvicorn bc1_service.main:app --port 8000
 ```
 
-Der Dienst startet nur, wenn der Mandant bewertete Teilprozesse hat und die Anfrage interviewbar ist (Stand `zugeordnet`/`im_interview`, alle ihre Teilprozesse bewertet) — die regulären Startabbrüche und der Chat-Aufbau stehen in [`bc1_service/n8n/SMOKE.md`](bc1_service/n8n/SMOKE.md). Die Datenbanktabellen kommen aus [`bc1_service/db/prozessprofil.sql`](bc1_service/db/prozessprofil.sql); wie man sie einspielt und was die Dreifallregel bedeutet, steht in [`bc1_service/db/EINSPIELEN.md`](bc1_service/db/EINSPIELEN.md). Was das Interview fragt und in welche Spalte es fließt: [`design/Spalte-zu-Feld-Tabelle.md`](design/Spalte-zu-Feld-Tabelle.md). Was noch fehlt: [`design/Abschlussplan-BC1.md`](design/Abschlussplan-BC1.md).
+**Was der Dienst bei BC0 tut (seit B4):** Beim Start meldet er der Anfrage `im_interview` — nur aus `zugeordnet`, ein Neustart überschreibt BC0s Stand also nicht. Nach jedem Abschluss eines Interviews zieht er das Gate bei BC0 nach, im Hintergrund; die Chat-Antwort hängt nicht davon ab. Scheitert das, steht eine WARNING mit Handlungsanweisung im Log (die Anfrage bei BC0 von Hand nachziehen) — das Profil ist dann trotzdem gespeichert. Beides läuft über ein BC0-Anwendungskonto mit Schreibrecht (Rolle `benutzer` oder `admin`), das den Mandanten sieht (zugewiesen; `admin` sieht alle); das Passwort steht nur in der Umgebung, in keiner Meldung und in keinem Log. Ob das Konto bereit ist, zeigt die Live-Probe — sie ändert bei BC0 nichts (Anmeldung, dann nur Lesen des eigenen Kontos) und braucht `BC1_COMPANY_ID` und die drei BC0-Variablen, keine Datenbank:
+
+```bash
+uv run python -m bc1_service.bc0_meldungen --probe
+```
+
+Ausgabe: Rolle, Schreibrecht ja/nein, Mandant sichtbar ja/nein. Exit 0 = bereit; 1 = nicht bereit, oder Anmeldung bzw. Aufruf bei BC0 scheitern (die Meldung sagt warum); 2 = Konfiguration fehlt oder ungültig, oder `BC1_BC0_MELDUNGEN=aus` (dann gibt es nichts zu prüfen).
+
+Der Dienst startet nur, wenn der Mandant bewertete Teilprozesse hat und die Anfrage interviewbar ist (Stand `zugeordnet`/`im_interview`, alle ihre Teilprozesse bewertet) — die regulären Startabbrüche (seit B4 auch die der BC0-Meldungen) und der Chat-Aufbau stehen in [`bc1_service/n8n/SMOKE.md`](bc1_service/n8n/SMOKE.md). Die Datenbanktabellen kommen aus [`bc1_service/db/prozessprofil.sql`](bc1_service/db/prozessprofil.sql); wie man sie einspielt und was die Dreifallregel bedeutet, steht in [`bc1_service/db/EINSPIELEN.md`](bc1_service/db/EINSPIELEN.md). Was das Interview fragt und in welche Spalte es fließt: [`design/Spalte-zu-Feld-Tabelle.md`](design/Spalte-zu-Feld-Tabelle.md). Was noch fehlt: [`design/Abschlussplan-BC1.md`](design/Abschlussplan-BC1.md).
