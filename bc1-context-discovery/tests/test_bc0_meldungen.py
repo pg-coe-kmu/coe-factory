@@ -238,10 +238,13 @@ def test_zeitlimit_ist_zehn_sekunden():
 
 
 def _ohne_passwort(ausgabe: str) -> None:
-    # repr() verdoppelt den Backslash im Passwort: neben dem Rohwert auch die maskierte
-    # Form pruefen, sonst waere die Pruefung gegen eine repr-Ausgabe falsch-gruen.
-    for form in (PASSWORT.strip(), repr(PASSWORT)[1:-1].strip()):
-        assert form not in ausgabe
+    # repr() verdoppelt den Backslash im Passwort, JSON maskiert zusaetzlich das Anfuehrungs-
+    # zeichen: neben dem Rohwert auch diese Formen pruefen, sonst waere die Pruefung gegen
+    # eine repr- oder JSON-Ausgabe (BC0 schickt den Rumpf als JSON zurueck) falsch-gruen.
+    formen = (PASSWORT, repr(PASSWORT)[1:-1],
+              json.dumps(PASSWORT)[1:-1], json.dumps(PASSWORT, ensure_ascii=False)[1:-1])
+    for form in formen:
+        assert form.strip() not in ausgabe
 
 
 def _fehler(bc0, aufruf="gate", url="https://bc0.example.org") -> Bc0MeldungFehler:
@@ -260,6 +263,37 @@ def test_falsches_passwort():
     bc0 = FakeBc0(login=lambda r: httpx.Response(
         401, json={"detail": "E-Mail-Adresse oder Passwort ist falsch."}))
     assert str(_fehler(bc0)) == MELDUNG_ANMELDUNG_ABGELEHNT
+
+
+def test_anmeldung_422_gibt_den_zurueckgeschickten_rumpf_nicht_weiter():
+    # FastAPI-Standard-422 traegt den Rumpf als "input" — beim Login samt Passwort.
+    bc0 = FakeBc0(login=lambda r: httpx.Response(422, json={"detail": [{
+        "type": "missing", "loc": ["body", "x"], "msg": "Field required",
+        "input": json.loads(r.content)}]}))
+    assert str(_fehler(bc0)) == MELDUNG_ANTWORT.format(
+        aktion="Anmeldung", code=422, detail="")
+
+
+def test_anmeldung_str_detail_mit_abgeschnittenem_passwort_wird_verworfen():
+    # Das Kuerzen auf 200 Zeichen darf nur den Anfang des Passworts stehen lassen.
+    bc0 = FakeBc0(login=lambda r: httpx.Response(400, json={
+        "detail": "x" * 195 + json.loads(r.content)["passwort"]}))
+    assert str(_fehler(bc0)) == MELDUNG_ANTWORT.format(
+        aktion="Anmeldung", code=400, detail="")
+
+
+def test_anmeldung_ohne_json_gibt_keinen_antworttext_weiter():
+    bc0 = FakeBc0(login=lambda r: httpx.Response(
+        502, text="Gateway: " + json.loads(r.content)["passwort"]))
+    assert str(_fehler(bc0)) == MELDUNG_ANTWORT.format(
+        aktion="Anmeldung", code=502, detail="")
+
+
+def test_anmeldung_str_detail_mit_dem_passwort_wird_verworfen():
+    bc0 = FakeBc0(login=lambda r: httpx.Response(400, json={
+        "detail": "Ungueltig: " + json.loads(r.content)["passwort"]}))
+    assert str(_fehler(bc0)) == MELDUNG_ANTWORT.format(
+        aktion="Anmeldung", code=400, detail="")
 
 
 @pytest.mark.parametrize("kopf, minuten", [("600", 10), ("20", 1), (None, 1), ("bald", 1)])

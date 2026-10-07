@@ -92,15 +92,22 @@ class Bc0MeldungFehler(RuntimeError):
     """Eine Meldung an BC0 ist gescheitert; der Text ist fuer Menschen gedacht."""
 
 
-def _detail(antwort: httpx.Response) -> str:
-    """BC0s detail-Text; ohne JSON (Proxy-Seite) der Antworttext. Auf 200 Zeichen."""
+def _detail(antwort: httpx.Response, *, geheim: str | None = None) -> str:
+    """BC0s detail-Text; ohne JSON (Proxy-Seite) der Antworttext. Auf 200 Zeichen.
+
+    Mit `geheim` (beim Login: das Passwort) nur BC0s eigener str-detail, nie der rohe
+    Antworttext — BC0 kann den Rumpf samt Passwort zuruecksenden (FastAPI-422: "input")."""
     try:
         daten = antwort.json()
     except ValueError:
         daten = None
     detail = daten.get("detail") if isinstance(daten, dict) else None
     if not isinstance(detail, str):
+        if geheim is not None:
+            return ""
         detail = antwort.text
+    if geheim is not None and geheim in detail:     # VOR dem Kuerzen: sonst bliebe ein Anfang stehen
+        return ""
     return detail[:200]
 
 
@@ -168,7 +175,8 @@ class Bc0Melder:
         code = antwort.status_code
         if 200 <= code < 300:
             return
-        detail = _detail(antwort)
+        geheim = self._zugang.passwort if aktion == _ANMELDUNG else None
+        detail = _detail(antwort, geheim=geheim)
         if aktion == _ANMELDUNG and code == 401:
             raise Bc0MeldungFehler(MELDUNG_ANMELDUNG_ABGELEHNT)
         if aktion == _ANMELDUNG and code == 429:
