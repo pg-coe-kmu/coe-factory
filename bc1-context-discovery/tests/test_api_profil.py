@@ -414,6 +414,7 @@ def test_main_verdrahtet_den_profil_writer(umgebung, monkeypatch):
         assert gesehen["writer"]._package is gesehen["package"]
         # B4: BC1_BC0_MELDUNGEN=aus -> kein Melder (die Uebergabe an create_app prueft Task 5).
         assert main._melder is None
+        assert gesehen["melder"] is None
     finally:
         main._store.close()
         main._profil_pool.close()
@@ -502,6 +503,20 @@ def test_main_schliesst_die_pools_wenn_die_meldung_scheitert(umgebung, monkeypat
     with pytest.raises(Bc0MeldungFehler, match="nicht erreichbar"):
         _main_mit_melder(monkeypatch, ANFRAGE_A, _Kaputt())
     assert len(geschlossen) >= 2          # Session-Store-Pool + Profil-Pool
+
+
+def test_main_reicht_den_melder_an_die_app_durch(umgebung, monkeypatch):
+    import sys
+
+    melder = _StartMelder()
+    gesehen: dict = {}
+    main = _main_mit_melder(monkeypatch, ANFRAGE_A, melder, gesehen)
+    try:
+        assert gesehen["melder"] is melder
+    finally:
+        main._store.close()
+        main._profil_pool.close()
+        sys.modules.pop("bc1_service.main", None)
 
 
 def test_abbruch_mit_blockiertem_aufraeumen_liefert_trotzdem_200(umgebung, caplog):
@@ -636,3 +651,25 @@ def test_write_fehler_erzeugt_503_und_der_replay_holt_ihn_nach(umgebung):
     with verbindung(DSN) as conn:
         assert conn.execute("SELECT status FROM bc1.prozessprofil").fetchall() == [
             ("fertig",)]
+
+
+class _GateZaehler:
+    def __init__(self):
+        self.aufrufe = 0
+
+    def ziehe_gate_nach(self):
+        self.aufrufe += 1
+        return [ANFRAGE_A]
+
+
+def test_eingefrorenes_profil_stoesst_das_gate_einmal_an(umgebung):
+    pool, paket = umgebung
+    melder = _GateZaehler()
+    client = TestClient(create_app(
+        InMemoryStateStore(), _llm(), paket, company_id=MANDANT_A, anfrage_id=ANFRAGE_A,
+        writer=ProfilWriter(pool, MANDANT_A, paket), melder=melder))
+    antwort = _turn(client, "m1", "alles")
+    assert antwort.json()["status"] == "fertig"
+    assert melder.aufrufe == 1
+    with verbindung(DSN) as conn:
+        assert conn.execute("SELECT status FROM bc1.prozessprofil").fetchone()[0] == "fertig"

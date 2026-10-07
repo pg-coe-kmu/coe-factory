@@ -87,4 +87,5 @@ app = create_app(
     company_id=_company_id,
     anfrage_id=_anfrage_id,
     writer=ProfilWriter(_profil_pool, _company_id, _paket),
+    melder=_melder,
 )
