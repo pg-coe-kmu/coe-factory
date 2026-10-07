@@ -3,13 +3,29 @@
 Kein Netz: BC0 wird mit httpx.MockTransport nachgebaut (Endpunkte und Antworten wie
 bc0_auth/routen.py und app.py v3.12, nachgelesen 06.10.2026).
 """
+import json
+import logging
+
+import httpx
 import pytest
 
 from bc1_service.bc0_meldungen import (
+    MELDUNG_ANMELDUNG_ABGELEHNT,
+    MELDUNG_ANTWORT,
+    MELDUNG_AUS,
+    MELDUNG_GESPERRT,
     MELDUNG_KEIN_HTTPS,
+    MELDUNG_KEIN_SCHREIBRECHT,
+    MELDUNG_MANDANT_UNBEKANNT,
+    MELDUNG_NICHT_ERREICHBAR,
     MELDUNG_SCHALTER_UNBEKANNT,
+    MELDUNG_SITZUNG_NICHT_ANGENOMMEN,
     MELDUNG_ZUGANG_UNVOLLSTAENDIG,
+    ZEITLIMIT_SEKUNDEN,
+    Bc0MeldungFehler,
+    Bc0Melder,
     Bc0Zugang,
+    baue_melder,
     lies_bc0_zugang,
 )
 
@@ -91,3 +107,259 @@ def test_erlaubte_adressen_werden_ohne_schraegstrich_am_ende_uebernommen(url, er
 def test_email_wird_beschnitten():
     zugang = lies_bc0_zugang({**VOLL, "BC1_BC0_KONTO_EMAIL": " dienst@example.org\n"})
     assert zugang.email == "dienst@example.org"
+
+
+ANFRAGE = "A-2026-01"
+
+
+def _eigene(caplog, logger="bc1_service.bc0_meldungen"):
+    return [r.getMessage() for r in caplog.records if r.name == logger]
+
+
+def test_baue_melder_beim_aus_liefert_none_und_warnt(caplog):
+    with caplog.at_level(logging.WARNING, logger="bc1_service.bc0_meldungen"):
+        assert baue_melder({"BC1_BC0_MELDUNGEN": "aus"}, MANDANT) is None
+    assert _eigene(caplog) == [MELDUNG_AUS]
+
+
+def test_baue_melder_mit_zugang_liefert_einen_melder_ohne_warnung(caplog):
+    with caplog.at_level(logging.WARNING, logger="bc1_service.bc0_meldungen"):
+        assert isinstance(baue_melder(VOLL, MANDANT), Bc0Melder)
+    assert _eigene(caplog) == []
+
+
+def test_baue_melder_reicht_konfigurationsfehler_durch():
+    with pytest.raises(RuntimeError, match="BC0-Zugang unvollständig"):
+        baue_melder({}, MANDANT)
+
+
+COOKIE = "bc0_sitzung=schluessel-1; HttpOnly; Secure; Path=/; SameSite=lax"
+
+
+class FakeBc0:
+    """BC0 im Kleinen: Login setzt das Cookie, die Fachaufrufe verlangen es.
+
+    `login` / `aktion` ersetzen die Antwort des jeweiligen Schritts (Funktion
+    request -> Response, darf auch eine httpx-Ausnahme werfen)."""
+
+    def __init__(self, *, login=None, aktion=None, konto=None):
+        self.anfragen: list[httpx.Request] = []
+        self._login = login
+        self._aktion = aktion
+        self.konto = konto or {"rolle": "benutzer", "ist_admin": False,
+                               "darf_schreiben": True, "mandanten": [MANDANT]}
+
+    def __call__(self, request: httpx.Request) -> httpx.Response:
+        self.anfragen.append(request)
+        if request.url.path == "/api/auth/login":
+            if self._login is not None:
+                return self._login(request)
+            return httpx.Response(200, json={"ok": True}, headers={"set-cookie": COOKIE})
+        if self._aktion is not None:
+            return self._aktion(request)
+        if request.headers.get("cookie") != "bc0_sitzung=schluessel-1":
+            return httpx.Response(401, json={"detail": "Nicht angemeldet."})
+        if request.url.path.endswith("/gate_nachziehen"):
+            return httpx.Response(200, json={"geprueft": 2, "gesetzt": [ANFRAGE],
+                                             "anfragen": []})
+        if request.url.path.endswith("/status"):
+            return httpx.Response(200, json={"ok": True, "anfrage_id": ANFRAGE,
+                                             "status_alt": "zugeordnet",
+                                             "status": "im_interview"})
+        if request.url.path == "/api/auth/me":
+            return httpx.Response(200, json=self.konto)
+        return httpx.Response(404, json={"detail": "Not Found"})
+
+
+def _melder(bc0, url="https://bc0.example.org"):
+    zugang = lies_bc0_zugang({**VOLL, "BC1_BC0_URL": url})
+    return Bc0Melder(zugang, MANDANT, transport=httpx.MockTransport(bc0))
+
+
+def test_anmeldung_schickt_email_und_passwort_unveraendert():
+    bc0 = FakeBc0()
+    _melder(bc0).melde_interview_laeuft(ANFRAGE)
+    login = bc0.anfragen[0]
+    assert login.method == "POST" and login.url.path == "/api/auth/login"
+    assert json.loads(login.content) == {"email": "dienst@example.org", "passwort": PASSWORT}
+
+
+def test_interview_laeuft_setzt_den_status_mit_cookie():
+    bc0 = FakeBc0()
+    _melder(bc0).melde_interview_laeuft(ANFRAGE)
+    status = bc0.anfragen[1]
+    assert status.method == "PUT"
+    assert status.url.path == f"/api/companies/{MANDANT}/anfragen/{ANFRAGE}/status"
+    assert json.loads(status.content) == {"status": "im_interview"}
+    assert status.headers["cookie"] == "bc0_sitzung=schluessel-1"
+
+
+def test_gate_nachziehen_liefert_die_gesetzten_anfragen():
+    bc0 = FakeBc0()
+    assert _melder(bc0).ziehe_gate_nach() == [ANFRAGE]
+    gate = bc0.anfragen[1]
+    assert gate.method == "POST"
+    assert gate.url.path == f"/api/companies/{MANDANT}/anfragen/gate_nachziehen"
+
+
+def test_gate_ohne_gesetzte_anfragen_auch_bei_null():
+    bc0 = FakeBc0(aktion=lambda r: httpx.Response(
+        200, json={"geprueft": 0, "gesetzt": None, "anfragen": []}))
+    assert _melder(bc0).ziehe_gate_nach() == []
+
+
+def test_gate_antwort_ohne_gesetzt_gilt_als_leer():
+    bc0 = FakeBc0(aktion=lambda r: httpx.Response(200, json={"geprueft": 0}))
+    assert _melder(bc0).ziehe_gate_nach() == []
+
+
+def test_konto_lesen_liefert_die_antwort_von_auth_me():
+    bc0 = FakeBc0()
+    assert _melder(bc0).lies_konto() == bc0.konto
+    konto = bc0.anfragen[1]
+    assert konto.method == "GET" and konto.url.path == "/api/auth/me"
+
+
+def test_jede_meldung_meldet_sich_frisch_an():
+    bc0 = FakeBc0()
+    melder = _melder(bc0)
+    melder.melde_interview_laeuft(ANFRAGE)
+    melder.ziehe_gate_nach()
+    pfade = [a.url.path for a in bc0.anfragen]
+    assert pfade.count("/api/auth/login") == 2
+
+
+def test_zeitlimit_ist_zehn_sekunden():
+    bc0 = FakeBc0()
+    _melder(bc0).ziehe_gate_nach()
+    assert ZEITLIMIT_SEKUNDEN == 10
+    assert bc0.anfragen[0].extensions["timeout"] == {
+        "connect": 10, "read": 10, "write": 10, "pool": 10}
+
+
+def _ohne_passwort(ausgabe: str) -> None:
+    # repr() verdoppelt den Backslash im Passwort: neben dem Rohwert auch die maskierte
+    # Form pruefen, sonst waere die Pruefung gegen eine repr-Ausgabe falsch-gruen.
+    for form in (PASSWORT.strip(), repr(PASSWORT)[1:-1].strip()):
+        assert form not in ausgabe
+
+
+def _fehler(bc0, aufruf="gate", url="https://bc0.example.org") -> Bc0MeldungFehler:
+    melder = _melder(bc0, url)
+    with pytest.raises(Bc0MeldungFehler) as fehler:
+        if aufruf == "gate":
+            melder.ziehe_gate_nach()
+        else:
+            melder.melde_interview_laeuft(ANFRAGE)
+    _ohne_passwort(str(fehler.value))
+    _ohne_passwort(repr(fehler.value))
+    return fehler.value
+
+
+def test_falsches_passwort():
+    bc0 = FakeBc0(login=lambda r: httpx.Response(
+        401, json={"detail": "E-Mail-Adresse oder Passwort ist falsch."}))
+    assert str(_fehler(bc0)) == MELDUNG_ANMELDUNG_ABGELEHNT
+
+
+@pytest.mark.parametrize("kopf, minuten", [("600", 10), ("20", 1), (None, 1), ("bald", 1)])
+def test_gesperrte_anmeldung_nennt_die_wartezeit(kopf, minuten):
+    headers = {"Retry-After": kopf} if kopf is not None else {}
+    bc0 = FakeBc0(login=lambda r: httpx.Response(
+        429, json={"detail": "Zu viele fehlgeschlagene Anmeldeversuche."}, headers=headers))
+    assert str(_fehler(bc0)) == MELDUNG_GESPERRT.format(minuten=minuten)
+
+
+def test_429_beim_fachaufruf_ist_keine_anmeldesperre():
+    bc0 = FakeBc0(aktion=lambda r: httpx.Response(429, json={"detail": "Zu viele Anfragen."}))
+    assert str(_fehler(bc0)) == MELDUNG_ANTWORT.format(
+        aktion="Gate nachziehen", code=429, detail="Zu viele Anfragen.")
+
+
+@pytest.mark.parametrize("aufruf, aktion", [
+    ("status", "Status im_interview"), ("gate", "Gate nachziehen")])
+def test_lokales_bc0_ohne_https_nimmt_das_sichere_cookie_nicht_zurueck(aufruf, aktion):
+    # Gemessen 06.10.: httpx schickt ein Secure-Cookie nicht ueber http://localhost.
+    bc0 = FakeBc0()
+    fehler = _fehler(bc0, aufruf=aufruf, url="http://localhost:8000")
+    assert str(fehler) == MELDUNG_SITZUNG_NICHT_ANGENOMMEN.format(aktion=aktion)
+
+
+def test_kein_schreibrecht():
+    bc0 = FakeBc0(aktion=lambda r: httpx.Response(
+        403, json={"detail": "Nur lesender Zugang."}))
+    assert str(_fehler(bc0)) == MELDUNG_KEIN_SCHREIBRECHT.format(
+        aktion="Gate nachziehen", detail="Nur lesender Zugang.")
+
+
+def test_mandant_nicht_zugewiesen_kommt_als_404():
+    bc0 = FakeBc0(aktion=lambda r: httpx.Response(404, json={"detail": "Mandant unbekannt."}))
+    assert str(_fehler(bc0, aufruf="status")) == MELDUNG_MANDANT_UNBEKANNT.format(
+        company_id=MANDANT)
+
+
+@pytest.mark.parametrize("code, detail", [
+    (404, "Unbekannte Anfrage: A-2026-01"),
+    (400, "Rueckschritt von 'am_gate' auf 'im_interview' ist nicht vorgesehen."),
+    (500, "Interner Fehler"),
+])
+def test_andere_absagen_nennen_code_und_detail(code, detail):
+    bc0 = FakeBc0(aktion=lambda r: httpx.Response(code, json={"detail": detail}))
+    assert str(_fehler(bc0, aufruf="status")) == MELDUNG_ANTWORT.format(
+        aktion="Status im_interview", code=code, detail=detail)
+
+
+def test_antwort_ohne_json_nennt_den_gekuerzten_text():
+    seite = "<html>" + "x" * 500 + "</html>"
+    bc0 = FakeBc0(aktion=lambda r: httpx.Response(502, text=seite))
+    assert str(_fehler(bc0)) == MELDUNG_ANTWORT.format(
+        aktion="Gate nachziehen", code=502, detail=seite[:200])
+
+
+def test_erfolg_ohne_json_ist_ebenfalls_ein_fehler():
+    bc0 = FakeBc0(aktion=lambda r: httpx.Response(200, text="<html>Wartung</html>"))
+    assert str(_fehler(bc0)) == MELDUNG_ANTWORT.format(
+        aktion="Gate nachziehen", code=200, detail="<html>Wartung</html>")
+
+
+@pytest.mark.parametrize("code, text", [
+    (200, "[1, 2]"),                                   # Erfolg, aber kein JSON-Objekt
+    (422, '{"detail": [{"msg": "Feld fehlt"}]}'),      # FastAPI-Validierung: detail ist eine Liste
+    (500, '{"fehler": "x"}'),                          # Objekt ohne detail
+    (500, '["x"]'),                                    # kein JSON-Objekt
+])
+def test_json_ohne_detail_text_nennt_den_antworttext(code, text):
+    bc0 = FakeBc0(aktion=lambda r: httpx.Response(
+        code, content=text, headers={"content-type": "application/json"}))
+    assert str(_fehler(bc0)) == MELDUNG_ANTWORT.format(
+        aktion="Gate nachziehen", code=code, detail=text)
+
+
+def test_weiterleitung_wird_nicht_befolgt():
+    bc0 = FakeBc0(aktion=lambda r: httpx.Response(
+        302, headers={"location": "https://anderswo.example.org/"}))
+    assert str(_fehler(bc0)) == MELDUNG_ANTWORT.format(
+        aktion="Gate nachziehen", code=302, detail="")
+    assert len(bc0.anfragen) == 2                      # Login + Aufruf, kein Folgen
+
+
+def _wirft(ausnahme_klasse):
+    def antwort(request):
+        raise ausnahme_klasse("kaputt", request=request)
+    return antwort
+
+
+@pytest.mark.parametrize("klasse", [httpx.ConnectError, httpx.ReadTimeout])
+def test_nicht_erreichbar_beim_login_ohne_verkettung(klasse):
+    fehler = _fehler(FakeBc0(login=_wirft(klasse)))
+    assert str(fehler) == MELDUNG_NICHT_ERREICHBAR.format(
+        url="https://bc0.example.org", art=klasse.__name__)
+    # Die httpx-Ausnahme traegt den Login-Rumpf mit dem Passwort — sie darf an der
+    # BC1-Ausnahme nicht haengen, weder als Ursache noch als Kontext.
+    assert fehler.__cause__ is None and fehler.__context__ is None
+
+
+def test_nicht_erreichbar_beim_fachaufruf():
+    fehler = _fehler(FakeBc0(aktion=_wirft(httpx.ConnectError)))
+    assert str(fehler) == MELDUNG_NICHT_ERREICHBAR.format(
+        url="https://bc0.example.org", art="ConnectError")
