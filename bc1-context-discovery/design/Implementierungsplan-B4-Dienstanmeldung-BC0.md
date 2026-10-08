@@ -1484,3 +1484,191 @@ uv run python -m bc1_service.bc0_meldungen --probe
 ```
 
 Erwartet: „Schreibrecht: ja", „Mandant … sichtbar: ja", Exit 0. Weicht etwas ab → Ergebnis melden, nicht im Code „passend machen".
+
+---
+
+### Task 8: Gate je Anfrage + Selbstheilung beim Start (Ergänzung 2, 08.10., nach BC0 v3.13)
+
+**Anlass:** BC0 v3.13 (#281) zählt nur noch Profile mit derselben `anfrage_id` und nimmt optional `POST …/gate_nachziehen?anfrage_id=…` (Bitte von BC0 in #280). Damit fällt der Grund für die Rückstellung „Selbstheilung beim Start" weg. Spec: Stellen „Ergänzung 2". Eigener Zweig `bc1-b4-gate-je-anfrage` ab `main` (enthält B4 und BC0 v3.13).
+
+**Files:**
+- Modify: `bc1_service/bc0_meldungen.py`, `bc1_service/start.py`, `bc1_service/main.py`, `bc1_service/api.py`
+- Modify: `tests/test_bc0_meldungen.py`, `tests/test_start.py`, `tests/test_api.py`, `tests/test_api_profil.py`
+- Modify: `README.md`, `bc1_service/n8n/SMOKE.md`, `design/Abschlussplan-BC1.md`
+
+**Interfaces:**
+- Consumes: `Bc0Melder._melden`, `pruefe_konto`, `melde_interview_laeuft`; `api._gate_im_hintergrund(melder, company_id, anfrage_id)`; Test-Fakes `FakeBc0`, `_Melder` (test_start), `_GateMelder` (test_api), `_StartMelder`/`_GateZaehler`/`_main_mit_melder` (test_api_profil)
+- Produces:
+  - `Bc0Melder.ziehe_gate_nach(anfrage_id: str) -> list[str]` — schickt Query-Parameter `anfrage_id`
+  - `Bc0Melder._melden(aktion, methode, pfad, rumpf=None, params=None)`
+  - `start.pruefe_bc0_vor_dem_start(melder, anfrage_id: str) -> None` — bei Melder: `pruefe_konto()`, dann `ziehe_gate_nach(anfrage_id)`; `None` → nichts
+  - `start.melde_interview_beginn(melder, anfrage_id, status)` — nur noch die Meldung bei `zugeordnet` (keine Kontoprüfung mehr)
+  - `main.py`: `pruefe_bc0_vor_dem_start` im `try` vor dem `with`-Block; `melde_interview_beginn` wie bisher danach
+  - `api._gate_im_hintergrund` ruft `melder.ziehe_gate_nach(anfrage_id)`
+
+- [ ] **Step 1: Melder (`test_bc0_meldungen.py`, je RED)** — zuerst alle Bestandsaufrufe `ziehe_gate_nach()` auf `ziehe_gate_nach(ANFRAGE)` umstellen (Signaturänderung: erst die Aufrufe, dann die Implementierung — tdd-guard-Lesson), dann neu:
+
+```python
+def test_gate_schickt_die_eigene_anfrage_als_parameter():
+    bc0 = FakeBc0()
+    _melder(bc0).ziehe_gate_nach(ANFRAGE)
+    gate = bc0.anfragen[1]
+    assert gate.url.path == f"/api/companies/{MANDANT}/anfragen/gate_nachziehen"
+    assert dict(gate.url.params) == {"anfrage_id": ANFRAGE}
+```
+
+Implementierung:
+
+```python
+    def ziehe_gate_nach(self, anfrage_id: str) -> list[str]:
+        """Gate je Anfrage (BC0 v3.13): BC0 prueft nur diese Anfrage statt des ganzen Mandanten."""
+        daten = self._melden(
+            "Gate nachziehen", "POST",
+            f"/api/companies/{self._company_id}/anfragen/gate_nachziehen",
+            params={"anfrage_id": anfrage_id})
+        return list(daten.get("gesetzt") or [])          # auch bei "gesetzt": null
+```
+
+`_melden(..., rumpf: dict | None = None, params: dict | None = None)` und `client.request(methode, pfad, json=rumpf, params=params)`.
+
+- [ ] **Step 2: Hintergrund (`test_api.py`, `test_api_profil.py`)** — `_GateMelder.ziehe_gate_nach(self, anfrage_id)` und `_GateZaehler.ziehe_gate_nach(self, anfrage_id)` merken sich `anfrage_id` (`self.anfragen.append(anfrage_id)`); neuer Test in `test_api.py`:
+
+```python
+def test_gate_im_hintergrund_reicht_die_eigene_anfrage_durch():
+    melder = _GateMelder()
+    _bis_fertig(_gate_client(melder))
+    assert melder.anfragen == [ANFRAGE]
+```
+
+Implementierung `api._gate_im_hintergrund`: `gesetzt = melder.ziehe_gate_nach(anfrage_id)`.
+
+- [ ] **Step 3: Start (`test_start.py`)** — Fake `_Melder` um `ziehe_gate_nach(self, anfrage_id)` erweitern (`self.aufrufe.append("gate")`, optional `gate_fehler`). Die drei Tests, die heute `pruefe` in `melde_interview_beginn` erwarten (`test_zugeordnet_prueft_zuerst_und_meldet_dann`, `test_im_interview_prueft_den_zugang_trotzdem`, `test_gescheiterte_pruefung_bricht_ab_und_meldet_nicht`), wandern zur neuen Funktion — Bestandstests in getrennten Schritten anpassen (tdd-guard-Lesson); neu:
+
+```python
+def test_vor_dem_start_erst_pruefen_dann_gate():
+    melder = _Melder()
+    pruefe_bc0_vor_dem_start(melder, "A-2026-01")
+    assert melder.aufrufe == ["pruefe", "gate"]
+
+
+def test_vor_dem_start_ohne_melder_nichts():
+    pruefe_bc0_vor_dem_start(None, "A-2026-01")            # darf nicht werfen
+
+
+def test_gescheiterte_pruefung_zieht_kein_gate_nach():
+    melder = _Melder(pruef_fehler=Bc0MeldungFehler("Konto kaputt"))
+    with pytest.raises(Bc0MeldungFehler, match="Konto kaputt"):
+        pruefe_bc0_vor_dem_start(melder, "A-2026-01")
+    assert melder.aufrufe == ["pruefe"]
+
+
+def test_melde_interview_beginn_meldet_nur_noch():
+    melder = _Melder()
+    melde_interview_beginn(melder, "A-2026-01", "zugeordnet")
+    assert melder.aufrufe == ["melde"]
+```
+
+Implementierung `start.py`:
+
+```python
+def pruefe_bc0_vor_dem_start(melder, anfrage_id: str) -> None:
+    """B4 (Ergaenzung 2, 08.10.): vor dem Lesen aus der DB — Zugang pruefen, dann das Gate fuer
+    die eigene Anfrage nachziehen (Selbstheilung: holt einen frueher gescheiterten Gate-Aufruf
+    nach; seit BC0 v3.13 zaehlen nur Profile derselben Anfrage). Steht die Anfrage danach auf
+    am_gate, bricht lade_kontext mit der B5-Meldung ab — kein ueberfluessiges Interview.
+    melder None = Meldungen bewusst aus. Ein Bc0MeldungFehler bricht den Start ab."""
+    if melder is None:
+        return
+    melder.pruefe_konto()
+    melder.ziehe_gate_nach(anfrage_id)
+
+
+def melde_interview_beginn(melder, anfrage_id: str, status: str | None) -> None:
+    """B4: BC0 melden, dass interviewt wird — nur aus 'zugeordnet'; bei 'im_interview' nicht
+    erneut, sonst ueberschriebe jeder Neustart BC0s status_seit. Die Kontopruefung laeuft vorher
+    in pruefe_bc0_vor_dem_start. melder None = Meldungen bewusst aus."""
+    if melder is not None and status == "zugeordnet":
+        melder.melde_interview_laeuft(anfrage_id)
+```
+
+Modul-Docstring von `start.py` entsprechend anpassen.
+
+- [ ] **Step 4: `main.py` + Verdrahtungstests (`test_api_profil.py`, DB)** — `_StartMelder` um `ziehe_gate_nach(self, anfrage_id)` erweitern (`self.gate.append(anfrage_id)`, Start `[]`); neue Tests (einzeln, je RED):
+
+```python
+def test_main_zieht_beim_start_das_gate_fuer_die_eigene_anfrage_nach(umgebung, monkeypatch):
+    import sys
+
+    melder = _StartMelder()
+    main = _main_mit_melder(monkeypatch, ANFRAGE_A, melder)
+    try:
+        assert melder.gate == [ANFRAGE_A]
+        assert melder.gemeldet == [ANFRAGE_A]
+    finally:
+        main._store.close()
+        main._profil_pool.close()
+        sys.modules.pop("bc1_service.main", None)
+
+
+def test_main_bricht_ab_wenn_das_gate_die_anfrage_schon_abschliesst(umgebung, monkeypatch):
+    class _GateSchliesstAb(_StartMelder):
+        def ziehe_gate_nach(self, anfrage_id):
+            super().ziehe_gate_nach(anfrage_id)
+            # So wirkt BC0, wenn alle Teilprozesse der Anfrage fertig sind (v3.13).
+            with verbindung(DSN, None) as conn:
+                conn.execute("UPDATE ref_anfragen SET status = 'am_gate' "
+                             "WHERE company_id = %s AND anfrage_id = %s", (MANDANT_A, anfrage_id))
+                conn.commit()
+
+    melder = _GateSchliesstAb()
+    with pytest.raises(RuntimeError, match="steht auf 'am_gate'"):
+        _main_mit_melder(monkeypatch, ANFRAGE_A, melder)
+    assert melder.gemeldet == []
+
+
+def test_main_schliesst_die_pools_wenn_das_gate_beim_start_scheitert(umgebung, monkeypatch):
+    from bc1_service.bc0_meldungen import Bc0MeldungFehler
+    from psycopg_pool import ConnectionPool
+
+    geschlossen: list[str] = []
+    original = ConnectionPool.close
+
+    def _close(self, *a, **kw):
+        geschlossen.append("pool")
+        return original(self, *a, **kw)
+
+    class _GateKaputt(_StartMelder):
+        def ziehe_gate_nach(self, anfrage_id):
+            raise Bc0MeldungFehler("BC0 antwortet auf 'Gate nachziehen' mit 500: x")
+
+    monkeypatch.setattr(ConnectionPool, "close", _close)
+    with pytest.raises(Bc0MeldungFehler, match="Gate nachziehen"):
+        _main_mit_melder(monkeypatch, ANFRAGE_A, _GateKaputt())
+    assert len(geschlossen) >= 2
+```
+
+Implementierung `main.py` (Import um `pruefe_bc0_vor_dem_start` ergänzen):
+
+```python
+try:
+    # Ergaenzung 2: vor dem Lesen aus der DB — Zugang pruefen, Gate fuer die eigene Anfrage
+    # nachziehen. Hat ein frueherer Lauf das Gate verpasst, steht die Anfrage danach auf
+    # am_gate und lade_kontext bricht mit der B5-Meldung ab.
+    pruefe_bc0_vor_dem_start(_melder, _anfrage_id)
+    with _profil_pool.connection() as _conn:
+        _kontext = lade_kontext(_conn, _company_id, _anfrage_id)
+        _status = bc0_lesepfade.anfrage_status(_conn, _company_id, _anfrage_id)
+    melde_interview_beginn(_melder, _anfrage_id, _status)
+except Exception:
+    ...  # unverändert: beide Pools schließen, re-raise
+```
+
+- [ ] **Step 5: Doku**
+  - `SMOKE.md`: den B5-Hinweis „**Für den Durchstich** einen Teilprozess wählen, zu dem es noch kein fertiges BC1-Profil gibt …" ersetzen durch „Seit BC0 v3.13 (08.10.) zählt die Gate-Funktion nur Profile derselben Anfrage — im Durchstich ist jeder Teilprozess wählbar." Im BC0-Absatz ergänzen: beim Start zieht der Dienst nach der Kontoprüfung das Gate für die eigene Anfrage nach; ist die Anfrage danach schon `am_gate`, endet der Start mit „steht auf 'am_gate'".
+  - `README.md` (Absatz „Was der Dienst bei BC0 tut"): dieselbe Ergänzung in einem Satz; Gate-Aufrufe tragen `?anfrage_id=`.
+  - `Abschlussplan-BC1.md`: Stand-Zeile; B4-Zeile „gebaut; Live offen" → „live: Probe 08.10. bestanden" und den Hinweis „Teilprozess ohne fertiges Profil" streichen, Ergänzung 2 nennen; Kleinpunkt „Neu 08.10." (1) Selbstheilung → *erledigt 08.10. (Ergänzung 2)*; Kleinpunkt „Neu 06.10." (9) BC0-Gate-Funktion über `anfrage_id` → *erledigt durch BC0 v3.13 (#281)*.
+  - Kontrolle: `git grep -n "ohne fertiges\|kein fertiges" README.md bc1_service/n8n/SMOKE.md design/Abschlussplan-BC1.md` findet nur noch erledigte/historische Stellen.
+
+- [ ] **Step 6: Grün + Commit** — `BC1_TEST_DB_DSN=… uv run pytest -q -W error`; Commit `"BC1 B4: Gate je Anfrage (?anfrage_id) und Selbstheilung beim Start (BC0 v3.13)"` (+ Trailer).
+
+- [ ] **Step 7: Pause** — agy-Review, Zwischenstand, Push/PR nur nach OK der BC1-Projektleitung.

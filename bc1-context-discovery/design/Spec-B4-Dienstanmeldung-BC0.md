@@ -12,6 +12,9 @@
 > **Ergänzt 08.10.2026 (Entscheidung BC1-Projektleitung, „B"):** Der Start prüft den Zugang
 > **immer** (Anmeldung + eigenes Konto lesen), nicht nur bei `zugeordnet` — sonst fiel ein
 > falscher Zugang bei einer Anfrage im Stand `im_interview` erst nach dem Interview auf.
+> **Ergänzung 2, 08.10.2026 (nach BC0 v3.13, #281; Entscheidung BC1-Projektleitung):** BC0s Gate-Funktion zählt
+> seit v3.13 nur Profile mit derselben `anfrage_id` und nimmt optional `?anfrage_id=`. BC1 schickt den Parameter
+> bei jedem Gate-Aufruf mit und zieht das Gate **auch beim Start** nach („Selbstheilung", vorher Rückstellung).
 > Nächster Schritt nach Abnahme dieser Spec: Implementierungsplan.
 
 ## Big Picture
@@ -53,12 +56,12 @@ Dafür meldet sich BC1 mit dem Anwendungskonto bei BC0 an, wie ein Benutzer im B
 | Punkt | Warum nicht | Wohin |
 |---|---|---|
 | `PUT …/zuordnung` (stand im Plan) | Seit B5 interviewt BC1 nur bereits zugeordnete Anfragen. Der Aufruf würde den Hauptbezug ersetzen — mit einem einzelnen Teilprozess fielen die übrigen Teilprozesse aus der Anfrage. Schaden statt Nutzen. | entfällt; Klärpunkt an BC0 (s. u.) |
-| Gate-Aufruf auch beim Start („Selbstheilung") | BC0s Gate-Funktion verknüpft nur über den Teilprozess (B5-Rückstellung 9): eine neue Anfrage auf einen Teilprozess mit altem fertigem Profil ginge beim Start sofort ans Gate, der Start bräche ab, **bevor** interviewt wurde. | Rückstellung — einbauen, sobald BC0 über `anfrage_id` prüft |
+| Gate-Aufruf auch beim Start („Selbstheilung") | BC0s Gate-Funktion verknüpfte nur über den Teilprozess (B5-Rückstellung 9): eine neue Anfrage auf einen Teilprozess mit altem fertigem Profil ginge beim Start sofort ans Gate, der Start bräche ab, **bevor** interviewt wurde. | **Gebaut mit Ergänzung 2 (08.10.)** — BC0 v3.13 prüft über `anfrage_id` |
 | Snapshot-Modus durch DB-Lesepfad ablösen · Zugangsprüfung `GET /prozesse` (B3 d) | Für den Durchstich nicht nötig; berührt die Prozessauswahl. | eigener Punkt im Abschlussplan, nach C4 (b) |
 | Wiederholung / Warteschlange für fehlgeschlagene Gate-Aufrufe | Rückfall von Hand reicht für den Durchstich; Gate nachziehen ist beliebig wiederholbar. | C4, nur auf konkreten Anlass |
 | Sitzung bei BC0 aufbewahren | Eine BC0-Anmeldung gilt 8 Stunden; zwischen Start und Abschluss können Stunden liegen. Frische Anmeldung je Meldung = höchstens zwei Anmeldungen je Teilprozess, kein abgelaufenes Cookie. | — |
 
-**Was bleibt (BC0-seitig, nicht durch BC1 lösbar).** Die Gate-Funktion prüft weiter nur über
+**Was bleibt (BC0-seitig, nicht durch BC1 lösbar)** — *erledigt durch BC0 v3.13 (08.10., #281): gezählt werden nur Profile mit derselben `anfrage_id`, jeder Teilprozess ist im Durchstich wählbar.* Ursprünglicher Text: Die Gate-Funktion prüft weiter nur über
 den Teilprozess und läuft für den ganzen Mandanten: ein Abschluss kann eine Anfrage mit mehreren
 Teilprozessen, deren übrige Teilprozesse alte fertige Profile tragen, zu früh ans Gate schieben —
 auch *andere* Anfragen desselben Mandanten. Bis BC0 das korrigiert: im Durchstich Teilprozesse
@@ -78,7 +81,7 @@ den Mandanten sieht.
 |---|---|---|---|
 | `POST /api/auth/login` | `{"email", "passwort"}` | — | 200 + Cookie `bc0_sitzung` (HttpOnly, Secure, 8 h) · 401 „E-Mail-Adresse oder Passwort ist falsch." · 429 mit `Retry-After` (Sekunden) |
 | `PUT /api/companies/{cid}/anfragen/{anfrage_id}/status` | `{"status": "im_interview"}` | `schreibender_benutzer` + Mandant | 200 `{status_alt, status}` · 400 (kein Prozessbezug, Rückschritt) · 401 · 403 (kein Schreibrecht) · 404 („Mandant unbekannt." oder „Unbekannte Anfrage: …") |
-| `POST /api/companies/{cid}/anfragen/gate_nachziehen` | — | `schreibender_benutzer` + Mandant | 200 `{geprueft, gesetzt[], anfragen[]}` · 401 · 403 (kein Schreibrecht) · 404 („Mandant unbekannt.") · 501 (BC0 ohne Postgres) |
+| `POST /api/companies/{cid}/anfragen/gate_nachziehen?anfrage_id={anfrage_id}` (Parameter seit BC0 v3.13, Ergänzung 2) | — | `schreibender_benutzer` + Mandant | 200 `{geprueft, gesetzt[], anfragen[]}` · 400 (falsche Form) · 401 · 403 (kein Schreibrecht) · 404 („Mandant unbekannt." oder unbekannte Anfrage) · 501 (BC0 ohne Postgres) |
 | `GET /api/auth/me` (Start-Prüfung und Live-Probe) | — | angemeldet | 200 `{rolle, ist_admin, darf_schreiben, mandanten[], …}` |
 
 **Rechte bei BC0 (`bc0_auth`):** 403 kommt nur bei fehlendem Schreibrecht (`darf_schreiben` =
@@ -107,7 +110,7 @@ zurückgeschickt — ein lokales BC0 braucht deshalb `BC0_COOKIE_UNSICHER=1` (BC
   (`httpx.MockTransport`). Je Meldung: neuer `httpx.Client(base_url=…, timeout=10,
   transport=…)` → Login → Aufruf → schließen.
   - `melde_interview_laeuft(anfrage_id) -> None`
-  - `ziehe_gate_nach() -> list[str]` (die von BC0 gemeldeten `gesetzt`)
+  - `ziehe_gate_nach(anfrage_id: str) -> list[str]` (die von BC0 gemeldeten `gesetzt`; schickt `?anfrage_id=` mit — Ergänzung 2)
   - Fehler → **`Bc0MeldungFehler(RuntimeError)`** mit einem der Sätze aus Abschnitt 5.
   - **Keine Verkettung mit `httpx`-Ausnahmen** (`raise … from None`): eine `httpx`-Ausnahme trägt
     die Anfrage samt Rumpf (`e.request.content` — beim Login also das Passwort; gemessen 06.10.).
@@ -137,14 +140,19 @@ Reihenfolge in `main.py`:
 1. wie heute: `BC1_DB_DSN`, `lies_company_id`, `lies_anfrage_id`
 2. **neu:** `_melder = baue_melder(os.environ, _company_id)` — **vor** dem Öffnen der Pools, damit
    ein Konfigurationsfehler ohne offene Verbindungen abbricht
+2a. **Ergänzung 2:** nach dem Öffnen der Pools, im `try` und **vor** dem Lesen aus der DB:
+   `pruefe_bc0_vor_dem_start(_melder, _anfrage_id)` in `start.py` — bei Melder `pruefe_konto()`, dann
+   `ziehe_gate_nach(_anfrage_id)` (Selbstheilung). Steht die Anfrage danach auf `am_gate` (Interview war
+   fertig, nur das Gate verpasst), bricht Schritt 3 mit der B5-Meldung „steht auf 'am_gate'" ab — kein
+   überflüssiges Interview. Fehler brechen den Start ab (Pools werden geschlossen).
 3. wie heute: Pools öffnen, im `with _profil_pool.connection()`-Block `lade_kontext(...)`
    (B5-Prüfungen unverändert); **neu, im selben Block:** `_status =
    bc0_lesepfade.anfrage_status(...)`
 4. **neu, nach dem `with`-Block, aber im selben `try`** (die DB-Verbindung ist schon zurück im
    Pool und wartet nicht bis zu 10 s auf BC0; beim Abbruch werden die Pools weiter geschlossen):
-   `melde_interview_beginn(_melder, _anfrage_id, _status)` in `start.py` — bei `_melder is not
-   None` **zuerst immer `pruefe_konto()`** (Ergänzung 08.10.), dann `melde_interview_laeuft` nur
-   bei `_status == "zugeordnet"`. `Bc0MeldungFehler` geht als Startabbruch durch.
+   `melde_interview_beginn(_melder, _anfrage_id, _status)` in `start.py` — `melde_interview_laeuft`
+   nur bei `_melder is not None` und `_status == "zugeordnet"` (die Kontoprüfung ist mit Ergänzung 2
+   nach Schritt 2a gewandert). `Bc0MeldungFehler` geht als Startabbruch durch.
 
 Der Status kommt **nicht** in `Bc0Kontext`: der Kontext geht in den Fingerabdruck ein, und der
 Wechsel `zugeordnet` → `im_interview` darf laufende Sitzungen nicht in `paket_konflikt` stürzen.
@@ -219,6 +227,10 @@ keinem Log und keinem `repr`.**
   der Prüfung, meldet nicht bei gescheiterter Prüfung · `main`: Start bricht auch bei
   `im_interview` ab, wenn die Prüfung scheitert (Pools geschlossen) · Live-Probe nutzt dieselbe
   Bewertung.
+- **Ergänzung 2 (08.10.):** `ziehe_gate_nach` schickt `?anfrage_id=` (Fake prüft den Parameter) ·
+  Hintergrund-Gate reicht die `anfrage_id` durch · Start-Reihenfolge Prüfung → Gate → DB → Meldung ·
+  Gate-Fehler beim Start bricht ab (Pools geschlossen) · setzt das Gate die Anfrage beim Start auf
+  `am_gate`, bricht der Start mit „steht auf 'am_gate'" ab, ohne Meldung.
 - Abschluss: volle Suite mit Container (PG 17), `-W error`.
 
 ### 7. Prüfung, Live, Mitteilungen
