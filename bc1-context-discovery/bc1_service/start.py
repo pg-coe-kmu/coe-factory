@@ -110,7 +110,11 @@ def pruefe_bc0_vor_dem_start(melder, anfrage_id: str) -> None:
     die eigene Anfrage nachziehen (Selbstheilung: holt einen frueher gescheiterten Gate-Aufruf
     nach; seit BC0 v3.13 zaehlen nur Profile derselben Anfrage). Steht die Anfrage danach auf
     am_gate, bricht lade_kontext mit der B5-Meldung ab — kein ueberfluessiges Interview.
-    melder None = Meldungen bewusst aus. Ein Bc0MeldungFehler bricht den Start ab."""
+    melder None = Meldungen bewusst aus. Ein Bc0MeldungFehler bricht den Start ab.
+
+    melder: bc0_meldungen.Bc0Melder oder Ersatz mit pruefe_konto() und
+    ziehe_gate_nach(anfrage_id) — bewusst ohne Import (start.py bleibt frei von der
+    HTTP-Seite)."""
     if melder is None:
         return
     melder.pruefe_konto()
@@ -123,8 +127,7 @@ def melde_interview_beginn(melder, anfrage_id: str, status: str | None) -> None:
     in pruefe_bc0_vor_dem_start. melder None = Meldungen bewusst aus (BC1_BC0_MELDUNGEN=aus).
     Ein Bc0MeldungFehler bricht den Start ab.
 
-    melder: bc0_meldungen.Bc0Melder oder Ersatz mit pruefe_konto(), ziehe_gate_nach(anfrage_id)
-    und melde_interview_laeuft(anfrage_id) — bewusst ohne Import (start.py bleibt frei von der
-    HTTP-Seite)."""
+    melder: bc0_meldungen.Bc0Melder oder Ersatz mit melde_interview_laeuft(anfrage_id) —
+    bewusst ohne Import (start.py bleibt frei von der HTTP-Seite)."""
     if melder is not None and status == "zugeordnet":
         melder.melde_interview_laeuft(anfrage_id)
