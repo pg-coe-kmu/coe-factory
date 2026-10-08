@@ -60,6 +60,12 @@ MELDUNG_MANDANT_UNBEKANNT = (
 MELDUNG_ANTWORT = "BC0 antwortet auf '{aktion}' mit {code}: {detail}"
 MELDUNG_NICHT_ERREICHBAR = (
     "BC0 unter {url} ist nicht erreichbar ({art}). Läuft BC0, stimmt BC1_BC0_URL?")
+MELDUNG_KONTO_OHNE_SCHREIBRECHT = (
+    "Das BC0-Anwendungskonto darf nicht schreiben (Rolle '{rolle}'). Es braucht die Rolle "
+    "'benutzer' oder 'admin'.")
+MELDUNG_KONTO_OHNE_MANDANT = (
+    "Das BC0-Anwendungskonto sieht den Mandanten {company_id} nicht. Das Konto braucht den "
+    "Mandanten zugewiesen.")
 
 _ANMELDUNG = "Anmeldung"
 _MANDANT_UNBEKANNT_DETAIL = "Mandant unbekannt."   # bc0_auth.abhaengigkeiten.pruefe_mandant
@@ -124,6 +130,14 @@ def _minuten(antwort: httpx.Response) -> int:
     return max(1, round(sekunden / 60))
 
 
+def _konto_bereit(konto: dict, company_id: str) -> tuple[bool, bool]:
+    """(darf schreiben, sieht den Mandanten) — wie BC0s darf_schreiben/darf_mandanten_sehen:
+    Admin sieht alle Mandanten. "mandanten": null gilt als leer."""
+    schreiben = konto.get("darf_schreiben") is True
+    mandant = konto.get("ist_admin") is True or company_id in (konto.get("mandanten") or [])
+    return schreiben, mandant
+
+
 class Bc0Melder:
     """Je Meldung: frischer Client -> Login -> Aufruf -> schliessen."""
 
@@ -146,6 +160,15 @@ class Bc0Melder:
 
     def lies_konto(self) -> dict:
         return self._melden("Konto lesen", "GET", "/api/auth/me")
+
+    def pruefe_konto(self) -> None:
+        """Start-Pruefung (Ergaenzung 08.10.): Anmeldung + eigenes Konto lesen, aendert nichts."""
+        konto = self.lies_konto()
+        schreiben, mandant = _konto_bereit(konto, self._company_id)
+        if not schreiben:
+            raise Bc0MeldungFehler(MELDUNG_KONTO_OHNE_SCHREIBRECHT.format(rolle=konto.get("rolle")))
+        if not mandant:
+            raise Bc0MeldungFehler(MELDUNG_KONTO_OHNE_MANDANT.format(company_id=self._company_id))
 
     def _melden(self, aktion: str, methode: str, pfad: str, rumpf: dict | None = None) -> dict:
         art = None
@@ -222,8 +245,7 @@ def probe(umgebung: Mapping[str, str], *, transport=None, ausgabe=print) -> int:
     except Bc0MeldungFehler as fehler:
         ausgabe(str(fehler))
         return 1
-    schreiben = konto.get("darf_schreiben") is True
-    mandant = konto.get("ist_admin") is True or company_id in konto.get("mandanten", [])
+    schreiben, mandant = _konto_bereit(konto, company_id)
     ausgabe(f"Rolle: {konto.get('rolle')}")
     ausgabe(f"Schreibrecht: {'ja' if schreiben else 'nein'}")
     ausgabe(f"Mandant {company_id} sichtbar: {'ja' if mandant else 'nein'}")

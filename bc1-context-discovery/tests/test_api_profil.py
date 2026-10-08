@@ -424,6 +424,10 @@ def test_main_verdrahtet_den_profil_writer(umgebung, monkeypatch):
 class _StartMelder:
     def __init__(self):
         self.gemeldet: list[str] = []
+        self.geprueft = 0
+
+    def pruefe_konto(self):
+        self.geprueft += 1
 
     def melde_interview_laeuft(self, anfrage_id):
         self.gemeldet.append(anfrage_id)
@@ -483,6 +487,26 @@ def test_main_meldet_eine_anfrage_im_interview_nicht_erneut(umgebung, monkeypatc
         main._store.close()
         main._profil_pool.close()
         sys.modules.pop("bc1_service.main", None)
+
+
+def test_main_bricht_bei_im_interview_ab_wenn_die_kontopruefung_scheitert(umgebung, monkeypatch):
+    from bc1_service.bc0_meldungen import Bc0MeldungFehler
+
+    with verbindung(DSN, None) as conn:
+        conn.execute("UPDATE ref_anfragen SET status = 'im_interview' "
+                     "WHERE company_id = %s AND anfrage_id = %s", (MANDANT_A, ANFRAGE_A))
+        conn.commit()
+
+    class _KontoKaputt(_StartMelder):
+        def pruefe_konto(self):
+            super().pruefe_konto()          # zaehlt den Aufruf, dann der Mangel
+            raise Bc0MeldungFehler("Das BC0-Anwendungskonto darf nicht schreiben (Rolle 'leser').")
+
+    melder = _KontoKaputt()
+    with pytest.raises(Bc0MeldungFehler, match="darf nicht schreiben"):
+        _main_mit_melder(monkeypatch, ANFRAGE_A, melder)
+    assert melder.geprueft == 1
+    assert melder.gemeldet == []
 
 
 def test_main_schliesst_die_pools_wenn_die_meldung_scheitert(umgebung, monkeypatch):

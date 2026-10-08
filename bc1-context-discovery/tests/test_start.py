@@ -224,11 +224,19 @@ def test_mandant_mit_teilprozessen_aber_ohne_bewertung_startet_nicht():
 
 
 class _Melder:
-    def __init__(self, fehler=None):
+    def __init__(self, fehler=None, pruef_fehler=None):
         self.gemeldet: list[str] = []
+        self.aufrufe: list[str] = []
         self._fehler = fehler
+        self._pruef_fehler = pruef_fehler
+
+    def pruefe_konto(self):
+        self.aufrufe.append("pruefe")
+        if self._pruef_fehler:
+            raise self._pruef_fehler
 
     def melde_interview_laeuft(self, anfrage_id):
+        self.aufrufe.append("melde")
         self.gemeldet.append(anfrage_id)
         if self._fehler:
             raise self._fehler
@@ -238,6 +246,25 @@ def test_zugeordnete_anfrage_wird_einmal_als_im_interview_gemeldet():
     melder = _Melder()
     melde_interview_beginn(melder, "A-2026-01", "zugeordnet")
     assert melder.gemeldet == ["A-2026-01"]
+
+
+def test_zugeordnet_prueft_zuerst_und_meldet_dann():
+    melder = _Melder()
+    melde_interview_beginn(melder, "A-2026-01", "zugeordnet")
+    assert melder.aufrufe == ["pruefe", "melde"]
+
+
+def test_im_interview_prueft_den_zugang_trotzdem():
+    melder = _Melder()
+    melde_interview_beginn(melder, "A-2026-01", "im_interview")
+    assert melder.aufrufe == ["pruefe"]
+
+
+def test_gescheiterte_pruefung_bricht_ab_und_meldet_nicht():
+    melder = _Melder(pruef_fehler=Bc0MeldungFehler("Konto kaputt"))
+    with pytest.raises(Bc0MeldungFehler, match="Konto kaputt"):
+        melde_interview_beginn(melder, "A-2026-01", "zugeordnet")
+    assert melder.aufrufe == ["pruefe"]
 
 
 def test_anfrage_schon_im_interview_wird_nicht_erneut_gemeldet():

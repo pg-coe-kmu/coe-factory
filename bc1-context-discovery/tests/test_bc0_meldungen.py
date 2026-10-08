@@ -16,6 +16,8 @@ from bc1_service.bc0_meldungen import (
     MELDUNG_GESPERRT,
     MELDUNG_KEIN_HTTPS,
     MELDUNG_KEIN_SCHREIBRECHT,
+    MELDUNG_KONTO_OHNE_MANDANT,
+    MELDUNG_KONTO_OHNE_SCHREIBRECHT,
     MELDUNG_MANDANT_UNBEKANNT,
     MELDUNG_NICHT_ERREICHBAR,
     MELDUNG_SCHALTER_UNBEKANNT,
@@ -400,6 +402,48 @@ def test_nicht_erreichbar_beim_fachaufruf():
         url="https://bc0.example.org", art="ConnectError")
 
 
+def _konto_melder(konto):
+    bc0 = FakeBc0(konto=konto)
+    return _melder(bc0), bc0
+
+
+def test_pruefe_konto_bereit_liest_nur_das_eigene_konto():
+    melder, bc0 = _konto_melder(None)                     # Benutzer mit Mandant (Standard)
+    melder.pruefe_konto()
+    assert [(a.method, a.url.path) for a in bc0.anfragen] == [
+        ("POST", "/api/auth/login"), ("GET", "/api/auth/me")]
+
+
+def test_pruefe_konto_leser_bricht_ab():
+    melder, _ = _konto_melder({"rolle": "leser", "ist_admin": False,
+                               "darf_schreiben": False, "mandanten": [MANDANT]})
+    with pytest.raises(Bc0MeldungFehler) as fehler:
+        melder.pruefe_konto()
+    assert str(fehler.value) == MELDUNG_KONTO_OHNE_SCHREIBRECHT.format(rolle="leser")
+
+
+@pytest.mark.parametrize("mandanten", [[], None, ["99999999-9999-9999-9999-999999999999"]])
+def test_pruefe_konto_ohne_sichtbaren_mandanten_bricht_ab(mandanten):
+    melder, _ = _konto_melder({"rolle": "benutzer", "ist_admin": False,
+                               "darf_schreiben": True, "mandanten": mandanten})
+    with pytest.raises(Bc0MeldungFehler) as fehler:
+        melder.pruefe_konto()
+    assert str(fehler.value) == MELDUNG_KONTO_OHNE_MANDANT.format(company_id=MANDANT)
+
+
+def test_pruefe_konto_admin_ohne_mandantenliste_ist_bereit():
+    melder, _ = _konto_melder({"rolle": "admin", "ist_admin": True,
+                               "darf_schreiben": True, "mandanten": []})
+    melder.pruefe_konto()
+
+
+def test_pruefe_konto_reicht_bc0_absage_durch():
+    bc0 = FakeBc0(login=lambda r: httpx.Response(401, json={"detail": "x"}))
+    with pytest.raises(Bc0MeldungFehler) as fehler:
+        _melder(bc0).pruefe_konto()
+    assert str(fehler.value) == MELDUNG_ANMELDUNG_ABGELEHNT
+
+
 def _probe(konto=None, login=None, umgebung=None):
     zeilen: list[str] = []
     bc0 = FakeBc0(konto=konto, login=login)
@@ -431,6 +475,12 @@ def test_probe_leser_ist_nicht_bereit():
 def test_probe_benutzer_ohne_mandant_ist_nicht_bereit():
     code, zeilen, _ = _probe(konto={"rolle": "benutzer", "ist_admin": False,
                                     "darf_schreiben": True, "mandanten": []})
+    assert code == 1 and zeilen[2] == f"Mandant {MANDANT} sichtbar: nein"
+
+
+def test_probe_mit_mandantenliste_null_meldet_nicht_sichtbar():
+    code, zeilen, _ = _probe(konto={"rolle": "benutzer", "ist_admin": False,
+                                    "darf_schreiben": True, "mandanten": None})
     assert code == 1 and zeilen[2] == f"Mandant {MANDANT} sichtbar: nein"
 
 

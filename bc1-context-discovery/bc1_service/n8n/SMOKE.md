@@ -49,9 +49,10 @@ Seit B5 kommen **vier weitere** dazu, alle aus `lade_kontext` in
 Fehlt `BC1_ANFRAGE_ID` oder hat sie nicht die Form `A-JJJJ-NN`, bricht der Start schon
 vorher mit einem eigenen Hinweis ab (`lies_anfrage_id`).
 
-Seit B4 kommen die **BC0-Meldungen** dazu: Der Start meldet der Anfrage bei BC0 `im_interview`
-(nur aus `zugeordnet`) und braucht dafür den BC0-Zugang. Den verbindlichen Wortlaut tragen die
-`MELDUNG_*`-Konstanten in `bc1_service/bc0_meldungen.py`; hier nur, was sie bedeuten:
+Seit B4 kommen die **BC0-Meldungen** dazu: Der Start prüft immer den BC0-Zugang (Anmeldung +
+eigenes Konto, ändert nichts) und bricht bei einem Mangel ab — auch bei `im_interview`; danach
+meldet er der Anfrage bei BC0 `im_interview` (nur aus `zugeordnet`). Den verbindlichen Wortlaut
+tragen die `MELDUNG_*`-Konstanten in `bc1_service/bc0_meldungen.py`; hier nur, was sie bedeuten:
 
 | Meldung beginnt mit | Bedeutung | Was tun |
 |---|---|---|
@@ -63,14 +64,16 @@ Seit B4 kommen die **BC0-Meldungen** dazu: Der Start meldet der Anfrage bei BC0 
 | „BC0 nimmt die Anmeldung bei '…' nicht an (401)" | Anmeldung klappt, BC0 lehnt die Sitzung ab: lokales BC0 ohne https | dort `BC0_COOKIE_UNSICHER=1` setzen |
 | „BC0 verweigert '…' (403)" | Konto ohne Schreibrecht | bei BC0 Rolle `benutzer` erbitten |
 | „BC0 kennt den Mandanten … für dieses Anwendungskonto nicht (404)" | Mandant dem Konto nicht zugewiesen | bei BC0 zuweisen lassen |
+| „Das BC0-Anwendungskonto darf nicht schreiben (Rolle '…')" | Start-Prüfung: das Konto liest nur | bei BC0 Rolle `benutzer` oder `admin` erbitten |
+| „Das BC0-Anwendungskonto sieht den Mandanten …" | Start-Prüfung: Mandant dem Konto nicht zugewiesen | bei BC0 zuweisen lassen |
 | „BC0 antwortet auf '…' mit …" | BC0 meldet einen anderen Fehler (Code und Text von BC0 stehen in der Meldung) | Text lesen, bei BC0 nachfragen |
 | „BC0 unter … ist nicht erreichbar" | Netz/Adresse falsch oder BC0 aus | Adresse prüfen, läuft BC0? |
 
-Die ersten drei kommen schon vor dem Datenbankzugriff; die übrigen nur, wenn der Start
-wirklich melden muss — ist die Anfrage schon `im_interview`, startet der Dienst ohne Anruf bei
-BC0, und ein falscher Zugang fällt erst nach dem Abschluss auf (siehe unten). Darum vor dem
-ersten Start gegen echtes BC0 die **Live-Probe** laufen lassen (nur lesend, Exit 0 = bereit;
-Aufruf und Ausgabe: [`../../README.md`](../../README.md), „Setup und Start").
+Die ersten drei kommen schon vor dem Datenbankzugriff; die übrigen beim Anruf bei BC0 — den
+macht der Start immer, auch bei `im_interview`. Ein falscher Zugang fällt so beim Start auf,
+nicht erst nach dem Interview. Dieselbe Prüfung liefert die **Live-Probe**, die auch ohne
+laufenden Dienst gegen echtes BC0 läuft (nur lesend, Exit 0 = bereit; Aufruf und Ausgabe:
+[`../../README.md`](../../README.md), „Setup und Start").
 
 Mit `BC1_BC0_MELDUNGEN=aus` startet der Dienst ohne Zugang und loggt einmal eine WARNING
 (`MELDUNG_AUS`): `im_interview` und das Gate setzt BC0 dann von Hand.
