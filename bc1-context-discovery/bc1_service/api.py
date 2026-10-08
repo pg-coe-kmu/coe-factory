@@ -7,12 +7,15 @@ schema_version-Check im Request (mit Ausnahme für den terminalen Recovery-
 Replay, den der Kern über darf_recovery_replay entscheidet) und aktives
 Zurückweisen neuer Nachrichten an Sessions in einem Endzustand (fertig oder
 abgebrochen ohne Identität — Gate 0).
+Seit B4 stößt der Dienst nach einem eingefrorenen Profil BC0s 'Gate nachziehen' an —
+nach der Antwort, im Hintergrund.
 """
 from __future__ import annotations
 
+import logging
 import threading
 
-from fastapi import FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from bc1_core.core import (AnfrageKonfliktError, MandantKonfliktError,
@@ -22,7 +25,10 @@ from bc1_core.core import (AnfrageKonfliktError, MandantKonfliktError,
 from bc1_core.llm import LLMClient
 from bc1_core.package import UseCasePackage
 from bc1_core.store import StaleStateError, StateStore
+from bc1_service.bc0_meldungen import Bc0MeldungFehler
 from bc1_service.profil_writer import ProfilWriteError, ProfilWriter
+
+log = logging.getLogger(__name__)
 
 # Fester, LLM-freier Wortlaut (Spec K0): keine Halluzinationsflaeche im
 # Terminalzustand, und der Text bleibt ueber Neustarts identisch.
@@ -51,6 +57,11 @@ HINWEIS_GUELTIG = (
     "(mehr) vorhanden und wurde aus der Angabe entfernt; die übrige Angabe bleibt "
     "erhalten.")
 
+# B4 (Spec Abschnitt 5): der Rueckfall von Hand, wenn BC0 nicht mitspielt.
+MELDUNG_GATE_FEHLGESCHLAGEN = (
+    "Gate nachziehen bei BC0 fehlgeschlagen: {grund} — Anfrage {anfrage_id} bitte bei "
+    "BC0 von Hand nachziehen (POST /api/companies/{company_id}/anfragen/gate_nachziehen).")
+
 
 class TurnRequest(BaseModel):
     # Leere IDs sind keine gültigen Schlüssel (Session-Bindung, Idempotenz).
@@ -71,6 +82,8 @@ def create_app(
     # None nur in Tests ohne BC0-Kontext; main.py setzt immer (BC1_ANFRAGE_ID Pflicht).
     anfrage_id: str | None = None,
     writer: ProfilWriter | None = None,
+    # B4: None beim bewussten 'aus' (BC1_BC0_MELDUNGEN) und in Tests.
+    melder=None,
 ) -> FastAPI:
     # lifespan: Aufhaenger fuers Hoch-/Herunterfahren (main.py schliesst dort
     # den Store). Die Factory kennt den Inhalt nicht — nur den Durchreicher.
@@ -105,7 +118,7 @@ def create_app(
         return {"prozesse": snapshot.prozess_liste()}
 
     @app.post("/turn")
-    def turn(req: TurnRequest) -> dict:
+    def turn(req: TurnRequest, hintergrund: BackgroundTasks) -> dict:
         with _session_lock(req.session_id):
             state = store.load(req.session_id)
             if state is not None:
@@ -181,10 +194,28 @@ def create_app(
                 if db_profil is not None:
                     antwort["payload"].update(
                         {k: db_profil[k] for k in OVERLAY_SCHLUESSEL})
+                if melder is not None and antwort["status"] == "fertig":
+                    # Nach der Antwort, im Hintergrund: das Profil ist eingefroren,
+                    # der Chat darf an BC0 nie scheitern (Spec B4, Abschnitt 4).
+                    hintergrund.add_task(_gate_im_hintergrund, melder, company_id,
+                                         anfrage_id)
             antwort["chat_text"] = _chat_text(antwort)
             return antwort
 
     return app
+
+
+def _gate_im_hintergrund(melder, company_id: str, anfrage_id: str | None) -> None:
+    try:
+        gesetzt = melder.ziehe_gate_nach()
+    except Exception as fehler:                            # noqa: BLE001 — Hintergrund
+        # Nie das Ausnahmeobjekt loggen: eine fremde Ausnahme koennte Interna tragen.
+        grund = str(fehler) if isinstance(fehler, Bc0MeldungFehler) else type(fehler).__name__
+        log.warning(MELDUNG_GATE_FEHLGESCHLAGEN.format(
+            grund=grund, anfrage_id=anfrage_id, company_id=company_id))
+        return
+    log.info("Gate bei BC0 nachgezogen (Anfrage %s): auf am_gate gesetzt: %s",
+             anfrage_id, ", ".join(gesetzt) or "keine")
 
 
 def _fortschrittszeile(p: dict) -> str:
