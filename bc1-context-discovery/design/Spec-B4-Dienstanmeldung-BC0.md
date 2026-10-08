@@ -9,6 +9,9 @@
 > Mandant = 404 statt 403 · DB-Verbindung vor dem BC0-Aufruf zurückgeben · Adressprüfung über
 > den Hostnamen · Admin-Konto in der Probe · keine Ausnahmeverkettung aus `httpx` · Antworten
 > ohne JSON · Mindestwartezeit 1 Minute · kein eigener „Aus-Melder" (Aus = `None`).
+> **Ergänzt 08.10.2026 (Entscheidung BC1-Projektleitung, „B"):** Der Start prüft den Zugang
+> **immer** (Anmeldung + eigenes Konto lesen), nicht nur bei `zugeordnet` — sonst fiel ein
+> falscher Zugang bei einer Anfrage im Stand `im_interview` erst nach dem Interview auf.
 > Nächster Schritt nach Abnahme dieser Spec: Implementierungsplan.
 
 ## Big Picture
@@ -32,9 +35,12 @@ Dafür meldet sich BC1 mit dem Anwendungskonto bei BC0 an, wie ein Benutzer im B
 2. **„Interview läuft"** wird **beim Start** gemeldet — eine Dienstinstanz ist seit B5 für genau
    eine Anfrage gestartet, der Start heißt also „jetzt wird interviewt". Gemeldet wird nur, wenn
    die Anfrage noch auf `zugeordnet` steht; bei `im_interview` passiert nichts (sonst würde BC0s
-   „seit wann" bei jedem Neustart überschrieben). Klappt die Meldung nicht (BC0 nicht erreichbar,
-   Passwort falsch, Konto ohne Schreibrecht oder ohne diesen Mandanten), **bricht der Start mit
-   einem klaren Satz ab.**
+   „seit wann" bei jedem Neustart überschrieben). **Vorher prüft der Start in jedem Fall den
+   Zugang** (Ergänzung 08.10.): BC1 meldet sich an und liest das eigene Konto — darf es
+   schreiben, sieht es den Mandanten? Das ändert bei BC0 nichts. Klappt das oder die Meldung
+   nicht (BC0 nicht erreichbar, Passwort falsch, Konto ohne Schreibrecht oder ohne diesen
+   Mandanten), **bricht der Start mit einem klaren Satz ab** — auch bei einer Anfrage, die schon
+   auf `im_interview` steht.
 3. **Nach dem Abschluss** stößt BC1 „Gate nachziehen" an — **nach** dem Versand der Antwort, im
    Hintergrund. Der Chat scheitert daran **nie**: das Profil ist schon fest gespeichert, die
    befragte Person bekommt ihr „Danke". Schlägt der Aufruf fehl, steht im Log eine deutliche
@@ -73,7 +79,7 @@ den Mandanten sieht.
 | `POST /api/auth/login` | `{"email", "passwort"}` | — | 200 + Cookie `bc0_sitzung` (HttpOnly, Secure, 8 h) · 401 „E-Mail-Adresse oder Passwort ist falsch." · 429 mit `Retry-After` (Sekunden) |
 | `PUT /api/companies/{cid}/anfragen/{anfrage_id}/status` | `{"status": "im_interview"}` | `schreibender_benutzer` + Mandant | 200 `{status_alt, status}` · 400 (kein Prozessbezug, Rückschritt) · 401 · 403 (kein Schreibrecht) · 404 („Mandant unbekannt." oder „Unbekannte Anfrage: …") |
 | `POST /api/companies/{cid}/anfragen/gate_nachziehen` | — | `schreibender_benutzer` + Mandant | 200 `{geprueft, gesetzt[], anfragen[]}` · 401 · 403 (kein Schreibrecht) · 404 („Mandant unbekannt.") · 501 (BC0 ohne Postgres) |
-| `GET /api/auth/me` (nur Live-Probe) | — | angemeldet | 200 `{rolle, ist_admin, darf_schreiben, mandanten[], …}` |
+| `GET /api/auth/me` (Start-Prüfung und Live-Probe) | — | angemeldet | 200 `{rolle, ist_admin, darf_schreiben, mandanten[], …}` |
 
 **Rechte bei BC0 (`bc0_auth`):** 403 kommt nur bei fehlendem Schreibrecht (`darf_schreiben` =
 Rolle `benutzer` oder `admin`). Ein Konto, dem der Mandant nicht zugewiesen ist, bekommt
@@ -116,6 +122,11 @@ zurückgeschickt — ein lokales BC0 braucht deshalb `BC0_COOKIE_UNSICHER=1` (BC
   sichtbar: ja/nein" aus (`ist_admin` **oder** `company_id` in `mandanten` — wie BC0s
   `darf_mandanten_sehen`). Ändert nichts bei BC0. Exit-Code ≠ 0, wenn Schreibrecht oder Mandant
   fehlt.
+- **Ergänzung 08.10.:** `Bc0Melder.pruefe_konto() -> None` — Login + `GET /api/auth/me`, wirft
+  `Bc0MeldungFehler` mit einem der beiden neuen Sätze (Abschnitt 5), wenn Schreibrecht oder
+  Mandant fehlt. Die Bewertung „bereit?" steht an **einer** Stelle (`_konto_bereit(konto,
+  company_id) -> (schreiben, mandant)`), die Start-Prüfung und Live-Probe gemeinsam nutzen;
+  `"mandanten": null` gilt als leere Liste.
 - Abhängigkeit: `httpx` zusätzlich in die Gruppe `service` (`pyproject.toml`, `uv.lock`; ist als
   Dev-Abhängigkeit schon 0.28.1 gepinnt).
 
@@ -131,9 +142,9 @@ Reihenfolge in `main.py`:
    bc0_lesepfade.anfrage_status(...)`
 4. **neu, nach dem `with`-Block, aber im selben `try`** (die DB-Verbindung ist schon zurück im
    Pool und wartet nicht bis zu 10 s auf BC0; beim Abbruch werden die Pools weiter geschlossen):
-   `melde_interview_beginn(_melder, _anfrage_id, _status)` in `start.py` — ruft
-   `melde_interview_laeuft` nur bei `_melder is not None` und `_status == "zugeordnet"`.
-   `Bc0MeldungFehler` geht als Startabbruch durch.
+   `melde_interview_beginn(_melder, _anfrage_id, _status)` in `start.py` — bei `_melder is not
+   None` **zuerst immer `pruefe_konto()`** (Ergänzung 08.10.), dann `melde_interview_laeuft` nur
+   bei `_status == "zugeordnet"`. `Bc0MeldungFehler` geht als Startabbruch durch.
 
 Der Status kommt **nicht** in `Bc0Kontext`: der Kontext geht in den Fingerabdruck ein, und der
 Wechsel `zugeordnet` → `im_interview` darf laufende Sitzungen nicht in `paket_konflikt` stürzen.
@@ -168,6 +179,8 @@ Wechsel `zugeordnet` → `im_interview` darf laufende Sitzungen nicht in `paket_
 | 404 „Mandant unbekannt." | „BC0 kennt den Mandanten {company_id} für dieses Anwendungskonto nicht (404). Das Konto braucht den Mandanten zugewiesen." |
 | andere HTTP-Antwort | „BC0 antwortet auf '{aktion}' mit {code}: {detail}" |
 | nicht erreichbar / Zeitlimit | „BC0 unter {url} ist nicht erreichbar ({art}). Läuft BC0, stimmt BC1_BC0_URL?" |
+| Start-Prüfung: Konto ohne Schreibrecht (Ergänzung 08.10.) | „Das BC0-Anwendungskonto darf nicht schreiben (Rolle '{rolle}'). Es braucht die Rolle 'benutzer' oder 'admin'." |
+| Start-Prüfung: Mandant nicht sichtbar (Ergänzung 08.10.) | „Das BC0-Anwendungskonto sieht den Mandanten {company_id} nicht. Das Konto braucht den Mandanten zugewiesen." |
 | Gate im Hintergrund fehlgeschlagen (WARNING) | „Gate nachziehen bei BC0 fehlgeschlagen: {grund} — Anfrage {anfrage_id} bitte bei BC0 von Hand nachziehen (POST /api/companies/{company_id}/anfragen/gate_nachziehen)." |
 
 `{detail}` = BC0s `detail`-Text; ist die Antwort kein JSON oder ohne `detail` (z. B. 502 vom
@@ -200,6 +213,12 @@ keinem Log und keinem `repr`.**
 - **`tests/test_postgres_init.py`**: Startabbruch bei fehlendem Zugang (ohne `aus`), wie die
   bestehenden Abbruchtests. **`tests/test_api_profil.py`** (importiert `main`) setzt
   `BC1_BC0_MELDUNGEN=aus`.
+- **Ergänzung 08.10.:** `pruefe_konto` gegen den Fake (bereit; Admin ohne Liste; Leser;
+  Benutzer ohne Mandant; `"mandanten": null`; BC0-Absage geht durch; nur Login + `GET /me`) ·
+  `melde_interview_beginn` prüft bei `zugeordnet` UND `im_interview` genau einmal, meldet nach
+  der Prüfung, meldet nicht bei gescheiterter Prüfung · `main`: Start bricht auch bei
+  `im_interview` ab, wenn die Prüfung scheitert (Pools geschlossen) · Live-Probe nutzt dieselbe
+  Bewertung.
 - Abschluss: volle Suite mit Container (PG 17), `-W error`.
 
 ### 7. Prüfung, Live, Mitteilungen

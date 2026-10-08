@@ -1258,6 +1258,201 @@ Plus der Satz: Im Log nach einem Abschluss bedeutet „Gate nachziehen bei BC0 f
 
 ---
 
+### Task 6b: Start prüft den Zugang immer (Ergänzung 08.10., Entscheidung „B")
+
+**Anlass:** Bei einer Anfrage im Stand `im_interview` rief der Start BC0 gar nicht an — ein falscher Zugang fiel erst nach dem Interview als Gate-WARNING auf (Befund des Task-6-Implementers). Spec-Ergänzung 08.10. (Abschnitte Big Picture 2, 1, 2, 3, 5, 6).
+
+**Files:**
+- Modify: `bc1_service/bc0_meldungen.py`, `bc1_service/start.py`
+- Modify: `tests/test_bc0_meldungen.py`, `tests/test_start.py`, `tests/test_api_profil.py`
+- Modify: `README.md`, `bc1_service/n8n/SMOKE.md`
+
+**Interfaces:**
+- Consumes: `Bc0Melder.lies_konto()`, `Bc0MeldungFehler`, `probe` (Tasks 2/3); `melde_interview_beginn` (Task 4); Test-Fakes `FakeBc0` (test_bc0_meldungen), `_Melder` (test_start), `_StartMelder`/`_main_mit_melder`/`_Kaputt` (test_api_profil)
+- Produces:
+  - `MELDUNG_KONTO_OHNE_SCHREIBRECHT`, `MELDUNG_KONTO_OHNE_MANDANT` (Wortlaut Spec Abschnitt 5)
+  - `_konto_bereit(konto: dict, company_id: str) -> tuple[bool, bool]` (schreiben, mandant) — einzige Stelle der Bewertung, `"mandanten": null` = leer
+  - `Bc0Melder.pruefe_konto() -> None` (wirft `Bc0MeldungFehler`)
+  - `melde_interview_beginn`: bei Melder **zuerst immer** `pruefe_konto()`, dann `melde_interview_laeuft` nur bei `zugeordnet`
+
+- [ ] **Step 1: Tests `test_bc0_meldungen.py` (einzeln, je RED)** — Imports um `MELDUNG_KONTO_OHNE_MANDANT`, `MELDUNG_KONTO_OHNE_SCHREIBRECHT` ergänzen:
+
+```python
+def _konto_melder(konto):
+    bc0 = FakeBc0(konto=konto)
+    return _melder(bc0), bc0
+
+
+def test_pruefe_konto_bereit_liest_nur_das_eigene_konto():
+    melder, bc0 = _konto_melder(None)                     # Benutzer mit Mandant (Standard)
+    melder.pruefe_konto()
+    assert [(a.method, a.url.path) for a in bc0.anfragen] == [
+        ("POST", "/api/auth/login"), ("GET", "/api/auth/me")]
+
+
+def test_pruefe_konto_admin_ohne_mandantenliste_ist_bereit():
+    melder, _ = _konto_melder({"rolle": "admin", "ist_admin": True,
+                               "darf_schreiben": True, "mandanten": []})
+    melder.pruefe_konto()
+
+
+def test_pruefe_konto_leser_bricht_ab():
+    melder, _ = _konto_melder({"rolle": "leser", "ist_admin": False,
+                               "darf_schreiben": False, "mandanten": [MANDANT]})
+    with pytest.raises(Bc0MeldungFehler) as fehler:
+        melder.pruefe_konto()
+    assert str(fehler.value) == MELDUNG_KONTO_OHNE_SCHREIBRECHT.format(rolle="leser")
+
+
+@pytest.mark.parametrize("mandanten", [[], None, ["99999999-9999-9999-9999-999999999999"]])
+def test_pruefe_konto_ohne_sichtbaren_mandanten_bricht_ab(mandanten):
+    melder, _ = _konto_melder({"rolle": "benutzer", "ist_admin": False,
+                               "darf_schreiben": True, "mandanten": mandanten})
+    with pytest.raises(Bc0MeldungFehler) as fehler:
+        melder.pruefe_konto()
+    assert str(fehler.value) == MELDUNG_KONTO_OHNE_MANDANT.format(company_id=MANDANT)
+
+
+def test_pruefe_konto_reicht_bc0_absage_durch():
+    bc0 = FakeBc0(login=lambda r: httpx.Response(401, json={"detail": "x"}))
+    with pytest.raises(Bc0MeldungFehler) as fehler:
+        _melder(bc0).pruefe_konto()
+    assert str(fehler.value) == MELDUNG_ANMELDUNG_ABGELEHNT
+
+
+def test_probe_mit_mandantenliste_null_meldet_nicht_sichtbar():
+    code, zeilen, _ = _probe(konto={"rolle": "benutzer", "ist_admin": False,
+                                    "darf_schreiben": True, "mandanten": None})
+    assert code == 1 and zeilen[2] == f"Mandant {MANDANT} sichtbar: nein"
+```
+
+- [ ] **Step 2: Implementierung `bc0_meldungen.py`** (Aufrufer zuerst, dann Definitionen — tdd-guard-Lesson):
+
+```python
+MELDUNG_KONTO_OHNE_SCHREIBRECHT = (
+    "Das BC0-Anwendungskonto darf nicht schreiben (Rolle '{rolle}'). Es braucht die Rolle "
+    "'benutzer' oder 'admin'.")
+MELDUNG_KONTO_OHNE_MANDANT = (
+    "Das BC0-Anwendungskonto sieht den Mandanten {company_id} nicht. Das Konto braucht den "
+    "Mandanten zugewiesen.")
+
+
+def _konto_bereit(konto: dict, company_id: str) -> tuple[bool, bool]:
+    """(darf schreiben, sieht den Mandanten) — wie BC0s darf_schreiben/darf_mandanten_sehen:
+    Admin sieht alle Mandanten. "mandanten": null gilt als leer."""
+    schreiben = konto.get("darf_schreiben") is True
+    mandant = konto.get("ist_admin") is True or company_id in (konto.get("mandanten") or [])
+    return schreiben, mandant
+```
+
+In `Bc0Melder`:
+
+```python
+    def pruefe_konto(self) -> None:
+        """Start-Pruefung (Ergaenzung 08.10.): Anmeldung + eigenes Konto lesen, aendert nichts."""
+        konto = self.lies_konto()
+        schreiben, mandant = _konto_bereit(konto, self._company_id)
+        if not schreiben:
+            raise Bc0MeldungFehler(MELDUNG_KONTO_OHNE_SCHREIBRECHT.format(rolle=konto.get("rolle")))
+        if not mandant:
+            raise Bc0MeldungFehler(MELDUNG_KONTO_OHNE_MANDANT.format(company_id=self._company_id))
+```
+
+`probe` (bei grüner Suite, Refactoring): die zwei Bewertungszeilen durch `schreiben, mandant = _konto_bereit(konto, company_id)` ersetzen.
+
+- [ ] **Step 3: Tests `test_start.py`** — den Bestands-Fake `_Melder` um die Prüfung erweitern (Aufruf/Setup und Erwartungen in getrennten Schritten, tdd-guard-Lesson „Bestandstest"):
+
+```python
+class _Melder:
+    def __init__(self, fehler=None, pruef_fehler=None):
+        self.gemeldet: list[str] = []
+        self.aufrufe: list[str] = []
+        self._fehler = fehler
+        self._pruef_fehler = pruef_fehler
+
+    def pruefe_konto(self):
+        self.aufrufe.append("pruefe")
+        if self._pruef_fehler:
+            raise self._pruef_fehler
+
+    def melde_interview_laeuft(self, anfrage_id):
+        self.aufrufe.append("melde")
+        self.gemeldet.append(anfrage_id)
+        if self._fehler:
+            raise self._fehler
+```
+
+Neue Tests (einzeln, je RED):
+
+```python
+def test_zugeordnet_prueft_zuerst_und_meldet_dann():
+    melder = _Melder()
+    melde_interview_beginn(melder, "A-2026-01", "zugeordnet")
+    assert melder.aufrufe == ["pruefe", "melde"]
+
+
+def test_im_interview_prueft_den_zugang_trotzdem():
+    melder = _Melder()
+    melde_interview_beginn(melder, "A-2026-01", "im_interview")
+    assert melder.aufrufe == ["pruefe"]
+
+
+def test_gescheiterte_pruefung_bricht_ab_und_meldet_nicht():
+    melder = _Melder(pruef_fehler=Bc0MeldungFehler("Konto kaputt"))
+    with pytest.raises(Bc0MeldungFehler, match="Konto kaputt"):
+        melde_interview_beginn(melder, "A-2026-01", "zugeordnet")
+    assert melder.aufrufe == ["pruefe"]
+```
+
+- [ ] **Step 4: Implementierung `start.py`**
+
+```python
+def melde_interview_beginn(melder, anfrage_id: str, status: str | None) -> None:
+    """B4: Zuerst immer den Zugang pruefen (Ergaenzung 08.10.: sonst fiele ein falscher
+    Zugang bei 'im_interview' erst nach dem Interview auf), dann BC0 melden, dass interviewt
+    wird — nur aus 'zugeordnet'; bei 'im_interview' nicht erneut, sonst ueberschriebe jeder
+    Neustart BC0s status_seit. melder None = Meldungen bewusst aus (BC1_BC0_MELDUNGEN=aus).
+    Ein Bc0MeldungFehler bricht den Start ab.
+
+    melder: bc0_meldungen.Bc0Melder oder Ersatz mit pruefe_konto() und
+    melde_interview_laeuft(anfrage_id) — bewusst ohne Import (start.py bleibt frei von der
+    HTTP-Seite)."""
+    if melder is None:
+        return
+    melder.pruefe_konto()
+    if status == "zugeordnet":
+        melder.melde_interview_laeuft(anfrage_id)
+```
+
+- [ ] **Step 5: Tests `test_api_profil.py`** — `_StartMelder` um `pruefe_konto` (zählt `self.geprueft += 1`, Start `0`) erweitern; in `test_main_meldet_eine_anfrage_im_interview_nicht_erneut` zusätzlich `assert melder.geprueft == 1`; neuer Test (DB):
+
+```python
+def test_main_bricht_bei_im_interview_ab_wenn_die_kontopruefung_scheitert(umgebung, monkeypatch):
+    from bc1_service.bc0_meldungen import Bc0MeldungFehler
+
+    with verbindung(DSN, None) as conn:
+        conn.execute("UPDATE ref_anfragen SET status = 'im_interview' "
+                     "WHERE company_id = %s AND anfrage_id = %s", (MANDANT_A, ANFRAGE_A))
+        conn.commit()
+
+    class _KontoKaputt(_StartMelder):
+        def pruefe_konto(self):
+            raise Bc0MeldungFehler("Das BC0-Anwendungskonto darf nicht schreiben (Rolle 'leser').")
+
+    melder = _KontoKaputt()
+    with pytest.raises(Bc0MeldungFehler, match="darf nicht schreiben"):
+        _main_mit_melder(monkeypatch, ANFRAGE_A, melder)
+    assert melder.gemeldet == []
+```
+
+- [ ] **Step 6: Doku** — README (Absatz „Was der Dienst bei BC0 tut") und SMOKE: den Hinweis „bei `im_interview` startet der Dienst ohne Anruf bei BC0 …" durch „Beim Start prüft der Dienst immer den Zugang (Anmeldung + eigenes Konto, ändert nichts) und bricht bei einem Mangel ab — auch bei `im_interview`" ersetzen; SMOKE-Tabelle um zwei Zeilen: „Das BC0-Anwendungskonto darf nicht schreiben" → Rolle bei BC0 erbitten · „Das BC0-Anwendungskonto sieht den Mandanten" → bei BC0 zuweisen lassen. Wortanfänge gegen die Konstanten prüfen.
+
+- [ ] **Step 7: Grün + Commit** — `BC1_TEST_DB_DSN=… uv run pytest -q -W error`; Commit `"BC1 B4: Start prueft den BC0-Zugang immer (auch bei im_interview)"` (+ Trailer).
+
+- [ ] **Step 8: Pause** — agy-Review, Zwischenstand, auf Go warten.
+
+---
+
 ### Task 7: Abschluss — volle Suite, Gesamtreview, Abschlussplan, Sammelliste
 
 **Files:**
