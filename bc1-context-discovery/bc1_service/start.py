@@ -7,8 +7,9 @@ ctx-Fingerprint ein — ein nach dem Start neu bewerteter Teilprozess ist erst n
 Neustart waehlbar, laufende Sessions bekommen dann 409 `paket_konflikt`.
 
 Seit B5 (05.10.2026) ist BC1_ANFRAGE_ID ebenfalls Pflicht: angeboten werden nur die
-Teilprozesse dieser Anfrage. Seit B4 prüft der Start zuerst immer den BC0-Zugang und
-meldet BC0 dann 'im_interview' — nur aus 'zugeordnet'.
+Teilprozesse dieser Anfrage. Seit B4 prüft der Start vor dem Lesen aus der DB den BC0-Zugang
+und zieht das Gate für die eigene Anfrage nach (pruefe_bc0_vor_dem_start); danach meldet er
+BC0 'im_interview' — nur aus 'zugeordnet' (melde_interview_beginn).
 """
 from __future__ import annotations
 
@@ -104,18 +105,26 @@ def lade_kontext(conn, company_id: str, anfrage_id: str) -> Bc0Kontext:
         anfrage_id=anfrage_id)
 
 
-def melde_interview_beginn(melder, anfrage_id: str, status: str | None) -> None:
-    """B4: Zuerst immer den Zugang pruefen (Ergaenzung 08.10.: sonst fiele ein falscher
-    Zugang bei 'im_interview' erst nach dem Interview auf), dann BC0 melden, dass interviewt
-    wird — nur aus 'zugeordnet'; bei 'im_interview' nicht erneut, sonst ueberschriebe jeder
-    Neustart BC0s status_seit. melder None = Meldungen bewusst aus (BC1_BC0_MELDUNGEN=aus).
-    Ein Bc0MeldungFehler bricht den Start ab.
-
-    melder: bc0_meldungen.Bc0Melder oder Ersatz mit pruefe_konto() und
-    melde_interview_laeuft(anfrage_id) — bewusst ohne Import (start.py bleibt frei von der
-    HTTP-Seite)."""
+def pruefe_bc0_vor_dem_start(melder, anfrage_id: str) -> None:
+    """B4 (Ergaenzung 2, 08.10.): vor dem Lesen aus der DB — Zugang pruefen, dann das Gate fuer
+    die eigene Anfrage nachziehen (Selbstheilung: holt einen frueher gescheiterten Gate-Aufruf
+    nach; seit BC0 v3.13 zaehlen nur Profile derselben Anfrage). Steht die Anfrage danach auf
+    am_gate, bricht lade_kontext mit der B5-Meldung ab — kein ueberfluessiges Interview.
+    melder None = Meldungen bewusst aus. Ein Bc0MeldungFehler bricht den Start ab."""
     if melder is None:
         return
     melder.pruefe_konto()
-    if status == "zugeordnet":
+    melder.ziehe_gate_nach(anfrage_id)
+
+
+def melde_interview_beginn(melder, anfrage_id: str, status: str | None) -> None:
+    """B4: BC0 melden, dass interviewt wird — nur aus 'zugeordnet'; bei 'im_interview' nicht
+    erneut, sonst ueberschriebe jeder Neustart BC0s status_seit. Die Kontopruefung laeuft vorher
+    in pruefe_bc0_vor_dem_start. melder None = Meldungen bewusst aus (BC1_BC0_MELDUNGEN=aus).
+    Ein Bc0MeldungFehler bricht den Start ab.
+
+    melder: bc0_meldungen.Bc0Melder oder Ersatz mit pruefe_konto(), ziehe_gate_nach(anfrage_id)
+    und melde_interview_laeuft(anfrage_id) — bewusst ohne Import (start.py bleibt frei von der
+    HTTP-Seite)."""
+    if melder is not None and status == "zugeordnet":
         melder.melde_interview_laeuft(anfrage_id)

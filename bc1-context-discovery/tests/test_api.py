@@ -506,10 +506,12 @@ class _WriterOhneDb:
 class _GateMelder:
     def __init__(self, fehler=None):
         self.aufrufe = 0
+        self.anfragen: list[str] = []
         self._fehler = fehler
 
-    def ziehe_gate_nach(self):
+    def ziehe_gate_nach(self, anfrage_id):
         self.aufrufe += 1
+        self.anfragen.append(anfrage_id)
         if self._fehler is not None:
             raise self._fehler
         return [ANFRAGE]
@@ -534,6 +536,12 @@ def test_fertig_mit_writer_zieht_das_gate_genau_einmal_nach():
     assert melder.aufrufe == 1
 
 
+def test_gate_im_hintergrund_reicht_die_eigene_anfrage_durch():
+    melder = _GateMelder()
+    _bis_fertig(_gate_client(melder))
+    assert melder.anfragen == [ANFRAGE]
+
+
 def test_gate_wird_erst_nach_der_antwort_angestossen():
     # Der Chat wartet nie auf BC0 (Spec B4, Abschnitt 4). Der TestClient laesst
     # Hintergrundaufgaben vor post() laufen und zeigt die Reihenfolge deshalb nicht —
@@ -544,7 +552,7 @@ def test_gate_wird_erst_nach_der_antwort_angestossen():
     ereignisse: list[str] = []
 
     class _ReihenfolgeMelder:
-        def ziehe_gate_nach(self):
+        def ziehe_gate_nach(self, anfrage_id):
             ereignisse.append("gate")
             return []
 
@@ -635,7 +643,7 @@ def test_nachgezogenes_gate_wird_mit_den_gesetzten_anfragen_geloggt(caplog):
 
 def test_nachgezogenes_gate_ohne_gesetzte_anfrage_sagt_keine(caplog):
     class _NichtsZuTun(_GateMelder):
-        def ziehe_gate_nach(self):
+        def ziehe_gate_nach(self, anfrage_id):
             return []
 
     with caplog.at_level(logging.INFO, logger="bc1_service.api"):
