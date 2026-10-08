@@ -5686,8 +5686,16 @@ async def anfrage_zuordnen(cid: str, anfrage_id: str, req: Request,
 
 
 @app.post("/api/companies/{cid}/anfragen/gate_nachziehen")
-def anfrage_gate_nachziehen(cid: str, benutzer: Benutzer = Depends(schreibender_benutzer)):
+def anfrage_gate_nachziehen(cid: str, anfrage_id: str | None = None,
+                            benutzer: Benutzer = Depends(schreibender_benutzer)):
     """Zieht Anfragen auf ``am_gate`` nach, deren BC1-Profile fertig sind.
+
+    **Je Anfrage (v3.13, 08.10.2026).** Optional ``?anfrage_id=A-2026-07``: dann
+    wird nur diese Anfrage betrachtet. Ohne den Parameter wie bisher alle Anfragen
+    des Mandanten. Gezaehlt werden seit v3.13 nur Profile mit **derselben**
+    ``anfrage_id`` — ein fertiges Profil aus einer frueheren Anfrage auf demselben
+    Teilprozess schickt eine neue Anfrage nicht mehr ans Gate (Befund im Review
+    von PR #280). BC1 ruft nach jedem eingefrorenen Profil hierher.
 
     **Wofuer.** ``am_gate`` stand seit v2.2 in der Wertemenge — und **keine
     Zeile Code setzte ihn.** Befund vom 07.09.2026. Simeon: *„Wenn er
@@ -5709,13 +5717,21 @@ def anfrage_gate_nachziehen(cid: str, benutzer: Benutzer = Depends(schreibender_
         Je betrachteter Anfrage: alter Status, neuer Status, Hinweis.
     """
     pruefe_mandant(benutzer, cid)
+    anfrage_id = (anfrage_id or "").strip() or None
+    if anfrage_id is not None and not re.fullmatch(r"A-\d{4}-\d{2}", anfrage_id):
+        raise HTTPException(400, "anfrage_id '%s' hat nicht die Form A-JJJJ-NN." % anfrage_id[:40])
     _nur_pg("Das Nachziehen auf am_gate")
     c = db()
     try:
         _gate_mandant(c, cid)
+        if anfrage_id is not None and not c.execute(
+                "SELECT 1 FROM ref_anfragen WHERE " + W_CO + " AND anfrage_id=?",
+                (cid, anfrage_id)).fetchone():
+            raise HTTPException(404, "Unbekannte Anfrage: %s" % anfrage_id)
         zeilen = [dict(r) for r in c.execute(
             "SELECT anfrage_id, status_alt, status_neu, hinweis"
-            " FROM anfrage_am_gate_nachziehen(?) ORDER BY anfrage_id", (cid,)).fetchall()]
+            " FROM anfrage_am_gate_nachziehen(?, ?) ORDER BY anfrage_id",
+            (cid, anfrage_id)).fetchall()]
         c.commit()
     finally:
         c.close()
