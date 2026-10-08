@@ -424,10 +424,14 @@ def test_main_verdrahtet_den_profil_writer(umgebung, monkeypatch):
 class _StartMelder:
     def __init__(self):
         self.gemeldet: list[str] = []
+        self.gate: list[str] = []
         self.geprueft = 0
 
     def pruefe_konto(self):
         self.geprueft += 1
+
+    def ziehe_gate_nach(self, anfrage_id):
+        self.gate.append(anfrage_id)
 
     def melde_interview_laeuft(self, anfrage_id):
         self.gemeldet.append(anfrage_id)
@@ -467,6 +471,36 @@ def test_main_meldet_eine_zugeordnete_anfrage_beim_start(umgebung, monkeypatch):
         main._store.close()
         main._profil_pool.close()
         sys.modules.pop("bc1_service.main", None)
+
+
+def test_main_zieht_beim_start_das_gate_fuer_die_eigene_anfrage_nach(umgebung, monkeypatch):
+    import sys
+
+    melder = _StartMelder()
+    main = _main_mit_melder(monkeypatch, ANFRAGE_A, melder)
+    try:
+        assert melder.gate == [ANFRAGE_A]
+        assert melder.gemeldet == [ANFRAGE_A]
+    finally:
+        main._store.close()
+        main._profil_pool.close()
+        sys.modules.pop("bc1_service.main", None)
+
+
+def test_main_bricht_ab_wenn_das_gate_die_anfrage_schon_abschliesst(umgebung, monkeypatch):
+    class _GateSchliesstAb(_StartMelder):
+        def ziehe_gate_nach(self, anfrage_id):
+            super().ziehe_gate_nach(anfrage_id)
+            # So wirkt BC0, wenn alle Teilprozesse der Anfrage fertig sind (v3.13).
+            with verbindung(DSN, None) as conn:
+                conn.execute("UPDATE ref_anfragen SET status = 'am_gate' "
+                             "WHERE company_id = %s AND anfrage_id = %s", (MANDANT_A, anfrage_id))
+                conn.commit()
+
+    melder = _GateSchliesstAb()
+    with pytest.raises(RuntimeError, match="steht auf 'am_gate'"):
+        _main_mit_melder(monkeypatch, ANFRAGE_A, melder)
+    assert melder.gemeldet == []
 
 
 def test_main_meldet_eine_anfrage_im_interview_nicht_erneut(umgebung, monkeypatch):
@@ -527,6 +561,26 @@ def test_main_schliesst_die_pools_wenn_die_meldung_scheitert(umgebung, monkeypat
     with pytest.raises(Bc0MeldungFehler, match="nicht erreichbar"):
         _main_mit_melder(monkeypatch, ANFRAGE_A, _Kaputt())
     assert len(geschlossen) >= 2          # Session-Store-Pool + Profil-Pool
+
+
+def test_main_schliesst_die_pools_wenn_das_gate_beim_start_scheitert(umgebung, monkeypatch):
+    from bc1_service.bc0_meldungen import Bc0MeldungFehler
+
+    geschlossen: list[str] = []
+    original = ConnectionPool.close
+
+    def _close(self, *a, **kw):
+        geschlossen.append("pool")
+        return original(self, *a, **kw)
+
+    class _GateKaputt(_StartMelder):
+        def ziehe_gate_nach(self, anfrage_id):
+            raise Bc0MeldungFehler("BC0 antwortet auf 'Gate nachziehen' mit 500: x")
+
+    monkeypatch.setattr(ConnectionPool, "close", _close)
+    with pytest.raises(Bc0MeldungFehler, match="Gate nachziehen"):
+        _main_mit_melder(monkeypatch, ANFRAGE_A, _GateKaputt())
+    assert len(geschlossen) >= 2
 
 
 def test_main_reicht_den_melder_an_die_app_durch(umgebung, monkeypatch):
@@ -680,9 +734,11 @@ def test_write_fehler_erzeugt_503_und_der_replay_holt_ihn_nach(umgebung):
 class _GateZaehler:
     def __init__(self):
         self.aufrufe = 0
+        self.anfragen: list[str] = []
 
-    def ziehe_gate_nach(self):
+    def ziehe_gate_nach(self, anfrage_id):
         self.aufrufe += 1
+        self.anfragen.append(anfrage_id)
         return [ANFRAGE_A]
 
 
@@ -697,3 +753,13 @@ def test_eingefrorenes_profil_stoesst_das_gate_einmal_an(umgebung):
     assert melder.aufrufe == 1
     with verbindung(DSN) as conn:
         assert conn.execute("SELECT status FROM bc1.prozessprofil").fetchone()[0] == "fertig"
+
+
+def test_eingefrorenes_profil_zieht_das_gate_fuer_die_eigene_anfrage_nach(umgebung):
+    pool, paket = umgebung
+    melder = _GateZaehler()
+    client = TestClient(create_app(
+        InMemoryStateStore(), _llm(), paket, company_id=MANDANT_A, anfrage_id=ANFRAGE_A,
+        writer=ProfilWriter(pool, MANDANT_A, paket), melder=melder))
+    _turn(client, "m1", "alles")
+    assert melder.anfragen == [ANFRAGE_A]

@@ -12,6 +12,7 @@ from bc1_service.start import (
     lies_anfrage_id,
     lies_company_id,
     melde_interview_beginn,
+    pruefe_bc0_vor_dem_start,
 )
 from tests.db_fixture import (
     ANFRAGE_A,
@@ -235,11 +236,30 @@ class _Melder:
         if self._pruef_fehler:
             raise self._pruef_fehler
 
+    def ziehe_gate_nach(self, anfrage_id):
+        self.aufrufe.append("gate")
+
     def melde_interview_laeuft(self, anfrage_id):
         self.aufrufe.append("melde")
         self.gemeldet.append(anfrage_id)
         if self._fehler:
             raise self._fehler
+
+
+def test_vor_dem_start_erst_pruefen_dann_gate():
+    melder = _Melder()
+    pruefe_bc0_vor_dem_start(melder, "A-2026-01")
+    assert melder.aufrufe == ["pruefe", "gate"]
+
+
+def test_vor_dem_start_ohne_melder_nichts():
+    pruefe_bc0_vor_dem_start(None, "A-2026-01")            # darf nicht werfen
+
+
+def test_melde_interview_beginn_meldet_nur_noch():
+    melder = _Melder()
+    melde_interview_beginn(melder, "A-2026-01", "zugeordnet")
+    assert melder.aufrufe == ["melde"]
 
 
 def test_zugeordnete_anfrage_wird_einmal_als_im_interview_gemeldet():
@@ -248,22 +268,24 @@ def test_zugeordnete_anfrage_wird_einmal_als_im_interview_gemeldet():
     assert melder.gemeldet == ["A-2026-01"]
 
 
-def test_zugeordnet_prueft_zuerst_und_meldet_dann():
+def test_zugeordnet_prueft_dann_gate_dann_meldung():
     melder = _Melder()
+    pruefe_bc0_vor_dem_start(melder, "A-2026-01")
     melde_interview_beginn(melder, "A-2026-01", "zugeordnet")
-    assert melder.aufrufe == ["pruefe", "melde"]
+    assert melder.aufrufe == ["pruefe", "gate", "melde"]
 
 
-def test_im_interview_prueft_den_zugang_trotzdem():
+def test_im_interview_prueft_und_zieht_nach_meldet_aber_nicht():
     melder = _Melder()
+    pruefe_bc0_vor_dem_start(melder, "A-2026-01")
     melde_interview_beginn(melder, "A-2026-01", "im_interview")
-    assert melder.aufrufe == ["pruefe"]
+    assert melder.aufrufe == ["pruefe", "gate"]
 
 
-def test_gescheiterte_pruefung_bricht_ab_und_meldet_nicht():
+def test_gescheiterte_pruefung_zieht_kein_gate_nach():
     melder = _Melder(pruef_fehler=Bc0MeldungFehler("Konto kaputt"))
     with pytest.raises(Bc0MeldungFehler, match="Konto kaputt"):
-        melde_interview_beginn(melder, "A-2026-01", "zugeordnet")
+        pruefe_bc0_vor_dem_start(melder, "A-2026-01")
     assert melder.aufrufe == ["pruefe"]
 
 

@@ -23,7 +23,7 @@ from bc1_service.postgres_store import PostgresStateStore
 from bc1_service.profil_writer import ProfilWriter
 from bc1_service.snapshot import lade_snapshot
 from bc1_service.start import (lade_kontext, lies_anfrage_id, lies_company_id,
-                               melde_interview_beginn)
+                               melde_interview_beginn, pruefe_bc0_vor_dem_start)
 
 _dsn = os.environ.get("BC1_DB_DSN")
 if not _dsn:
@@ -51,6 +51,10 @@ _store = PostgresStateStore(_dsn)
 # eigenen — kein Umbau am bewaehrten Store.
 _profil_pool = ConnectionPool(_dsn, min_size=1, max_size=5, open=True)
 try:
+    # Ergaenzung 2: vor dem Lesen aus der DB — Zugang pruefen, Gate fuer die eigene Anfrage
+    # nachziehen. Hat ein frueherer Lauf das Gate verpasst, steht die Anfrage danach auf
+    # am_gate und lade_kontext bricht mit der B5-Meldung ab.
+    pruefe_bc0_vor_dem_start(_melder, _anfrage_id)
     with _profil_pool.connection() as _conn:
         _kontext = lade_kontext(_conn, _company_id, _anfrage_id)
         _status = bc0_lesepfade.anfrage_status(_conn, _company_id, _anfrage_id)

@@ -152,10 +152,12 @@ class Bc0Melder:
                      f"/api/companies/{self._company_id}/anfragen/{anfrage_id}/status",
                      {"status": "im_interview"})
 
-    def ziehe_gate_nach(self) -> list[str]:
+    def ziehe_gate_nach(self, anfrage_id: str) -> list[str]:
+        """Gate je Anfrage (BC0 v3.13): BC0 prueft nur diese Anfrage statt des ganzen Mandanten."""
         daten = self._melden(
             "Gate nachziehen", "POST",
-            f"/api/companies/{self._company_id}/anfragen/gate_nachziehen")
+            f"/api/companies/{self._company_id}/anfragen/gate_nachziehen",
+            params={"anfrage_id": anfrage_id})
         return list(daten.get("gesetzt") or [])          # auch bei "gesetzt": null
 
     def lies_konto(self) -> dict:
@@ -170,7 +172,8 @@ class Bc0Melder:
         if not mandant:
             raise Bc0MeldungFehler(MELDUNG_KONTO_OHNE_MANDANT.format(company_id=self._company_id))
 
-    def _melden(self, aktion: str, methode: str, pfad: str, rumpf: dict | None = None) -> dict:
+    def _melden(self, aktion: str, methode: str, pfad: str, rumpf: dict | None = None,
+                params: dict | None = None) -> dict:
         art = None
         try:
             with httpx.Client(base_url=self._zugang.url, timeout=ZEITLIMIT_SEKUNDEN,
@@ -178,7 +181,7 @@ class Bc0Melder:
                 self._pruefe(client.post("/api/auth/login", json={
                     "email": self._zugang.email, "passwort": self._zugang.passwort}),
                     _ANMELDUNG)
-                antwort = client.request(methode, pfad, json=rumpf)
+                antwort = client.request(methode, pfad, json=rumpf, params=params)
                 self._pruefe(antwort, aktion)
                 return self._json(antwort, aktion)
         except httpx.RequestError as fehler:

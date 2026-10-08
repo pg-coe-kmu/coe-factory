@@ -199,21 +199,29 @@ def test_interview_laeuft_setzt_den_status_mit_cookie():
 
 def test_gate_nachziehen_liefert_die_gesetzten_anfragen():
     bc0 = FakeBc0()
-    assert _melder(bc0).ziehe_gate_nach() == [ANFRAGE]
+    assert _melder(bc0).ziehe_gate_nach(ANFRAGE) == [ANFRAGE]
     gate = bc0.anfragen[1]
     assert gate.method == "POST"
     assert gate.url.path == f"/api/companies/{MANDANT}/anfragen/gate_nachziehen"
 
 
+def test_gate_schickt_die_eigene_anfrage_als_parameter():
+    bc0 = FakeBc0()
+    _melder(bc0).ziehe_gate_nach(ANFRAGE)
+    gate = bc0.anfragen[1]
+    assert gate.url.path == f"/api/companies/{MANDANT}/anfragen/gate_nachziehen"
+    assert dict(gate.url.params) == {"anfrage_id": ANFRAGE}
+
+
 def test_gate_ohne_gesetzte_anfragen_auch_bei_null():
     bc0 = FakeBc0(aktion=lambda r: httpx.Response(
         200, json={"geprueft": 0, "gesetzt": None, "anfragen": []}))
-    assert _melder(bc0).ziehe_gate_nach() == []
+    assert _melder(bc0).ziehe_gate_nach(ANFRAGE) == []
 
 
 def test_gate_antwort_ohne_gesetzt_gilt_als_leer():
     bc0 = FakeBc0(aktion=lambda r: httpx.Response(200, json={"geprueft": 0}))
-    assert _melder(bc0).ziehe_gate_nach() == []
+    assert _melder(bc0).ziehe_gate_nach(ANFRAGE) == []
 
 
 def test_konto_lesen_liefert_die_antwort_von_auth_me():
@@ -227,14 +235,14 @@ def test_jede_meldung_meldet_sich_frisch_an():
     bc0 = FakeBc0()
     melder = _melder(bc0)
     melder.melde_interview_laeuft(ANFRAGE)
-    melder.ziehe_gate_nach()
+    melder.ziehe_gate_nach(ANFRAGE)
     pfade = [a.url.path for a in bc0.anfragen]
     assert pfade.count("/api/auth/login") == 2
 
 
 def test_zeitlimit_ist_zehn_sekunden():
     bc0 = FakeBc0()
-    _melder(bc0).ziehe_gate_nach()
+    _melder(bc0).ziehe_gate_nach(ANFRAGE)
     assert ZEITLIMIT_SEKUNDEN == 10
     assert bc0.anfragen[0].extensions["timeout"] == {
         "connect": 10, "read": 10, "write": 10, "pool": 10}
@@ -254,7 +262,7 @@ def _fehler(bc0, aufruf="gate", url="https://bc0.example.org") -> Bc0MeldungFehl
     melder = _melder(bc0, url)
     with pytest.raises(Bc0MeldungFehler) as fehler:
         if aufruf == "gate":
-            melder.ziehe_gate_nach()
+            melder.ziehe_gate_nach(ANFRAGE)
         else:
             melder.melde_interview_laeuft(ANFRAGE)
     _ohne_passwort(str(fehler.value))

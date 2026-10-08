@@ -207,7 +207,7 @@ def create_app(
 
 def _gate_im_hintergrund(melder, company_id: str, anfrage_id: str | None) -> None:
     try:
-        gesetzt = melder.ziehe_gate_nach()
+        gesetzt = melder.ziehe_gate_nach(anfrage_id)
     except Exception as fehler:                            # noqa: BLE001 — Hintergrund
         # Nie das Ausnahmeobjekt loggen: eine fremde Ausnahme koennte Interna tragen.
         grund = str(fehler) if isinstance(fehler, Bc0MeldungFehler) else type(fehler).__name__

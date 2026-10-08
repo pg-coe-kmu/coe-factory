@@ -50,9 +50,13 @@ Fehlt `BC1_ANFRAGE_ID` oder hat sie nicht die Form `A-JJJJ-NN`, bricht der Start
 vorher mit einem eigenen Hinweis ab (`lies_anfrage_id`).
 
 Seit B4 kommen die **BC0-Meldungen** dazu: Der Start prüft immer den BC0-Zugang (Anmeldung +
-eigenes Konto, ändert nichts) und bricht bei einem Mangel ab — auch bei `im_interview`; danach
-meldet er der Anfrage bei BC0 `im_interview` (nur aus `zugeordnet`). Den verbindlichen Wortlaut
-tragen die `MELDUNG_*`-Konstanten in `bc1_service/bc0_meldungen.py`; hier nur, was sie bedeuten:
+eigenes Konto, ändert nichts) und bricht bei einem Mangel ab — auch bei `im_interview`. Danach
+zieht er das Gate für die eigene Anfrage nach, noch bevor er aus der Datenbank liest (holt einen
+früher gescheiterten Gate-Aufruf nach); ist die Anfrage danach schon `am_gate`, endet der Start
+mit „steht auf 'am_gate'“ (`MELDUNG_ANFRAGE_NICHT_IM_INTERVIEW`) — das Interview war fertig, nur
+das Gate fehlte. Zuletzt meldet er der Anfrage bei BC0 `im_interview` (nur aus `zugeordnet`).
+Den verbindlichen Wortlaut tragen die `MELDUNG_*`-Konstanten in
+`bc1_service/bc0_meldungen.py`; hier nur, was sie bedeuten:
 
 | Meldung beginnt mit | Bedeutung | Was tun |
 |---|---|---|
@@ -70,7 +74,8 @@ tragen die `MELDUNG_*`-Konstanten in `bc1_service/bc0_meldungen.py`; hier nur, w
 | „BC0 unter … ist nicht erreichbar" | Netz/Adresse falsch oder BC0 aus | Adresse prüfen, läuft BC0? |
 
 Die ersten drei kommen schon vor dem Datenbankzugriff; die übrigen beim Anruf bei BC0 — den
-macht der Start immer, auch bei `im_interview`. Ein falscher Zugang fällt so beim Start auf,
+macht der Start immer, auch bei `im_interview`, und ebenfalls vor dem Lesen aus der Datenbank.
+Ein falscher Zugang fällt so beim Start auf,
 nicht erst nach dem Interview. Dieselbe Prüfung liefert die **Live-Probe**, die auch ohne
 laufenden Dienst gegen echtes BC0 läuft (nur lesend, Exit 0 = bereit; Aufruf und Ausgabe:
 [`../../README.md`](../../README.md), „Setup und Start").
@@ -81,7 +86,8 @@ Mit `BC1_BC0_MELDUNGEN=aus` startet der Dienst ohne Zugang und loggt einmal eine
 **Nach einem Abschluss** zieht der Dienst das Gate bei BC0 im Hintergrund nach. Steht danach im
 Log „Gate nachziehen bei BC0 fehlgeschlagen" (`MELDUNG_GATE_FEHLGESCHLAGEN` in
 `bc1_service/api.py`), ist das Profil trotzdem gespeichert, und der Chat hat normal geantwortet
-— nur die Anfrage bei BC0 muss von Hand nachgezogen werden; die Zeile nennt den Aufruf selbst.
+— nur die Anfrage bei BC0 muss nachgezogen werden: von Hand (die Zeile nennt den Aufruf selbst)
+oder durch den nächsten Start des Dienstes, der das Gate für die eigene Anfrage ohnehin nachzieht.
 
 **Interviewbar sind nur BEWERTETE Teilprozesse** (mindestens eine aktuelle Bewertung in
 `v_bewertung_aktuell`; verworfene Erhebungen zählen nicht). Zu einem unbewerteten
@@ -91,9 +97,8 @@ erst an.
 Seit B5 sind es zusätzlich nur die Teilprozesse **der** Anfrage `BC1_ANFRAGE_ID` (so
 viele, wie BC0 ihr zugeordnet hat).
 
-**Für den Durchstich** einen Teilprozess wählen, zu dem es noch kein fertiges BC1-Profil
-gibt — BC0s Gate-Funktion verknüpft noch nicht über `anfrage_id`, ein schon vorhandenes
-fertiges Profil würde den Durchstich verfälschen.
+Seit BC0 v3.13 (08.10.) zählt die Gate-Funktion nur Profile derselben Anfrage — im Durchstich
+ist jeder Teilprozess wählbar.
 
 *Ohne Claude-Key (FakeLLM-Demo, so lief der Smoke am 05.08.2026):* statt `main:app` eine
 lokale, NICHT committete Demo-Verdrahtung nutzen — Wegwerf-Datei `demo_fake.py` außerhalb
