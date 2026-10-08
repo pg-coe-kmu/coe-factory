@@ -269,4 +269,4 @@ Betrifft nur diese eine Rolle — die anderen BCs und BC0 bleiben davon unberüh
 
 Alles lesend. Schreiben bleibt bei BC0 — `gate_paket_schnueren()` läuft unter dem Anwendungskonto; die Pakettabellen lassen nur Anhängen zu (`trg_nur_anhaengen`). Die Erhebungssperre (`erhebung_eingefroren`) und die Löschsperre auf Prozessen (`stilllegen_statt_loeschen`) gelten für jeden, auch für den Eigentümer.
 
-**Noch nicht erteilt:** `GRANT REFERENCES` an `bc2_role` bis `bc4_role` (v2.4 hat es nur `bc1_role` gegeben) — ToDo 121.
+**`GRANT REFERENCES`:** `bc1_role` seit v2.4 (fünf Tabellen), **`bc3_role` seit v3.14 (08.10.2026, #279)** auf `companies`, `ref_prozesse`, `ref_teilprozesse` — für die Fremdschlüssel von `bc3.lieferungen`, die BC3 selbst setzt. **Noch nicht erteilt:** `bc2_role` und `bc4_role` — ToDo 121, erst wenn sie es brauchen.
