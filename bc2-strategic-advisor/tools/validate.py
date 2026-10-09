@@ -8,6 +8,10 @@ Zwei Vertragsstaende nebeneinander, mit Absicht:
     uebergebene Lieferung vom 30.08.2026. Ein uebergebenes Konzept wird nie ungueltig, es veraltet
     (ADR-007 BC2, 2.4); es nachzuziehen zerstoerte, worauf die Lieferung sich beruft.
 
+Jede **andere** Lieferung unter `contracts/bc2-to-bc3/lieferungen/` wird gefunden, nicht
+aufgezaehlt, und laeuft gegen v3.0 (Abschnitt 4). Die CI startet dieses Skript bei jeder
+Aenderung an der Lieferstrecke (`.github/workflows/vertraege-pruefen.yml`, #253).
+
 Aufruf aus dem Repo-Wurzelverzeichnis:
     python3 bc2-strategic-advisor/tools/validate.py
 """
@@ -31,10 +35,6 @@ FIXTURE_KONZEPTE = [
 ]
 FIXTURE_PRIO = "contracts/examples/mock_prozesspriorisierung.json"
 LIEFERUNG = "contracts/bc2-to-bc3/lieferungen/2026-08-30-vorlaeufig"
-#: Die simulierte Rueckfall-Lieferung (#168) -- v3.0, Ordnerschnitt nach ADR-007 BC2.
-#: Anders als die eingefrorene Lieferung vom 30.08. laeuft sie gegen den **aktuellen** Vertrag:
-#: sie probt den Weg, den der Durchstich in KW 40 gehen soll (#206).
-SIM = "contracts/bc2-to-bc3/lieferungen/noroai-SIM-UC3-2026-09-21-f1"
 
 PAARE = (
     [(KONZEPT_V3, p) for p in FIXTURE_KONZEPTE]
@@ -47,9 +47,7 @@ PAARE = (
         (KONZEPT_V2, f"{LIEFERUNG}/konzept_KP-03.json"),
         (KONZEPT_V2, f"{LIEFERUNG}/konzept_KP-04.json"),
         (PRIO_V2, f"{LIEFERUNG}/prozesspriorisierung.json"),
-        # Aktuell: die simulierte Rueckfall-Lieferung gegen v3.0.
-        (KONZEPT_V3, f"{SIM}/konzept_KP-06.json"),
-        (PRIO_V3, f"{SIM}/prozesspriorisierung.json"),
+        # Alle anderen Lieferungen findet Abschnitt 4 selbst und prueft sie gegen v3.0.
     ]
 )
 
@@ -350,113 +348,189 @@ pruefe(
     "Lieferung: Kennzeichnung unvollstaendig",
 )
 
-# --- Die simulierte Rueckfall-Lieferung (#168) ------------------------------------------------
-# Dieselbe Pruefung wie oben, an den Vertrag v3.0 angepasst: `gate1` lebt seit v3.0 in der
-# Priorisierung, nicht im Konzept (ADR-007 BC2, 2.1). Sie steht hier, damit die Kennzeichnung
-# nicht unbemerkt herausfaellt -- eine simulierte Lieferung ohne Marker ist von einer echten
-# nicht mehr zu unterscheiden, und genau darum geht es in diesem Ticket.
-print("\n--- Simulierte Rueckfall-Lieferung UC3 (v3.0) ---")
-sim_konzept = lies(f"{SIM}/konzept_KP-06.json")
-sim_prio = lies(f"{SIM}/prozesspriorisierung.json")
+# ---------------------------------------------------------------------------
+# 4. Lieferungen v3.0 -- JEDER Ordner unter lieferungen/, nicht eine feste Liste (#253).
+#    Bis #253 stand hier genau ein Ordner, fest eingetragen. Eine neue Lieferung per PR waere
+#    damit gruen gewesen, ohne je geprueft worden zu sein -- das Netz aus ADR-007 BC2, 2.2
+#    haette genau die Faelle durchgelassen, fuer die es da ist. Jetzt gilt: was unter
+#    lieferungen/ liegt und nicht die eingefrorene v2-Lieferung ist, laeuft gegen v3.0.
+#    Ein neuer Vertragsstand faellt damit rot auf (schema_version ist const), bis er hier
+#    eingetragen ist -- gewollt.
+# ---------------------------------------------------------------------------
+LIEFERUNGEN = BASE / "contracts/bc2-to-bc3/lieferungen"
+#: Ordner, die oben gegen die archivierten v2-Schemas laufen und hier nicht noch einmal.
+EINGEFROREN_V2 = {pathlib.Path(LIEFERUNG).name}
 
-SIM_MARKER = "[SIMULIERT]"
-sim_ok = True
-kp = sim_konzept["kontext"]["kp_id"]
-for p in sim_konzept["potenziale"]:
-    if not p["titel"].startswith(SIM_MARKER):
-        sim_ok = False
-        print(f"FAIL  {kp}/{p['potenzial_id']}: Titel traegt den Marker {SIM_MARKER} nicht")
-    if p["value"]["value_quelle"] != "annahme":
-        sim_ok = False
-        print(f"FAIL  {kp}/{p['potenzial_id']}: value_quelle ist nicht 'annahme'")
-    if not p["value"].get("annahmen") or not p["value"]["annahmen"][0].startswith("GESETZT"):
-        sim_ok = False
-        print(f"FAIL  {kp}/{p['potenzial_id']}: erste Annahme ist keine Herkunftswarnung")
-    if not p["beschreibung"].startswith("SIMULIERT"):
-        sim_ok = False
-        print(f"FAIL  {kp}/{p['potenzial_id']}: beschreibung beginnt ohne Warnblock")
-if not sim_konzept["kontext"]["prozess_kurzbeschreibung"].startswith(SIM_MARKER):
-    sim_ok = False
-    print(f"FAIL  {kp}: prozess_kurzbeschreibung traegt den Marker nicht")
-if sim_prio["gate1"]["status"] != "pending":
-    sim_ok = False
-    print("FAIL  Priorisierung: gate1.status ist nicht 'pending'")
-if "FREIGABESPERRE" not in sim_prio["gate1"].get("kommentar", ""):
-    sim_ok = False
-    print("FAIL  Priorisierung: gate1.kommentar warnt nicht vor der Freigabe")
-for e in sim_prio["eintraege"]:
-    if not e["titel"].startswith(SIM_MARKER):
-        sim_ok = False
-        print(f"FAIL  Priorisierung/{e['potenzial_id']}: Titel traegt den Marker nicht")
-pruefe(
-    sim_ok,
-    f"Simulation: Kennzeichnung vollstaendig ({SIM_MARKER})",
-    "Simulation: Kennzeichnung unvollstaendig",
-)
 
-# Dateiuebergreifend: hier sitzen die Fehler, die der Generator machen kann. Die Arithmetik
-# selbst ist durch die Modelltests gedeckt (34 Tests, #238) -- das Zusammensetzen von Konzept
-# und Priorisierung ist es nicht, das tut erst `gen_lieferung_sim_uc3.py`.
-sim_lauf_k = (
-    sim_konzept["company_id"],
-    sim_konzept["paket_id"],
-    sim_konzept["uebergeben_am"],
-    sim_konzept["fassung"],
-)
-sim_lauf_p = (
-    sim_prio["company_id"],
-    sim_prio["paket_id"],
-    sim_prio["uebergeben_am"],
-    sim_prio["fassung"],
-)
-pruefe(
-    sim_lauf_k == sim_lauf_p,
-    "Simulation: Konzept und Priorisierung tragen denselben Lauf",
-    f"Simulation: Lauf uneinheitlich -- {sim_lauf_k} gegen {sim_lauf_p}",
-)
-pruefe(
-    sim_prio["konzept_ids"] == [sim_konzept["konzept_id"]],
-    "Simulation: die Priorisierung listet genau ihr Konzept",
-    f"Simulation: Priorisierung listet {sim_prio['konzept_ids']}, vorhanden ist "
-    f"{sim_konzept['konzept_id']}",
-)
-pruefe(
-    "gate1" not in sim_konzept,
-    "Simulation: gate1 steht nicht im Konzept",
-    "Simulation: gate1 steht im Konzept -- seit v3.0 gehoert er in die Priorisierung",
-)
-sim_konz_ids = [p["potenzial_id"] for p in sim_konzept["potenziale"]]
-sim_prio_ids = [e["potenzial_id"] for e in sim_prio["eintraege"]]
-pruefe(
-    sorted(sim_konz_ids) == sorted(sim_prio_ids) and len(set(sim_prio_ids)) == len(sim_prio_ids),
-    f"Simulation: Priorisierung und Konzept decken dieselben {len(sim_konz_ids)} Potenziale ab",
-    f"Simulation: Konzept fuehrt {sorted(sim_konz_ids)}, Priorisierung {sorted(sim_prio_ids)}",
-)
-sim_erwartet = [
-    e["potenzial_id"]
-    for e in sorted(sim_prio["eintraege"], key=lambda e: (-e["score"], e["potenzial_id"]))
-]
-sim_tatsaechlich = [
-    e["potenzial_id"] for e in sorted(sim_prio["eintraege"], key=lambda e: e["potenzialrang"])
-]
-pruefe(
-    sim_erwartet == sim_tatsaechlich,
-    "Simulation: Rangfolge entspricht dem Score",
-    "Simulation: Rangfolge widerspricht dem Score",
-)
-pruefe(
-    sim_konzept["gesamtempfehlung"]["reihenfolge_potenzial_ids"] == sim_tatsaechlich,
-    "Simulation: gesamtempfehlung == eigene Potenziale in Rangfolge",
-    "Simulation: gesamtempfehlung weicht von der Rangfolge ab",
-)
+def lies_sicher(datei, ordner_name):
+    """Liest JSON; ein Lesefehler ist ein Befund, kein Absturz des ganzen Laufs."""
+    global ok
+    try:
+        return json.loads(datei.read_text(encoding="utf-8"))
+    except Exception as e:  # noqa: BLE001 -- jeder Lesefehler ist ein FAIL dieser Lieferung
+        ok = False
+        print(f"FAIL  {ordner_name}/{datei.name}: kein gueltiges JSON ({e})")
+        return None
 
-# Der Ordnername sagt, was drin ist: ein Pfad, ein Inhalt (ADR-007 BC2, 2.5). Faellt die
-# paket_id aus dem Namen, zeigt ein `git pull` bei BC3 eine Lieferung, der man die Simulation
-# von aussen nicht mehr ansieht.
-pruefe(
-    sim_konzept["paket_id"] in SIM and sim_prio["paket_id"] == sim_konzept["paket_id"],
-    "Simulation: Ordnername traegt die paket_id der Lieferung",
-    "Simulation: Ordnername und paket_id gehen auseinander",
-)
 
+def schema_gueltig(schema_pfad, daten, anzeige):
+    global ok
+    fehler = sorted(Draft202012Validator(lies(schema_pfad)).iter_errors(daten),
+                    key=lambda e: list(e.path))
+    if fehler:
+        ok = False
+        print(f"FAIL  {anzeige} gegen {schema_pfad}:")
+        for e in fehler:
+            print(f"   - [{'/'.join(str(p) for p in e.path)}] {e.message}")
+        return False
+    print(f"OK    {anzeige} -> {schema_pfad}")
+    return True
+
+
+def pruefe_kennzeichnung_sim(name, konzepte, prio):
+    """Eine simulierte Lieferung (paket_id beginnt mit SIM-) muss sich als solche zu erkennen geben.
+
+    Ohne Marker ist sie von einer echten nicht mehr zu unterscheiden -- genau darum ging es in #168.
+    """
+    marker = "[SIMULIERT]"
+    sim_ok = True
+    for k in konzepte:
+        kp = k["kontext"]["kp_id"]
+        for p in k["potenziale"]:
+            if not p["titel"].startswith(marker):
+                sim_ok = False
+                print(f"FAIL  {name}/{kp}/{p['potenzial_id']}: Titel traegt den Marker {marker} nicht")
+            if p["value"]["value_quelle"] != "annahme":
+                sim_ok = False
+                print(f"FAIL  {name}/{kp}/{p['potenzial_id']}: value_quelle ist nicht 'annahme'")
+            if not p["value"].get("annahmen") or not p["value"]["annahmen"][0].startswith("GESETZT"):
+                sim_ok = False
+                print(f"FAIL  {name}/{kp}/{p['potenzial_id']}: erste Annahme ist keine Herkunftswarnung")
+            if not p["beschreibung"].startswith("SIMULIERT"):
+                sim_ok = False
+                print(f"FAIL  {name}/{kp}/{p['potenzial_id']}: beschreibung beginnt ohne Warnblock")
+        if not k["kontext"]["prozess_kurzbeschreibung"].startswith(marker):
+            sim_ok = False
+            print(f"FAIL  {name}/{kp}: prozess_kurzbeschreibung traegt den Marker nicht")
+    if prio["gate1"]["status"] != "pending":
+        sim_ok = False
+        print(f"FAIL  {name}: gate1.status ist nicht 'pending'")
+    if "FREIGABESPERRE" not in prio["gate1"].get("kommentar", ""):
+        sim_ok = False
+        print(f"FAIL  {name}: gate1.kommentar warnt nicht vor der Freigabe")
+    for e in prio["eintraege"]:
+        if not e["titel"].startswith(marker):
+            sim_ok = False
+            print(f"FAIL  {name}/Priorisierung/{e['potenzial_id']}: Titel traegt den Marker nicht")
+    pruefe(
+        sim_ok,
+        f"{name}: Simulation vollstaendig gekennzeichnet ({marker})",
+        f"{name}: Simulation unvollstaendig gekennzeichnet",
+    )
+
+
+def pruefe_lieferung_v3(ordner):
+    """Eine Lieferung nach ADR-007 BC2: n Konzepte, eine Priorisierung, ein Lauf."""
+    global ok
+    name = ordner.name
+    rel = ordner.relative_to(BASE).as_posix()
+    print(f"\n--- Lieferung {name} (v3.0) ---")
+
+    konzept_dateien = sorted(ordner.glob("konzept_*.json"))
+    prio_datei = ordner / "prozesspriorisierung.json"
+    if not konzept_dateien or not prio_datei.exists():
+        ok = False
+        fehlt = [x for x, da in (("konzept_*.json", bool(konzept_dateien)),
+                                 ("prozesspriorisierung.json", prio_datei.exists())) if not da]
+        print(f"FAIL  {name}: es fehlt {', '.join(fehlt)} -- eine Lieferung ist eine "
+              f"Priorisierung und ihre Konzepte (ADR-007 BC2, 2.1)")
+        return
+
+    # 4.1 Schema. Erst wenn alles schema-gueltig ist, lohnt der fachliche Teil -- vorher
+    #     wuerde er an fehlenden Feldern abstuerzen statt einen Befund zu melden.
+    konzepte, alles_gueltig = [], True
+    for datei in konzept_dateien:
+        daten = lies_sicher(datei, name)
+        gueltig = daten is not None and schema_gueltig(KONZEPT_V3, daten, f"{rel}/{datei.name}")
+        alles_gueltig &= gueltig
+        konzepte.append(daten)
+    prio = lies_sicher(prio_datei, name)
+    alles_gueltig &= prio is not None and schema_gueltig(PRIO_V3, prio, f"{rel}/{prio_datei.name}")
+    if not alles_gueltig:
+        print(f"      {name}: nicht schema-gueltig -- fachliche Pruefung uebersprungen")
+        return
+
+    # 4.2 Der Lauf haelt zusammen: ein Mandant, ein Paket, ein Zeitanker, eine Fassung.
+    def lauf(d):
+        return (d["company_id"], d["paket_id"], d["uebergeben_am"], d["fassung"])
+
+    laeufe = {lauf(k) for k in konzepte} | {lauf(prio)}
+    pruefe(
+        len(laeufe) == 1,
+        f"{name}: Konzepte und Priorisierung tragen denselben Lauf",
+        f"{name}: Lauf uneinheitlich -- {sorted(laeufe)}",
+    )
+    pruefe(
+        sorted(prio["konzept_ids"]) == sorted(k["konzept_id"] for k in konzepte),
+        f"{name}: die Priorisierung listet genau ihre {len(konzepte)} Konzept(e)",
+        f"{name}: Priorisierung listet {prio['konzept_ids']}, vorhanden sind "
+        f"{[k['konzept_id'] for k in konzepte]}",
+    )
+    pruefe(
+        all("gate1" not in k for k in konzepte),
+        f"{name}: gate1 steht nicht im Konzept",
+        f"{name}: gate1 steht im Konzept -- seit v3.0 gehoert er in die Priorisierung",
+    )
+
+    # 4.3 Konzepte und Priorisierung decken dieselben Potenziale ab, jedes genau einmal.
+    konz_ids = [p["potenzial_id"] for k in konzepte for p in k["potenziale"]]
+    prio_ids = [e["potenzial_id"] for e in prio["eintraege"]]
+    pruefe(
+        sorted(konz_ids) == sorted(prio_ids) and len(set(prio_ids)) == len(prio_ids),
+        f"{name}: Priorisierung und Konzepte decken dieselben {len(konz_ids)} Potenziale ab",
+        f"{name}: Konzepte fuehren {sorted(konz_ids)}, Priorisierung {sorted(prio_ids)}",
+    )
+
+    # 4.4 Die Rangfolge ist die des Rechenkerns: Score absteigend, dann potenzial_id
+    #     (app/modell/rechnen.py). Die Fixtures brechen den Gleichstand anders -- sie stammen
+    #     aus BC3s Vorlage, nicht aus dem Kern.
+    erwartet = [e["potenzial_id"] for e in sorted(
+        prio["eintraege"], key=lambda e: (-e["score"], e["potenzial_id"]))]
+    tatsaechlich = [e["potenzial_id"] for e in sorted(
+        prio["eintraege"], key=lambda e: e["potenzialrang"])]
+    pruefe(
+        erwartet == tatsaechlich,
+        f"{name}: Rangfolge entspricht dem Score",
+        f"{name}: Rangfolge widerspricht dem Score",
+    )
+    for k in konzepte:
+        eigene = [p["potenzial_id"] for p in sorted(k["potenziale"], key=lambda p: p["potenzialrang"])]
+        pruefe(
+            k["gesamtempfehlung"]["reihenfolge_potenzial_ids"] == eigene,
+            f"{name}/{k['kontext']['kp_id']}: gesamtempfehlung == eigene Potenziale in Rangfolge",
+            f"{name}/{k['kontext']['kp_id']}: gesamtempfehlung weicht von der Rangfolge ab",
+        )
+
+    # 4.5 Der Ordnername sagt, was drin ist: <company>-<paket_id>-f<n> (ADR-007 BC2, 2.2/2.5).
+    #     Faellt die paket_id oder die Fassung aus dem Namen, zeigt ein `git pull` bei BC3 eine
+    #     Lieferung, der man von aussen nicht mehr ansieht, welcher Lauf sie ist.
+    endung = f"-{prio['paket_id']}-f{prio['fassung']}"
+    pruefe(
+        name.endswith(endung),
+        f"{name}: Ordnername traegt paket_id und Fassung ('...{endung}')",
+        f"{name}: Ordnername passt nicht zu paket_id und Fassung -- erwartet '<company>{endung}'",
+    )
+
+    # 4.6 Eine simulierte Lieferung muss als solche erkennbar bleiben (#168).
+    if prio["paket_id"].startswith("SIM-"):
+        pruefe_kennzeichnung_sim(name, konzepte, prio)
+
+
+v3_ordner = sorted(o for o in LIEFERUNGEN.iterdir() if o.is_dir() and o.name not in EINGEFROREN_V2)
+for o in v3_ordner:
+    pruefe_lieferung_v3(o)
+print(f"\n{len(v3_ordner)} Lieferung(en) gegen v3.0 geprueft: "
+      f"{', '.join(o.name for o in v3_ordner) or '(keine)'}")
+
+print("\nGESAMT: " + ("gruen" if ok else "ROT -- siehe FAIL-Zeilen oben"))
 sys.exit(0 if ok else 1)
