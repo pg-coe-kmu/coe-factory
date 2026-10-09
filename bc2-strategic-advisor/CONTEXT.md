@@ -99,6 +99,14 @@ _Avoid_: Automatisierungsfall, Maßnahme, Use Case
 > Potenziale: ein Teilprozess kann mehrere tragen, und ein Potenzial kann mehrere Teilprozesse
 > berühren.
 
+**Nachfolger**:
+Ein Potenzial aus einem späteren Paket, das **dasselbe Vorhaben** ist wie ein schon geliefertes
+Potenzial, nur neu bewertet auf neuem Datenstand. Ähnlich zu klingen genügt nicht: Ändert sich
+die Lösung, ist es ein neues Potenzial. Vorgänger kommen nur aus gelieferten Läufen und nur dann,
+wenn sie einen Teilprozess des neuen Pakets berühren. Was das neue Paket nicht berührt, gilt
+unverändert weiter. *(#291)*
+_Avoid_: Nachfolgefassung, Version, ähnliches Potenzial
+
 **Schmerzpunkt**:
 Eine benannte Schwierigkeit im heutigen Ablauf — Wartezeit, Medienbruch, Doppelerfassung. Motiviert
 Potenziale, schneidet sie aber nicht. Über alle Konzepte eines Laufs zusammengeführt heißt er in der

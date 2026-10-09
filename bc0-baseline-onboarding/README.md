@@ -163,6 +163,7 @@ Deployment mit Docker Compose und Caddy: siehe `app/DEPLOY.md`. Backup und Wiede
 | **ADR-006 · BC2** | Value- und Priorisierungsmodell: Bandbreiten je Herkunft der Dauer, Nutzwert aus fünf Kategorien, Umsetzungskomplexität gemessen statt geurteilt | Entwurf 20.09.2026 |
 | **ADR-007 · BC2** | Rückrichtung BC2 → BC3: übergeben wird der Lauf, BC3 zieht per PR, Reject liefert nichts aus und erzeugt eine neue Fassung | Entwurf 20.09.2026 |
 | **ADR-008 · BC2** | Schema `bc2`: Vertragsdokument als JSONB plus Spalten zum Filtern, Gate 1 getrennt und nach Abschluss fest, Fassung nur nach Reject, BC0 liest eine Sicht | Entwurf 09.10.2026 |
+| **ADR-009 · BC2** | Potenziale über Pakete hinweg verknüpfen: Nachfolger am Teilprozess verankert, nur 1:1, ausdrückliche Streichliste | Entwurf 09.10.2026 |
 
 > ⚠️ **Die Nummer 005 ist zweimal vergeben.** BC0 hat sie am 17.08.2026 gezogen und am 01.09.2026
 > angenommen ([#209](https://github.com/pg-coe-kmu/coe-factory/issues/209)), BC2 am 10.09.2026
@@ -174,7 +175,7 @@ Deployment mit Docker Compose und Caddy: siehe `app/DEPLOY.md`. Backup und Wiede
 > an der eine gezogene Nummer einzutragen ist — damit sich der Fall nicht wiederholt.
 >
 > **Ablage:** ADR-003 und **ADR-005 · BC0** in `bc0-baseline-onboarding/docs/entscheidungen/`
-> (beide seit 21.09.2026), ADR-004 in `bc0-baseline-onboarding/app/`, ADR-005 bis ADR-008 · BC2 in
+> (beide seit 21.09.2026), ADR-004 in `bc0-baseline-onboarding/app/`, ADR-005 bis ADR-009 · BC2 in
 > `bc2-strategic-advisor/docs/adr/`.
 >
 > **ADR-005 · BC0 lag bis zum 21.09.2026 nicht im Repo** — und genau das hat die Doppelvergabe
