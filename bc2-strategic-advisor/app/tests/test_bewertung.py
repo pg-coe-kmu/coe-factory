@@ -23,6 +23,7 @@ from bewertung import (
     Erwartung,
     baue_nutzlast,
     bewerte,
+    fuehre_zusammen,
     messungen_je_teilprozess,
     pruefe_bewertung,
 )
@@ -242,7 +243,7 @@ def test_bewertung_ergibt_vollstaendige_eingaenge_fuer_den_rechenkern():
     bestand = _bestand()
     modell = Doppelgaenger([_erkannt(), _gut()])
     erkennung = erkenne(bestand, modell)
-    b = bewerte(erkennung, bestand, modell, kennung=_kennungen())
+    b = bewerte(erkennung, bestand, modell, urteile=1, kennung=_kennungen())
 
     assert b.aufruf is not None and b.aufruf.versuche == 1
     assert b.kennungen == {
@@ -362,7 +363,7 @@ def test_eine_wiederholung_mit_benanntem_verstoss_dann_durch():
     modell = Doppelgaenger([_erkannt(), schlecht, _gut()])
     erkennung = erkenne(bestand, modell)
 
-    b = bewerte(erkennung, bestand, modell)
+    b = bewerte(erkennung, bestand, modell, urteile=1)
 
     assert b.aufruf.versuche == 2
     assert any("ausserhalb des Korridors" in v for v in b.aufruf.verworfen)
@@ -379,8 +380,141 @@ def test_bricht_die_wiederholung_auch_haelt_der_lauf_an():
     erkennung = erkenne(bestand, modell)
 
     with pytest.raises(BewertungAbgebrochen) as fehler:
-        bewerte(erkennung, bestand, modell)
+        bewerte(erkennung, bestand, modell, urteile=1)
     assert any("Zahl mit Einheit" in g for g in fehler.value.gruende)
+
+
+# ======================================================================
+# Mehrere Urteile, je Feld der Median (#299)
+# ======================================================================
+
+
+def _mit_nutzwert(antwort: dict, pid: str, kategorie: str, wert: int, text: str) -> dict:
+    antwort = json.loads(json.dumps(antwort))
+    b = next(x for x in antwort["bewertungen"] if x["id"] == pid)
+    b["nutzwert"][kategorie] = {"wert": wert, "begruendung": text}
+    return antwort
+
+
+def _mit(antwort: dict, pid: str, **ueber) -> dict:
+    antwort = json.loads(json.dumps(antwort))
+    next(x for x in antwort["bewertungen"] if x["id"] == pid).update(ueber)
+    return antwort
+
+
+def test_je_kategorie_gilt_der_median_mit_der_begruendung_seines_urteils():
+    a = _mit_nutzwert(_gut(), "P1", "durchlaufzeit", 7, "Uebergabe faellt weg.")
+    b = _mit_nutzwert(_gut(), "P1", "durchlaufzeit", 4, "Nur ein Teil geht schneller.")
+    c = _mit_nutzwert(_gut(), "P1", "durchlaufzeit", 5, "Etwas frueher fertig.")
+
+    z = fuehre_zusammen([a, b, c], ERWARTET)
+
+    p1 = z.antwort["bewertungen"][0]
+    assert p1["nutzwert"]["durchlaufzeit"] == {"wert": 5, "begruendung": "Etwas frueher fertig."}
+    assert z.streuung["P1"]["durchlaufzeit"] == (4, 7)
+    # Was nicht streut, bleibt, wie es war.
+    assert p1["nutzwert"]["qualitaet"]["wert"] == 6
+    assert z.streuung["P1"]["qualitaet"] == (6, 6)
+
+
+def test_die_lage_im_korridor_wird_je_grenze_getrennt_gemittelt():
+    a = _mit(_gut(), "P1", angesetzt_min_pct=60, angesetzt_max_pct=85)
+    b = _mit(_gut(), "P1", angesetzt_min_pct=70, angesetzt_max_pct=75)
+    c = _mit(_gut(), "P1", angesetzt_min_pct=65, angesetzt_max_pct=80,
+             korridor_begruendung="Die mittlere Lage.")
+
+    p1 = fuehre_zusammen([a, b, c], ERWARTET).antwort["bewertungen"][0]
+
+    assert (p1["angesetzt_min_pct"], p1["angesetzt_max_pct"]) == (65, 80)
+    assert p1["korridor_begruendung"] == "Die mittlere Lage."
+    assert pruefe_bewertung(fuehre_zusammen([a, b, c], ERWARTET).antwort, ERWARTET) == ()
+
+
+def test_ein_urteil_ohne_ueberschreiben_zaehlt_mit_dem_gemessenen_wert():
+    # P1 ist mit 4 gemessen. Zwei Urteile lassen es stehen, eines nicht.
+    ueber = _mit(_gut(), "P1", komplexitaet_ueberschrieben=8, komplexitaet_begruendung="Viele Systeme.")
+    p1 = fuehre_zusammen([_gut(), ueber, _gut()], ERWARTET).antwort["bewertungen"][0]
+    assert p1["komplexitaet_ueberschrieben"] is None
+    assert p1["komplexitaet_begruendung"] is None
+
+    # Zwei überschreiben: der Median ist eines ihrer Urteile, mit Begründung.
+    sechs = _mit(_gut(), "P1", komplexitaet_ueberschrieben=6, komplexitaet_begruendung="Zwei Systeme.")
+    p1 = fuehre_zusammen([sechs, ueber, _gut()], ERWARTET).antwort["bewertungen"][0]
+    assert p1["komplexitaet_ueberschrieben"] == 6
+    assert p1["komplexitaet_begruendung"] == "Zwei Systeme."
+
+
+def test_aufwand_ist_der_median_und_klassenzweifel_braucht_die_mehrheit():
+    zweifel = "Eher eine Integration."
+    a = _mit(_gut(), "P2", aufwand_schaetzung_pt=9, klassenzweifel=zweifel)
+    b = _mit(_gut(), "P2", aufwand_schaetzung_pt=15, aufwand_begruendung="Mehr Abnahme.")
+    c = _mit(_gut(), "P2", aufwand_schaetzung_pt=11, aufwand_begruendung="Mittel.")
+
+    z = fuehre_zusammen([a, b, c], ERWARTET)
+    p2 = z.antwort["bewertungen"][1]
+    assert (p2["aufwand_schaetzung_pt"], p2["aufwand_begruendung"]) == (11, "Mittel.")
+    assert z.streuung["P2"]["aufwand_schaetzung_pt"] == (9, 15)
+    assert p2["klassenzweifel"] is None  # einer von dreien ist Rauschen
+
+    b = _mit(b, "P2", klassenzweifel=zweifel)
+    p2 = fuehre_zusammen([a, b, c], ERWARTET).antwort["bewertungen"][1]
+    assert p2["klassenzweifel"] == zweifel
+
+
+@pytest.mark.parametrize("anzahl", [0, 2, 4])
+def test_nur_eine_ungerade_zahl_von_urteilen_hat_einen_median(anzahl):
+    with pytest.raises(ValueError):
+        fuehre_zusammen([_gut()] * anzahl, ERWARTET)
+
+
+def test_bewerte_urteilt_n_mal_und_rechnet_mit_dem_median():
+    bestand = _bestand()
+    urteile = [
+        _mit_nutzwert(_gut(), "P1", "compliance", w, f"Urteil {w}.") for w in (3, 9, 5)
+    ]
+    modell = Doppelgaenger([_erkannt(), *urteile])
+    erkennung = erkenne(bestand, modell)
+
+    b = bewerte(erkennung, bestand, modell, urteile=3, gleichzeitig=1)
+
+    assert len(modell.fragen) == 4  # Erkennung und drei Urteile
+    assert b.aufruf.versuche == 3 and len(b.urteile) == 3
+    assert b.eingaenge[0].nutzwert.compliance.wert == 5
+    assert b.eingaenge[0].nutzwert.compliance.begruendung == "Urteil 5."
+    assert b.streuung["P1"]["compliance"] == (3, 9)
+
+
+def test_bricht_eines_der_urteile_haelt_der_ganze_lauf_an():
+    bestand = _bestand()
+    schlecht = _mit(_gut(), "P1", korridor_begruendung="Bei 90 % der Faelle.")
+    modell = Doppelgaenger([_erkannt(), _gut(), schlecht, schlecht])
+    erkennung = erkenne(bestand, modell)
+
+    with pytest.raises(BewertungAbgebrochen):
+        bewerte(erkennung, bestand, modell, urteile=3, gleichzeitig=1)
+    assert len(modell.fragen) == 4  # kein drittes Urteil nach dem Abbruch
+
+
+def test_ohne_angabe_urteilt_der_lauf_dreimal():
+    bestand = _bestand()
+    modell = Doppelgaenger([_erkannt(), _gut(), _gut(), _gut()])
+    b = bewerte(erkenne(bestand, modell), bestand, modell, gleichzeitig=1)
+    assert len(b.urteile) == 3 and b.aufruf.schnitt == "Bewertung, Median aus 3"
+
+
+def test_die_laufquelle_urteilt_ohne_angabe_wie_der_bewertungsschritt():
+    eintrag = Paketeintrag("PKT-299", NOROAI, STAND, ("KP-06.TP-1", "KP-06.TP-2"))
+    modell = Doppelgaenger([_erkannt(), _gut(), _gut(), _gut()])
+    quelle = PaketLaufquelle(SpeicherPaketverzeichnis([eintrag]), _Quelle(), modell)
+    quelle.ansicht("PKT-299")
+    assert len(modell.fragen) == 4  # Erkennung und drei Urteile
+
+
+def test_eine_gerade_zahl_von_urteilen_wird_nicht_gestellt():
+    bestand = _bestand()
+    modell = Doppelgaenger([_erkannt()])
+    with pytest.raises(ValueError):
+        bewerte(erkenne(bestand, modell), bestand, modell, urteile=2)
 
 
 # ======================================================================
@@ -403,7 +537,7 @@ def _laufquelle(antworten):
     eintrag = Paketeintrag("PKT-288", NOROAI, STAND, ("KP-06.TP-1", "KP-06.TP-2"))
     quelle = _Quelle()
     modell = Doppelgaenger(list(antworten))
-    return PaketLaufquelle(SpeicherPaketverzeichnis([eintrag]), quelle, modell), quelle, modell
+    return PaketLaufquelle(SpeicherPaketverzeichnis([eintrag]), quelle, modell, urteile=1), quelle, modell
 
 
 def test_die_liste_rechnet_nicht():

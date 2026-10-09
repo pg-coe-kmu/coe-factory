@@ -3,10 +3,11 @@ BC2 · Der Bewertungsschritt (#260 entschieden, #288 gebaut).
 
 Aus den **erkannten** Potenzialen eines Laufs werden vollständige
 ``modell.Potenzialeingang``: ein Modellaufruf über alle Potenziale (ADR-006 ·
-BC2, 6.2), deterministisch bewacht (6.5), dazu BC1s Messungen je berührtem
-Teilprozess (Nachtrag 4).
+BC2, 6.2), dreimal gestellt und je Feld zum Median zusammengeführt (6.7, #299),
+deterministisch bewacht (6.5), dazu BC1s Messungen je berührtem Teilprozess
+(Nachtrag 4).
 
-Vier Teile, dieselbe Bauform wie :mod:`erkennung`:
+Fünf Teile, dieselbe Bauform wie :mod:`erkennung`:
 
 - :mod:`~bewertung.nutzlast` — was das Modell sieht: die Potenziale, die
   berührten Teilprozesse, Korridor und gemessene Komplexität. **Keine** Stunden,
@@ -14,7 +15,8 @@ Vier Teile, dieselbe Bauform wie :mod:`erkennung`:
 - :mod:`~bewertung.anweisung` — die Anweisung; die Anker kommen aus
   :mod:`modell.parameter`.
 - :mod:`~bewertung.pruefen` — der Wächter.
-- :mod:`~bewertung.bewerten` — der Ablauf, mit einer Wiederholung.
+- :mod:`~bewertung.zusammenfuehren` — mehrere Urteile, je Feld der Median.
+- :mod:`~bewertung.bewerten` — der Ablauf, mit einer Wiederholung je Urteil.
 
 Die Naht zum Modell ist dieselbe wie in der Erkennung
 (:mod:`erkennung.modellruf`) — SDK im Betrieb, CLI auf der Werkbank,
@@ -33,18 +35,24 @@ Kürzester Weg::
 """
 
 from .anweisung import ANWEISUNG, baue_frage
-from .bewerten import Bewertung, BewertungAbgebrochen, bewerte
+from .bewerten import URTEILE, Bewertung, BewertungAbgebrochen, baue_eingaenge, bewerte, erwartungen
 from .nutzlast import baue_nutzlast, messungen_je_teilprozess
 from .pruefen import Erwartung, pruefe_bewertung
+from .zusammenfuehren import Zusammenfuehrung, fuehre_zusammen
 
 __all__ = [
     "ANWEISUNG",
+    "URTEILE",
     "Bewertung",
     "BewertungAbgebrochen",
     "Erwartung",
+    "baue_eingaenge",
     "baue_frage",
     "baue_nutzlast",
     "bewerte",
+    "erwartungen",
+    "fuehre_zusammen",
     "messungen_je_teilprozess",
     "pruefe_bewertung",
+    "Zusammenfuehrung",
 ]

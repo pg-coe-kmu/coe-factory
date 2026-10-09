@@ -498,7 +498,7 @@ class PaketLaufquelle:
     darauf, dass die innere Quelle einen **neuen** Schnitt liefert. Ein
     Zwischenspeicher hier gäbe dort den alten zurück.
 
-    **Die Liste rechnet nicht.** Ein Lauf kostet zwei Modellaufrufe; die
+    **Die Liste rechnet nicht.** Ein Lauf kostet einen Erkennungs- und drei Bewertungsaufrufe (#299); die
     Übersicht zeigt ein ungerechnetes Paket darum mit ``0`` Potenzialen und sagt
     das an, statt eine Zahl zu erfinden.
     """
@@ -509,11 +509,14 @@ class PaketLaufquelle:
         bestand,  # erkennung.Bestandsquelle
         modell,  # erkennung.Modellruf
         parameter: Parameter = STANDARD,
+        urteile: int | None = None,
     ) -> None:
         self._verzeichnis = verzeichnis
         self._bestand = bestand
         self._modell = modell
         self._parameter = parameter
+        #: ``None`` ⇒ die Voreinstellung des Bewertungsschritts (#299).
+        self._urteile = urteile
 
     def uebersicht(self, company_id: str | None = None) -> list[Laufkopf]:
         koepfe = [
@@ -558,7 +561,13 @@ class PaketLaufquelle:
                 e.company_id, e.paket_id, e.uebergeben_am, list(e.teilprozess_ids)
             )
             erkennung = erkenne(bestand, self._modell, kandidaten=kandidaten)
-            bewertung = bewerte(erkennung, bestand, self._modell, parameter=self._parameter)
+            bewertung = bewerte(
+                erkennung,
+                bestand,
+                self._modell,
+                parameter=self._parameter,
+                **({} if self._urteile is None else {"urteile": self._urteile}),
+            )
         except (ErkennungAbgebrochen, BewertungAbgebrochen) as fehler:
             raise LaufAngehalten(
                 f"Lauf {e.paket_id} angehalten — das Modell brach seine Zusage auch in "

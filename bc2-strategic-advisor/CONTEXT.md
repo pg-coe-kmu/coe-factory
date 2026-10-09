@@ -149,7 +149,9 @@ Der Abschnitt eines Analyselaufs, in dem das LLM die **geschnittenen** Potenzial
 Korridor, Nutzwert, begründetes Überschreiben der Umsetzungskomplexität und seit #288 der
 **Umsetzungsaufwand**. Folgt dem
 **Erkennungsschritt**, der die Potenziale schneidet und ihre Lösungsklasse setzt, und ändert an
-diesem Schnitt nichts.
+diesem Schnitt nichts. Er urteilt jeden Lauf **mehrfach** — ein **Urteil** ist eine vollständige
+Bewertung aller Potenziale in einem Aufruf —, und je Größe gilt der **Median** der Urteile
+*(seit #299)*: ein einzelnes Urteil trägt eine eigene Verschiebung, die in der Rangfolge landet.
 _Avoid_: Bewertung (unqualifiziert — so heißen BC0s Bitkom-Einstufungen), Scoring, Rating
 
 **Manueller Aufwand heute**:
