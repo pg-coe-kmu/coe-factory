@@ -1,6 +1,7 @@
 """
 Hebt BC3s Formatvorlage vom 31.08.2026 auf den Vertrag v3.0 -- als Fixture, nicht als Lieferung.
-Seit #254 traegt die Priorisierung zusaetzlich die Ausgangslage des Laufs (v3.1).
+Seit #254 traegt die Priorisierung zusaetzlich die Ausgangslage des Laufs (v3.1), seit #291 die
+Streichliste, und jedes Potenzial seinen Vorgaenger (beides leer: die Vorlage ist ein erster Lauf).
 
 ZWECK. Ticket #187 verlangt, dass BC3s drei Beispielkonzepte gegen das neue Schema validieren.
 Woertlich koennen sie das nicht: sie tragen schema_version '2.1-bc3', fuehren gate1 im Konzept
@@ -266,6 +267,8 @@ def hebe_potenzial(p, kp_id, quelle_datei):
 
     return {
         "potenzial_id": p["potenzial_id"],
+        # Die Vorlage ist der erste Lauf -- ein Vorgaenger kann erst ein zweites Paket haben (#291).
+        "ersetzt_potenzial_ids": [],
         "titel": p["titel"],
         "potenzialrang": 0,  # wird nach dem Sortieren ueber den ganzen Lauf gesetzt
         "prioritaetsgruppe": gruppe,
@@ -369,7 +372,7 @@ def main():
             {
                 "konzept_id": konzept_id,
                 "ersetzt_konzept_id": None,
-                "schema_version": "3.0",
+                "schema_version": "3.1",
                 "company_id": COMPANY_ID,
                 "paket_id": PAKET_ID,
                 "uebergeben_am": UEBERGEBEN_AM,
@@ -494,6 +497,7 @@ def main():
         "konzept_ids": [k["konzept_id"] for k in konzepte],
         "eintraege": eintraege,
         "prozess_raenge": prozess_raenge,
+        "gestrichene_potenziale": [],
         "ausgangslage": als_ausgangslage(mandant, konzepte),
         "gate1": {
             "status": "pending",

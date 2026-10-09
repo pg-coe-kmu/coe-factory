@@ -4,7 +4,7 @@
 
 | Datei | Liefergegenstand | Version |
 |---|---|---|
-| `konzept.schema.json` | L2-01 Automatisierungskonzept, je **Kernprozess** | **3.0** (in v3.1 unverändert) |
+| `konzept.schema.json` | L2-01 Automatisierungskonzept, je **Kernprozess** | **3.1** (nimmt 3.0 weiter an) |
 | `priorisierung.schema.json` | L2-02 Priorisierung, je **Analyselauf** | **3.1** (nimmt 3.0 weiter an) |
 | [`archiv/`](archiv/) | eingefrorene v2.0-Fassung für die Lieferung vom 30.08.2026 | 2.0 |
 
@@ -56,13 +56,19 @@ hatte am 20.08. darum gebeten. Aufgeräumt in
 
 ## Was sich von v3.0 auf v3.1 geändert hat
 
-**Additiv, ein Feld** ([#254](https://github.com/pg-coe-kmu/coe-factory/issues/254), entschieden in
-[#244](https://github.com/pg-coe-kmu/coe-factory/issues/244)). ⚠️ **Von BC3 noch nicht bestätigt.**
+**Additiv, drei Felder in zwei Schemas**: die Ausgangslage
+([#254](https://github.com/pg-coe-kmu/coe-factory/issues/254), entschieden in
+[#244](https://github.com/pg-coe-kmu/coe-factory/issues/244)) und die Kette über Pakete hinweg
+([#291](https://github.com/pg-coe-kmu/coe-factory/issues/291), [ADR-009 · BC2](../../bc2-strategic-advisor/docs/adr/ADR-009_Nachfolger_ueber_Pakete.md),
+auf BC3s eigenen Vorschlag an [#242](https://github.com/pg-coe-kmu/coe-factory/issues/242)).
+⚠️ **Von BC3 noch nicht bestätigt.**
 
 | Was | v3.0 | v3.1 | Warum |
 |---|---|---|---|
 | `ausgangslage` in der Priorisierung | — | `unternehmen{name, branche, mitarbeitende, region, geschaeftsmodell}`, `herausforderungen[]{beschreibung, auswirkung, haeufigkeit?, kp_ids[]}`, `kernaussage?` | Teil 1 der Präsentation hatte im Vertrag keinen Ort. Erzeugte der Foliengenerator sie selbst, trüge die Präsentation eigene Information — unversioniert und nie bei BC3 |
-| `schema_version` der Priorisierung | `const "3.0"` | `"3.0"` oder `"3.1"` | Eine 3.0-Datei bleibt gültig; eine 3.1 **trägt** die Ausgangslage, eine 3.0 **trägt sie nicht** — die Nummer sagt, ob sie da ist |
+| `potenziale[].ersetzt_potenzial_ids` im Konzept | — | Liste aus UUIDs, höchstens **ein** Eintrag, `[]` bei einem neuen Potenzial | Der Vorgänger aus einer früher **gelieferten** Lieferung eines **anderen** Pakets. Ohne ihn sind nach einer Nacherhebung alle Kennungen neu, und BC4 legt neue Tickets an, statt fortzuschreiben |
+| `gestrichene_potenziale[]` in der Priorisierung | — | `{potenzial_id, kp_id, begruendung}`, `[]` wenn nichts gestrichen ist | Was dieser Lauf neu gesehen hat und als Vorhaben wegfällt — ausdrücklich, weil BC3 sonst nicht unterscheiden kann zwischen „gestrichen“ und „gar nicht neu gerechnet“ |
+| `schema_version` | `const "3.0"` | `"3.0"` oder `"3.1"`, **in beiden Schemas** | Eine 3.0-Datei bleibt gültig; eine 3.1 **trägt** die neuen Felder, eine 3.0 **trägt sie nicht** — die Nummer sagt, ob sie da sind. In einem Lauf tragen alle Dateien dieselbe Nummer |
 
 - **`unternehmen` ist maschinell**, kein LLM: aus `public.companies` und `public.company_profile`
   auf `stand_zum(uebergeben_am)`. Alle fünf Schlüssel sind Pflicht, jeder Wert darf `null` sein —
@@ -76,13 +82,26 @@ hatte am 20.08. darum gebeten. Aufgeräumt in
 - **Nicht übernommen:** Positionierung, Marktumfeld und strategische Ziele aus dem
   Unternehmensprofil v6.0. Fließtext ohne Datengrundlage im Paket; ihn zu verdichten hieße, im Lauf
   Aussagen zu erzeugen, die niemand prüfen kann.
-- **`konzept.schema.json` bleibt auf 3.0.** Ein Lauf in v3.1 trägt also Konzepte mit
-  `schema_version: "3.0"` und eine Priorisierung mit `"3.1"` — die Nummer steht je Datei für deren
-  Form, nicht für den Lauf.
+- **Die Kette lebt nur auf Potenzialebene.** Ein neues Paket trägt nur die **neu freigegebenen**
+  Teilprozesse (BC0s `v_uebergabe_kandidaten`), ein Konzept über KP-05.TP-2 ersetzt also kein
+  Konzept über TP-1 bis TP-3. `ersetzt_konzept_id` verkettet weiter nur Fassungen **desselben**
+  Pakets. Ein Vorgänger kommt nur aus einer **freigegebenen** Lieferung (abgelehnte Fassungen hat BC3
+  nie gesehen) und nur, wenn er einen Teilprozess des neuen Pakets berührt.
+- **Nur 1:1.** Ein Vorgänger hat höchstens einen Nachfolger. Bei einer Teilung rechnete BC3 zwei
+  Potenziale auf dieselbe älteste Kennung. Was sich teilt oder zusammenlegt, ist neu, und das Alte
+  steht auf der Streichliste.
+- **Worauf keiner zeigt und was nicht auf der Streichliste steht, gilt unverändert** — es lag
+  außerhalb des Pakets oder war aus ihm allein nicht zu beurteilen.
+- **Bis der Bau steht ([#295](https://github.com/pg-coe-kmu/coe-factory/issues/295)), sind beide
+  Felder leer** — zu Recht, denn einen freigegebenen echten Lauf gibt es noch nicht. Kommt ein
+  Teilprozess zum zweiten Mal, bevor die Verknüpfung gebaut ist, liefert BC2 nicht still `[]`,
+  sondern bricht ab (#290).
 
-**Was BC3 tun muss:** wer die Priorisierung gegen eine eigene Kopie des v3.0-Schemas prüft, lehnt
-eine v3.1 ab (`additionalProperties: false`, `const "3.0"`). Die Kopie ist zu ersetzen; Lesecode,
-der `ausgangslage` nicht kennt, kann es ignorieren.
+**Was BC3 tun muss:** Wer gegen eine eigene Kopie des v3.0-Schemas prüft, lehnt eine v3.1 ab
+(`additionalProperties: false`, `const "3.0"`). Die Kopie ist zu ersetzen. Lesecode, der
+`ausgangslage` nicht kennt, kann es ignorieren. **Für die Ticketkennungen:** der Kette über
+`ersetzt_potenzial_ids` zurück folgen und mit der **ältesten** `potenzial_id` rechnen (Svetlanas
+Vorschlag an #242). Was mit einem gestrichenen Potenzial bei BC4 geschieht, entscheidet BC3.
 
 ## Was sich von v2.0 auf v3.0 geändert hat
 
@@ -158,10 +177,13 @@ Gefunden wird **jeder** Ordner unter `lieferungen/`, nicht eine feste Liste: was
 nicht die eingefrorene v2-Lieferung ist, läuft gegen das aktuelle Schema (nimmt 3.0 und 3.1) —
 Schema, ein Lauf je Ordner, Konzepte und Priorisierung decken dieselben Potenziale, Rangfolge wie
 im Rechenkern, Ordnername `<company>-<paket_id>-f<n>`, bei 3.1 die Ausgangslage (genau die
-Schmerzpunkte der Konzepte, nichts dazu), und bei `paket_id` `SIM-…` die Simulations-Kennzeichnung.
+Schmerzpunkte der Konzepte, nichts dazu) und die Kette (`tools/kette.py`: 1:1, Vorgänger und
+Gestrichenes aus einer früheren **freigegebenen** Lieferung im Repo, gleicher Kernprozess, gleiche
+Lösungsklasse, nichts zugleich fortgeschrieben und gestrichen), und bei `paket_id` `SIM-…` die
+Simulations-Kennzeichnung.
 
 **Die CI prüft das bei jedem PR, der die Lieferstrecke berührt** (#253): Job **„BC2 → BC3
 Lieferungen"** in `.github/workflows/vertraege-pruefen.yml` startet `validate.py`, sobald sich
 etwas unter `contracts/bc2-to-bc3/`, `contracts/bc1-to-bc2/`, `contracts/examples/`, an
-`validate.py` oder am Workflow selbst ändert. Der Job hat ein eigenes Ergebnis, getrennt von der
+`validate.py`, an `kette.py` oder am Workflow selbst ändert. Der Job hat ein eigenes Ergebnis, getrennt von der
 BC3→BC4-Prüfung im selben Workflow — ein Rot dort sagt nichts über BC2 und umgekehrt.

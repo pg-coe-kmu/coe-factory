@@ -1,7 +1,7 @@
 {
   "konzept_id": "ddd6062d-edaa-5739-bd68-823eaff5f441",
   "ersetzt_konzept_id": null,
-  "schema_version": "3.0",
+  "schema_version": "3.1",
   "company_id": "7c2d5ee9-2a9a-5990-810f-502ea2b2012d",
   "paket_id": "FIXTURE-BC3-VORLAGE-2026-08-31",
   "uebergeben_am": "2026-08-31T00:00:00+02:00",
@@ -57,6 +57,7 @@
   "potenziale": [
     {
       "potenzial_id": "b1000000-0000-4000-8000-000000000002",
+      "ersetzt_potenzial_ids": [],
       "titel": "Angebot erstellen und Buchung nach Freigabe auslösen",
       "potenzialrang": 1,
       "prioritaetsgruppe": "PRIO 1",
@@ -242,6 +243,7 @@
     },
     {
       "potenzial_id": "b3000000-0000-4000-8000-000000000001",
+      "ersetzt_potenzial_ids": [],
       "titel": "Lebensläufe strukturiert erfassen und Kompetenzprofil aufbauen",
       "potenzialrang": 3,
       "prioritaetsgruppe": "PRIO 2",
@@ -423,6 +425,7 @@
     },
     {
       "potenzial_id": "b1000000-0000-4000-8000-000000000001",
+      "ersetzt_potenzial_ids": [],
       "titel": "Reiseanfrage automatisch erfassen und Verfügbarkeit prüfen",
       "potenzialrang": 4,
       "prioritaetsgruppe": "PRIO 2",
@@ -609,6 +612,7 @@
     },
     {
       "potenzial_id": "b3000000-0000-4000-8000-000000000002",
+      "ersetzt_potenzial_ids": [],
       "titel": "Projektanforderung mit Profilen abgleichen und Vorschlagsliste erzeugen",
       "potenzialrang": 5,
       "prioritaetsgruppe": "PRIO 2",
