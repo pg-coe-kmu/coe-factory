@@ -394,23 +394,17 @@ SELECT c ->> 'name'                AS name,
 #: Sie ist Vertragsbestandteil: es liegen **mehrere** fertige Versionen je
 #: Fokus-Schritt vor, und wer „irgendeine" liest, liest still die falsche.
 #:
-#: **Eine Abweichung vom Vertragstext, mit Grund.** ``lesen.sql`` führt
-#: ``p.step_frequency_per_year`` als Spalte, und genau daran **bricht die
-#: Abfrage an der laufenden Datenbank** (``column p.step_frequency_per_year
-#: does not exist``, gemessen in #249 am 21.09.2026): BC1 führt D3 als
-#: JSON-Feld und hatte die Schema-Ergänzung ausdrücklich an das Binden
-#: geknüpft. Die Abfrage scheitert **beim Parsen**, BC2 liest über den
-#: Vertragsweg also *kein einziges* Profil — nicht eines weniger, keines.
-#: Hier wird das Feld darum aus ``profil`` gelesen statt aus einer Spalte, die
-#: es nicht gibt. Die Reparatur des Vertrags selbst ist
-#: `#255 <https://github.com/pg-coe-kmu/coe-factory/issues/255>`_; bis dahin
-#: liest BC2 wenigstens.
+#: ``step_frequency_per_year`` ist seit BC1s PR #263 (22.09.2026) eine echte
+#: Spalte; die Abweichung vom Vertragstext, mit der BC2 das Feld bis dahin aus
+#: dem JSON las (Bruch gemessen in #249), ist damit zurückgenommen. Als
+#: ``bc2_role`` an der laufenden Datenbank gegengeprüft am 09.10.2026 (#255).
 _SQL_BC1 = """
 SELECT DISTINCT ON (p.focus_step_id)
        p.focus_step_id,
        p.profil_version,
        p.erhebung_id,
        p.frequency_per_year,
+       p.step_frequency_per_year,
        p.total_duration_minutes,
        p.focus_step_duration_minutes,
        p.focus_step_duration_source,
@@ -423,20 +417,24 @@ SELECT DISTINCT ON (p.focus_step_id)
  ORDER BY p.focus_step_id, p.profil_version DESC
 """
 
-#: Die namentlich gebundenen Felder aus BC1s Profil-JSON (#184). Nur diese —
-#: ein Profil trägt 43 Interviewfelder, gebunden sind acht.
+#: Die Felder aus BC1s Profil-JSON, die BC2 übernimmt, mit ihrem Zieltyp. Sie
+#: liegen unter ``profil.felder.<name>`` als ``{"wert": <Zeichenkette>,
+#: "status": …}`` (Invariante I6) — **nicht** auf der obersten Ebene; dort
+#: stehen nur Kopf-Angaben wie ``ungeloeste_felder``. Gemessen am 09.10.2026
+#: (#255): die erste Fassung las oben und bekam in allen Profilen nichts.
 #:
-#: ``step_frequency_per_year`` steht hier und **nicht** in der Spaltenliste:
-#: es ist die Größe mit Vorrang für den Fokus-Schritt (Invariante I8), aber
-#: es existiert in BC1s Schema nur im JSON (#249 → #255).
-_BC1_JSON_FELDER = (
-    "step_frequency_per_year",
-    "documentation_status",
-    "standardization_level",
-    "data_availability_score",
-    "stability_score",
-    "automation_potential_estimate_pct",
-)
+#: ``step_frequency_per_year`` steht **nicht** hier: es ist seit #263 eine
+#: Spalte, und die Spalte ist der Vertrag (I8).
+_BC1_JSON_FELDER: dict[str, type] = {
+    "documentation_status": int,
+    "standardization_level": int,
+    "data_availability_score": int,
+    "stability_score": int,
+    "automation_potential_estimate_pct": float,
+}
+
+#: Invariante I7: Testdaten erkennt BC2 am Präfix von ``open_remarks``.
+_TESTDATEN_PRAEFIX = "Testdaten "
 
 
 class PostgresBestand:
@@ -585,31 +583,45 @@ class PostgresBestand:
 
 
 def _bc1_aus_zeile(z: dict[str, Any]) -> Bc1Profil:
-    """Zieht die gebundenen Felder aus einer BC1-Profilzeile.
+    """Zieht die übernommenen Felder aus einer BC1-Profilzeile.
 
-    Aus dem JSON kommen **nur** die acht namentlich gebundenen Felder, und nur
-    solche mit ``status='gueltig'`` (Vertragsregel #184) — ein Feld mit einem
-    anderen Status trägt keine Zahl, sondern einen offenen Klärpunkt.
+    Aus dem JSON kommen nur die Felder aus ``_BC1_JSON_FELDER``, nur mit
+    ``status='gueltig'`` (Vertragsregel #184) — ein Feld mit einem anderen
+    Status trägt keine Zahl, sondern einen offenen Klärpunkt. Die Werte sind
+    Zeichenketten (I6) und werden hier in ihren Zieltyp gewandelt; was sich
+    nicht wandeln lässt, wird ``None`` statt einer erfundenen Zahl.
     """
     profil = z.get("profil") or {}
     if isinstance(profil, str):
         profil = json.loads(profil)
+    felder = profil.get("felder") if isinstance(profil, dict) else None
+    if not isinstance(felder, dict):
+        felder = {}
 
     werte: dict[str, Any] = {}
-    for feld in _BC1_JSON_FELDER:
-        roh = profil.get(feld)
-        if isinstance(roh, dict):
-            if roh.get("status") == "gueltig":
-                werte[feld] = roh.get("wert")
-        elif roh is not None:
-            werte[feld] = roh
+    for feld, typ in _BC1_JSON_FELDER.items():
+        roh = felder.get(feld)
+        if not isinstance(roh, dict) or roh.get("status") != "gueltig":
+            continue
+        try:
+            werte[feld] = typ(roh.get("wert"))
+        except (TypeError, ValueError):
+            continue
+
+    bemerkung = felder.get("open_remarks")
+    bemerkung = bemerkung.get("wert") if isinstance(bemerkung, dict) else None
+    kennzeichnung = (
+        bemerkung
+        if isinstance(bemerkung, str) and bemerkung.startswith(_TESTDATEN_PRAEFIX)
+        else None
+    )
 
     return Bc1Profil(
         focus_step_id=z["focus_step_id"],
         profil_version=z.get("profil_version"),
         erhebung_id=z.get("erhebung_id"),
         frequency_per_year=z.get("frequency_per_year"),
-        step_frequency_per_year=werte.get("step_frequency_per_year"),
+        step_frequency_per_year=z.get("step_frequency_per_year"),
         total_duration_minutes=z.get("total_duration_minutes"),
         focus_step_duration_minutes=z.get("focus_step_duration_minutes"),
         focus_step_duration_source=z.get("focus_step_duration_source"),
@@ -619,7 +631,7 @@ def _bc1_aus_zeile(z: dict[str, Any]) -> Bc1Profil:
         data_availability_score=werte.get("data_availability_score"),
         stability_score=werte.get("stability_score"),
         automation_potential_estimate_pct=werte.get("automation_potential_estimate_pct"),
-        kennzeichnung=profil.get("kennzeichnung") if isinstance(profil, dict) else None,
+        kennzeichnung=kennzeichnung,
     )
 
 
