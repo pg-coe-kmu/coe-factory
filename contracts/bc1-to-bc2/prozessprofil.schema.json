@@ -13,6 +13,7 @@
     "erhebung_id",
     "paket_version",
     "frequency_per_year",
+    "step_frequency_per_year",
     "executions_per_run",
     "total_duration_minutes",
     "focus_step_duration_minutes",
@@ -64,7 +65,7 @@
     "step_frequency_per_year": {
       "type": ["number", "null"],
       "minimum": 0,
-      "description": "DURCHLAEUFE PRO JAHR DES FOKUS-SCHRITTS, falls abweichend vom Prozess (Frage D3, optional: 'Wie oft laeuft dieser einzelne Schritt, falls abweichend?'). IST DAS FELD GESETZT, HAT ES VORRANG vor frequency_per_year fuer den Fokus-Schritt: dessen Jahresminuten sind dann step_frequency_per_year x focus_step_duration_minutes (Invariante I8 im README). Null oder ungeloest bedeutet 'nicht abweichend' — BC2 faellt auf frequency_per_year zurueck. Gebunden am 20.09.2026 (offener Punkt 2); BC1 musste dafuer nichts aendern, das Feld war nur ungebunden. Normalisiert wie frequency_per_year."
+      "description": "DURCHLAEUFE PRO JAHR DES FOKUS-SCHRITTS, falls abweichend vom Prozess (Frage D3, optional: 'Wie oft laeuft dieser einzelne Schritt, falls abweichend?'). IST DAS FELD GESETZT, HAT ES VORRANG vor frequency_per_year fuer den Fokus-Schritt: dessen Jahresminuten sind dann step_frequency_per_year x focus_step_duration_minutes (Invariante I8 im README). Null oder ungeloest bedeutet 'nicht abweichend' — BC2 faellt auf frequency_per_year zurueck. Gebunden am 20.09.2026 (offener Punkt 2); seit BC1s PR #263 (22.09.2026) eine echte Spalte in bc1.prozessprofil, vorher nur im JSON (Bruch von lesen.sql, #249/#255). Normalisiert wie frequency_per_year."
     },
     "executions_per_run": {
       "type": ["number", "null"],
