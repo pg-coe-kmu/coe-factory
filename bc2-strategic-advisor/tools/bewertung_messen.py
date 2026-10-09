@@ -9,7 +9,12 @@ aus #205 und #248.
 **Die Abnahme aus #288 (ADR-006 · BC2, 6.2).** Ein Aufruf je Lauf ist nur dann
 ein Maßstab, wenn er stabil urteilt. Das Werkzeug erkennt das Paket **einmal**
 und bewertet denselben Schnitt **zweimal**; weicht ein Nutzwert um mehr als
-einen Punkt ab, ist der Schnitt „ein Aufruf je Lauf" neu zu stellen. Die
+einen Punkt ab, ist der Schnitt „ein Aufruf je Lauf" neu zu stellen.
+
+„Nutzwert" ist im Glossar das **Mittel** der fünf Kategorien; das Urteil fällt
+darum am Mittel. Die Kategorien werden daneben ausgewiesen — eine Abweichung
+dort ist die feinere Probe, und keine der beiden Lesarten soll sich hinter der
+anderen verstecken können. Die
 Erkennung wird bewusst nicht wiederholt: sonst mäße die Probe die Streuung des
 Schneidens mit, und die ist in #248 schon gemessen.
 
@@ -117,8 +122,10 @@ def main() -> int:
     a, b = _je_erkennung(laeufe[0]), _je_erkennung(laeufe[1])
     titel = {p.potenzial_id: p.titel for p in erkennung.potenziale}
     groesste = 0
+    groesste_mittel = 0.0
+    ueber_kat = 0
     print("\nStabilitaet (Bewertung 1 → 2):")
-    print(f"  {'Potenzial':<44} {'Q':>5} {'D':>5} {'F':>5} {'M':>5} {'C':>5}  Lage         K       PT")
+    print(f"  {'Potenzial':<44} {'Q':>5} {'D':>5} {'F':>5} {'M':>5} {'C':>5}  {'Mittel':<10} Lage         K       PT")
     for pid in sorted(a):
         x, y = a[pid], b[pid]
         diffs = []
@@ -128,14 +135,24 @@ def main() -> int:
             diffs.append(abs(w1 - w2))
             zellen.append(f"{w1}→{w2}")
         groesste = max(groesste, *diffs)
+        ueber_kat += sum(1 for d in diffs if d > GRENZE_PUNKTE)
+        m1 = sum(x["nutzwert"][k]["wert"] for k in KATEGORIEN) / len(KATEGORIEN)
+        m2 = sum(y["nutzwert"][k]["wert"] for k in KATEGORIEN) / len(KATEGORIEN)
+        groesste_mittel = max(groesste_mittel, abs(m1 - m2))
+        mittel = f"{m1:.1f}→{m2:.1f}"
         lage = f"{x['angesetzt_min_pct']:g}-{x['angesetzt_max_pct']:g}→{y['angesetzt_min_pct']:g}-{y['angesetzt_max_pct']:g}"
         k = f"{x.get('komplexitaet_ueberschrieben')}→{y.get('komplexitaet_ueberschrieben')}"
         pt = f"{x['aufwand_schaetzung_pt']:g}→{y['aufwand_schaetzung_pt']:g}"
         print(f"  {(pid + ' ' + titel[pid])[:44]:<44} " + " ".join(f"{z:>5}" for z in zellen)
-              + f"  {lage:<12} {k:<7} {pt}")
+              + f"  {mittel:<10} {lage:<12} {k:<7} {pt}")
 
-    urteil = "STABIL" if groesste <= GRENZE_PUNKTE else "NICHT STABIL — Schnitt neu stellen (6.2)"
-    print(f"\nGroesste Abweichung eines Nutzwerts: {groesste} Punkt(e) → {urteil}")
+    stabil = groesste_mittel <= GRENZE_PUNKTE
+    urteil = "STABIL" if stabil else "NICHT STABIL — Schnitt neu stellen (6.2)"
+    print(f"\nGroesste Abweichung eines Nutzwerts (Mittel): {groesste_mittel:.1f} Punkt(e) → {urteil}")
+    print(
+        f"Kategorien: groesste Abweichung {groesste} Punkt(e); "
+        f"{ueber_kat} von {len(a) * len(KATEGORIEN)} Werten ueber {GRENZE_PUNKTE}"
+    )
 
     # --- Rechenkern -------------------------------------------------------------
     lauf = rechne_lauf(NOROAI, "MESS-288", laeufe[0].eingaenge)
@@ -147,7 +164,7 @@ def main() -> int:
             f"[{p.komplexitaet_herkunft}]  PT {p.aufwand_schaetzung_pt:g}  {p.titel[:50]}"
         )
     print(f"\nRohantworten: {ziel}")
-    return 0 if groesste <= GRENZE_PUNKTE else 1
+    return 0 if stabil else 1
 
 
 if __name__ == "__main__":

@@ -149,8 +149,10 @@ class Parameter:
     # Satz für 1, 4, 7 und 10. Der Bewertungsschritt sieht sie wörtlich; Werte
     # dazwischen sind erlaubt, gleiche Werte über Potenziale auch.
     #
-    # ⚠ ENTWURF ZUR ABNAHME DURCH SERGIO (#288) — vor dem Merge, und am ersten
-    # echten Lauf (#206) mitzuprüfen. Ein Anker beschreibt die **Wirkung der
+    # Abgenommen von Sergio am 09.10.2026 (#288); am ersten echten Lauf (#206)
+    # mitzuprüfen. **Stabil machen sie das Urteil allein nicht** — die Abnahme
+    # aus #288 ist an der Streuung der Nutzwerte gescheitert (#299). Ein Anker
+    # beschreibt die **Wirkung der
     # Lösung**, nicht den Zustand des Prozesses: ein schlechter Prozess ist kein
     # hoher Nutzwert, erst die Verbesserung durch diese Lösung ist es.
     nutzwert_anker: dict[str, dict[int, str]] = field(

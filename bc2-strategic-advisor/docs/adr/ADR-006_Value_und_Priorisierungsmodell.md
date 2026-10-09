@@ -487,6 +487,14 @@ Regel „gleiche Werte sind erlaubt, keine Reihenfolge erzwingen".
 **Abnahme im Bau: eine Stabilitätsmessung** — dasselbe Paket zweimal bewerten. Weicht ein Nutzwert
 um mehr als einen Punkt ab, ist dieser Schnitt neu zu stellen.
 
+⚠ **Gescheitert am 09.10.2026 ([#288](https://github.com/pg-coe-kmu/coe-factory/issues/288)).**
+Ein Paket, einmal erkannt, zweimal bewertet (7 Potenziale, Sonnet über die CLI): das Nutzwert-Mittel
+weicht bei 2 von 7 um 1,2 Punkte ab, die Kategorien bei 9 von 35 Werten um mehr als einen Punkt
+(höchstens 3); ein Potenzial wechselt die Prioritätsgruppe. Lage im Korridor und Komplexität blieben
+stabil. Der Schnitt ist damit neu zu stellen — in
+[#299](https://github.com/pg-coe-kmu/coe-factory/issues/299). Bis dahin gilt dieser Abschnitt als
+gebaut, aber nicht abgenommen.
+
 ### 6.3 Was der Aufruf sieht
 
 Die geschnittenen Potenziale (Titel, Ausgangslage, Schmerzpunkte, Lösungsansatz, Klasse), die
