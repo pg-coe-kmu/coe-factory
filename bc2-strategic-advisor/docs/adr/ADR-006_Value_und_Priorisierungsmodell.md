@@ -1,6 +1,7 @@
 # ADR-006 · BC2 — Das Value- und Priorisierungsmodell
 
-**Status:** Angenommen · 20.09.2026 — mit drei Nachträgen aus dem Bau, siehe §5
+**Status:** Angenommen · 20.09.2026 — mit drei Nachträgen aus dem Bau (§5) und drei aus dem
+Bewertungsschritt (09.10.2026, [#260](https://github.com/pg-coe-kmu/coe-factory/issues/260), §6)
 **Bezug:** [#166](https://github.com/pg-coe-kmu/coe-factory/issues/166) · Bau [#238](https://github.com/pg-coe-kmu/coe-factory/issues/238) · Karte [#158](https://github.com/pg-coe-kmu/coe-factory/issues/158)
 **Baut auf:** ADR-005 · BC2 (der Analyselauf ist das Paket) · ADR-003 (Schreibmodell) · ADR-002 (stabile IDs)
 **Nummer:** Die Vergabe läuft über Bounded Contexts hinweg und ist seit [#220](https://github.com/pg-coe-kmu/coe-factory/issues/220)
@@ -53,6 +54,31 @@ Amortisation   = Investition / (Einsparung / 12)
 
 **`executions_per_run` ist kein Faktor** (Invariante I2 des BC1-Vertrags). Wer ihn multipliziert,
 erhält für die Reisebuchung das Dreifache der Gesamtkapazität des Mandanten.
+
+**Nachtrag 4 (#260): die Jahresstunden sind die der berührten Schritte, nicht die des ganzen
+Prozesses.** Die erste Zeile oben ist damit ersetzt durch
+
+```
+Jahresstunden  = Σ über die berührten Teilprozesse:
+                 (step_frequency_per_year ?? frequency_per_year) × focus_step_duration_minutes / 60
+```
+
+`frequency_per_year × total_duration_minutes` beschreibt laut BC1-Vertrag (I1) den **ganzen
+Prozess, wie ihn der Befragte gerahmt hat** — gespeichert auf der Zeile des Fokus-Schritts, und
+zwei Profile desselben Kernprozesses widersprechen sich darin (KP-06: 40 × 120 min in TP-1,
+180 × 180 min in TP-2). Ein Potenzial, das einen Schritt berührt, beanspruchte damit die Dauer des
+ganzen Prozesses; eines über zwei Teilprozesse hätte zwei widersprüchliche Ganz-Prozess-Zahlen, und
+summiert zählten sie doppelt. Eine Lösung nimmt die Arbeit eines **Schritts** ab. Je Schritt
+summiert zählt nichts doppelt, weil die Teilprozesse verschiedene Schritte sind. `step_frequency_per_year`
+hat Vorrang, wo gesetzt (I8).
+
+- **Herkunft** ist die **schwächste** der berührten Teilprozesse (`geschaetzt` vor `aus_system` vor
+  `gemessen`); einmal `geschaetzt` macht die Breite ±40 %. Die Eingangswerte reisen **je
+  Teilprozess** mit.
+- **Fehlt einem berührten Teilprozess das Profil oder eine der beiden Größen, gibt es keine
+  Value-Zahl** — wie bei `NULL` in 2.3, der Nutzwert trägt den Impact allein (Nachtrag 2), und ein
+  Hinweis nennt die fehlenden Teilprozesse. Eine Teilsumme sähe vollständig aus und läge
+  systematisch zu niedrig: der Schluss vom Artefakt auf die Absicht, diesmal mit Zahlen.
 
 **Zwei verschiedene Sätze, mit Absicht.** Die Einsparungsseite rechnet mit dem Mischsatz von
 43 €/h (341 €/PT) — das ist die Arbeitszeit des Mandanten. Die Investitionsseite rechnet mit einem
@@ -141,6 +167,14 @@ dessen Nutzen am besten belegt ist.
 **Ungewichtet** aus demselben Grund, aus dem Bitkom es ist: eine Gewichtung wäre reine Setzung und
 ließe sich gegenüber einem Prüfer nicht begründen.
 
+**Nachtrag 6 (#260): der Nutzwert trägt keine Spanne — aber feste Anker.** Er ist ein Urteil auf
+einer Ordinalskala; eine Spanne darum wäre dieselbe erfundene Genauigkeit, die 2.3 bei
+`confidence_pct` verwirft. Es reisen die Herkunft `geurteilt` und ein Begründungssatz je Kategorie;
+dass ein Impact ganz geurteilt ist, zeigt schon `impact_monetaer: null`. Damit die Skala **absolut**
+ist und nicht nur so heißt, setzt BC2 je Kategorie **Anker für 1, 4, 7 und 10** — eine Setzung
+neben Korridoren und Euro-Schwellen in `app/modell/parameter.py`, offengelegt und am ersten echten
+Lauf mitzuprüfen.
+
 **Nicht aus den Bitkom-Bewertungen abgeleitet.** Die hängen am **Teilprozess**, der Nutzwert gehört
 zum **Potenzial**, und ein Teilprozess trägt mehrere Potenziale. Eine Ableitung gäbe allen
 Potenzialen eines Teilprozesses denselben Nutzwert und ebnete genau die Unterscheidung ein, für die
@@ -227,6 +261,15 @@ mitgeführt. Der Lauf bleibt vollständig.
 
 **Bekannter Schönheitsfehler:** die Formel erreicht die 10 nie, der Wertebereich ist 1–9. Jede
 Streckung wäre willkürlicher als die Lücke.
+
+**Nachtrag 5 (#260): mehrere Teilprozesse — das Maximum.** Die vier Skalen hängen am Fokus-Schritt,
+also je Teilprozess; ein Potenzial braucht eine Komplexität. Gerechnet wird sie **je berührtem
+Teilprozess** nach der Formel oben, und es gilt die **höchste**: der am schwersten umsetzbare Teil
+bestimmt den Aufwand, ein Mittel glättete ihn weg. **Fehlen einem berührten Teilprozess die Skalen,
+ist die Komplexität nicht gemessen** — das LLM urteilt (Herkunft `geurteilt`), die vorhandenen
+Skalen sind Begründungsmaterial wie BC0s sechs Kriterien. Ein Maximum über eine Teilmenge wäre ein
+Urteil, das sich als Messung ausgibt. Der Preis ist bekannt: die Komplexität deckelt den Score
+ohnehin (§5.2), das Maximum verschärft das. Das gehört in die Kalibrierung, nicht in die Formel.
 
 ### 2.7 Score, Kategorie, Gruppe, Rang
 
@@ -409,3 +452,62 @@ echten Lauf — mit der Warnung, dass ein Verschieben der Bänder allein das Sym
   **innerhalb** des Korridors ihrer Klasse liegt — wer ihn überschreitet, hat die Klasse falsch
   gewählt, und das soll auffallen statt stillschweigend zu gelten. Ohne Angabe gilt der volle
   Korridor.
+
+---
+
+## 6. Nachtrag — der Bewertungsschritt · 09.10.2026 ([#260](https://github.com/pg-coe-kmu/coe-factory/issues/260))
+
+2.0 lässt das LLM an vier Stellen urteilen. Der Erkennungsschritt
+([#248](https://github.com/pg-coe-kmu/coe-factory/issues/248)) deckt **eine** ab, die Lösungsklasse.
+Die übrigen drei — Lage im Korridor, die fünf Nutzwert-Kategorien, das begründete Überschreiben
+der Komplexität — urteilt ein eigener **Bewertungsschritt**. Er sieht das *geschnittene* Potenzial
+und läuft deshalb nach der Erkennung, nie vorher. Die Aggregation über mehrere Teilprozesse steht
+oben an Ort und Stelle (Nachtrag 4 und 5), die Unsicherheit des Nutzwerts ebenso (Nachtrag 6).
+
+### 6.1 Ein eigener Aufruf, nicht ein Anhang an die Erkennung
+
+Für den Anhang sprach nur, dass der Kontext schon geladen ist — entdoppelt rund 46.500 Zeichen, ein
+kleiner Preis. Dagegen: der Wächter aus #248 prüft das **ganze JSON** eines Potenzials auf Zahlen mit
+Einheit, also hielte jede Korridor-Begründung mit `%` den Erkennungslauf an; eine Wiederholung würfelte
+den ganzen **Schnitt** neu statt nur die Bewertung; und beide wären nicht mehr getrennt prüfbar.
+
+### 6.2 Ein Aufruf je Lauf
+
+Die Sorge des Tickets war, dass ein Aufruf über alle Potenziale **vergleichend** urteilt, die Skala
+aber absolut ist (2.5). Sie kehrt sich um: #194 ist an Doppelzählung beim **Schneiden** gescheitert,
+nicht an einem Urteil. Ein Aufruf je Potenzial kalibriert sich jedes Mal neu, und diese Streuung
+landet als Rauschen in der Rangfolge — der Größe, an der BC2 gemessen wird. Ein Aufruf je Lauf ist
+**ein** Urteiler mit **einem** Maßstab. Gegen das Vergleichen stehen die Anker (Nachtrag 6) und die
+Regel „gleiche Werte sind erlaubt, keine Reihenfolge erzwingen".
+
+**Abnahme im Bau: eine Stabilitätsmessung** — dasselbe Paket zweimal bewerten. Weicht ein Nutzwert
+um mehr als einen Punkt ab, ist dieser Schnitt neu zu stellen.
+
+### 6.3 Was der Aufruf sieht
+
+Die geschnittenen Potenziale (Titel, Ausgangslage, Schmerzpunkte, Lösungsansatz, Klasse), die
+entdoppelte Nutzlast der berührten Teilprozesse, den **Korridor** der Klasse und die **gemessene
+Komplexität** samt den vier Skalen und BC0s sechs Kriterien als Material zum Überschreiben.
+**Keine** Jahresstunden, keine Euro, keine Dauern: keine der drei Urteilsstellen braucht sie — die
+Lage im Korridor fragt, wie viel die Lösung *vom Schritt* abnimmt, nicht wie oft er läuft —, und das
+Rechenverbot brach in #194 genau dort, wo Zahlen in der Nutzlast standen.
+
+### 6.4 Die Klasse ist fest
+
+Der Bewertungsschritt **ändert die Lösungsklasse nicht**. Sie ist Teil des Schnitts, den der Mensch
+am Gate 1 sieht; ein zweiter Schritt, der still umsetzt, wäre eine zweite Wahrheit über dasselbe
+Potenzial. Passt die Lage nicht in den Korridor, ist das ein Verstoß (6.5). Zweifel an der Klasse
+reist als **Hinweis** ans Potenzial.
+
+### 6.5 Der Wächter
+
+Wie in der Erkennung: **einmal wiederholen** mit benanntem Verstoß, dann **bricht der Lauf ab**.
+Geprüft wird deterministisch, **vor** dem Rechenkern (der heute erst mit `ValueError` aussteigt):
+
+- `angesetzt_min_pct` / `angesetzt_max_pct` liegen im Korridor der Klasse;
+- jeder Nutzwert ist eine ganze Zahl 1–10 und trägt eine Begründung;
+- ein Überschreiben der Komplexität nur mit Begründung — **Pflicht**, wo sie nicht gemessen ist
+  (Nachtrag 5);
+- jedes erkannte Potenzial ist **genau einmal** bewertet;
+- **keine Zahl mit Einheit in Begründungstexten** — die strukturierten Felder sind ausgenommen. Genau
+  diese Trennung kennt der Wächter aus #248 nicht.
