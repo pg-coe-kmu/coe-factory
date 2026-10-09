@@ -531,8 +531,11 @@ def _text(pot: Mapping, feld: str, bezeichnung: str) -> str:
 def _detail(satz: _Satz, lauf: _Lauf, e: _Eintrag) -> None:
     pot = e.potenzial
     s = satz.folie(notiz=f"potenzial_id: {e.potenzial_id}\nkp_id: {e.kp_id}")
-    header(s, f"02 · {e.kp_id} · POTENZIAL", f"Rang {e.rang}   {e.titel}", color=GREEN)
-    box(s, Inches(10.2), Inches(0.25), Inches(2.85), Inches(0.55), f"{e.gruppe} · {e.kategorie}",
+    # Das Etikett steht rechts im Kopfbalken; der Titel endet 0,15 Zoll davor und bricht um.
+    etikett_x = Inches(10.2)
+    header(s, f"02 · {e.kp_id} · POTENZIAL", f"Rang {e.rang}   {e.titel}", color=GREEN,
+           titelbreite=etikett_x - Inches(0.55) - Inches(0.15))
+    box(s, etikett_x, Inches(0.25), Inches(2.85), Inches(0.55), f"{e.gruppe} · {e.kategorie}",
         _PRIO_FARBE.get(e.gruppe, AMBER), size=12)
 
     links_x, links_w = Inches(0.55), Inches(6.1)

@@ -447,3 +447,56 @@ def test_das_mandantenkuerzel():
     assert mandantenkuerzel("NoroAI Consulting GmbH", "7c2d5ee9-x") == "noroai"
     assert mandantenkuerzel(None, "7C2D5EE9-2a9a") == "7c2d5ee9"
     assert mandantenkuerzel("  ", "7c2d5ee9-2a9a") == "7c2d5ee9"
+
+
+# ---------------------------------------------------------------------------
+# Kopf der Detailfolie: der Titel läuft nie unter das PRIO-Etikett
+# ---------------------------------------------------------------------------
+
+
+def _titel_und_etikett(folie, titel: str):
+    rahmen = [sp for sp in folie.shapes if sp.has_text_frame and sp.text_frame.text.startswith("Rang ")
+              and titel in sp.text_frame.text]
+    etikett = [sp for sp in folie.shapes if sp.has_text_frame and sp.text_frame.text.startswith("PRIO ")]
+    assert len(rahmen) == 1 and len(etikett) == 1
+    return rahmen[0], etikett[0]
+
+
+def _passt(rahmen) -> bool:
+    """Steht der Text bei seiner Schriftgröße vollständig im Rahmen?
+
+    Geschätzt wie in ``zeichnen.passende_groesse``, mit der Zeichenbreite für
+    **fette** Schrift (0,58 em) — der Titel ist fett, und genau die zu schmal
+    angesetzte Breite ließ ihn in der ersten Fassung unter das Etikett laufen.
+    """
+    from pptx.util import Emu
+
+    groesse = max(r.font.size.pt for p in rahmen.text_frame.paragraphs for r in p.runs)
+    breite_pt = Emu(rahmen.width).pt - 14.4
+    hoehe_pt = Emu(rahmen.height).pt - 7.2
+    je_zeile = int(breite_pt / (groesse * 0.58))
+    zeilen = sum(max(1, -(-len(z) // je_zeile)) for z in rahmen.text_frame.text.split("\n"))
+    return zeilen * groesse * 1.2 <= hoehe_pt
+
+
+@pytest.mark.parametrize("titel", [
+    None,  # der längste Titel des Messsatzes aus #167
+    "Lebensläufe strukturiert erfassen, Kompetenzprofile aufbauen und mit Projektanforderungen "
+    "abgleichen, damit die Vorschlagsliste für jede Ausschreibung automatisch entsteht",
+])
+def test_der_titel_der_detailfolie_laeuft_nie_unter_das_etikett(messsatz_lauf, titel):
+    konzepte, prio, _ = messsatz_lauf
+    prio = copy.deepcopy(prio)
+    if titel is None:
+        eintrag = max(prio["eintraege"], key=lambda e: len(e["titel"]))
+    else:
+        eintrag = prio["eintraege"][0]
+        eintrag["titel"] = titel
+    prs = baue_praesentation(konzepte, prio)
+    folie = next(f for f in prs.slides if f"potenzial_id: {eintrag['potenzial_id']}" in _notiz(f))
+
+    rahmen, etikett = _titel_und_etikett(folie, eintrag["titel"])
+    assert rahmen.left + rahmen.width <= etikett.left, "Titelrahmen reicht unter das Etikett."
+    assert eintrag["titel"] in rahmen.text_frame.text, "Der Titel steht nicht vollständig im Rahmen."
+    assert rahmen.text_frame.word_wrap is True
+    assert _passt(rahmen), "Der Titel passt bei seiner Schriftgröße nicht in den Rahmen."

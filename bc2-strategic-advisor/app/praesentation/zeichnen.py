@@ -148,11 +148,13 @@ def txt(s, x, y, w, h, text, size=12, color=INK, bold=False, align=PP_ALIGN.LEFT
     return tb
 
 
-def header(s, kicker, title, color=BLUE):
+def header(s, kicker, title, color=BLUE, titelbreite=Inches(12.2)):
+    """Kopfbalken. ``titelbreite`` schmaler, wenn rechts ein Etikett steht — der
+    Titel bricht dann um und schrumpft, statt unter das Etikett zu laufen."""
     flaeche(s, 0, 0, BREITE, Inches(1.1), color)
     flaeche(s, 0, Inches(1.1), BREITE, Inches(0.05), ACCENT)
     txt(s, Inches(0.55), Inches(0.16), Inches(12), Inches(0.3), kicker, 12, HELLBLAU, True)
-    txt(s, Inches(0.55), Inches(0.44), Inches(12.2), Inches(0.62), title, 24, WHITE, True)
+    txt(s, Inches(0.55), Inches(0.44), titelbreite, Inches(0.62), title, 24, WHITE, True)
 
 
 def foot(s, n: int, fusszeile: str):
