@@ -104,7 +104,8 @@ Ein Potenzial aus einem späteren Paket, das **dasselbe Vorhaben** ist wie ein s
 Potenzial, nur neu bewertet auf neuem Datenstand. Ähnlich zu klingen genügt nicht: Ändert sich
 die Lösung, ist es ein neues Potenzial. Vorgänger kommen nur aus gelieferten Läufen und nur dann,
 wenn sie einen Teilprozess des neuen Pakets berühren. Was das neue Paket nicht berührt, gilt
-unverändert weiter. *(#291)*
+unverändert weiter. *(#291)* Wer so in Frage kommt, ist ein **Kandidat**, und nur solange er
+**gilt**: ein schon fortgeschriebenes oder gestrichenes Potenzial ist keiner mehr. *(#295)*
 _Avoid_: Nachfolgefassung, Version, ähnliches Potenzial
 
 **Schmerzpunkt**:

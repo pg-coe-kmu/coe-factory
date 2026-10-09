@@ -26,6 +26,12 @@ nach der Freigabe zeichnet `app/praesentation/` den Foliensatz als PPTX ([#257](
 entschieden in #244). **Schema `bc2`** trägt seit [#290](https://github.com/pg-coe-kmu/coe-factory/issues/290) Lauf,
 Konzepte, Potenziale und die Gate-1-Entscheidung (`app/ablage.py`, `app/gate1.py`,
 `app/migration_bc2.2_lauf.sql`; Entwurf ADR-008 · BC2, [#250](https://github.com/pg-coe-kmu/coe-factory/issues/250)).
+Seit [#295](https://github.com/pg-coe-kmu/coe-factory/issues/295) **verknüpft** ein Lauf Potenziale
+über Pakete hinweg (ADR-009 · BC2, Nachtrag 1): die Ablage liest die geltenden gelieferten
+Potenziale über die Teilprozesse des Pakets, die Erkennung ordnet sie zu (fortgeschrieben,
+gestrichen, unverändert), `app/nachfolge.py` prüft nach, und die Gate-1-Ansicht zeigt Vorgänger und
+Streichliste. **Der echte Weg trägt die Kette noch nicht:** ohne Vertragskonzepte und Ausgangslage
+kein Vertrag 3.1, und ein Lauf mit Kandidaten hält dann an, statt `[]` zu liefern.
 
 ⚠ **Die Oberfläche ist noch nicht betriebsfest**, und sie sagt das selbst an. Ihre Voreinstellung ist
 weiter der **Messsatz**: der echte Weg — angenommenes Paket → Erkennung → Bewertung → Rechenkern
@@ -119,6 +125,7 @@ divergierenden Kopien unter `Projektgruppe/BC2/` sind aufgelöst und liegen dort
 | **Erkennungsschritt** (#194 / #248) | `bc2-strategic-advisor/app/erkennung/` — `bestand.py` (Leseseite), `nutzlast.py` (was das Modell sieht), `anweisung.py`, `modellruf.py` (Naht zum LLM), `pruefen.py` (Nachkontrolle) |
 | **Bewertungsschritt** (#260 / #288) | `bc2-strategic-advisor/app/bewertung/` — `nutzlast.py` (ohne Stunden, Euro, Dauern; BC1-Profil → `Schrittmessung`), `anweisung.py`, `pruefen.py` (Wächter 6.5), `bewerten.py` |
 | **Nutzwert-Anker** (Nachtrag 6) | `app/modell/parameter.py`, `nutzwert_anker` — Setzung, am ersten echten Lauf mitzuprüfen |
+| **Nachfolger über Pakete** (ADR-009 · BC2, #295) | `app/nachfolge.py` (Kandidat, Ausgang, Nachprüfung — rein), Kandidatensuche in `app/ablage.py`, Zuordnung im Wächter von `app/erkennung/` |
 | **Gate-1-Oberfläche** (Fassung D, #167/#243) | `app/static/index.html` (eine Datei), `app/oberflaeche.py` (die Rufe), `app/gate1.py` (Entscheidung, Prüfung, Ablage), `app/laeufe.py` (Laufquelle) |
 | **Präsentation** (#244 entschieden, #257 gebaut) | `app/praesentation/` — `folien.py` (reine Funktion: Konzepte + Priorisierung → PPTX), `formulierung.py` (wie Zahlen auf die Folie kommen), `zeichnen.py` (KIsult-Palette), `ablage.py` (Lieferordner); das alte Template liegt in `architektur/archiv/` |
 | Oberfläche ansehen, ohne Datenbank | `app/vorschau.py` — `python3 vorschau.py`, dann `http://127.0.0.1:8243/` |
