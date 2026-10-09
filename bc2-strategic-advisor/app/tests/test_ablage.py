@@ -378,3 +378,127 @@ def test_ohne_ablage_gibt_es_keinen_neulauf(client, kopf, paket_id):
     """Die nackte Messsatzquelle kennt keine Fassungen."""
     antwort = client.post(f"/api/oberflaeche/laeufe/{paket_id}/neu", headers=kopf)
     assert antwort.status_code == 501
+
+
+# ---------------------------------------------------------------------------
+# Auflage ADR-009 · BC2 §4.3 — Vorgänger-Kandidaten brechen ab
+# ---------------------------------------------------------------------------
+
+
+def _zwei_pakete(innen, *, zweite_company: str | None = None):
+    """Zwei Pakete über dieselben Teilprozesse — der Normalfall nach einer Nacherhebung."""
+    from laeufe import SpeicherLaufquelle
+
+    vorlage = innen.ansicht(innen.uebersicht()[0].paket_id)
+    a = replace(vorlage, kopf=replace(vorlage.kopf, paket_id="PAKET-A"))
+    b = replace(vorlage, kopf=replace(
+        vorlage.kopf, paket_id="PAKET-B", company_id=zweite_company or vorlage.kopf.company_id
+    ))
+    return SpeicherLaufquelle([a, b])
+
+
+def test_ein_lauf_mit_vorgaenger_kandidaten_bricht_ab(innen, ergebnisse):
+    from ablage import NachfolgerOffen
+
+    quelle = AblegendeLaufquelle(_zwei_pakete(innen), ergebnisse)
+    gate1 = SpeicherGate1Buch(ergebnisse=ergebnisse)
+    entscheiden(gate1, quelle.ansicht("PAKET-A"), "approved")
+
+    with pytest.raises(NachfolgerOffen) as fehler:
+        quelle.ansicht("PAKET-B")
+    assert {k["paket_id"] for k in fehler.value.kandidaten} == {"PAKET-A"}
+    assert "#295" in str(fehler.value)
+    # Kein stilles []: der Lauf liegt als gescheitert da, ohne Ergebnis.
+    b = ergebnisse.letzter("PAKET-B")
+    assert b.beleg.zustand == "fehler"
+    assert b.dokument is None
+
+
+def test_abgelehnte_fassungen_sind_keine_kandidaten(innen, ergebnisse):
+    quelle = AblegendeLaufquelle(_zwei_pakete(innen), ergebnisse)
+    gate1 = SpeicherGate1Buch(ergebnisse=ergebnisse)
+    entscheiden(gate1, quelle.ansicht("PAKET-A"), "rejected")
+
+    assert quelle.ansicht("PAKET-B").kopf.fassung == 1
+
+
+def test_offene_laeufe_sind_keine_kandidaten(innen, ergebnisse):
+    quelle = AblegendeLaufquelle(_zwei_pakete(innen), ergebnisse)
+    quelle.ansicht("PAKET-A")
+    assert quelle.ansicht("PAKET-B") is not None
+
+
+def test_kandidaten_gelten_nur_im_selben_mandanten(innen, ergebnisse):
+    quelle = AblegendeLaufquelle(_zwei_pakete(innen, zweite_company="ANDERER"), ergebnisse)
+    gate1 = SpeicherGate1Buch(ergebnisse=ergebnisse)
+    entscheiden(gate1, quelle.ansicht("PAKET-A"), "approved")
+
+    assert quelle.ansicht("PAKET-B") is not None
+
+
+def test_der_abbruch_kommt_als_409_an(innen, ergebnisse, buch, kopf):
+    from fastapi.testclient import TestClient
+
+    from app import erzeuge_app
+
+    quelle = AblegendeLaufquelle(_zwei_pakete(innen), ergebnisse)
+    gate1 = SpeicherGate1Buch(ergebnisse=ergebnisse)
+    entscheiden(gate1, quelle.ansicht("PAKET-A"), "approved")
+
+    with TestClient(erzeuge_app(buch, laufquelle=quelle, gate1_buch=gate1)) as c:
+        antwort = c.get("/api/oberflaeche/laeufe/PAKET-B", headers=kopf)
+    assert antwort.status_code == 409
+    assert antwort.json()["kandidaten"]
+
+
+# ---------------------------------------------------------------------------
+# Vertrag v3.1 durch die Ablage (#254, ADR-009 · BC2 §2.7)
+# ---------------------------------------------------------------------------
+
+
+def test_ausgangslage_und_vertragskonzepte_gehen_durch_die_ablage(innen, ergebnisse):
+    """Trägt die Quelle Ausgangslage und Vertragskonzepte (#288), liegt v3.1."""
+    from laeufe import SpeicherLaufquelle
+
+    vorlage = innen.ansicht(innen.uebersicht()[0].paket_id)
+    erstes = vorlage.eintraege[0]
+    ausgangslage = {"unternehmen": {"name": "NoroAI Consulting"}}
+    vertrag = [{
+        "konzept_id": "platzhalter",
+        "kontext": {"kp_id": erstes["kp_id"], "prozess_kurzbeschreibung": "Kurz."},
+        "potenziale": [{"potenzial_id": erstes["potenzial_id"], "beschreibung": "Vom LLM."}],
+    }]
+    quelle = AblegendeLaufquelle(
+        SpeicherLaufquelle([replace(vorlage, ausgangslage=ausgangslage, konzepte=vertrag)]),
+        ergebnisse,
+    )
+
+    ansicht = quelle.ansicht(vorlage.kopf.paket_id)
+    dok = ergebnisse.letzter(vorlage.kopf.paket_id).dokument
+
+    assert dok["schema_version"] == "3.1"
+    assert dok["ausgangslage"] == ausgangslage
+    assert dok["gestrichene_potenziale"] == []
+    assert ansicht.ausgangslage == ausgangslage
+
+    konzept = next(k for k in ansicht.konzepte if k["kontext"]["kp_id"] == erstes["kp_id"])
+    assert konzept["konzept_id"] != "platzhalter"
+    assert konzept["kontext"]["prozess_kurzbeschreibung"] == "Kurz."
+    pot = next(p for p in konzept["potenziale"] if p["potenzial_id"] == erstes["potenzial_id"])
+    # Beide Hälften: das Urteil des LLM und die Rechnung.
+    assert pot["beschreibung"] == "Vom LLM."
+    assert "potenzialrang" in pot
+    assert all(p["ersetzt_potenzial_ids"] == [] for k in ansicht.konzepte for p in k["potenziale"])
+
+
+def test_ein_messsatz_bleibt_bei_3_0(quelle, ergebnisse, paket_id):
+    """Ohne Ausgangslage kein 3.1 — und damit auch keine erfundene leere Kette."""
+    ansicht = quelle.ansicht(paket_id)
+    dok = ergebnisse.letzter(paket_id).dokument
+
+    assert dok["schema_version"] == "3.0"
+    assert "gestrichene_potenziale" not in dok
+    assert all("ersetzt_potenzial_ids" not in p
+               for k in ansicht.konzepte for p in k["potenziale"])
+    assert all(z["ersetzt_potenzial_ids"] is None
+               for z in potenzialzeilen(dok, ergebnisse.letzter(paket_id).konzepte))

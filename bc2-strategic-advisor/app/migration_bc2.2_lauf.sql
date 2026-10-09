@@ -126,9 +126,11 @@ CREATE TABLE IF NOT EXISTS bc2.potenzial (
   score                  integer,
   potenzialrang          integer,
   prioritaetsgruppe      text,
-  -- Vorgehalten für #291 (Verknüpfung über Pakete hinweg). Bis dort
-  -- entschieden ist, bleibt sie leer — und das heißt „nicht verknüpft“,
-  -- nicht „ersetzt nichts“.
+  -- Die Kette über Pakete hinweg (ADR-009 · BC2, #291), Projektion aus dem
+  -- Konzeptdokument: NULL bei Vertrag 3.0 (dort gibt es das Feld nicht),
+  -- '{}' bei 3.1 für ein neues Potenzial. Geschrieben wird sie mit #295; bis
+  -- dahin bricht ein Lauf mit Vorgänger-Kandidaten ab, statt '{}' zu liefern
+  -- (ADR-009 · BC2 §4.3).
   ersetzt_potenzial_ids  text[],
 
   PRIMARY KEY (priorisierung_id, potenzial_id)

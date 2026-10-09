@@ -50,7 +50,12 @@ from fastapi.responses import JSONResponse
 
 import oberflaeche
 from eingang import Eingangsbuch, Paket, PostgresEingangsbuch
-from ablage import AblegendeLaufquelle, PostgresErgebnisbuch, SpeicherErgebnisbuch
+from ablage import (
+    AblegendeLaufquelle,
+    NachfolgerOffen,
+    PostgresErgebnisbuch,
+    SpeicherErgebnisbuch,
+)
 from gate1 import Gate1Buch, PostgresGate1Buch, SpeicherGate1Buch
 from laeufe import Laufquelle, MesssatzLaufquelle
 
@@ -355,6 +360,17 @@ def erzeuge_app(
         lifespan=lebenszyklus,
     )
     app.state.buch = buch
+
+    @app.exception_handler(NachfolgerOffen)
+    async def _nachfolger_offen(request: Request, fehler: NachfolgerOffen):
+        """Auflage ADR-009 · BC2 §4.3: ein Abbruch, kein Absturz.
+
+        409 und nicht 500: der Dienst ist heil, der Lauf ist nur noch nicht
+        rechenbar. Die Meldung sagt, woran es hängt (#295).
+        """
+        return JSONResponse(
+            {"fehler": str(fehler), "kandidaten": fehler.kandidaten}, status_code=409
+        )
 
     if laufquelle is None or gate1_buch is None:
         standard_quelle, standard_buch = _standardablage()

@@ -412,3 +412,24 @@ def test_die_sicht_ist_fuer_bc_leser_freigegeben():
             "SELECT has_table_privilege('bc_leser', 'bc2.v_ergebnis_je_paket', 'SELECT')"
         )
         assert cur.fetchone()[0] is True
+
+
+def test_vorgaenger_kandidaten_brechen_den_lauf_ab(ergebnisse, gate1_buch, quelle, test_paket_id):
+    """Auflage ADR-009 · BC2 §4.3 gegen die echte Abfrage (``&&`` über ``text[]``)."""
+    from dataclasses import replace
+
+    from ablage import AblegendeLaufquelle, NachfolgerOffen
+    from laeufe import SpeicherLaufquelle
+
+    a = quelle.ansicht(test_paket_id)
+    gate1_buch.merken(_entscheidung(a, "approved"))
+
+    zweites = f"{test_paket_id}-B"
+    b_quelle = AblegendeLaufquelle(
+        SpeicherLaufquelle([replace(a, kopf=replace(a.kopf, paket_id=zweites))]), ergebnisse
+    )
+    with pytest.raises(NachfolgerOffen) as fehler:
+        b_quelle.ansicht(zweites)
+    assert {k["paket_id"] for k in fehler.value.kandidaten} == {test_paket_id}
+    assert ergebnisse.letzter(zweites).beleg.zustand == "fehler"
+    assert ergebnisse.kandidaten("ANDERER-MANDANT", zweites, ["KP-02.TP-1"]) == []
