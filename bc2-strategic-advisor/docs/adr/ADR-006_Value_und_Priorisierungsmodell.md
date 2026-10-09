@@ -1,7 +1,7 @@
 # ADR-006 · BC2 — Das Value- und Priorisierungsmodell
 
-**Status:** Entwurf · 20.09.2026
-**Bezug:** [#166](https://github.com/pg-coe-kmu/coe-factory/issues/166) · Karte [#158](https://github.com/pg-coe-kmu/coe-factory/issues/158)
+**Status:** Angenommen · 20.09.2026 — mit drei Nachträgen aus dem Bau, siehe §5
+**Bezug:** [#166](https://github.com/pg-coe-kmu/coe-factory/issues/166) · Bau [#238](https://github.com/pg-coe-kmu/coe-factory/issues/238) · Karte [#158](https://github.com/pg-coe-kmu/coe-factory/issues/158)
 **Baut auf:** ADR-005 · BC2 (der Analyselauf ist das Paket) · ADR-003 (Schreibmodell) · ADR-002 (stabile IDs)
 **Nummer:** Die Vergabe läuft über Bounded Contexts hinweg und ist seit [#220](https://github.com/pg-coe-kmu/coe-factory/issues/220)
 als kollisionsanfällig bekannt. Deshalb durchgängig **ADR-006 · BC2** schreiben, nie „ADR-006" allein.
@@ -177,6 +177,36 @@ BC1-Zeile ergibt für KP-06.TP-2 bereits 540 h/Jahr, also 23.220 € Ist-Kosten 
 bleiben (7.040 h × 43 €/h = 302.720 €/Jahr); eine Skala, deren Spitze darüber liegt, könnte nie
 erreicht werden.
 
+**Nachtrag 1 (#238): welcher Punkt der Einsparungsspanne in `E` eingesetzt wird.** Die Einsparung
+ist eine **Spanne**, die Formel braucht eine Zahl — dieses ADR ließ offen, welche. Eingesetzt wird
+die **Mitte der Eingänge**: Dauer-Mitte × Korridor-Mitte, also
+`stunden_zentral × 43 €/h × (korridor_min + korridor_max) / 2`.
+
+Nicht die Mitte der *Spanne*: `(lo·lo + hi·hi) / 2` liegt systematisch **über** der zentralen
+Schätzung, weil die Eckenrechnung beide Fehler gleichsinnig multipliziert — sie erbt den
+Pessimismus als Überhöhung. Und nicht das untere Ende: das zählt die Pessimismus-Annahme ein
+zweites Mal und drückte an einem Satz von elf Potenzialen **4 von 10** auf den Bodenwert 1, womit
+der monetäre Teil-Score seine Trennschärfe verlöre — in einem Modell, dessen Problem ohnehin
+mangelnde Trennschärfe ist (siehe §5).
+
+**Nachtrag 2 (#238): was aus `impact` wird, wenn es keine Value-Zahl gibt.** Der **Nutzwert trägt
+den Impact allein** (`impact = round(nutzwert)`), und `impact_monetaer` wird `null`.
+
+`impact_monetaer = 1` wäre die Alternative gewesen und behandelte eine **fehlende Messung** wie
+eine gemessene Wertlosigkeit — der Schluss vom Artefakt auf die Absicht, den die Karte dreimal als
+Fehler verzeichnet ([#163](https://github.com/pg-coe-kmu/coe-factory/issues/163),
+[#186](https://github.com/pg-coe-kmu/coe-factory/issues/186),
+[#165](https://github.com/pg-coe-kmu/coe-factory/issues/165)). Er ist hier derselbe: BC1s
+Erhebungsstand sagt nichts über den Wert des Prozesses. Dieses ADR hat den analogen Fall in 2.3
+bereits so entschieden — bei `NULL` gar keine Zahl statt einer erfundenen —, und die Regel gilt
+für den Teil-Score genauso.
+
+**Der Preis ist benannt:** ein rein geurteiltes Potenzial kann ein gemessenes überholen, weil der
+Nutzwert dann die einzige Eingabe ist. Sichtbar bleibt es über `impact_monetaer: null` im Vertrag;
+am Gate 1 entscheidet ohnehin der Mensch, und überschreiben kann er nur, was er sieht. Eine
+Deckelung geurteilter Potenziale (»nie PRIO 1«) wurde verworfen: das wäre eine zweite versteckte
+Schwelle neben dem Score — genau das, was 2.1 für die Amortisation ausdrücklich ablehnt.
+
 ### 2.6 Umsetzungskomplexität — gemessen, nicht geurteilt
 
 ```
@@ -221,6 +251,15 @@ den die Zahlen dort gerade nicht zeigen.
 | PRIO 1 — jetzt | ≥ 50 |
 | PRIO 2 — danach | 20 – 49 |
 | PRIO 3 — optional | < 20 |
+
+**Nachtrag 3 (#238): die Bänder sind ein Parameter, kein Wert im Code.** Sie stehen samt den
+Euro-Schwellen in `app/modell/parameter.py` und werden am ersten echten Lauf
+([#206](https://github.com/pg-coe-kmu/coe-factory/issues/206), KW 40) mit
+`tools/kalibrierung.py` festgezurrt. Die Werte oben bleiben bis dahin die Voreinstellung — sie
+jetzt zu verschieben hieße, auf **erfundenen** Zahlen zu kalibrieren; der einzige vollständige
+Satz, der vorliegt, sind die elf Wegwerf-Potenziale des Prototyps aus
+[#167](https://github.com/pg-coe-kmu/coe-factory/issues/167). Was sie belegen, ist der
+Kalibrierungs**bedarf**, nicht eine neue Grenze. Der Befund selbst steht in §5.
 
 **Nicht nach Kategorie gruppiert.** Kategoriegruppen wären im Rang nicht zusammenhängend: ein
 Strategisches mit Impact 10 und Komplexität 6 erreicht Score 50, ein Quick Win mit Impact 6 und
@@ -306,3 +345,67 @@ Ein eigener Snapshot je Lauf bleibt verworfen (dupliziert fremdes Schema, ADR-00
 Feld für die Querschnitte (Reifegrad, Zukunftssicherheit, Umsatzpotenzial), die beiden Teil-Scores
 neben dem Impact, die Herkunft der Komplexität (`gemessen` / `geurteilt`), die Prioritätsgruppe und
 die Bandbreiten als Spanne statt als Punktwert.
+
+---
+
+## 5. Nachtrag aus dem Bau — 20.09.2026 ([#238](https://github.com/pg-coe-kmu/coe-factory/issues/238))
+
+Drei Lücken hat erst das Bauen sichtbar gemacht; sie sind oben an Ort und Stelle als **Nachtrag 1–3**
+entschieden. Hier steht der Messbefund, der dazu geführt hat — und eine Korrektur an der Diagnose,
+die das Ticket selbst noch trug.
+
+### 5.1 Die Gruppen trennen nicht
+
+Über die elf Potenziale des Prototyps aus #167 gerechnet:
+
+| Bandgrenzen | PRIO 1 | PRIO 2 | PRIO 3 |
+|---|---|---|---|
+| **≥ 50 / 20–49 / < 20** (dieses ADR) | 1 | **9** | 1 |
+| ≥ 40 / 20–39 / < 20 | 1 | **9** | 1 |
+| ≥ 36 / 18–35 / < 18 | 3 | 7 | 1 |
+| ≥ 30 / 15–29 / < 15 | 5 | 5 | 1 |
+
+Score-Spanne im Satz: **8 … 54**. Eine Gruppe, in der 82 % aller Potenziale liegen, sagt dem
+Entscheider am Gate 1 nichts.
+
+### 5.2 Der vermutete Hebel ist der falsche
+
+Naheliegend wäre, die **Euro-Obergrenze** zu senken: 50.000 €/Jahr erreicht ein Mandant dieser
+Größe kaum, also müsste `impact_monetaer` systematisch zu klein ausfallen. **Gemessen stimmt das
+nicht.** Von 50.000 € auf 10.000 € herunter ändert sich die Verteilung über die Prioritätsgruppen
+um **null** — das Runden auf ganze Score-Stufen schluckt den Unterschied.
+
+Der Deckel sitzt bei der **Umsetzungskomplexität**. `komplexitaet = round(11 − 2 × reife)` kommt
+bei realistischer Prozessreife (3,5–3,75) nicht unter 4, also ist `score = impact × (11 − k)` auf
+etwa `impact × 7` gedeckelt; und der Impact kommt selten über 6, weil der Nutzwert bei ~6,6 endet.
+PRIO 1 (≥ 50) verlangt damit entweder eine Prozessreife, die es bei NoroAI nicht gibt, oder eine
+fünfstellige Einsparung.
+
+**Die Formel bleibt dennoch unangetastet.** Sie jetzt zu ändern wäre eine neue Modellentscheidung
+mitten im Bau, und der Befund ruht auf erfundenen Zahlen. Er gehört in die Kalibrierung am ersten
+echten Lauf — mit der Warnung, dass ein Verschieben der Bänder allein das Symptom behandelt.
+
+### 5.3 Zwei Korrekturen an der Diagnose des Tickets
+
+- **»Zwei Prioritätsgruppen Unterschied«** bei fehlender Value-Zahl (#167, Punkt 2) **reproduziert
+  sich am vollen Satz nicht.** Das betroffene Potenzial wandert von Rang 2 auf Rang 7, bleibt aber
+  in beiden Lesarten PRIO 2. Der Sprung stammte aus dem engeren Einzelbeispiel. Entschieden wurde
+  Nachtrag 2 darum nicht wegen seiner Größe, sondern wegen seiner Richtung.
+- **Frage 1 wiegt leichter als angenommen.** Über alle drei Lesarten hinweg ist die
+  Gruppenverteilung identisch; es gibt 3 Rangänderungen unter 11. Ausschlaggebend war nicht die
+  Rangfolge, sondern dass das untere Ende den monetären Teil-Score auf den Bodenwert zusammendrückt.
+
+### 5.4 Zwei Festlegungen, die der Bau erzwungen hat
+
+- **Kaufmännisch runden, nicht zur geraden Zahl.** Dieses ADR schreibt nur »round«. Pythons
+  eingebautes `round` rundet zur geraden Zahl (`round(2.5) == 2`), und bei
+  `komplexitaet = round(11 − 2 × reife)` trifft das real: eine Reife von 3,25 ergibt 4,5 —
+  kaufmännisch 5, bankmäßig 4, ein ganzer Score-Schritt. Weil 2.9 verlangt, dass ein Prüfer die
+  Zahlen **von Hand** nachrechnen kann, und von Hand niemand zur geraden Zahl rundet, gilt
+  kaufmännisches Runden.
+- **Der Korridor ist Leitplanke, nicht Wert.** Der Vertrag führt `angesetzt_min_pct` /
+  `angesetzt_max_pct` je Potenzial; wäre dort immer der Korridor der Klasse eingetragen, wären die
+  Felder überflüssig. Das LLM setzt also eine Spanne an, und der Rechenkern prüft, dass sie
+  **innerhalb** des Korridors ihrer Klasse liegt — wer ihn überschreitet, hat die Klasse falsch
+  gewählt, und das soll auffallen statt stillschweigend zu gelten. Ohne Angabe gilt der volle
+  Korridor.

@@ -71,6 +71,7 @@ def mandant(client) -> str:
     items = {str(n): {"stufe": 4, "beleg": "Beleg %d" % n} for n in range(1, 31)}
     client.post("/api/companies/" + cid + "/rating",
                 json={"key": pid + ".TP-1", "items": items})
+    _dokument(client, cid, pid + ".TP-1")   # v3.12
     return cid
 
 
@@ -90,6 +91,13 @@ def nutzer_client(client, mandant) -> TestClient:
 
 def _erster_kp(client, cid: str) -> str:
     return sorted(client.get("/api/companies/" + cid).json()["processes"].keys())[0]
+
+
+def _dokument(client, cid, sid):
+    """v3.12: Dokumentpflicht je Teilprozess — ohne Dokument sperrt Gate 0."""
+    r = client.post("/api/companies/" + cid + "/documents", data={"ref_id": sid},
+                    files={"file": ("beleg.txt", b"Beleg zum Teilprozess " + sid.encode(), "text/plain")})
+    assert r.status_code == 200, r.text
 
 
 def _tp(client, cid: str) -> str:
@@ -412,6 +420,7 @@ def zustand_mandant(client) -> str:
         {"process_id": kp, "person_id": personen[0]["person_id"], "funktion": "eigner"}]})
     _bewerte(client, cid, kp + ".TP-1")
     _bewerte(client, cid, kp + ".TP-2")
+    _dokument(client, cid, kp + ".TP-1"); _dokument(client, cid, kp + ".TP-2")   # v3.12
     return cid
 
 
@@ -502,13 +511,13 @@ def test_hindernisse_sind_je_kernprozess_gruppiert(client):
     je_art = {}
     for h in hindernisse:
         je_art.setdefault(h["art"], []).append(h)
-    assert sorted(je_art) == ["bewertung", "eigner"]
+    assert sorted(je_art) == ["bewertung", "dokument", "eigner"]   # v3.12: dokument
     for art, eintraege in je_art.items():
         assert len(eintraege) == 10, "%s: je Kernprozess ein Eintrag, nicht je Teilprozess" % art
         assert {e["process_id"] for e in eintraege} == \
             {"KP-%02d" % n for n in range(1, 11)}
         assert all(e["betroffen"] == 5 for e in eintraege)
-    assert len(hindernisse) == 20, "zehn Prozesse mal zwei Arten — nicht 150"
+    assert len(hindernisse) == 30, "zehn Prozesse mal drei Arten — nicht 150"
     assert hindernisse[0]["process_id"] == "KP-01" and hindernisse[0]["art"] == "eigner"
     assert hindernisse[0]["process_name"], "der Name gehoert dazu, sonst ist die ID stumm"
     assert "Ansprechpartner" not in " ".join(h["text"] for h in hindernisse), \

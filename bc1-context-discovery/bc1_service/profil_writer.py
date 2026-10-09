@@ -37,6 +37,7 @@ KONFLIKT_LOG_ABSTAND_S = 60.0      # Rate-Limit fuer den stabilen Konflikt-Log
 # Spalte -> Feldname. Nur gueltige Werte werden konvertiert.
 _ZAHLENSPALTEN = {
     "frequency_per_year": "frequency_per_year",
+    "step_frequency_per_year": "step_frequency_per_year",   # D3, gebunden 20.09. (#255)
     "executions_per_run": "executions_per_run",
     "total_duration_minutes": "total_duration_minutes",
     "focus_step_duration_minutes": "focus_step_duration_minutes",
@@ -387,6 +388,11 @@ class ProfilWriter:
             if bindung.status == "fertig":
                 # Freeze war committet, die Antwort ging verloren (R4-C2).
                 return self._gespeichertes_profil(conn, bindung)
+            # Der Draft wurde beim Anlegen geprueft — seitdem kann BC0 den Teilprozess
+            # stillgelegt oder die Bewertung verworfen haben. Vor dem Freeze erneut
+            # pruefen, sonst wuerde ein nicht mehr interviewbarer Teilprozess 'fertig'
+            # (Codex-Review A7, 22.09.). Die gespeicherte erhebung_id bleibt (K-K).
+            bc0_lesepfade.erhebung_id(conn, self._company_id, bindung.focus_step_id)
             return self._einfrieren(conn, bindung, inhalt)
 
     def _gespeichertes_profil(self, conn, bindung) -> dict:
@@ -471,10 +477,13 @@ class ProfilWriter:
         erhebung = bc0_lesepfade.erhebung_id(
             conn, self._company_id, inhalt.focus_step_id)
         spalten = inhalt.spalten
+        # anfrage_id aus der SITZUNG (B5) — der Anfrage-Guard in api.py stellt sicher,
+        # dass sie zur Instanz passt. Kein Status-Recheck beim Abschluss (Spec).
         namen = ["company_id", "focus_step_id", "profil_version", "process_id",
-                 "status", "erhebung_id", "paket_version", "profil", *spalten]
+                 "status", "erhebung_id", "paket_version", "anfrage_id", "profil",
+                 *spalten]
         werte = [self._company_id, inhalt.focus_step_id, 1, inhalt.process_id,
-                 "in_erhebung", erhebung, state.schema_version,
+                 "in_erhebung", erhebung, state.schema_version, state.anfrage_id,
                  Jsonb(inhalt.profil), *spalten.values()]
         platzhalter = ", ".join(["%s"] * len(namen))
         version = conn.execute(

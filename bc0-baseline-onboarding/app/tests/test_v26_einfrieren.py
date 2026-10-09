@@ -51,6 +51,9 @@ def mandant(client) -> str:
     items = {str(n): {"stufe": 3, "beleg": "Beleg %d" % n} for n in range(1, 31)}
     assert client.post("/api/companies/" + cid + "/rating",
                        json={"key": kp + ".TP-1", "items": items}).status_code == 200
+    # v3.12: Dokumentpflicht je Teilprozess, sonst sperrt Gate 0.
+    assert client.post("/api/companies/" + cid + "/documents", data={"ref_id": kp + ".TP-1"},
+                       files={"file": ("beleg.txt", b"Beleg", "text/plain")}).status_code == 200
     return cid
 
 

@@ -1,0 +1,50 @@
+{
+  "dataset_version": "1.0",
+  "status": "prepared_not_executed",
+  "tests": [
+    {
+      "id": "E1-01",
+      "question": "Wer leitet die Qualitätsabteilung?",
+      "expected_documents": ["AUR-02"],
+      "required_facts": ["Dr. Aylin Demir leitet den Bereich Qualität."],
+      "expected_behavior": "answer_with_source",
+      "pass_criteria": "Richtiger Name; belegende Quelle AUR-02 aus tatsächlich abgerufenen Chunks; keine erfundenen Zusatzangaben."
+    },
+    {
+      "id": "E1-02",
+      "question": "Wann ist die nächste Betriebsversammlung?",
+      "expected_documents": [],
+      "required_facts": [],
+      "expected_behavior": "abstain",
+      "pass_criteria": "Erklärt, dass in den verfügbaren Quellen kein Termin vorliegt; nennt keinen Termin und behauptet nicht, dass keine Versammlung stattfindet. Bei leerer oder unterhalb der konfigurierten Relevanzgrenze liegender Trefferliste erfolgt kein Aufruf des Antwortmodells."
+    },
+    {
+      "id": "E1-03",
+      "question": "Kundenreklamation wegen Produktionsfehler: Wer ist verantwortlich und wie läuft der Prozess?",
+      "expected_documents": ["AUR-02", "AUR-05"],
+      "required_facts": [
+        "Qualität führt den Vorgang; Qualitätsleitung ist Dr. Aylin Demir.",
+        "Vertrieb übernimmt die abgestimmte Kundenkommunikation.",
+        "Reklamation erfassen und an Qualität sowie Vertrieb weiterleiten.",
+        "Betroffene Bestände sperren und Produktionsdaten sichern.",
+        "Ursachen untersuchen, Maßnahmen vereinbaren und Wirksamkeit prüfen.",
+        "Qualität entscheidet über Materialfreigabe; Abschluss nach Nachweisen und Kundeninformation."
+      ],
+      "expected_behavior": "answer_with_multiple_sources",
+      "pass_criteria": "Korrekte Zuständigkeiten und Prozessfolge; beide Dokumente tatsächlich abgerufen und passend zitiert. Falls Fristen genannt werden, müssen sie mit AUR-05 übereinstimmen. Keine pauschale Ablehnung wegen des Wortes Kunde."
+    },
+    {
+      "id": "E1-04",
+      "question": "Wie viele Mitarbeitende hat Aurelia und von wann ist die Angabe?",
+      "expected_documents": ["AUR-01"],
+      "required_facts": ["650 Mitarbeitende zum 1. September 2026."],
+      "expected_behavior": "answer_with_source",
+      "pass_criteria": "Mitarbeiterzahl und Stichtag korrekt; Quelle AUR-01."
+    }
+  ],
+  "technical_test": {
+    "id": "E1-T01",
+    "action": "Indexierung zweimal mit identischen Dateien, Modell und Chunking-Einstellungen ausführen.",
+    "pass_criteria": "Gleiche Dokument- und Chunkanzahl; keine doppelten Chunk-IDs; vorhandene gültige Dokumentversionen bleiben erhalten."
+  }
+}

@@ -17,6 +17,7 @@ service = [
     "psycopg[binary,pool]",
     "anthropic",
     "jsonschema",
+    "httpx",
     "google-genai",
 ]
 

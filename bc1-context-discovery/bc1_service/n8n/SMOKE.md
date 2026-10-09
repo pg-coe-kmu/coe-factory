@@ -11,13 +11,21 @@
 export BC1_DB_DSN="postgresql://postgres:test@localhost:55432/postgres"   # oder Supabase-DSN
 export BC1_COMPANY_ID="11111111-1111-1111-1111-111111111111"              # Pflicht seit Task 10
                        # ^ Test-Container: Fixture-Mandant A · Supabase: echte company_id
+export BC1_ANFRAGE_ID="A-2026-03"                                         # Pflicht seit B5 (Form A-JJJJ-NN)
+                       # ^ die BC0-Anfrage, zu der interviewt wird; Beispielwert, in der
+                       #   Supabase die echte Nummer einer Anfrage im Stand zugeordnet/im_interview
+export BC1_BC0_MELDUNGEN=aus                                              # BC0-Zugang Pflicht seit B4; Test-Container hat kein BC0 → bewusst aus
+                       # ^ im Betrieb stattdessen diese drei (Werte aus der lokalen Zugangsdatei, nie committen):
+# export BC1_BC0_URL="https://bc0.perspektivwechsel.ai"
+# export BC1_BC0_KONTO_EMAIL="$BC0_APP_KONTO_EMAIL"
+# export BC1_BC0_KONTO_PASSWORT="$BC0_APP_KONTO_PASSWORT"
 export ANTHROPIC_API_KEY="..."                                            # nie committen
 .venv/bin/uvicorn bc1_service.main:app --port 8000
 ```
 
-**Zwei Startabbrüche sind regulär, kein Fehler** (BC0-Antwort 10 vom 02.09.; der erste
-Wortlaut stammt von BC0 und ist mit ihnen abgestimmt). Der Dienst startet nicht und sagt
-warum:
+**Startabbrüche sind regulär, kein Fehler.** Der Dienst startet nicht und sagt warum. Die
+ersten beiden (BC0-Antwort 10 vom 02.09.; der erste Wortlaut stammt von BC0 und ist mit
+ihnen abgestimmt):
 
 - Mandant ohne Teilprozesse:
   „Für diesen Mandanten sind noch keine Teilprozesse erfasst. Das Interview kann erst
@@ -26,10 +34,71 @@ warum:
   „Für diesen Mandanten ist noch kein Teilprozess bewertet. Das Interview kann erst
   geführt werden, wenn mindestens ein Teilprozess im Self-Rating bewertet ist."
 
+Seit B5 kommen **vier weitere** dazu, alle aus `lade_kontext` in
+`bc1_service/start.py` — dort steht der verbindliche Wortlaut (`MELDUNG_ANFRAGE_UNBEKANNT`,
+`MELDUNG_ANFRAGE_NICHT_IM_INTERVIEW`, `MELDUNG_ANFRAGE_OHNE_TEILPROZESSE`,
+`MELDUNG_TEILPROZESSE_NICHT_BEREIT`); hier nur, was sie bedeuten:
+
+| Meldung beginnt mit | Bedeutung | Was tun |
+|---|---|---|
+| „Die Anfrage … gibt es bei diesem Mandanten nicht." | `BC1_ANFRAGE_ID` passt zu keiner Anfrage des Mandanten | Nummer prüfen |
+| „Die Anfrage … steht auf '…'." | Status weder `zugeordnet` noch `im_interview` | Anfrage bei BC0 klären |
+| „Die Anfrage … ist keinem Teilprozess zugeordnet." | BC0 hat noch nicht zugeordnet | auf BC0 warten |
+| „Zur Anfrage … sind diese Teilprozesse nicht bewertet oder stillgelegt: …" | BC0 übergibt nur vollständig — ein Teilprozess ohne Bewertung/aktiv blockiert | bewerten bzw. bei BC0 klären |
+
+Fehlt `BC1_ANFRAGE_ID` oder hat sie nicht die Form `A-JJJJ-NN`, bricht der Start schon
+vorher mit einem eigenen Hinweis ab (`lies_anfrage_id`).
+
+Seit B4 kommen die **BC0-Meldungen** dazu: Der Start prüft immer den BC0-Zugang (Anmeldung +
+eigenes Konto, ändert nichts) und bricht bei einem Mangel ab — auch bei `im_interview`. Danach
+zieht er das Gate für die eigene Anfrage nach, noch bevor er aus der Datenbank liest (holt einen
+früher gescheiterten Gate-Aufruf nach); ist die Anfrage danach schon `am_gate`, endet der Start
+mit „steht auf 'am_gate'“ (`MELDUNG_ANFRAGE_NICHT_IM_INTERVIEW`) — das Interview war fertig, nur
+das Gate fehlte. Zuletzt meldet er der Anfrage bei BC0 `im_interview` (nur aus `zugeordnet`).
+Den verbindlichen Wortlaut tragen die `MELDUNG_*`-Konstanten in
+`bc1_service/bc0_meldungen.py`; hier nur, was sie bedeuten:
+
+| Meldung beginnt mit | Bedeutung | Was tun |
+|---|---|---|
+| „BC0-Zugang unvollständig" | `BC1_BC0_URL`, `BC1_BC0_KONTO_EMAIL` oder `BC1_BC0_KONTO_PASSWORT` fehlt | setzen oder bewusst `BC1_BC0_MELDUNGEN=aus` |
+| „BC1_BC0_MELDUNGEN='…' ist unbekannt" | Tippfehler im Schalter | nur `aus` oder weglassen |
+| „BC1_BC0_URL='…' ist keine https-Adresse" | `http` zu einem fremden Rechner (erlaubt nur für `localhost`/`127.0.0.1`) | https-Adresse eintragen |
+| „BC0 lehnt die Anmeldung ab" | E-Mail/Passwort falsch | Zugang prüfen |
+| „BC0 sperrt die Anmeldung" | zu viele Fehlversuche | Zugang prüfen, dann warten |
+| „BC0 nimmt die Anmeldung bei '…' nicht an (401)" | Anmeldung klappt, BC0 lehnt die Sitzung ab: lokales BC0 ohne https | dort `BC0_COOKIE_UNSICHER=1` setzen |
+| „BC0 verweigert '…' (403)" | Konto ohne Schreibrecht | bei BC0 Rolle `benutzer` erbitten |
+| „BC0 kennt den Mandanten … für dieses Anwendungskonto nicht (404)" | Mandant dem Konto nicht zugewiesen | bei BC0 zuweisen lassen |
+| „Das BC0-Anwendungskonto darf nicht schreiben (Rolle '…')" | Start-Prüfung: das Konto liest nur | bei BC0 Rolle `benutzer` oder `admin` erbitten |
+| „Das BC0-Anwendungskonto sieht den Mandanten …" | Start-Prüfung: Mandant dem Konto nicht zugewiesen | bei BC0 zuweisen lassen |
+| „BC0 antwortet auf '…' mit …" | BC0 meldet einen anderen Fehler (Code und Text von BC0 stehen in der Meldung) | Text lesen, bei BC0 nachfragen |
+| „BC0 unter … ist nicht erreichbar" | Netz/Adresse falsch oder BC0 aus | Adresse prüfen, läuft BC0? |
+
+Die ersten drei kommen schon vor dem Datenbankzugriff; die übrigen beim Anruf bei BC0 — den
+macht der Start immer, auch bei `im_interview`, und ebenfalls vor dem Lesen aus der Datenbank.
+Ein falscher Zugang fällt so beim Start auf,
+nicht erst nach dem Interview. Dieselbe Prüfung liefert die **Live-Probe**, die auch ohne
+laufenden Dienst gegen echtes BC0 läuft (nur lesend, Exit 0 = bereit; Aufruf und Ausgabe:
+[`../../README.md`](../../README.md), „Setup und Start").
+
+Mit `BC1_BC0_MELDUNGEN=aus` startet der Dienst ohne Zugang und loggt einmal eine WARNING
+(`MELDUNG_AUS`): `im_interview` und das Gate setzt BC0 dann von Hand.
+
+**Nach einem Abschluss** zieht der Dienst das Gate bei BC0 im Hintergrund nach. Steht danach im
+Log „Gate nachziehen bei BC0 fehlgeschlagen" (`MELDUNG_GATE_FEHLGESCHLAGEN` in
+`bc1_service/api.py`), ist das Profil trotzdem gespeichert, und der Chat hat normal geantwortet
+— nur die Anfrage bei BC0 muss nachgezogen werden: von Hand (die Zeile nennt den Aufruf selbst)
+oder durch den nächsten Start des Dienstes, der das Gate für die eigene Anfrage ohnehin nachzieht.
+
 **Interviewbar sind nur BEWERTETE Teilprozesse** (mindestens eine aktuelle Bewertung in
 `v_bewertung_aktuell`; verworfene Erhebungen zählen nicht). Zu einem unbewerteten
 Teilprozess entsteht kein Profil — die Auswahl im Interview zeigt ihn deshalb gar nicht
 erst an.
+
+Seit B5 sind es zusätzlich nur die Teilprozesse **der** Anfrage `BC1_ANFRAGE_ID` (so
+viele, wie BC0 ihr zugeordnet hat).
+
+Seit BC0 v3.13 (08.10.) zählt die Gate-Funktion nur Profile derselben Anfrage — im Durchstich
+ist jeder Teilprozess wählbar.
 
 *Ohne Claude-Key (FakeLLM-Demo, so lief der Smoke am 05.08.2026):* statt `main:app` eine
 lokale, NICHT committete Demo-Verdrahtung nutzen — Wegwerf-Datei `demo_fake.py` außerhalb
@@ -67,11 +136,15 @@ app = create_app(
     TOY_PROZESS,
     lade_snapshot(_snapshot_pfad) if _snapshot_pfad else None,
     company_id=os.environ["BC1_COMPANY_ID"],   # Pflicht-Argument seit Task 10
+    anfrage_id=os.environ["BC1_ANFRAGE_ID"],   # seit B5; der Guard prüft sie je Turn
 )
 ```
 
 FakeLLM = geskriptetes Kern-Test-Double: NUR die drei Skript-Sätze oben führen zu
 Extraktionen; die Fragen kommen wörtlich aus dem Use-Case-Paket.
+
+Die Demo-Verdrahtung übergibt kein `melder=` an `create_app`: Sie meldet nichts an BC0 und
+braucht keine `BC1_BC0_*`-Variablen.
 
 **2. n8n starten:**
 

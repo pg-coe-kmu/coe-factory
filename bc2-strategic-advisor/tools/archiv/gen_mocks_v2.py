@@ -1,11 +1,26 @@
 """
-Erzeugt die v2-Mock-Artefakte fuer BC2 aus dem BC1-Prozessprofil (Krankentagegeld).
-Die Value-/ROI-Berechnung ist DETERMINISTISCH (kein LLM) -- dient zugleich als
-Referenzimplementierung fuer AP 2.3 (ROI-/Value-Calculator).
+EINGEFROREN -- erzeugt die v2-Mocks. Nicht mehr in Gebrauch, nicht mehr gepflegt.
+
+Abgeloest am 20.09.2026 durch `migriere_bc3_vorlage.py` (#187). Zwei Gruende:
+
+  1. Das Schema ist seit v3.0 ein anderes. Diese Datei schreibt vier Stufen statt 1-10,
+     Punktwerte statt Spannen und `gate1` ins Konzept statt in die Priorisierung.
+  2. Der beschriebene Prozess ist erfunden -- "Krankentagegeld, KP-07, Aurelia Krankenkasse".
+     Real ist KP-07 die Buchhaltung und nicht erhoben, und NoroAI ist eine KI-Beratung. Seit
+     #175 gilt: ein Mandant, NoroAI; fremde Unternehmen werden nicht simuliert. Den Mock auf
+     v3.0 zu heben hiesse, fuer einen erfundenen Prozess Nutzwerte, Querschnitte und
+     Eingangswerte zu erfinden -- also Scheingenauigkeit dort zu bauen, wo v3.0 gerade
+     Bandbreiten eingefuehrt hat.
+
+Die v3.0-Fixtures stehen stattdessen in `contracts/examples/` und tragen echten NoroAI-Inhalt
+aus BC3s Formatvorlage. Die Ausgabe dieser Datei liegt in `contracts/examples/archiv-v2/`.
+
+Aufruf (falls der v2-Stand je rekonstruiert werden muss):
+    python3 bc2-strategic-advisor/tools/archiv/gen_mocks_v2.py
 """
 import json, uuid, datetime, pathlib
 
-BASE = pathlib.Path(__file__).resolve().parents[2]
+BASE = pathlib.Path(__file__).resolve().parents[3]
 NOW = "2026-06-27T12:00:00Z"
 
 # --- deterministische Kalkulations-Defaults (dokumentiert in mock_roi_report.md) ---
@@ -308,9 +323,9 @@ rang_map = {p["potenzial_id"]: i + 1 for i, p in enumerate(ranked)}
 for p in potenziale:
     p["rang"] = rang_map[p["potenzial_id"]]
 
-(BASE / "contracts" / "examples" / "mock_automatisierungskonzept.json").write_text(
+(BASE / "contracts" / "examples" / "archiv-v2" / "mock_automatisierungskonzept.json").write_text(
     json.dumps(konzept, ensure_ascii=False, indent=2), encoding="utf-8")
-(BASE / "contracts" / "examples" / "mock_prozesspriorisierung.json").write_text(
+(BASE / "contracts" / "examples" / "archiv-v2" / "mock_prozesspriorisierung.json").write_text(
     json.dumps(priorisierung, ensure_ascii=False, indent=2), encoding="utf-8")
 
 # --- ROI-Report (menschenlesbar) ---
@@ -338,7 +353,7 @@ lines.append(f"\n**Summe Einsparung/Jahr:** {eur(summe_einsp)} · **Summe Invest
 lines.append("> Hinweis: Werte sind Richtwerte auf Basis der BC1-Angaben und dokumentierter Annahmen. "
              "Die qualitative Bewertung (Impact/Komplexitaet) stammt aus der LLM-Potenzialerkennung, "
              "die Zahlen aus der deterministischen Berechnung.")
-(BASE / "contracts" / "examples" / "mock_roi_report.md").write_text("\n".join(lines), encoding="utf-8")
+(BASE / "contracts" / "examples" / "archiv-v2" / "mock_roi_report.md").write_text("\n".join(lines), encoding="utf-8")
 
 print("Mocks erzeugt.")
 print("Ranking:", [(p['titel'][:30], p['prioritaet_score']) for p in ranked])

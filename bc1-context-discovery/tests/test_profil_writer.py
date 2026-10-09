@@ -70,6 +70,16 @@ def test_erster_turn_legt_draft_und_bindung_an(pool):
                             "FROM bc1.profil_write_status").fetchall() == [("s1", 1)]
 
 
+def test_draft_traegt_die_anfrage_der_sitzung(pool):
+    state = _state()
+    state.anfrage_id = "A-2026-01"
+    ProfilWriter(pool, MANDANT_A, PAKET).reconcile(state, FRAGE)
+    with verbindung(DSN) as conn:
+        assert conn.execute(
+            "SELECT anfrage_id FROM bc1.prozessprofil WHERE company_id = %s",
+            (MANDANT_A,)).fetchall() == [("A-2026-01",)]
+
+
 def test_zweiter_turn_legt_keine_zweite_zeile_an(pool):
     writer = ProfilWriter(pool, MANDANT_A, PAKET)
     writer.reconcile(_state(), FRAGE)
@@ -85,6 +95,23 @@ def test_abschluss_friert_die_eigene_zeile_ein_und_liefert_den_payload(pool):
     assert payload["felder"]["focus_step"]["wert"] == "KP-01.TP-1"
 
 
+def test_abschluss_friert_einen_inzwischen_stillgelegten_teilprozess_nicht_ein(pool):
+    # Codex-Review 22.09. (A7, Important 1): erhebung_id() lief nur beim Anlegen des
+    # Drafts. Legt BC0 den Teilprozess danach still (aktiv = false, v2.2), darf der
+    # Abschluss ihn nicht mehr auf 'fertig' setzen — gleiches Verhalten wie ohne Draft:
+    # ProfilWriteError (HTTP 503), die Zeile bleibt in_erhebung.
+    writer = ProfilWriter(pool, MANDANT_A, PAKET)
+    writer.reconcile(_state(), FRAGE)
+    with verbindung(DSN, None) as conn:
+        conn.execute("UPDATE ref_teilprozesse SET aktiv = false "
+                     " WHERE company_id = %s AND sub_process_id = 'KP-01.TP-1'",
+                     (MANDANT_A,))
+        conn.commit()
+    with pytest.raises(ProfilWriteError, match="keine aktuelle Bewertung"):
+        writer.reconcile(_state(), FERTIG)
+    assert _zeilen() == [("KP-01.TP-1", 1, "in_erhebung")]
+
+
 def test_abschluss_ohne_vorherigen_draft_legt_ihn_jetzt_an(pool):
     payload = ProfilWriter(pool, MANDANT_A, PAKET).reconcile(_state(), FERTIG)
     assert payload is not None
@@ -96,6 +123,17 @@ def test_tp_korrektur_bindet_um_und_raeumt_den_alten_draft(pool):
     writer.reconcile(_state(), FRAGE)
     writer.reconcile(_state(tp="KP-01.TP-2"), FRAGE)
     assert _zeilen() == [("KP-01.TP-2", 1, "in_erhebung")]
+
+
+def test_umbinden_nach_tp_wechsel_behaelt_die_anfrage(pool):
+    writer = ProfilWriter(pool, MANDANT_A, PAKET)
+    state = _state()
+    state.anfrage_id = "A-2026-01"
+    writer.reconcile(state, FRAGE)
+    state = _state(tp="KP-01.TP-2")
+    state.anfrage_id = "A-2026-01"
+    writer.reconcile(state, FRAGE)
+    assert _zeilen("focus_step_id, anfrage_id") == [("KP-01.TP-2", "A-2026-01")]
 
 
 def test_tp_korrektur_ueber_die_kp_grenze_zieht_process_id_nach(pool):

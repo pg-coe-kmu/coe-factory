@@ -15,14 +15,14 @@ maschinenlesbaren Vertrag für BC3.
 ## Schnittstellen
 - **Input:** gemeinsame PostgreSQL, direkt gelesen — **nicht** mehr `/contracts/bc1-to-bc2/` als
   Datei; BC1s Schema ist derzeit leer.
-- **Output an BC3:** [`/contracts/bc2-to-bc3/`](../contracts/bc2-to-bc3/) (Schema v2.0),
+- **Output an BC3:** [`/contracts/bc2-to-bc3/`](../contracts/bc2-to-bc3/) (Schema **v3.0**),
   Beispiele in [`/contracts/examples/`](../contracts/examples/). Zusätzlich Tabellen in Schema
   `bc2`, jede Zeile mit Kernprozess-ID.
 
 ## Ordner
 | Ordner | Inhalt |
 |---|---|
-| `tools/` | `gen_mocks.py`, `validate.py` — aus dem Repo-Wurzelverzeichnis aufrufen |
+| `tools/` | `migriere_bc3_vorlage.py`, `validate.py`, `gen_uebergangslieferung.py` — aus dem Repo-Wurzelverzeichnis aufrufen; `archiv/` hält den eingefrorenen v2-Generator |
 | `architektur/` | Systemarchitektur (Stand 27.06.2026, in Teilen überholt — Warnkasten beachten) |
 
 ## Stand

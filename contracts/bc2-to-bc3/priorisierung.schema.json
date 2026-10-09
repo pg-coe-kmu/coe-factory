@@ -1,65 +1,213 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://coe-factory/contracts/bc2/priorisierung.schema.json",
-  "title": "BC2 Prozesspriorisierung (potenzial-zentriert)",
-  "description": "Ueber alle Konzepte hinweg sortierte Liste der erkannten Automatisierungspotenziale. Pflichtartefakt (L2-02) fuer Gate 1 und die Semester-1-Abnahme. Sortierung nach prioritaet_score (Komplexitaet x Impact -- Quick Wins zuerst). Version: 2.0.",
+  "title": "BC2 Priorisierung (das Ergebnis eines Analyselaufs)",
+  "description": "Das Ergebnis fuer den ANALYSELAUF: die Reihenfolge ueber alle Potenziale aller Konzepte, samt Prozessrang und Gate-1-Entscheidung. Haelt die n Konzepte eines Laufs zusammen -- uebergeben wird der LAUF, nicht das einzelne Konzept (ADR-007 BC2, 2.1). Version: 3.0. Brechende Aenderungen ggue. v2.0 -- (1) company_id, paket_id, uebergeben_am und fassung sind Pflicht und machen die Datei zum Behaelter des Laufs; (2) 'gate1' ist hierher gewandert, aus konzept.schema.json; (3) impact und umsetzungskomplexitaet von vier Stufen auf 1-10; (4) Geldgroessen sind Spannen; (5) Kategorie 'Long Bet' heisst 'Zurueckgestellt'. Neu: konzept_ids, prozess_raenge, prioritaetsgruppe, nutzwert_mittel, impact_monetaer, und in gate1 die finale Reihenfolge samt Begruendung der Abweichung.",
   "type": "object",
-  "required": ["priorisierung_id", "schema_version", "erzeugt_am", "score_formel", "eintraege"],
+  "required": [
+    "priorisierung_id",
+    "schema_version",
+    "company_id",
+    "paket_id",
+    "uebergeben_am",
+    "fassung",
+    "erzeugt_am",
+    "score_formel",
+    "konzept_ids",
+    "eintraege",
+    "prozess_raenge",
+    "gate1"
+  ],
   "additionalProperties": false,
   "properties": {
     "priorisierung_id": { "type": "string", "format": "uuid" },
-    "schema_version": { "type": "string", "const": "2.0" },
+    "schema_version": { "type": "string", "const": "3.0" },
+    "company_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Mandant. PFLICHT seit v3.0 -- es liegen zwei Mandanten in derselben Datenbank, und die Datenbank trennt sie nicht."
+    },
+    "paket_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Das von BC0 nach der Gate-0-Freigabe geschnuerte Paket. (company_id, paket_id) IST der Analyselauf (ADR-005 BC2) -- ein eigener 'lauf_id' wird nicht erfunden, der Behaelter war schon da. Ein Mandantenlauf ueber mehrere Pakete haette weder einen einzelnen Zeitpunkt fuer stand_zum() noch einen einheitlichen Freigabestand, und genau daran haengt die Nachrechenbarkeit."
+    },
+    "uebergeben_am": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Zeitreise-Anker aus BC0s Ruf. Muss mit dem uebergeben_am der n Konzepte uebereinstimmen."
+    },
+    "gelesen_am": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Wann BC2 die Eingangswerte gelesen hat. Die Differenz zu uebergeben_am zeigt, wie viel sich zwischen Freigabe und Rechnung bewegt haben kann."
+    },
+    "fassung": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Laufende Fassung dieses Laufs; entspricht dem f<n> im Lieferordner <company>-<paket_id>-f<n>. Eine Wiederholungsgrenze gibt es nicht -- sie haette keine definierte Folge; die Fassungsnummer macht das Pendeln sichtbar (ADR-007 BC2, 2.3)."
+    },
     "erzeugt_am": { "type": "string", "format": "date-time" },
     "score_formel": {
       "type": "string",
-      "description": "Markdown-Beschreibung der Score-Formel. v2 basiert auf Komplexitaet x Impact, z. B. 'score = impact_gewicht(impact) * (100 - komplexitaet_gewicht(umsetzungskomplexitaet)) / 100', mit gering=25, mittel=50, hoch=75, sehr hoch=100."
+      "description": "Markdown-Beschreibung der Score-Formel, damit ein Pruefer sie ohne Datenbank nachrechnen kann. v3.0: score = impact x (11 - umsetzungskomplexitaet), Bereich 1...100, mit impact = round((impact_monetaer + nutzwert) / 2) und umsetzungskomplexitaet = round(11 - 2 x Mittel der vier BC1-Skalen)."
+    },
+    "konzept_ids": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "format": "uuid" },
+      "description": "Die n Konzepte dieses Laufs -- eines je beruehrtem Kernprozess. Die Priorisierung und ihre Konzepte werden als EIN Ereignis uebergeben: ein einzeln freigegebenes Konzept haette keine Reihenfolge, BC3 bekaeme Epics ohne den Rang, der sie sortiert."
     },
     "eintraege": {
       "type": "array",
       "minItems": 1,
+      "description": "Alle Potenziale aller Konzepte, strikt nach Score sortiert. Das Potenzial ist die baubare Einheit und traegt deshalb die primaere Rangfolge.",
       "items": {
         "type": "object",
         "required": [
-          "rang",
+          "potenzialrang",
+          "prioritaetsgruppe",
           "potenzial_id",
           "konzept_id",
           "titel",
           "kp_id",
+          "betroffene_teilprozess_ids",
           "kategorie",
           "impact",
+          "nutzwert_mittel",
           "umsetzungskomplexitaet",
-          "score",
-          "einsparung_eur_jahr",
-          "investition_eur_richtwert",
-          "amortisation_monate"
+          "score"
         ],
         "additionalProperties": false,
         "properties": {
-          "rang": { "type": "integer", "minimum": 1 },
+          "potenzialrang": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Stellung ueber den ganzen Analyselauf, strikt nach Score. Heisst in v2.0 noch 'rang' und meinte dort den Rang innerhalb eines Konzepts."
+          },
+          "prioritaetsgruppe": {
+            "type": "string",
+            "enum": ["PRIO 1", "PRIO 2", "PRIO 3"],
+            "description": "Score-Baender: PRIO 1 ab 50, PRIO 2 von 20 bis 49, PRIO 3 darunter. Ein Schnitt durch den Potenzialrang, nicht nach Kategorie -- Score-Baender sind zusammenhaengend und ueber Laeufe hinweg vergleichbar, anders als feste Anteile, bei denen dieselbe Zahl je nach Paketgroesse in verschiedenen Gruppen landet. Stehen unter Kalibrierungsvorbehalt (#238): mit plausiblen NoroAI-Groessen landet heute alles in PRIO 2."
+          },
           "potenzial_id": { "type": "string", "format": "uuid" },
           "konzept_id": { "type": "string", "format": "uuid" },
           "titel": { "type": "string" },
           "kp_id": { "type": "string", "pattern": "^KP-(0[1-9]|10)$" },
+          "betroffene_teilprozess_ids": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "pattern": "^KP-(0[1-9]|10)\\.TP-[0-9]+$" },
+            "description": "PFLICHT seit v3.0 -- jede Ausgabe fuehrt die Prozesszuordnung mit (Auflage BC0)."
+          },
           "kategorie": {
             "type": "string",
-            "enum": ["Quick Win", "Strategisch", "Optional", "Long Bet"]
+            "enum": ["Quick Win", "Strategisch", "Optional", "Zurueckgestellt"]
           },
-          "impact": {
-            "type": "string",
-            "enum": ["gering", "mittel", "hoch", "sehr hoch"]
+          "impact": { "type": "integer", "minimum": 1, "maximum": 10 },
+          "impact_monetaer": {
+            "type": ["integer", "null"],
+            "minimum": 1,
+            "maximum": 10,
+            "description": "Der monetaere Teil-Score. Reist neben dem impact mit, damit sichtbar bleibt, welche Haelfte ihn traegt. null, wenn keine Value-Zahl vorliegt."
           },
-          "umsetzungskomplexitaet": {
-            "type": "string",
-            "enum": ["gering", "mittel", "hoch", "sehr hoch"]
+          "nutzwert_mittel": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 10,
+            "description": "Der nicht-monetaere Teil-Score (ungewichtetes Mittel der fuenf Kategorien)."
           },
-          "score": { "type": "number", "minimum": 0, "maximum": 100 },
+          "umsetzungskomplexitaet": { "type": "integer", "minimum": 1, "maximum": 10 },
+          "komplexitaet_herkunft": { "type": "string", "enum": ["gemessen", "geurteilt"] },
+          "score": { "type": "number", "minimum": 1, "maximum": 100 },
           "aufwand_pt": { "type": "number", "minimum": 0 },
-          "einsparung_eur_jahr": { "type": "number", "minimum": 0 },
-          "investition_eur_richtwert": { "type": "number", "minimum": 0 },
-          "amortisation_monate": { "type": "number", "minimum": 0 },
+          "einsparung_eur_jahr": { "$ref": "#/$defs/spanne_oder_null" },
+          "investition_eur_richtwert": { "type": ["number", "null"], "minimum": 0 },
+          "amortisation_monate": { "$ref": "#/$defs/spanne_oder_null" },
           "bemerkung": { "type": "string" }
         }
       }
+    },
+    "prozess_raenge": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Das zweite Ergebnis, neu in v3.0: welcher PROZESS zuerst angefasst werden soll. In v2.0 wurde nur nach Potenzialen rangiert, gefragt war aber der Prozess. Der Prozessrang ist der Rang seines BESTEN Potenzials -- angefangen wird mit dem, was sich zuerst lohnt. Eine Summe bevorzugte Prozesse mit vielen kleinen Potenzialen, ein Mittel bestrafte einen Prozess dafuer, dass er neben seinem Quick Win noch schwierige Potenziale hat (ADR-006 BC2, 2.7).",
+      "items": {
+        "type": "object",
+        "required": ["prozessrang", "kp_id", "konzept_id", "bestes_potenzial_id", "bester_score"],
+        "additionalProperties": false,
+        "properties": {
+          "prozessrang": { "type": "integer", "minimum": 1 },
+          "kp_id": { "type": "string", "pattern": "^KP-(0[1-9]|10)$" },
+          "konzept_id": { "type": "string", "format": "uuid" },
+          "bestes_potenzial_id": { "type": "string", "format": "uuid" },
+          "bester_score": { "type": "number", "minimum": 1, "maximum": 100 },
+          "anzahl_potenziale": { "type": "integer", "minimum": 1 },
+          "begruendung": { "type": "string" }
+        }
+      }
+    },
+    "gate1": {
+      "type": "object",
+      "description": "Die Entscheidung des Menschen ueber die PRIORISIERUNG: freigeben, ablehnen oder die vorgeschlagene Reihenfolge ueberschreiben. In v2.0 stand dieser Block im Konzept, also je Kernprozess -- entschieden wurde damit an einer Stelle und protokolliert an einer anderen. Seit v3.0 lebt er hier, beim Lauf (ADR-007 BC2, 2.1). Bei Erzeugung 'pending'. Was Gate 1 NICHT darf: Annahmen aendern -- das waere Rechnen von Hand und zerstoerte die Reproduzierbarkeit (#167).",
+      "required": ["status"],
+      "additionalProperties": false,
+      "properties": {
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "entscheider": { "type": "string" },
+        "kommentar": { "type": "string" },
+        "budget_eur": { "type": "number", "minimum": 0 },
+        "entschieden_am": { "type": "string", "format": "date-time" },
+        "approved_potenzial_ids": {
+          "type": "array",
+          "items": { "type": "string", "format": "uuid" },
+          "description": "Die freigegebene TEILMENGE. Nicht freigegebene Potenziale bleiben in ihrem Konzept sichtbar und dort als nicht_freigegeben markiert -- sonst erklaert die Priorisierung ihre eigenen Luecken nicht mehr."
+        },
+        "nicht_freigegeben": {
+          "type": "array",
+          "description": "Je nicht freigegebenem Potenzial die Begruendung. Neu in v3.0: die Ablehnungsbegruendung hatte im Vertrag KEINEN Ort -- 'gate1.kommentar' hing am Konzept, die Begruendung entsteht aber je Potenzial, und die Begruendungspflicht bei Nicht-Freigabe ist Teil von Fassung D des Frontends (#167). Bei status='rejected' geht nichts in den Lieferordner, die Begruendung bleibt hier stehen.",
+          "items": {
+            "type": "object",
+            "required": ["potenzial_id", "begruendung"],
+            "additionalProperties": false,
+            "properties": {
+              "potenzial_id": { "type": "string", "format": "uuid" },
+              "begruendung": { "type": "string", "minLength": 5 }
+            }
+          }
+        },
+        "finale_reihenfolge_potenzial_ids": {
+          "type": "array",
+          "items": { "type": "string", "format": "uuid" },
+          "description": "Die vom Menschen gesetzte Folge, NEBEN dem gerechneten Rang. Neu in v3.0: eine Umsortierung am Gate 1 war bisher nicht abbildbar -- 'gesamtempfehlung.reihenfolge_potenzial_ids' ist der Vorschlag und 'approved_potenzial_ids' nur eine Teilmenge. Den Vorschlag zu ueberschreiben zerstoerte die Nachvollziehbarkeit, deshalb stehen beide nebeneinander. Fehlt das Feld, gilt der gerechnete Rang."
+        },
+        "finale_prozessreihenfolge_kp_ids": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^KP-(0[1-9]|10)$" },
+          "description": "Dasselbe auf Prozessebene -- Fassung D laesst auf ZWEI Ebenen ziehen (#167). Das macht den Prozessrang zur ersten Sortierstufe, was ADR-006 BC2 nicht vorsieht; deshalb traegt die Lieferung beides, den gerechneten Rang und die gesetzte Folge."
+        },
+        "abweichungsbegruendung": {
+          "type": "string",
+          "description": "Pflicht, sobald eine der beiden finalen Reihenfolgen vom gerechneten Rang abweicht. Ohne sie waere die Umsortierung nicht nachvollziehbar, und der Vorschlagscharakter der Rechnung ginge verloren."
+        }
+      }
+    }
+  },
+  "$defs": {
+    "spanne_oder_null": {
+      "description": "Bandbreite statt Punktwert; null, wenn keine Value-Zahl vorliegt (Herkunft der Dauer ist NULL).",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["min", "max"],
+          "additionalProperties": false,
+          "properties": {
+            "min": { "type": "number", "minimum": 0 },
+            "max": { "type": "number", "minimum": 0 }
+          }
+        },
+        { "type": "null" }
+      ]
     }
   }
 }

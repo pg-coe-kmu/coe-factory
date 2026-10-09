@@ -8,8 +8,22 @@ Erkennt aus BC0s Baseline **Automatisierungspotenziale**, bewertet ihren **Value
 und erzeugt eine entscheidungsreife Präsentation plus einen maschinenlesbaren Vertrag für BC3.
 Zwischen Gate 0 und Gate 1. Verantwortlich: **Sergio, allein** — Eike ist seit dem 30.08.2026 raus.
 
-**Stand:** Es gibt noch keinen BC2-Code. Der Bau beginnt bei null. Owner-Angaben in den Alt-Issues
-(#84–#99) nennen teils Eike und sind damit hinfällig.
+**Stand (21.09.2026):** Drei Teile stehen. Der **Trigger-Endpunkt** (`app/app.py`, `app/eingang.py`)
+läuft im Betrieb und nimmt BC0s Pakete an ([#190](https://github.com/pg-coe-kmu/coe-factory/issues/190),
+[#205](https://github.com/pg-coe-kmu/coe-factory/issues/205)); das **Value- und Priorisierungsmodell**
+(`app/modell/`) rechnet nach ADR-006 · BC2 ([#238](https://github.com/pg-coe-kmu/coe-factory/issues/238));
+der **Erkennungsschritt** (`app/erkennung/`) schneidet die Potenziale — ein Modellaufruf je Paket,
+deterministisch nachkontrolliert ([#194](https://github.com/pg-coe-kmu/coe-factory/issues/194) entschieden,
+[#248](https://github.com/pg-coe-kmu/coe-factory/issues/248) gebaut). Dort liegt auch das Lesen auf
+`stand_zum(uebergeben_am)`.
+Offen sind Oberfläche ([#243](https://github.com/pg-coe-kmu/coe-factory/issues/243)), Präsentation
+([#244](https://github.com/pg-coe-kmu/coe-factory/issues/244)) und — neu aufgefallen beim Bau von #248 —
+die **drei übrigen Urteilsstellen des LLM** (Lage im Korridor, die fünf Nutzwert-Kategorien, das
+begründete Überschreiben der Komplexität). Ohne sie ist ein `modell.Potenzialeingang` nicht
+vollständig; siehe `app/erkennung/erkennen.py`.
+Owner-Angaben in den Alt-Issues (#84–#99) nennen teils Eike und sind damit hinfällig.
+*(Korrigiert am 20.09.2026: die Vorgängerfassung sagte „Es gibt noch keinen BC2-Code. Der Bau
+beginnt bei null" — ein Stand vom 30.08., der schon durch #190 überholt war.)*
 
 ## Erst lesen
 
@@ -50,7 +64,9 @@ Datenbank, danach die Karte. Diese Tabelle bewahrt davor, alte Schlüsse erneut 
 | Aussage in Altdokumenten | Tatsächlich |
 |---|---|
 | Qdrant + fester Musterkatalog (Issues #84–#99, Vorbereitungsaufgabe) | verworfen — Potenziale werden offen erkannt |
-| `use_cases[]` mit `empfohlenes_muster` (Schema v1.0) | `potenziale[]` (Schema v2.0) |
+| `use_cases[]` mit `empfohlenes_muster` (Schema v1.0) | `potenziale[]` (Schema **v3.0** seit 20.09.2026, #187) |
+| vier Stufen `gering`…`sehr hoch` für Impact und Komplexität | **1–10**; `manueller_aufwand_heute` ist gar kein Urteil mehr, sondern gemessene Jahresstunden |
+| `gate1` steht im Konzept | `gate1` steht in der **Priorisierung**, je Lauf (ADR-007 · BC2) |
 | n8n als Orchestrierung | reines Python, Agenten selbst gebaut |
 | Übergabe per JSON-Datei, GitHub-Ordner oder REST | gemeinsame Datenbank, Schema-Trennung (ADR-003) |
 | „Rollen und Kostensätze sind leer" (BC0-Papier 23.08.) | gefüllt seit 17.08.: K1–K5, 40–140 EUR/h, alle `geschaetzt` |
@@ -59,7 +75,10 @@ Datenbank, danach die Karte. Diese Tabelle bewahrt davor, alte Schlüsse erneut 
 
 `contracts/examples/mock_prozessprofil.json` beschreibt „Krankentagegeld, KP-07, Aurelia Krankenkasse".
 Real ist KP-07 die Buchhaltung und nicht erhoben; NoroAI ist eine KI-Beratung. Der Mock dient als
-**Schema-Fixture**; die fachliche Grundlage ist die Datenbank.
+**Schema-Fixture**; die fachliche Grundlage ist die Datenbank. *(Die Ausgabe-Fixtures tragen seit
+v3.0 echten NoroAI-Inhalt aus BC3s Formatvorlage — der erfundene Fall liegt nur noch in
+`contracts/examples/archiv-v2/`. Ihn auf v3.0 zu heben hätte geheißen, für einen erfundenen Prozess
+Nutzwerte, Querschnitte und Eingangswerte zu erfinden.)*
 
 ## Wo BC2 liegt
 
@@ -68,15 +87,21 @@ divergierenden Kopien unter `Projektgruppe/BC2/` sind aufgelöst und liegen dort
 
 | Was | Wo |
 |---|---|
-| Verträge an BC3 (v2.0) | `contracts/bc2-to-bc3/` — **Endlage, wird nicht mehr verschoben** |
+| Verträge an BC3 (**v3.0**) | `contracts/bc2-to-bc3/` — **Endlage, wird nicht mehr verschoben**; `archiv/` hält v2.0 für die Lieferung vom 30.08. |
 | Mocks / Fixtures | `contracts/examples/` |
-| `gen_mocks.py`, `validate.py` | `bc2-strategic-advisor/tools/` — aus dem Repo-Wurzelverzeichnis aufrufen |
+| `migriere_bc3_vorlage.py`, `validate.py`, `kalibrierung.py` | `bc2-strategic-advisor/tools/` — aus dem Repo-Wurzelverzeichnis aufrufen |
 | Systemarchitektur (27.06., teils überholt) | `bc2-strategic-advisor/architektur/` |
+| Trigger-Endpunkt (läuft im Betrieb) | `bc2-strategic-advisor/app/app.py`, `app/eingang.py` |
+| **Value- und Priorisierungsmodell** (ADR-006 · BC2) | `bc2-strategic-advisor/app/modell/` — `parameter.py` (Setzungen), `rechnen.py` (reiner Kern), `ausgabe.py` (Vertragsform) |
+| **Erkennungsschritt** (#194 / #248) | `bc2-strategic-advisor/app/erkennung/` — `bestand.py` (Leseseite), `nutzlast.py` (was das Modell sieht), `anweisung.py`, `modellruf.py` (Naht zum LLM), `pruefen.py` (Nachkontrolle) |
+| Messsätze für die Kalibrierung | `bc2-strategic-advisor/kalibrierung/` |
+| Erkennung an einem echten Aufruf messen | `bc2-strategic-advisor/tools/erkennung_messen.py` |
 
 Der Vertrag verlor beim Sprung v1→v2 die Felder `akzeptanzkriterien_geschaeftlich`,
-`fachliche_anforderungen` und die Tiefe von `to_be_vision`. **BC3 braucht sie** (Nachricht vom
-20.08.2026); die Rückführung entscheidet
-[#160](https://github.com/pg-coe-kmu/coe-factory/issues/160).
+`fachliche_anforderungen` und die Tiefe von `to_be_vision`. ✅ **Zurück seit v3.0**
+([#187](https://github.com/pg-coe-kmu/coe-factory/issues/187), 20.09.2026) — in der Form aus BC3s
+Vorlage vom 31.08.2026, dazu `user_story` (SOPHIST) und `messverfahren` je Kriterium, die BC2
+verantwortet.
 
 ## Invarianten
 
@@ -97,8 +122,31 @@ Der Vertrag verlor beim Sprung v1→v2 die Felder `akzeptanzkriterien_geschaeftl
   ist ein Übungsmandant und trägt keine auswertbaren Werte.
 - **`v_bewertung_aktuell` statt `bitkom_bewertungen`** für jede Auswertung — sonst fließen
   überschriebene Stände mit ein.
+- **Eine fehlende Bewertung ist eine Lücke, keine Null — und die Regel greift beim _Lesen_.**
+  `erkennung.Teilprozess.bewertet` fragt nach dem **Vorhandensein**, nie nach `avg > 0`. Wer eine
+  0 als Note liest, hält den unerhobenen Teilprozess für den am schlechtesten automatisierbaren
+  im Bestand — dieselbe Falle wie `v_gate_prozessstand.tp_mit_medienbruch` (#163), dieselbe Regel
+  wie #167. *(Auflage 4 aus [#248](https://github.com/pg-coe-kmu/coe-factory/issues/248).)*
+  **Wo die Null herkommt, ist am 21.09.2026 berichtigt worden** ([#249](https://github.com/pg-coe-kmu/coe-factory/issues/249)):
+  nicht aus der Datenbank. `v_prozessautomatisierung` hat 23 Zeilen und keine einzige Null — ein
+  `GROUP BY` über Bewertungen kann keinen unbewerteten Teilprozess erzeugen. Die »27 von 50 mit
+  `avg: 0`« aus #194 sind ein **Artefakt des Snapshot-Exports**. Die Lücke besteht trotzdem
+  (27 von 50 sind unbewertet), und weil BC2s Fixtures auf dem Snapshot laufen, wiegt die Regel
+  dort **schwerer** als im Produktionsweg, nicht leichter.
+- **Die fünf Lösungsklassen werden wörtlich geschrieben** — `Regelwerk/Weiterleitung`,
+  `Integration`, `Extraktion`, `Textgenerierung`, `Assistenz`. An ihnen hängt der Korridor des
+  Automatisierungsgrads; eine andere Schreibweise hat keinen. Der Prototyp zu #194 bot dem Modell
+  fünf **andere** an, und 10 von 10 seiner Potenziale wären am Vertrag gescheitert. Wer eine Liste
+  dieser Namen braucht, liest sie aus `modell.parameter.STANDARD.korridore` statt sie zu wiederholen.
 - **Das LLM bewertet qualitativ, rechnet aber nicht.** Zahlen entstehen deterministisch in Python,
-  damit sie reproduzierbar und testbar bleiben.
+  damit sie reproduzierbar und testbar bleiben. Es urteilt an **genau vier** Stellen (ADR-006 · BC2,
+  2.0): Lösungsansatz-Klasse, Lage im Korridor, die fünf Nutzwert-Kategorien und das begründete
+  Überschreiben der Umsetzungskomplexität.
+- **`executions_per_run` ist KEIN Multiplikator** (Invariante I2 des BC1-Vertrags,
+  [#184](https://github.com/pg-coe-kmu/coe-factory/issues/184)). Dauern gelten **je
+  Prozessdurchlauf**; die Fallzahl multipliziert sie nicht. Wer es doch tut, erhält für die
+  Reisebuchung ein Vielfaches der Gesamtkapazität eines Zehn-Personen-Betriebs, für *einen* Schritt.
+  `modell.Potenzialeingang` kennt das Feld darum gar nicht.
 - **Jede Annahme reist mit dem Ergebnis.** Stundensätze sind `geschaetzt`, Aufwandsgrößen fehlen
   teils ganz — die Ausgabe macht das sichtbar, statt Genauigkeit vorzutäuschen.
 - **Es gilt die Checklisten-Skala** — `1 = 0–10 %` · `2 = >10–40 %` · `3 = >40–60 %` ·

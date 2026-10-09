@@ -1,0 +1,489 @@
+{
+  "_zweck": "Messsatz fuer tools/kalibrierung.py. Elf Potenziale aus dem Prototyp zu #167.",
+  "warnung": "Diese elf Potenziale sind ERFUNDEN (Prototyp #167, Wegwerfdaten) — nach ADR-006 gerechnet, aber nicht erhoben. Sie belegen den KALIBRIERUNGSBEDARF, sie begruenden KEINE neuen Bandgrenzen. Dafuer der erste echte Lauf (#206).",
+  "company_id": "7c2d5ee9-2a9a-5990-810f-502ea2b2012d",
+  "paket_id": "PROTOTYP-167",
+  "potenziale": [
+    {
+      "potenzial_id": "5bfb3a25-4d37-58d9-840e-9f0ae348d901",
+      "titel": "Lead-Erfassung und -Qualifizierung aus E-Mail-Anfragen ins CRM",
+      "kp_id": "KP-02",
+      "betroffene_teilprozess_ids": [
+        "KP-02.TP-1"
+      ],
+      "klasse": "Extraktion",
+      "automatisierungsgrad_begruendung": "Anfragen kommen in freier Form; Firmenname und Bedarf sind meist eindeutig, die Budgetangabe fast nie.",
+      "nutzwert": {
+        "qualitaet": {
+          "wert": 7,
+          "begruendung": "Prototyp #167, Kategorie Qualität."
+        },
+        "durchlaufzeit": {
+          "wert": 8,
+          "begruendung": "Prototyp #167, Kategorie Durchlaufzeit."
+        },
+        "fehlerreduktion": {
+          "wert": 7,
+          "begruendung": "Prototyp #167, Kategorie Fehlerreduktion."
+        },
+        "mitarbeiterzufriedenheit": {
+          "wert": 6,
+          "begruendung": "Prototyp #167, Kategorie Mitarbeiterzufriedenheit."
+        },
+        "compliance": {
+          "wert": 3,
+          "begruendung": "Prototyp #167, Kategorie Compliance / Rechtssicherheit."
+        }
+      },
+      "frequency_per_year": 180,
+      "total_duration_minutes": 25,
+      "focus_step_duration_source": "geschaetzt",
+      "focus_step_duration_confidence_pct": 60,
+      "reifeskalen": [
+        4,
+        4,
+        3,
+        4
+      ],
+      "automation_potential_estimate_pct": null,
+      "aufwand_schaetzung_pt": 4
+    },
+    {
+      "potenzial_id": "f3c8ff76-33d8-58b5-acbf-ecb37fd15bc6",
+      "titel": "Angebotsentwurf aus Anfrage und Referenzprojekten erzeugen",
+      "kp_id": "KP-02",
+      "betroffene_teilprozess_ids": [
+        "KP-02.TP-3"
+      ],
+      "klasse": "Textgenerierung",
+      "automatisierungsgrad_begruendung": "Der Entwurf spart das Schreiben, nicht das Kalkulieren und nicht die Abstimmung mit dem Kunden.",
+      "nutzwert": {
+        "qualitaet": {
+          "wert": 6,
+          "begruendung": "Prototyp #167, Kategorie Qualität."
+        },
+        "durchlaufzeit": {
+          "wert": 7,
+          "begruendung": "Prototyp #167, Kategorie Durchlaufzeit."
+        },
+        "fehlerreduktion": {
+          "wert": 5,
+          "begruendung": "Prototyp #167, Kategorie Fehlerreduktion."
+        },
+        "mitarbeiterzufriedenheit": {
+          "wert": 7,
+          "begruendung": "Prototyp #167, Kategorie Mitarbeiterzufriedenheit."
+        },
+        "compliance": {
+          "wert": 2,
+          "begruendung": "Prototyp #167, Kategorie Compliance / Rechtssicherheit."
+        }
+      },
+      "frequency_per_year": 90,
+      "total_duration_minutes": 95,
+      "focus_step_duration_source": "aus_system",
+      "focus_step_duration_confidence_pct": null,
+      "reifeskalen": [
+        3,
+        3,
+        2,
+        3
+      ],
+      "automation_potential_estimate_pct": null,
+      "aufwand_schaetzung_pt": 9
+    },
+    {
+      "potenzial_id": "bfc99487-c2ed-5656-8536-5df7c94bba78",
+      "titel": "AVV- und DSGVO-Abwicklung im Onboarding medienbruchfrei machen",
+      "kp_id": "KP-03",
+      "betroffene_teilprozess_ids": [
+        "KP-03.TP-4"
+      ],
+      "klasse": "Integration",
+      "automatisierungsgrad_begruendung": "Der dokumentierte Medienbruch (Unterschrift auf Papier) lässt sich vollständig schließen; die inhaltliche Prüfung bleibt beim Menschen.",
+      "nutzwert": {
+        "qualitaet": {
+          "wert": 6,
+          "begruendung": "Prototyp #167, Kategorie Qualität."
+        },
+        "durchlaufzeit": {
+          "wert": 6,
+          "begruendung": "Prototyp #167, Kategorie Durchlaufzeit."
+        },
+        "fehlerreduktion": {
+          "wert": 7,
+          "begruendung": "Prototyp #167, Kategorie Fehlerreduktion."
+        },
+        "mitarbeiterzufriedenheit": {
+          "wert": 4,
+          "begruendung": "Prototyp #167, Kategorie Mitarbeiterzufriedenheit."
+        },
+        "compliance": {
+          "wert": 10,
+          "begruendung": "Prototyp #167, Kategorie Compliance / Rechtssicherheit."
+        }
+      },
+      "frequency_per_year": 40,
+      "total_duration_minutes": 70,
+      "focus_step_duration_source": "gemessen",
+      "focus_step_duration_confidence_pct": null,
+      "reifeskalen": [
+        4,
+        4,
+        4,
+        3
+      ],
+      "automation_potential_estimate_pct": null,
+      "aufwand_schaetzung_pt": 5
+    },
+    {
+      "potenzial_id": "a7801158-f33f-59e7-ba41-35ea033e7f06",
+      "titel": "Onboarding-Checkliste und Fristen automatisch nachhalten",
+      "kp_id": "KP-03",
+      "betroffene_teilprozess_ids": [
+        "KP-03.TP-2"
+      ],
+      "klasse": "Regelwerk/Weiterleitung",
+      "automatisierungsgrad_begruendung": "Reine Fristenlogik, keine Textdeutung.",
+      "nutzwert": {
+        "qualitaet": {
+          "wert": 5,
+          "begruendung": "Prototyp #167, Kategorie Qualität."
+        },
+        "durchlaufzeit": {
+          "wert": 7,
+          "begruendung": "Prototyp #167, Kategorie Durchlaufzeit."
+        },
+        "fehlerreduktion": {
+          "wert": 6,
+          "begruendung": "Prototyp #167, Kategorie Fehlerreduktion."
+        },
+        "mitarbeiterzufriedenheit": {
+          "wert": 6,
+          "begruendung": "Prototyp #167, Kategorie Mitarbeiterzufriedenheit."
+        },
+        "compliance": {
+          "wert": 7,
+          "begruendung": "Prototyp #167, Kategorie Compliance / Rechtssicherheit."
+        }
+      },
+      "frequency_per_year": 40,
+      "total_duration_minutes": null,
+      "focus_step_duration_source": null,
+      "focus_step_duration_confidence_pct": null,
+      "reifeskalen": [
+        3,
+        4,
+        3,
+        3
+      ],
+      "automation_potential_estimate_pct": null,
+      "aufwand_schaetzung_pt": 3
+    },
+    {
+      "potenzial_id": "5d7d1ccf-ff13-5856-8846-3dcb1a28de82",
+      "titel": "Sprint-Retrospektive und Lessons Learned automatisch verdichten",
+      "kp_id": "KP-04",
+      "betroffene_teilprozess_ids": [
+        "KP-04.TP-2"
+      ],
+      "klasse": "Textgenerierung",
+      "automatisierungsgrad_begruendung": "Verdichten geht, das Bewerten der Erkenntnisse bleibt beim Team.",
+      "nutzwert": {
+        "qualitaet": {
+          "wert": 7,
+          "begruendung": "Prototyp #167, Kategorie Qualität."
+        },
+        "durchlaufzeit": {
+          "wert": 5,
+          "begruendung": "Prototyp #167, Kategorie Durchlaufzeit."
+        },
+        "fehlerreduktion": {
+          "wert": 4,
+          "begruendung": "Prototyp #167, Kategorie Fehlerreduktion."
+        },
+        "mitarbeiterzufriedenheit": {
+          "wert": 8,
+          "begruendung": "Prototyp #167, Kategorie Mitarbeiterzufriedenheit."
+        },
+        "compliance": {
+          "wert": 2,
+          "begruendung": "Prototyp #167, Kategorie Compliance / Rechtssicherheit."
+        }
+      },
+      "frequency_per_year": 26,
+      "total_duration_minutes": 120,
+      "focus_step_duration_source": "geschaetzt",
+      "focus_step_duration_confidence_pct": 50,
+      "reifeskalen": [
+        4,
+        3,
+        3,
+        4
+      ],
+      "automation_potential_estimate_pct": null,
+      "aufwand_schaetzung_pt": 6
+    },
+    {
+      "potenzial_id": "ede596ac-0302-5710-9983-d42e0af37078",
+      "titel": "Projektstatusbericht aus Zeiterfassung und Tickets zusammenstellen",
+      "kp_id": "KP-04",
+      "betroffene_teilprozess_ids": [
+        "KP-04.TP-5"
+      ],
+      "klasse": "Integration",
+      "automatisierungsgrad_begruendung": "Zwei Systeme verbinden und rechnen; der Kommentar an den Kunden bleibt Handarbeit.",
+      "nutzwert": {
+        "qualitaet": {
+          "wert": 6,
+          "begruendung": "Prototyp #167, Kategorie Qualität."
+        },
+        "durchlaufzeit": {
+          "wert": 8,
+          "begruendung": "Prototyp #167, Kategorie Durchlaufzeit."
+        },
+        "fehlerreduktion": {
+          "wert": 6,
+          "begruendung": "Prototyp #167, Kategorie Fehlerreduktion."
+        },
+        "mitarbeiterzufriedenheit": {
+          "wert": 7,
+          "begruendung": "Prototyp #167, Kategorie Mitarbeiterzufriedenheit."
+        },
+        "compliance": {
+          "wert": 2,
+          "begruendung": "Prototyp #167, Kategorie Compliance / Rechtssicherheit."
+        }
+      },
+      "frequency_per_year": 260,
+      "total_duration_minutes": 20,
+      "focus_step_duration_source": "aus_system",
+      "focus_step_duration_confidence_pct": null,
+      "reifeskalen": [
+        3,
+        4,
+        4,
+        4
+      ],
+      "automation_potential_estimate_pct": null,
+      "aufwand_schaetzung_pt": 7
+    },
+    {
+      "potenzial_id": "67a1a17c-f6f7-5fdb-afff-8a1686c86b7e",
+      "titel": "Rechnungsstellung aus Zeiterfassung und Projektvertrag erzeugen",
+      "kp_id": "KP-04",
+      "betroffene_teilprozess_ids": [
+        "KP-04.TP-3"
+      ],
+      "klasse": "Regelwerk/Weiterleitung",
+      "automatisierungsgrad_begruendung": "Der Ablauf ist vollständig geregelt: Stunden × Satz nach Vertrag. Nur Sonderabsprachen brauchen einen Menschen.",
+      "nutzwert": {
+        "qualitaet": {
+          "wert": 6,
+          "begruendung": "Prototyp #167, Kategorie Qualität."
+        },
+        "durchlaufzeit": {
+          "wert": 7,
+          "begruendung": "Prototyp #167, Kategorie Durchlaufzeit."
+        },
+        "fehlerreduktion": {
+          "wert": 8,
+          "begruendung": "Prototyp #167, Kategorie Fehlerreduktion."
+        },
+        "mitarbeiterzufriedenheit": {
+          "wert": 6,
+          "begruendung": "Prototyp #167, Kategorie Mitarbeiterzufriedenheit."
+        },
+        "compliance": {
+          "wert": 6,
+          "begruendung": "Prototyp #167, Kategorie Compliance / Rechtssicherheit."
+        }
+      },
+      "frequency_per_year": 480,
+      "total_duration_minutes": 35,
+      "focus_step_duration_source": "gemessen",
+      "focus_step_duration_confidence_pct": null,
+      "reifeskalen": [
+        5,
+        5,
+        4,
+        4
+      ],
+      "automation_potential_estimate_pct": null,
+      "aufwand_schaetzung_pt": 5
+    },
+    {
+      "potenzial_id": "ad6c277c-f716-5a9c-8f88-b83fea57fed7",
+      "titel": "Fahrtenbuch-Nachweise auf Vollständigkeit prüfen",
+      "kp_id": "KP-06",
+      "betroffene_teilprozess_ids": [
+        "KP-06.TP-5"
+      ],
+      "klasse": "Assistenz",
+      "automatisierungsgrad_begruendung": "Jeder Fall wird vom Menschen entschieden; die Lösung schlägt nur vor.",
+      "nutzwert": {
+        "qualitaet": {
+          "wert": 4,
+          "begruendung": "Prototyp #167, Kategorie Qualität."
+        },
+        "durchlaufzeit": {
+          "wert": 3,
+          "begruendung": "Prototyp #167, Kategorie Durchlaufzeit."
+        },
+        "fehlerreduktion": {
+          "wert": 4,
+          "begruendung": "Prototyp #167, Kategorie Fehlerreduktion."
+        },
+        "mitarbeiterzufriedenheit": {
+          "wert": 3,
+          "begruendung": "Prototyp #167, Kategorie Mitarbeiterzufriedenheit."
+        },
+        "compliance": {
+          "wert": 5,
+          "begruendung": "Prototyp #167, Kategorie Compliance / Rechtssicherheit."
+        }
+      },
+      "frequency_per_year": 12,
+      "total_duration_minutes": 45,
+      "focus_step_duration_source": "geschaetzt",
+      "focus_step_duration_confidence_pct": 50,
+      "reifeskalen": [
+        2,
+        2,
+        2,
+        2
+      ],
+      "automation_potential_estimate_pct": null,
+      "aufwand_schaetzung_pt": 6
+    },
+    {
+      "potenzial_id": "2b2c7fbc-1f06-55cd-9c75-37642e6388d5",
+      "titel": "Reise- und Einsatzplanung: Verfügbarkeiten und Buchungen abgleichen",
+      "kp_id": "KP-06",
+      "betroffene_teilprozess_ids": [
+        "KP-06.TP-2"
+      ],
+      "klasse": "Integration",
+      "automatisierungsgrad_begruendung": "Der Abgleich ist mechanisch; die Zusage an den Kunden und die Rücksicht auf persönliche Umstände nicht.",
+      "nutzwert": {
+        "qualitaet": {
+          "wert": 7,
+          "begruendung": "Prototyp #167, Kategorie Qualität."
+        },
+        "durchlaufzeit": {
+          "wert": 9,
+          "begruendung": "Prototyp #167, Kategorie Durchlaufzeit."
+        },
+        "fehlerreduktion": {
+          "wert": 6,
+          "begruendung": "Prototyp #167, Kategorie Fehlerreduktion."
+        },
+        "mitarbeiterzufriedenheit": {
+          "wert": 8,
+          "begruendung": "Prototyp #167, Kategorie Mitarbeiterzufriedenheit."
+        },
+        "compliance": {
+          "wert": 3,
+          "begruendung": "Prototyp #167, Kategorie Compliance / Rechtssicherheit."
+        }
+      },
+      "frequency_per_year": 180,
+      "total_duration_minutes": 180,
+      "focus_step_duration_source": "geschaetzt",
+      "focus_step_duration_confidence_pct": 60,
+      "reifeskalen": [
+        2,
+        2,
+        2,
+        3
+      ],
+      "automation_potential_estimate_pct": 30,
+      "aufwand_schaetzung_pt": 12
+    },
+    {
+      "potenzial_id": "7fabe5bc-5292-577a-9355-36d03aac8449",
+      "titel": "Spesen- und Belegerfassung aus Fotos",
+      "kp_id": "KP-06",
+      "betroffene_teilprozess_ids": [
+        "KP-06.TP-4"
+      ],
+      "klasse": "Extraktion",
+      "automatisierungsgrad_begruendung": "Belege sind vielgestaltig, die Felder aber wenige und feste.",
+      "nutzwert": {
+        "qualitaet": {
+          "wert": 5,
+          "begruendung": "Prototyp #167, Kategorie Qualität."
+        },
+        "durchlaufzeit": {
+          "wert": 6,
+          "begruendung": "Prototyp #167, Kategorie Durchlaufzeit."
+        },
+        "fehlerreduktion": {
+          "wert": 8,
+          "begruendung": "Prototyp #167, Kategorie Fehlerreduktion."
+        },
+        "mitarbeiterzufriedenheit": {
+          "wert": 7,
+          "begruendung": "Prototyp #167, Kategorie Mitarbeiterzufriedenheit."
+        },
+        "compliance": {
+          "wert": 4,
+          "begruendung": "Prototyp #167, Kategorie Compliance / Rechtssicherheit."
+        }
+      },
+      "frequency_per_year": 1300,
+      "total_duration_minutes": 12,
+      "focus_step_duration_source": "geschaetzt",
+      "focus_step_duration_confidence_pct": 70,
+      "reifeskalen": null,
+      "automation_potential_estimate_pct": null,
+      "aufwand_schaetzung_pt": 8,
+      "komplexitaet_ueberschrieben": 5,
+      "komplexitaet_begruendung": "BC1 liefert für diesen Teilprozess keine Reifeskalen; geurteilt anhand von BC0s Technologiebasis und Toolstand."
+    },
+    {
+      "potenzial_id": "4cfc80ac-97ea-53ce-8992-2fe205d41c51",
+      "titel": "Reiseanfragen aus Portalen übernehmen",
+      "kp_id": "KP-06",
+      "betroffene_teilprozess_ids": [
+        "KP-06.TP-1"
+      ],
+      "klasse": "Integration",
+      "automatisierungsgrad_begruendung": "Schnittstelle je Portal, danach mechanisch.",
+      "nutzwert": {
+        "qualitaet": {
+          "wert": 6,
+          "begruendung": "Prototyp #167, Kategorie Qualität."
+        },
+        "durchlaufzeit": {
+          "wert": 7,
+          "begruendung": "Prototyp #167, Kategorie Durchlaufzeit."
+        },
+        "fehlerreduktion": {
+          "wert": 6,
+          "begruendung": "Prototyp #167, Kategorie Fehlerreduktion."
+        },
+        "mitarbeiterzufriedenheit": {
+          "wert": 6,
+          "begruendung": "Prototyp #167, Kategorie Mitarbeiterzufriedenheit."
+        },
+        "compliance": {
+          "wert": 2,
+          "begruendung": "Prototyp #167, Kategorie Compliance / Rechtssicherheit."
+        }
+      },
+      "frequency_per_year": 2600,
+      "total_duration_minutes": 150,
+      "focus_step_duration_source": "geschaetzt",
+      "focus_step_duration_confidence_pct": 40,
+      "reifeskalen": [
+        2,
+        2,
+        3,
+        2
+      ],
+      "automation_potential_estimate_pct": null,
+      "aufwand_schaetzung_pt": 10
+    }
+  ]
+}
