@@ -144,8 +144,7 @@ python3 -m pip install jsonschema
 python3 bc2-strategic-advisor/tools/validate.py   # aus dem Repo-Wurzelverzeichnis
 ```
 
-Prüft die Fixtures gegen v3.1, die simulierte Lieferung (3.0) gegen dasselbe Schema und die alte
-Lieferung gegen die archivierten v2-Schemas, dann die
+Prüft die Fixtures gegen v3.1 und die alte Lieferung gegen die archivierten v2-Schemas, dann die
 fachliche Konsistenz: dass sich das Rechenmodell aus ADR-006 · BC2 nachrechnen lässt (Nutzwert,
 Impact, Score, Kategorie, Prioritätsgruppe), dass Konzepte und Priorisierung eines Laufs sich
 nicht widersprechen, dass der Prozessrang dem jeweils besten Potenzial folgt, dass die beiden
@@ -155,8 +154,14 @@ Exit 0 = grün.
 `bc2-strategic-advisor/tools/migriere_bc3_vorlage.py` erzeugt die Fixtures neu. Der frühere
 `gen_mocks.py` ist nach `bc2-strategic-advisor/tools/archiv/gen_mocks_v2.py` eingefroren.
 
-> **Die CI fasst diesen Ordner nicht an.** `.github/workflows/vertraege-pruefen.yml` läuft bei
-> jeder Änderung unter `contracts/**`, prüft aber **ausschließlich** `contracts/bc3-to-bc4`. Ohne
-> Erweiterung ist der PR-Weg aus ADR-007 · BC2 ein Verfahren ohne Netz, und eine schema-ungültige
-> Lieferung, die BC3 bereits gezogen hat, holt niemand zurück. `validate.py` läuft bis dahin von
-> Hand.
+Gefunden wird **jeder** Ordner unter `lieferungen/`, nicht eine feste Liste: was dort liegt und
+nicht die eingefrorene v2-Lieferung ist, läuft gegen das aktuelle Schema (nimmt 3.0 und 3.1) —
+Schema, ein Lauf je Ordner, Konzepte und Priorisierung decken dieselben Potenziale, Rangfolge wie
+im Rechenkern, Ordnername `<company>-<paket_id>-f<n>`, bei 3.1 die Ausgangslage (genau die
+Schmerzpunkte der Konzepte, nichts dazu), und bei `paket_id` `SIM-…` die Simulations-Kennzeichnung.
+
+**Die CI prüft das bei jedem PR, der die Lieferstrecke berührt** (#253): Job **„BC2 → BC3
+Lieferungen"** in `.github/workflows/vertraege-pruefen.yml` startet `validate.py`, sobald sich
+etwas unter `contracts/bc2-to-bc3/`, `contracts/bc1-to-bc2/`, `contracts/examples/`, an
+`validate.py` oder am Workflow selbst ändert. Der Job hat ein eigenes Ergebnis, getrennt von der
+BC3→BC4-Prüfung im selben Workflow — ein Rot dort sagt nichts über BC2 und umgekehrt.
