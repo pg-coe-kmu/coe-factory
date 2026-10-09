@@ -53,7 +53,9 @@
       Erkennungsschnitt ist in #194 entschieden, aber noch nicht gebaut (#248); die
       Zahlen sind darum nicht auf stand_zum(uebergeben_am) gerechnet und nicht
       nachrechenbar.
-    - Der DOWNLOAD DER PRÄSENTATION fehlt: Format und Erzeugungsweg sind #244.
+    - Die PRÄSENTATION gibt es erst nach der Freigabe (#244/#257); der Knopf
+      erscheint im Laufkopf, sobald Gate 1 freigegeben ist. Ob sie zusätzlich
+      im Lieferordner abgelegt wurde, sagt der Dienst — die Seite zeigt es an.
 -->
 <style>
 :root{
@@ -678,7 +680,36 @@ function zeichneKopf(){
     <div class="kennung">Gate 1<b style="color:${
       zustand === "approved" ? "var(--ok)" : zustand === "rejected" ? "var(--warn)" : "inherit"
     }">${zeichen}</b></div>
+    ${zustand === "approved"
+      ? `<div class="kennung"><button class="btn sm" data-praesentation>Präsentation herunterladen</button></div>`
+      : ""}
   </div>`;
+}
+
+/**
+ * Holt den Foliensatz (#257). Nur nach Freigabe — der Server prüft das und
+ * antwortet sonst mit 409. ``ruf`` liest JSON; hier kommt eine Datei, darum ein
+ * eigener ``fetch`` mit demselben Schlüssel.
+ */
+async function praesentationHolen(){
+  const antwort = await fetch(
+    `/api/oberflaeche/laeufe/${encodeURIComponent(Z.paket_id)}/praesentation`,
+    {method: "POST", headers: {"Authorization": "Bearer " + schluessel}});
+  if (!antwort.ok){
+    let text = `Die Präsentation ist nicht entstanden (${antwort.status}).`;
+    try { text += " " + (await antwort.json()).fehler; } catch { /* kein JSON */ }
+    Z.meldung = {art: "warn", text: esc(text)};
+    return zeichne();
+  }
+  const blob = await antwort.blob();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "praesentation.pptx";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  Z.meldung = {art: "info", text: `<b>Präsentation erzeugt.</b> Lieferordner: ${
+    esc(antwort.headers.get("X-BC2-Ablage") || "keine Angabe")}.`};
+  zeichne();
 }
 
 /**
@@ -910,8 +941,9 @@ function notiz(){
       wäre genau die Scheingenauigkeit, die die Bandbreite vermeiden soll.</li>
     <li><b>Was Gate 1 nicht darf:</b> Annahmen ändern. Das wäre Rechnen von Hand und
       zerstörte die Reproduzierbarkeit. Umsortieren und Herausnehmen ja, Zahlen anfassen nein.</li>
-    <li><b>Noch nicht da:</b> der Download der Präsentation (Format und Erzeugungsweg sind
-      #244) und die Klartextnamen der Kernprozesse (#248).</li>
+    <li><b>Die Präsentation</b> entsteht erst nach der Freigabe (Knopf im Laufkopf) und
+      zeigt nur Freigegebenes, in der gesetzten Reihenfolge (#257).</li>
+    <li><b>Noch nicht da:</b> die Klartextnamen der Kernprozesse (#248).</li>
   </ol></details>`;
 }
 
@@ -1040,8 +1072,7 @@ async function entscheiden(status){
   Z.geaendert = false;
   Z.meldung = {art: "info", text: status === "approved"
     ? `<b>Gate 1 freigegeben.</b> ${Z.freigegeben.size} Potenzial(e) gehen an BC3.
-       Die Präsentation als Download fehlt noch — Format und Erzeugungsweg sind
-       <a href="https://github.com/pg-coe-kmu/coe-factory/issues/244">#244</a>.`
+       Die Präsentation steht jetzt oben im Laufkopf zum Herunterladen bereit.`
     : `<b>Lauf abgelehnt.</b> Es wird nichts ausgeliefert und nichts gelöscht; ein erneuter
        Lauf erzeugt Fassung ${Z.ansicht.kopf.fassung + 1}, diese bleibt abrufbar.`};
   await ladeListe();
@@ -1066,6 +1097,8 @@ document.addEventListener("click", async e => {
     return zeigeTor("");
   }
   if (!Z.ansicht) return;
+
+  if (t.closest("[data-praesentation]")) return praesentationHolen();
 
   const hoch = t.closest("[data-hoch]"), runter = t.closest("[data-runter]");
   if (hoch || runter){

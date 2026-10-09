@@ -6,3 +6,8 @@ psycopg2-binary>=2.9
 # `erkennung.modellruf` importiert es erst beim Aufruf — der Trigger-Endpunkt
 # und die Tests kommen ohne aus, der Container braucht es.
 anthropic>=0.40
+
+# Die Präsentation am Gate 1 (#257, Format entschieden in #244): reine
+# Python-Abhängigkeit ohne Systempakete. Auf 1.x gehalten — die Entscheidung
+# wurde an 1.0.2 gemessen.
+python-pptx>=1.0,<2

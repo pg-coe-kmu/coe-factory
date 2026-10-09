@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ARCHIV (#257): zeigt Vertrag v2 und wird nicht gepflegt — abgeloest durch app/praesentation/. Siehe README.md.
 """BC2 Output-Präsentations-Template (KIsult-Stil, Platzhalter {{...}} fuer BC2-Befuellung)."""
 from pptx import Presentation
 from pptx.util import Inches, Pt

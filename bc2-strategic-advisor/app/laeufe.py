@@ -118,6 +118,14 @@ class Laufansicht:
     potenziale: dict[str, dict]
     #: ``kp_id`` → Klartextname, soweit bekannt.
     kp_namen: dict[str, str] = field(default_factory=dict)
+    #: ``priorisierung.ausgangslage`` (v3.1, #254), sobald die Quelle sie trägt.
+    #: Ein Messsatz trägt sie nicht — er kennt weder Mandantensatz noch
+    #: Schmerzpunkte —, und dann fehlt sie, statt erfunden zu werden.
+    ausgangslage: dict | None = None
+    #: Die Konzepte in Vertragsform, sobald die Quelle sie trägt (Erkennung,
+    #: Lieferordner). Ohne sie baut :meth:`als_vertrag` Konzepte aus den
+    #: gerechneten Hälften der Potenziale.
+    konzepte: list[dict] | None = None
 
     def potenzial_ids(self) -> list[str]:
         """Alle Potenziale des Laufs, in **gerechneter** Rangfolge."""
@@ -126,6 +134,51 @@ class Laufansicht:
     def kp_ids(self) -> list[str]:
         """Alle Kernprozesse, in **gerechneter** Prozessrangfolge."""
         return [r["kp_id"] for r in self.prozess_raenge]
+
+    def als_vertrag(self, gate1: dict) -> tuple[list[dict], dict]:
+        """Konzepte und Priorisierung dieses Laufs, soweit die Quelle sie trägt.
+
+        Das ist die Eingabe des Foliengenerators (#257). Die Priorisierung ist
+        vollständig bis auf das, was die Quelle nicht hat: ``ausgangslage``
+        steht nur da, wenn sie da ist (dann ``schema_version`` 3.1, sonst 3.0).
+        Die **Konzepte** sind ohne eigene Quelle nur die gerechneten Hälften
+        der Potenziale (``modell/ausgabe.py``) — ohne Beschreibung, Vision und
+        Lösungsansatz, die das LLM schreibt. Sie sind damit **nicht
+        schemagültig** und gehen nirgends hin als in die Präsentation, die das
+        Fehlen ansagt. An BC3 geht nur, was der Erkennungsschritt vollständig
+        liefert.
+        """
+        konzept_ids = {r["kp_id"]: r["konzept_id"] for r in self.prozess_raenge}
+        if self.konzepte is not None:
+            konzepte = self.konzepte
+        else:
+            konzepte = []
+            for kp_id, konzept_id in konzept_ids.items():
+                konzepte.append({
+                    "konzept_id": konzept_id,
+                    "kontext": {"kp_id": kp_id},
+                    "potenziale": [
+                        self.potenziale[e["potenzial_id"]]
+                        for e in self.eintraege
+                        if e["kp_id"] == kp_id
+                    ],
+                })
+        k = self.kopf
+        priorisierung: dict = {
+            "schema_version": "3.1" if self.ausgangslage else "3.0",
+            "company_id": k.company_id,
+            "paket_id": k.paket_id,
+            "uebergeben_am": k.uebergeben_am.isoformat(),
+            "fassung": k.fassung,
+            "score_formel": self.score_formel,
+            "konzept_ids": list(konzept_ids.values()),
+            "eintraege": self.eintraege,
+            "prozess_raenge": self.prozess_raenge,
+            "gate1": gate1,
+        }
+        if self.ausgangslage:
+            priorisierung["ausgangslage"] = self.ausgangslage
+        return konzepte, priorisierung
 
     def als_json(self) -> dict:
         return {

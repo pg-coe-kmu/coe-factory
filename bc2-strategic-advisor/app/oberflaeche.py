@@ -8,6 +8,7 @@ Vier Rufe, mehr braucht die Seite nicht:
 ``GET  /api/oberflaeche/laeufe``                        Die Liste der Läufe — der Einstieg
 ``GET  /api/oberflaeche/laeufe/{paket_id}``             Ein Lauf samt Gate-1-Stand
 ``POST /api/oberflaeche/laeufe/{paket_id}/gate1``       Die Entscheidung
+``POST /api/oberflaeche/laeufe/{paket_id}/praesentation``  Der Foliensatz, nur nach Freigabe (#257)
 ======================================================  ====================================
 
 **Die Prüfung liegt hier, nicht im Browser.** Fassung D verlangt eine Begründung
@@ -32,10 +33,20 @@ import logging
 from pathlib import Path
 
 from fastapi import APIRouter, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 
 from gate1 import Gate1Buch, Gate1Entscheidung, NichtFreigegeben, jetzt, pruefe
 from laeufe import Laufquelle
+from praesentation import (
+    DATEINAME,
+    als_bytes,
+    baue_praesentation,
+    lege_ab,
+    lieferordner,
+    mandantenkuerzel,
+)
+
+PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 
 log = logging.getLogger("bc2.oberflaeche")
 
@@ -51,13 +62,16 @@ def erzeuge_router(
     buch: Gate1Buch,
     schluessel_stimmt,
     ablage_art: str,
+    lieferungen: Path | None = None,
 ) -> APIRouter:
     """Baut die Routen.
 
     ``schluessel_stimmt`` wird hereingereicht statt importiert: die Prüfung
     gehört dem Endpunkt-Modul, und dieses Modul soll nicht davon abhängen, wie
     BC0s Signatur aussieht. ``ablage_art`` sagt der Oberfläche, ob ihre
-    Entscheidung einen Neustart überlebt.
+    Entscheidung einen Neustart überlebt. ``lieferungen`` ist das Verzeichnis,
+    unter dem die Lieferordner ``<company>-<paket_id>-f<n>/`` liegen; ohne
+    Angabe wird die Präsentation ausgeliefert, aber nicht abgelegt.
     """
     router = APIRouter(prefix="/api/oberflaeche")
 
@@ -198,6 +212,75 @@ def erzeuge_router(
         )
         return JSONResponse(
             {"paket_id": paket_id, "gate1": entscheidung.als_vertrag()}, status_code=200
+        )
+
+    @router.post("/laeufe/{paket_id}/praesentation")
+    def praesentation(request: Request, paket_id: str):
+        """Zeichnet den Foliensatz des Laufs — **nur nach Freigabe** (#244, #257).
+
+        Ein Erzeugungsvorgang, zwei Empfänger: dieselben Bytes gehen als
+        Antwort zurück und in den Lieferordner, damit Download und Ablage
+        nicht auseinanderlaufen. Ob abgelegt wurde, sagt ``X-BC2-Ablage`` —
+        ein fehlender Ort ist kein Grund, den Download zu verweigern, und
+        auch keiner, einen Ort zu erfinden.
+
+        ``POST`` und nicht ``GET``: der Ruf schreibt in den Lieferordner.
+        """
+        if (abweisung := _wache(request)) is not None:
+            return abweisung
+
+        ansicht = quelle.ansicht(paket_id)
+        if ansicht is None:
+            return _fehler(f"Kein Lauf mit paket_id {paket_id!r}.", 404)
+
+        entscheidung = buch.lesen(paket_id)
+        if entscheidung is None or entscheidung.status != "approved":
+            stand = entscheidung.status if entscheidung is not None else "pending"
+            # 409: der Lauf existiert, aber sein Zustand erlaubt es nicht. Vor der
+            # Freigabe zeigte die Präsentation eine Reihenfolge, die der Mensch
+            # noch überschreiben darf; bei Ablehnung entsteht sie gar nicht
+            # (ADR-007, 2.3).
+            return _fehler(
+                f"Die Praesentation entsteht erst nach der Freigabe am Gate 1 "
+                f"(Stand: {stand}).",
+                409,
+            )
+
+        konzepte, priorisierung = ansicht.als_vertrag(entscheidung.als_vertrag())
+        daten = als_bytes(
+            baue_praesentation(konzepte, priorisierung, warnung=ansicht.kopf.warnung)
+        )
+
+        # Der Header ist ASCII: HTTP-Kopfzeilen tragen kein UTF-8.
+        if ansicht.kopf.warnung:
+            # Ein Messsatz ist keine Lieferung. Der Lieferordner ist BC3s Eingang,
+            # und was dort liegt, gilt als uebergeben (ADR-007, 2.3).
+            ablage = "nicht abgelegt: der Lauf ist nicht nachrechenbar (Messsatz)"
+        elif lieferungen is None:
+            ablage = "nicht abgelegt: kein Lieferungen-Verzeichnis eingestellt (BC2_LIEFERUNGEN)"
+        else:
+            name = ((ansicht.ausgangslage or {}).get("unternehmen") or {}).get("name")
+            ordner = lieferordner(
+                lieferungen,
+                mandantenkuerzel(name, ansicht.kopf.company_id),
+                paket_id,
+                ansicht.kopf.fassung,
+            )
+            try:
+                lege_ab(daten, ordner)
+                ablage = f"abgelegt: {ordner.name}/{DATEINAME}"
+            except OSError as fehler:
+                log.warning("Praesentation fuer %s nicht abgelegt: %s", paket_id, fehler)
+                ablage = "nicht abgelegt: Lieferungen-Verzeichnis fehlt oder ist nicht beschreibbar"
+
+        log.info("Praesentation fuer %s erzeugt (%d Bytes), %s", paket_id, len(daten), ablage)
+        return Response(
+            daten,
+            media_type=PPTX,
+            headers={
+                "Content-Disposition": f'attachment; filename="{DATEINAME}"',
+                "X-BC2-Ablage": ablage,
+            },
         )
 
     return router
