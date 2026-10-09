@@ -1,6 +1,7 @@
 # ADR-008 · BC2 — Schema `bc2`: Lauf, Ergebnis und Gate-1-Entscheidung
 
-**Status:** Entwurf · 09.10.2026
+**Status:** Angenommen · 09.10.2026 — gebaut in [#290](https://github.com/pg-coe-kmu/coe-factory/issues/290)
+(`app/migration_bc2.2_lauf.sql`, `app/ablage.py`, `app/gate1.py`)
 **Bezug:** [#250](https://github.com/pg-coe-kmu/coe-factory/issues/250) · Karte [#158](https://github.com/pg-coe-kmu/coe-factory/issues/158)
 **Baut auf:** ADR-007 · BC2 (Rückrichtung und Fassungen) · ADR-005 · BC2 (der Analyselauf ist das Paket) · ADR-003 (Schreibmodell)
 **Schärft nach:** ADR-007 · BC2 §2.3/§2.4 — wer eine Fassung anstößt (siehe 2.1)
@@ -160,3 +161,34 @@ schnürt — und BC0 hat dazu keinen Anlass, weil sich an den Daten nichts geän
    Ob BC0 zusätzlich ein Ereignis in `gate_ereignisse` braucht, bleibt BC0s Frage an #241.
 4. **ADR-007 · BC2 §4 Punkt 4** („ein abgelehnter Lauf hat heute keinen Ablageort") ist mit dem Bau
    erledigt.
+
+## 5. Nachtrag zum Bau (#290, 09.10.2026)
+
+Punkte, die der Entwurf offenliess oder die erst beim Bau sichtbar wurden:
+
+1. **Der Lauf-Zustand ändert sich an Gate 1 mit.** Der partielle Index aus 2.4 kann nur Spalten von
+   `bc2.lauf` sehen; „nicht abgeschlossen" muss darum dort stehen (`in_arbeit`, `offen`,
+   `abgeschlossen`, `fehler`). Gate 1 setzt beim endgültigen Entscheid `zustand = 'abgeschlossen'`,
+   in derselben Transaktion. Das ist eine Ausnahme von „danach schreibt nur Gate 1, und nur in seine
+   Tabellen" (2.3) — sie berührt den Lebenslauf, nicht das Ergebnis: `dokument` bleibt
+   unveränderlich, und das hält ein Trigger fest, nicht nur der Code.
+2. **`bc2.potenzial` ist auf `(priorisierung_id, potenzial_id)` geschlüsselt**, nicht auf
+   `potenzial_id` allein: dieselbe Rechnung über dasselbe Paket kann dieselben Kennungen schneiden,
+   und eine zweite Fassung darf daran nicht scheitern.
+3. **Die Endgültigkeit steht zweimal da**: als `… WHERE status = 'pending'` im Anwendungscode (der
+   Konflikt wird zum `409`) und als Trigger, der ein `UPDATE` auf einer entschiedenen Zeile auch am
+   Code vorbei abweist. Die Warnung „pending ist überschreibbar" gilt unverändert.
+
+4. **Auflage aus ADR-009 · BC2 §4.3 erfüllt:** vor dem Ablegen fragt `Ergebnisbuch.kandidaten`
+   nach Potenzialen aus `approved`-Läufen anderer Pakete desselben Mandanten, deren Teilprozesse
+   sich mit diesem Lauf überschneiden. Gibt es welche, endet der Lauf mit `fehler` und die
+   Oberfläche mit `409` — statt still `ersetzt_potenzial_ids: []` zu liefern. Die Teilprozesse
+   kommen bis #288 aus den Einträgen, nicht aus der Paketliste; ein Teilprozess ohne Potenzial
+   entgeht der Prüfung damit noch.
+5. **Vertrag 3.1 geht durch die Ablage**, sobald die Quelle eine Ausgangslage trägt
+   (`gestrichene_potenziale: []`, `ersetzt_potenzial_ids: []` je Potenzial); ein Messsatz bleibt
+   bei 3.0. `bc2.potenzial.ersetzt_potenzial_ids` ist die Projektion daraus: `NULL` bei 3.0.
+
+Die Dokumente sind bis #288 **nicht vertragsvollständig**: die Texte eines Potenzials entstehen beim
+LLM und fehlen, solange die innere Quelle ein Messsatz ist. Abgelegt wird, was die Rechnung liefert,
+ohne Platzhalter; schema-gültig muss erst die Lieferung an BC3 sein (`tools/validate.py`, #253).

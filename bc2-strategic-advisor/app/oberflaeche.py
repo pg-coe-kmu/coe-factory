@@ -1,7 +1,7 @@
 """
 BC2 · Die Endpunkte, von denen die Oberfläche lebt (#243, Fassung D aus #167).
 
-Vier Rufe, mehr braucht die Seite nicht:
+Fünf Rufe, mehr braucht die Seite nicht:
 
 ======================================================  ====================================
 ``GET  /api/oberflaeche/zustand``                       Was trägt gerade, und was nicht
@@ -9,6 +9,7 @@ Vier Rufe, mehr braucht die Seite nicht:
 ``GET  /api/oberflaeche/laeufe/{paket_id}``             Ein Lauf samt Gate-1-Stand
 ``POST /api/oberflaeche/laeufe/{paket_id}/gate1``       Die Entscheidung
 ``POST /api/oberflaeche/laeufe/{paket_id}/praesentation``  Der Foliensatz, nur nach Freigabe (#257)
+``POST /api/oberflaeche/laeufe/{paket_id}/neu``         Neue Fassung nach Reject (#290)
 ======================================================  ====================================
 
 **Die Prüfung liegt hier, nicht im Browser.** Fassung D verlangt eine Begründung
@@ -35,7 +36,16 @@ from pathlib import Path
 from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 
-from gate1 import Gate1Buch, Gate1Entscheidung, NichtFreigegeben, jetzt, pruefe
+from ablage import NeulaufNichtErlaubt
+from gate1 import (
+    Gate1Buch,
+    Gate1Entscheidung,
+    Gate1Konflikt,
+    LaufUnbekannt,
+    NichtFreigegeben,
+    jetzt,
+    pruefe,
+)
 from laeufe import Laufquelle
 from praesentation import (
     DATEINAME,
@@ -95,10 +105,11 @@ def erzeuge_router(
             {
                 "ablage": ablage_art,
                 "fluechtig": ablage_art == "arbeitsspeicher",
+                "neulauf": hasattr(quelle, "neu_rechnen"),
                 "hinweis": (
                     "Die Gate-1-Entscheidung liegt im Arbeitsspeicher des Dienstes "
-                    "und ist nach einem Neustart weg. Ein Ort in Schema `bc2` ist "
-                    "noch nicht entworfen."
+                    "und ist nach einem Neustart weg — der Dienst laeuft ohne "
+                    "Datenbank (DATABASE_URL fehlt)."
                 )
                 if ablage_art == "arbeitsspeicher"
                 else "",
@@ -114,7 +125,7 @@ def erzeuge_router(
         koepfe = quelle.uebersicht(company_id)
         eintraege = []
         for kopf in koepfe:
-            entscheidung = buch.lesen(kopf.paket_id)
+            entscheidung = buch.lesen(kopf.paket_id, kopf.fassung)
             zeile = kopf.als_json()
             if entscheidung is not None:
                 zeile["gate1_status"] = entscheidung.status
@@ -132,7 +143,7 @@ def erzeuge_router(
             return _fehler(f"Kein Lauf mit paket_id {paket_id!r}.", 404)
 
         antwort = ansicht.als_json()
-        entscheidung = buch.lesen(paket_id)
+        entscheidung = buch.lesen(paket_id, ansicht.kopf.fassung)
         antwort["gate1"] = (
             entscheidung.als_vertrag() if entscheidung is not None else {"status": "pending"}
         )
@@ -168,10 +179,22 @@ def erzeuge_router(
                 "nicht_freigegeben muss eine Liste aus {potenzial_id, begruendung} sein."
             )
 
+        # Die Oberfläche schickt mit, über welche Fassung sie entschieden hat.
+        # Liegt inzwischen eine andere, hat sie auf einem alten Stand gearbeitet
+        # — das ist ein Konflikt, keine Entscheidung über die neue Fassung.
+        fassung = ansicht.kopf.fassung
+        if "fassung" in daten and daten["fassung"] != fassung:
+            return _fehler(
+                f"Entschieden wurde ueber Fassung {daten['fassung']}, es gilt Fassung "
+                f"{fassung}. Bitte neu laden.",
+                409,
+            )
+
         entscheidung = Gate1Entscheidung(
             paket_id=paket_id,
             company_id=ansicht.kopf.company_id,
             status=str(daten.get("status", "")),
+            fassung=fassung,
             approved_potenzial_ids=tuple(daten.get("approved_potenzial_ids", [])),
             nicht_freigegeben=nicht_frei,
             finale_reihenfolge_potenzial_ids=tuple(
@@ -201,7 +224,20 @@ def erzeuge_router(
                 "Die Entscheidung ist so nicht zulaessig.", 422, maengel=maengel
             )
 
-        buch.merken(entscheidung)
+        try:
+            buch.merken(entscheidung)
+        except Gate1Konflikt as e:
+            # 409: kein Formfehler, sondern ein anderer war schneller oder die
+            # Seite zeigt einen alten Stand. Der geltende Stand kommt mit, damit
+            # die Oberfläche ihn anzeigen kann, statt ihn zu überschreiben.
+            geltend = buch.lesen(paket_id, fassung)
+            return _fehler(
+                str(e),
+                409,
+                gate1=geltend.als_vertrag() if geltend is not None else {"status": e.bisher},
+            )
+        except LaufUnbekannt:
+            return _fehler(f"Zu {paket_id} liegt kein abgelegter Lauf.", 409)
         log.info(
             "Gate 1 fuer %s: %s (%d freigegeben, %d herausgenommen) durch %r",
             paket_id,
@@ -211,7 +247,8 @@ def erzeuge_router(
             entscheidung.entscheider or "(ohne Angabe)",
         )
         return JSONResponse(
-            {"paket_id": paket_id, "gate1": entscheidung.als_vertrag()}, status_code=200
+            {"paket_id": paket_id, "fassung": fassung, "gate1": entscheidung.als_vertrag()},
+            status_code=200,
         )
 
     @router.post("/laeufe/{paket_id}/praesentation")
@@ -233,7 +270,7 @@ def erzeuge_router(
         if ansicht is None:
             return _fehler(f"Kein Lauf mit paket_id {paket_id!r}.", 404)
 
-        entscheidung = buch.lesen(paket_id)
+        entscheidung = buch.lesen(paket_id, ansicht.kopf.fassung)
         if entscheidung is None or entscheidung.status != "approved":
             stand = entscheidung.status if entscheidung is not None else "pending"
             # 409: der Lauf existiert, aber sein Zustand erlaubt es nicht. Vor der
@@ -282,6 +319,30 @@ def erzeuge_router(
                 "X-BC2-Ablage": ablage,
             },
         )
+
+    @router.post("/laeufe/{paket_id}/neu")
+    def neu_rechnen(request: Request, paket_id: str):
+        """Rechnet die nächste Fassung — **nur nach Reject** (ADR-008 · BC2, 2.1).
+
+        Nach ``approved`` gibt es keine: die Freigabe ist die Übergabe an BC3,
+        und neue Daten kommen als neues Paket von BC0. Ob die Bedingung gilt,
+        entscheidet die Ablage, nicht diese Route — ein Doppelklick läuft dort
+        auf den partiellen Index.
+        """
+        if (abweisung := _wache(request)) is not None:
+            return abweisung
+        if not hasattr(quelle, "neu_rechnen"):
+            return _fehler("Ohne Ablage gibt es keine Fassungen.", 501)
+        try:
+            ansicht = quelle.neu_rechnen(paket_id)
+        except NeulaufNichtErlaubt as e:
+            return _fehler(str(e), 409)
+        if ansicht is None:
+            return _fehler(f"Kein Lauf mit paket_id {paket_id!r}.", 404)
+        log.info("Neue Fassung %d fuer %s", ansicht.kopf.fassung, paket_id)
+        antwort = ansicht.als_json()
+        antwort["gate1"] = {"status": "pending"}
+        return JSONResponse(antwort, status_code=201)
 
     return router
 

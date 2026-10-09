@@ -50,7 +50,13 @@ from fastapi.responses import JSONResponse
 
 import oberflaeche
 from eingang import Eingangsbuch, Paket, PostgresEingangsbuch
-from gate1 import Gate1Buch, SpeicherGate1Buch
+from ablage import (
+    AblegendeLaufquelle,
+    NachfolgerOffen,
+    PostgresErgebnisbuch,
+    SpeicherErgebnisbuch,
+)
+from gate1 import Gate1Buch, PostgresGate1Buch, SpeicherGate1Buch
 from laeufe import Laufquelle, MesssatzLaufquelle
 
 log = logging.getLogger("bc2.trigger")
@@ -309,6 +315,26 @@ async def lebenszyklus(app: FastAPI):
     yield
 
 
+def _standardablage() -> tuple[Laufquelle, Gate1Buch]:
+    """Ablage für Lauf und Gate 1, je nachdem, ob eine Datenbank da ist.
+
+    Ohne ``DATABASE_URL`` liegt beides im Arbeitsspeicher — für die Vorschau
+    und den Start ohne Server. Die Tests setzen ``DATABASE_URL`` gezielt nicht
+    (``conftest.py``), landen also nie hier in der gemeinsamen Datenbank.
+    """
+    messsaetze = MesssatzLaufquelle(MESSSAETZE)
+    if (os.environ.get("DATABASE_URL") or "").strip():
+        return (
+            AblegendeLaufquelle(messsaetze, PostgresErgebnisbuch()),
+            PostgresGate1Buch(),
+        )
+    ergebnisse = SpeicherErgebnisbuch()
+    return (
+        AblegendeLaufquelle(messsaetze, ergebnisse),
+        SpeicherGate1Buch(ergebnisse=ergebnisse),
+    )
+
+
 def erzeuge_app(
     buch: Eingangsbuch | None = None,
     *,
@@ -319,10 +345,11 @@ def erzeuge_app(
     """Baut die Anwendung. Die drei Ablagen werden in den Tests untergeschoben.
 
     ``laufquelle`` und ``gate1_buch`` tragen die Oberfläche (#243). Ohne Angabe
-    entstehen die Behelfsfassungen: Läufe aus den Messsätzen unter
-    ``kalibrierung/``, Entscheidungen im Arbeitsspeicher. **Beides ist
-    vorläufig** — die echte Quelle ist der Erkennungsschritt (#248), die echte
-    Ablage ein noch nicht entworfener Teil von Schema ``bc2`` (#250).
+    gilt: **mit** ``DATABASE_URL`` liegen Lauf und Gate 1 in Schema ``bc2``
+    (#290, ADR-008 · BC2), **ohne** im Arbeitsspeicher — dann sagt die
+    Oberfläche an, dass eine Entscheidung den Neustart nicht übersteht. Die
+    Läufe selbst kommen in beiden Fällen noch aus den Messsätzen unter
+    ``kalibrierung/``; die echte Quelle schliesst der Bewertungsschritt an (#288).
     """
     app = FastAPI(
         title="BC2 Strategic Advisor",
@@ -334,8 +361,21 @@ def erzeuge_app(
     )
     app.state.buch = buch
 
-    quelle = laufquelle or MesssatzLaufquelle(MESSSAETZE)
-    entscheidungen = gate1_buch or SpeicherGate1Buch()
+    @app.exception_handler(NachfolgerOffen)
+    async def _nachfolger_offen(request: Request, fehler: NachfolgerOffen):
+        """Auflage ADR-009 · BC2 §4.3: ein Abbruch, kein Absturz.
+
+        409 und nicht 500: der Dienst ist heil, der Lauf ist nur noch nicht
+        rechenbar. Die Meldung sagt, woran es hängt (#295).
+        """
+        return JSONResponse(
+            {"fehler": str(fehler), "kandidaten": fehler.kandidaten}, status_code=409
+        )
+
+    if laufquelle is None or gate1_buch is None:
+        standard_quelle, standard_buch = _standardablage()
+    quelle = laufquelle or standard_quelle
+    entscheidungen = gate1_buch or standard_buch
     app.state.laufquelle = quelle
     app.state.gate1_buch = entscheidungen
 
@@ -454,7 +494,7 @@ def erzeuge_app(
             _schluessel_stimmt,
             ablage_art="arbeitsspeicher"
             if isinstance(entscheidungen, SpeicherGate1Buch)
-            else "datenbank",
+            else "postgres",
             lieferungen=Path(lieferungen) if lieferungen else None,
         )
     )
