@@ -118,6 +118,8 @@ def _priorisierung(**ueber) -> dict:
             }
         ],
         "gate1": {"status": "pending"},
+        # Pflicht ab 3.1 seit #291; leer, weil ein erster Lauf nichts streichen kann.
+        "gestrichene_potenziale": [],
         "ausgangslage": als_ausgangslage(
             _mandant(), [_konzept("KP-06", _schmerz("Stunden werden abgetippt"))]
         ),
@@ -203,6 +205,7 @@ def test_herausforderungen_brauchen_ihre_kernprozesse():
 def test_eine_v3_0_priorisierung_ohne_ausgangslage_bleibt_gueltig():
     prio = _priorisierung(schema_version="3.0")
     del prio["ausgangslage"]
+    del prio["gestrichene_potenziale"]  # auch die Streichliste ist 3.1 (#291)
     assert _fehler(prio) == []
 
 

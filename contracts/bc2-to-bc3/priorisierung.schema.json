@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://coe-factory/contracts/bc2/priorisierung.schema.json",
   "title": "BC2 Priorisierung (das Ergebnis eines Analyselaufs)",
-  "description": "Das Ergebnis fuer den ANALYSELAUF: die Reihenfolge ueber alle Potenziale aller Konzepte, samt Prozessrang und Gate-1-Entscheidung. Haelt die n Konzepte eines Laufs zusammen -- uebergeben wird der LAUF, nicht das einzelne Konzept (ADR-007 BC2, 2.1). Version: 3.1 (additiv ggue. 3.0, #254: neues Feld ausgangslage; eine 3.0-Datei bleibt gueltig). Brechende Aenderungen von v2.0 auf v3.0 -- (1) company_id, paket_id, uebergeben_am und fassung sind Pflicht und machen die Datei zum Behaelter des Laufs; (2) 'gate1' ist hierher gewandert, aus konzept.schema.json; (3) impact und umsetzungskomplexitaet von vier Stufen auf 1-10; (4) Geldgroessen sind Spannen; (5) Kategorie 'Long Bet' heisst 'Zurueckgestellt'. Neu: konzept_ids, prozess_raenge, prioritaetsgruppe, nutzwert_mittel, impact_monetaer, und in gate1 die finale Reihenfolge samt Begruendung der Abweichung.",
+  "description": "Das Ergebnis fuer den ANALYSELAUF: die Reihenfolge ueber alle Potenziale aller Konzepte, samt Prozessrang und Gate-1-Entscheidung. Haelt die n Konzepte eines Laufs zusammen -- uebergeben wird der LAUF, nicht das einzelne Konzept (ADR-007 BC2, 2.1). Version: 3.1 (additiv ggue. 3.0, #254: neues Feld ausgangslage; #291: neues Feld gestrichene_potenziale; eine 3.0-Datei bleibt gueltig). Brechende Aenderungen von v2.0 auf v3.0 -- (1) company_id, paket_id, uebergeben_am und fassung sind Pflicht und machen die Datei zum Behaelter des Laufs; (2) 'gate1' ist hierher gewandert, aus konzept.schema.json; (3) impact und umsetzungskomplexitaet von vier Stufen auf 1-10; (4) Geldgroessen sind Spannen; (5) Kategorie 'Long Bet' heisst 'Zurueckgestellt'. Neu: konzept_ids, prozess_raenge, prioritaetsgruppe, nutzwert_mittel, impact_monetaer, und in gate1 die finale Reihenfolge samt Begruendung der Abweichung.",
   "type": "object",
   "required": [
     "priorisierung_id",
@@ -24,7 +24,7 @@
     "schema_version": {
       "type": "string",
       "enum": ["3.0", "3.1"],
-      "description": "3.1 seit #254 -- additiv: einziger Unterschied ist das Feld 'ausgangslage', das eine 3.1 traegt und eine 3.0 nicht (siehe allOf am Ende). Eine 3.0-Datei bleibt gegen dieses Schema gueltig; uebergebene Lieferungen werden nicht nachgezogen (ADR-007 BC2, 2.4)."
+      "description": "3.1 seit #254/#291 -- additiv: die Felder 'ausgangslage' und 'gestrichene_potenziale', die eine 3.1 traegt und eine 3.0 nicht (siehe allOf am Ende). Eine 3.0-Datei bleibt gegen dieses Schema gueltig; uebergebene Lieferungen werden nicht nachgezogen (ADR-007 BC2, 2.4)."
     },
     "company_id": {
       "type": "string",
@@ -151,6 +151,20 @@
         }
       }
     },
+    "gestrichene_potenziale": {
+      "type": "array",
+      "description": "Neu in v3.1 (#291, ADR-009 BC2): Potenziale aus frueher GELIEFERTEN Lieferungen, die dieser Lauf neu gesehen hat und die als Vorhaben wegfallen. [] wenn nichts gestrichen ist. Ausdruecklich statt 'worauf keiner zeigt': Kandidat ist nur, was einen Teilprozess DIESES Pakets beruehrt -- alles andere gilt unveraendert weiter, und das kann BC3 ohne die Kandidatenmenge nicht unterscheiden. Steht hier und nicht im Konzept, weil ein Kernprozess mit nur Gestrichenem kein Konzept hat (potenziale: minItems 1).",
+      "items": {
+        "type": "object",
+        "required": ["potenzial_id", "kp_id", "begruendung"],
+        "additionalProperties": false,
+        "properties": {
+          "potenzial_id": { "type": "string", "format": "uuid" },
+          "kp_id": { "type": "string" },
+          "begruendung": { "type": "string", "minLength": 5 }
+        }
+      }
+    },
     "ausgangslage": {
       "type": "object",
       "description": "Neu in v3.1 (#254, entschieden in #244): die Ausgangslage des LAUFS -- Teil 1 der Praesentation, der im Vertrag bis v3.0 keinen Ort hatte. Sie entsteht im Lauf und reist mit an BC3, statt dass der Foliengenerator sie zur Erzeugungszeit erfindet: die Praesentation traegt keine eigene Information (Glossar 'Praesentation'). Bewusst NICHT enthalten: Positionierung, Marktumfeld, strategische Ziele aus dem Unternehmensprofil -- Fliesstext ohne Datengrundlage im Paket. Die Ausgangslage je Kernprozess bleibt in konzept.kontext.",
@@ -251,6 +265,12 @@
       "if": { "properties": { "schema_version": { "const": "3.1" } }, "required": ["schema_version"] },
       "then": { "required": ["ausgangslage"] },
       "else": { "not": { "required": ["ausgangslage"] } }
+    },
+    {
+      "description": "v3.1 traegt die Streichliste, v3.0 nicht (#291).",
+      "if": { "properties": { "schema_version": { "const": "3.1" } }, "required": ["schema_version"] },
+      "then": { "required": ["gestrichene_potenziale"] },
+      "else": { "not": { "required": ["gestrichene_potenziale"] } }
     }
   ],
   "$defs": {

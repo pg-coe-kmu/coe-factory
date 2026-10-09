@@ -101,7 +101,7 @@ divergierenden Kopien unter `Projektgruppe/BC2/` sind aufgelöst und liegen dort
 
 | Was | Wo |
 |---|---|
-| Verträge an BC3 (**v3.1**, additiv seit #254; BC3-Bestätigung offen) | `contracts/bc2-to-bc3/` — **Endlage, wird nicht mehr verschoben**; `archiv/` hält v2.0 für die Lieferung vom 30.08. |
+| Verträge an BC3 (**v3.1**, additiv seit #254 und #291; BC3-Bestätigung offen) | `contracts/bc2-to-bc3/` — **Endlage, wird nicht mehr verschoben**; `archiv/` hält v2.0 für die Lieferung vom 30.08. |
 | Mocks / Fixtures | `contracts/examples/` |
 | `migriere_bc3_vorlage.py`, `validate.py`, `kalibrierung.py` | `bc2-strategic-advisor/tools/` — aus dem Repo-Wurzelverzeichnis aufrufen |
 | Systemarchitektur (27.06., teils überholt) | `bc2-strategic-advisor/architektur/` |

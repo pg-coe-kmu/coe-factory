@@ -1,7 +1,7 @@
 {
   "konzept_id": "ce8dfca0-1b0e-5966-a336-d1eb45ff3792",
   "ersetzt_konzept_id": null,
-  "schema_version": "3.0",
+  "schema_version": "3.1",
   "company_id": "7c2d5ee9-2a9a-5990-810f-502ea2b2012d",
   "paket_id": "FIXTURE-BC3-VORLAGE-2026-08-31",
   "uebergeben_am": "2026-08-31T00:00:00+02:00",
@@ -39,6 +39,7 @@
   "potenziale": [
     {
       "potenzial_id": "b2000000-0000-4000-8000-000000000002",
+      "ersetzt_potenzial_ids": [],
       "titel": "Interne Fragen mit Quellenangabe beantworten",
       "potenzialrang": 2,
       "prioritaetsgruppe": "PRIO 2",
@@ -218,6 +219,7 @@
     },
     {
       "potenzial_id": "b2000000-0000-4000-8000-000000000001",
+      "ersetzt_potenzial_ids": [],
       "titel": "Wissensquellen automatisch indexieren und aktuell halten",
       "potenzialrang": 6,
       "prioritaetsgruppe": "PRIO 2",

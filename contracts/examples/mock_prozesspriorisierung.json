@@ -202,6 +202,7 @@
       "begruendung": "Bestes Potenzial auf Rang 2 des Laufs. Der Prozessrang folgt dem besten Potenzial, nicht der Summe oder dem Mittel -- angefangen wird mit dem, was sich zuerst lohnt."
     }
   ],
+  "gestrichene_potenziale": [],
   "ausgangslage": {
     "unternehmen": {
       "name": "NoroAI Consulting GmbH",

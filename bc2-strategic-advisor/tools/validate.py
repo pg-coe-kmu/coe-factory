@@ -4,7 +4,9 @@ Zwei Vertragsstaende nebeneinander, mit Absicht:
 
   * **v3.1** -- der aktuelle Vertrag (`contracts/bc2-to-bc3/`). Additiv gegenueber v3.0 (#254):
     die Priorisierung traegt die `ausgangslage` des Laufs. Das eine Schema nimmt `schema_version`
-    3.0 und 3.1 an und verlangt die Ausgangslage genau bei 3.1. Dagegen laufen die Fixtures in
+    3.0 und 3.1 an und verlangt die Ausgangslage genau bei 3.1. Seit #291 traegt eine 3.1 ausserdem
+    die Kette ueber Pakete hinweg (`ersetzt_potenzial_ids` je Potenzial, `gestrichene_potenziale` in
+    der Priorisierung); geprueft wird sie gegen die freigegebenen Lieferungen im Repo (`kette.py`). Dagegen laufen die Fixtures in
     `contracts/examples/` (Priorisierung auf 3.1) und jede Lieferung, gleich welcher der beiden.
   * **v2.0** -- eingefroren in `contracts/bc2-to-bc3/archiv/`. Dagegen laeuft nur noch die bereits
     uebergebene Lieferung vom 30.08.2026. Ein uebergebenes Konzept wird nie ungueltig, es veraltet
@@ -23,6 +25,8 @@ import pathlib
 import sys
 
 from jsonschema import Draft202012Validator
+
+from kette import gelieferte_potenziale, kettenbefunde
 
 BASE = pathlib.Path(__file__).resolve().parents[2]
 
@@ -116,6 +120,37 @@ def pruefe_ausgangslage(name, konzepte, prio):
         f"{name}: der Mandantenname stimmt mit kontext.unternehmen der Konzepte ueberein",
         f"{name}: Mandant {aus['unternehmen']['name']!r}, Konzepte nennen {namen}",
     )
+
+
+def pruefe_kette(name, konzepte, prio):
+    """Vorgaenger und Streichliste (v3.1, #291) gegen alle freigegebenen Lieferungen im Repo."""
+    befunde = kettenbefunde(konzepte, prio, GELIEFERT)
+    pruefe(
+        not befunde,
+        f"{name}: Kette ueber Pakete haelt (ADR-009 BC2: 1:1, Vorgaenger und Gestrichenes "
+        "aus frueheren freigegebenen Lieferungen)",
+        f"{name}: Kette verletzt -- " + "; ".join(befunde),
+    )
+
+
+def _lies_lieferungen():
+    """Alle v3-Lieferungen, still gelesen -- melden tut Abschnitt 4, hier entsteht nur der Index."""
+    lieferungen = []
+    ordner = BASE / "contracts/bc2-to-bc3/lieferungen"
+    for o in sorted(ordner.iterdir()):
+        if not o.is_dir() or o.name == pathlib.Path(LIEFERUNG).name:
+            continue
+        try:
+            konzepte = [json.loads(d.read_text(encoding="utf-8")) for d in sorted(o.glob("konzept_*.json"))]
+            prio = json.loads((o / "prozesspriorisierung.json").read_text(encoding="utf-8"))
+            lieferungen.append((konzepte, prio))
+        except Exception:  # noqa: BLE001 -- ein kaputter Ordner faellt in Abschnitt 4 auf
+            continue
+    return lieferungen
+
+
+#: Jedes Potenzial, das schon bei BC3 angekommen ist -- daraus duerfen Vorgaenger stammen.
+GELIEFERT = gelieferte_potenziale(_lies_lieferungen())
 
 
 # ---------------------------------------------------------------------------
@@ -330,6 +365,9 @@ pruefe(
 
 # 2.9 Die Ausgangslage (v3.1, #254).
 pruefe_ausgangslage("Fixtures", konzepte, prio)
+
+# 2.10 Die Kette ueber Pakete (v3.1, #291) -- bei der Vorlage leer, weil sie ein erster Lauf ist.
+pruefe_kette("Fixtures", konzepte, prio)
 
 # ---------------------------------------------------------------------------
 # 3. Lieferung 2026-08-30 (v2.0, eingefroren) -- unveraendert uebernommene Pruefungen.
@@ -573,7 +611,10 @@ def pruefe_lieferung_v3(ordner):
     # 4.6 Die Ausgangslage (v3.1, #254): da genau bei 3.1, und sie erfindet nichts.
     pruefe_ausgangslage(name, konzepte, prio)
 
-    # 4.7 Eine simulierte Lieferung muss als solche erkennbar bleiben (#168).
+    # 4.7 Die Kette ueber Pakete (v3.1, #291), und eine einheitliche Fassung im Lauf.
+    pruefe_kette(name, konzepte, prio)
+
+    # 4.8 Eine simulierte Lieferung muss als solche erkennbar bleiben (#168).
     if prio["paket_id"].startswith("SIM-"):
         pruefe_kennzeichnung_sim(name, konzepte, prio)
 

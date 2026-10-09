@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://coe-factory/contracts/bc2/konzept.schema.json",
   "title": "BC2 Automatisierungskonzept (potenzial-zentriert)",
-  "description": "Output von BC2 (Strategic Advisor) an BC3 (Engineering Architect). Ein Konzept deckt genau EINEN Kernprozess ab; ein Analyselauf erzeugt so viele Konzepte, wie sein Paket Kernprozesse beruehrt. BC2 ordnet KEINE vorgegebenen Muster zu, sondern ERKENNT Potenziale offen und BERECHNET ihren Value deterministisch in Python. Version: 3.0. Brechende Aenderungen ggue. v2.0 -- (1) 'prozessprofil_ref' ersetzt durch company_id + paket_id + uebergeben_am; (2) impact und umsetzungskomplexitaet von vier Stufen auf 1-10; (3) 'manueller_aufwand_heute' vom Urteils-Enum zur gemessenen Jahresstundenzahl; (4) 'gate1' entfaellt hier und lebt in priorisierung.schema.json (ADR-007 BC2); (5) Value-Groessen sind Spannen statt Punktwerte; (6) Kategorie 'Long Bet' heisst 'Zurueckgestellt'. Neu: betroffene_teilprozess_ids, user_story, akzeptanzkriterien_geschaeftlich, fachliche_anforderungen, to_be_vision, nutzwert, impact_monetaer, automatisierungsgrad, prioritaetsgruppe, querschnitte, eingangswerte, ersetzt_konzept_id, fassung, hinweise.",
+  "description": "Output von BC2 (Strategic Advisor) an BC3 (Engineering Architect). Ein Konzept deckt genau EINEN Kernprozess ab; ein Analyselauf erzeugt so viele Konzepte, wie sein Paket Kernprozesse beruehrt. BC2 ordnet KEINE vorgegebenen Muster zu, sondern ERKENNT Potenziale offen und BERECHNET ihren Value deterministisch in Python. Version: 3.1 (additiv ggue. 3.0, #291: ersetzt_potenzial_ids je Potenzial; eine 3.0-Datei bleibt gueltig). Brechende Aenderungen ggue. v2.0 -- (1) 'prozessprofil_ref' ersetzt durch company_id + paket_id + uebergeben_am; (2) impact und umsetzungskomplexitaet von vier Stufen auf 1-10; (3) 'manueller_aufwand_heute' vom Urteils-Enum zur gemessenen Jahresstundenzahl; (4) 'gate1' entfaellt hier und lebt in priorisierung.schema.json (ADR-007 BC2); (5) Value-Groessen sind Spannen statt Punktwerte; (6) Kategorie 'Long Bet' heisst 'Zurueckgestellt'. Neu: betroffene_teilprozess_ids, user_story, akzeptanzkriterien_geschaeftlich, fachliche_anforderungen, to_be_vision, nutzwert, impact_monetaer, automatisierungsgrad, prioritaetsgruppe, querschnitte, eingangswerte, ersetzt_konzept_id, fassung, hinweise.",
   "type": "object",
   "required": [
     "konzept_id",
@@ -32,8 +32,8 @@
     },
     "schema_version": {
       "type": "string",
-      "const": "3.0",
-      "description": "SemVer dieses Schemas."
+      "enum": ["3.0", "3.1"],
+      "description": "3.1 seit #254/#291 -- additiv: einziger Unterschied im Konzept ist 'ersetzt_potenzial_ids', das jedes Potenzial einer 3.1 traegt und keines einer 3.0 (siehe allOf am Ende). Eine 3.0-Datei bleibt gueltig; uebergebene Lieferungen werden nicht nachgezogen (ADR-007 BC2, 2.4)."
     },
     "company_id": {
       "type": "string",
@@ -146,6 +146,12 @@
         "additionalProperties": false,
         "properties": {
           "potenzial_id": { "type": "string", "format": "uuid" },
+          "ersetzt_potenzial_ids": {
+            "type": "array",
+            "items": { "type": "string", "format": "uuid" },
+            "maxItems": 1,
+            "description": "Neu in v3.1 (#291, ADR-009 BC2): der Vorgaenger dieses Potenzials aus einer frueher GELIEFERTEN Lieferung eines ANDEREN Pakets -- dasselbe Vorhaben, neu bewertet auf neuem Datenstand. [] bei einem neuen Potenzial. Hoechstens ein Eintrag, und jede Kennung hoechstens einmal je Lauf: nur 1:1, weil eine Teilung zwei Potenziale auf dieselbe aelteste Kennung fuehrte. Zwischen Fassungen DESSELBEN Pakets verkettet ersetzt_konzept_id, nicht dieses Feld. BC3 folgt der Kette zur aeltesten Kennung."
+          },
           "titel": { "type": "string", "minLength": 3, "maxLength": 140 },
           "potenzialrang": {
             "type": "integer",
@@ -555,6 +561,14 @@
       }
     }
   },
+  "allOf": [
+    {
+      "description": "v3.1 traegt ersetzt_potenzial_ids an jedem Potenzial, v3.0 an keinem (#291).",
+      "if": { "properties": { "schema_version": { "const": "3.1" } }, "required": ["schema_version"] },
+      "then": { "properties": { "potenziale": { "items": { "required": ["ersetzt_potenzial_ids"] } } } },
+      "else": { "properties": { "potenziale": { "items": { "not": { "required": ["ersetzt_potenzial_ids"] } } } } }
+    }
+  ],
   "$defs": {
     "spanne": {
       "type": "object",

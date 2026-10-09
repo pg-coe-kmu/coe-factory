@@ -57,8 +57,9 @@ jobs:
           treffer() { echo "$dateien" | grep -qE "$1" && echo true || echo false; }
           # BC3 -> BC4: unveraendert alles unter contracts/, wie vor #253.
           echo "bc3=$(treffer '^contracts/')" >> "$GITHUB_OUTPUT"
-          # BC2 -> BC3: alles, was validate.py liest, dazu das Skript und dieser Workflow.
-          echo "bc2=$(treffer '^(contracts/(bc2-to-bc3|bc1-to-bc2|examples)/|bc2-strategic-advisor/tools/validate\.py$|\.github/workflows/vertraege-pruefen\.yml$)')" >> "$GITHUB_OUTPUT"
+          # BC2 -> BC3: alles, was validate.py liest, dazu das Skript, seine Kettenregel (kette.py, #291)
+          # und dieser Workflow.
+          echo "bc2=$(treffer '^(contracts/(bc2-to-bc3|bc1-to-bc2|examples)/|bc2-strategic-advisor/tools/(validate|kette)\.py$|\.github/workflows/vertraege-pruefen\.yml$)')" >> "$GITHUB_OUTPUT"
 
   bc2-to-bc3:
     name: BC2 → BC3 Lieferungen
