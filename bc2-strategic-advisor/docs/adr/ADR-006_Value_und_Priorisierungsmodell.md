@@ -1,7 +1,8 @@
 # ADR-006 · BC2 — Das Value- und Priorisierungsmodell
 
-**Status:** Angenommen · 20.09.2026 — mit drei Nachträgen aus dem Bau (§5) und drei aus dem
-Bewertungsschritt (09.10.2026, [#260](https://github.com/pg-coe-kmu/coe-factory/issues/260), §6)
+**Status:** Angenommen · 20.09.2026 — mit drei Nachträgen aus dem Bau (§5), drei aus dem
+Bewertungsschritt (09.10.2026, [#260](https://github.com/pg-coe-kmu/coe-factory/issues/260), §6) und
+einem aus seinem Bau (09.10.2026, [#288](https://github.com/pg-coe-kmu/coe-factory/issues/288), §6.6)
 **Bezug:** [#166](https://github.com/pg-coe-kmu/coe-factory/issues/166) · Bau [#238](https://github.com/pg-coe-kmu/coe-factory/issues/238) · Karte [#158](https://github.com/pg-coe-kmu/coe-factory/issues/158)
 **Baut auf:** ADR-005 · BC2 (der Analyselauf ist das Paket) · ADR-003 (Schreibmodell) · ADR-002 (stabile IDs)
 **Nummer:** Die Vergabe läuft über Bounded Contexts hinweg und ist seit [#220](https://github.com/pg-coe-kmu/coe-factory/issues/220)
@@ -41,6 +42,9 @@ Offen war, wie aus diesen Eingängen eine Zahl wird.
 **Rechnen tut Python, nicht das LLM.** Das LLM urteilt an genau vier Stellen — Lösungsansatz-Klasse,
 Lage im Korridor, die fünf Nutzwert-Kategorien und das begründete Überschreiben der
 Umsetzungskomplexität. Alles Übrige ist deterministisch. **Jede Setzung reist mit dem Ergebnis mit.**
+
+**Nachtrag 7 (#288): es sind fünf.** Der Umsetzungsaufwand in Personentagen
+(`aufwand_schaetzung_pt`) ist die fünfte Urteilsstelle — begründet in §6.6.
 
 ### 2.1 Value — die monetäre Seite
 
@@ -483,6 +487,14 @@ Regel „gleiche Werte sind erlaubt, keine Reihenfolge erzwingen".
 **Abnahme im Bau: eine Stabilitätsmessung** — dasselbe Paket zweimal bewerten. Weicht ein Nutzwert
 um mehr als einen Punkt ab, ist dieser Schnitt neu zu stellen.
 
+⚠ **Gescheitert am 09.10.2026 ([#288](https://github.com/pg-coe-kmu/coe-factory/issues/288)).**
+Ein Paket, einmal erkannt, zweimal bewertet (7 Potenziale, Sonnet über die CLI): das Nutzwert-Mittel
+weicht bei 2 von 7 um 1,2 Punkte ab, die Kategorien bei 9 von 35 Werten um mehr als einen Punkt
+(höchstens 3); ein Potenzial wechselt die Prioritätsgruppe. Lage im Korridor und Komplexität blieben
+stabil. Der Schnitt ist damit neu zu stellen — in
+[#299](https://github.com/pg-coe-kmu/coe-factory/issues/299). Bis dahin gilt dieser Abschnitt als
+gebaut, aber nicht abgenommen.
+
 ### 6.3 Was der Aufruf sieht
 
 Die geschnittenen Potenziale (Titel, Ausgangslage, Schmerzpunkte, Lösungsansatz, Klasse), die
@@ -511,3 +523,28 @@ Geprüft wird deterministisch, **vor** dem Rechenkern (der heute erst mit `Value
 - jedes erkannte Potenzial ist **genau einmal** bewertet;
 - **keine Zahl mit Einheit in Begründungstexten** — die strukturierten Felder sind ausgenommen. Genau
   diese Trennung kennt der Wächter aus #248 nicht.
+
+### 6.6 Nachtrag 7 — der Umsetzungsaufwand · 09.10.2026 ([#288](https://github.com/pg-coe-kmu/coe-factory/issues/288))
+
+**Der Fund.** 2.1 rechnet `Investition = aufwand_schaetzung_pt × 800 €/PT`, aber weder 2.0 noch
+#260 sagten, **wer** den Aufwand liefert. Bis #288 trugen ihn nur von Hand geschriebene Messsätze
+und BC3s Beispiele. Im Rechenkern hängt an ihm mehr als die Amortisation: der Vertrag verlangt
+die fünf Value-Größen nur **zusammen**, also fiel ohne Aufwand auch `impact_monetaer` weg — jeder
+echte Lauf hätte eine rein geurteilte Rangfolge geliefert, ohne dass es eine Entscheidung dafür gab.
+
+**Entscheidung (Sergio, 09.10.2026): der Bewertungsschritt urteilt ihn**, als fünfte Stelle im
+selben Aufruf — eine Zahl größer null in einem Zahlenfeld, dazu ein Begründungssatz, der als
+Annahme in `value.annahmen` mitreist.
+
+- **Warum das Modell.** Der Aufwand hängt an der Größe der **Lösung** — wie viele Systeme, wie
+  viele Ausnahmen, wie viel Abnahme durch Menschen —, und den Lösungsansatz sieht nur das Modell.
+  Die Umsetzungskomplexität misst **Prozessreife**, nicht Lösungsgröße; ein Aufwand je
+  Komplexitätsstufe wäre eine Setzung auf eine Messung von etwas anderem gewesen.
+- **Verworfen:** eine Tabelle PT je Komplexität (s. o.); den Aufwand offen lassen (jeder Lauf ohne
+  Euro-Seite); `impact_monetaer` von der Investition entkoppeln (verlangt eine Vertragsänderung
+  und berührt die laufende Fassung v3.1).
+- **Was es nicht ändert.** Die Amortisation bleibt reiner Ausweis (2.1) — der geurteilte Aufwand
+  wirkt nicht auf die Rangfolge. Er sieht wie die anderen Urteile **keine** Stunden, Euro oder
+  Dauern (6.3): wie oft ein Schritt läuft, macht die Lösung nicht größer.
+- **Der Preis.** Eine geurteilte Zahl in einer Euro-Rechnung. Sichtbar bleibt das über die Annahme
+  am Potenzial; kalibriert wird sie wie Korridor und Anker am ersten echten Lauf (#206).

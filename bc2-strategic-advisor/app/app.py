@@ -57,7 +57,7 @@ from ablage import (
     SpeicherErgebnisbuch,
 )
 from gate1 import Gate1Buch, PostgresGate1Buch, SpeicherGate1Buch
-from laeufe import Laufquelle, MesssatzLaufquelle
+from laeufe import LaufAngehalten, Laufquelle, MesssatzLaufquelle
 
 log = logging.getLogger("bc2.trigger")
 
@@ -74,6 +74,29 @@ MESSSAETZE = os.environ.get("BC2_MESSSAETZE") or str(
 #: und lokal wäre es der Arbeitsbaum des Repos, in dem dann ein halber
 #: Lieferordner ohne Konzepte und Priorisierung läge.
 LIEFERUNGEN = os.environ.get("BC2_LIEFERUNGEN") or None
+
+
+def innere_laufquelle_aus_umgebung() -> Laufquelle:
+    """Woher die Läufe kommen — **Messsatz, solange nicht ausdrücklich umgestellt**.
+
+    ``BC2_LAUFQUELLE=pakete`` schaltet den echten Weg ein (#288): angenommene
+    Pakete → Erkennung → Bewertung → Rechenkern, über ``DATABASE_URL`` und
+    ``ANTHROPIC_API_KEY``. Abgelegt wird in beiden Fällen von der
+    ``AblegendeLaufquelle`` darum herum (#290). Der Schalter ist nicht die
+    Voreinstellung, weil keiner der beiden Außenwege beim Bau gefahren werden
+    konnte: lokal gibt es bewusst keine ``DATABASE_URL``, und ``SdkModell`` lief
+    nie gegen die API. Wer ihn umlegt, fährt den ersten echten Lauf (#206).
+
+    **Nicht umlegen, bevor #299 entschieden ist:** der Bewertungsschritt hat
+    seine Stabilitätsabnahme nicht bestanden (#288).
+    """
+    if (os.environ.get("BC2_LAUFQUELLE") or "").strip().lower() != "pakete":
+        return MesssatzLaufquelle(MESSSAETZE)
+
+    from erkennung import PostgresBestand, SdkModell
+    from laeufe import PaketLaufquelle, PostgresPaketverzeichnis
+
+    return PaketLaufquelle(PostgresPaketverzeichnis(), PostgresBestand(), SdkModell())
 
 PFLICHTFELDER = ("paket_id", "company_id", "uebergeben_am")
 
@@ -322,15 +345,15 @@ def _standardablage() -> tuple[Laufquelle, Gate1Buch]:
     und den Start ohne Server. Die Tests setzen ``DATABASE_URL`` gezielt nicht
     (``conftest.py``), landen also nie hier in der gemeinsamen Datenbank.
     """
-    messsaetze = MesssatzLaufquelle(MESSSAETZE)
+    innen = innere_laufquelle_aus_umgebung()
     if (os.environ.get("DATABASE_URL") or "").strip():
         return (
-            AblegendeLaufquelle(messsaetze, PostgresErgebnisbuch()),
+            AblegendeLaufquelle(innen, PostgresErgebnisbuch()),
             PostgresGate1Buch(),
         )
     ergebnisse = SpeicherErgebnisbuch()
     return (
-        AblegendeLaufquelle(messsaetze, ergebnisse),
+        AblegendeLaufquelle(innen, ergebnisse),
         SpeicherGate1Buch(ergebnisse=ergebnisse),
     )
 
@@ -348,8 +371,9 @@ def erzeuge_app(
     gilt: **mit** ``DATABASE_URL`` liegen Lauf und Gate 1 in Schema ``bc2``
     (#290, ADR-008 · BC2), **ohne** im Arbeitsspeicher — dann sagt die
     Oberfläche an, dass eine Entscheidung den Neustart nicht übersteht. Die
-    Läufe selbst kommen in beiden Fällen noch aus den Messsätzen unter
-    ``kalibrierung/``; die echte Quelle schliesst der Bewertungsschritt an (#288).
+    Läufe selbst kommen aus den Messsätzen unter ``kalibrierung/`` — oder, mit
+    ``BC2_LAUFQUELLE=pakete``, aus den angenommenen Paketen über Erkennung und
+    Bewertung (#288, :func:`innere_laufquelle_aus_umgebung`).
     """
     app = FastAPI(
         title="BC2 Strategic Advisor",
@@ -371,6 +395,16 @@ def erzeuge_app(
         return JSONResponse(
             {"fehler": str(fehler), "kandidaten": fehler.kandidaten}, status_code=409
         )
+
+    @app.exception_handler(LaufAngehalten)
+    async def _lauf_angehalten(request: Request, fehler: LaufAngehalten):
+        """Das Modell brach seine Zusage auch in der Wiederholung (#248/#288).
+
+        409 wie bei ``NachfolgerOffen``: der Dienst ist heil, der Lauf ist nicht
+        zustande gekommen. Die Ablage hat ihn als gescheitert vermerkt; das
+        nächste Öffnen versucht dieselbe Fassung neu.
+        """
+        return JSONResponse({"fehler": str(fehler)}, status_code=409)
 
     if laufquelle is None or gate1_buch is None:
         standard_quelle, standard_buch = _standardablage()

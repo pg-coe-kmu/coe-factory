@@ -29,17 +29,18 @@ Zusage, und auf der ruht alles, was danach gerechnet wird.
 Was dieser Schritt **nicht** liefert
 ------------------------------------
 
-Er liefert noch keinen vollständigen :class:`modell.Potenzialeingang`. ADR-006 ·
-BC2 (2.0) lässt das LLM an **vier** Stellen urteilen; dieser Schritt deckt
-**eine** ab:
+Er liefert keinen vollständigen :class:`modell.Potenzialeingang`. ADR-006 ·
+BC2 (2.0 und Nachtrag 7) lässt das LLM an **fünf** Stellen urteilen; dieser
+Schritt deckt **eine** ab:
 
 ===========================================  =========================
 Urteilsstelle (ADR-006, 2.0)                 hier?
 ===========================================  =========================
 Lösungsansatz-Klasse                         ✅ ``klasse``
-Lage im Korridor                             ❌ fehlt
-Die fünf Nutzwert-Kategorien                 ❌ fehlt
-Begründetes Überschreiben der Komplexität    ❌ fehlt
+Lage im Korridor                             → :mod:`bewertung`
+Die fünf Nutzwert-Kategorien                 → :mod:`bewertung`
+Begründetes Überschreiben der Komplexität    → :mod:`bewertung`
+Umsetzungsaufwand in Personentagen           → :mod:`bewertung`
 ===========================================  =========================
 
 Das ist **kein Versehen, sondern der Zuschnitt von #248**: dort steht, was das
@@ -49,8 +50,8 @@ Potenzial, das dieser Schritt erst erzeugt, und kann deshalb gar nicht vorher
 laufen. Entschieden in #260 (ADR-006 · BC2, Nachtrag 4–6 und §6): ein
 eigener **Bewertungsschritt**, ein Aufruf je Lauf, die Klasse bleibt die von
 hier. Wie aus *n* Messungen je Fokus-Schritt die eine des Potenzials wird,
-steht dort auch — Jahresstunden summiert, Komplexität das Maximum. Gebaut wird
-er in #288.
+steht dort auch — Jahresstunden summiert, Komplexität das Maximum. Gebaut in
+#288: :mod:`bewertung`.
 """
 
 from __future__ import annotations

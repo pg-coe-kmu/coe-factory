@@ -145,7 +145,8 @@ _Avoid_: übersprungen, ignoriert, leer, unbewertet
 
 **Bewertungsschritt**:
 Der Abschnitt eines Analyselaufs, in dem das LLM die **geschnittenen** Potenziale beurteilt — Lage im
-Korridor, Nutzwert, begründetes Überschreiben der Umsetzungskomplexität. Folgt dem
+Korridor, Nutzwert, begründetes Überschreiben der Umsetzungskomplexität und seit #288 der
+**Umsetzungsaufwand**. Folgt dem
 **Erkennungsschritt**, der die Potenziale schneidet und ihre Lösungsklasse setzt, und ändert an
 diesem Schnitt nichts.
 _Avoid_: Bewertung (unqualifiziert — so heißen BC0s Bitkom-Einstufungen), Scoring, Rating
@@ -198,6 +199,14 @@ BC1-Vertrag vom 10.09.2026 bindet zehn Tage später genau vier gemessene 1-bis-5
 Achse, und BC0 misst sechs weitere in `v_prozessautomatisierung`. Die Zeile war schon beim
 Schreiben überholt.)*
 _Avoid_: Aufwand, Schwierigkeit, Komplexität (unqualifiziert)
+
+**Umsetzungsaufwand**:
+Die **Personentage**, die Bau und Inbetriebnahme einer Lösung beim CoE kosten — Basis der
+Investition im **Value**. **Geurteilt** im Bewertungsschritt, mit Begründung, die als Annahme
+mitreist (ADR-006 · BC2, Nachtrag 7, #288). Nicht die **Umsetzungskomplexität**: die ist eine
+Ordinalachse aus der Prozessreife und geht in den Score ein; der Aufwand misst die Größe der Lösung
+und wirkt nur über die Amortisation, die reiner Ausweis ist.
+_Avoid_: Komplexität, Bauaufwand (unqualifiziert), Investition (die ist der Aufwand mal Bausatz)
 
 **Prioritätsscore**:
 Die Zahl, die Impact und Umsetzungskomplexität zu einer Rangfolge verrechnet. Ein **Vorschlag**, den

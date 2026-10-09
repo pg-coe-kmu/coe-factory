@@ -12,14 +12,18 @@ später etwas anderes als die Lieferung, und der Mensch gibt dann frei, was er
 nicht gesehen hat.
 
 - ``MesssatzLaufquelle`` rechnet einen Messsatz durch (siehe
-  ``modell/laden.py``). **Das ist die heutige Quelle**, und sie ist eine
-  Behelfslösung: wie aus dem echten Datenstand Potenziale werden, ist in #194
-  entschieden (Schnitt C, ein Aufruf je Paket), aber noch nicht gebaut (#248).
+  ``modell/laden.py``). **Das ist die Voreinstellung des Betriebs**, bis
+  ``BC2_LAUFQUELLE=pakete`` den echten Weg einschaltet (#288, siehe
+  ``app.laufquelle_aus_umgebung``) — und sie ist eine Behelfslösung.
   Ein Messsatz ist nicht auf ``stand_zum(uebergeben_am)`` gelesen, seine Zahlen
   sind darum nicht nachrechenbar — die Quelle reicht die Warnung
   der Datei bis in die Oberfläche durch, statt sie zu schlucken.
 - ``SpeicherLaufquelle`` nimmt fertige Ansichten entgegen; die Tests benutzen
   sie.
+- ``PaketLaufquelle`` ist der **echte Weg** (#288): Paket lesen auf
+  ``stand_zum(uebergeben_am)`` → Erkennung → Bewertung → ``rechne_lauf()``.
+  Sie rechnet bei jedem Aufruf; abgelegt wird von der ``AblegendeLaufquelle``
+  darum herum (``ablage.py``, #290).
 
 Was **nicht** hier liegt: die Gate-1-Entscheidung. Die hat ihr eigenes Modul
 (``gate1.py``), weil sie einen anderen Lebenslauf hat — sie wird geschrieben,
@@ -28,12 +32,12 @@ der Lauf wird gerechnet.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
 from typing import Protocol
 
-from modell import Lauf, Potenzialeingang, rechne_lauf
+from modell import STANDARD, Lauf, Parameter, Potenzialeingang, rechne_lauf
 from modell.ausgabe import als_eintraege, als_konzept_potenzial, als_prozess_raenge
 from modell.laden import lies_messsatz
 
@@ -42,8 +46,14 @@ __all__ = [
     "Laufkopf",
     "Laufansicht",
     "Laufquelle",
+    "LaufAngehalten",
     "MesssatzLaufquelle",
+    "PaketLaufquelle",
+    "Paketeintrag",
+    "Paketverzeichnis",
+    "PostgresPaketverzeichnis",
     "SpeicherLaufquelle",
+    "SpeicherPaketverzeichnis",
     "aus_lauf",
 ]
 
@@ -323,3 +333,225 @@ class SpeicherLaufquelle:
             if a.kopf.paket_id == paket_id:
                 return a
         return None
+
+
+# ---------------------------------------------------------------------------
+# Der echte Weg: Paket → Erkennung → Bewertung → Rechnung (#288)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Paketeintrag:
+    """Ein angenommenes Paket mit den Teilprozessen, die BC0 darin freigab."""
+
+    paket_id: str
+    company_id: str
+    uebergeben_am: datetime
+    teilprozess_ids: tuple[str, ...]
+
+
+class Paketverzeichnis(Protocol):
+    """Welche Pakete BC2 angenommen hat — und was in ihnen steht."""
+
+    def pakete(self) -> list[Paketeintrag]:
+        ...
+
+
+@dataclass
+class SpeicherPaketverzeichnis:
+    """Für Tests und die Werkbank."""
+
+    eintraege: list[Paketeintrag] = field(default_factory=list)
+
+    def pakete(self) -> list[Paketeintrag]:
+        return list(self.eintraege)
+
+
+# BC0 schickt beim Anstoss bewusst **nur die Kennungen** (app.py, #205) — der
+# Paketinhalt steht in BC0s `gate_paket_inhalt`, nicht in `bc2.eingang`. Beide
+# Seiten werden darum hier verbunden, durchgehend als `text`: in BC0s Schema
+# sind die Kennungen `uuid`, in `bc2.eingang` `text` (derselbe Fallstrick wie in
+# eingang.py, #190).
+_SQL_PAKETE = """
+SELECT e.paket_id,
+       e.company_id,
+       e.uebergeben_am,
+       array_agg(i.sub_process_id::text ORDER BY i.sub_process_id) AS teilprozesse
+  FROM bc2.eingang e
+  JOIN public.gate_paket_inhalt i
+    ON i.paket_id::text = e.paket_id
+   AND i.company_id::text = e.company_id
+ GROUP BY e.paket_id, e.company_id, e.uebergeben_am
+ ORDER BY e.uebergeben_am DESC
+"""
+
+
+class PostgresPaketverzeichnis:
+    """Die angenommenen Pakete aus der gemeinsamen Datenbank.
+
+    .. warning::
+       **Beim Bau (#288) nicht gegen die laufende Datenbank gefahren** — lokal
+       gibt es bewusst keine ``DATABASE_URL`` (Entscheidung vom 21.09.2026).
+       Ob ``bc2_role`` ``gate_paket_inhalt`` lesen darf, ist damit ungeprüft;
+       ``v_uebergabe_offen`` liest sie, die Rolle selbst ist nicht gemessen.
+       Die Gegenprobe gehört zum ersten echten Lauf (#206).
+    """
+
+    def __init__(self, dsn: str | None = None) -> None:
+        import os
+
+        self._dsn = dsn or (os.environ.get("DATABASE_URL") or "").strip()
+        if not self._dsn:
+            raise RuntimeError(
+                "DATABASE_URL ist nicht gesetzt. Die Zugangsdaten gehoeren "
+                "ausschliesslich in eine Umgebungsvariable (ADR-003)."
+            )
+
+    def pakete(self) -> list[Paketeintrag]:
+        import psycopg2
+        import psycopg2.extras
+
+        with psycopg2.connect(self._dsn) as conn, conn.cursor(
+            cursor_factory=psycopg2.extras.RealDictCursor
+        ) as cur:
+            cur.execute(_SQL_PAKETE)
+            zeilen = cur.fetchall()
+        return [
+            Paketeintrag(
+                paket_id=z["paket_id"],
+                company_id=z["company_id"],
+                uebergeben_am=z["uebergeben_am"],
+                teilprozess_ids=tuple(z["teilprozesse"] or ()),
+            )
+            for z in zeilen
+        ]
+
+
+#: Was jeder so gerechnete Lauf ansagt. Er ist auf ``stand_zum`` gelesen, aber
+#: der **Schnitt** ist ein Modellurteil: ein Neulauf schneidet neu, und nicht
+#: zwingend gleich — und ob das Urteil stabil genug ist, ist offen (#299).
+MODELLURTEIL = (
+    "Schnitt und Bewertung sind Modellurteile: ein Neulauf desselben Pakets schneidet "
+    "und bewertet neu, nicht zwingend gleich. Die Stabilitaetsabnahme des "
+    "Bewertungsschritts ist gescheitert (#288); der Schnitt wird in #299 neu gestellt."
+)
+
+
+class LaufAngehalten(RuntimeError):
+    """Ein Lauf ist nicht zustande gekommen — und das ist kein Absturz.
+
+    Das Modell brach seine Zusage auch in der Wiederholung, oder der
+    Freigabestand liegt vor dem Beginn der Historie. **Geworfen, nicht als
+    leerer Lauf verpackt:** die ``AblegendeLaufquelle`` vermerkt den Lauf dann
+    als gescheitert und versucht beim nächsten Öffnen dieselbe Fassung neu; ein
+    leerer Lauf läge dagegen als gültiges Ergebnis in Schema ``bc2`` (#290).
+    """
+
+
+class PaketLaufquelle:
+    """Rechnet ein angenommenes Paket — Erkennung, Bewertung, Rechenkern.
+
+    **Zustandslos, mit Absicht.** Jeder Aufruf von :meth:`ansicht` rechnet neu.
+    Einmal rechnen und dann zeigen ist die Aufgabe der ``AblegendeLaufquelle``
+    darum herum (#290) — und ``neu_rechnen`` nach einem Reject verlässt sich
+    darauf, dass die innere Quelle einen **neuen** Schnitt liefert. Ein
+    Zwischenspeicher hier gäbe dort den alten zurück.
+
+    **Die Liste rechnet nicht.** Ein Lauf kostet zwei Modellaufrufe; die
+    Übersicht zeigt ein ungerechnetes Paket darum mit ``0`` Potenzialen und sagt
+    das an, statt eine Zahl zu erfinden.
+    """
+
+    def __init__(
+        self,
+        verzeichnis: Paketverzeichnis,
+        bestand,  # erkennung.Bestandsquelle
+        modell,  # erkennung.Modellruf
+        parameter: Parameter = STANDARD,
+    ) -> None:
+        self._verzeichnis = verzeichnis
+        self._bestand = bestand
+        self._modell = modell
+        self._parameter = parameter
+
+    def uebersicht(self, company_id: str | None = None) -> list[Laufkopf]:
+        koepfe = [
+            Laufkopf(
+                paket_id=e.paket_id,
+                company_id=e.company_id,
+                uebergeben_am=e.uebergeben_am,
+                anzahl_potenziale=0,
+                kp_ids=tuple(sorted({t.split(".")[0] for t in e.teilprozess_ids})),
+                warnung="Noch nicht gerechnet — Oeffnen schneidet und bewertet das Paket.",
+            )
+            for e in self._verzeichnis.pakete()
+            if company_id is None or e.company_id == company_id
+        ]
+        return sorted(koepfe, key=lambda k: k.uebergeben_am, reverse=True)
+
+    def ansicht(self, paket_id: str) -> Laufansicht | None:
+        """Rechnet den Lauf. ``None``, wenn es das Paket nicht gibt.
+
+        :raises LaufAngehalten: wenn Erkennung oder Bewertung auch in der
+            Wiederholung brechen, oder der Freigabestand nicht rekonstruierbar ist.
+        """
+        eintrag = next((e for e in self._verzeichnis.pakete() if e.paket_id == paket_id), None)
+        if eintrag is None:
+            return None
+        return self._rechne(eintrag)
+
+    def _rechne(self, e: Paketeintrag) -> Laufansicht:
+        # Lokal importiert: die Messsatz-Quelle und die Tests der Oberflaeche
+        # kommen ohne Erkennung und Bewertung aus.
+        from bewertung import BewertungAbgebrochen, bewerte
+        from erkennung import ErkennungAbgebrochen, HistorieZuAlt, erkenne
+
+        try:
+            bestand = self._bestand.lies_paket(
+                e.company_id, e.paket_id, e.uebergeben_am, list(e.teilprozess_ids)
+            )
+            erkennung = erkenne(bestand, self._modell)
+            bewertung = bewerte(erkennung, bestand, self._modell, parameter=self._parameter)
+        except (ErkennungAbgebrochen, BewertungAbgebrochen) as fehler:
+            raise LaufAngehalten(
+                f"Lauf {e.paket_id} angehalten — das Modell brach seine Zusage auch in "
+                f"der Wiederholung: {fehler}"
+            ) from fehler
+        except HistorieZuAlt as fehler:
+            raise LaufAngehalten(
+                f"Lauf {e.paket_id} nicht nachrechenbar: {fehler}. Ein Ergebnis auf dem "
+                "Livestand waere etwas anderes als das Bestellte."
+            ) from fehler
+
+        kopf = Laufkopf(
+            paket_id=e.paket_id,
+            company_id=e.company_id,
+            uebergeben_am=e.uebergeben_am,
+        )
+        hinweise = list(erkennung.hinweise)
+        kp_namen = {kp.kernprozess_id: kp.name for kp in bestand.kernprozesse}
+        if not bewertung.eingaenge:
+            # Ein Paket ohne Potenzial ist ein Ergebnis, kein Fehler: die
+            # Erkennung hat seine Teilprozesse als nicht geschnitten gemeldet.
+            return Laufansicht(
+                kopf=replace(
+                    kopf,
+                    warnung=" ".join(
+                        ["Aus diesem Paket ist kein Potenzial geschnitten worden.", *hinweise]
+                    ),
+                ),
+                score_formel=SCORE_FORMEL,
+                eintraege=[],
+                prozess_raenge=[],
+                potenziale={},
+                kp_namen=kp_namen,
+            )
+
+        lauf = rechne_lauf(e.company_id, e.paket_id, bewertung.eingaenge, self._parameter)
+        return aus_lauf(
+            lauf,
+            list(bewertung.eingaenge),
+            uebergeben_am=e.uebergeben_am,
+            warnung=" ".join([*hinweise, MODELLURTEIL]),
+            kp_namen=kp_namen,
+        )

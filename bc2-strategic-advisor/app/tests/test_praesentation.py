@@ -35,7 +35,13 @@ import pytest
 pptx = pytest.importorskip("pptx")
 
 from laeufe import MesssatzLaufquelle, aus_lauf  # noqa: E402
-from modell import Nutzwert, Nutzwertkategorie, Potenzialeingang, rechne_lauf  # noqa: E402
+from modell import (  # noqa: E402
+    Nutzwert,
+    Nutzwertkategorie,
+    Potenzialeingang,
+    Schrittmessung,
+    rechne_lauf,
+)
 from praesentation import (  # noqa: E402
     DATEINAME,
     KeineFreigabe,
@@ -394,10 +400,8 @@ def keine_wertaussage_lauf() -> tuple[list[dict], dict]:
             klasse="Integration",
             automatisierungsgrad_begruendung="Zwei Systeme verbinden.",
             nutzwert=_nutzwert(),
-            frequency_per_year=None,
-            total_duration_minutes=None,
-            focus_step_duration_source=None,
-            reifeskalen=(3, 3, 3, 3),
+            # Profil mit Skalen, aber ohne Dauer und Herkunft — darum keine Value-Zahl.
+            messungen=(Schrittmessung(teilprozess_id=f"KP-02.TP-{i}", reifeskalen=(3, 3, 3, 3)),),
             aufwand_schaetzung_pt=None if i == 1 else 8.0,
         )
         for i in (1, 2, 3)

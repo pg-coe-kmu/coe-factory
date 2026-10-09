@@ -30,6 +30,7 @@ from modell import (
     Nutzwertkategorie,
     Parameter,
     Potenzialeingang,
+    Schrittmessung,
     rechne_lauf,
     runde,
 )
@@ -55,6 +56,38 @@ def _nutzwert(*werte: int) -> Nutzwert:
     return Nutzwert(mach(q), mach(d), mach(f), mach(m), mach(c))
 
 
+#: Felder, die je Teilprozess gemessen werden (ADR-006 · BC2, Nachtrag 4). Der
+#: Helfer nimmt sie flach entgegen und baut daraus **eine** Messung für den
+#: ersten berührten Teilprozess — die meisten Tests brauchen genau das. Wer
+#: mehrere Teilprozesse prüft, reicht ``messungen`` selbst.
+_MESSFELDER = (
+    "frequency_per_year",
+    "step_frequency_per_year",
+    "focus_step_duration_minutes",
+    "focus_step_duration_source",
+    "focus_step_duration_confidence_pct",
+    "reifeskalen",
+    "automation_potential_estimate_pct",
+    "erhebung_id",
+    "kennzeichnung",
+)
+
+
+def messung(tp: str = "KP-06.TP-2", **ueber) -> Schrittmessung:
+    """Die echte BC1-Zeile für KP-06.TP-2, einzelne Felder überschrieben."""
+    vorgabe = dict(
+        teilprozess_id=tp,
+        frequency_per_year=180.0,
+        focus_step_duration_minutes=180.0,
+        focus_step_duration_source="geschaetzt",
+        focus_step_duration_confidence_pct=60.0,
+        reifeskalen=(4, 4, 3, 4),
+        erhebung_id="ERH-0001",
+    )
+    vorgabe.update(ueber)
+    return Schrittmessung(**vorgabe)
+
+
 def eingang(**ueber) -> Potenzialeingang:
     """Ein brauchbares Potenzial; einzelne Felder je Test überschrieben."""
     vorgabe = dict(
@@ -65,15 +98,12 @@ def eingang(**ueber) -> Potenzialeingang:
         klasse="Integration",
         automatisierungsgrad_begruendung="Zwei Systeme verbinden, kein Textverstehen noetig.",
         nutzwert=_nutzwert(6),
-        frequency_per_year=180.0,
-        total_duration_minutes=180.0,
-        focus_step_duration_source="geschaetzt",
-        focus_step_duration_confidence_pct=60.0,
-        reifeskalen=(4, 4, 3, 4),
         aufwand_schaetzung_pt=12.0,
-        erhebung_id="ERH-0001",
     )
+    flach = {k: ueber.pop(k) for k in _MESSFELDER if k in ueber}
     vorgabe.update(ueber)
+    if "messungen" not in ueber:
+        vorgabe["messungen"] = (messung(vorgabe["betroffene_teilprozess_ids"][0], **flach),)
     return Potenzialeingang(**vorgabe)
 
 
@@ -91,7 +121,7 @@ def test_executions_per_run_ist_kein_multiplikator():
     """Invariante I2 des BC1-Vertrags (#184) — der teuerste Fallstrick.
 
     Die echte BC1-Zeile fuer KP-06.TP-2 traegt ``frequency_per_year = 180`` und
-    ``total_duration_minutes = 180``; ``executions_per_run`` ist in allen drei
+    eine Dauer von 180 Minuten; ``executions_per_run`` ist in allen drei
     gelieferten Zeilen **gleich** der Frequenz. Richtig gerechnet sind das
     540 h/Jahr und 23.220 EUR Ist-Kosten — die Zahl, die ADR-006 2.5 nennt.
     Wer ``executions_per_run`` multipliziert, erhaelt 97.200 h, ein Vielfaches
@@ -172,7 +202,7 @@ def test_kapazitaetsschranke_haengt_an_statt_abzuweisen():
     # 2.600 Durchlaeufe x 150 min = 6.500 h/Jahr; knapp unter der harten Grenze,
     # deutlich ueber der internen Warnschwelle von 7.040 h liegt erst die Summe.
     pot = lauf_mit(
-        eingang(frequency_per_year=2_600.0, total_duration_minutes=200.0)
+        eingang(frequency_per_year=2_600.0, focus_step_duration_minutes=200.0)
     ).potenziale[0]
 
     assert pot.jahresstunden_zentral == pytest.approx(8_666.667, rel=1e-4)
@@ -649,11 +679,154 @@ def test_die_eingangswerte_tragen_herkunft_und_lesezeitpunkt():
     zeilen = als_eingangswerte(pot, gelesen_am)
 
     nach_groesse = {z["groesse"]: z for z in zeilen}
-    assert nach_groesse["total_duration_minutes"]["herkunft_tabelle"] == "bc1.prozessprofil"
-    assert nach_groesse["total_duration_minutes"]["herkunft_id"] == "ERH-0001"
-    assert nach_groesse["total_duration_minutes"]["betrifft_teilprozess_id"] == "KP-06.TP-2"
+    assert nach_groesse["focus_step_duration_minutes"]["herkunft_tabelle"] == "bc1.prozessprofil"
+    assert nach_groesse["focus_step_duration_minutes"]["herkunft_id"] == "ERH-0001"
+    assert nach_groesse["focus_step_duration_minutes"]["betrifft_teilprozess_id"] == "KP-06.TP-2"
     # Auch die Setzungen reisen mit — sonst stuende im Konzept eine Zahl, deren
     # Herkunft nur im ADR nachzulesen waere.
     assert nach_groesse["mischsatz_eur_h"]["wert"] == 43.0
     assert nach_groesse["bausatz_eur_pt"]["herkunft_tabelle"] == "(Setzung)"
     assert all(z["gelesen_am"] == gelesen_am.isoformat() for z in zeilen)
+
+
+# ======================================================================
+# 5. Mehrere Teilprozesse — ADR-006 · BC2, Nachtrag 4, 5 und 7 (#260/#288)
+# ======================================================================
+
+
+def _zwei_schritte(**ueber_tp1):
+    tp1 = dict(
+        frequency_per_year=40.0,
+        step_frequency_per_year=120.0,
+        focus_step_duration_minutes=30.0,
+        focus_step_duration_source="gemessen",
+        focus_step_duration_confidence_pct=90.0,
+        reifeskalen=(2, 2, 2, 2),
+        erhebung_id="ERH-0002",
+    )
+    tp1.update(ueber_tp1)
+    return eingang(
+        betroffene_teilprozess_ids=("KP-06.TP-1", "KP-06.TP-2"),
+        messungen=(
+            messung("KP-06.TP-1", **tp1),
+            messung("KP-06.TP-2"),
+        ),
+    )
+
+
+def test_jahresstunden_sind_die_summe_der_beruehrten_schritte():
+    """Nachtrag 4: Σ (step_frequency_per_year ?? frequency_per_year) × Schrittdauer.
+
+    TP-1 traegt ``step_frequency_per_year`` (Vorrang, I8): 120 × 30 / 60 = 60 h.
+    TP-2 ohne: 180 × 180 / 60 = 540 h. Zusammen 600 h — **nicht** das Mittel
+    und nicht das Maximum, weil die Teilprozesse verschiedene Schritte sind.
+    """
+    pot = lauf_mit(_zwei_schritte()).potenziale[0]
+
+    assert pot.jahresstunden_zentral == pytest.approx(600.0)
+    # Die schwaechste Herkunft gilt fuer die ganze Summe: einmal 'geschaetzt'
+    # macht ±40 %, auch wenn der andere Schritt 'gemessen' ist.
+    assert pot.aufwand_herkunft == "geschaetzt"
+    assert pot.jahresstunden.min == pytest.approx(600.0 * 0.6)
+    assert pot.jahresstunden.max == pytest.approx(600.0 * 1.4)
+    assert pot.konfidenz_pct == 60.0  # die niedrigere
+
+
+def test_fehlt_einem_schritt_das_profil_gibt_es_keine_value_zahl():
+    """Nachtrag 4: eine Teilsumme saehe vollstaendig aus und laege zu niedrig."""
+    pot = lauf_mit(
+        eingang(
+            betroffene_teilprozess_ids=("KP-06.TP-1", "KP-06.TP-2"),
+            messungen=(messung("KP-06.TP-2"),),
+            komplexitaet_ueberschrieben=6,
+            komplexitaet_begruendung="Fuer TP-1 liegen keine Skalen vor.",
+        )
+    ).potenziale[0]
+
+    assert pot.value.value_quelle == "keine"
+    assert pot.impact_monetaer is None
+    assert "KP-06.TP-1 (kein BC1-Profil)" in pot.value.grund
+    # Und ein Hinweis nennt die fehlenden Teilprozesse.
+    assert any(h.art == "sonstiges" and "KP-06.TP-1" in h.text for h in pot.hinweise)
+
+
+def test_komplexitaet_ist_das_maximum_ueber_die_schritte():
+    """Nachtrag 5: der am schwersten umsetzbare Teil bestimmt den Aufwand.
+
+    TP-1 (2/2/2/2) ergibt 7, TP-2 (4/4/3/4, Mittel 3,75) ergibt 4. Ein Mittel
+    gaebe 5,5 und glaettete den schweren Teil weg.
+    """
+    pot = lauf_mit(_zwei_schritte()).potenziale[0]
+
+    assert pot.umsetzungskomplexitaet == 7
+    assert pot.komplexitaet_herkunft == "gemessen"
+    assert "Maximum" in pot.komplexitaet_begruendung
+
+
+def test_fehlen_einem_schritt_die_skalen_muss_geurteilt_werden():
+    """Nachtrag 5: ein Maximum ueber eine Teilmenge waere ein verkapptes Urteil."""
+    ohne_skalen = _zwei_schritte(reifeskalen=None)
+    with pytest.raises(ValueError, match="Reifeskalen"):
+        lauf_mit(ohne_skalen)
+
+    from dataclasses import replace
+
+    geurteilt = replace(
+        ohne_skalen,
+        komplexitaet_ueberschrieben=6,
+        komplexitaet_begruendung="TP-1 ohne Skalen; die Integration zweier Systeme wiegt.",
+    )
+    pot = lauf_mit(geurteilt).potenziale[0]
+    assert pot.umsetzungskomplexitaet == 6
+    assert pot.komplexitaet_herkunft == "geurteilt"
+
+
+def test_eine_fremde_oder_doppelte_messung_wird_abgewiesen():
+    with pytest.raises(ValueError, match="nicht beruehrt"):
+        eingang(messungen=(messung("KP-06.TP-9"),))
+    with pytest.raises(ValueError, match="doppelt"):
+        eingang(messungen=(messung("KP-06.TP-2"), messung("KP-06.TP-2")))
+
+
+def test_die_eingangswerte_reisen_je_teilprozess():
+    """Nachtrag 4: ein Pruefer rechnet die Summe ohne Datenbank nach."""
+    pot = lauf_mit(_zwei_schritte()).potenziale[0]
+    zeilen = als_eingangswerte(pot, datetime(2026, 10, 9, tzinfo=timezone.utc))
+
+    dauern = {
+        z["betrifft_teilprozess_id"]: z["wert"]
+        for z in zeilen
+        if z["groesse"] == "focus_step_duration_minutes"
+    }
+    assert dauern == {"KP-06.TP-1": 30.0, "KP-06.TP-2": 180.0}
+    vorrang = [z for z in zeilen if z["groesse"] == "step_frequency_per_year"]
+    assert [z["betrifft_teilprozess_id"] for z in vorrang] == ["KP-06.TP-1"]
+    assert {z.get("herkunft_id") for z in zeilen if z["herkunft_tabelle"] == "bc1.prozessprofil"} == {
+        "ERH-0001",
+        "ERH-0002",
+    }
+
+
+def test_der_geurteilte_aufwand_reist_als_annahme():
+    """Nachtrag 7: der PT-Richtwert ist geurteilt und sagt es."""
+    pot = lauf_mit(
+        eingang(aufwand_begruendung="Anbindung ueber die vorhandene Schnittstelle, plus Test.")
+    ).potenziale[0]
+
+    assert any("geurteilt, nicht erhoben" in a and "Schnittstelle" in a for a in pot.value.annahmen)
+
+
+def test_klassenzweifel_wird_hinweis_nicht_neue_klasse():
+    """6.4: der Bewertungsschritt aendert die Klasse nicht."""
+    pot = lauf_mit(eingang(klassenzweifel="Es wird eher extrahiert als integriert.")).potenziale[0]
+
+    assert pot.automatisierungsgrad.klasse == "Integration"
+    assert any(h.art == "sonstiges" and "zweifelt" in h.text for h in pot.hinweise)
+
+
+def test_mehrere_schritte_passen_in_den_vertrag():
+    jsonschema = pytest.importorskip("jsonschema")
+
+    lauf = lauf_mit(_zwei_schritte())
+    konzept = _konzept(lauf, datetime(2026, 10, 9, tzinfo=timezone.utc))
+    jsonschema.Draft202012Validator(_schema("konzept.schema.json")).validate(konzept)
