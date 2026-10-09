@@ -12,8 +12,9 @@ Drei Teile, bewusst getrennt:
   ändert sich nur diese Datei.
 
 Was **nicht** hier liegt: das Lesen aus der gemeinsamen Datenbank auf
-``stand_zum(uebergeben_am)`` und das Erkennen, welche Potenziale ein Paket
-trägt. Das gehört zu #194.
+``stand_zum(uebergeben_am)``, das Erkennen, welche Potenziale ein Paket trägt
+(:mod:`erkennung`), und die Urteile, die einen ``Potenzialeingang`` erst
+vollständig machen (:mod:`bewertung`, #288).
 
 Kürzester Weg::
 
@@ -35,8 +36,10 @@ from .rechnen import (
     Potenzialeingang,
     Prozessrang,
     Quellwert,
+    Schrittmessung,
     Spanne,
     Value,
+    gemessene_komplexitaet,
     rechne_lauf,
     runde,
 )
@@ -54,8 +57,10 @@ __all__ = [
     "Potenzialeingang",
     "Prozessrang",
     "Quellwert",
+    "Schrittmessung",
     "Spanne",
     "Value",
+    "gemessene_komplexitaet",
     "rechne_lauf",
     "runde",
 ]

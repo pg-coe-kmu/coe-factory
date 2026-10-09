@@ -634,7 +634,7 @@ def test_praesentation_nach_freigabe_kommt_als_pptx(client, kopf):
 def _nachrechenbarer_lauf() -> Laufansicht:
     """Ein Lauf ohne Warnung — so, wie er aus dem Erkennungsschritt käme."""
     from laeufe import aus_lauf
-    from modell import Nutzwert, Nutzwertkategorie, Potenzialeingang, rechne_lauf
+    from modell import Nutzwert, Nutzwertkategorie, Potenzialeingang, Schrittmessung, rechne_lauf
     from modell.ausgabe import als_ausgangslage
 
     k = Nutzwertkategorie(6, "Begruendungssatz fuer den Test.")
@@ -646,10 +646,15 @@ def _nachrechenbarer_lauf() -> Laufansicht:
         klasse="Integration",
         automatisierungsgrad_begruendung="Zwei Systeme verbinden.",
         nutzwert=Nutzwert(k, k, k, k, k),
-        frequency_per_year=180.0,
-        total_duration_minutes=180.0,
-        focus_step_duration_source="geschaetzt",
-        reifeskalen=(4, 4, 3, 4),
+        messungen=(
+            Schrittmessung(
+                teilprozess_id="KP-06.TP-2",
+                frequency_per_year=180.0,
+                focus_step_duration_minutes=180.0,
+                focus_step_duration_source="geschaetzt",
+                reifeskalen=(4, 4, 3, 4),
+            ),
+        ),
         aufwand_schaetzung_pt=12.0,
     )
     lauf = rechne_lauf("7c2d5ee9-2a9a-5990-810f-502ea2b2012d", "PKT-2026-0042", [eingang])

@@ -13,10 +13,11 @@ Dieser Kern bekommt die Werte gereicht. Der Schnitt ist Absicht: die Rechnung
 ist gegen Fixtures vollständig prüfbar, das Lesen nicht — und ein grüner
 Doppelgänger beweist keine Datenbankgarantie (die Lehre aus #190/#205).
 
-**Das LLM urteilt an genau vier Stellen** (ADR-006, 2.0) — Lösungsansatz-Klasse,
-Lage im Korridor, die fünf Nutzwert-Kategorien und das begründete Überschreiben
-der Umsetzungskomplexität. Alle vier kommen hier als *Eingang* an, nicht als
-Aufruf. Was dieser Kern tut, rechnet er selbst.
+**Das LLM urteilt an genau fünf Stellen** (ADR-006, 2.0 und Nachtrag 7) —
+Lösungsansatz-Klasse, Lage im Korridor, die fünf Nutzwert-Kategorien, das
+begründete Überschreiben der Umsetzungskomplexität und der Umsetzungsaufwand.
+Alle fünf kommen hier als *Eingang* an, nicht als Aufruf (:mod:`bewertung`).
+Was dieser Kern tut, rechnet er selbst.
 
 Bezug: ADR-006 · BC2 · Vertrag ``contracts/bc2-to-bc3/konzept.schema.json`` v3.0 ·
 Ticket [#238](https://github.com/pg-coe-kmu/coe-factory/issues/238).
@@ -34,6 +35,8 @@ from .parameter import STANDARD, Herkunft, Klasse, Parameter
 __all__ = [
     "Spanne",
     "Quellwert",
+    "Schrittmessung",
+    "gemessene_komplexitaet",
     "Nutzwertkategorie",
     "Nutzwert",
     "Potenzialeingang",
@@ -169,29 +172,38 @@ class Nutzwert:
         return sum(k.wert for k in self.kategorien) / len(self.kategorien)
 
 
-@dataclass(frozen=True)
-class Potenzialeingang:
-    """Was der Kern braucht, um ein Potenzial durchzurechnen.
+#: Reihenfolge der Herkunft der Dauer, **schwächste zuerst**. Ein Potenzial über
+#: mehrere Teilprozesse trägt die schwächste seiner Herkünfte (ADR-006 · BC2,
+#: Nachtrag 4) — einmal ``geschaetzt`` macht die Breite ±40 %.
+_HERKUNFT_STAERKE = {"geschaetzt": 0, "aus_system": 1, "gemessen": 2}
 
-    Die Feldnamen der gemessenen Größen sind **1:1 die des BC1-Vertrags** — das
-    ist dort Vertragsbestandteil (#184) und erspart eine Übersetzungstabelle,
-    an der sich ein Missverständnis festsetzen könnte.
+
+@dataclass(frozen=True)
+class Schrittmessung:
+    """BC1s Messung zu **einem** berührten Teilprozess (Fokus-Schritt).
+
+    Ein Fokus-Schritt *ist* ein Teilprozess: BC1 legt ein Profil je
+    ``focus_step_id`` an (#260). Ein Potenzial über mehrere Teilprozesse trägt
+    darum mehrere Messungen — und ihre Aggregation ist eine Modellregel, kein
+    Aufrufparameter (ADR-006 · BC2, Nachtrag 4 und 5).
+
+    Die Feldnamen sind **1:1 die des BC1-Vertrags** — das ist dort
+    Vertragsbestandteil (#184) und erspart eine Übersetzungstabelle, an der sich
+    ein Missverständnis festsetzen könnte.
+
+    ``total_duration_minutes`` fehlt **mit Absicht**: laut BC1-Vertrag (I1)
+    beschreibt es den ganzen Prozess, wie der Befragte ihn rahmt, und zwei
+    Profile desselben Kernprozesses widersprechen sich darin (KP-06: 40 × 120 in
+    TP-1, 180 × 180 in TP-2). Ein Feld, das nicht da ist, kann auch nicht
+    versehentlich summiert werden — dieselbe Bauform wie bei
+    ``executions_per_run`` (I2).
     """
 
-    # --- Identität ----------------------------------------------------------
-    potenzial_id: str
-    titel: str
-    kp_id: str
-    betroffene_teilprozess_ids: tuple[str, ...]
-
-    # --- Geurteilt: die vier Stellen des LLM (ADR-006, 2.0) -----------------
-    klasse: Klasse
-    automatisierungsgrad_begruendung: str
-    nutzwert: Nutzwert
-
-    # --- Gemessen: BC1 ------------------------------------------------------
+    teilprozess_id: str
     frequency_per_year: float | None = None
-    total_duration_minutes: float | None = None
+    #: Hat Vorrang vor ``frequency_per_year``, wo gesetzt (BC1-Vertrag I8).
+    step_frequency_per_year: float | None = None
+    focus_step_duration_minutes: float | None = None
     #: BC1s ``focus_step_duration_source``. ``None`` ⇒ **keine Value-Zahl**
     #: (ADR-006, 2.3) — eine Spanne von ±100 % wäre keine Aussage mehr.
     focus_step_duration_source: Herkunft | None = None
@@ -200,12 +212,123 @@ class Potenzialeingang:
     #: Genauigkeit, die die Spanne gerade eingestehen soll.
     focus_step_duration_confidence_pct: float | None = None
     #: ``documentation_status``, ``standardization_level``,
-    #: ``data_availability_score``, ``stability_score`` — je 1–5. Fehlen sie,
-    #: urteilt das LLM allein und die Herkunft wird ``geurteilt``.
+    #: ``data_availability_score``, ``stability_score`` — je 1–5. Nur
+    #: vollständig oder gar nicht.
     reifeskalen: tuple[int, int, int, int] | None = None
     #: BC1s ``automation_potential_estimate_pct``. **Kein Vorrang** — es hängt am
     #: Fokus-Schritt, der Grad gehört zum Lösungsansatz. Nur Plausibilitätsprobe.
     automation_potential_estimate_pct: float | None = None
+    erhebung_id: str | None = None
+    #: Herkunftsvermerk aus der Quelle, z. B. BC1s Testdaten-Präfix aus
+    #: ``open_remarks``. BC2 lehnt deshalb nicht ab, sondern reicht durch (#184).
+    kennzeichnung: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.reifeskalen is not None:
+            if len(self.reifeskalen) != 4 or not all(1 <= s <= 5 for s in self.reifeskalen):
+                raise ValueError(
+                    f"{self.teilprozess_id}: reifeskalen muss vier Werte von 1 bis 5 "
+                    f"tragen, bekam {self.reifeskalen!r}"
+                )
+
+    @property
+    def haeufigkeit(self) -> float | None:
+        """``step_frequency_per_year ?? frequency_per_year`` (I8)."""
+        if self.step_frequency_per_year is not None:
+            return self.step_frequency_per_year
+        return self.frequency_per_year
+
+    def warum_nicht_rechenbar(self) -> str | None:
+        """``None``, wenn dieser Schritt Jahresstunden ergibt — sonst der Grund."""
+        if self.focus_step_duration_source is None:
+            return "Herkunft der Dauer nicht erhoben (focus_step_duration_source ist NULL)"
+        if self.focus_step_duration_source not in _HERKUNFT_STAERKE:
+            return (
+                f"Herkunft der Dauer {self.focus_step_duration_source!r} ist keine der drei "
+                "des BC1-Vertrags — ohne sie keine Bandbreite"
+            )
+        if self.haeufigkeit is None or self.focus_step_duration_minutes is None:
+            return (
+                "Haeufigkeit oder Schrittdauer fehlt (step_frequency_per_year/"
+                "frequency_per_year, focus_step_duration_minutes)"
+            )
+        if self.haeufigkeit <= 0 or self.focus_step_duration_minutes <= 0:
+            return "Haeufigkeit oder Schrittdauer ist nicht positiv"
+        return None
+
+    @property
+    def jahresstunden(self) -> float | None:
+        if self.warum_nicht_rechenbar() is not None:
+            return None
+        return self.haeufigkeit * self.focus_step_duration_minutes / 60  # type: ignore[operator]
+
+
+def gemessene_komplexitaet(
+    betroffene_teilprozess_ids: tuple[str, ...],
+    messungen: tuple[Schrittmessung, ...],
+) -> tuple[int, str] | None:
+    """Die **gemessene** Umsetzungskomplexität eines Potenzials, oder ``None``.
+
+    Je berührtem Teilprozess ``round(11 − 2 × reife)``, und es gilt das
+    **Maximum**: der am schwersten umsetzbare Teil bestimmt den Aufwand, ein
+    Mittel glättete ihn weg (ADR-006 · BC2, Nachtrag 5).
+
+    ``None``, sobald **einem** berührten Teilprozess die Skalen fehlen. Ein
+    Maximum über eine Teilmenge wäre ein Urteil, das sich als Messung ausgibt —
+    dann urteilt das LLM, und die vorhandenen Skalen sind Begründungsmaterial.
+
+    Öffentlich, weil der Bewertungsschritt **vor** dem Rechenkern wissen muss, ob
+    er überschreiben darf oder muss; zwei Fassungen dieser Regel wären die
+    Stelle, an der sie auseinanderlaufen.
+    """
+    nach_tp = {m.teilprozess_id: m for m in messungen}
+    if not betroffene_teilprozess_ids:
+        return None
+    teile: list[tuple[str, int, float, tuple[int, ...]]] = []
+    for tp in betroffene_teilprozess_ids:
+        m = nach_tp.get(tp)
+        if m is None or m.reifeskalen is None:
+            return None
+        reife = sum(m.reifeskalen) / 4
+        teile.append((tp, int(runde(11 - 2 * reife)), reife, m.reifeskalen))
+
+    wert = max(k for _, k, _, _ in teile)
+    einzeln = "; ".join(
+        f"{tp}: Skalen {'/'.join(str(s) for s in skalen)}, Mittel {reife:.2f}, "
+        f"round(11 − 2 × {reife:.2f}) = {k}"
+        for tp, k, reife, skalen in teile
+    )
+    if len(teile) == 1:
+        return wert, f"Mittel aus BC1s vier Skalen — {einzeln}."
+    return wert, (
+        f"Je Teilprozess gerechnet, es gilt das Maximum ({wert}) — {einzeln} "
+        "(ADR-006 · BC2, Nachtrag 5)."
+    )
+
+
+@dataclass(frozen=True)
+class Potenzialeingang:
+    """Was der Kern braucht, um ein Potenzial durchzurechnen.
+
+    Die gemessenen Größen stehen **je berührtem Teilprozess** in ``messungen``,
+    nicht als eine Zahl am Potenzial (ADR-006 · BC2, Nachtrag 4). Ein
+    berührter Teilprozess ohne Messung ist ein fehlendes Profil — dann gibt es
+    keine Value-Zahl.
+    """
+
+    # --- Identität ----------------------------------------------------------
+    potenzial_id: str
+    titel: str
+    kp_id: str
+    betroffene_teilprozess_ids: tuple[str, ...]
+
+    # --- Geurteilt: die Stellen des LLM (ADR-006, 2.0 und Nachtrag 7) -------
+    klasse: Klasse
+    automatisierungsgrad_begruendung: str
+    nutzwert: Nutzwert
+
+    # --- Gemessen: BC1, je berührtem Teilprozess -----------------------------
+    messungen: tuple[Schrittmessung, ...] = ()
 
     # --- Angesetzter Automatisierungsgrad -----------------------------------
     #: Die vom LLM im Korridor verortete Spanne. ``None`` ⇒ der ganze Korridor
@@ -215,13 +338,20 @@ class Potenzialeingang:
     angesetzt_max_pct: float | None = None
 
     # --- Geurteilt / gesetzt ------------------------------------------------
+    #: Der Umsetzungsaufwand in Personentagen — die fünfte Urteilsstelle
+    #: (ADR-006 · BC2, Nachtrag 7). Er hängt am **Lösungsansatz**, den nur das
+    #: Modell sieht; die Komplexität misst Prozessreife, nicht Lösungsgröße.
     aufwand_schaetzung_pt: float | None = None
+    #: Warum dieser Aufwand. Reist als Annahme in ``value.annahmen`` mit — eine
+    #: geurteilte Zahl ohne sichtbare Begründung wäre eine versteckte Setzung.
+    aufwand_begruendung: str | None = None
     komplexitaet_ueberschrieben: int | None = None
     komplexitaet_begruendung: str | None = None
+    #: Zweifel des Bewertungsschritts an der Lösungsklasse. Er ändert die Klasse
+    #: **nicht** (ADR-006 · BC2, 6.4) — der Zweifel reist als Hinweis.
+    klassenzweifel: str | None = None
 
     # --- Herkunftsnachweise -------------------------------------------------
-    erhebung_id: str | None = None
-    kennzeichnung: str | None = None
     #: Die gemessenen Größen sind **gesetzt, nicht erhoben** — dann trägt das
     #: Ergebnis ``value_quelle = "annahme"`` statt ``"berechnet"``.
     #:
@@ -238,11 +368,20 @@ class Potenzialeingang:
     groessen_gesetzt: bool = False
 
     def __post_init__(self) -> None:
-        if self.reifeskalen is not None:
-            if len(self.reifeskalen) != 4 or not all(1 <= s <= 5 for s in self.reifeskalen):
+        gesehen: set[str] = set()
+        for m in self.messungen:
+            if m.teilprozess_id not in self.betroffene_teilprozess_ids:
                 raise ValueError(
-                    f"reifeskalen muss vier Werte von 1 bis 5 tragen, bekam {self.reifeskalen!r}"
+                    f"{self.potenzial_id}: Messung zu {m.teilprozess_id}, den das "
+                    "Potenzial nicht beruehrt. Eine fremde Messung zaehlte Stunden "
+                    "eines Schritts, den die Loesung nicht abnimmt."
                 )
+            if m.teilprozess_id in gesehen:
+                raise ValueError(
+                    f"{self.potenzial_id}: zwei Messungen zu {m.teilprozess_id} — "
+                    "summiert zaehlten sie doppelt."
+                )
+            gesehen.add(m.teilprozess_id)
         if self.komplexitaet_ueberschrieben is not None and not self.komplexitaet_begruendung:
             # ADR-006 2.6: ueberschreiben darf das LLM nur **begruendet**.
             raise ValueError(
@@ -425,7 +564,8 @@ def _angesetzter_korridor(e: Potenzialeingang, p: Parameter) -> tuple[Spanne, Sp
 def _komplexitaet(e: Potenzialeingang) -> tuple[int, str, str | None]:
     """Umsetzungskomplexität — **gemessen**, nicht geurteilt (ADR-006, 2.6).
 
-    Gibt (Wert, Herkunft, Begründung) zurück.
+    Gibt (Wert, Herkunft, Begründung) zurück. Über mehrere Teilprozesse gilt
+    das Maximum (Nachtrag 5); siehe :func:`gemessene_komplexitaet`.
 
     Bekannter Schönheitsfehler: die Formel erreicht die 10 nie, der Wertebereich
     ist 1–9. Jede Streckung wäre willkürlicher als die Lücke.
@@ -438,22 +578,73 @@ def _komplexitaet(e: Potenzialeingang) -> tuple[int, str, str | None]:
             raise ValueError(f"{e.potenzial_id}: komplexitaet_ueberschrieben ausserhalb 1–10.")
         return wert, "geurteilt", e.komplexitaet_begruendung
 
-    if e.reifeskalen is None:
+    gemessen = gemessene_komplexitaet(e.betroffene_teilprozess_ids, e.messungen)
+    if gemessen is None:
         raise ValueError(
-            f"{e.potenzial_id}: weder BC1s vier Reifeskalen noch ein begruendeter "
-            "Ueberschreibwert. Fehlen die Skalen, urteilt das LLM allein — dann "
-            "gehoert der Wert nach komplexitaet_ueberschrieben, mit Begruendung "
-            "(ADR-006, 2.6)."
+            f"{e.potenzial_id}: nicht jedem beruehrten Teilprozess liegen BC1s vier "
+            "Reifeskalen vor, und es gibt keinen begruendeten Ueberschreibwert. Dann "
+            "urteilt das LLM — der Wert gehoert nach komplexitaet_ueberschrieben, mit "
+            "Begruendung (ADR-006 · BC2, 2.6 und Nachtrag 5)."
+        )
+    wert, begruendung = gemessen
+    return wert, "gemessen", begruendung
+
+
+@dataclass(frozen=True)
+class _Schritte:
+    """Die Aggregation der Messungen eines Potenzials (Nachtrag 4)."""
+
+    stunden_zentral: float
+    herkunft: str
+    konfidenz_pct: float | None
+
+
+def _schritte(e: Potenzialeingang) -> _Schritte | str:
+    """Summiert die Jahresstunden der berührten Teilprozesse — oder nennt die Lücke.
+
+    **Summiert, nicht gemittelt und nicht das Maximum:** eine Lösung nimmt die
+    Arbeit von Schritten ab, und die Teilprozesse sind verschiedene Schritte —
+    je Schritt summiert zählt nichts doppelt. Die Herkunft ist die
+    **schwächste**; die Konfidenz ebenso die niedrigste, soweit angegeben.
+
+    **Fehlt einem Teilprozess das Profil oder eine Größe, gibt es keine
+    Summe.** Eine Teilsumme sähe vollständig aus und läge systematisch zu
+    niedrig — der Schluss vom Artefakt auf die Absicht, diesmal mit Zahlen.
+    """
+    nach_tp = {m.teilprozess_id: m for m in e.messungen}
+    luecken: list[str] = []
+    for tp in e.betroffene_teilprozess_ids:
+        m = nach_tp.get(tp)
+        if m is None:
+            luecken.append(f"{tp} (kein BC1-Profil)")
+            continue
+        grund = m.warum_nicht_rechenbar()
+        if grund is not None:
+            luecken.append(f"{tp} ({grund})")
+    if not e.betroffene_teilprozess_ids:
+        luecken.append("(das Potenzial nennt keinen Teilprozess)")
+    if luecken:
+        return (
+            "Nicht fuer jeden beruehrten Teilprozess liegen Haeufigkeit, Schrittdauer und "
+            "ihre Herkunft vor: " + "; ".join(luecken) + ". Eine Teilsumme laege "
+            "systematisch zu niedrig; BC2 rechnet qualitativ weiter und vermerkt die "
+            "Luecke (ADR-006 · BC2, 2.3 und Nachtrag 4)."
         )
 
-    reife = sum(e.reifeskalen) / 4
-    wert = int(runde(11 - 2 * reife))
-    skalen = "/".join(str(s) for s in e.reifeskalen)
-    return (
-        wert,
-        "gemessen",
-        f"Mittel aus BC1s vier Skalen ({skalen}) = {reife:.2f}; "
-        f"komplexitaet = round(11 − 2 × {reife:.2f}) = {wert}.",
+    messungen = [nach_tp[tp] for tp in e.betroffene_teilprozess_ids]
+    herkunft = min(
+        (m.focus_step_duration_source for m in messungen),
+        key=lambda h: _HERKUNFT_STAERKE[h],  # type: ignore[index]
+    )
+    konfidenzen = [
+        m.focus_step_duration_confidence_pct
+        for m in messungen
+        if m.focus_step_duration_confidence_pct is not None
+    ]
+    return _Schritte(
+        stunden_zentral=sum(m.jahresstunden for m in messungen),  # type: ignore[misc]
+        herkunft=herkunft,  # type: ignore[arg-type]
+        konfidenz_pct=min(konfidenzen) if konfidenzen else None,
     )
 
 
@@ -470,8 +661,9 @@ def _value_und_impact(
     """
     nutzwert = e.nutzwert.mittel
 
-    fehlt = _warum_keine_value_zahl(e)
-    if fehlt is not None:
+    schritte = _schritte(e)
+    if isinstance(schritte, str):
+        fehlt = schritte
         # ── Entscheidung #238, Frage 2: der Nutzwert trägt den Impact allein. ──
         # ``impact_monetaer = 1`` wäre die Alternative gewesen und behandelte
         # eine **fehlende Messung** wie eine gemessene Wertlosigkeit — der
@@ -488,9 +680,7 @@ def _value_und_impact(
             f"Nur Nutzwert ({nutzwert:.1f}) — der monetaere Teil-Score entfaellt: {fehlt}",
         )
 
-    breite = p.breite_je_herkunft[e.focus_step_duration_source]
-    frequenz = e.frequency_per_year
-    dauer = e.total_duration_minutes
+    breite = p.breite_je_herkunft[schritte.herkunft]
 
     # ── Invariante I2 (BC1-Vertrag, #184) ────────────────────────────────────
     # Dauern gelten **je Prozessdurchlauf**; ``executions_per_run`` ist KEIN
@@ -498,9 +688,13 @@ def _value_und_impact(
     # kein Versehen: multipliziert ergibt die Reisebuchung 48.600 h/Jahr, das
     # Dreifache der Gesamtkapazität eines Zehn-Personen-Betriebs, für EINEN
     # Schritt. Wer ihn hier ergänzt, bricht den Vertrag.
-    stunden_lo = frequenz * dauer * (1 - breite) / 60
-    stunden_hi = frequenz * dauer * (1 + breite) / 60
-    stunden_zentral = frequenz * dauer / 60
+    #
+    # ── Nachtrag 4: die Stunden der berührten Schritte, nicht des Prozesses. ─
+    # Die Breite gilt für die Summe als Ganzes: einmal ``geschaetzt`` unter den
+    # Teilprozessen, und die ganze Zahl trägt ±40 %.
+    stunden_zentral = schritte.stunden_zentral
+    stunden_lo = stunden_zentral * (1 - breite)
+    stunden_hi = stunden_zentral * (1 + breite)
 
     # ── Eckenrechnung (ADR-006, 2.3) ─────────────────────────────────────────
     # Unteres Ende der Dauer × unteres Ende des Korridors, oberes × oberes.
@@ -528,7 +722,13 @@ def _value_und_impact(
         f"Automatisierungsgrad {angesetzt.min * 100:.0f}–{angesetzt.max * 100:.0f} % "
         f"aus dem Korridor der Klasse {e.klasse!r} — gesetzt, nicht erhoben.",
         f"Bandbreite ±{breite * 100:.0f} % aus der Herkunft der Dauer "
-        f"({e.focus_step_duration_source}).",
+        f"({schritte.herkunft})"
+        + (
+            f" — der schwaechsten unter {len(e.betroffene_teilprozess_ids)} beruehrten "
+            "Teilprozessen (Nachtrag 4)."
+            if len(e.betroffene_teilprozess_ids) > 1
+            else "."
+        ),
         "Zusammensetzung als Eckenrechnung: bewusst pessimistisch, sie unterstellt "
         "gleichsinnige Fehler.",
     ]
@@ -541,6 +741,12 @@ def _value_und_impact(
             "GESETZT, NICHT ERHOBEN — Haeufigkeit und Dauer dieses Potenzials sind "
             "angenommen. Die Rechnung darunter ist korrekt, ihre Eingaenge sind es "
             "nicht. Nicht fuer Entscheidungen, Angebote oder Gate-1-Freigaben.",
+        )
+
+    if e.aufwand_schaetzung_pt is not None and e.aufwand_begruendung:
+        annahmen.append(
+            f"Aufwandsrichtwert {e.aufwand_schaetzung_pt:g} PT vom Bewertungsschritt "
+            f"geurteilt, nicht erhoben (ADR-006 · BC2, Nachtrag 7): {e.aufwand_begruendung}"
         )
 
     investition = None
@@ -599,68 +805,54 @@ def _value_und_impact(
     return value, Spanne(stunden_lo, stunden_hi), stunden_zentral, impact_monetaer, impact, herleitung
 
 
-def _warum_keine_value_zahl(e: Potenzialeingang) -> str | None:
-    """``None``, wenn gerechnet werden kann — sonst der Grund im Klartext."""
-    if e.focus_step_duration_source is None:
-        return (
-            "Die Herkunft der Dauer ist nicht erhoben (focus_step_duration_source "
-            "ist NULL). Eine Spanne von ±100 % waere keine Aussage mehr; BC2 rechnet "
-            "qualitativ weiter und vermerkt die Luecke (ADR-006, 2.3)."
-        )
-    if e.total_duration_minutes is None or e.frequency_per_year is None:
-        return (
-            "Dauer oder Haeufigkeit fehlen (total_duration_minutes / "
-            "frequency_per_year) — ohne sie gibt es keine Jahresstunden."
-        )
-    if e.total_duration_minutes <= 0 or e.frequency_per_year <= 0:
-        return (
-            f"Dauer ({e.total_duration_minutes}) oder Haeufigkeit "
-            f"({e.frequency_per_year}) ist nicht positiv — daraus entsteht keine "
-            "belastbare Jahresstundenzahl."
-        )
-    return None
-
-
 def _eingangswerte(e: Potenzialeingang, p: Parameter) -> tuple[Quellwert, ...]:
     """Die Werte, die in die Zahlen eingegangen sind — mit Herkunft.
 
     **Nicht der ganze Bestand, nur das Gerechnete** (ADR-006, 2.9). Auflage 2 aus
     #238: jeder ausgegebene Wert sagt, ob er gemessen, gesetzt oder geurteilt
-    ist, und die Eingangswerte reisen mit.
+    ist, und die Eingangswerte reisen mit — **je Teilprozess** (Nachtrag 4),
+    damit ein Prüfer die Summe ohne Datenbank nachrechnen kann.
     """
-    tp = e.betroffene_teilprozess_ids[0] if e.betroffene_teilprozess_ids else None
     werte: list[Quellwert] = []
 
-    def bc1(groesse: str, wert, einheit: str | None) -> Quellwert:
-        return Quellwert(
-            groesse=groesse,
-            wert=wert,
-            einheit=einheit,
-            herkunft_tabelle="bc1.prozessprofil",
-            herkunft_spalte=groesse,
-            herkunft_id=e.erhebung_id,
-            betrifft_teilprozess_id=tp,
-            kennzeichnung=e.kennzeichnung,
-        )
+    for m in e.messungen:
 
-    werte.append(bc1("frequency_per_year", e.frequency_per_year, "Durchlaeufe/Jahr"))
-    werte.append(bc1("total_duration_minutes", e.total_duration_minutes, "Minuten/Durchlauf"))
-    werte.append(bc1("focus_step_duration_source", e.focus_step_duration_source, None))
-    if e.focus_step_duration_confidence_pct is not None:
+        def bc1(groesse: str, wert, einheit: str | None, m=m) -> Quellwert:
+            return Quellwert(
+                groesse=groesse,
+                wert=wert,
+                einheit=einheit,
+                herkunft_tabelle="bc1.prozessprofil",
+                herkunft_spalte=groesse,
+                herkunft_id=m.erhebung_id,
+                betrifft_teilprozess_id=m.teilprozess_id,
+                kennzeichnung=m.kennzeichnung,
+            )
+
+        werte.append(bc1("frequency_per_year", m.frequency_per_year, "Durchlaeufe/Jahr"))
+        if m.step_frequency_per_year is not None:
+            werte.append(
+                bc1("step_frequency_per_year", m.step_frequency_per_year, "Durchlaeufe/Jahr")
+            )
         werte.append(
-            bc1("focus_step_duration_confidence_pct", e.focus_step_duration_confidence_pct, "%")
+            bc1("focus_step_duration_minutes", m.focus_step_duration_minutes, "Minuten/Durchlauf")
         )
-    if e.automation_potential_estimate_pct is not None:
-        werte.append(
-            bc1("automation_potential_estimate_pct", e.automation_potential_estimate_pct, "%")
-        )
-    if e.reifeskalen is not None:
-        for name, wert in zip(
-            ("documentation_status", "standardization_level", "data_availability_score",
-             "stability_score"),
-            e.reifeskalen,
-        ):
-            werte.append(bc1(name, wert, "1-5"))
+        werte.append(bc1("focus_step_duration_source", m.focus_step_duration_source, None))
+        if m.focus_step_duration_confidence_pct is not None:
+            werte.append(
+                bc1("focus_step_duration_confidence_pct", m.focus_step_duration_confidence_pct, "%")
+            )
+        if m.automation_potential_estimate_pct is not None:
+            werte.append(
+                bc1("automation_potential_estimate_pct", m.automation_potential_estimate_pct, "%")
+            )
+        if m.reifeskalen is not None:
+            for name, wert in zip(
+                ("documentation_status", "standardization_level", "data_availability_score",
+                 "stability_score"),
+                m.reifeskalen,
+            ):
+                werte.append(bc1(name, wert, "1-5"))
 
     # Die Setzungen reisen als eigene Zeilen mit — sonst stuende im Konzept eine
     # Zahl, deren Herkunft nur im ADR nachzulesen waere.
@@ -690,6 +882,7 @@ def _hinweise(
     jahresstunden_zentral: float | None,
     angesetzt: Spanne,
     p: Parameter,
+    schritte_luecke: str | None = None,
 ) -> tuple[Hinweis, ...]:
     """Formale Prüfhinweise. BC2 hängt an und weist **nichts** zurück (#172)."""
     hinweise: list[Hinweis] = []
@@ -714,31 +907,71 @@ def _hinweise(
                 )
             )
 
-    if e.automation_potential_estimate_pct is not None:
-        bc1_grad = e.automation_potential_estimate_pct / 100
-        tol = p.bc1_abweichung_toleranz_pp / 100
+    tol = p.bc1_abweichung_toleranz_pp / 100
+    for m in e.messungen:
+        if m.automation_potential_estimate_pct is None:
+            continue
+        bc1_grad = m.automation_potential_estimate_pct / 100
         if not (angesetzt.min - tol) <= bc1_grad <= (angesetzt.max + tol):
             hinweise.append(
                 Hinweis(
                     "bc1_abweichung",
-                    f"BC1 schaetzt den Automatisierungsgrad auf "
-                    f"{e.automation_potential_estimate_pct:.0f} %, angesetzt sind "
+                    f"BC1 schaetzt den Automatisierungsgrad fuer {m.teilprozess_id} auf "
+                    f"{m.automation_potential_estimate_pct:.0f} %, angesetzt sind "
                     f"{angesetzt.min * 100:.0f}–{angesetzt.max * 100:.0f} %. Die Schaetzung hat "
                     "keinen Vorrang (falsche Koernung, ADR-006 2.2) — die Abweichung ist das "
                     "Signal, an dem ein falsch gesetzter Korridor auffaellt.",
                 )
             )
 
-    if e.kennzeichnung and e.kennzeichnung.strip().lower().startswith("testdaten"):
+    kennzeichnungen = sorted(
+        {
+            m.kennzeichnung
+            for m in e.messungen
+            if m.kennzeichnung and m.kennzeichnung.strip().lower().startswith("testdaten")
+        }
+    )
+    for k in kennzeichnungen:
         hinweise.append(
             Hinweis(
                 "testdaten",
-                f"Die Quelle ist als Testdaten gekennzeichnet: {e.kennzeichnung!r}. "
+                f"Die Quelle ist als Testdaten gekennzeichnet: {k!r}. "
                 "Durchgereicht statt abgewiesen (#184).",
             )
         )
 
+    if schritte_luecke is not None and e.messungen:
+        # Nachtrag 4: "ein Hinweis nennt die fehlenden Teilprozesse". Nur, wenn
+        # ueberhaupt etwas gemessen ist -- sonst ist es kein Loch in einer
+        # Messung, sondern keine Messung, und das sagt value.grund bereits.
+        hinweise.append(Hinweis("sonstiges", schritte_luecke))
+
+    if e.klassenzweifel:
+        hinweise.append(
+            Hinweis(
+                "sonstiges",
+                f"Der Bewertungsschritt zweifelt an der Loesungsklasse {e.klasse!r}: "
+                f"{e.klassenzweifel} Die Klasse bleibt die der Erkennung (ADR-006 · BC2, 6.4).",
+            )
+        )
+
     return tuple(hinweise)
+
+
+def _bc1_schaetzung(e: Potenzialeingang) -> float | None:
+    """BC1s Schätzung für das Vertragsfeld ``bc1_schaetzung_pct`` — eine Zahl.
+
+    Über mehrere Teilprozesse gibt es nur dann eine, wenn alle vorhandenen
+    Schätzungen übereinstimmen. Sonst ``None``: eine gemittelte BC1-Schätzung
+    hätte niemand abgegeben. Die einzelnen Abweichungen stehen je Teilprozess
+    in den Hinweisen.
+    """
+    werte = {
+        m.automation_potential_estimate_pct
+        for m in e.messungen
+        if m.automation_potential_estimate_pct is not None
+    }
+    return werte.pop() if len(werte) == 1 else None
 
 
 def rechne_lauf(
@@ -770,6 +1003,7 @@ def rechne_lauf(
             e, angesetzt, parameter
         )
 
+        schritte = _schritte(e)
         score = int(impact * (11 - komplexitaet))
         roh.append(
             Potenzial(
@@ -779,14 +1013,18 @@ def rechne_lauf(
                 betroffene_teilprozess_ids=e.betroffene_teilprozess_ids,
                 jahresstunden=stunden,
                 jahresstunden_zentral=stunden_zentral,
-                aufwand_herkunft=e.focus_step_duration_source or "unbekannt",
-                konfidenz_pct=e.focus_step_duration_confidence_pct,
+                aufwand_herkunft=(
+                    "unbekannt" if isinstance(schritte, str) else schritte.herkunft
+                ),
+                konfidenz_pct=(
+                    None if isinstance(schritte, str) else schritte.konfidenz_pct
+                ),
                 automatisierungsgrad=Automatisierungsgrad(
                     klasse=e.klasse,
                     korridor=korridor,
                     angesetzt=angesetzt,
                     begruendung=e.automatisierungsgrad_begruendung,
-                    bc1_schaetzung_pct=e.automation_potential_estimate_pct,
+                    bc1_schaetzung_pct=_bc1_schaetzung(e),
                 ),
                 value=value,
                 nutzwert=e.nutzwert.mittel,
@@ -802,7 +1040,13 @@ def rechne_lauf(
                 prioritaetsgruppe=_prioritaetsgruppe(score, parameter),
                 potenzialrang=0,  # wird gleich gesetzt
                 eingangswerte=_eingangswerte(e, parameter),
-                hinweise=_hinweise(e, stunden_zentral, angesetzt, parameter),
+                hinweise=_hinweise(
+                    e,
+                    stunden_zentral,
+                    angesetzt,
+                    parameter,
+                    schritte if isinstance(schritte, str) else None,
+                ),
             )
         )
 

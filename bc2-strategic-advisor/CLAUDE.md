@@ -8,33 +8,37 @@ Erkennt aus BC0s Baseline **Automatisierungspotenziale**, bewertet ihren **Value
 und erzeugt eine entscheidungsreife Präsentation plus einen maschinenlesbaren Vertrag für BC3.
 Zwischen Gate 0 und Gate 1. Verantwortlich: **Sergio, allein** — Eike ist seit dem 30.08.2026 raus.
 
-**Stand (21.09.2026):** Drei Teile stehen. Der **Trigger-Endpunkt** (`app/app.py`, `app/eingang.py`)
+**Stand (09.10.2026):** Vier Teile stehen. Der **Trigger-Endpunkt** (`app/app.py`, `app/eingang.py`)
 läuft im Betrieb und nimmt BC0s Pakete an ([#190](https://github.com/pg-coe-kmu/coe-factory/issues/190),
 [#205](https://github.com/pg-coe-kmu/coe-factory/issues/205)); das **Value- und Priorisierungsmodell**
-(`app/modell/`) rechnet nach ADR-006 · BC2 ([#238](https://github.com/pg-coe-kmu/coe-factory/issues/238));
-der **Erkennungsschritt** (`app/erkennung/`) schneidet die Potenziale — ein Modellaufruf je Paket,
-deterministisch nachkontrolliert ([#194](https://github.com/pg-coe-kmu/coe-factory/issues/194) entschieden,
+(`app/modell/`) rechnet nach ADR-006 · BC2 ([#238](https://github.com/pg-coe-kmu/coe-factory/issues/238)),
+seit [#288](https://github.com/pg-coe-kmu/coe-factory/issues/288) mit Messungen **je berührtem
+Teilprozess** (Nachtrag 4 und 5); der **Erkennungsschritt** (`app/erkennung/`) schneidet die
+Potenziale — ein Modellaufruf je Paket, deterministisch nachkontrolliert
+([#194](https://github.com/pg-coe-kmu/coe-factory/issues/194) entschieden,
 [#248](https://github.com/pg-coe-kmu/coe-factory/issues/248) gebaut). Dort liegt auch das Lesen auf
-`stand_zum(uebergeben_am)`. Die **Gate-1-Oberfläche** (`app/static/index.html`, `app/oberflaeche.py`)
+`stand_zum(uebergeben_am)`. Der **Bewertungsschritt** (`app/bewertung/`) urteilt Lage im Korridor,
+Nutzwert, Überschreiben der Komplexität und den Umsetzungsaufwand — ein Aufruf je Lauf, bewacht
+([#260](https://github.com/pg-coe-kmu/coe-factory/issues/260) entschieden, #288 gebaut). Die
+**Gate-1-Oberfläche** (`app/static/index.html`, `app/oberflaeche.py`)
 zeigt einen Lauf und nimmt die Freigabe entgegen ([#243](https://github.com/pg-coe-kmu/coe-factory/issues/243));
 nach der Freigabe zeichnet `app/praesentation/` den Foliensatz als PPTX ([#257](https://github.com/pg-coe-kmu/coe-factory/issues/257),
 entschieden in #244). **Schema `bc2`** trägt seit [#290](https://github.com/pg-coe-kmu/coe-factory/issues/290) Lauf,
 Konzepte, Potenziale und die Gate-1-Entscheidung (`app/ablage.py`, `app/gate1.py`,
 `app/migration_bc2.2_lauf.sql`; Entwurf ADR-008 · BC2, [#250](https://github.com/pg-coe-kmu/coe-factory/issues/250)).
-Offen ist —
-neu aufgefallen beim Bau von #248 — die **drei übrigen Urteilsstellen des LLM** (Lage im Korridor, die
-fünf Nutzwert-Kategorien, das begründete Überschreiben der Komplexität). Ihr Schnitt ist entschieden
-([#260](https://github.com/pg-coe-kmu/coe-factory/issues/260), ADR-006 · BC2 Nachtrag 4–6 und §6: ein
-eigener **Bewertungsschritt**, ein Aufruf je Lauf), gebaut wird er in
-[#288](https://github.com/pg-coe-kmu/coe-factory/issues/288). Bis dahin ist ein `modell.Potenzialeingang`
-nicht vollständig; siehe `app/erkennung/erkennen.py`.
 
-⚠ **Die Oberfläche ist noch nicht betriebsfest**, und sie sagt das selbst an: ihre Läufe kommen aus
-einem Messsatz statt aus der Datenbank — der Erkennungsschritt ist gebaut, aber noch nicht an die
-`Laufquelle` angeschlossen (#288). **Die Entscheidung liegt seit #290 in Schema `bc2`**, sobald
-`DATABASE_URL` gesetzt ist; ohne sie im Arbeitsspeicher, und die Oberfläche sagt das an. Die
+⚠ **Die Oberfläche ist noch nicht betriebsfest**, und sie sagt das selbst an. Ihre Voreinstellung ist
+weiter der **Messsatz**: der echte Weg — angenommenes Paket → Erkennung → Bewertung → Rechenkern
+(`laeufe.PaketLaufquelle`) — ist gebaut, aber ein **Schalter** (`BC2_LAUFQUELLE=pakete`), weil
+keiner seiner Außenwege beim Bau gefahren werden konnte (lokal keine `DATABASE_URL`, `SdkModell`
+nie gegen die API). Wer ihn umlegt, fährt den ersten echten Lauf (#206) — **nicht umlegen, bevor
+[#299](https://github.com/pg-coe-kmu/coe-factory/issues/299) entschieden ist**: die Stabilitätsabnahme
+des Bewertungsschritts ist gescheitert (dasselbe Paket zweimal bewertet, Nutzwerte bis 3 Punkte
+auseinander, ein Potenzial wechselt die Gruppe). **Die Entscheidung liegt seit #290 in Schema `bc2`**,
+sobald `DATABASE_URL` gesetzt ist; ohne sie im Arbeitsspeicher, und die Oberfläche sagt das an. Die
 `AblegendeLaufquelle` umhüllt die innere Quelle: gerechnet wird einmal, gezeigt wird danach das
-abgelegte Dokument. #288 tauscht nur die innere Quelle, nicht die Ablage.
+abgelegte Dokument. Der Schalter tauscht nur die innere Quelle, nicht die Ablage — `PaketLaufquelle`
+ist darum **zustandslos**, damit `neu_rechnen` nach einem Reject wirklich neu schneidet.
 
 **Invarianten aus #290:** eine Fassung ist ein Lauf über dasselbe Paket, angestoßen von BC2 und nur
 nach `rejected`; Gate 1 ist nach `approved`/`rejected` endgültig (`409`, kein Überschreiben); das
@@ -113,11 +117,14 @@ divergierenden Kopien unter `Projektgruppe/BC2/` sind aufgelöst und liegen dort
 | Trigger-Endpunkt (läuft im Betrieb) | `bc2-strategic-advisor/app/app.py`, `app/eingang.py` |
 | **Value- und Priorisierungsmodell** (ADR-006 · BC2) | `bc2-strategic-advisor/app/modell/` — `parameter.py` (Setzungen), `rechnen.py` (reiner Kern), `ausgabe.py` (Vertragsform, seit v3.1 auch die Ausgangslage des Laufs), `laden.py` (Messsatz lesen) |
 | **Erkennungsschritt** (#194 / #248) | `bc2-strategic-advisor/app/erkennung/` — `bestand.py` (Leseseite), `nutzlast.py` (was das Modell sieht), `anweisung.py`, `modellruf.py` (Naht zum LLM), `pruefen.py` (Nachkontrolle) |
+| **Bewertungsschritt** (#260 / #288) | `bc2-strategic-advisor/app/bewertung/` — `nutzlast.py` (ohne Stunden, Euro, Dauern; BC1-Profil → `Schrittmessung`), `anweisung.py`, `pruefen.py` (Wächter 6.5), `bewerten.py` |
+| **Nutzwert-Anker** (Nachtrag 6) | `app/modell/parameter.py`, `nutzwert_anker` — Setzung, am ersten echten Lauf mitzuprüfen |
 | **Gate-1-Oberfläche** (Fassung D, #167/#243) | `app/static/index.html` (eine Datei), `app/oberflaeche.py` (die Rufe), `app/gate1.py` (Entscheidung, Prüfung, Ablage), `app/laeufe.py` (Laufquelle) |
 | **Präsentation** (#244 entschieden, #257 gebaut) | `app/praesentation/` — `folien.py` (reine Funktion: Konzepte + Priorisierung → PPTX), `formulierung.py` (wie Zahlen auf die Folie kommen), `zeichnen.py` (KIsult-Palette), `ablage.py` (Lieferordner); das alte Template liegt in `architektur/archiv/` |
 | Oberfläche ansehen, ohne Datenbank | `app/vorschau.py` — `python3 vorschau.py`, dann `http://127.0.0.1:8243/` |
 | Messsätze für die Kalibrierung | `bc2-strategic-advisor/kalibrierung/` |
 | Erkennung an einem echten Aufruf messen | `bc2-strategic-advisor/tools/erkennung_messen.py` |
+| Bewertung messen, mit Stabilitätsprobe (#288) | `bc2-strategic-advisor/tools/bewertung_messen.py` |
 
 Der Vertrag verlor beim Sprung v1→v2 die Felder `akzeptanzkriterien_geschaeftlich`,
 `fachliche_anforderungen` und die Tiefe von `to_be_vision`. ✅ **Zurück seit v3.0**
@@ -161,9 +168,15 @@ verantwortet.
   fünf **andere** an, und 10 von 10 seiner Potenziale wären am Vertrag gescheitert. Wer eine Liste
   dieser Namen braucht, liest sie aus `modell.parameter.STANDARD.korridore` statt sie zu wiederholen.
 - **Das LLM bewertet qualitativ, rechnet aber nicht.** Zahlen entstehen deterministisch in Python,
-  damit sie reproduzierbar und testbar bleiben. Es urteilt an **genau vier** Stellen (ADR-006 · BC2,
-  2.0): Lösungsansatz-Klasse, Lage im Korridor, die fünf Nutzwert-Kategorien und das begründete
-  Überschreiben der Umsetzungskomplexität.
+  damit sie reproduzierbar und testbar bleiben. Es urteilt an **genau fünf** Stellen (ADR-006 · BC2,
+  2.0 und Nachtrag 7): Lösungsansatz-Klasse, Lage im Korridor, die fünf Nutzwert-Kategorien, das
+  begründete Überschreiben der Umsetzungskomplexität und der Umsetzungsaufwand in Personentagen.
+  Urteile mit Zahl stehen in **Zahlenfeldern**; in Begründungstexten steht keine Zahl mit Einheit.
+- **Gemessen wird je berührtem Teilprozess, nicht je Potenzial** (ADR-006 · BC2, Nachtrag 4/5).
+  Jahresstunden = Σ `(step_frequency_per_year ?? frequency_per_year) × focus_step_duration_minutes / 60`,
+  Herkunft die schwächste, Komplexität das Maximum. `total_duration_minutes` beschreibt den ganzen
+  Prozess (BC1-Vertrag I1) und geht **nicht** ein — `modell.Schrittmessung` kennt das Feld darum
+  nicht. Fehlt einem berührten Teilprozess das Profil, gibt es **keine** Value-Zahl, keine Teilsumme.
 - **`executions_per_run` ist KEIN Multiplikator** (Invariante I2 des BC1-Vertrags,
   [#184](https://github.com/pg-coe-kmu/coe-factory/issues/184)). Dauern gelten **je
   Prozessdurchlauf**; die Fallzahl multipliziert sie nicht. Wer es doch tut, erhält für die

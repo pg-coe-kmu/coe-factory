@@ -79,6 +79,7 @@ from modell import (  # noqa: E402
     Nutzwert,
     Nutzwertkategorie,
     Potenzialeingang,
+    Schrittmessung,
     rechne_lauf,
 )
 from modell.ausgabe import (  # noqa: E402
@@ -187,6 +188,11 @@ def als_nutzwert(potenzial: dict) -> Nutzwert:
 def als_eingang(potenzial: dict, kp_id: str) -> Potenzialeingang:
     frequenz, dauer, satz = groessen_aus_annahmen(potenzial)
     klasse = klasse_aus_text(potenzial["titel"], potenzial["potenzielle_loesung"]["ansatz"])
+    kennzeichnung = (
+        f"Testdaten aus BC3s Vorlage vom 31.08.2026 ({QUELLE.name}) -- Annahme, nicht "
+        f"erhoben. BC3 rechnete mit {satz:.0f} EUR/h, BC2 mit dem Mischsatz 43 EUR/h (#172); "
+        "die absoluten Betraege liegen damit niedriger, die Rangfolge bleibt gleich."
+    )
 
     return Potenzialeingang(
         potenzial_id=str(uuid.uuid5(NS, f"{PAKET_ID}:{potenzial['potenzial_id']}")),
@@ -200,14 +206,27 @@ def als_eingang(potenzial: dict, kp_id: str) -> Potenzialeingang:
             "das LLM ihn ein und begruendet die Lage."
         ),
         nutzwert=als_nutzwert(potenzial),
-        frequency_per_year=frequenz,
-        total_duration_minutes=dauer,
-        # BC3 schreibt durchgaengig "Annahme, nicht erhoben" / "nicht gemessen".
-        focus_step_duration_source="geschaetzt",
-        # BC1s vier Skalen liegen fuer KP-06.TP-1 nicht vor -- ohne sie urteilt das Modell, und
-        # die Herkunft der Komplexitaet faellt von 'gemessen' auf 'geurteilt'. Genau die Stelle,
-        # an der ein echter Lauf besser waere als dieser.
-        reifeskalen=None,
+        # Seit #288 je beruehrtem Teilprozess (ADR-006 · BC2, Nachtrag 4). Beide Potenziale der
+        # Vorlage beruehren genau KP-06.TP-1; BC3s Dauer ist damit die Schrittdauer.
+        messungen=tuple(
+            Schrittmessung(
+                teilprozess_id=tp,
+                frequency_per_year=frequenz,
+                focus_step_duration_minutes=dauer,
+                # BC3 schreibt durchgaengig "Annahme, nicht erhoben" / "nicht gemessen".
+                focus_step_duration_source="geschaetzt",
+                # BC1s vier Skalen liegen fuer KP-06.TP-1 nicht vor -- ohne sie urteilt das
+                # Modell, und die Herkunft der Komplexitaet faellt von 'gemessen' auf
+                # 'geurteilt'. Genau die Stelle, an der ein echter Lauf besser waere als dieser.
+                reifeskalen=None,
+                erhebung_id=potenzial["potenzial_id"],
+                # Der Kern haengt seinen `testdaten`-Hinweis an, wenn die Kennzeichnung mit
+                # "Testdaten" beginnt (#184). Das Praefix ist hier keine Formalie, sondern
+                # zutreffend.
+                kennzeichnung=kennzeichnung,
+            )
+            for tp in potenzial["betroffene_teilprozess_ids"][:1]
+        ),
         komplexitaet_ueberschrieben=STUFE_ZU_ZEHN[potenzial["umsetzungskomplexitaet"]],
         komplexitaet_begruendung=(
             f"BC3s ordinale Stufe {potenzial['umsetzungskomplexitaet']!r} auf die Stufenmitte "
@@ -215,14 +234,6 @@ def als_eingang(potenzial: dict, kp_id: str) -> Potenzialeingang:
             "Fokus-Schritt liegen fuer KP-06.TP-1 nicht vor."
         ),
         aufwand_schaetzung_pt=float(potenzial["aufwand_schaetzung_pt"]),
-        erhebung_id=potenzial["potenzial_id"],
-        # Der Kern haengt seinen `testdaten`-Hinweis an, wenn die Kennzeichnung mit "Testdaten"
-        # beginnt (#184). Das Praefix ist hier keine Formalie, sondern zutreffend.
-        kennzeichnung=(
-            f"Testdaten aus BC3s Vorlage vom 31.08.2026 ({QUELLE.name}) -- Annahme, nicht "
-            f"erhoben. BC3 rechnete mit {satz:.0f} EUR/h, BC2 mit dem Mischsatz 43 EUR/h (#172); "
-            "die absoluten Betraege liegen damit niedriger, die Rangfolge bleibt gleich."
-        ),
         groessen_gesetzt=True,
     )
 
@@ -269,7 +280,7 @@ def main() -> None:
 
     konzept_id = str(uuid.uuid5(NS, f"{PAKET_ID}:konzept:{kp_id}:f{FASSUNG}"))
     konzept_ids = {kp_id: konzept_id}
-    nach_herkunft = {e.erhebung_id: e for e in eingaenge}
+    nach_herkunft = {e.messungen[0].erhebung_id: e for e in eingaenge}
     gelesen = datetime.fromisoformat(GELESEN_AM)
 
     potenziale = []

@@ -25,7 +25,21 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from .rechnen import Nutzwert, Nutzwertkategorie, Potenzialeingang
+from .rechnen import Nutzwert, Nutzwertkategorie, Potenzialeingang, Schrittmessung
+
+#: Felder, die bis #288 flach am Potenzial standen. Seit Nachtrag 4 stehen sie
+#: je berührtem Teilprozess unter ``messungen`` — eine alte Datei soll laut
+#: scheitern, statt still ohne Messung gerechnet zu werden.
+_ALTE_FELDER = (
+    "frequency_per_year",
+    "total_duration_minutes",
+    "focus_step_duration_source",
+    "focus_step_duration_confidence_pct",
+    "reifeskalen",
+    "automation_potential_estimate_pct",
+    "erhebung_id",
+    "kennzeichnung",
+)
 
 __all__ = ["Messsatz", "lies_messsatz", "lies_eingaenge"]
 
@@ -65,9 +79,21 @@ def lies_messsatz(pfad: Path | str) -> Messsatz:
                 for schluessel, eintrag in nw.items()
             }
         )
-        for schluessel in ("betroffene_teilprozess_ids", "reifeskalen"):
-            if felder.get(schluessel) is not None:
-                felder[schluessel] = tuple(felder[schluessel])
+        alt = [f for f in _ALTE_FELDER if f in felder]
+        if alt:
+            raise ValueError(
+                f"{pfad.name}, {felder.get('potenzial_id')}: Felder {alt} stehen am "
+                "Potenzial. Seit #288 (ADR-006 · BC2, Nachtrag 4) gehoeren sie je "
+                "beruehrtem Teilprozess unter 'messungen'."
+            )
+        felder["betroffene_teilprozess_ids"] = tuple(felder["betroffene_teilprozess_ids"])
+        messungen = []
+        for m in felder.pop("messungen", None) or []:
+            m = dict(m)
+            if m.get("reifeskalen") is not None:
+                m["reifeskalen"] = tuple(m["reifeskalen"])
+            messungen.append(Schrittmessung(**m))
+        felder["messungen"] = tuple(messungen)
         eingaenge.append(Potenzialeingang(**felder))
 
     return Messsatz(roh["company_id"], roh["paket_id"], eingaenge, roh.get("warnung"))

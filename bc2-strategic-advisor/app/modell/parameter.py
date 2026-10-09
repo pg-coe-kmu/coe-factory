@@ -144,6 +144,66 @@ class Parameter:
     # falsch gesetzter Korridor auffällt.
     bc1_abweichung_toleranz_pp: float = 0.0
 
+    # --- Anker der Nutzwert-Skala (ADR-006 · BC2, Nachtrag 6) ----------------
+    # Damit die Skala **absolut** ist und nicht nur so heißt: je Kategorie ein
+    # Satz für 1, 4, 7 und 10. Der Bewertungsschritt sieht sie wörtlich; Werte
+    # dazwischen sind erlaubt, gleiche Werte über Potenziale auch.
+    #
+    # ⚠ ENTWURF ZUR ABNAHME DURCH SERGIO (#288) — vor dem Merge, und am ersten
+    # echten Lauf (#206) mitzuprüfen. Ein Anker beschreibt die **Wirkung der
+    # Lösung**, nicht den Zustand des Prozesses: ein schlechter Prozess ist kein
+    # hoher Nutzwert, erst die Verbesserung durch diese Lösung ist es.
+    nutzwert_anker: dict[str, dict[int, str]] = field(
+        default_factory=lambda: {
+            "qualitaet": {
+                1: "Das Arbeitsergebnis ist danach nicht besser als heute.",
+                4: "Einzelne Ergebnisse werden einheitlicher oder vollständiger; "
+                "der Empfänger merkt es kaum.",
+                7: "Das Ergebnis wird spürbar einheitlicher und vollständiger; "
+                "Nacharbeit wegen Mängeln geht deutlich zurück.",
+                10: "Jedes Ergebnis erreicht einen Stand, den der heutige Ablauf "
+                "nicht verlässlich erreichen kann.",
+            },
+            "durchlaufzeit": {
+                1: "Der Vorgang ist danach nicht früher fertig; die Wartezeit liegt anderswo.",
+                4: "Ein Teil der Bearbeitung geht schneller, bis zum Ergebnis "
+                "ändert sich wenig.",
+                7: "Der Vorgang ist deutlich früher abgeschlossen, weil ein Warte- "
+                "oder Übergabeschritt wegfällt.",
+                10: "Aus einem mehrtägigen Vorgang wird einer, der im selben "
+                "Arbeitsgang abgeschlossen ist.",
+            },
+            "fehlerreduktion": {
+                1: "Die heutigen Fehler bleiben gleich wahrscheinlich.",
+                4: "Eine Fehlerquelle wird seltener, etwa Tippfehler beim "
+                "Übertragen; andere bleiben.",
+                7: "Die typischen Fehler des Schritts — Übertragen, Vergessen, "
+                "Verwechseln — werden weitgehend abgefangen.",
+                10: "Die Fehlerquelle entfällt: der fehleranfällige Handgriff "
+                "existiert nicht mehr.",
+            },
+            "mitarbeiterzufriedenheit": {
+                1: "Die Arbeit fühlt sich für die Beteiligten unverändert an.",
+                4: "Eine lästige Teilaufgabe wird leichter; der Arbeitsalltag "
+                "ändert sich wenig.",
+                7: "Eine als monoton oder belastend empfundene Aufgabe fällt "
+                "weitgehend weg; die Zeit geht an anspruchsvollere Arbeit.",
+                10: "Eine Aufgabe, die erkennbar belastet oder regelmäßig "
+                "Mehrarbeit und Konflikte erzeugt, verschwindet.",
+            },
+            "compliance": {
+                1: "Kein rechtlicher oder regulatorischer Bezug, oder die Lösung "
+                "berührt ihn nicht.",
+                4: "Dokumentation oder Nachweisbarkeit werden besser, ohne dass "
+                "heute ein konkretes Risiko besteht.",
+                7: "Ein bestehendes Nachweis- oder Fristenrisiko — Datenschutz, "
+                "Aufbewahrung, Vertragspflicht — wird deutlich kleiner.",
+                10: "Die Lösung schließt eine heute offene Lücke gegenüber einer "
+                "verbindlichen Pflicht; ohne sie bleibt der Betrieb angreifbar.",
+            },
+        }
+    )
+
     def __post_init__(self) -> None:
         if not 0 < self.euro_schwelle_unten < self.euro_schwelle_oben:
             raise ValueError(
@@ -158,6 +218,17 @@ class Parameter:
         for klasse, (lo, hi) in self.korridore.items():
             if not 0 <= lo <= hi <= 1:
                 raise ValueError(f"Korridor {klasse!r} ist kein gueltiges Intervall in [0,1].")
+        kategorien = {
+            "qualitaet", "durchlaufzeit", "fehlerreduktion",
+            "mitarbeiterzufriedenheit", "compliance",
+        }
+        if set(self.nutzwert_anker) != kategorien:
+            raise ValueError(
+                "nutzwert_anker muss genau die fuenf Kategorien aus ADR-006 2.4 tragen."
+            )
+        for kat, anker in self.nutzwert_anker.items():
+            if set(anker) != {1, 4, 7, 10}:
+                raise ValueError(f"Anker fuer {kat!r} muessen 1, 4, 7 und 10 setzen.")
 
 
 #: Die Voreinstellung nach ADR-006 · BC2, Stand 20.09.2026. Wer sie ändert,

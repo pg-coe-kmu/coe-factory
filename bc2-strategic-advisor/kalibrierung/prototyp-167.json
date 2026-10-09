@@ -35,17 +35,21 @@
           "begruendung": "Prototyp #167, Kategorie Compliance / Rechtssicherheit."
         }
       },
-      "frequency_per_year": 180,
-      "total_duration_minutes": 25,
-      "focus_step_duration_source": "geschaetzt",
-      "focus_step_duration_confidence_pct": 60,
-      "reifeskalen": [
-        4,
-        4,
-        3,
-        4
+      "messungen": [
+        {
+          "teilprozess_id": "KP-02.TP-1",
+          "frequency_per_year": 180,
+          "focus_step_duration_minutes": 25,
+          "focus_step_duration_source": "geschaetzt",
+          "focus_step_duration_confidence_pct": 60,
+          "reifeskalen": [
+            4,
+            4,
+            3,
+            4
+          ]
+        }
       ],
-      "automation_potential_estimate_pct": null,
       "aufwand_schaetzung_pt": 4
     },
     {
@@ -79,17 +83,20 @@
           "begruendung": "Prototyp #167, Kategorie Compliance / Rechtssicherheit."
         }
       },
-      "frequency_per_year": 90,
-      "total_duration_minutes": 95,
-      "focus_step_duration_source": "aus_system",
-      "focus_step_duration_confidence_pct": null,
-      "reifeskalen": [
-        3,
-        3,
-        2,
-        3
+      "messungen": [
+        {
+          "teilprozess_id": "KP-02.TP-3",
+          "frequency_per_year": 90,
+          "focus_step_duration_minutes": 95,
+          "focus_step_duration_source": "aus_system",
+          "reifeskalen": [
+            3,
+            3,
+            2,
+            3
+          ]
+        }
       ],
-      "automation_potential_estimate_pct": null,
       "aufwand_schaetzung_pt": 9
     },
     {
@@ -123,17 +130,20 @@
           "begruendung": "Prototyp #167, Kategorie Compliance / Rechtssicherheit."
         }
       },
-      "frequency_per_year": 40,
-      "total_duration_minutes": 70,
-      "focus_step_duration_source": "gemessen",
-      "focus_step_duration_confidence_pct": null,
-      "reifeskalen": [
-        4,
-        4,
-        4,
-        3
+      "messungen": [
+        {
+          "teilprozess_id": "KP-03.TP-4",
+          "frequency_per_year": 40,
+          "focus_step_duration_minutes": 70,
+          "focus_step_duration_source": "gemessen",
+          "reifeskalen": [
+            4,
+            4,
+            4,
+            3
+          ]
+        }
       ],
-      "automation_potential_estimate_pct": null,
       "aufwand_schaetzung_pt": 5
     },
     {
@@ -167,17 +177,19 @@
           "begruendung": "Prototyp #167, Kategorie Compliance / Rechtssicherheit."
         }
       },
-      "frequency_per_year": 40,
-      "total_duration_minutes": null,
-      "focus_step_duration_source": null,
-      "focus_step_duration_confidence_pct": null,
-      "reifeskalen": [
-        3,
-        4,
-        3,
-        3
+      "messungen": [
+        {
+          "teilprozess_id": "KP-03.TP-2",
+          "frequency_per_year": 40,
+          "focus_step_duration_minutes": null,
+          "reifeskalen": [
+            3,
+            4,
+            3,
+            3
+          ]
+        }
       ],
-      "automation_potential_estimate_pct": null,
       "aufwand_schaetzung_pt": 3
     },
     {
@@ -211,17 +223,21 @@
           "begruendung": "Prototyp #167, Kategorie Compliance / Rechtssicherheit."
         }
       },
-      "frequency_per_year": 26,
-      "total_duration_minutes": 120,
-      "focus_step_duration_source": "geschaetzt",
-      "focus_step_duration_confidence_pct": 50,
-      "reifeskalen": [
-        4,
-        3,
-        3,
-        4
+      "messungen": [
+        {
+          "teilprozess_id": "KP-04.TP-2",
+          "frequency_per_year": 26,
+          "focus_step_duration_minutes": 120,
+          "focus_step_duration_source": "geschaetzt",
+          "focus_step_duration_confidence_pct": 50,
+          "reifeskalen": [
+            4,
+            3,
+            3,
+            4
+          ]
+        }
       ],
-      "automation_potential_estimate_pct": null,
       "aufwand_schaetzung_pt": 6
     },
     {
@@ -255,17 +271,20 @@
           "begruendung": "Prototyp #167, Kategorie Compliance / Rechtssicherheit."
         }
       },
-      "frequency_per_year": 260,
-      "total_duration_minutes": 20,
-      "focus_step_duration_source": "aus_system",
-      "focus_step_duration_confidence_pct": null,
-      "reifeskalen": [
-        3,
-        4,
-        4,
-        4
+      "messungen": [
+        {
+          "teilprozess_id": "KP-04.TP-5",
+          "frequency_per_year": 260,
+          "focus_step_duration_minutes": 20,
+          "focus_step_duration_source": "aus_system",
+          "reifeskalen": [
+            3,
+            4,
+            4,
+            4
+          ]
+        }
       ],
-      "automation_potential_estimate_pct": null,
       "aufwand_schaetzung_pt": 7
     },
     {
@@ -299,17 +318,20 @@
           "begruendung": "Prototyp #167, Kategorie Compliance / Rechtssicherheit."
         }
       },
-      "frequency_per_year": 480,
-      "total_duration_minutes": 35,
-      "focus_step_duration_source": "gemessen",
-      "focus_step_duration_confidence_pct": null,
-      "reifeskalen": [
-        5,
-        5,
-        4,
-        4
+      "messungen": [
+        {
+          "teilprozess_id": "KP-04.TP-3",
+          "frequency_per_year": 480,
+          "focus_step_duration_minutes": 35,
+          "focus_step_duration_source": "gemessen",
+          "reifeskalen": [
+            5,
+            5,
+            4,
+            4
+          ]
+        }
       ],
-      "automation_potential_estimate_pct": null,
       "aufwand_schaetzung_pt": 5
     },
     {
@@ -343,17 +365,21 @@
           "begruendung": "Prototyp #167, Kategorie Compliance / Rechtssicherheit."
         }
       },
-      "frequency_per_year": 12,
-      "total_duration_minutes": 45,
-      "focus_step_duration_source": "geschaetzt",
-      "focus_step_duration_confidence_pct": 50,
-      "reifeskalen": [
-        2,
-        2,
-        2,
-        2
+      "messungen": [
+        {
+          "teilprozess_id": "KP-06.TP-5",
+          "frequency_per_year": 12,
+          "focus_step_duration_minutes": 45,
+          "focus_step_duration_source": "geschaetzt",
+          "focus_step_duration_confidence_pct": 50,
+          "reifeskalen": [
+            2,
+            2,
+            2,
+            2
+          ]
+        }
       ],
-      "automation_potential_estimate_pct": null,
       "aufwand_schaetzung_pt": 6
     },
     {
@@ -387,17 +413,22 @@
           "begruendung": "Prototyp #167, Kategorie Compliance / Rechtssicherheit."
         }
       },
-      "frequency_per_year": 180,
-      "total_duration_minutes": 180,
-      "focus_step_duration_source": "geschaetzt",
-      "focus_step_duration_confidence_pct": 60,
-      "reifeskalen": [
-        2,
-        2,
-        2,
-        3
+      "messungen": [
+        {
+          "teilprozess_id": "KP-06.TP-2",
+          "frequency_per_year": 180,
+          "focus_step_duration_minutes": 180,
+          "focus_step_duration_source": "geschaetzt",
+          "focus_step_duration_confidence_pct": 60,
+          "reifeskalen": [
+            2,
+            2,
+            2,
+            3
+          ],
+          "automation_potential_estimate_pct": 30
+        }
       ],
-      "automation_potential_estimate_pct": 30,
       "aufwand_schaetzung_pt": 12
     },
     {
@@ -431,12 +462,15 @@
           "begruendung": "Prototyp #167, Kategorie Compliance / Rechtssicherheit."
         }
       },
-      "frequency_per_year": 1300,
-      "total_duration_minutes": 12,
-      "focus_step_duration_source": "geschaetzt",
-      "focus_step_duration_confidence_pct": 70,
-      "reifeskalen": null,
-      "automation_potential_estimate_pct": null,
+      "messungen": [
+        {
+          "teilprozess_id": "KP-06.TP-4",
+          "frequency_per_year": 1300,
+          "focus_step_duration_minutes": 12,
+          "focus_step_duration_source": "geschaetzt",
+          "focus_step_duration_confidence_pct": 70
+        }
+      ],
       "aufwand_schaetzung_pt": 8,
       "komplexitaet_ueberschrieben": 5,
       "komplexitaet_begruendung": "BC1 liefert für diesen Teilprozess keine Reifeskalen; geurteilt anhand von BC0s Technologiebasis und Toolstand."
@@ -472,18 +506,23 @@
           "begruendung": "Prototyp #167, Kategorie Compliance / Rechtssicherheit."
         }
       },
-      "frequency_per_year": 2600,
-      "total_duration_minutes": 150,
-      "focus_step_duration_source": "geschaetzt",
-      "focus_step_duration_confidence_pct": 40,
-      "reifeskalen": [
-        2,
-        2,
-        3,
-        2
+      "messungen": [
+        {
+          "teilprozess_id": "KP-06.TP-1",
+          "frequency_per_year": 2600,
+          "focus_step_duration_minutes": 150,
+          "focus_step_duration_source": "geschaetzt",
+          "focus_step_duration_confidence_pct": 40,
+          "reifeskalen": [
+            2,
+            2,
+            3,
+            2
+          ]
+        }
       ],
-      "automation_potential_estimate_pct": null,
       "aufwand_schaetzung_pt": 10
     }
-  ]
+  ],
+  "_migration_288": "Am 09.10.2026 (#288) auf Messungen je Teilprozess umgestellt (ADR-006 · BC2, Nachtrag 4). Alle elf Potenziale beruehren genau einen Teilprozess; die bisherige total_duration_minutes ist dabei zur focus_step_duration_minutes geworden — die Zahlen und damit die Kalibrierung aendern sich nicht."
 }
