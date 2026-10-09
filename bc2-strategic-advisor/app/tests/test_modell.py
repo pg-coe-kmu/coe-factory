@@ -191,6 +191,57 @@ def test_testdaten_werden_durchgereicht_nicht_abgewiesen():
     assert all(q.kennzeichnung for q in pot.eingangswerte if q.herkunft_tabelle == "bc1.prozessprofil")
 
 
+def test_gesetzte_groessen_heissen_annahme_nicht_berechnet():
+    """#168: der Kern konnte ``annahme`` nicht erzeugen — nur ``berechnet``/``keine``.
+
+    ``annahme`` kam in **v3.0 wegen genau dieses Tickets** in den Vertrag
+    (konzept.schema.json: »'annahme' wenn Groessen gesetzt statt erhoben sind
+    [...] das Enum kannte den Fall nicht, #168«). Der Rechenkern aus #238 hat
+    den Wert nie vergeben. Eine simulierte Lieferung durch den Kern kam damit
+    als ``berechnet`` heraus: der staerkste Anspruch, auf erfundenen
+    Eingaengen — und niemand haette es dem Artefakt angesehen.
+    """
+    echt = lauf_mit(eingang()).potenziale[0]
+    sim = lauf_mit(eingang(groessen_gesetzt=True)).potenziale[0]
+
+    assert echt.value.value_quelle == "berechnet"
+    assert sim.value.value_quelle == "annahme"
+    # Die Warnung steht vorn: wer nur die erste Zeile liest, muss sie treffen.
+    assert sim.value.annahmen[0].startswith("GESETZT, NICHT ERHOBEN")
+
+
+def test_gesetzte_groessen_aendern_keine_einzige_zahl():
+    """Die Kennzeichnung ist eine Aussage ueber die **Eingaenge**, keine Abwertung.
+
+    Waere sie ein Abschlag, entstuende eine zweite, stillere Rechnung neben der
+    aus ADR-006 — und die Reproduzierbarkeit haette zwei Ergebnisse.
+    """
+    echt = lauf_mit(eingang()).potenziale[0]
+    sim = lauf_mit(eingang(groessen_gesetzt=True)).potenziale[0]
+
+    assert sim.value.einsparung_eur_jahr == echt.value.einsparung_eur_jahr
+    assert sim.value.ist_kosten_eur_jahr == echt.value.ist_kosten_eur_jahr
+    assert sim.value.amortisation_monate == echt.value.amortisation_monate
+    assert (sim.impact, sim.impact_monetaer, sim.prioritaet_score) == (
+        echt.impact,
+        echt.impact_monetaer,
+        echt.prioritaet_score,
+    )
+
+
+def test_ohne_value_zahl_bleibt_es_keine_auch_wenn_gesetzt():
+    """``keine`` schlaegt ``annahme``: gar nicht gerechnet ist nicht angenommen.
+
+    Sonst truege ein Potenzial ohne jede Zahl die Herkunftsangabe einer
+    Rechnung, die nie stattgefunden hat.
+    """
+    pot = lauf_mit(
+        eingang(groessen_gesetzt=True, focus_step_duration_source=None)
+    ).potenziale[0]
+
+    assert pot.value.value_quelle == "keine"
+
+
 def test_bc1_schaetzung_ist_nur_probe_kein_vorrang():
     """ADR-006 2.2: falsche Koernung — das Feld haengt am Fokus-Schritt.
 
