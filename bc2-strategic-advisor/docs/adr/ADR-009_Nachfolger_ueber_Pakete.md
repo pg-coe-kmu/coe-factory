@@ -147,3 +147,46 @@ Inhalte trägt, und widerspricht ADR-007 · BC2.
    KP-05-Nacherhebung (#143) relevant.
 4. **BC3** folgt der Kette zur ältesten Kennung und entscheidet selbst, was BC4 mit einem
    gestrichenen Potenzial tut.
+
+---
+
+## Nachtrag 1 · Beim Bau (#295, 09.10.2026)
+
+Gebaut in `app/nachfolge.py` (Kandidat, Ausgang, Nachprüfung), `app/erkennung/` (Nutzlast,
+Anweisung, Wächter), `app/ablage.py` (Kandidaten, Prüfung vor dem Ablegen, Vertrag) und der
+Gate-1-Ansicht. Vier Punkte, die der Entwurf offen ließ oder anders sagte:
+
+1. **Kandidat ist, was gilt, nicht was zuletzt den Teilprozess enthielt.** §2.2 sagt „jeweils aus
+   dem jüngsten `approved`-Lauf, der diesen Teilprozess enthielt“. Das lässt sich so nicht bauen,
+   weil Schema `bc2` die Teilprozesse eines Pakets nicht kennt, nur die seiner Potenziale. Wörtlich
+   genommen wäre es auch falsch: Schreibt Paket B ein Potenzial aus A über TP-1 fort, und Paket C
+   bringt TP-2, dann ist der jüngste Lauf mit TP-2 noch A, und das schon fortgeschriebene Potenzial
+   bekäme einen zweiten Nachfolger (§2.4). Gebaut ist darum: **Kandidat ist jedes Potenzial eines
+   freigegebenen Laufs, das einen Teilprozess des Pakets berührt und das kein freigegebener Lauf
+   seither fortgeschrieben oder gestrichen hat.** Das ist, was bei BC3 gerade gilt.
+2. **Die Ablage legt den Lauf an, bevor sie rechnet.** Die Kandidaten gehen in den Paketaufruf der
+   Erkennung (§2.5), müssen also vor der Rechnung feststehen. Dafür trägt `Laufkopf` jetzt die
+   Teilprozesse des **Pakets** (`teilprozess_ids`). Damit ist auch die Lücke der Sperre aus §4.3
+   geschlossen: bis hierher suchte sie nur über die Teilprozesse der geschnittenen Potenziale, und
+   ein Paket, das einen gelieferten Teilprozess neu brachte, ohne diesmal etwas aus ihm zu schneiden,
+   lief durch.
+3. **Die Sperre aus §4.3 bleibt an zwei Stellen.** Sie hält einen Lauf mit Kandidaten an, wenn seine
+   Quelle sie nicht beurteilt (Messsatz) oder wenn er ohne Ausgangslage kommt, also als Vertrag 3.0,
+   der für die Kette keine Felder hat. **Das zweite trifft heute den echten Weg:**
+   `PaketLaufquelle` setzt noch keine Vertragskonzepte und keine Ausgangslage zusammen. Ein Paket
+   über schon gelieferte Teilprozesse läuft dort erst durch, wenn das gebaut ist
+   ([#301](https://github.com/pg-coe-kmu/coe-factory/issues/301)).
+4. **„Unverändert“ wird nicht abgelegt.** Der Ausgang steht nicht im Vertrag (§2.3), und Schema
+   `bc2` setzt ein Ergebnis nie aus etwas anderem als den Vertragsdokumenten zusammen
+   (ADR-008 · BC2, 2.2). Die Gate-1-Ansicht zeigt darum Vorgänger und Streichliste, aber nicht, was
+   als unverändert gemeldet wurde. Geprüft wird es trotzdem, im Wächter und vor dem Ablegen.
+
+Die Anweisung für die Kandidaten wird **nur angehängt, wenn es welche gibt**. Ein Lauf ohne
+Kandidaten bekommt dieselbe Frage wie vorher, damit die Messungen zu #299 nicht über eine geänderte
+Frage laufen.
+
+**Offene Grenze:** Zwei Pakete, die gleichzeitig offen sind und denselben Kandidaten fortschreiben,
+werden einzeln richtig geprüft. Werden beide freigegeben, hat der Kandidat zwei Nachfolger. Ob das
+vorkommen kann, hängt daran, wie BC0 Pakete schnürt; geprüft ist es nicht. Eine Sperre dagegen
+gehörte an die Freigabe, nicht an die Rechnung.
+

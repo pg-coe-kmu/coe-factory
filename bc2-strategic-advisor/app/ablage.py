@@ -15,6 +15,9 @@ Drei Dinge liegen hier:
   ist heute der Messsatz; der Bewertungsschritt (#288) tauscht sie aus, ohne
   dass hier etwas nachzuziehen ist.
 - Die Abbildung zwischen ``Laufansicht`` und den abgelegten Dokumenten.
+- Die Kette über Pakete hinweg (ADR-009 · BC2, #295): ``kandidaten`` liest,
+  was schon geliefert ist und das Paket berührt, ``rechnen`` gibt es der
+  inneren Quelle mit und prüft ihr Urteil nach, bevor es abgelegt wird.
 
 **Was die Datenbank garantiert und was nicht.** Fassungsvergabe, höchstens ein
 offener Lauf je Paket und die Unveränderlichkeit des Ergebnisses stehen in
@@ -33,13 +36,15 @@ from __future__ import annotations
 
 import os
 import uuid
-from dataclasses import dataclass, field, replace
+from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timezone
 from typing import Protocol
 
-from laeufe import Laufansicht, Laufkopf, Laufquelle
+from laeufe import LaufAngehalten, Laufansicht, Laufkopf, Laufquelle
+from nachfolge import Kandidat, Nachfolge, pruefe_ausgaenge
 
 __all__ = [
+    "KetteUngueltig",
     "NachfolgerOffen",
     "AbgelegterLauf",
     "AblegendeLaufquelle",
@@ -60,25 +65,36 @@ class NeulaufNichtErlaubt(Exception):
 
 
 class NachfolgerOffen(Exception):
-    """Der Lauf hat Vorgänger-Kandidaten, und die Verknüpfung ist nicht gebaut.
+    """Der Lauf hat Vorgänger-Kandidaten und kann die Kette nicht tragen.
 
-    Auflage aus ADR-009 · BC2 §4.3 an #290: findet ein Lauf Kandidaten nach
-    §2.2 — Potenziale aus ``approved``-Läufen früherer Pakete, deren
-    Teilprozesse sich mit diesem überschneiden —, solange #295 nicht gebaut
-    ist, **bricht er ab**, statt still ``ersetzt_potenzial_ids: []`` zu liefern.
-    ``[]`` hiesse für BC3 „neues Potenzial“, und BC4 legte daneben ein zweites
-    Ticket an, statt das bestehende fortzuschreiben.
+    Die Auflage aus ADR-009 · BC2 §4.3 überlebt den Bau der Verknüpfung (#295)
+    an genau zwei Stellen — überall dort, wo sonst still ``[]`` läge und für
+    BC3 „neues Potenzial“ hieße, sodass BC4 neben das bestehende Ticket ein
+    zweites legte:
+
+    - Die innere Quelle **beurteilt keine Kandidaten** (ein Messsatz kennt kein
+      Modell).
+    - Der Lauf kommt **ohne Ausgangslage** und damit als Vertrag 3.0, und 3.0
+      hat keine Felder für die Kette (§2.7).
     """
 
-    def __init__(self, paket_id: str, kandidaten: list[dict]) -> None:
-        pakete = sorted({k["paket_id"] for k in kandidaten})
+    def __init__(self, paket_id: str, kandidaten: list[Kandidat], grund: str) -> None:
+        pakete = sorted({k.paket_id for k in kandidaten})
         super().__init__(
             f"Paket {paket_id} beruehrt Teilprozesse, zu denen schon freigegebene "
-            f"Potenziale vorliegen ({len(kandidaten)} aus {', '.join(pakete)}). Die "
-            "Verknuepfung ueber Pakete hinweg ist noch nicht gebaut (#295, ADR-009 · BC2) "
-            "— der Lauf bricht ab, statt die Kette still leer zu liefern."
+            f"Potenziale vorliegen ({len(kandidaten)} aus {', '.join(pakete)}). {grund} "
+            "Der Lauf bricht ab, statt die Kette still leer zu liefern (ADR-009 · BC2 §4.3)."
         )
-        self.kandidaten = kandidaten
+        self.kandidaten = [asdict(k) for k in kandidaten]
+
+
+class KetteUngueltig(LaufAngehalten):
+    """Die Quelle hat die Kandidaten beurteilt, aber die Nachprüfung hält nicht.
+
+    Der Wächter der Erkennung prüft dasselbe schon und fragt einmal nach; hier
+    steht die zweite Prüfung vor dem Schreiben, damit keine Quelle eine Kette in
+    Schema ``bc2`` legt, die ADR-009 · BC2 §2.3–§2.5 bricht.
+    """
 
 
 class LaufNichtInArbeit(Exception):
@@ -156,13 +172,30 @@ class Ergebnisbuch(Protocol):
 
     def kandidaten(
         self, company_id: str, paket_id: str, teilprozess_ids: list[str]
-    ) -> list[dict]:
-        """Potenziale aus ``approved``-Läufen **anderer** Pakete desselben
-        Mandanten, die einen dieser Teilprozesse berühren (ADR-009 · BC2 §2.2).
+    ) -> list[Kandidat]:
+        """Die **geltenden** gelieferten Potenziale desselben Mandanten, die
+        einen dieser Teilprozesse berühren (ADR-009 · BC2 §2.2).
 
-        Je Treffer ``{"paket_id", "potenzial_id"}``. Abgelehnte Fassungen zählen
-        nicht, an Gate 1 herausgenommene Potenziale eines freigegebenen Laufs
-        schon — sie stehen markiert in der gelieferten Datei.
+        Geliefert heißt: aus einem ``approved``-Lauf eines **anderen** Pakets.
+        Abgelehnte Fassungen zählen nicht, an Gate 1 herausgenommene Potenziale
+        eines freigegebenen Laufs schon — sie stehen markiert in der gelieferten
+        Datei. Geltend heißt: kein freigegebener Lauf hat es seither
+        fortgeschrieben oder gestrichen.
+
+        *Das ist die baubare Lesart von §2.2* („jeweils aus dem jüngsten
+        ``approved``-Lauf, der diesen Teilprozess enthielt“): Schema ``bc2``
+        kennt die Teilprozesse eines Pakets nicht, nur die seiner Potenziale.
+        Und wörtlich genommen bekäme ein Potenzial, das ein späteres Paket über
+        einen anderen Teilprozess schon fortgeschrieben hat, einen zweiten
+        Nachfolger — das bräche §2.4.
+        """
+        ...
+
+    def nachschlagen(self, company_id: str, potenzial_ids: list[str]) -> dict[str, dict]:
+        """Was hinter gelieferten Kennungen steht: ``id → {titel, paket_id, kp_id}``.
+
+        Für die Gate-1-Ansicht: der Vertrag nennt Vorgänger und Gestrichene nur
+        mit Kennung, der Mensch muss sie wiedererkennen.
         """
         ...
 
@@ -220,6 +253,8 @@ def dokumente_aus_ansicht(
     # potenzial ist beides zusammen: die Rechnung (``modell/ausgabe.py``) und
     # das Urteil des LLM. Bei Gleichstand gilt das Vertragskonzept.
     aus_quelle = {k["kontext"]["kp_id"]: k for k in (ansicht.konzepte or [])}
+    nachfolge = ansicht.nachfolge or Nachfolge()
+    vorgaenger = nachfolge.vorgaenger()
 
     def _potenziale(kp: str) -> list[dict]:
         vertrag = {p["potenzial_id"]: p for p in aus_quelle.get(kp, {}).get("potenziale", [])}
@@ -229,11 +264,13 @@ def dokumente_aus_ansicht(
             if e["kp_id"] == kp
         ]
         if v31:
-            # Pflicht ab 3.1 (ADR-009 · BC2 §2.7). ``[]`` heisst „neu“ — und
-            # ist nur richtig, weil ``rechnen`` vorher geprüft hat, dass es
-            # keine Kandidaten gibt (Auflage §4.3).
+            # Pflicht ab 3.1 (ADR-009 · BC2 §2.7). Gesetzt wird allein aus der
+            # nachgeprüften ``nachfolge``, nie aus dem, was eine Quelle selbst in
+            # ihre Konzepte schrieb: ``[]`` heißt für BC3 „neu“, und das ist nur
+            # richtig, weil ``rechnen`` vorher jeden Kandidaten zugeordnet hat.
             for p in liste:
-                p.setdefault("ersetzt_potenzial_ids", [])
+                alt = vorgaenger.get(p["potenzial_id"])
+                p["ersetzt_potenzial_ids"] = [alt] if alt else []
         return liste
 
     konzepte = [
@@ -259,7 +296,7 @@ def dokumente_aus_ansicht(
     }
     if v31:
         dokument["ausgangslage"] = ansicht.ausgangslage
-        dokument["gestrichene_potenziale"] = []
+        dokument["gestrichene_potenziale"] = nachfolge.gestrichen()
     return dokument, konzepte
 
 
@@ -286,6 +323,11 @@ def ansicht_aus_ablage(lauf: AbgelegterLauf) -> Laufansicht:
             kp_ids=tuple(r["kp_id"] for r in dok["prozess_raenge"]),
             gate1_status=lauf.gate1_status,
             warnung=lauf.warnung,
+            # Die Paketliste liegt nicht in ``bc2``; zum Zeigen genügen die
+            # berührten Teilprozesse.
+            teilprozess_ids=tuple(sorted({
+                t for e in dok["eintraege"] for t in e["betroffene_teilprozess_ids"]
+            })),
         ),
         score_formel=dok["score_formel"],
         eintraege=dok["eintraege"],
@@ -297,7 +339,20 @@ def ansicht_aus_ablage(lauf: AbgelegterLauf) -> Laufansicht:
         # Präsentation (#257) — dieselben Kennungen und Inhalte sieht wie die
         # Ablage, statt sie aus den Potenzialen neu zusammenzusetzen.
         konzepte=list(lauf.konzepte),
+        gestrichene_potenziale=dok.get("gestrichene_potenziale"),
     )
+
+
+def verwiesene_ids(ansicht: Laufansicht) -> list[str]:
+    """Die gelieferten Kennungen, auf die ein Lauf zeigt: Vorgänger und Gestrichene."""
+    ids = [
+        alt
+        for k in ansicht.konzepte or []
+        for p in k.get("potenziale", [])
+        for alt in p.get("ersetzt_potenzial_ids") or []
+    ]
+    ids += [g["potenzial_id"] for g in ansicht.gestrichene_potenziale or []]
+    return sorted(set(ids))
 
 
 def potenzialzeilen(dokument: dict, konzepte: list[dict]) -> list[dict]:
@@ -348,6 +403,15 @@ class AblegendeLaufquelle:
         self._innen = innen
         self._buch = buch
 
+    def _zeigen(self, abgelegt: AbgelegterLauf) -> Laufansicht:
+        ansicht = ansicht_aus_ablage(abgelegt)
+        ids = verwiesene_ids(ansicht)
+        if not ids:
+            return ansicht
+        return replace(
+            ansicht, verwiesen=self._buch.nachschlagen(abgelegt.beleg.company_id, ids)
+        )
+
     def uebersicht(self, company_id: str | None = None) -> list[Laufkopf]:
         koepfe = []
         for kopf in self._innen.uebersicht(company_id):
@@ -361,7 +425,7 @@ class AblegendeLaufquelle:
     def ansicht(self, paket_id: str) -> Laufansicht | None:
         abgelegt = self._buch.letzter(paket_id)
         if abgelegt is not None and abgelegt.dokument is not None:
-            return ansicht_aus_ablage(abgelegt)
+            return self._zeigen(abgelegt)
         return self.rechnen(paket_id, neu=False)
 
     def neu_rechnen(self, paket_id: str) -> Laufansicht | None:
@@ -369,24 +433,30 @@ class AblegendeLaufquelle:
         return self.rechnen(paket_id, neu=True)
 
     def rechnen(self, paket_id: str, *, neu: bool) -> Laufansicht | None:
-        gerechnet = self._innen.ansicht(paket_id)
-        if gerechnet is None:
+        """Legt den Lauf an, liest die Kandidaten, rechnet, prüft, legt ab.
+
+        **Erst anlegen, dann rechnen.** Die Kandidaten gehen in den Paketaufruf
+        der Erkennung (ADR-009 · BC2 §2.5); sie müssen also feststehen, bevor
+        gerechnet wird, und dafür reicht der Kopf aus der Übersicht. Ein Lauf,
+        der schon gerechnet oder in Arbeit ist, kostet damit keinen
+        Modellaufruf mehr, dessen Ergebnis dann verworfen würde.
+        """
+        k = next((x for x in self._innen.uebersicht() if x.paket_id == paket_id), None)
+        if k is None:
             return None
-        k = gerechnet.kopf
         vorher = self._buch.letzter(paket_id)
         beleg = self._buch.beginnen(k.company_id, paket_id, k.uebergeben_am, neu=neu)
 
         if beleg.zustand == "in_arbeit":
             try:
-                # Die Teilprozesse des Laufs, soweit die Rechnung sie kennt.
-                # Ein Teilprozess des Pakets ohne Potenzial fehlt hier — die
-                # Paketliste aus bc2.eingang liest erst die echte Quelle (#288).
-                beruehrt = sorted({
-                    tp for e in gerechnet.eintraege for tp in e["betroffene_teilprozess_ids"]
-                })
-                kandidaten = self._buch.kandidaten(k.company_id, paket_id, beruehrt)
+                kandidaten = tuple(
+                    self._buch.kandidaten(k.company_id, paket_id, list(k.teilprozess_ids))
+                )
+                gerechnet = self._innen.ansicht(paket_id, kandidaten)
+                if gerechnet is None:
+                    raise LaufAngehalten(f"Paket {paket_id} ist aus der Quelle verschwunden.")
                 if kandidaten:
-                    raise NachfolgerOffen(paket_id, kandidaten)
+                    self._kette_pruefen(paket_id, gerechnet, kandidaten)
                 dokument, konzepte = dokumente_aus_ansicht(
                     gerechnet,
                     beleg,
@@ -399,7 +469,7 @@ class AblegendeLaufquelle:
                     dokument,
                     konzepte,
                     kp_namen=gerechnet.kp_namen,
-                    warnung=k.warnung,
+                    warnung=gerechnet.kopf.warnung,
                 )
             except LaufNichtInArbeit:
                 pass  # ein anderer Schreiber war schneller — sein Ergebnis gilt
@@ -410,7 +480,42 @@ class AblegendeLaufquelle:
         abgelegt = self._buch.letzter(paket_id)
         if abgelegt is None or abgelegt.dokument is None:
             return None
-        return ansicht_aus_ablage(abgelegt)
+        return self._zeigen(abgelegt)
+
+    @staticmethod
+    def _kette_pruefen(
+        paket_id: str, gerechnet: Laufansicht, kandidaten: tuple[Kandidat, ...]
+    ) -> None:
+        """Hält den Lauf an, wenn er die Kette nicht tragen kann oder sie bricht."""
+        if gerechnet.nachfolge is None:
+            raise NachfolgerOffen(
+                paket_id,
+                list(kandidaten),
+                "Die Quelle dieses Laufs beurteilt keine Vorgaenger (ein Messsatz kennt "
+                "kein Modell).",
+            )
+        if not gerechnet.ausgangslage:
+            raise NachfolgerOffen(
+                paket_id,
+                list(kandidaten),
+                "Die Kette braucht Vertrag 3.1, und der Lauf traegt keine Ausgangslage "
+                "(der echte Weg setzt noch keine Vertragskonzepte zusammen, #301).",
+            )
+        neue = {
+            e["potenzial_id"]: {
+                "klasse": gerechnet.potenziale[e["potenzial_id"]]["automatisierungsgrad"]["klasse"],
+                "kp_id": e["kp_id"],
+            }
+            for e in gerechnet.eintraege
+        }
+        paket = set(gerechnet.kopf.teilprozess_ids) | {
+            t for e in gerechnet.eintraege for t in e["betroffene_teilprozess_ids"]
+        }
+        verstoesse = pruefe_ausgaenge(kandidaten, gerechnet.nachfolge.ausgaenge, neue, paket)
+        if verstoesse:
+            raise KetteUngueltig(
+                f"Lauf {paket_id}: die Kette ueber Pakete haelt nicht — " + "; ".join(verstoesse)
+            )
 
 
 # ----------------------------------------------------------------------------
@@ -474,17 +579,53 @@ VALUES (%(priorisierung_id)s, %(potenzial_id)s, %(konzept_id)s, %(kp_id)s,
         %(ersetzt_potenzial_ids)s::text[])
 """
 
-# ADR-009 · BC2 §2.2. ``&&`` ist die Überschneidung zweier Felder.
+# ADR-009 · BC2 §2.2, in der Lesart aus ``Ergebnisbuch.kandidaten``: geliefert
+# und nicht seither erledigt. ``&&`` ist die Überschneidung zweier Felder. Titel,
+# Beschreibung und Klasse stehen nur im Konzeptdokument — ``bc2.potenzial`` ist
+# eine Projektion zum Filtern, kein zweiter Ort für Inhalt (ADR-008 · BC2, 2.2).
 _SQL_KANDIDATEN = """
-SELECT DISTINCT l.paket_id, p.potenzial_id
+WITH geliefert AS (
+  SELECT l.priorisierung_id, l.paket_id, l.dokument
+    FROM bc2.lauf  l
+    JOIN bc2.gate1 g USING (priorisierung_id)
+   WHERE g.status = 'approved'
+     AND l.company_id = %(company_id)s
+),
+erledigt AS (
+  SELECT unnest(p.ersetzt_potenzial_ids) AS potenzial_id
+    FROM bc2.potenzial p
+    JOIN geliefert USING (priorisierung_id)
+  UNION
+  SELECT s ->> 'potenzial_id'
+    FROM geliefert,
+         jsonb_array_elements(coalesce(dokument -> 'gestrichene_potenziale', '[]'::jsonb)) s
+)
+SELECT f.paket_id, p.potenzial_id, p.kp_id, p.teilprozess_ids,
+       e ->> 'titel'                             AS titel,
+       e ->> 'beschreibung'                      AS beschreibung,
+       e -> 'automatisierungsgrad' ->> 'klasse'  AS klasse
+  FROM bc2.potenzial p
+  JOIN geliefert f USING (priorisierung_id)
+  JOIN bc2.konzept k ON k.konzept_id = p.konzept_id
+  CROSS JOIN LATERAL jsonb_array_elements(k.dokument -> 'potenziale') e
+ WHERE e ->> 'potenzial_id' = p.potenzial_id
+   AND f.paket_id <> %(paket_id)s
+   AND p.teilprozess_ids && %(teilprozess_ids)s::text[]
+   AND NOT EXISTS (SELECT 1 FROM erledigt d WHERE d.potenzial_id = p.potenzial_id)
+ ORDER BY f.paket_id, p.potenzial_id
+"""
+
+_SQL_NACHSCHLAGEN = """
+SELECT p.potenzial_id, l.paket_id, p.kp_id, e ->> 'titel' AS titel
   FROM bc2.potenzial p
   JOIN bc2.lauf  l USING (priorisierung_id)
   JOIN bc2.gate1 g USING (priorisierung_id)
+  JOIN bc2.konzept k ON k.konzept_id = p.konzept_id
+  CROSS JOIN LATERAL jsonb_array_elements(k.dokument -> 'potenziale') e
  WHERE g.status = 'approved'
    AND l.company_id = %(company_id)s
-   AND l.paket_id <> %(paket_id)s
-   AND p.teilprozess_ids && %(teilprozess_ids)s::text[]
- ORDER BY l.paket_id, p.potenzial_id
+   AND p.potenzial_id = ANY(%(ids)s::text[])
+   AND e ->> 'potenzial_id' = p.potenzial_id
 """
 
 _SQL_FEHLER = """
@@ -640,7 +781,7 @@ class PostgresErgebnisbuch:
 
     def kandidaten(
         self, company_id: str, paket_id: str, teilprozess_ids: list[str]
-    ) -> list[dict]:
+    ) -> list[Kandidat]:
         import psycopg2.extras
 
         if not teilprozess_ids:
@@ -650,7 +791,34 @@ class PostgresErgebnisbuch:
         ) as cur:
             cur.execute(_SQL_KANDIDATEN, {"company_id": company_id, "paket_id": paket_id,
                                           "teilprozess_ids": list(teilprozess_ids)})
-            return [dict(z) for z in cur.fetchall()]
+            return [
+                Kandidat(
+                    potenzial_id=z["potenzial_id"],
+                    paket_id=z["paket_id"],
+                    kp_id=z["kp_id"],
+                    titel=z["titel"] or "",
+                    klasse=z["klasse"] or "",
+                    teilprozess_ids=tuple(z["teilprozess_ids"]),
+                    beschreibung=z["beschreibung"],
+                )
+                for z in cur.fetchall()
+            ]
+
+    def nachschlagen(self, company_id: str, potenzial_ids: list[str]) -> dict[str, dict]:
+        import psycopg2.extras
+
+        if not potenzial_ids:
+            return {}
+        with self._verbindung() as conn, conn.cursor(
+            cursor_factory=psycopg2.extras.RealDictCursor
+        ) as cur:
+            cur.execute(_SQL_NACHSCHLAGEN, {"company_id": company_id,
+                                            "ids": list(potenzial_ids)})
+            return {
+                z["potenzial_id"]: {"titel": z["titel"], "paket_id": z["paket_id"],
+                                    "kp_id": z["kp_id"]}
+                for z in cur.fetchall()
+            }
 
     def erreichbar(self) -> bool:
         try:
@@ -797,22 +965,64 @@ class SpeicherErgebnisbuch:
             z.beleg = replace(z.beleg, zustand="fehler")
             z.fehler = text
 
+    def _geliefert(self, company_id: str) -> list[_Zeile]:
+        return [
+            z
+            for reihe in self.zeilen.values()
+            for z in reihe
+            if z.gate1_status == "approved" and z.beleg.company_id == company_id
+        ]
+
     def kandidaten(
         self, company_id: str, paket_id: str, teilprozess_ids: list[str]
-    ) -> list[dict]:
+    ) -> list[Kandidat]:
         self._pruefe()
         gesucht = set(teilprozess_ids)
+        geliefert = self._geliefert(company_id)
+        erledigt = {
+            alt
+            for z in geliefert
+            for k in z.konzepte
+            for p in k.get("potenziale", [])
+            for alt in p.get("ersetzt_potenzial_ids") or []
+        } | {
+            g["potenzial_id"]
+            for z in geliefert
+            for g in z.dokument.get("gestrichene_potenziale") or []
+        }
         treffer = []
-        for anderes, reihe in self.zeilen.items():
-            if anderes == paket_id:
+        for z in geliefert:
+            if z.beleg.paket_id == paket_id:
                 continue
-            for z in reihe:
-                if z.gate1_status != "approved" or z.beleg.company_id != company_id:
-                    continue
-                for e in z.dokument["eintraege"]:
-                    if gesucht & set(e["betroffene_teilprozess_ids"]):
-                        treffer.append({"paket_id": anderes, "potenzial_id": e["potenzial_id"]})
-        return sorted(treffer, key=lambda t: (t["paket_id"], t["potenzial_id"]))
+            for k in z.konzepte:
+                for p in k.get("potenziale", []):
+                    tps = tuple(p["betroffene_teilprozess_ids"])
+                    if p["potenzial_id"] in erledigt or not gesucht & set(tps):
+                        continue
+                    treffer.append(
+                        Kandidat(
+                            potenzial_id=p["potenzial_id"],
+                            paket_id=z.beleg.paket_id,
+                            kp_id=k["kontext"]["kp_id"],
+                            titel=p.get("titel") or "",
+                            klasse=p["automatisierungsgrad"]["klasse"],
+                            teilprozess_ids=tps,
+                            beschreibung=p.get("beschreibung"),
+                        )
+                    )
+        return sorted(treffer, key=lambda t: (t.paket_id, t.potenzial_id))
+
+    def nachschlagen(self, company_id: str, potenzial_ids: list[str]) -> dict[str, dict]:
+        self._pruefe()
+        gesucht = set(potenzial_ids)
+        return {
+            p["potenzial_id"]: {"titel": p.get("titel"), "paket_id": z.beleg.paket_id,
+                                "kp_id": k["kontext"]["kp_id"]}
+            for z in self._geliefert(company_id)
+            for k in z.konzepte
+            for p in k.get("potenziale", [])
+            if p["potenzial_id"] in gesucht
+        }
 
     def abschliessen(self, paket_id: str, fassung: int, status: str) -> None:
         """Was in Postgres ``PostgresGate1Buch.merken`` in derselben Transaktion tut."""

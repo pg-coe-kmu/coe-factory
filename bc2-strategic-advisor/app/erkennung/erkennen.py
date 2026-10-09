@@ -56,15 +56,23 @@ steht dort auch — Jahresstunden summiert, Komplexität das Maximum. Gebaut in
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Any
+
+from nachfolge import Ausgang, Kandidat, Nachfolge, pruefe_ausgaenge
 
 from .anweisung import baue_frage
 from .bestand import Paketbestand
 from .modellruf import Modellruf
 from .nutzlast import GRENZE_ZEICHEN, Aufruf, packe
-from .pruefen import Paar, Pruefbericht, paare_im_kernprozess, pruefe_schnitt
+from .pruefen import (
+    ZAHL_MIT_EINHEIT,
+    Paar,
+    Pruefbericht,
+    paare_im_kernprozess,
+    pruefe_schnitt,
+)
 
 __all__ = [
     "Aufrufprotokoll",
@@ -152,6 +160,9 @@ class Erkennung:
     paare: tuple[Paar, ...]
     aufrufe: tuple[Aufrufprotokoll, ...] = ()
     hinweise: tuple[str, ...] = ()
+    #: Was mit den Vorgänger-Kandidaten geschieht (#295). Die Nachfolger
+    #: tragen hier noch die Nummer der Erkennung, nicht die UUID.
+    nachfolge: Nachfolge = field(default_factory=Nachfolge)
 
     @property
     def kernprozess_ids(self) -> tuple[str, ...]:
@@ -189,13 +200,67 @@ def _als_potenzial(roh: dict[str, Any], aufruf: Aufruf, mehrere: bool) -> Erkann
     )
 
 
+def _ausgaenge(roh: Any) -> tuple[list[Ausgang], list[str]]:
+    """Liest ``vorgaenger`` aus der Antwort — in Kurznamen, wie gefragt."""
+    if roh is None:
+        return [], []
+    if not isinstance(roh, list):
+        return [], ["`vorgaenger` ist keine Liste."]
+    ausgaenge, fehler = [], []
+    for e in roh:
+        if not isinstance(e, dict) or not e.get("kandidat"):
+            fehler.append(f"Eintrag in `vorgaenger` ohne `kandidat`: {e!r}"[:200])
+            continue
+        ausgaenge.append(
+            Ausgang(
+                kandidat_id=str(e["kandidat"]),
+                art=str(e.get("ausgang") or ""),
+                nachfolger=str(e["nachfolger"]) if e.get("nachfolger") else None,
+                begruendung=(str(e["begruendung"]).strip() or None)
+                if e.get("begruendung") is not None
+                else None,
+            )
+        )
+    return ausgaenge, fehler
+
+
+def _pruefe_vorgaenger(
+    aufruf: Aufruf, ergebnis: dict, paket_teilprozesse: tuple[str, ...]
+) -> tuple[list[Ausgang], list[str]]:
+    """Die Nachprüfung aus ADR-009 · BC2 §2.5 im Wächter, in Kurznamen.
+
+    Gemeldet wird mit ``V1`` statt der UUID, damit die Mahnung dieselben Namen
+    spricht wie die Frage.
+    """
+    kurz = [replace(k, potenzial_id=v) for v, k in aufruf.kandidaten]
+    ausgaenge, fehler = _ausgaenge(ergebnis.get("vorgaenger"))
+    neue = {
+        str(p.get("id", "?")): {
+            "klasse": p.get("loesungsklasse"),
+            "kp_id": p.get("kernprozess_id"),
+        }
+        for p in (ergebnis.get("potenziale") or [])
+    }
+    fehler += pruefe_ausgaenge(kurz, ausgaenge, neue, paket_teilprozesse)
+    # Die Begründung einer Streichung geht an BC3 und BC4 — für sie gilt das
+    # Rechenverbot wie für jeden anderen Text.
+    fehler += [
+        f"Rechenverbot gebrochen in der Begruendung zu {a.kandidat_id}"
+        for a in ausgaenge
+        if a.begruendung and ZAHL_MIT_EINHEIT.search(a.begruendung)
+    ]
+    return ausgaenge, fehler
+
+
 def _frage_mit_waechter(
     aufruf: Aufruf,
     modell: Modellruf,
     wiederholungen: int,
-) -> tuple[list[dict], list[dict], Pruefbericht, Aufrufprotokoll]:
+    paket_teilprozesse: tuple[str, ...] = (),
+) -> tuple[list[dict], list[dict], Pruefbericht, Aufrufprotokoll, list[Ausgang]]:
     """Stellt einen Aufruf und hält ihn an, wenn die Zusage bricht."""
     gruende: list[str] = []
+    ausgaenge: list[Ausgang] = []
     verworfen: list[str] = []
     versuch = 0
 
@@ -212,6 +277,11 @@ def _frage_mit_waechter(
                 antwort.nicht_geschnitten,
             )
             gruende = list(bericht.verstoesse)
+            if aufruf.kandidaten:
+                ausgaenge, fehler = _pruefe_vorgaenger(
+                    aufruf, antwort.ergebnis, paket_teilprozesse
+                )
+                gruende += fehler
 
         if not gruende:
             return (
@@ -226,6 +296,7 @@ def _frage_mit_waechter(
                     versuche=versuch,
                     verworfen=tuple(verworfen),
                 ),
+                ausgaenge,
             )
 
         verworfen.extend(gruende)
@@ -239,6 +310,7 @@ def erkenne(
     *,
     grenze: int = GRENZE_ZEICHEN,
     wiederholungen: int = 1,
+    kandidaten: tuple[Kandidat, ...] = (),
 ) -> Erkennung:
     """Schneidet die Potenziale eines Pakets.
 
@@ -248,11 +320,15 @@ def erkenne(
     :param wiederholungen: wie oft ein verworfener Aufruf wiederholt wird,
         bevor der Lauf anhält. ``0`` schaltet die Wiederholung ab — der Wächter
         bleibt, er wird nur unnachsichtig.
+    :param kandidaten: schon gelieferte Potenziale über Teilprozesse des
+        Pakets (ADR-009 · BC2 §2.2). Das Modell sagt je Kandidat, was aus ihm
+        wird; der Wächter prüft es mit.
     :raises ErkennungAbgebrochen: wenn das Modell seine Zusage auch in der
         Wiederholung bricht.
     """
-    aufrufe = packe(bestand, grenze)
+    aufrufe = packe(bestand, grenze, kandidaten)
     mehrere = len(aufrufe) > 1
+    zugeordnet: list[Ausgang] = []
 
     potenziale: list[ErkanntesPotenzial] = []
     roh_potenziale: list[dict] = []
@@ -260,8 +336,23 @@ def erkenne(
     protokoll: list[Aufrufprotokoll] = []
 
     for aufruf in aufrufe:
-        rohe, rohe_nicht, _, prot = _frage_mit_waechter(aufruf, modell, wiederholungen)
+        rohe, rohe_nicht, _, prot, ausgaenge = _frage_mit_waechter(
+            aufruf, modell, wiederholungen, bestand.teilprozess_ids
+        )
         protokoll.append(prot)
+        # Zurück von Kurznamen und Aufrufnummern auf das, was im Lauf gilt:
+        # die UUID des Kandidaten und die Kennung, die ``_als_potenzial`` vergibt.
+        echt = dict(aufruf.kandidaten)
+        zugeordnet.extend(
+            replace(
+                a,
+                kandidat_id=echt[a.kandidat_id].potenzial_id,
+                nachfolger=(f"{aufruf.name}/{a.nachfolger}" if mehrere else a.nachfolger)
+                if a.nachfolger
+                else None,
+            )
+            for a in ausgaenge
+        )
         for r in rohe:
             p = _als_potenzial(r, aufruf, mehrere)
             potenziale.append(p)
@@ -319,4 +410,5 @@ def erkenne(
         paare=paare_im_kernprozess(roh_potenziale),
         aufrufe=tuple(protokoll),
         hinweise=tuple(hinweise),
+        nachfolge=Nachfolge(kandidaten=tuple(kandidaten), ausgaenge=tuple(zugeordnet)),
     )

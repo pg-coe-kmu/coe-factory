@@ -40,6 +40,7 @@ from typing import Protocol
 from modell import STANDARD, Lauf, Parameter, Potenzialeingang, rechne_lauf
 from modell.ausgabe import als_eintraege, als_konzept_potenzial, als_prozess_raenge
 from modell.laden import lies_messsatz
+from nachfolge import Kandidat, Nachfolge
 
 __all__ = [
     "SCORE_FORMEL",
@@ -89,6 +90,12 @@ class Laufkopf:
     gate1_status: str = "pending"
     #: Warum dieser Lauf nicht nachrechenbar ist, falls er es nicht ist.
     warnung: str | None = None
+    #: Die Teilprozesse des **Pakets**, auch die, aus denen kein Potenzial
+    #: entstand. An ihnen hängt die Suche nach Vorgängern (ADR-009 · BC2 §2.2):
+    #: ein schon gelieferter Teilprozess, den das Paket neu bringt, ist neu
+    #: gesehen — auch wenn diesmal nichts aus ihm geschnitten wird. Eine Quelle
+    #: ohne Paketliste (Messsatz) trägt hier die berührten Teilprozesse.
+    teilprozess_ids: tuple[str, ...] = ()
 
     def als_json(self) -> dict:
         eintrag = {
@@ -136,6 +143,15 @@ class Laufansicht:
     #: Lieferordner). Ohne sie baut :meth:`als_vertrag` Konzepte aus den
     #: gerechneten Hälften der Potenziale.
     konzepte: list[dict] | None = None
+    #: Wie der Lauf mit seinen Vorgänger-Kandidaten verfahren ist (#295).
+    #: ``None`` heißt: die Quelle hat keine beurteilt — nicht „es gab keine“.
+    nachfolge: Nachfolge | None = None
+    #: ``priorisierung.gestrichene_potenziale`` (v3.1), wie abgelegt.
+    gestrichene_potenziale: list[dict] | None = None
+    #: Die gelieferten Potenziale, auf die dieser Lauf verweist — Vorgänger und
+    #: Gestrichene —, ``potenzial_id → {titel, paket_id, kp_id}``. Nur für das
+    #: Auge am Gate 1: im Vertrag steht allein die Kennung.
+    verwiesen: dict[str, dict] = field(default_factory=dict)
 
     def potenzial_ids(self) -> list[str]:
         """Alle Potenziale des Laufs, in **gerechneter** Rangfolge."""
@@ -188,6 +204,8 @@ class Laufansicht:
         }
         if self.ausgangslage:
             priorisierung["ausgangslage"] = self.ausgangslage
+            # Pflicht ab 3.1 wie die Ausgangslage (ADR-009 · BC2 §2.7).
+            priorisierung["gestrichene_potenziale"] = list(self.gestrichene_potenziale or [])
         return konzepte, priorisierung
 
     def als_json(self) -> dict:
@@ -198,6 +216,11 @@ class Laufansicht:
             "prozess_raenge": self.prozess_raenge,
             "potenziale": self.potenziale,
             "kp_namen": self.kp_namen,
+            # Die Kette über Pakete hinweg (#295): je Potenzial steht sie in
+            # ``potenziale[].ersetzt_potenzial_ids``, hier die Streichliste und
+            # was hinter den Kennungen steht.
+            "gestrichene_potenziale": list(self.gestrichene_potenziale or []),
+            "verwiesen": self.verwiesen,
         }
 
 
@@ -238,6 +261,9 @@ def aus_lauf(
             anzahl_potenziale=len(lauf.potenziale),
             kp_ids=tuple(r.kp_id for r in lauf.prozess_raenge),
             warnung=warnung,
+            teilprozess_ids=tuple(
+                sorted({t for p in lauf.potenziale for t in p.betroffene_teilprozess_ids})
+            ),
         ),
         score_formel=SCORE_FORMEL,
         eintraege=als_eintraege(lauf, konzept_ids),
@@ -263,8 +289,16 @@ class Laufquelle(Protocol):
         """
         ...
 
-    def ansicht(self, paket_id: str) -> Laufansicht | None:
-        """Der ganze Lauf, oder ``None``, wenn es ihn nicht gibt."""
+    def ansicht(
+        self, paket_id: str, kandidaten: tuple[Kandidat, ...] = ()
+    ) -> Laufansicht | None:
+        """Der ganze Lauf, oder ``None``, wenn es ihn nicht gibt.
+
+        ``kandidaten`` sind die schon gelieferten Potenziale, die das Paket
+        berührt (ADR-009 · BC2 §2.2). Eine Quelle, die sie beurteilen kann,
+        trägt das Ergebnis in ``Laufansicht.nachfolge``; eine, die es nicht
+        kann, lässt das Feld leer, und die Ablage bricht ab.
+        """
         ...
 
 
@@ -306,7 +340,10 @@ class MesssatzLaufquelle:
                 koepfe.append(kopf)
         return sorted(koepfe, key=lambda k: k.uebergeben_am, reverse=True)
 
-    def ansicht(self, paket_id: str) -> Laufansicht | None:
+    def ansicht(
+        self, paket_id: str, kandidaten: tuple[Kandidat, ...] = ()
+    ) -> Laufansicht | None:
+        # Ein Messsatz kennt kein Modell und beurteilt darum keine Kandidaten.
         for pfad in self._dateien():
             ansicht = self._ansicht_aus_datei(pfad)
             if ansicht.kopf.paket_id == paket_id:
@@ -328,7 +365,11 @@ class SpeicherLaufquelle:
         ]
         return sorted(koepfe, key=lambda k: k.uebergeben_am, reverse=True)
 
-    def ansicht(self, paket_id: str) -> Laufansicht | None:
+    def ansicht(
+        self, paket_id: str, kandidaten: tuple[Kandidat, ...] = ()
+    ) -> Laufansicht | None:
+        # Die Ansicht, wie sie gelegt wurde — samt der ``nachfolge``, die ein
+        # Test ihr mitgegeben hat.
         for a in self.ansichten:
             if a.kopf.paket_id == paket_id:
                 return a
@@ -483,14 +524,20 @@ class PaketLaufquelle:
                 anzahl_potenziale=0,
                 kp_ids=tuple(sorted({t.split(".")[0] for t in e.teilprozess_ids})),
                 warnung="Noch nicht gerechnet — Oeffnen schneidet und bewertet das Paket.",
+                teilprozess_ids=e.teilprozess_ids,
             )
             for e in self._verzeichnis.pakete()
             if company_id is None or e.company_id == company_id
         ]
         return sorted(koepfe, key=lambda k: k.uebergeben_am, reverse=True)
 
-    def ansicht(self, paket_id: str) -> Laufansicht | None:
+    def ansicht(
+        self, paket_id: str, kandidaten: tuple[Kandidat, ...] = ()
+    ) -> Laufansicht | None:
         """Rechnet den Lauf. ``None``, wenn es das Paket nicht gibt.
+
+        Die ``kandidaten`` gehen in den Paketaufruf der Erkennung, und das
+        Modell ordnet sie dort zu (ADR-009 · BC2 §2.5).
 
         :raises LaufAngehalten: wenn Erkennung oder Bewertung auch in der
             Wiederholung brechen, oder der Freigabestand nicht rekonstruierbar ist.
@@ -498,9 +545,9 @@ class PaketLaufquelle:
         eintrag = next((e for e in self._verzeichnis.pakete() if e.paket_id == paket_id), None)
         if eintrag is None:
             return None
-        return self._rechne(eintrag)
+        return self._rechne(eintrag, kandidaten)
 
-    def _rechne(self, e: Paketeintrag) -> Laufansicht:
+    def _rechne(self, e: Paketeintrag, kandidaten: tuple[Kandidat, ...]) -> Laufansicht:
         # Lokal importiert: die Messsatz-Quelle und die Tests der Oberflaeche
         # kommen ohne Erkennung und Bewertung aus.
         from bewertung import BewertungAbgebrochen, bewerte
@@ -510,7 +557,7 @@ class PaketLaufquelle:
             bestand = self._bestand.lies_paket(
                 e.company_id, e.paket_id, e.uebergeben_am, list(e.teilprozess_ids)
             )
-            erkennung = erkenne(bestand, self._modell)
+            erkennung = erkenne(bestand, self._modell, kandidaten=kandidaten)
             bewertung = bewerte(erkennung, bestand, self._modell, parameter=self._parameter)
         except (ErkennungAbgebrochen, BewertungAbgebrochen) as fehler:
             raise LaufAngehalten(
@@ -527,7 +574,11 @@ class PaketLaufquelle:
             paket_id=e.paket_id,
             company_id=e.company_id,
             uebergeben_am=e.uebergeben_am,
+            teilprozess_ids=e.teilprozess_ids,
         )
+        # Die Erkennung nennt Nachfolger mit ihrer Nummer, der Vertrag mit der
+        # UUID aus dem Bewertungsschritt.
+        nachfolge = erkennung.nachfolge.umbenannt(bewertung.kennungen)
         hinweise = list(erkennung.hinweise)
         kp_namen = {kp.kernprozess_id: kp.name for kp in bestand.kernprozesse}
         if not bewertung.eingaenge:
@@ -545,13 +596,19 @@ class PaketLaufquelle:
                 prozess_raenge=[],
                 potenziale={},
                 kp_namen=kp_namen,
+                nachfolge=nachfolge,
             )
 
         lauf = rechne_lauf(e.company_id, e.paket_id, bewertung.eingaenge, self._parameter)
-        return aus_lauf(
+        ansicht = aus_lauf(
             lauf,
             list(bewertung.eingaenge),
             uebergeben_am=e.uebergeben_am,
             warnung=" ".join([*hinweise, MODELLURTEIL]),
             kp_namen=kp_namen,
+        )
+        return replace(
+            ansicht,
+            kopf=replace(ansicht.kopf, teilprozess_ids=e.teilprozess_ids),
+            nachfolge=nachfolge,
         )

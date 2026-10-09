@@ -38,7 +38,7 @@ nicht als Höflichkeit.
 
 from __future__ import annotations
 
-__all__ = ["ANWEISUNG", "MAHNUNG", "baue_frage"]
+__all__ = ["ANWEISUNG", "MAHNUNG", "VORGAENGER", "baue_frage"]
 
 ANWEISUNG = """\
 Du bist der Erkennungsschritt von BC2 (Strategic Advisor) in einer CoE-Factory.
@@ -127,6 +127,42 @@ Antworte mit NICHTS als einem JSON-Objekt dieser Form:
 }
 """
 
+#: Nur angehängt, wenn die Nutzlast ``vorgaenger_kandidaten`` trägt (#295,
+#: ADR-009 · BC2). Ein Lauf ohne Kandidaten bekommt dieselbe Anweisung wie
+#: vorher — gemessen wurde die Erkennung ohne diesen Teil (#248), und die
+#: Stabilitätsmessungen zu #299 sollen nicht über eine geänderte Frage laufen.
+VORGAENGER = """\
+
+## Schon gelieferte Potenziale (`vorgaenger_kandidaten`)
+
+Zu einigen Teilprozessen dieses Pakets hat der Mandant schon Potenziale aus
+einem frueheren Paket bekommen. Sie stehen unter `vorgaenger_kandidaten`. Schneide
+das Paket wie immer — nach dem Trenntest, nicht nach diesen Kandidaten. Sage
+danach fuer JEDEN Kandidaten genau einen Ausgang:
+
+- `fortgeschrieben` — eines deiner neuen Potenziale ist **dasselbe Vorhaben**,
+  nur auf neuem Datenstand. Nenne es unter `nachfolger`. Es muss dieselbe
+  Loesungsklasse tragen; aendert sich die Loesung, ist es ein neues Potenzial,
+  und der Kandidat ist gestrichen. Hoechstens ein Nachfolger je Kandidat und
+  ein Kandidat je Nachfolger: wird ein Vorhaben geteilt oder zusammengelegt,
+  sind die neuen Potenziale neu und die alten gestrichen.
+- `gestrichen` — das Vorhaben faellt nach dem neuen Datenstand weg. Begruende
+  es in `begruendung`; die Begruendung geht an das Team, das daran baut.
+- `unveraendert` — aus diesem Paket nicht zu beurteilen. **Nur zulaessig, wenn
+  `ausserhalb_dieses_pakets` nicht leer ist**: liegt ein Kandidat ganz in diesem
+  Paket, hast du ihn vollstaendig neu gesehen und musst entscheiden.
+
+Aehnlich zu klingen genuegt fuer `fortgeschrieben` nicht. Auch hier gilt das
+Rechenverbot.
+
+Ergaenze dein JSON-Objekt um:
+
+  "vorgaenger": [
+    {"kandidat": "V1", "ausgang": "fortgeschrieben", "nachfolger": "P2", "begruendung": "..."},
+    {"kandidat": "V2", "ausgang": "gestrichen", "nachfolger": null, "begruendung": "..."}
+  ]
+"""
+
 MAHNUNG = """\
 
 ## ACHTUNG — dieser Aufruf ist eine Wiederholung
@@ -145,6 +181,8 @@ def baue_frage(nutzlast: dict, gruende: list[str] | None = None) -> str:
     import json
 
     text = ANWEISUNG
+    if nutzlast.get("vorgaenger_kandidaten"):
+        text += VORGAENGER
     if gruende:
         text += MAHNUNG.format(gruende="\n".join(f"- {g}" for g in gruende))
     return (
