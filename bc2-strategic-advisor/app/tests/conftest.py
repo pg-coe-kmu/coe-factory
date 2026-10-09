@@ -32,6 +32,12 @@ if os.environ.get("BC2_ECHTE_DB") != "1":
 
 from app import erzeuge_app  # noqa: E402
 from eingang import SpeicherEingangsbuch  # noqa: E402
+from gate1 import SpeicherGate1Buch  # noqa: E402
+from laeufe import MesssatzLaufquelle  # noqa: E402
+
+#: Die Messsätze liegen ausserhalb von ``app/`` — sie speisen auch das
+#: Kalibrierungswerkzeug.
+MESSSAETZE = Path(__file__).resolve().parent.parent.parent / "kalibrierung"
 
 
 @pytest.fixture
@@ -40,12 +46,31 @@ def buch() -> SpeicherEingangsbuch:
 
 
 @pytest.fixture
-def client(buch):
+def gate1_buch() -> SpeicherGate1Buch:
+    return SpeicherGate1Buch()
+
+
+@pytest.fixture
+def laufquelle() -> MesssatzLaufquelle:
+    """Die Behelfsquelle der Oberfläche: Messsätze, durchgerechnet.
+
+    **Kein Doppelgänger.** Die Tests rechnen denselben Satz durch wie der
+    laufende Dienst — sonst prüften sie eine Anzeige über Zahlen, die so nie
+    entstehen. Der Doppelgänger (``SpeicherLaufquelle``) ist für die Fälle da,
+    in denen ein *bestimmter* Lauf gebraucht wird, etwa ein leerer.
+    """
+    return MesssatzLaufquelle(MESSSAETZE)
+
+
+@pytest.fixture
+def client(buch, laufquelle, gate1_buch):
     from fastapi.testclient import TestClient
 
     # with-Block, damit der Lebenszyklus (und damit der Start-Abgleich)
     # tatsaechlich laeuft — sonst bliebe genau der ungeprueft.
-    with TestClient(erzeuge_app(buch)) as c:
+    with TestClient(
+        erzeuge_app(buch, laufquelle=laufquelle, gate1_buch=gate1_buch)
+    ) as c:
         yield c
 
 

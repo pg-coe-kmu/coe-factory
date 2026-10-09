@@ -15,12 +15,21 @@ läuft im Betrieb und nimmt BC0s Pakete an ([#190](https://github.com/pg-coe-kmu
 der **Erkennungsschritt** (`app/erkennung/`) schneidet die Potenziale — ein Modellaufruf je Paket,
 deterministisch nachkontrolliert ([#194](https://github.com/pg-coe-kmu/coe-factory/issues/194) entschieden,
 [#248](https://github.com/pg-coe-kmu/coe-factory/issues/248) gebaut). Dort liegt auch das Lesen auf
-`stand_zum(uebergeben_am)`.
-Offen sind Oberfläche ([#243](https://github.com/pg-coe-kmu/coe-factory/issues/243)), Präsentation
-([#244](https://github.com/pg-coe-kmu/coe-factory/issues/244)) und — neu aufgefallen beim Bau von #248 —
-die **drei übrigen Urteilsstellen des LLM** (Lage im Korridor, die fünf Nutzwert-Kategorien, das
-begründete Überschreiben der Komplexität). Ohne sie ist ein `modell.Potenzialeingang` nicht
-vollständig; siehe `app/erkennung/erkennen.py`.
+`stand_zum(uebergeben_am)`. Die **Gate-1-Oberfläche** (`app/static/index.html`, `app/oberflaeche.py`)
+zeigt einen Lauf und nimmt die Freigabe entgegen ([#243](https://github.com/pg-coe-kmu/coe-factory/issues/243)).
+Offen sind Präsentation ([#244](https://github.com/pg-coe-kmu/coe-factory/issues/244)), der
+**Tabellenentwurf für Schema `bc2`** ([#250](https://github.com/pg-coe-kmu/coe-factory/issues/250)) und —
+neu aufgefallen beim Bau von #248 — die **drei übrigen Urteilsstellen des LLM** (Lage im Korridor, die
+fünf Nutzwert-Kategorien, das begründete Überschreiben der Komplexität;
+[#260](https://github.com/pg-coe-kmu/coe-factory/issues/260)). Ohne sie ist ein `modell.Potenzialeingang`
+nicht vollständig; siehe `app/erkennung/erkennen.py`.
+
+⚠ **Die Oberfläche ist noch nicht betriebsfest**, und sie sagt das selbst an: ihre Läufe kommen aus
+einem Messsatz statt aus der Datenbank — der Erkennungsschritt ist gebaut, aber noch nicht an die
+`Laufquelle` angeschlossen, und ohne #260 lieferte er keinen vollständigen Eingang —, und ihre
+Entscheidung liegt im **Arbeitsspeicher**, weil Schema `bc2` dafür keinen Ort hat (das ist #250). Beides
+hängt hinter je einem Protokoll — `Laufquelle` und `Gate1Buch` —, die Umsetzungen werden getauscht,
+nicht die Oberfläche.
 Owner-Angaben in den Alt-Issues (#84–#99) nennen teils Eike und sind damit hinfällig.
 *(Korrigiert am 20.09.2026: die Vorgängerfassung sagte „Es gibt noch keinen BC2-Code. Der Bau
 beginnt bei null" — ein Stand vom 30.08., der schon durch #190 überholt war.)*
@@ -92,8 +101,10 @@ divergierenden Kopien unter `Projektgruppe/BC2/` sind aufgelöst und liegen dort
 | `migriere_bc3_vorlage.py`, `validate.py`, `kalibrierung.py` | `bc2-strategic-advisor/tools/` — aus dem Repo-Wurzelverzeichnis aufrufen |
 | Systemarchitektur (27.06., teils überholt) | `bc2-strategic-advisor/architektur/` |
 | Trigger-Endpunkt (läuft im Betrieb) | `bc2-strategic-advisor/app/app.py`, `app/eingang.py` |
-| **Value- und Priorisierungsmodell** (ADR-006 · BC2) | `bc2-strategic-advisor/app/modell/` — `parameter.py` (Setzungen), `rechnen.py` (reiner Kern), `ausgabe.py` (Vertragsform) |
+| **Value- und Priorisierungsmodell** (ADR-006 · BC2) | `bc2-strategic-advisor/app/modell/` — `parameter.py` (Setzungen), `rechnen.py` (reiner Kern), `ausgabe.py` (Vertragsform), `laden.py` (Messsatz lesen) |
 | **Erkennungsschritt** (#194 / #248) | `bc2-strategic-advisor/app/erkennung/` — `bestand.py` (Leseseite), `nutzlast.py` (was das Modell sieht), `anweisung.py`, `modellruf.py` (Naht zum LLM), `pruefen.py` (Nachkontrolle) |
+| **Gate-1-Oberfläche** (Fassung D, #167/#243) | `app/static/index.html` (eine Datei), `app/oberflaeche.py` (die vier Rufe), `app/gate1.py` (Entscheidung, Prüfung, Ablage), `app/laeufe.py` (Laufquelle) |
+| Oberfläche ansehen, ohne Datenbank | `app/vorschau.py` — `python3 vorschau.py`, dann `http://127.0.0.1:8243/` |
 | Messsätze für die Kalibrierung | `bc2-strategic-advisor/kalibrierung/` |
 | Erkennung an einem echten Aufruf messen | `bc2-strategic-advisor/tools/erkennung_messen.py` |
 
