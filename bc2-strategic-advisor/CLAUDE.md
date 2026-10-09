@@ -31,13 +31,15 @@ Seit [#295](https://github.com/pg-coe-kmu/coe-factory/issues/295) **verknüpft**
 über Pakete hinweg (ADR-009 · BC2, Nachtrag 1): die Ablage liest die geltenden gelieferten
 Potenziale über die Teilprozesse des Pakets, die Erkennung ordnet sie zu (fortgeschrieben,
 gestrichen, unverändert), `app/nachfolge.py` prüft nach, und die Gate-1-Ansicht zeigt Vorgänger und
-Streichliste. **Der echte Weg trägt die Kette noch nicht:** ohne Vertragskonzepte und Ausgangslage
-kein Vertrag 3.1, und ein Lauf mit Kandidaten hält dann an, statt `[]` zu liefern
-([#301](https://github.com/pg-coe-kmu/coe-factory/issues/301)).
+Streichliste. Seit [#301](https://github.com/pg-coe-kmu/coe-factory/issues/301) schreibt der
+**Ausarbeitungsschritt** (`app/ausarbeitung/`, ADR-010 · BC2) **nach** der Rechnung die Texte der
+Konzepte — ein Aufruf je Konzept, parallel, bewacht —, und Python setzt sie mit dem Gerechneten,
+den Eingangswerten und der Ausgangslage zusammen. **Der echte Weg legt damit einen schemagültigen
+Vertrag 3.1 ab** und trägt die Kette über Pakete.
 
 ⚠ **Die Oberfläche ist noch nicht betriebsfest**, und sie sagt das selbst an. Ihre Voreinstellung ist
-weiter der **Messsatz**: der echte Weg — angenommenes Paket → Erkennung → Bewertung → Rechenkern
-(`laeufe.PaketLaufquelle`) — ist gebaut, aber ein **Schalter** (`BC2_LAUFQUELLE=pakete`), weil
+weiter der **Messsatz**: der echte Weg — angenommenes Paket → Erkennung → Bewertung → Rechenkern →
+Ausarbeitung (`laeufe.PaketLaufquelle`) — ist gebaut, aber ein **Schalter** (`BC2_LAUFQUELLE=pakete`), weil
 keiner seiner Außenwege beim Bau gefahren werden konnte (lokal keine `DATABASE_URL`, `SdkModell`
 nie gegen die API). Wer ihn umlegt, fährt den ersten echten Lauf (#206). Die Stabilitätsabnahme des Bewertungsschritts
 ist seit #299 bestanden — als **Median aus drei Urteilen**, und genau auf der Grenze (95,0 % der
@@ -127,6 +129,8 @@ divergierenden Kopien unter `Projektgruppe/BC2/` sind aufgelöst und liegen dort
 | **Erkennungsschritt** (#194 / #248) | `bc2-strategic-advisor/app/erkennung/` — `bestand.py` (Leseseite), `nutzlast.py` (was das Modell sieht), `anweisung.py`, `modellruf.py` (Naht zum LLM), `pruefen.py` (Nachkontrolle) |
 | **Bewertungsschritt** (#260 / #288) | `bc2-strategic-advisor/app/bewertung/` — `nutzlast.py` (ohne Stunden, Euro, Dauern; BC1-Profil → `Schrittmessung`), `anweisung.py`, `pruefen.py` (Wächter 6.5), `bewerten.py` |
 | **Nutzwert-Anker** (Nachtrag 6) | `app/modell/parameter.py`, `nutzwert_anker` — Setzung, am ersten echten Lauf mitzuprüfen |
+| **Ausarbeitungsschritt** (ADR-010 · BC2, #301) | `bc2-strategic-advisor/app/ausarbeitung/` — `nutzlast.py` (je Konzept, ohne Zahl aus der Rechnung), `anweisung.py` (zwei Platzhalter `{grad_min}`/`{grad_max}`), `pruefen.py` (Wächter: Schablonen, Systeme aus Bestand oder Tech-Stack, Rechenverbot), `ausarbeiten.py` (Ablauf und Zusammensetzen) |
+| Ausarbeitung an echten Aufrufen messen (#301) | `bc2-strategic-advisor/tools/ausarbeitung_messen.py` — `--von /tmp/bewertung-299` nimmt Erkennung und Urteile einer früheren Erhebung |
 | **Nachfolger über Pakete** (ADR-009 · BC2, #295) | `app/nachfolge.py` (Kandidat, Ausgang, Nachprüfung — rein), Kandidatensuche in `app/ablage.py`, Zuordnung im Wächter von `app/erkennung/` |
 | **Gate-1-Oberfläche** (Fassung D, #167/#243) | `app/static/index.html` (eine Datei), `app/oberflaeche.py` (die Rufe), `app/gate1.py` (Entscheidung, Prüfung, Ablage), `app/laeufe.py` (Laufquelle) |
 | **Präsentation** (#244 entschieden, #257 gebaut) | `app/praesentation/` — `folien.py` (reine Funktion: Konzepte + Priorisierung → PPTX), `formulierung.py` (wie Zahlen auf die Folie kommen), `zeichnen.py` (KIsult-Palette), `ablage.py` (Lieferordner); das alte Template liegt in `architektur/archiv/` |
@@ -181,6 +185,9 @@ verantwortet.
   2.0 und Nachtrag 7): Lösungsansatz-Klasse, Lage im Korridor, die fünf Nutzwert-Kategorien, das
   begründete Überschreiben der Umsetzungskomplexität und der Umsetzungsaufwand in Personentagen.
   Urteile mit Zahl stehen in **Zahlenfeldern**; in Begründungstexten steht keine Zahl mit Einheit.
+  Die **Konzepttexte** des Ausarbeitungsschritts sind Darstellung, kein Urteil, das rechnet, und
+  tragen ebenfalls keine Zahl mit Einheit — mit genau zwei Platzhaltern, `{grad_min}` und
+  `{grad_max}`, in die Python den gerechneten Automatisierungsgrad einsetzt (ADR-010 · BC2, 2.4).
 - **Gemessen wird je berührtem Teilprozess, nicht je Potenzial** (ADR-006 · BC2, Nachtrag 4/5).
   Jahresstunden = Σ `(step_frequency_per_year ?? frequency_per_year) × focus_step_duration_minutes / 60`,
   Herkunft die schwächste, Komplexität das Maximum. `total_duration_minutes` beschreibt den ganzen

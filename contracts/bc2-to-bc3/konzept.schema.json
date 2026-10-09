@@ -221,7 +221,7 @@
             "type": "array",
             "minItems": 1,
             "items": { "type": "string" },
-            "description": "Namen der Prozessschritte, die dieses Potenzial betrifft."
+            "description": "Namen der Teilprozesse, die dieses Potenzial betrifft -- dieselben wie in betroffene_teilprozess_ids, als Klartext. Das Feld heisst nach einem Wort, das BC2s Glossar meidet; gemeint ist der Teilprozess (#301). Nur die Beschreibung ist geaendert, nicht der Vertrag."
           },
           "betroffene_systeme": {
             "type": "array",

@@ -62,6 +62,8 @@ __all__ = [
     "SnapshotBestand",
     "Teilprozess",
     "HistorieZuAlt",
+    "TECH_STACK_GRENZE",
+    "tech_stack_aus_profil",
 ]
 
 #: BC0s Platzhalter-Teilprozesse heißen wörtlich „Teilprozess 3". Sie tragen
@@ -219,6 +221,42 @@ class Mandant:
     mitarbeitende: int | None = None
     region: str | None = None
     geschaeftsmodell: str | None = None
+    #: Der Abschnitt „Tech-Stack“ aus dem Unternehmensprofil — das Material für
+    #: ``potenzielle_loesung.tech_stack_empfehlung`` (#301). **Nicht** die Spalte
+    #: ``company_profile.tech_stack``: die trägt bei NoroAI nur „27 Tools“, eine
+    #: Zählung (gemessen an der laufenden Datenbank am 09.10.2026). Siehe
+    #: :func:`tech_stack_aus_profil`.
+    tech_stack: str | None = None
+
+
+#: Wie viel vom Tech-Stack-Abschnitt in die Nutzlast geht. Der ganze Abschnitt 6
+#: des NoroAI-Profils trägt auch Cybersicherheit und SSO mit Personennamen — für
+#: eine Werkzeugempfehlung genügt die Toolbox.
+TECH_STACK_GRENZE = 6_000
+
+
+def tech_stack_aus_profil(profil: Any) -> str | None:
+    """Zieht den Tech-Stack-Abschnitt aus BC0s ``profile_json.profil``.
+
+    Erkannt am **Titel**, nicht an der Nummer: das Profil ist ein Dokument mit
+    Fassungen (``Änderungen v5.1 → v6.0``), und Kapitelnummern wandern. Gibt es
+    einen Unterabschnitt, dessen Titel „Tech-Stack“ trägt (bei NoroAI „6.2
+    Tech-Stack (Standard-Toolbox)“), gilt nur er; sonst der ganze Abschnitt.
+    Fehlt beides, ist das eine Lücke (``None``), keine leere Angabe.
+    """
+    if not isinstance(profil, dict):
+        return None
+    abschnitt = next((v for k, v in profil.items() if "tech-stack" in str(k).lower()), None)
+    if abschnitt is None:
+        return None
+    if isinstance(abschnitt, dict):
+        unter = {k: v for k, v in abschnitt.items() if "tech-stack" in str(k).lower()}
+        teile = unter or abschnitt
+        text = "\n\n".join(f"### {k}\n{v}" for k, v in teile.items() if str(v).strip())
+    else:
+        text = str(abschnitt)
+    text = text.strip()
+    return text[:TECH_STACK_GRENZE] or None
 
 
 @dataclass(frozen=True)
@@ -383,7 +421,8 @@ SELECT c ->> 'name'                AS name,
        c ->> 'branche'             AS branche,
        (c ->> 'mitarbeitende')::int AS mitarbeitende,
        c ->> 'region'              AS region,
-       p ->> 'geschaeftsmodell'    AS geschaeftsmodell
+       p ->> 'geschaeftsmodell'    AS geschaeftsmodell,
+       p -> 'profile_json' -> 'profil' AS profil
   FROM stand_zum('companies', %(stand)s, %(company_id)s) c
   LEFT JOIN stand_zum('company_profile', %(stand)s, %(company_id)s) p ON TRUE
  WHERE c ->> 'company_id' = %(company_id)s::text
@@ -573,6 +612,7 @@ class PostgresBestand:
                 mitarbeitende=m.get("mitarbeitende"),
                 region=m.get("region"),
                 geschaeftsmodell=m.get("geschaeftsmodell"),
+                tech_stack=tech_stack_aus_profil(m.get("profil")),
             ),
             paket_id=paket_id,
             uebergeben_am=uebergeben_am,
@@ -743,6 +783,9 @@ class SnapshotBestand:
                 mitarbeitende=mand.get("mitarbeitende"),
                 region=mand.get("region"),
                 geschaeftsmodell=(mand.get("profil_kurz") or {}).get("geschaeftsmodell"),
+                tech_stack=tech_stack_aus_profil(
+                    (mand.get("unternehmensdaten") or {}).get("profil")
+                ),
             ),
             paket_id=paket_id,
             uebergeben_am=uebergeben_am,

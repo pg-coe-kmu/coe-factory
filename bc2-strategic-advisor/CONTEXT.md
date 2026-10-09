@@ -32,6 +32,10 @@ Ein Abschnitt eines Kernprozesses und die kleinste Einheit, für die BC0 erhebt 
 entscheidet. Trägt eine ID der Form `KP-XX.TP-Y`.
 _Avoid_: Prozessschritt, Subprozess
 
+> **`betroffene_prozessschritte` im Vertrag** trägt die **Namen** der berührten Teilprozesse. Das
+> Feld benutzt das gemiedene Wort und bleibt trotzdem — ein Vertrag bricht nicht für ein Wort.
+> Gemeint ist der Teilprozess. *(#301)*
+
 **Fokus-Schritt**:
 BC1s Wort für den Teilprozess, zu dem es ein Profil erhebt — dieselbe ID, eine andere Perspektive.
 Was BC1 je Schritt misst (Dauer, Häufigkeit, Reifeskalen), gehört zu genau einem Teilprozess; ein
@@ -149,7 +153,7 @@ Der Abschnitt eines Analyselaufs, in dem das LLM die **geschnittenen** Potenzial
 Korridor, Nutzwert, begründetes Überschreiben der Umsetzungskomplexität und seit #288 der
 **Umsetzungsaufwand**. Folgt dem
 **Erkennungsschritt**, der die Potenziale schneidet und ihre Lösungsklasse setzt, und ändert an
-diesem Schnitt nichts. Er urteilt jeden Lauf **mehrfach** — ein **Urteil** ist eine vollständige
+diesem Schnitt nichts; nach der Rechnung folgt der **Ausarbeitungsschritt**. Er urteilt jeden Lauf **mehrfach** — ein **Urteil** ist eine vollständige
 Bewertung aller Potenziale in einem Aufruf —, und je Größe gilt der **Median** der Urteile
 *(seit #299)*: ein einzelnes Urteil trägt eine eigene Verschiebung, die in der Rangfolge landet.
 _Avoid_: Bewertung (unqualifiziert — so heißen BC0s Bitkom-Einstufungen), Scoring, Rating
@@ -244,6 +248,14 @@ Beantwortet, welcher Prozess zuerst angefasst werden soll.
 _Avoid_: Prozesspriorität
 
 ### Was BC2 ausliefert
+
+**Ausarbeitungsschritt**:
+Der Abschnitt eines Analyselaufs, in dem das LLM die **gerechneten** Potenziale zu Konzepten
+ausarbeitet — Beschreibung, Soll-Vision, User Story, Akzeptanzkriterien, Kontext und
+Schmerzpunkte. Folgt der Rechnung und ändert an Schnitt, Bewertung und Rang nichts: er kennt den
+Rang, bewegt ihn aber nicht. Ein Aufruf je **Konzept**. *(Seit #301, ADR-010 · BC2.)*
+_Avoid_: Formulierung (so heißt die Zahlendarstellung der Präsentation), Textgenerierung (eine
+Lösungsklasse), Texterzeugung
 
 **Konzept**:
 Das Ergebnis für **einen Kernprozess**: seine Ausgangslage und seine bewerteten Potenziale. Ein

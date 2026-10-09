@@ -52,7 +52,7 @@ from laeufe import (
 from nachfolge import Ausgang, Kandidat, Nachfolge, pruefe_ausgaenge
 
 from conftest import MESSSAETZE
-from test_bewertung import NOROAI, STAND, _bestand, _bewertung, _erkannt, _gut
+from test_bewertung import NOROAI, STAND, _ausgearbeitet, _bestand, _bewertung, _erkannt, _gut
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
 from kette import gelieferte_potenziale, kettenbefunde  # noqa: E402
@@ -324,38 +324,6 @@ class _Quelle:
         )
 
 
-class _MitVertrag:
-    """Der echte Weg, ergänzt um das, was er heute noch nicht liefert.
-
-    ``PaketLaufquelle`` setzt keine Vertragskonzepte zusammen und trägt keine
-    Ausgangslage — ohne sie gibt es keinen Vertrag 3.1 und damit keine Kette.
-    Bis das gebaut ist, stellt dieser Umschlag beides, damit der Abnahmefall
-    durch Erkennung, Bewertung und Ablage läuft. Er erfindet nur Text, keine
-    Kette: die kommt unverändert aus der Erkennung.
-    """
-
-    def __init__(self, innen: PaketLaufquelle) -> None:
-        self._innen = innen
-
-    def uebersicht(self, company_id=None):
-        return self._innen.uebersicht(company_id)
-
-    def ansicht(self, paket_id, kandidaten=()):
-        a = self._innen.ansicht(paket_id, kandidaten)
-        konzepte = [
-            {
-                "konzept_id": "platzhalter",
-                "kontext": {"kp_id": kp},
-                "potenziale": [
-                    {"potenzial_id": e["potenzial_id"], "beschreibung": "Vom Modell."}
-                    for e in a.eintraege if e["kp_id"] == kp
-                ],
-            }
-            for kp in a.kp_ids()
-        ]
-        return replace(a, ausgangslage={"unternehmen": {"name": "NoroAI"}}, konzepte=konzepte)
-
-
 def _strecke(*antworten, pakete=None):
     pakete = pakete or [
         Paketeintrag("PKT-A", NOROAI, STAND, (TP1, TP2)),
@@ -365,7 +333,7 @@ def _strecke(*antworten, pakete=None):
     innen = PaketLaufquelle(SpeicherPaketverzeichnis(pakete), _Quelle(), modell, urteile=1)
     ergebnisse = SpeicherErgebnisbuch()
     gate1 = SpeicherGate1Buch(ergebnisse=ergebnisse)
-    return AblegendeLaufquelle(_MitVertrag(innen), ergebnisse), ergebnisse, gate1, modell
+    return AblegendeLaufquelle(innen, ergebnisse), ergebnisse, gate1, modell
 
 
 def _b_erkannt(kurz: dict[str, str]) -> dict:
@@ -386,8 +354,14 @@ def _b_bewertet() -> dict:
     return {"bewertungen": [_bewertung("P1")]}
 
 
+def _kette() -> list:
+    """Paket A und Paket B, je Erkennung, Bewertung und Ausarbeitung (#301)."""
+    return [_erkannt(), _gut(), _ausgearbeitet("P1", "P2"),
+            _b_erkannt, _b_bewertet(), _ausgearbeitet("P1")]
+
+
 def test_das_zweite_paket_liefert_eine_gueltige_kette_und_eine_streichliste():
-    laeufe, ergebnisse, gate1, modell = _strecke(_erkannt(), _gut(), _b_erkannt, _b_bewertet())
+    laeufe, ergebnisse, gate1, modell = _strecke(*_kette())
 
     a = laeufe.ansicht("PKT-A")
     ea = _freigeben(gate1, a)
@@ -397,7 +371,7 @@ def test_das_zweite_paket_liefert_eine_gueltige_kette_und_eine_streichliste():
     eb = _freigeben(gate1, b)
 
     # Die Kandidaten standen in der Erkennungsfrage von B, ohne ihre UUID.
-    frage_b = modell.fragen[2]
+    frage_b = modell.fragen[3]
     assert "vorgaenger_kandidaten" in frage_b
     assert not any(pid in frage_b for pid in alt.values())
 
@@ -425,7 +399,7 @@ def test_das_zweite_paket_liefert_eine_gueltige_kette_und_eine_streichliste():
 
 
 def test_was_fortgeschrieben_oder_gestrichen_ist_ist_kein_kandidat_mehr():
-    laeufe, ergebnisse, gate1, _ = _strecke(_erkannt(), _gut(), _b_erkannt, _b_bewertet())
+    laeufe, ergebnisse, gate1, _ = _strecke(*_kette())
     _freigeben(gate1, laeufe.ansicht("PKT-A"))
     b = laeufe.ansicht("PKT-B")
 
@@ -441,7 +415,7 @@ def test_was_fortgeschrieben_oder_gestrichen_ist_ist_kein_kandidat_mehr():
 
 
 def test_die_gate1_ansicht_zeigt_vorgaenger_und_streichliste(buch, kopf):
-    laeufe, ergebnisse, gate1, _ = _strecke(_erkannt(), _gut(), _b_erkannt, _b_bewertet())
+    laeufe, ergebnisse, gate1, _ = _strecke(*_kette())
     _freigeben(gate1, laeufe.ansicht("PKT-A"))
 
     with TestClient(erzeuge_app(buch, laufquelle=laeufe, gate1_buch=gate1)) as c:
@@ -456,12 +430,15 @@ def test_die_gate1_ansicht_zeigt_vorgaenger_und_streichliste(buch, kopf):
 
 
 def test_ohne_ausgangslage_bleibt_die_sperre():
-    """Der echte Weg trägt heute keine Ausgangslage, also keinen Vertrag 3.1 —
-    und 3.0 hat für die Kette keine Felder. Dann lieber anhalten als ``[]``."""
+    """Eine Quelle ohne Ausarbeitung trägt keine Ausgangslage, also keinen
+    Vertrag 3.1 — und 3.0 hat für die Kette keine Felder. Dann lieber anhalten
+    als ``[]``. *(Bis #301 war das der echte Weg selbst.)*"""
     pakete = [Paketeintrag("PKT-A", NOROAI, STAND, (TP1, TP2)),
               Paketeintrag("PKT-B", NOROAI, STAND, (TP2,))]
     modell = _Antwortend(_erkannt(), _gut(), _b_erkannt, _b_bewertet())
-    innen = PaketLaufquelle(SpeicherPaketverzeichnis(pakete), _Quelle(), modell, urteile=1)
+    innen = PaketLaufquelle(
+        SpeicherPaketverzeichnis(pakete), _Quelle(), modell, urteile=1, ausarbeiten=False
+    )
     ergebnisse = SpeicherErgebnisbuch()
     gate1 = SpeicherGate1Buch(ergebnisse=ergebnisse)
     laeufe = AblegendeLaufquelle(innen, ergebnisse)
