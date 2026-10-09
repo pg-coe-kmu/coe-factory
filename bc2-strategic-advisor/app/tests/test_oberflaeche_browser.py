@@ -369,3 +369,48 @@ def test_nach_reject_rechnet_der_knopf_die_naechste_fassung(seite_mit_ablage):
     assert seite.evaluate("() => Z.gate1.status") == "pending"
     assert seite.locator('[data-tat="approved"]').count() == 1
     assert "Fassung 2" in seite.locator("#meldung").inner_text()
+
+
+@pytest.fixture
+def seite_mit_kette():
+    """Zwei Pakete über dieselben Teilprozesse, das erste freigegeben (#295).
+
+    Das zweite liegt später und steht darum oben in der Auswahl; geöffnet wird
+    es erst im Browser, also schneidet und verkettet es der Dienst selbst.
+    """
+    from datetime import timedelta
+
+    from app import erzeuge_app
+    from eingang import SpeicherEingangsbuch
+    from laeufe import Paketeintrag
+    from test_verknuepfung import (
+        NOROAI, STAND, TP1, TP2, _b_bewertet, _b_erkannt, _erkannt, _freigeben, _gut, _strecke,
+    )
+
+    laeufe, _, gate1, _ = _strecke(
+        _erkannt(), _gut(), _b_erkannt, _b_bewertet(),
+        pakete=[Paketeintrag("PKT-A", NOROAI, STAND, (TP1, TP2)),
+                Paketeintrag("PKT-B", NOROAI, STAND + timedelta(days=1), (TP2,))],
+    )
+    _freigeben(gate1, laeufe.ansicht("PKT-A"))
+    with _starte(erzeuge_app(SpeicherEingangsbuch(), laufquelle=laeufe, gate1_buch=gate1)) as url:
+        with _angemeldet(url) as blatt:
+            yield blatt
+
+
+def test_vorgaenger_und_streichliste_stehen_am_gate_1(seite_mit_kette):
+    """Die Kette ist Anzeige, kein Editierweg (ADR-009 · BC2 §2.5) — aber sie
+    muss zu sehen sein, sonst gibt der Mensch frei, was er nicht gesehen hat."""
+    seite = seite_mit_kette
+    assert seite.evaluate("() => Z.paket_id") == "PKT-B"
+
+    streichliste = seite.locator("[data-streichliste]")
+    assert "Potenzial P2" in streichliste.inner_text()
+    assert "Die Einsatzplanung laeuft inzwischen im Projekttool." in streichliste.inner_text()
+
+    marke = seite.locator("[data-vorgaenger]")
+    assert marke.count() == 1 and "Potenzial P1" in marke.inner_text()
+
+    seite.locator(".dzeile .titel").first.click()
+    seite.wait_for_selector(".schublade")
+    assert "Fortgeschrieben" in seite.locator(".schublade").inner_text()

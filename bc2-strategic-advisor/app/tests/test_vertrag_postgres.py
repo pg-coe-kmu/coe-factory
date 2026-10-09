@@ -433,3 +433,78 @@ def test_vorgaenger_kandidaten_brechen_den_lauf_ab(ergebnisse, gate1_buch, quell
     assert {k["paket_id"] for k in fehler.value.kandidaten} == {test_paket_id}
     assert ergebnisse.letzter(zweites).beleg.zustand == "fehler"
     assert ergebnisse.kandidaten("ANDERER-MANDANT", zweites, ["KP-02.TP-1"]) == []
+
+
+def _neu_verschluesselt(ansicht, paket_id: str):
+    """Dieselbe Ansicht unter neuen Potenzial-Kennungen — ein zweites Paket.
+
+    Über den JSON-Text, damit jede Stelle mitkommt, die eine Kennung trägt
+    (Einträge, Prozessränge, Potenziale). Gibt die Ansicht und alt → neu zurück.
+    """
+    import json
+    from dataclasses import replace
+
+    neu = {pid: str(uuid.uuid4()) for pid in ansicht.potenzial_ids()}
+    text = json.dumps([ansicht.eintraege, ansicht.prozess_raenge, ansicht.potenziale])
+    for alt, frisch in neu.items():
+        text = text.replace(alt, frisch)
+    eintraege, raenge, potenziale = json.loads(text)
+    return replace(
+        ansicht,
+        kopf=replace(ansicht.kopf, paket_id=paket_id),
+        eintraege=eintraege, prozess_raenge=raenge, potenziale=potenziale, konzepte=None,
+    ), neu
+
+
+def test_die_kette_ueber_pakete_gegen_die_echte_abfrage(ergebnisse, gate1_buch, quelle, test_paket_id):
+    """#295 gegen echtes SQL: die Kandidaten tragen Titel und Klasse aus dem
+    Konzeptdokument (JSONB), die Kette landet in ``bc2.potenzial`` und in der
+    Streichliste, und was ein freigegebener Lauf fortschrieb oder strich, ist
+    für das nächste Paket kein Kandidat mehr."""
+    from dataclasses import replace
+
+    import psycopg2
+
+    from ablage import AblegendeLaufquelle
+    from laeufe import SpeicherLaufquelle
+    from nachfolge import Ausgang, Nachfolge
+
+    a = quelle.ansicht(test_paket_id)
+    gate1_buch.merken(_entscheidung(a, "approved"))
+    company = a.kopf.company_id
+    tps = list(a.kopf.teilprozess_ids)
+    zweites, drittes = f"{test_paket_id}-B", f"{test_paket_id}-C"
+
+    kandidaten = ergebnisse.kandidaten(company, zweites, tps)
+    assert {k.potenzial_id for k in kandidaten} == set(a.potenzial_ids())
+    erster = a.potenzial_ids()[0]
+    k0 = next(k for k in kandidaten if k.potenzial_id == erster)
+    assert k0.titel == a.potenziale[erster]["titel"]
+    assert k0.klasse == a.potenziale[erster]["automatisierungsgrad"]["klasse"]
+    assert ergebnisse.nachschlagen(company, [erster])[erster]["paket_id"] == test_paket_id
+
+    # B streicht das erste Potenzial von A und schreibt alle anderen fort.
+    b, neu = _neu_verschluesselt(a, zweites)
+    ausgaenge = [Ausgang(erster, "gestrichen", begruendung="Faellt nach der Nacherhebung weg.")]
+    ausgaenge += [Ausgang(alt, "fortgeschrieben", neu[alt]) for alt in a.potenzial_ids()[1:]]
+    b = replace(b, ausgangslage={"unternehmen": {"name": None}},
+                 nachfolge=Nachfolge(tuple(kandidaten), tuple(ausgaenge)))
+    gerechnet_b = AblegendeLaufquelle(SpeicherLaufquelle([b]), ergebnisse).ansicht(zweites)
+    assert gerechnet_b.gestrichene_potenziale[0]["potenzial_id"] == erster
+
+    with psycopg2.connect(os.environ["DATABASE_URL"]) as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT p.potenzial_id, p.ersetzt_potenzial_ids FROM bc2.potenzial p "
+            "JOIN bc2.lauf l USING (priorisierung_id) WHERE l.paket_id = %s", (zweites,)
+        )
+        kette = dict(cur.fetchall())
+    assert kette[neu[erster]] == []
+    assert all(kette[neu[alt]] == [alt] for alt in a.potenzial_ids()[1:])
+
+    assert {k.potenzial_id for k in ergebnisse.kandidaten(company, drittes, tps)} == set(
+        a.potenzial_ids()
+    ), "B ist noch nicht freigegeben"
+    gate1_buch.merken(_entscheidung(gerechnet_b, "approved"))
+    assert {k.potenzial_id for k in ergebnisse.kandidaten(company, drittes, tps)} == set(
+        neu.values()
+    )

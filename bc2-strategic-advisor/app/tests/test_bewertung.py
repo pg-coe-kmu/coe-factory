@@ -452,8 +452,10 @@ def test_die_ablage_rechnet_einmal_und_zeigt_dann_das_abgelegte():
 
 def test_ein_angehaltener_lauf_wird_geworfen_nicht_als_leerer_lauf_abgelegt():
     """Ein leerer Lauf läge als gültiges Ergebnis in Schema ``bc2``. Geworfen,
-    kommt er gar nicht erst in die Ablage — sie fragt die innere Quelle, bevor
-    sie einen Lauf beginnt —, und das nächste Öffnen rechnet Fassung 1 neu."""
+    liegt er als gescheitert da, ohne Ergebnis und ohne eigene Fassung, und das
+    nächste Öffnen rechnet Fassung 1 neu. *(Seit #295 beginnt die Ablage den
+    Lauf, bevor sie rechnet: die Vorgänger-Kandidaten müssen vor der Erkennung
+    feststehen.)*"""
     from ablage import AblegendeLaufquelle, SpeicherErgebnisbuch
     from laeufe import LaufAngehalten
 
@@ -465,7 +467,8 @@ def test_ein_angehaltener_lauf_wird_geworfen_nicht_als_leerer_lauf_abgelegt():
 
     with pytest.raises(LaufAngehalten, match="angehalten"):
         laeufe.ansicht("PKT-288")
-    assert buch.letzter("PKT-288") is None
+    gescheitert = buch.letzter("PKT-288")
+    assert gescheitert.beleg.zustand == "fehler" and gescheitert.dokument is None
 
     nochmal = laeufe.ansicht("PKT-288")
     assert len(nochmal.eintraege) == 2 and len(modell.fragen) == 5

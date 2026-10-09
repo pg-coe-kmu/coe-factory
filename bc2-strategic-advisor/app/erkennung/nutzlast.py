@@ -63,6 +63,8 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
+from nachfolge import Kandidat
+
 from .bestand import Kernprozess, Paketbestand, Teilprozess
 
 __all__ = ["Aufruf", "GRENZE_ZEICHEN", "HEBBARE_FELDER", "packe"]
@@ -97,6 +99,9 @@ class Aufruf:
     #: Paket — sonst meldete Schnitt B bei jedem Aufruf die Teilprozesse der
     #: anderen Kernprozesse als unbedeckt.
     teilprozess_ids: tuple[str, ...]
+    #: Die Vorgänger-Kandidaten, die **dieser** Aufruf beurteilt — Kurzname
+    #: (``V1`` …) → Kandidat. Unter Schnitt B je Kernprozess (ADR-009 · BC2).
+    kandidaten: tuple[tuple[str, Kandidat], ...] = ()
 
     @property
     def zeichen(self) -> int:
@@ -247,7 +252,42 @@ def _katalog(bestand: Paketbestand) -> dict[int, dict[str, str]]:
     return katalog
 
 
-def packe(bestand: Paketbestand, grenze: int = GRENZE_ZEICHEN) -> tuple[Aufruf, ...]:
+def _kandidat_block(kurz: str, k: Kandidat, paket: set[str]) -> dict[str, Any]:
+    """Ein Vorgänger-Kandidat, wie das Modell ihn sieht — **ohne eine Zahl**.
+
+    Titel, Beschreibung, Lösungsklasse und Teilprozesse, mehr nicht
+    (ADR-009 · BC2 §2.5). Die Teilprozesse außerhalb des Pakets stehen dabei,
+    weil nur bei ihnen „unverändert“ zulässig ist (§2.3).
+    """
+    block: dict[str, Any] = {
+        "id": kurz,
+        "kernprozess_id": k.kp_id,
+        "titel": k.titel,
+    }
+    if k.beschreibung:
+        block["beschreibung"] = k.beschreibung
+    block["loesungsklasse"] = k.klasse
+    block["beruehrte_teilprozesse"] = list(k.teilprozess_ids)
+    block["ausserhalb_dieses_pakets"] = [t for t in k.teilprozess_ids if t not in paket]
+    return block
+
+
+def _mit_kandidaten(
+    inhalt: dict[str, Any], kandidaten: tuple[tuple[str, Kandidat], ...], paket: set[str]
+) -> dict[str, Any]:
+    if not kandidaten:
+        return inhalt
+    return {
+        **inhalt,
+        "vorgaenger_kandidaten": [_kandidat_block(kurz, k, paket) for kurz, k in kandidaten],
+    }
+
+
+def packe(
+    bestand: Paketbestand,
+    grenze: int = GRENZE_ZEICHEN,
+    kandidaten: tuple[Kandidat, ...] = (),
+) -> tuple[Aufruf, ...]:
     """Baut die Aufrufe für einen Paketbestand.
 
     Erst Schnitt C — ein Aufruf über alles. Bleibt der unter ``grenze``, ist es
@@ -257,6 +297,11 @@ def packe(bestand: Paketbestand, grenze: int = GRENZE_ZEICHEN) -> tuple[Aufruf, 
     liefe durch das Modell und käme leer zurück — der Kunde zahlte für eine
     Frage ohne Gegenstand, und die Deckungsprüfung meldete nichts, weil nichts
     zu decken war.
+
+    ``kandidaten`` sind die schon gelieferten Potenziale über Teilprozesse des
+    Pakets (#295). Sie bekommen Kurznamen ``V1`` …, weil das Modell eine UUID
+    nicht zuverlässig abschreibt; unter Schnitt B sieht jeder Aufruf nur die
+    seines Kernprozesses. Ohne Kandidaten bleibt die Nutzlast wie sie war.
     """
     if not bestand.kernprozesse:
         return ()
@@ -264,21 +309,27 @@ def packe(bestand: Paketbestand, grenze: int = GRENZE_ZEICHEN) -> tuple[Aufruf, 
     katalog = _katalog(bestand)
     rahmen = _rahmen(bestand, katalog)
     kp_bloecke = [_kp_block(kp) for kp in bestand.kernprozesse]
+    paket = set(bestand.teilprozess_ids)
+    kurz = tuple((f"V{i}", k) for i, k in enumerate(kandidaten, start=1))
 
     ganz = Aufruf(
         name=bestand.paket_id,
         schnitt="C",
-        inhalt={"rahmen": rahmen, "kernprozesse": kp_bloecke},
+        inhalt=_mit_kandidaten({"rahmen": rahmen, "kernprozesse": kp_bloecke}, kurz, paket),
         teilprozess_ids=bestand.teilprozess_ids,
+        kandidaten=kurz,
     )
     if ganz.zeichen <= grenze:
         return (ganz,)
+
+    def _je_kp(kp: Kernprozess) -> tuple[tuple[str, Kandidat], ...]:
+        return tuple((v, k) for v, k in kurz if k.kp_id == kp.kernprozess_id)
 
     return tuple(
         Aufruf(
             name=kp.kernprozess_id,
             schnitt="B",
-            inhalt={
+            inhalt=_mit_kandidaten({
                 "rahmen": {
                     **rahmen,
                     "hinweis_zum_schnitt": (
@@ -289,8 +340,9 @@ def packe(bestand: Paketbestand, grenze: int = GRENZE_ZEICHEN) -> tuple[Aufruf, 
                     ),
                 },
                 "kernprozesse": [block],
-            },
+            }, _je_kp(kp), paket),
             teilprozess_ids=tuple(t.teilprozess_id for t in kp.teilprozesse),
+            kandidaten=_je_kp(kp),
         )
         for kp, block in zip(bestand.kernprozesse, kp_bloecke)
     )

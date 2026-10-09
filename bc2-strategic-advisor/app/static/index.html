@@ -110,6 +110,11 @@ button{font-family:inherit}
 .tag.op{background:#f2f3f6;color:var(--muted)} .tag.zg{background:#f7eef0;color:#8d4a58}
 .tag.geurteilt{background:#fbf5e9;color:#7a5a12} .tag.gemessen{background:#eef0f4;color:var(--muted)}
 .tag.fehlt{background:#fdf0ee;color:var(--warn)}
+.tag.kette{background:#eef4fb;color:var(--navy);font-weight:600}
+.streichliste{background:#fff;border:1px solid var(--line);border-left:4px solid var(--warn);
+     border-radius:12px;padding:12px 16px;margin-bottom:14px}
+.streichliste h2{font-size:15px;margin:0 0 4px}
+.streichliste li{margin:8px 0}
 
 .btn{background:var(--navy);color:#fff;border:none;border-radius:8px;padding:9px 16px;
      font-size:13.5px;cursor:pointer;font-weight:600}
@@ -280,6 +285,32 @@ const Z = {
   geaendert: false,       // seit dem letzten Speichern angefasst?
   meldung: null,
 };
+
+// Die Kette über Pakete hinweg (#295, ADR-009 · BC2). Nur Anzeige: eine falsche
+// Kette ist ein Ablehnungsgrund, korrigieren lässt sie sich hier nicht (§2.5).
+function vorgaengerVon(id){
+  const alt = (Z.ansicht.potenziale[id]?.ersetzt_potenzial_ids || [])[0];
+  return alt ? {id: alt, ...(Z.ansicht.verwiesen?.[alt] || {})} : null;
+}
+function geliefertHtml(v){
+  return v.titel ? `„${esc(v.titel)}“ aus Paket <code>${esc(v.paket_id)}</code>`
+                 : `<code>${esc(v.id)}</code>`;
+}
+function streichlisteHtml(){
+  const liste = Z.ansicht.gestrichene_potenziale || [];
+  if (!liste.length) return "";
+  return `<div class="streichliste" data-streichliste>
+    <h2>Gestrichen — ${liste.length} schon geliefertes Potenzial${liste.length > 1 ? "e" : ""}</h2>
+    <p style="color:var(--muted);margin:0">Dieser Lauf hat die Teilprozesse neu gesehen, und das
+      Vorhaben fällt weg. Mit der Freigabe geht die Streichliste an BC3. Stimmt sie nicht, ist
+      das ein Grund, den Lauf abzulehnen.</p>
+    <ul>${liste.map(g => `<li><b>${geliefertTitel(g.potenzial_id)}</b>
+      <span class="tag op">${esc(g.kp_id)}</span><br>${esc(g.begruendung)}</li>`).join("")}</ul>
+  </div>`;
+}
+function geliefertTitel(id){
+  return geliefertHtml({id, ...(Z.ansicht.verwiesen?.[id] || {})});
+}
 
 function esc(s){
   return String(s ?? "").replace(/[&<>"']/g, z =>
@@ -510,6 +541,12 @@ function detailHtml(id){
       <span class="tag ${GRP[p.prioritaetsgruppe]}">${p.prioritaetsgruppe}</span>
       <span class="tag ${KAT[p.kategorie]}">${p.kategorie}</span>
       Rang ${p.potenzialrang} · Score ${p.prioritaet_score}</div>
+    ${vorgaengerVon(id) ? `<div class="block"><h3>Fortgeschrieben</h3>
+      <p>Dasselbe Vorhaben wie ${geliefertHtml(vorgaengerVon(id))}, auf neuem Datenstand
+        bewertet. BC3 schreibt das bestehende Epic fort, statt ein neues anzulegen.</p>
+      <p class="hinweis info">Die Zuordnung hat das Modell getroffen und Python nachgeprüft
+        (gleiche Lösungsklasse, ein Nachfolger je Vorgänger). Ist es nicht dasselbe Vorhaben,
+        den Lauf ablehnen und es in der Begründung sagen.</p></div>` : ""}
 
     <div class="block"><h3>Aufwand heute</h3>
       ${aufwand.herkunft === "unbekannt"
@@ -743,7 +780,9 @@ function zeichneZeile(e, position){
     <span class="titel" data-id="${esc(id)}">
       <b>${esc(e.titel)}</b>
       <span class="unten"><code>${esc(e.betroffene_teilprozess_ids.join(", "))}</code> ·
-        Score ${e.score}${gesetzt ? ` · <b>Vorschlag Rang ${e.potenzialrang}</b>` : ""}</span>
+        Score ${e.score}${gesetzt ? ` · <b>Vorschlag Rang ${e.potenzialrang}</b>` : ""}${
+        vorgaengerVon(id) ? ` · <span class="tag kette" data-vorgaenger="${esc(id)}">schreibt
+          ${geliefertHtml(vorgaengerVon(id))} fort</span>` : ""}</span>
     </span>
     <span class="wert" data-id="${esc(id)}">${spanneKurz(e.einsparung_eur_jahr)}</span>
     <span class="achsen" data-id="${esc(id)}">I <b>${e.impact}</b> ·
@@ -816,7 +855,7 @@ function zeichneBuehne(){
   if (!Z.ansicht.eintraege.length){
     ziel.innerHTML = `<div class="wrap"><p class="hinweis luecke">
       Dieser Lauf trägt <b>keine Potenziale</b>. Entweder hat die Erkennung nichts gefunden,
-      oder sie ist für dieses Paket noch nicht gelaufen.</p></div>`;
+      oder sie ist für dieses Paket noch nicht gelaufen.</p>${streichlisteHtml()}</div>`;
     return;
   }
 
@@ -882,6 +921,7 @@ function zeichneBuehne(){
       ${warnungen.join("")}
       ${kopfzeile}
       ${abweichung}
+      ${streichlisteHtml()}
       ${inhalt}
     </div>
     ${Z.gewaehlt ? `<div class="schublade">

@@ -43,9 +43,9 @@ class ZaehlendeQuelle:
     def uebersicht(self, company_id=None):
         return self._innen.uebersicht(company_id)
 
-    def ansicht(self, paket_id):
+    def ansicht(self, paket_id, kandidaten=()):
         self.gerechnet += 1
-        ansicht = self._innen.ansicht(paket_id)
+        ansicht = self._innen.ansicht(paket_id, kandidaten)
         if self.scheitert and ansicht is not None:
             # Ein Potenzial ohne Teilprozesse lässt die Projektion scheitern —
             # das Ergebnis darf dann **gar nicht** liegen, nicht halb.
@@ -407,7 +407,7 @@ def test_ein_lauf_mit_vorgaenger_kandidaten_bricht_ab(innen, ergebnisse):
     with pytest.raises(NachfolgerOffen) as fehler:
         quelle.ansicht("PAKET-B")
     assert {k["paket_id"] for k in fehler.value.kandidaten} == {"PAKET-A"}
-    assert "#295" in str(fehler.value)
+    assert "beurteilt keine Vorgaenger" in str(fehler.value)
     # Kein stilles []: der Lauf liegt als gescheitert da, ohne Ergebnis.
     b = ergebnisse.letzter("PAKET-B")
     assert b.beleg.zustand == "fehler"
