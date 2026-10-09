@@ -145,10 +145,14 @@ schnürt — und BC0 hat dazu keinen Anlass, weil sich an den Daten nichts geän
 1. **Bau** — Migration `bc2.2`, Postgres-Umsetzung von `Gate1Buch` samt Vertragstest hinter
    `BC2_ECHTE_DB=1`. `Gate1Buch` schlüsselt heute nur nach `paket_id` und ersetzt immer; beides
    ändert sich (Fassung im Schlüssel, Konflikt statt Überschreiben nach Abschluss).
-2. **`ersetzt_potenzial_ids`** — die `potenzial_id` bleibt über Fassungen nicht gleich, weil jede
-   Fassung neu schneidet; BC3 rechnet seine Epic- und Story-IDs daraus (#242, Punkt 3). Wer die
-   Verknüpfung setzt — Modell, Regel oder Mensch an Gate 1 — ist eine eigene Entscheidung mit
-   Vertragsänderung. Schema `bc2` hält die Spalte vor.
+2. **`ersetzt_potenzial_ids`**: Die `potenzial_id` bleibt nicht gleich, weil jede Rechnung neu schneidet. BC3 rechnet aber seine
+   Epic- und Story-IDs daraus (#242, Punkt 3). **Zwischen Fassungen eines Pakets trifft das BC3 nicht:**
+   Ein Reject liefert nichts aus, und nach `approved` gibt es keine neue Fassung (2.1). BC3 sieht je Paket
+   genau eine. Der Fall entsteht **über Pakete hinweg**, wenn nach einer Nacherhebung ein neues Paket zum
+   selben Kernprozess kommt, und dort verkettet heute nichts, auch `ersetzt_konzept_id` nicht. Wer
+   verknüpft und worauf, ist eine eigene Entscheidung mit Vertragsänderung
+   ([#291](https://github.com/pg-coe-kmu/coe-factory/issues/291)). Schema `bc2` hält die Spalte vor.
+   *(Berichtigt am 09.10.2026: Die erste Fassung verortete den Fall zwischen Fassungen.)*
 3. **BC0 muss `USAGE` auf `bc2` an `bc_leser` vergeben**, sonst ist die Sicht aus 2.6 unerreichbar.
    Ob BC0 zusätzlich ein Ereignis in `gate_ereignisse` braucht, bleibt BC0s Frage an #241.
 4. **ADR-007 · BC2 §4 Punkt 4** („ein abgelehnter Lauf hat heute keinen Ablageort") ist mit dem Bau
