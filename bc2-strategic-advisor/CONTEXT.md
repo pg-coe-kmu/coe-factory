@@ -60,7 +60,7 @@ _Avoid_: Menge, Vorgang, Transaktion, Item
 Die Menge freigegebener Teilprozesse, die BC0 nach Gate 0 zusammenschnürt und in einem Zug an BC2
 übergibt. Trägt eine ID und einen Übergabezeitpunkt; ein Nachzügler ist ein neues Paket, kein
 verändertes.
-_Avoid_: Batch, Lieferung, Charge
+_Avoid_: Batch, Lieferung (das ist die Richtung BC2 → BC3), Charge
 
 **Analyselauf**:
 Eine Bearbeitung genau eines Pakets durch BC2, von der Annahme des Anstoßes bis zum fertigen
@@ -274,5 +274,22 @@ _Avoid_: Report, Foliensatz, Ergebnisdokument
 
 **Gate 1**:
 Die Entscheidung des Menschen über die Priorisierung: freigeben, ablehnen oder die vorgeschlagene
-Reihenfolge überschreiben. Der Abschluss eines Analyselaufs und die Übergabe an BC3.
+Reihenfolge überschreiben. Der Abschluss eines Analyselaufs und, sofern der Lauf keinen Sperrgrund
+trägt, die Übergabe an BC3.
 _Avoid_: Freigabe, Approval
+
+**Lieferung**:
+Was BC2 nach der Freigabe am Gate 1 an BC3 übergibt, sofern der Lauf keinen Sperrgrund trägt: die
+Priorisierung eines Analyselaufs mit ihren Konzepten, als Ordner je Fassung. Übergeben ist sie mit
+der Freigabe; bei BC3 angekommen ist sie, sobald der Ordner im Repo liegt. Die Präsentation gehört nicht dazu — sie geht an den Mandanten.
+_Avoid_: Export, Übergabepaket, Paket
+
+**Sperrgrund**:
+Warum ein Analyselauf nicht geliefert werden kann, etwa weil er nicht nachrechenbar ist oder kein
+Potenzial geschnitten hat.
+_Avoid_: Warnung, Fehler
+
+**Hinweis**:
+Was der Entscheider über einen Analyselauf wissen soll, ohne dass es die Lieferung aufhält, etwa
+dass Schnitt und Bewertung Modellurteile sind oder die Daten ein Testdatenstand.
+_Avoid_: Warnung, Sperrgrund

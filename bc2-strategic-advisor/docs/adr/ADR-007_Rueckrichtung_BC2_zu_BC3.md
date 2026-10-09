@@ -67,6 +67,40 @@ BC3 sieht über `git pull` nie einen halb geschriebenen Ordner. Was der PR zusä
 das Netz gegen eine schema-ungültige Lieferung: eine kaputte Lieferung, die BC3 bereits gezogen
 hat, holt niemand zurück.
 
+> **Nachtrag vom 09.10.2026 ([#305](https://github.com/pg-coe-kmu/coe-factory/issues/305)): wer die
+> Lieferung schreibt und wann.** Der echte Weg legte einen gültigen Vertrag 3.1 in Schema `bc2` ab,
+> aber nichts davon kam im Lieferordner an — die Konzepte und die Priorisierung schrieb niemand, und
+> die Präsentation sperrte sich selbst, weil Sperrgrund und Hinweis in einem Feld lagen.
+>
+> 1. **Übergeben ist mit der Freigabe, nicht mit dem Download.** Das Glossar sagte es schon
+>    („Gate 1 … die Übergabe an BC3“). Hinge die Lieferung am Download der Präsentation, wäre ein
+>    freigegebener Lauf, den niemand herunterlädt, nie geliefert.
+> 2. **Die Datenbank ist der eine Ort, der Lieferordner ihre Abbildung.** Schema `bc2` trägt den
+>    vollständigen Vertrag (Lauf, Konzepte, Gate-1-Entscheidung). Ein Werkzeug
+>    (`tools/lieferung_ziehen.py`) liest alle freigegebenen, lieferbaren Läufe über den
+>    Betriebscontainer und schreibt die Ordner in den Arbeitsbaum; den PR öffnet ein Mensch, die CI
+>    prüft (#253). **Der Dienst schreibt keine Lieferdateien.** Verworfen: der Dienst schreibt in ein
+>    eingehängtes Verzeichnis (zwei Ablagen desselben Inhalts) und der Dienst öffnet den PR selbst
+>    (ein GitHub-Schlüssel auf dem Server, gegen ADR-003). Der Preis: angekommen ist erst, was
+>    gezogen wurde.
+> 3. **Keine Markierung „geliefert“.** Das Werkzeug erzeugt byte-gleich neu; `git status` zeigt nur
+>    das Neue. Käme ein vorhandener Ordner anders heraus, bricht es mit dem Unterschied ab, statt
+>    zu überschreiben — was übergeben ist, ändert sich nicht.
+> 4. **Im Ordner liegen** `prozesspriorisierung.json`, `konzept_<KP>.json` je Konzept und eine
+>    maschinell erzeugte `NACHRICHT_AN_BC3.md` (Paket, Fassung, Freigabe, Konzepte in finaler
+>    Reihenfolge, Vorgänger, Hinweise). **Die Präsentation gehört nicht dazu** — sie geht an den
+>    Mandanten, als Download und im Drive. Damit entfällt die Ablage aus
+>    [#257](https://github.com/pg-coe-kmu/coe-factory/issues/257) samt `BC2_LIEFERUNGEN`.
+> 5. **Sperrgrund und Hinweis sind zwei Dinge.** Ein **Sperrgrund** macht einen Lauf unlieferbar:
+>    nicht nachrechenbar (Messsatz, Simulation) oder kein Potenzial geschnitten (schemaungültig,
+>    `konzept_ids` braucht einen Eintrag). Ein **Hinweis** steht nur da: Modellurteil,
+>    Testdatenstand. Freigeben lässt sich ein Lauf mit Sperrgrund trotzdem — die Freigabe ist die
+>    Entscheidung des Menschen, der Sperrgrund ein Merkmal des Laufs; er bleibt dann „freigegeben,
+>    nicht lieferbar“. Die Hinweise reisen in der Nachricht und auf der Titelfolie, nicht im
+>    Vertrag (keine Änderung an 3.1).
+>
+> Bau: [Lieferung ziehen bauen](https://github.com/pg-coe-kmu/coe-factory/issues/306).
+
 ### 2.3 Ein Reject liefert nichts aus und löscht nichts
 
 Bei `gate1.status = rejected` geht **nichts** in den Lieferordner — dieser Ordner ist BC3s Eingang,
