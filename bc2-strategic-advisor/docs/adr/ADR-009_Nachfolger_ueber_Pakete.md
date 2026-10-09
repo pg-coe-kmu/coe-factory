@@ -174,7 +174,8 @@ Gate-1-Ansicht. Vier Punkte, die der Entwurf offen ließ oder anders sagte:
    Quelle sie nicht beurteilt (Messsatz) oder wenn er ohne Ausgangslage kommt, also als Vertrag 3.0,
    der für die Kette keine Felder hat. **Das zweite trifft heute den echten Weg:**
    `PaketLaufquelle` setzt noch keine Vertragskonzepte und keine Ausgangslage zusammen. Ein Paket
-   über schon gelieferte Teilprozesse läuft dort erst durch, wenn das gebaut ist.
+   über schon gelieferte Teilprozesse läuft dort erst durch, wenn das gebaut ist
+   ([#301](https://github.com/pg-coe-kmu/coe-factory/issues/301)).
 4. **„Unverändert“ wird nicht abgelegt.** Der Ausgang steht nicht im Vertrag (§2.3), und Schema
    `bc2` setzt ein Ergebnis nie aus etwas anderem als den Vertragsdokumenten zusammen
    (ADR-008 · BC2, 2.2). Die Gate-1-Ansicht zeigt darum Vorgänger und Streichliste, aber nicht, was

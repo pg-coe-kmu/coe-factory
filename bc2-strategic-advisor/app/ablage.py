@@ -499,7 +499,7 @@ class AblegendeLaufquelle:
                 paket_id,
                 list(kandidaten),
                 "Die Kette braucht Vertrag 3.1, und der Lauf traegt keine Ausgangslage "
-                "(der echte Weg setzt noch keine Vertragskonzepte zusammen).",
+                "(der echte Weg setzt noch keine Vertragskonzepte zusammen, #301).",
             )
         neue = {
             e["potenzial_id"]: {

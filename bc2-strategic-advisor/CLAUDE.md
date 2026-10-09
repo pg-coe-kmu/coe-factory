@@ -31,7 +31,8 @@ Seit [#295](https://github.com/pg-coe-kmu/coe-factory/issues/295) **verknüpft**
 Potenziale über die Teilprozesse des Pakets, die Erkennung ordnet sie zu (fortgeschrieben,
 gestrichen, unverändert), `app/nachfolge.py` prüft nach, und die Gate-1-Ansicht zeigt Vorgänger und
 Streichliste. **Der echte Weg trägt die Kette noch nicht:** ohne Vertragskonzepte und Ausgangslage
-kein Vertrag 3.1, und ein Lauf mit Kandidaten hält dann an, statt `[]` zu liefern.
+kein Vertrag 3.1, und ein Lauf mit Kandidaten hält dann an, statt `[]` zu liefern
+([#301](https://github.com/pg-coe-kmu/coe-factory/issues/301)).
 
 ⚠ **Die Oberfläche ist noch nicht betriebsfest**, und sie sagt das selbst an. Ihre Voreinstellung ist
 weiter der **Messsatz**: der echte Weg — angenommenes Paket → Erkennung → Bewertung → Rechenkern
