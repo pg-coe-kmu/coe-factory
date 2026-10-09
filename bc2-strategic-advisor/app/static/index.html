@@ -533,6 +533,46 @@ function detailHtml(id){
 
   const g = p.automatisierungsgrad;
 
+  // Die Texte des Ausarbeitungsschritts (#301). Sehen ja, ändern nein: sind sie
+  // falsch, wird der Lauf mit Begründung abgelehnt und neu gerechnet (Q8).
+  const lang = (titel, text) => `<details><summary><b>${titel}</b></summary>
+    <p style="white-space:pre-wrap;font-size:13px;line-height:1.55">${esc(text)}</p></details>`;
+  const liste = xs => `<ul>${xs.map(x => `<li>${x}</li>`).join("")}</ul>`;
+  const q = p.querschnitte || {};
+  const konzeptBlock = !p.beschreibung
+    ? `<div class="block"><h3>Konzept</h3><p class="hinweis luecke">Die Texte liegen nicht vor —
+         diese Quelle hat keinen Ausarbeitungsschritt (Messsatz).</p></div>`
+    : `<div class="block"><h3>Konzept</h3>
+        ${p.potenzielle_loesung?.to_be_kurz
+          ? `<p style="font-size:13px">${esc(p.potenzielle_loesung.to_be_kurz)}</p>` : ""}
+        <p style="font-size:13px"><i>${esc(p.user_story)}</i></p>
+        ${lang("Beschreibung", p.beschreibung)}
+        ${lang("Soll-Vision", p.to_be_vision)}
+        ${lang("Lösungsansatz", p.potenzielle_loesung.ansatz)}
+        <h3 style="margin-top:12px">Akzeptanzkriterien</h3>
+        ${liste(p.akzeptanzkriterien_geschaeftlich.map(k =>
+          `${esc(k.kriterium)}<br><span style="color:var(--muted)">Messung: ${esc(k.messverfahren)}</span>`))}
+        <h3>Fachliche Anforderungen</h3>${liste(p.fachliche_anforderungen.map(esc))}
+        <dl style="margin-top:10px">
+          <dt>Teilprozesse</dt><dd>${esc(p.betroffene_prozessschritte.join(", "))}</dd>
+          <dt>Systeme</dt><dd>${p.betroffene_systeme.map(s =>
+            `${esc(s.name)} <span style="color:var(--muted)">(${esc(s.rolle)}, ${esc(s.integration)})</span>`)
+            .join(", ")}</dd>
+          <dt>Tech-Stack</dt><dd>${esc(p.potenzielle_loesung.tech_stack_empfehlung.join(", "))}</dd>
+          <dt>Zukunftssicherheit</dt><dd>${esc(q.zukunftssicherheit || "")}</dd>
+          ${q.reifegrad ? `<dt>Reifegrad</dt><dd>${esc(q.reifegrad)}</dd>` : ""}
+        </dl>
+        ${p.voraussetzungen?.length
+          ? `<h3>Voraussetzungen</h3>${liste(p.voraussetzungen.map(esc))}` : ""}
+        ${p.risiken?.length ? `<h3>Risiken</h3>${liste(p.risiken.map(r =>
+          `${esc(r.beschreibung)} <span class="tag">${esc(r.wahrscheinlichkeit)} / ${esc(r.auswirkung)}</span>`
+          + (r.gegenmassnahme ? `<br><span style="color:var(--muted)">${esc(r.gegenmassnahme)}</span>` : "")))}` : ""}
+        ${q.abhaengigkeiten?.length
+          ? `<h3>Abhängigkeiten</h3>${liste(q.abhaengigkeiten.map(esc))}` : ""}
+        <p class="hinweis info" style="margin-top:9px">Diese Texte schreibt das Modell
+          <b>nach</b> der Rechnung; sie bewegen keinen Rang. Sind sie falsch, den Lauf ablehnen
+          und es in der Begründung sagen.</p></div>`;
+
   return `
     <h2>${esc(p.titel)}</h2>
     <div class="tp"><code>${esc(p.potenzial_id)}</code><br>
@@ -547,6 +587,8 @@ function detailHtml(id){
       <p class="hinweis info">Die Zuordnung hat das Modell getroffen und Python nachgeprüft
         (gleiche Lösungsklasse, ein Nachfolger je Vorgänger). Ist es nicht dasselbe Vorhaben,
         den Lauf ablehnen und es in der Begründung sagen.</p></div>` : ""}
+
+    ${konzeptBlock}
 
     <div class="block"><h3>Aufwand heute</h3>
       ${aufwand.herkunft === "unbekannt"

@@ -90,7 +90,7 @@ def _bestand() -> Paketbestand:
                     ),
                     Teilprozess(
                         "KP-06.TP-2", "KP-06", "Zeiterfassung abrechnen", schritt_nr=2,
-                        ablauf="Stunden aus dem Tool in die Rechnung tippen.", bitkom=bitkom,
+                        ablauf="Stunden aus dem Projekttool in die Rechnung tippen.", bitkom=bitkom,
                         bc1_profil=_profil("KP-06.TP-2"),
                     ),
                 ),
@@ -165,6 +165,64 @@ def _gut() -> dict:
                 komplexitaet_begruendung="Fuer die Einsatzplanung liegen keine Skalen vor.",
             ),
         ]
+    }
+
+
+def _ausgearbeitet(*nummern: str, abhaengig: dict[str, str] | None = None) -> dict:
+    """Eine Antwort des Ausarbeitungsschritts (#301), die den Wächter passiert.
+
+    Ein Konzept, je Nummer ein Potenzial. ``abhaengig`` legt
+    ``{nummer: ziel}``-Abhängigkeiten an.
+    """
+    abhaengig = abhaengig or {}
+    lang = (
+        "Die Loesung liest die erfassten Zeiten aus dem Projekttool und uebertraegt sie "
+        "ohne Abtippen in die Rechnung. Betroffen ist der Teilprozess der Abrechnung; "
+        "Daten fliessen vom Projekttool in die Buchhaltung. Beteiligt sind Projektleitung "
+        "und Buchhaltung. Vorbedingung ist eine einheitliche Projektnummer. Sonderfaelle "
+        "wie Nachtraege und Stornos gehen an einen Menschen."
+    )
+    return {
+        "kontext": {
+            "prozess_kurzbeschreibung": "Projekte durchfuehren und die Leistung abrechnen.",
+            "hauptschmerzpunkte": [
+                {"beschreibung": "Doppelerfassung", "auswirkung": "Fehler in der Rechnung",
+                 "haeufigkeit": "woechentlich"},
+            ],
+        },
+        "potenziale": [
+            {
+                "id": nr,
+                "beschreibung": lang,
+                "to_be_vision": lang,
+                "to_be_kurz": "Zeiten wandern von selbst in die Rechnung.",
+                "user_story": "Als Projektleitung moechte ich, dass Zeiten von selbst "
+                              "abgerechnet werden, damit keine Doppelerfassung entsteht.",
+                "akzeptanzkriterien": [
+                    {"kriterium": "Gegeben eine erfasste Zeit, wenn der Monat endet, dann "
+                                  "werden mindestens {grad_min} % ohne Nacharbeit abgerechnet.",
+                     "messverfahren": "Stichprobe von Rechnungen"},
+                ],
+                "fachliche_anforderungen": ["Jede Zeit gehoert zu genau einem Projekt."],
+                "betroffene_systeme": [
+                    {"name": "Projekttool", "rolle": "Quelle", "integration": "API"},
+                ],
+                "loesungsansatz": "Anbindung des Projekttools an die Buchhaltung ueber die API.",
+                "tech_stack_empfehlung": ["n8n"],
+                "voraussetzungen": ["Einheitliche Projektnummern"],
+                "risiken": [
+                    {"beschreibung": "Schnittstelle aendert sich", "wahrscheinlichkeit": "low",
+                     "auswirkung": "med", "gegenmassnahme": "Vertragstest"},
+                ],
+                "zukunftssicherheit": "Traegt auch bei mehr Projekten.",
+                "abhaengigkeiten": (
+                    [{"potenzial": abhaengig[nr], "grund": "Braucht die Projektnummer."}]
+                    if nr in abhaengig else []
+                ),
+            }
+            for nr in nummern
+        ],
+        "gesamtempfehlung_begruendung": "Erst der Quick Win, dann der Rest.",
     }
 
 
@@ -504,10 +562,10 @@ def test_ohne_angabe_urteilt_der_lauf_dreimal():
 
 def test_die_laufquelle_urteilt_ohne_angabe_wie_der_bewertungsschritt():
     eintrag = Paketeintrag("PKT-299", NOROAI, STAND, ("KP-06.TP-1", "KP-06.TP-2"))
-    modell = Doppelgaenger([_erkannt(), _gut(), _gut(), _gut()])
+    modell = Doppelgaenger([_erkannt(), _gut(), _gut(), _gut(), _ausgearbeitet("P1", "P2")])
     quelle = PaketLaufquelle(SpeicherPaketverzeichnis([eintrag]), _Quelle(), modell)
     quelle.ansicht("PKT-299")
-    assert len(modell.fragen) == 4  # Erkennung und drei Urteile
+    assert len(modell.fragen) == 5  # Erkennung, drei Urteile, ein Konzept
 
 
 def test_eine_gerade_zahl_von_urteilen_wird_nicht_gestellt():
@@ -541,7 +599,7 @@ def _laufquelle(antworten):
 
 
 def test_die_liste_rechnet_nicht():
-    """Ein Lauf kostet zwei Modellaufrufe; die Liste soll sie nicht bezahlen."""
+    """Ein Lauf kostet mehrere Modellaufrufe; die Liste soll sie nicht bezahlen."""
     laeufe, quelle, modell = _laufquelle([])
 
     koepfe = laeufe.uebersicht()
@@ -556,12 +614,15 @@ def test_jedes_oeffnen_rechnet_neu():
     """Zustandslos, mit Absicht: ``neu_rechnen`` nach einem Reject braucht einen
     **neuen** Schnitt von der inneren Quelle. Einmal rechnen und dann zeigen ist
     die Aufgabe der ``AblegendeLaufquelle`` (#290)."""
-    laeufe, quelle, modell = _laufquelle([_erkannt(), _gut(), _erkannt(), _gut()])
+    laeufe, quelle, modell = _laufquelle(
+        [_erkannt(), _gut(), _ausgearbeitet("P1", "P2"),
+         _erkannt(), _gut(), _ausgearbeitet("P1", "P2")]
+    )
 
     erste = laeufe.ansicht("PKT-288")
     zweite = laeufe.ansicht("PKT-288")
 
-    assert len(modell.fragen) == 4 and len(quelle.gelesen) == 2
+    assert len(modell.fragen) == 6 and len(quelle.gelesen) == 2
     assert quelle.gelesen[0] == (NOROAI, "PKT-288", STAND, ("KP-06.TP-1", "KP-06.TP-2"))
     # Neu geschnitten heißt neue Kennungen (ADR-008 · BC2, 4.2).
     assert set(erste.potenziale).isdisjoint(zweite.potenziale)
@@ -573,13 +634,13 @@ def test_jedes_oeffnen_rechnet_neu():
 def test_die_ablage_rechnet_einmal_und_zeigt_dann_das_abgelegte():
     from ablage import AblegendeLaufquelle, SpeicherErgebnisbuch
 
-    innen, _, modell = _laufquelle([_erkannt(), _gut()])
+    innen, _, modell = _laufquelle([_erkannt(), _gut(), _ausgearbeitet("P1", "P2")])
     laeufe = AblegendeLaufquelle(innen, SpeicherErgebnisbuch())
 
     erste = laeufe.ansicht("PKT-288")
     zweite = laeufe.ansicht("PKT-288")
 
-    assert len(modell.fragen) == 2
+    assert len(modell.fragen) == 3
     assert erste.potenzial_ids() == zweite.potenzial_ids()
     assert laeufe.uebersicht()[0].anzahl_potenziale == 2
 
@@ -595,7 +656,9 @@ def test_ein_angehaltener_lauf_wird_geworfen_nicht_als_leerer_lauf_abgelegt():
 
     schlecht = _gut()
     schlecht["bewertungen"][0]["angesetzt_min_pct"] = 5
-    innen, _, modell = _laufquelle([_erkannt(), schlecht, schlecht, _erkannt(), _gut()])
+    innen, _, modell = _laufquelle(
+        [_erkannt(), schlecht, schlecht, _erkannt(), _gut(), _ausgearbeitet("P1", "P2")]
+    )
     buch = SpeicherErgebnisbuch()
     laeufe = AblegendeLaufquelle(innen, buch)
 
@@ -605,7 +668,7 @@ def test_ein_angehaltener_lauf_wird_geworfen_nicht_als_leerer_lauf_abgelegt():
     assert gescheitert.beleg.zustand == "fehler" and gescheitert.dokument is None
 
     nochmal = laeufe.ansicht("PKT-288")
-    assert len(nochmal.eintraege) == 2 and len(modell.fragen) == 5
+    assert len(nochmal.eintraege) == 2 and len(modell.fragen) == 6
     assert buch.letzter("PKT-288").beleg.fassung == 1
 
 
@@ -632,7 +695,7 @@ def test_der_lauf_kommt_ueber_die_oberflaeche_in_vertragsform(buch, gate1_buch, 
     """Die Naht zur Oberfläche, über HTTP — nicht über die Funktion."""
     from app import erzeuge_app
 
-    laeufe, _, _ = _laufquelle([_erkannt(), _gut()])
+    laeufe, _, _ = _laufquelle([_erkannt(), _gut(), _ausgearbeitet("P1", "P2")])
     client = TestClient(erzeuge_app(buch, laufquelle=laeufe, gate1_buch=gate1_buch))
 
     antwort = client.get("/api/oberflaeche/laeufe/PKT-288", headers=kopf)

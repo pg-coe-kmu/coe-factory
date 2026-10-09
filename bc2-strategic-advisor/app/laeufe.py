@@ -21,7 +21,8 @@ nicht gesehen hat.
 - ``SpeicherLaufquelle`` nimmt fertige Ansichten entgegen; die Tests benutzen
   sie.
 - ``PaketLaufquelle`` ist der **echte Weg** (#288): Paket lesen auf
-  ``stand_zum(uebergeben_am)`` → Erkennung → Bewertung → ``rechne_lauf()``.
+  ``stand_zum(uebergeben_am)`` → Erkennung → Bewertung → ``rechne_lauf()`` →
+  Ausarbeitung (#301).
   Sie rechnet bei jedem Aufruf; abgelegt wird von der ``AblegendeLaufquelle``
   darum herum (``ablage.py``, #290).
 
@@ -121,11 +122,10 @@ class Laufansicht:
     die gerechneten Felder des Konzepts (Value-Spannen, Nutzwert-Kategorien,
     Automatisierungsgrad, Hinweise) — das ist der Inhalt der Detail-Schublade.
 
-    Was hier **fehlt**, fehlt ehrlich: ``beschreibung``, ``to_be_vision``,
-    ``user_story``, die Akzeptanzkriterien und der Name des Kernprozesses
-    entstehen beim LLM (#194/#248) bzw. stehen in ``public.ref_kernprozesse``.
-    Die Oberfläche zeigt an dieser Stelle die Kennung und sagt an, dass der Text
-    noch nicht da ist, statt einen Platzhalter zu erfinden.
+    Die **Texte** (``beschreibung``, ``to_be_vision``, ``user_story``, die
+    Akzeptanzkriterien …) schreibt der Ausarbeitungsschritt (#301); trägt die
+    Quelle sie, stehen sie hier mit. Eine Quelle ohne ihn (Messsatz) lässt sie
+    weg, statt einen Platzhalter zu erfinden.
     """
 
     kopf: Laufkopf
@@ -139,8 +139,8 @@ class Laufansicht:
     #: Ein Messsatz trägt sie nicht — er kennt weder Mandantensatz noch
     #: Schmerzpunkte —, und dann fehlt sie, statt erfunden zu werden.
     ausgangslage: dict | None = None
-    #: Die Konzepte in Vertragsform, sobald die Quelle sie trägt (Erkennung,
-    #: Lieferordner). Ohne sie baut :meth:`als_vertrag` Konzepte aus den
+    #: Die Konzepte in Vertragsform, sobald die Quelle sie trägt
+    #: (Ausarbeitungsschritt, #301; Lieferordner). Ohne sie baut :meth:`als_vertrag` Konzepte aus den
     #: gerechneten Hälften der Potenziale.
     konzepte: list[dict] | None = None
     #: Wie der Lauf mit seinen Vorgänger-Kandidaten verfahren ist (#295).
@@ -171,8 +171,8 @@ class Laufansicht:
         der Potenziale (``modell/ausgabe.py``) — ohne Beschreibung, Vision und
         Lösungsansatz, die das LLM schreibt. Sie sind damit **nicht
         schemagültig** und gehen nirgends hin als in die Präsentation, die das
-        Fehlen ansagt. An BC3 geht nur, was der Erkennungsschritt vollständig
-        liefert.
+        Fehlen ansagt. An BC3 geht nur, was der Ausarbeitungsschritt
+        vollständig liefert (#301).
         """
         konzept_ids = {r["kp_id"]: r["konzept_id"] for r in self.prozess_raenge}
         if self.konzepte is not None:
@@ -498,7 +498,8 @@ class PaketLaufquelle:
     darauf, dass die innere Quelle einen **neuen** Schnitt liefert. Ein
     Zwischenspeicher hier gäbe dort den alten zurück.
 
-    **Die Liste rechnet nicht.** Ein Lauf kostet einen Erkennungs- und drei Bewertungsaufrufe (#299); die
+    **Die Liste rechnet nicht.** Ein Lauf kostet einen Erkennungs- und drei
+    Bewertungsaufrufe (#299) und je Konzept einen Ausarbeitungsaufruf (#301); die
     Übersicht zeigt ein ungerechnetes Paket darum mit ``0`` Potenzialen und sagt
     das an, statt eine Zahl zu erfinden.
     """
@@ -510,6 +511,8 @@ class PaketLaufquelle:
         modell,  # erkennung.Modellruf
         parameter: Parameter = STANDARD,
         urteile: int | None = None,
+        ausarbeiten: bool = True,
+        gleichzeitig: int | None = None,
     ) -> None:
         self._verzeichnis = verzeichnis
         self._bestand = bestand
@@ -517,6 +520,11 @@ class PaketLaufquelle:
         self._parameter = parameter
         #: ``None`` ⇒ die Voreinstellung des Bewertungsschritts (#299).
         self._urteile = urteile
+        #: ``False`` nur für Tests, die den Rechenweg ohne Texte prüfen: ohne
+        #: Ausarbeitung ist ein Lauf nicht lieferbar (#301).
+        self._ausarbeiten = ausarbeiten
+        #: Wie viele Konzepte zugleich ausgearbeitet werden; ``None`` ⇒ alle.
+        self._gleichzeitig = gleichzeitig
 
     def uebersicht(self, company_id: str | None = None) -> list[Laufkopf]:
         koepfe = [
@@ -616,8 +624,40 @@ class PaketLaufquelle:
             warnung=" ".join([*hinweise, MODELLURTEIL]),
             kp_namen=kp_namen,
         )
-        return replace(
+        ansicht = replace(
             ansicht,
             kopf=replace(ansicht.kopf, teilprozess_ids=e.teilprozess_ids),
             nachfolge=nachfolge,
+        )
+        if not self._ausarbeiten:
+            return ansicht
+
+        # Nach der Rechnung, nie davor (ADR-010 · BC2): die Texte kennen den
+        # Rang, bewegen ihn aber nicht.
+        from ausarbeitung import AusarbeitungAbgebrochen, arbeite_aus
+
+        try:
+            ausarbeitung = arbeite_aus(
+                lauf,
+                ansicht.potenziale,
+                erkennung,
+                bewertung.kennungen,
+                bestand,
+                self._modell,
+                gleichzeitig=self._gleichzeitig,
+            )
+        except AusarbeitungAbgebrochen as fehler:
+            raise LaufAngehalten(
+                f"Lauf {e.paket_id} angehalten — das Modell brach seine Zusage auch in "
+                f"der Wiederholung: {fehler}"
+            ) from fehler
+        return replace(
+            ansicht,
+            konzepte=list(ausarbeitung.konzepte),
+            ausgangslage=ausarbeitung.ausgangslage,
+            # Die Detail-Schublade zeigt die Texte mit (#301, Q8): sehen ja,
+            # ändern nein.
+            potenziale={
+                p["potenzial_id"]: p for k in ausarbeitung.konzepte for p in k["potenziale"]
+            },
         )

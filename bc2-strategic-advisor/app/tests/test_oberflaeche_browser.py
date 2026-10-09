@@ -293,6 +293,8 @@ def test_die_schublade_zeigt_das_detail(seite):
     text = seite.locator(".schublade").inner_text()
     for ueberschrift in ("Aufwand heute", "Automatisierungsgrad", "Nutzwert", "Die beiden Achsen"):
         assert ueberschrift in text
+    # Ein Messsatz hat keinen Ausarbeitungsschritt — die Lücke wird angesagt (#301).
+    assert "Die Texte liegen nicht vor" in text
 
 
 def test_der_ganze_weg_bis_zur_freigabe(seite):
@@ -383,12 +385,10 @@ def seite_mit_kette():
     from app import erzeuge_app
     from eingang import SpeicherEingangsbuch
     from laeufe import Paketeintrag
-    from test_verknuepfung import (
-        NOROAI, STAND, TP1, TP2, _b_bewertet, _b_erkannt, _erkannt, _freigeben, _gut, _strecke,
-    )
+    from test_verknuepfung import NOROAI, STAND, TP1, TP2, _freigeben, _kette, _strecke
 
     laeufe, _, gate1, _ = _strecke(
-        _erkannt(), _gut(), _b_erkannt, _b_bewertet(),
+        *_kette(),
         pakete=[Paketeintrag("PKT-A", NOROAI, STAND, (TP1, TP2)),
                 Paketeintrag("PKT-B", NOROAI, STAND + timedelta(days=1), (TP2,))],
     )
@@ -413,4 +413,9 @@ def test_vorgaenger_und_streichliste_stehen_am_gate_1(seite_mit_kette):
 
     seite.locator(".dzeile .titel").first.click()
     seite.wait_for_selector(".schublade")
-    assert "Fortgeschrieben" in seite.locator(".schublade").inner_text()
+    text = seite.locator(".schublade").inner_text()
+    assert "Fortgeschrieben" in text
+    # Der echte Weg trägt die Texte des Ausarbeitungsschritts (#301) — sichtbar,
+    # mit eingesetztem Automatisierungsgrad statt Platzhalter.
+    assert "Als Projektleitung moechte ich" in text and "Akzeptanzkriterien" in text
+    assert "{grad_min}" not in text and "ohne Nacharbeit abgerechnet" in text
