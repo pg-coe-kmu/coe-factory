@@ -153,6 +153,9 @@ schnürt — und BC0 hat dazu keinen Anlass, weil sich an den Daten nichts geän
    verknüpft und worauf, ist eine eigene Entscheidung mit Vertragsänderung
    ([#291](https://github.com/pg-coe-kmu/coe-factory/issues/291)). Schema `bc2` hält die Spalte vor.
    *(Berichtigt am 09.10.2026: Die erste Fassung verortete den Fall zwischen Fassungen.)*
+   ✅ **Entschieden in ADR-009 · BC2** (#291): Anker ist der Teilprozess, nur 1:1, Streichliste in
+   der Priorisierung, `ersetzt_konzept_id` bleibt auf ein Paket beschränkt — §2.1 hier gilt
+   unverändert.
 3. **BC0 muss `USAGE` auf `bc2` an `bc_leser` vergeben**, sonst ist die Sicht aus 2.6 unerreichbar.
    Ob BC0 zusätzlich ein Ereignis in `gate_ereignisse` braucht, bleibt BC0s Frage an #241.
 4. **ADR-007 · BC2 §4 Punkt 4** („ein abgelehnter Lauf hat heute keinen Ablageort") ist mit dem Bau
