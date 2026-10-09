@@ -46,9 +46,11 @@ Das ist **kein Versehen, sondern der Zuschnitt von #248**: dort steht, was das
 Modell liefert, und der Nutzwert steht nicht darin. Die drei offenen
 Urteilsstellen brauchen einen eigenen Schritt — er sieht das *geschnittene*
 Potenzial, das dieser Schritt erst erzeugt, und kann deshalb gar nicht vorher
-laufen. Dazu gehört eine Frage, die niemand entschieden hat: ein Potenzial
-berührt mehrere Teilprozesse, BC1 misst aber **je Fokus-Schritt** — wie aus *n*
-gemessenen Größen die eine des Potenzials wird, sagt ADR-006 nicht.
+laufen. Entschieden in #260 (ADR-006 · BC2, Nachtrag 4–6 und §6): ein
+eigener **Bewertungsschritt**, ein Aufruf je Lauf, die Klasse bleibt die von
+hier. Wie aus *n* Messungen je Fokus-Schritt die eine des Potenzials wird,
+steht dort auch — Jahresstunden summiert, Komplexität das Maximum. Gebaut wird
+er in #288.
 """
 
 from __future__ import annotations

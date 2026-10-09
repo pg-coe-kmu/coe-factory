@@ -32,6 +32,12 @@ Ein Abschnitt eines Kernprozesses und die kleinste Einheit, für die BC0 erhebt 
 entscheidet. Trägt eine ID der Form `KP-XX.TP-Y`.
 _Avoid_: Prozessschritt, Subprozess
 
+**Fokus-Schritt**:
+BC1s Wort für den Teilprozess, zu dem es ein Profil erhebt — dieselbe ID, eine andere Perspektive.
+Was BC1 je Schritt misst (Dauer, Häufigkeit, Reifeskalen), gehört zu genau einem Teilprozess; ein
+Potenzial über mehrere Teilprozesse hat darum mehrere Fokus-Schritte.
+_Avoid_: Schritt (unqualifiziert), Prozessschritt
+
 **Prozessdurchlauf**:
 Eine Ausführung eines Kernprozesses beim Mandanten, von seinem Auslöser bis zu seinem Ergebnis.
 Die Bezugsgröße aller Zeit- und Mengenangaben von BC1: `frequency_per_year` zählt Prozessdurchläufe
@@ -116,9 +122,17 @@ _Avoid_: übersprungen, ignoriert, leer, unbewertet
 
 ### Wie BC2 bewertet
 
+**Bewertungsschritt**:
+Der Abschnitt eines Analyselaufs, in dem das LLM die **geschnittenen** Potenziale beurteilt — Lage im
+Korridor, Nutzwert, begründetes Überschreiben der Umsetzungskomplexität. Folgt dem
+**Erkennungsschritt**, der die Potenziale schneidet und ihre Lösungsklasse setzt, und ändert an
+diesem Schnitt nichts.
+_Avoid_: Bewertung (unqualifiziert — so heißen BC0s Bitkom-Einstufungen), Scoring, Rating
+
 **Manueller Aufwand heute**:
 Wie viel Handarbeit der heutige Ablauf je Jahr kostet. Eine **gemessene** Größe aus **Dauer und
-Häufigkeit** — kein Urteil. Die **Fallzahl geht nicht als Faktor ein**: die Dauer eines
+Häufigkeit** — kein Urteil. Bei einem Potenzial ist es die Handarbeit **der Fokus-Schritte, die es
+berührt**, nicht die des ganzen Kernprozesses. Die **Fallzahl geht nicht als Faktor ein**: die Dauer eines
 Prozessdurchlaufs deckt seine Fälle schon ab. *(Präzisiert am 10.09.2026, #184. Die
 Vorgängerfassung nannte „Dauer, Häufigkeit und Menge" und legte damit ein Produkt aus dreien nahe —
 gerechnet ergäbe das für die Reisebuchung das Dreifache der Gesamtkapazität des Mandanten.)*

@@ -20,8 +20,10 @@ zeigt einen Lauf und nimmt die Freigabe entgegen ([#243](https://github.com/pg-c
 Offen sind Präsentation ([#244](https://github.com/pg-coe-kmu/coe-factory/issues/244)), der
 **Tabellenentwurf für Schema `bc2`** ([#250](https://github.com/pg-coe-kmu/coe-factory/issues/250)) und —
 neu aufgefallen beim Bau von #248 — die **drei übrigen Urteilsstellen des LLM** (Lage im Korridor, die
-fünf Nutzwert-Kategorien, das begründete Überschreiben der Komplexität;
-[#260](https://github.com/pg-coe-kmu/coe-factory/issues/260)). Ohne sie ist ein `modell.Potenzialeingang`
+fünf Nutzwert-Kategorien, das begründete Überschreiben der Komplexität). Ihr Schnitt ist entschieden
+([#260](https://github.com/pg-coe-kmu/coe-factory/issues/260), ADR-006 · BC2 Nachtrag 4–6 und §6: ein
+eigener **Bewertungsschritt**, ein Aufruf je Lauf), gebaut wird er in
+[#288](https://github.com/pg-coe-kmu/coe-factory/issues/288). Bis dahin ist ein `modell.Potenzialeingang`
 nicht vollständig; siehe `app/erkennung/erkennen.py`.
 
 ⚠ **Die Oberfläche ist noch nicht betriebsfest**, und sie sagt das selbst an: ihre Läufe kommen aus
