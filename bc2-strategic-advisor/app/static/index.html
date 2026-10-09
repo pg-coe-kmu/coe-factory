@@ -276,6 +276,7 @@ const Z = {
   sicht: "liste",         // liste | matrix
   offen: new Set(),       // aufgeklappte Kernprozesse
   fluechtig: true,
+  neulauf: false,         // kann der Dienst nach einem Reject neu rechnen? (#290)
   geaendert: false,       // seit dem letzten Speichern angefasst?
   meldung: null,
 };
@@ -826,8 +827,8 @@ function zeichneBuehne(){
       ${esc(Z.ansicht.kopf.warnung)}</p>`);
   if (Z.fluechtig)
     warnungen.push(`<p class="hinweis luecke"><b>Die Entscheidung überlebt keinen Neustart.</b>
-      Sie liegt im Arbeitsspeicher des Dienstes — ein Ort in Schema <code>bc2</code> ist noch
-      nicht entworfen.</p>`);
+      Sie liegt im Arbeitsspeicher des Dienstes — er läuft ohne Datenbank. Mit Datenbank liegt
+      sie in Schema <code>bc2</code> (#290).</p>`);
   // Einmal für den ganzen Lauf, nicht je Kernprozess: derselbe Satz viermal
   // untereinander ist Lärm und verdeckt die Hinweise, die wirklich an diesem
   // einen Prozess hängen.
@@ -892,6 +893,26 @@ function zeichneBuehne(){
 function fussleiste(offen){
   const frei = Z.freigegeben.size;
   const gesamt = Z.ansicht.eintraege.length;
+  const status = Z.gate1?.status || "pending";
+
+  // Nach Abschluss ist Gate 1 endgültig (ADR-008 · BC2, 2.3) — die Knöpfe
+  // anzubieten hiesse, eine Entscheidung zu versprechen, die der Server mit
+  // 409 abweist. Nach einem Reject geht es nur über eine neue Fassung weiter.
+  if (status === "approved" || status === "rejected"){
+    const wann = Z.gate1.entschieden_am
+      ? new Date(Z.gate1.entschieden_am).toLocaleString("de-DE") : "";
+    return `<div class="fussleiste">
+      <b>Gate 1 ${status === "approved" ? "freigegeben" : "abgelehnt"}</b>
+      <span style="color:var(--muted)">Fassung ${Z.ansicht.kopf.fassung}${
+        Z.gate1.entscheider ? ` · ${esc(Z.gate1.entscheider)}` : ""}${wann ? ` · ${wann}` : ""}
+        · endgültig</span>
+      <span style="margin-left:auto"></span>
+      ${status === "rejected" && Z.neulauf
+        ? `<button class="btn" data-neu="1">neu rechnen (Fassung ${Z.ansicht.kopf.fassung + 1})</button>`
+        : ""}
+    </div>`;
+  }
+
   const fehltAbweichung = wurdeUmsortiert() && Z.abweichungsgrund.trim().length < 5;
 
   return `<div class="fussleiste">
@@ -1016,6 +1037,9 @@ function alsEntscheidung(status){
   const folge = geltendeFolge().map(p => p.potenzial_id);
   const rumpf = {
     status,
+    // Über welche Fassung entschieden wird — liegt inzwischen eine andere,
+    // antwortet der Server mit 409 statt über die falsche zu entscheiden.
+    fassung: Z.ansicht.kopf.fassung,
     entscheider: Z.entscheider,
     approved_potenzial_ids: [...Z.freigegeben],
     nicht_freigegeben: Z.ansicht.eintraege
@@ -1062,6 +1086,15 @@ async function entscheiden(status){
       + `</ul>`};
     return zeichne();
   }
+  if (antwort.status === 409){
+    // Ein anderer war schneller, oder die Seite zeigt eine alte Fassung. Den
+    // geltenden Stand laden, statt ihn zu überschreiben.
+    const grund = antwort.rumpf.fehler || "Gate 1 ist bereits entschieden.";
+    await ladeLauf(Z.paket_id);
+    Z.meldung = {art: "warn", text: `<b>Nicht gespeichert.</b> ${esc(grund)}
+      Angezeigt ist jetzt der geltende Stand.`};
+    return zeichne();
+  }
   if (!antwort.ok){
     Z.meldung = {art: "warn",
       text: `Speichern fehlgeschlagen (${antwort.status}). Die Entscheidung ist <b>nicht</b> abgelegt.`};
@@ -1077,6 +1110,23 @@ async function entscheiden(status){
        Lauf erzeugt Fassung ${Z.ansicht.kopf.fassung + 1}, diese bleibt abrufbar.`};
   await ladeListe();
   document.getElementById("laufwahl").value = Z.paket_id;
+  zeichne();
+}
+
+/** Die nächste Fassung nach einem Reject (ADR-008 · BC2, 2.1). */
+async function neuRechnen(){
+  const antwort = await ruf(
+    `/api/oberflaeche/laeufe/${encodeURIComponent(Z.paket_id)}/neu`, {method: "POST"});
+  if (!antwort.ok){
+    Z.meldung = {art: "warn", text: `Keine neue Fassung (${antwort.status}).
+      ${esc(antwort.rumpf?.fehler || "")}`};
+    return zeichne();
+  }
+  await ladeListe();
+  document.getElementById("laufwahl").value = Z.paket_id;
+  await ladeLauf(Z.paket_id);
+  Z.meldung = {art: "info", text: `<b>Fassung ${Z.ansicht.kopf.fassung} gerechnet.</b>
+    Die abgelehnte bleibt abgelegt; Gate 1 steht für die neue wieder offen.`};
   zeichne();
 }
 
@@ -1126,6 +1176,7 @@ document.addEventListener("click", async e => {
 
   const tat = t.closest("[data-tat]");
   if (tat) return entscheiden(tat.dataset.tat);
+  if (t.closest("[data-neu]")) return neuRechnen();
 
   // Zuletzt, damit Knöpfe INNERHALB einer Zeile zuerst greifen.
   const ziel = t.closest("[data-id]");
@@ -1274,6 +1325,7 @@ async function starten(){
     return zeichne();
   }
   Z.fluechtig = !!zustand.rumpf.fluechtig;
+  Z.neulauf = !!zustand.rumpf.neulauf;
 
   if (!await ladeListe()) return;
   await ladeLauf(document.getElementById("laufwahl").value);

@@ -113,7 +113,7 @@ def test_zustand_sagt_die_ablage_an(client, kopf):
     zustand = client.get("/api/oberflaeche/zustand", headers=kopf).json()
     assert zustand["ablage"] == "arbeitsspeicher"
     assert zustand["fluechtig"] is True
-    assert "bc2" in zustand["hinweis"]
+    assert "Neustart" in zustand["hinweis"]
 
 
 def test_liste_filtert_nach_company_id(client, kopf):
@@ -435,21 +435,39 @@ def test_entscheidung_kommt_beim_naechsten_laden_zurueck(client, kopf):
     assert next(z for z in liste if z["paket_id"] == paket_id)["gate1_status"] == "approved"
 
 
-def test_eine_zweite_entscheidung_ersetzt_die_erste(client, kopf):
-    """Gate 1 ist **ein** Zustand je Lauf.
-
-    Die Geschichte des Pendelns trägt nach ADR-007 · BC2 die *Fassung*, nicht
-    eine Kette von Entscheidungen am selben Lauf.
-    """
+def test_ein_entwurf_wird_ersetzt(client, kopf):
+    """Solange Gate 1 ``pending`` ist, ersetzt eine neue Angabe die alte."""
     lauf = ein_lauf(client, kopf)
     paket_id = lauf["kopf"]["paket_id"]
 
-    sende(client, kopf, paket_id, alle_freigeben(lauf))
-    sende(client, kopf, paket_id, {"status": "rejected", "kommentar": "Doch nicht."})
+    assert sende(client, kopf, paket_id, alle_freigeben(lauf, status="pending")).status_code == 200
+    assert sende(
+        client, kopf, paket_id, {"status": "rejected", "kommentar": "Doch nicht."}
+    ).status_code == 200
 
     erneut = client.get(f"/api/oberflaeche/laeufe/{paket_id}", headers=kopf).json()
     assert erneut["gate1"]["status"] == "rejected"
     assert "approved_potenzial_ids" not in erneut["gate1"]
+
+
+def test_nach_abschluss_ist_gate1_endgueltig(client, kopf):
+    """``approved`` und ``rejected`` sind endgültig (ADR-008 · BC2, 2.3).
+
+    Bis #290 ersetzte eine zweite Entscheidung die erste still. Jetzt ist sie
+    ein Konflikt: die Geschichte des Pendelns trägt die *Fassung*, nicht ein
+    Überschreiben — und wer überschreibt, hat meist einen alten Stand vor sich.
+    """
+    lauf = ein_lauf(client, kopf)
+    paket_id = lauf["kopf"]["paket_id"]
+
+    assert sende(client, kopf, paket_id, alle_freigeben(lauf)).status_code == 200
+    zweite = sende(client, kopf, paket_id, {"status": "rejected", "kommentar": "Doch nicht."})
+
+    assert zweite.status_code == 409
+    # Der geltende Stand kommt mit, damit die Seite ihn zeigen kann.
+    assert zweite.json()["gate1"]["status"] == "approved"
+    erneut = client.get(f"/api/oberflaeche/laeufe/{paket_id}", headers=kopf).json()
+    assert erneut["gate1"]["status"] == "approved"
 
 
 # ---------------------------------------------------------------------------

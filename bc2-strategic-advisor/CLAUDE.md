@@ -18,9 +18,10 @@ deterministisch nachkontrolliert ([#194](https://github.com/pg-coe-kmu/coe-facto
 `stand_zum(uebergeben_am)`. Die **Gate-1-Oberfläche** (`app/static/index.html`, `app/oberflaeche.py`)
 zeigt einen Lauf und nimmt die Freigabe entgegen ([#243](https://github.com/pg-coe-kmu/coe-factory/issues/243));
 nach der Freigabe zeichnet `app/praesentation/` den Foliensatz als PPTX ([#257](https://github.com/pg-coe-kmu/coe-factory/issues/257),
-entschieden in #244). Offen sind der
-**Bau von Schema `bc2`** ([#290](https://github.com/pg-coe-kmu/coe-factory/issues/290); der Entwurf
-steht seit dem 09.10.2026 in ADR-008 · BC2, [#250](https://github.com/pg-coe-kmu/coe-factory/issues/250)) und —
+entschieden in #244). **Schema `bc2`** trägt seit [#290](https://github.com/pg-coe-kmu/coe-factory/issues/290) Lauf,
+Konzepte, Potenziale und die Gate-1-Entscheidung (`app/ablage.py`, `app/gate1.py`,
+`app/migration_bc2.2_lauf.sql`; Entwurf ADR-008 · BC2, [#250](https://github.com/pg-coe-kmu/coe-factory/issues/250)).
+Offen ist —
 neu aufgefallen beim Bau von #248 — die **drei übrigen Urteilsstellen des LLM** (Lage im Korridor, die
 fünf Nutzwert-Kategorien, das begründete Überschreiben der Komplexität). Ihr Schnitt ist entschieden
 ([#260](https://github.com/pg-coe-kmu/coe-factory/issues/260), ADR-006 · BC2 Nachtrag 4–6 und §6: ein
@@ -30,11 +31,15 @@ nicht vollständig; siehe `app/erkennung/erkennen.py`.
 
 ⚠ **Die Oberfläche ist noch nicht betriebsfest**, und sie sagt das selbst an: ihre Läufe kommen aus
 einem Messsatz statt aus der Datenbank — der Erkennungsschritt ist gebaut, aber noch nicht an die
-`Laufquelle` angeschlossen, und ohne #260 lieferte er keinen vollständigen Eingang —, und ihre
-Entscheidung liegt im **Arbeitsspeicher**, weil Schema `bc2` dafür noch keinen Ort hat (entworfen in
-ADR-008 · BC2, gebaut wird er in #290). Beides
-hängt hinter je einem Protokoll — `Laufquelle` und `Gate1Buch` —, die Umsetzungen werden getauscht,
-nicht die Oberfläche.
+`Laufquelle` angeschlossen (#288). **Die Entscheidung liegt seit #290 in Schema `bc2`**, sobald
+`DATABASE_URL` gesetzt ist; ohne sie im Arbeitsspeicher, und die Oberfläche sagt das an. Die
+`AblegendeLaufquelle` umhüllt die innere Quelle: gerechnet wird einmal, gezeigt wird danach das
+abgelegte Dokument. #288 tauscht nur die innere Quelle, nicht die Ablage.
+
+**Invarianten aus #290:** eine Fassung ist ein Lauf über dasselbe Paket, angestoßen von BC2 und nur
+nach `rejected`; Gate 1 ist nach `approved`/`rejected` endgültig (`409`, kein Überschreiben); das
+Ergebnis eines Laufs ist nach dem Schreiben unveränderlich. Alle drei setzt die **Datenbank** durch
+(UNIQUE, partieller Index, Trigger) — ein grüner Doppelgängertest beweist sie nicht.
 Owner-Angaben in den Alt-Issues (#84–#99) nennen teils Eike und sind damit hinfällig.
 *(Korrigiert am 20.09.2026: die Vorgängerfassung sagte „Es gibt noch keinen BC2-Code. Der Bau
 beginnt bei null" — ein Stand vom 30.08., der schon durch #190 überholt war.)*

@@ -28,6 +28,7 @@ import os
 import socket
 import threading
 import time
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -50,22 +51,11 @@ def _freier_port() -> int:
         return s.getsockname()[1]
 
 
-@pytest.fixture(scope="module")
-def dienst():
-    """Startet den Dienst in einem Nebenläufer — mit Speicher-Ablagen."""
+@contextmanager
+def _starte(anwendung):
     import uvicorn
 
-    from app import erzeuge_app
-    from eingang import SpeicherEingangsbuch
-    from gate1 import SpeicherGate1Buch
-    from laeufe import MesssatzLaufquelle
-
     port = _freier_port()
-    anwendung = erzeuge_app(
-        SpeicherEingangsbuch(),
-        laufquelle=MesssatzLaufquelle(MESSSAETZE),
-        gate1_buch=SpeicherGate1Buch(),
-    )
     server = uvicorn.Server(
         uvicorn.Config(anwendung, host="127.0.0.1", port=port, log_level="error")
     )
@@ -83,8 +73,58 @@ def dienst():
     faden.join(timeout=10)
 
 
+@pytest.fixture(scope="module")
+def dienst():
+    """Startet den Dienst in einem Nebenläufer — mit Speicher-Ablagen."""
+    from app import erzeuge_app
+    from eingang import SpeicherEingangsbuch
+    from gate1 import SpeicherGate1Buch
+    from laeufe import MesssatzLaufquelle
+
+    with _starte(erzeuge_app(
+        SpeicherEingangsbuch(),
+        laufquelle=MesssatzLaufquelle(MESSSAETZE),
+        gate1_buch=SpeicherGate1Buch(),
+    )) as url:
+        yield url
+
+
+@pytest.fixture
+def dienst_mit_ablage():
+    """Ein eigener Dienst mit dem Ablage-Stapel aus #290 — Fassungen, Endgültigkeit.
+
+    Eigener Dienst, nicht der des Moduls: dort hat ein früherer Test den Lauf
+    freigegeben, und nach ``approved`` gibt es keine neue Fassung.
+    """
+    from ablage import AblegendeLaufquelle, SpeicherErgebnisbuch
+    from app import erzeuge_app
+    from eingang import SpeicherEingangsbuch
+    from gate1 import SpeicherGate1Buch
+    from laeufe import MesssatzLaufquelle
+
+    ergebnisse = SpeicherErgebnisbuch()
+    with _starte(erzeuge_app(
+        SpeicherEingangsbuch(),
+        laufquelle=AblegendeLaufquelle(MesssatzLaufquelle(MESSSAETZE), ergebnisse),
+        gate1_buch=SpeicherGate1Buch(ergebnisse=ergebnisse),
+    )) as url:
+        yield url
+
+
 @pytest.fixture
 def seite(dienst):
+    with _angemeldet(dienst) as blatt:
+        yield blatt
+
+
+@pytest.fixture
+def seite_mit_ablage(dienst_mit_ablage):
+    with _angemeldet(dienst_mit_ablage) as blatt:
+        yield blatt
+
+
+@contextmanager
+def _angemeldet(url):
     """Eine angemeldete Seite, mit scharfem Blick auf Konsolenfehler.
 
     Ein Fehler im JavaScript macht die Seite nicht kaputt genug, um aufzufallen
@@ -112,7 +152,7 @@ def seite(dienst):
 
         blatt.on("console", _konsole)
 
-        blatt.goto(dienst, wait_until="networkidle")
+        blatt.goto(url, wait_until="networkidle")
         blatt.fill("#schluesselfeld", SCHLUESSEL)
         blatt.click("#anmelden")
         blatt.wait_for_selector(".kpblock", timeout=10_000)
@@ -288,11 +328,14 @@ def test_der_serverfehler_wird_angezeigt_und_nicht_verschluckt(seite):
     assert "nicht zulässig" in seite.locator("#meldung").inner_text()
 
 
-def test_nach_der_freigabe_laesst_sich_die_praesentation_herunterladen(seite):
-    """Der Knopf erscheint erst nach der Freigabe und liefert eine echte PPTX (#257)."""
-    # Der Dienst lebt über das ganze Modul; ein früherer Test kann den Lauf schon
-    # freigegeben haben. Der offene Stand wird deshalb hier gesetzt, nicht vorausgesetzt.
-    seite.evaluate("() => { Z.gate1 = {status: 'pending'}; zeichne(); }")
+def test_nach_der_freigabe_laesst_sich_die_praesentation_herunterladen(seite_mit_ablage):
+    """Der Knopf erscheint erst nach der Freigabe und liefert eine echte PPTX (#257).
+
+    Eigener Dienst: im Moduldienst hat ein früherer Test den Lauf schon
+    freigegeben, und seit #290 ist das endgültig — eine zweite Freigabe wäre
+    ein 409, kein neuer Anfang.
+    """
+    seite = seite_mit_ablage
     assert seite.locator("[data-praesentation]").count() == 0
     seite.fill("input[data-entscheider]", "S. Morazan")
     seite.locator('[data-tat="approved"]').click()
@@ -305,3 +348,24 @@ def test_nach_der_freigabe_laesst_sich_die_praesentation_herunterladen(seite):
     assert Path(download.path()).read_bytes()[:2] == b"PK"
     seite.wait_for_selector("#meldung .hinweis", timeout=5000)
     assert "nicht nachrechenbar" in seite.locator("#meldung").inner_text()
+
+
+def test_nach_reject_rechnet_der_knopf_die_naechste_fassung(seite_mit_ablage):
+    """Reject → „neu rechnen“ → Fassung 2, Gate 1 wieder offen (ADR-008 · BC2, 2.1).
+
+    Und davor: nach der Entscheidung bietet die Seite keine Knöpfe mehr an,
+    die der Server mit 409 abwiese.
+    """
+    seite = seite_mit_ablage
+    seite.on("dialog", lambda d: d.accept("Der Schnitt ist zu grob."))
+    seite.locator('[data-tat="rejected"]').click()
+    seite.wait_for_selector("[data-neu]", timeout=5000)
+
+    assert seite.locator('[data-tat="approved"]').count() == 0
+    assert "endgültig" in seite.locator(".fussleiste").inner_text()
+
+    seite.locator("[data-neu]").click()
+    seite.wait_for_function("() => Z.ansicht && Z.ansicht.kopf.fassung === 2", timeout=5000)
+    assert seite.evaluate("() => Z.gate1.status") == "pending"
+    assert seite.locator('[data-tat="approved"]').count() == 1
+    assert "Fassung 2" in seite.locator("#meldung").inner_text()

@@ -33,9 +33,11 @@ Kennungen. BC2 nimmt jetzt beides an — siehe Schritt 8 und 9.
 | `app.py` | Der Endpunkt. Nimmt an, quittiert mit `202`, rechnet nichts. |
 | `eingang.py` | Ablage. Postgres im Betrieb, Arbeitsspeicher in den Tests. |
 | `migration_bc2.1_eingang.sql` | Legt `bc2.eingang` an. Wiederholbar. |
+| `migration_bc2.2_lauf.sql` | Lauf, Konzept, Potenzial und Gate 1 in `bc2`, Sicht für BC0 (#290, ADR-008 · BC2). Wiederholbar, setzt bc2.1 voraus. |
+| `ablage.py`, `gate1.py` | Ablage von Ergebnis und Gate-1-Entscheidung. Postgres mit `DATABASE_URL`, sonst Arbeitsspeicher. |
 | `Dockerfile`, `docker-compose.yml`, `Caddyfile` | Container, Reverse-Proxy, HTTPS |
 | `.env.example` | Vorlage. Die echte `.env` liegt **nur** auf dem Server. |
-| `tests/` | 43 Tests ohne Datenbank, dazu 5 Vertragstests gegen die echte. |
+| `tests/` | Tests ohne Datenbank (Doppelgänger), Browsertests hinter `BC2_BROWSERTEST=1`, dazu 15 Vertragstests gegen die echte hinter `BC2_ECHTE_DB=1`. |
 
 ---
 
@@ -130,9 +132,17 @@ chmod 600 .env
 ```bash
 set -a && . ./.env && set +a
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migration_bc2.1_eingang.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migration_bc2.2_lauf.sql
 ```
 
-Erwartet: `DO`, `CREATE TABLE`, drei `COMMENT`, `CREATE INDEX`.
+Erwartet für bc2.1: `DO`, `CREATE TABLE`, drei `COMMENT`, `CREATE INDEX`. Für bc2.2
+Tabellen, Indizes, Funktionen, Trigger, die Sicht und am Ende ein `DO` — fehlt die
+Rolle `bc_leser`, steht dort ein `NOTICE` statt des `GRANT`, und die Migration läuft
+trotzdem durch.
+
+**bc2.2 schreibt nur in `bc2`**, wie bc2.1. Das `SELECT` auf
+`bc2.v_ergebnis_je_paket` an `bc_leser` vergibt sie selbst; erreichbar wird die
+Sicht für BC0 erst, wenn BC0 `USAGE` auf Schema `bc2` vergibt (ADR-008 · BC2, 2.6).
 
 Legt `bc2.eingang` an. Die BC2-Rolle hat CREATE ausschließlich auf **Schema**
 `bc2`, **nicht auf der Datenbank** (ADR-003). Deshalb steht das Anlegen des
@@ -150,6 +160,11 @@ Rollenzuordnung nicht — **dann erst melden, dann weiterarbeiten**.
 docker compose up -d --build
 docker compose logs -f app
 ```
+
+Die Messsätze unter `../kalibrierung/` hängt `docker-compose.yml` schreibgeschützt
+nach `/kalibrierung` ein — sie liegen ausserhalb des Bau-Kontexts `app/`, und ohne
+die Einhängung zeigte die Oberfläche keinen Lauf (am 09.10.2026 bei #290 bemerkt:
+der Container lief bis dahin ohne Oberfläche und ohne Messsätze).
 
 Der Dienst **startet nicht ohne `BC2_TRIGGER_TOKEN`**. Das ist Absicht: ein
 Endpunkt, der Pakete von jedem annimmt, ist schlimmer als keiner.

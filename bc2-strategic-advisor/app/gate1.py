@@ -14,25 +14,30 @@ Drei Dinge liegen hier, und nur diese drei:
 - ``Gate1Buch`` — das Protokoll der Ablage, samt Doppelgänger im
   Arbeitsspeicher.
 
-**Warum hier keine Postgres-Umsetzung steht.** Die Entscheidung gehört nach
-Schema ``bc2``, und dessen Tabellenentwurf ist noch nicht getroffen (Nebel der
-Karte #158, herausgehoben als eigenes Ticket beim Bau von #243): er trägt mehr
-als Gate 1 — den Lauf selbst, die Konzepte, die **abgelehnten** Läufe, für die
-nach ADR-007 nichts an BC3 geht, und den Rückkanal an BC0. Eine Tabelle daraus
-vorwegzunehmen hiesse, sie zu schneiden, ohne den Rest zu kennen.
+**Die Postgres-Umsetzung steht seit #290** (ADR-008 · BC2, 2.3). Zwei Regeln
+haben sich dabei geändert, und beide setzt die Datenbank durch, nicht dieser
+Code:
 
-Die Naht ist deshalb dieselbe wie in ``eingang.py``: ein Protokoll, ein
-Doppelgänger für die Tests, und die Umsetzung gegen die echte Datenbank kommt,
-wenn das Schema steht. Der Unterschied zu ``eingang.py`` ist ehrlich zu
-benennen: dort **gibt** es die Postgres-Umsetzung, hier noch nicht. Bis dahin
-überlebt eine Entscheidung den Neustart nicht.
+- Der Schlüssel ist der **Lauf** ``(paket_id, fassung)``, nicht mehr das Paket.
+  Nach einem Reject rechnet BC2 eine neue Fassung, und die hat ihr eigenes Gate 1.
+- ``pending`` ist überschreibbar, ``approved`` und ``rejected`` sind
+  **endgültig**. Ein zweites Schreiben danach ist ein ``Gate1Konflikt`` — an der
+  Oberfläche ein ``409`` —, kein stilles Ersetzen. Der Konflikt bleibt allein
+  zwischen zwei offenen Browsern, und den fängt die Zustandsbedingung
+  ``… WHERE status = 'pending'``.
+
+Der Doppelgänger zieht beide Regeln mit; die Garantie gegen zwei gleichzeitige
+Schreiber gibt trotzdem nur die Datenbank (``tests/test_vertrag_postgres.py``).
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
+
+if TYPE_CHECKING:  # nur für die Signatur; ablage.py importiert gate1 nicht
+    from ablage import SpeicherErgebnisbuch
 
 # Der Vertrag verlangt ``minLength: 5`` für eine Begründung. Fünf Zeichen sind
 # keine gute Begründung, aber sie sind die Grenze, unterhalb derer sicher keine
@@ -41,6 +46,22 @@ from typing import Protocol
 MINDESTLAENGE_BEGRUENDUNG = 5
 
 ZUSTAENDE = ("pending", "approved", "rejected")
+ENDGUELTIG = ("approved", "rejected")
+
+
+class Gate1Konflikt(Exception):
+    """Gate 1 dieses Laufs ist schon entschieden und damit endgültig."""
+
+    def __init__(self, paket_id: str, fassung: int, bisher: str) -> None:
+        super().__init__(
+            f"Gate 1 fuer {paket_id} (Fassung {fassung}) ist bereits {bisher} "
+            "entschieden und endgueltig."
+        )
+        self.bisher = bisher
+
+
+class LaufUnbekannt(Exception):
+    """Zu diesem ``(paket_id, fassung)`` liegt kein gerechneter Lauf."""
 
 
 @dataclass(frozen=True)
@@ -63,6 +84,7 @@ class Gate1Entscheidung:
     paket_id: str
     company_id: str
     status: str
+    fassung: int = 1
     approved_potenzial_ids: tuple[str, ...] = ()
     nicht_freigegeben: tuple[NichtFreigegeben, ...] = ()
     finale_reihenfolge_potenzial_ids: tuple[str, ...] = ()
@@ -233,37 +255,261 @@ class Gate1Buch(Protocol):
     """Was die Oberfläche von ihrer Ablage braucht — mehr nicht."""
 
     def merken(self, entscheidung: Gate1Entscheidung) -> None:
-        """Legt die Entscheidung ab; eine frühere zum selben Paket wird ersetzt.
+        """Legt die Entscheidung über den Lauf ``(paket_id, fassung)`` ab.
 
-        Ersetzen und nicht anhängen: Gate 1 ist **ein** Zustand je Lauf. Die
-        Geschichte des Pendelns trägt nach ADR-007 die **Fassung** — ein
-        erneuter Lauf erzeugt eine neue, die alte bleibt abrufbar.
+        Solange sie ``pending`` ist, ersetzt eine neue die alte. Ist sie
+        ``approved`` oder ``rejected``, wirft jedes weitere ``merken``
+        ``Gate1Konflikt``. Die Geschichte des Pendelns trägt die **Fassung**
+        (ADR-007 · BC2, 2.3), nicht ein Überschreiben.
         """
         ...
 
-    def lesen(self, paket_id: str) -> Gate1Entscheidung | None:
-        """Die Entscheidung zu diesem Paket, oder ``None``."""
+    def lesen(self, paket_id: str, fassung: int = 1) -> Gate1Entscheidung | None:
+        """Die Entscheidung zu diesem Lauf, oder ``None``."""
         ...
 
 
 @dataclass
 class SpeicherGate1Buch:
-    """Doppelgänger im Arbeitsspeicher.
+    """Doppelgänger im Arbeitsspeicher — für die Tests und die Vorschau.
 
-    **Er ist derzeit die einzige Umsetzung**, und das ist ein bekannter Mangel,
-    kein Versehen: die Postgres-Umsetzung wartet auf den Tabellenentwurf für
-    Schema ``bc2``. Eine Entscheidung überlebt den Neustart des Dienstes nicht.
-    Die Oberfläche sagt das ausdrücklich an, statt Dauerhaftigkeit vorzutäuschen
-    (``GET /api/oberflaeche/zustand`` → ``ablage: "arbeitsspeicher"``).
+    Ahmt die Endgültigkeit nach. Hängt ein ``SpeicherErgebnisbuch`` daran,
+    schließt er dort den Lauf ab, wie es ``PostgresGate1Buch`` in derselben
+    Transaktion tut — sonst wüsste das Ergebnisbuch nicht, dass nach einem
+    Reject eine neue Fassung zulässig ist.
     """
 
-    abgelegt: dict[str, Gate1Entscheidung] = field(default_factory=dict)
+    abgelegt: dict[tuple[str, int], Gate1Entscheidung] = field(default_factory=dict)
+    ergebnisse: SpeicherErgebnisbuch | None = None
 
     def merken(self, entscheidung: Gate1Entscheidung) -> None:
-        self.abgelegt[entscheidung.paket_id] = entscheidung
+        schluessel = (entscheidung.paket_id, entscheidung.fassung)
+        bisher = self.abgelegt.get(schluessel)
+        if bisher is not None and bisher.status in ENDGUELTIG:
+            raise Gate1Konflikt(entscheidung.paket_id, entscheidung.fassung, bisher.status)
+        self.abgelegt[schluessel] = entscheidung
+        if self.ergebnisse is not None:
+            self.ergebnisse.abschliessen(
+                entscheidung.paket_id, entscheidung.fassung, entscheidung.status
+            )
 
-    def lesen(self, paket_id: str) -> Gate1Entscheidung | None:
-        return self.abgelegt.get(paket_id)
+    def lesen(self, paket_id: str, fassung: int = 1) -> Gate1Entscheidung | None:
+        return self.abgelegt.get((paket_id, fassung))
+
+
+# ----------------------------------------------------------------------------
+# Postgres
+# ----------------------------------------------------------------------------
+
+_SQL_LAUF = """
+SELECT priorisierung_id::text, company_id, zustand
+  FROM bc2.lauf
+ WHERE paket_id = %(paket_id)s AND fassung = %(fassung)s
+"""
+
+# Schritt 1 einer Entscheidung: die Zeile sichern — als ``pending``. Die
+# Bedingung im DO UPDATE ist der Konflikt: steht der Lauf schon auf
+# approved/rejected, ändert die Anweisung null Zeilen. Zwei gleichzeitige
+# Schreiber: der zweite wartet auf die Zeilensperre des ersten und sieht danach
+# dessen endgültigen Zustand.
+_SQL_SICHERN = """
+INSERT INTO bc2.gate1 (priorisierung_id, status)
+VALUES (%(priorisierung_id)s, 'pending')
+ON CONFLICT (priorisierung_id) DO UPDATE
+   SET geschrieben_am = now()
+ WHERE bc2.gate1.status = 'pending'
+"""
+
+_SQL_STATUS = "SELECT status FROM bc2.gate1 WHERE priorisierung_id = %(priorisierung_id)s"
+
+_SQL_LEEREN = """
+DELETE FROM bc2.gate1_potenzial WHERE priorisierung_id = %(priorisierung_id)s;
+DELETE FROM bc2.gate1_prozess   WHERE priorisierung_id = %(priorisierung_id)s;
+"""
+
+_SQL_POTENZIAL = """
+INSERT INTO bc2.gate1_potenzial (priorisierung_id, potenzial_id, freigegeben,
+                                 begruendung, finaler_rang)
+VALUES (%(priorisierung_id)s, %(potenzial_id)s, %(freigegeben)s,
+        %(begruendung)s, %(finaler_rang)s)
+"""
+
+_SQL_PROZESS = """
+INSERT INTO bc2.gate1_prozess (priorisierung_id, kp_id, finaler_rang)
+VALUES (%(priorisierung_id)s, %(kp_id)s, %(finaler_rang)s)
+"""
+
+# Schritt 3: erst jetzt der eigentliche Zustand. Die Einzelzeilen sind schon
+# geschrieben — andersherum wiese der Trigger ``gate1_endgueltig`` sie ab,
+# weil der Kopf dann schon endgültig wäre.
+_SQL_ENTSCHEIDEN = """
+UPDATE bc2.gate1
+   SET status = %(status)s, entscheider = %(entscheider)s, kommentar = %(kommentar)s,
+       abweichungsbegruendung = %(abweichungsbegruendung)s,
+       entschieden_am = %(entschieden_am)s, geschrieben_am = now()
+ WHERE priorisierung_id = %(priorisierung_id)s AND status = 'pending'
+"""
+
+# Der Lauf ist damit nicht mehr offen — erst danach lässt der partielle Index
+# eine neue Fassung zu. Das Ergebnisdokument bleibt unberührt.
+_SQL_ABSCHLIESSEN = """
+UPDATE bc2.lauf SET zustand = 'abgeschlossen', abgeschlossen_am = now()
+ WHERE priorisierung_id = %(priorisierung_id)s AND zustand = 'offen'
+"""
+
+_SQL_LESEN = """
+SELECT g.status, g.entscheider, g.kommentar, g.abweichungsbegruendung, g.entschieden_am
+  FROM bc2.gate1 g
+ WHERE g.priorisierung_id = %(priorisierung_id)s
+"""
+
+_SQL_LESEN_POTENZIALE = """
+SELECT potenzial_id, freigegeben, begruendung, finaler_rang
+  FROM bc2.gate1_potenzial
+ WHERE priorisierung_id = %(priorisierung_id)s
+ ORDER BY finaler_rang NULLS LAST, potenzial_id
+"""
+
+_SQL_LESEN_PROZESSE = """
+SELECT kp_id FROM bc2.gate1_prozess
+ WHERE priorisierung_id = %(priorisierung_id)s
+ ORDER BY finaler_rang
+"""
+
+
+def zeilen_aus(entscheidung: Gate1Entscheidung) -> tuple[list[dict], list[dict]]:
+    """Zerlegt die Entscheidung in Rang-Zeilen (ADR-008 · BC2, 2.3).
+
+    Je Potenzial eine Zeile, sobald es in irgendeiner der drei Angaben
+    vorkommt: freigegeben, herausgenommen, oder in der gesetzten Folge.
+    ``finaler_rang`` bleibt leer, wenn keine Folge gesetzt ist — das heisst im
+    Vertrag „es gilt der gerechnete Rang“, und eine Zahl hiesse etwas anderes.
+    """
+    rang = {pid: i for i, pid in enumerate(entscheidung.finale_reihenfolge_potenzial_ids, 1)}
+    frei = set(entscheidung.approved_potenzial_ids)
+    grund = {n.potenzial_id: n.begruendung for n in entscheidung.nicht_freigegeben}
+
+    alle = list(dict.fromkeys(
+        [*entscheidung.approved_potenzial_ids, *grund, *entscheidung.finale_reihenfolge_potenzial_ids]
+    ))
+    potenziale = [
+        {
+            "potenzial_id": pid,
+            "freigegeben": True if pid in frei else False if pid in grund else None,
+            "begruendung": grund.get(pid),
+            "finaler_rang": rang.get(pid),
+        }
+        for pid in alle
+    ]
+    prozesse = [
+        {"kp_id": kp, "finaler_rang": i}
+        for i, kp in enumerate(entscheidung.finale_prozessreihenfolge_kp_ids, 1)
+    ]
+    return potenziale, prozesse
+
+
+class PostgresGate1Buch:
+    """Gate 1 in Schema ``bc2``. Verbindet je Vorgang neu, wie die anderen Ablagen."""
+
+    def __init__(self, dsn: str | None = None) -> None:
+        import os
+
+        self._dsn = dsn or (os.environ.get("DATABASE_URL") or "").strip()
+        if not self._dsn:
+            raise RuntimeError(
+                "DATABASE_URL ist nicht gesetzt. Die Zugangsdaten gehoeren "
+                "ausschliesslich in eine Umgebungsvariable (ADR-003)."
+            )
+
+    def _verbindung(self):
+        import psycopg2
+
+        return psycopg2.connect(self._dsn)
+
+    def merken(self, entscheidung: Gate1Entscheidung) -> None:
+        import psycopg2.extras
+
+        potenziale, prozesse = zeilen_aus(entscheidung)
+        with self._verbindung() as conn, conn.cursor(
+            cursor_factory=psycopg2.extras.RealDictCursor
+        ) as cur:
+            cur.execute(
+                _SQL_LAUF, {"paket_id": entscheidung.paket_id, "fassung": entscheidung.fassung}
+            )
+            lauf = cur.fetchone()
+            if lauf is None or lauf["zustand"] not in ("offen", "abgeschlossen"):
+                raise LaufUnbekannt(f"{entscheidung.paket_id} f{entscheidung.fassung}")
+            pid = {"priorisierung_id": lauf["priorisierung_id"]}
+
+            cur.execute(_SQL_SICHERN, pid)
+            if cur.rowcount != 1:
+                cur.execute(_SQL_STATUS, pid)
+                bisher = cur.fetchone()["status"]
+                raise Gate1Konflikt(entscheidung.paket_id, entscheidung.fassung, bisher)
+
+            cur.execute(_SQL_LEEREN, pid)
+            for z in potenziale:
+                cur.execute(_SQL_POTENZIAL, {**pid, **z})
+            for z in prozesse:
+                cur.execute(_SQL_PROZESS, {**pid, **z})
+
+            cur.execute(
+                _SQL_ENTSCHEIDEN,
+                {
+                    **pid,
+                    "status": entscheidung.status,
+                    "entscheider": entscheidung.entscheider or None,
+                    "kommentar": entscheidung.kommentar or None,
+                    "abweichungsbegruendung": entscheidung.abweichungsbegruendung or None,
+                    "entschieden_am": entscheidung.entschieden_am,
+                },
+            )
+            if entscheidung.status in ENDGUELTIG:
+                cur.execute(_SQL_ABSCHLIESSEN, pid)
+
+    def lesen(self, paket_id: str, fassung: int = 1) -> Gate1Entscheidung | None:
+        import psycopg2.extras
+
+        with self._verbindung() as conn, conn.cursor(
+            cursor_factory=psycopg2.extras.RealDictCursor
+        ) as cur:
+            cur.execute(_SQL_LAUF, {"paket_id": paket_id, "fassung": fassung})
+            lauf = cur.fetchone()
+            if lauf is None:
+                return None
+            pid = {"priorisierung_id": lauf["priorisierung_id"]}
+            cur.execute(_SQL_LESEN, pid)
+            kopf = cur.fetchone()
+            if kopf is None:
+                return None
+            cur.execute(_SQL_LESEN_POTENZIALE, pid)
+            potenziale = cur.fetchall()
+            cur.execute(_SQL_LESEN_PROZESSE, pid)
+            prozesse = [z["kp_id"] for z in cur.fetchall()]
+
+        gesetzt = [z for z in potenziale if z["finaler_rang"] is not None]
+        return Gate1Entscheidung(
+            paket_id=paket_id,
+            company_id=lauf["company_id"],
+            status=kopf["status"],
+            fassung=fassung,
+            approved_potenzial_ids=tuple(
+                z["potenzial_id"] for z in potenziale if z["freigegeben"] is True
+            ),
+            nicht_freigegeben=tuple(
+                NichtFreigegeben(z["potenzial_id"], z["begruendung"] or "")
+                for z in potenziale
+                if z["freigegeben"] is False
+            ),
+            finale_reihenfolge_potenzial_ids=tuple(
+                z["potenzial_id"] for z in sorted(gesetzt, key=lambda z: z["finaler_rang"])
+            ),
+            finale_prozessreihenfolge_kp_ids=tuple(prozesse),
+            abweichungsbegruendung=kopf["abweichungsbegruendung"] or "",
+            entscheider=kopf["entscheider"] or "",
+            kommentar=kopf["kommentar"] or "",
+            entschieden_am=kopf["entschieden_am"],
+        )
 
 
 def jetzt() -> datetime:

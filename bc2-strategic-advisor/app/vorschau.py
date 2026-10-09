@@ -51,6 +51,7 @@ def main() -> int:
 
     import uvicorn
 
+    from ablage import AblegendeLaufquelle, SpeicherErgebnisbuch
     from app import erzeuge_app
     from eingang import SpeicherEingangsbuch
     from gate1 import SpeicherGate1Buch
@@ -67,8 +68,13 @@ def main() -> int:
     print(f"  Laeufe        {', '.join(k.paket_id for k in laeufe)}")
     print("  Ablage        Arbeitsspeicher — die Entscheidung ist beim Beenden weg.\n")
 
+    # Derselbe Stapel wie im Betrieb (#290), nur im Arbeitsspeicher: so lässt
+    # sich auch Reject → „neu rechnen“ → Fassung 2 ansehen.
+    ergebnisse = SpeicherErgebnisbuch()
     anwendung = erzeuge_app(
-        SpeicherEingangsbuch(), laufquelle=quelle, gate1_buch=SpeicherGate1Buch()
+        SpeicherEingangsbuch(),
+        laufquelle=AblegendeLaufquelle(quelle, ergebnisse),
+        gate1_buch=SpeicherGate1Buch(ergebnisse=ergebnisse),
     )
     uvicorn.run(anwendung, host=argumente.host, port=argumente.port, log_level="warning")
     return 0
