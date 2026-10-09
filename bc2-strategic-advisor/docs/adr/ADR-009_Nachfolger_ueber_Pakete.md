@@ -103,8 +103,8 @@ TP-1 bis TP-3. Es überschneidet sich nur mit ihm. Die Fortschreibung über Pake
 
 Beide sind ab `schema_version` 3.1 Pflicht und fehlen in 3.0, nach demselben Muster wie die
 Ausgangslage in [PR #287](https://github.com/pg-coe-kmu/coe-factory/pull/287). Mitgenommen wird
-die Änderung in **dieselbe v3.1**: BC3 hat #287 noch nicht bestätigt und bestätigt so einmal statt
-zweimal. Damit springt auch `konzept.schema.json` auf 3.1.
+die Änderung in **dieselbe v3.1**: #287 ist vorab gemergt, BC3s Bestätigung steht aber noch aus,
+und so bestätigt BC3 einmal statt zweimal. Damit springt auch `konzept.schema.json` auf 3.1.
 
 ## 3. Warum nicht anders
 
@@ -135,8 +135,9 @@ Inhalte trägt, und widerspricht ADR-007 · BC2.
 
 ## 4. Folgen
 
-1. **Vertrag** auf dem Branch von #287: beide Schemas auf 3.1, README mit „Was BC3 tun muss“,
-   `validate.py`, Fixtures. Geht mit #287 zusammen an BC3 (#242).
+1. **Vertrag** in [PR #297](https://github.com/pg-coe-kmu/coe-factory/pull/297): beide Schemas auf
+   3.1, README mit „Was BC3 tun muss“, Kettenregel in `tools/kette.py` für `validate.py`, Fixtures.
+   Geht mit #287 zusammen zur Bestätigung an BC3 (#242).
 2. **Bau** in [#295](https://github.com/pg-coe-kmu/coe-factory/issues/295), blockiert durch den Bau von Schema `bc2` (#290): Kandidaten
    lesen, Kandidaten in die Erkennungsnutzlast, Nachprüfung, Gestrichenes und Ketten in der
    Gate-1-Ansicht, `bc2.potenzial.ersetzt_potenzial_ids` schreiben.
