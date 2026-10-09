@@ -286,3 +286,22 @@ def test_der_serverfehler_wird_angezeigt_und_nicht_verschluckt(seite):
     seite.evaluate("() => entscheiden('approved')")
     seite.wait_for_selector("#meldung .hinweis.warn", timeout=5000)
     assert "nicht zulässig" in seite.locator("#meldung").inner_text()
+
+
+def test_nach_der_freigabe_laesst_sich_die_praesentation_herunterladen(seite):
+    """Der Knopf erscheint erst nach der Freigabe und liefert eine echte PPTX (#257)."""
+    # Der Dienst lebt über das ganze Modul; ein früherer Test kann den Lauf schon
+    # freigegeben haben. Der offene Stand wird deshalb hier gesetzt, nicht vorausgesetzt.
+    seite.evaluate("() => { Z.gate1 = {status: 'pending'}; zeichne(); }")
+    assert seite.locator("[data-praesentation]").count() == 0
+    seite.fill("input[data-entscheider]", "S. Morazan")
+    seite.locator('[data-tat="approved"]').click()
+    seite.wait_for_selector("[data-praesentation]", timeout=5000)
+
+    with seite.expect_download(timeout=10_000) as laden:
+        seite.locator("[data-praesentation]").click()
+    download = laden.value
+    assert download.suggested_filename == "praesentation.pptx"
+    assert Path(download.path()).read_bytes()[:2] == b"PK"
+    seite.wait_for_selector("#meldung .hinweis", timeout=5000)
+    assert "nicht nachrechenbar" in seite.locator("#meldung").inner_text()

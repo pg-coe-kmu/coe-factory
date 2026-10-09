@@ -62,6 +62,13 @@ MESSSAETZE = os.environ.get("BC2_MESSSAETZE") or str(
     (Path(__file__).resolve().parent.parent / "kalibrierung")
 )
 
+#: Wo die Lieferordner ``<company>-<paket_id>-f<n>/`` liegen (ADR-007, 2.2) —
+#: dort legt der Gate-1-Knopf die Präsentation ab (#257). **Ohne Vorgabe wird
+#: nicht abgelegt**, nur ausgeliefert: im Container gibt es den Ordner nicht,
+#: und lokal wäre es der Arbeitsbaum des Repos, in dem dann ein halber
+#: Lieferordner ohne Konzepte und Priorisierung läge.
+LIEFERUNGEN = os.environ.get("BC2_LIEFERUNGEN") or None
+
 PFLICHTFELDER = ("paket_id", "company_id", "uebergeben_am")
 
 # Wie alt eine Signatur höchstens sein darf. Fünf Minuten fangen den Uhrversatz
@@ -307,6 +314,7 @@ def erzeuge_app(
     *,
     laufquelle: Laufquelle | None = None,
     gate1_buch: Gate1Buch | None = None,
+    lieferungen: Path | str | None = LIEFERUNGEN,
 ) -> FastAPI:
     """Baut die Anwendung. Die drei Ablagen werden in den Tests untergeschoben.
 
@@ -447,6 +455,7 @@ def erzeuge_app(
             ablage_art="arbeitsspeicher"
             if isinstance(entscheidungen, SpeicherGate1Buch)
             else "datenbank",
+            lieferungen=Path(lieferungen) if lieferungen else None,
         )
     )
     app.include_router(oberflaeche.erzeuge_seiten_router())

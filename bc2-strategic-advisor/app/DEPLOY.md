@@ -115,6 +115,12 @@ DOMAIN=bc2.02da.de
 ⚠️ **Port 5432, nicht 6543.** Der Transaction-Pooler hält keine Sitzung über die
 einzelne Anweisung hinaus.
 
+**Optional: `BC2_LIEFERUNGEN`** — das Verzeichnis, unter dem die Lieferordner
+`<company>-<paket_id>-f<n>/` liegen. Ist es gesetzt (und im Container eingehängt), legt der
+Gate-1-Knopf die Präsentation dort als `praesentation.pptx` ab (#257). Ohne den Wert wird sie
+nur ausgeliefert; die Antwort sagt das im Kopf `X-BC2-Ablage`. Läufe aus einem Messsatz werden
+nie abgelegt — sie sind keine Lieferung.
+
 ```bash
 chmod 600 .env
 ```

@@ -16,8 +16,9 @@ der **Erkennungsschritt** (`app/erkennung/`) schneidet die Potenziale — ein Mo
 deterministisch nachkontrolliert ([#194](https://github.com/pg-coe-kmu/coe-factory/issues/194) entschieden,
 [#248](https://github.com/pg-coe-kmu/coe-factory/issues/248) gebaut). Dort liegt auch das Lesen auf
 `stand_zum(uebergeben_am)`. Die **Gate-1-Oberfläche** (`app/static/index.html`, `app/oberflaeche.py`)
-zeigt einen Lauf und nimmt die Freigabe entgegen ([#243](https://github.com/pg-coe-kmu/coe-factory/issues/243)).
-Offen sind Präsentation ([#244](https://github.com/pg-coe-kmu/coe-factory/issues/244)), der
+zeigt einen Lauf und nimmt die Freigabe entgegen ([#243](https://github.com/pg-coe-kmu/coe-factory/issues/243));
+nach der Freigabe zeichnet `app/praesentation/` den Foliensatz als PPTX ([#257](https://github.com/pg-coe-kmu/coe-factory/issues/257),
+entschieden in #244). Offen sind der
 **Tabellenentwurf für Schema `bc2`** ([#250](https://github.com/pg-coe-kmu/coe-factory/issues/250)) und —
 neu aufgefallen beim Bau von #248 — die **drei übrigen Urteilsstellen des LLM** (Lage im Korridor, die
 fünf Nutzwert-Kategorien, das begründete Überschreiben der Komplexität;
@@ -103,7 +104,8 @@ divergierenden Kopien unter `Projektgruppe/BC2/` sind aufgelöst und liegen dort
 | Trigger-Endpunkt (läuft im Betrieb) | `bc2-strategic-advisor/app/app.py`, `app/eingang.py` |
 | **Value- und Priorisierungsmodell** (ADR-006 · BC2) | `bc2-strategic-advisor/app/modell/` — `parameter.py` (Setzungen), `rechnen.py` (reiner Kern), `ausgabe.py` (Vertragsform, seit v3.1 auch die Ausgangslage des Laufs), `laden.py` (Messsatz lesen) |
 | **Erkennungsschritt** (#194 / #248) | `bc2-strategic-advisor/app/erkennung/` — `bestand.py` (Leseseite), `nutzlast.py` (was das Modell sieht), `anweisung.py`, `modellruf.py` (Naht zum LLM), `pruefen.py` (Nachkontrolle) |
-| **Gate-1-Oberfläche** (Fassung D, #167/#243) | `app/static/index.html` (eine Datei), `app/oberflaeche.py` (die vier Rufe), `app/gate1.py` (Entscheidung, Prüfung, Ablage), `app/laeufe.py` (Laufquelle) |
+| **Gate-1-Oberfläche** (Fassung D, #167/#243) | `app/static/index.html` (eine Datei), `app/oberflaeche.py` (die Rufe), `app/gate1.py` (Entscheidung, Prüfung, Ablage), `app/laeufe.py` (Laufquelle) |
+| **Präsentation** (#244 entschieden, #257 gebaut) | `app/praesentation/` — `folien.py` (reine Funktion: Konzepte + Priorisierung → PPTX), `formulierung.py` (wie Zahlen auf die Folie kommen), `zeichnen.py` (KIsult-Palette), `ablage.py` (Lieferordner); das alte Template liegt in `architektur/archiv/` |
 | Oberfläche ansehen, ohne Datenbank | `app/vorschau.py` — `python3 vorschau.py`, dann `http://127.0.0.1:8243/` |
 | Messsätze für die Kalibrierung | `bc2-strategic-advisor/kalibrierung/` |
 | Erkennung an einem echten Aufruf messen | `bc2-strategic-advisor/tools/erkennung_messen.py` |

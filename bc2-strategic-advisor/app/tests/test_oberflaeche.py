@@ -562,3 +562,125 @@ def test_abgelehnter_lauf_gilt_ebenfalls(client, kopf):
     )
     assert antwort.status_code == 200
     jsonschema.validate(antwort.json()["gate1"], schema["properties"]["gate1"])
+
+
+# ---------------------------------------------------------------------------
+# Die Präsentation (#257)
+# ---------------------------------------------------------------------------
+
+
+def _praesentation(client, kopf, paket_id: str):
+    return client.post(f"/api/oberflaeche/laeufe/{paket_id}/praesentation", headers=kopf)
+
+
+def test_praesentation_braucht_den_schluessel(client):
+    assert _praesentation(client, {}, "egal").status_code == 401
+
+
+def test_praesentation_vor_der_freigabe_gibt_es_nicht(client, kopf):
+    lauf = ein_lauf(client, kopf)
+    antwort = _praesentation(client, kopf, lauf["kopf"]["paket_id"])
+    assert antwort.status_code == 409
+    assert "Freigabe" in antwort.json()["fehler"]
+
+
+def test_praesentation_bei_ablehnung_gibt_es_nicht(client, kopf):
+    lauf = ein_lauf(client, kopf)
+    pid = lauf["kopf"]["paket_id"]
+    assert sende(client, kopf, pid, {"status": "rejected", "kommentar": "Zahlen unplausibel."}).status_code == 200
+    assert _praesentation(client, kopf, pid).status_code == 409
+
+
+def test_praesentation_nach_freigabe_kommt_als_pptx(client, kopf):
+    from io import BytesIO
+
+    from pptx import Presentation
+
+    lauf = ein_lauf(client, kopf)
+    pid = lauf["kopf"]["paket_id"]
+    assert sende(client, kopf, pid, alle_freigeben(lauf)).status_code == 200
+
+    antwort = _praesentation(client, kopf, pid)
+    assert antwort.status_code == 200
+    assert antwort.headers["content-type"].startswith(
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation")
+    assert 'filename="praesentation.pptx"' in antwort.headers["content-disposition"]
+    prs = Presentation(BytesIO(antwort.content))
+    notizen = [f.notes_slide.notes_text_frame.text for f in prs.slides if f.has_notes_slide]
+    detail = [n for n in notizen if n.startswith("potenzial_id:")]
+    assert len(detail) == len(lauf["eintraege"])
+    # Ein Messsatz ist keine Lieferung: ausgeliefert ja, abgelegt nein.
+    assert antwort.headers["x-bc2-ablage"].startswith("nicht abgelegt: der Lauf ist nicht nachrechenbar")
+
+
+def _nachrechenbarer_lauf() -> Laufansicht:
+    """Ein Lauf ohne Warnung — so, wie er aus dem Erkennungsschritt käme."""
+    from laeufe import aus_lauf
+    from modell import Nutzwert, Nutzwertkategorie, Potenzialeingang, rechne_lauf
+    from modell.ausgabe import als_ausgangslage
+
+    k = Nutzwertkategorie(6, "Begruendungssatz fuer den Test.")
+    eingang = Potenzialeingang(
+        potenzial_id="00000000-0000-4000-8000-0000000000aa",
+        titel="Rechnungsstellung aus der Zeiterfassung",
+        kp_id="KP-06",
+        betroffene_teilprozess_ids=("KP-06.TP-2",),
+        klasse="Integration",
+        automatisierungsgrad_begruendung="Zwei Systeme verbinden.",
+        nutzwert=Nutzwert(k, k, k, k, k),
+        frequency_per_year=180.0,
+        total_duration_minutes=180.0,
+        focus_step_duration_source="geschaetzt",
+        reifeskalen=(4, 4, 3, 4),
+        aufwand_schaetzung_pt=12.0,
+    )
+    lauf = rechne_lauf("7c2d5ee9-2a9a-5990-810f-502ea2b2012d", "PKT-2026-0042", [eingang])
+    ansicht = aus_lauf(lauf, [eingang], uebergeben_am=datetime(2026, 9, 20, tzinfo=timezone.utc))
+
+    class _M:
+        name, branche, mitarbeitende, region, geschaeftsmodell = (
+            "NoroAI Consulting GmbH", "KI-Beratung", 10, None, None)
+
+    konzept = {"kontext": {"kp_id": "KP-06", "hauptschmerzpunkte": [
+        {"beschreibung": "Stunden werden abgetippt", "auswirkung": "Fehler und Verzug"}]}}
+    from dataclasses import replace
+    return replace(ansicht, ausgangslage=als_ausgangslage(_M(), [konzept]))
+
+
+def test_praesentation_wird_im_lieferordner_abgelegt(buch, gate1_buch, kopf, tmp_path):
+    from fastapi.testclient import TestClient
+
+    from app import erzeuge_app
+
+    lieferungen = tmp_path / "lieferungen"
+    lieferungen.mkdir()
+    ansicht = _nachrechenbarer_lauf()
+    quelle = SpeicherLaufquelle([ansicht])
+    with TestClient(erzeuge_app(buch, laufquelle=quelle, gate1_buch=gate1_buch,
+                                lieferungen=lieferungen)) as c:
+        lauf = c.get("/api/oberflaeche/laeufe/PKT-2026-0042", headers=kopf).json()
+        assert sende(c, kopf, "PKT-2026-0042", alle_freigeben(lauf)).status_code == 200
+        antwort = _praesentation(c, kopf, "PKT-2026-0042")
+
+    assert antwort.status_code == 200
+    ziel = lieferungen / "noroai-PKT-2026-0042-f1" / "praesentation.pptx"
+    assert antwort.headers["x-bc2-ablage"] == "abgelegt: noroai-PKT-2026-0042-f1/praesentation.pptx"
+    # Ein Erzeugungsvorgang, zwei Empfänger: dieselben Bytes.
+    assert ziel.read_bytes() == antwort.content
+
+
+def test_praesentation_ohne_lieferungen_verzeichnis_wird_ausgeliefert_nicht_abgelegt(
+        buch, gate1_buch, kopf, tmp_path):
+    from fastapi.testclient import TestClient
+
+    from app import erzeuge_app
+
+    quelle = SpeicherLaufquelle([_nachrechenbarer_lauf()])
+    with TestClient(erzeuge_app(buch, laufquelle=quelle, gate1_buch=gate1_buch,
+                                lieferungen=None)) as c:
+        lauf = c.get("/api/oberflaeche/laeufe/PKT-2026-0042", headers=kopf).json()
+        sende(c, kopf, "PKT-2026-0042", alle_freigeben(lauf))
+        antwort = _praesentation(c, kopf, "PKT-2026-0042")
+    assert antwort.status_code == 200
+    assert antwort.headers["x-bc2-ablage"].startswith("nicht abgelegt: kein Lieferungen-Verzeichnis")
+    assert not any(tmp_path.iterdir())
