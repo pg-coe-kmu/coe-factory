@@ -409,10 +409,15 @@ def zeilen_aus(entscheidung: Gate1Entscheidung) -> tuple[list[dict], list[dict]]
 
 
 class PostgresGate1Buch:
-    """Gate 1 in Schema ``bc2``. Verbindet je Vorgang neu, wie die anderen Ablagen."""
+    """Gate 1 in Schema ``bc2``. Verbindet je Vorgang neu, wie die anderen Ablagen.
 
-    def __init__(self, dsn: str | None = None) -> None:
+    ``nur_lesen`` wie bei ``PostgresErgebnisbuch``: jede Sitzung ``readonly``.
+    """
+
+    def __init__(self, dsn: str | None = None, *, nur_lesen: bool = False) -> None:
         import os
+
+        self._nur_lesen = nur_lesen
 
         self._dsn = dsn or (os.environ.get("DATABASE_URL") or "").strip()
         if not self._dsn:
@@ -424,7 +429,10 @@ class PostgresGate1Buch:
     def _verbindung(self):
         import psycopg2
 
-        return psycopg2.connect(self._dsn)
+        conn = psycopg2.connect(self._dsn)
+        if self._nur_lesen:
+            conn.set_session(readonly=True)
+        return conn
 
     def merken(self, entscheidung: Gate1Entscheidung) -> None:
         import psycopg2.extras

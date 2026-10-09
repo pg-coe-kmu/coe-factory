@@ -130,11 +130,25 @@ def test_gezeigt_wird_genau_das_abgelegte_dokument(quelle, ergebnisse, paket_id)
     assert "gate1" not in dok
 
 
-def test_die_warnung_des_messsatzes_reist_mit(quelle, innen, paket_id):
+def test_der_sperrgrund_des_messsatzes_reist_mit(quelle, innen, paket_id):
     """Ein Messsatz ist nicht nachrechenbar; das darf beim Ablegen nicht verloren gehen."""
-    vorher = innen.uebersicht()[0].warnung
+    vorher = innen.uebersicht()[0].sperrgrund
     assert vorher
-    assert quelle.ansicht(paket_id).kopf.warnung == vorher
+    kopf = quelle.ansicht(paket_id).kopf
+    assert kopf.sperrgrund == vorher and not kopf.lieferbar
+
+
+def test_hinweise_reisen_mit_und_sperren_nichts(innen, ergebnisse):
+    """Sperrgrund und Hinweise liegen getrennt (#305) — ein Hinweis allein lässt lieferbar."""
+    from laeufe import SpeicherLaufquelle
+
+    vorlage = innen.ansicht(innen.uebersicht()[0].paket_id)
+    echt = replace(vorlage, kopf=replace(vorlage.kopf, sperrgrund=None, hinweise=("Modellurteil.",)))
+    kopf = AblegendeLaufquelle(SpeicherLaufquelle([echt]), ergebnisse).ansicht(
+        vorlage.kopf.paket_id
+    ).kopf
+    assert kopf.sperrgrund is None and kopf.lieferbar
+    assert kopf.hinweise == ("Modellurteil.",)
 
 
 def test_jedes_potenzial_steht_in_genau_einem_konzept(quelle, ergebnisse, paket_id):
@@ -386,10 +400,15 @@ def test_ohne_ablage_gibt_es_keinen_neulauf(client, kopf, paket_id):
 
 
 def _zwei_pakete(innen, *, zweite_company: str | None = None):
-    """Zwei Pakete über dieselben Teilprozesse — der Normalfall nach einer Nacherhebung."""
+    """Zwei Pakete über dieselben Teilprozesse — der Normalfall nach einer Nacherhebung.
+
+    Ohne Sperrgrund, als kämen sie aus dem echten Weg: nur ein gelieferter Lauf
+    stellt Kandidaten (#305), und ein Messsatz ist nie geliefert.
+    """
     from laeufe import SpeicherLaufquelle
 
     vorlage = innen.ansicht(innen.uebersicht()[0].paket_id)
+    vorlage = replace(vorlage, kopf=replace(vorlage.kopf, sperrgrund=None))
     a = replace(vorlage, kopf=replace(vorlage.kopf, paket_id="PAKET-A"))
     b = replace(vorlage, kopf=replace(
         vorlage.kopf, paket_id="PAKET-B", company_id=zweite_company or vorlage.kopf.company_id
@@ -412,6 +431,24 @@ def test_ein_lauf_mit_vorgaenger_kandidaten_bricht_ab(innen, ergebnisse):
     b = ergebnisse.letzter("PAKET-B")
     assert b.beleg.zustand == "fehler"
     assert b.dokument is None
+
+
+def test_ein_freigegebener_lauf_mit_sperrgrund_ist_kein_kandidat(innen, ergebnisse):
+    """Freigegeben ist nicht geliefert (#305): ein Messsatz kam nie bei BC3 an und
+    darf darum vom nächsten Paket keinen Nachfolger verlangen."""
+    from laeufe import SpeicherLaufquelle
+
+    zwei = _zwei_pakete(innen)
+    a = zwei.ansicht("PAKET-A")
+    gesperrt = replace(a, kopf=replace(a.kopf, sperrgrund="Nicht nachrechenbar."))
+    quelle = AblegendeLaufquelle(
+        SpeicherLaufquelle([gesperrt, zwei.ansicht("PAKET-B")]), ergebnisse
+    )
+    gate1 = SpeicherGate1Buch(ergebnisse=ergebnisse)
+    entscheiden(gate1, quelle.ansicht("PAKET-A"), "approved")
+
+    assert ergebnisse.geliefert() == []
+    assert quelle.ansicht("PAKET-B").kopf.fassung == 1
 
 
 def test_abgelehnte_fassungen_sind_keine_kandidaten(innen, ergebnisse):

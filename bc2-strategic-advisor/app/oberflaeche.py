@@ -47,14 +47,7 @@ from gate1 import (
     pruefe,
 )
 from laeufe import Laufquelle
-from praesentation import (
-    DATEINAME,
-    als_bytes,
-    baue_praesentation,
-    lege_ab,
-    lieferordner,
-    mandantenkuerzel,
-)
+from praesentation import DATEINAME, als_bytes, baue_praesentation
 
 PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 
@@ -72,16 +65,17 @@ def erzeuge_router(
     buch: Gate1Buch,
     schluessel_stimmt,
     ablage_art: str,
-    lieferungen: Path | None = None,
 ) -> APIRouter:
     """Baut die Routen.
 
     ``schluessel_stimmt`` wird hereingereicht statt importiert: die Prüfung
     gehört dem Endpunkt-Modul, und dieses Modul soll nicht davon abhängen, wie
     BC0s Signatur aussieht. ``ablage_art`` sagt der Oberfläche, ob ihre
-    Entscheidung einen Neustart überlebt. ``lieferungen`` ist das Verzeichnis,
-    unter dem die Lieferordner ``<company>-<paket_id>-f<n>/`` liegen; ohne
-    Angabe wird die Präsentation ausgeliefert, aber nicht abgelegt.
+    Entscheidung einen Neustart überlebt.
+
+    Lieferdateien schreibt der Dienst nicht: der Lieferordner ist eine
+    Abbildung von Schema ``bc2`` und wird mit ``tools/lieferung_ziehen.py``
+    gezogen (ADR-007 · BC2, Nachtrag #305).
     """
     router = APIRouter(prefix="/api/oberflaeche")
 
@@ -255,13 +249,12 @@ def erzeuge_router(
     def praesentation(request: Request, paket_id: str):
         """Zeichnet den Foliensatz des Laufs — **nur nach Freigabe** (#244, #257).
 
-        Ein Erzeugungsvorgang, zwei Empfänger: dieselben Bytes gehen als
-        Antwort zurück und in den Lieferordner, damit Download und Ablage
-        nicht auseinanderlaufen. Ob abgelegt wurde, sagt ``X-BC2-Ablage`` —
-        ein fehlender Ort ist kein Grund, den Download zu verweigern, und
-        auch keiner, einen Ort zu erfinden.
+        Die Präsentation geht an den **Mandanten**, nicht an BC3: sie ist
+        Download, kein Teil der Lieferung (ADR-007 · BC2, Nachtrag #305,
+        Punkt 4). Abgelegt wird sie darum nirgends.
 
-        ``POST`` und nicht ``GET``: der Ruf schreibt in den Lieferordner.
+        ``POST`` und nicht ``GET``, wie bisher — der Knopf in der Oberfläche
+        ruft es so.
         """
         if (abweisung := _wache(request)) is not None:
             return abweisung
@@ -285,39 +278,18 @@ def erzeuge_router(
 
         konzepte, priorisierung = ansicht.als_vertrag(entscheidung.als_vertrag())
         daten = als_bytes(
-            baue_praesentation(konzepte, priorisierung, warnung=ansicht.kopf.warnung)
-        )
-
-        # Der Header ist ASCII: HTTP-Kopfzeilen tragen kein UTF-8.
-        if ansicht.kopf.warnung:
-            # Ein Messsatz ist keine Lieferung. Der Lieferordner ist BC3s Eingang,
-            # und was dort liegt, gilt als uebergeben (ADR-007, 2.3).
-            ablage = "nicht abgelegt: der Lauf ist nicht nachrechenbar (Messsatz)"
-        elif lieferungen is None:
-            ablage = "nicht abgelegt: kein Lieferungen-Verzeichnis eingestellt (BC2_LIEFERUNGEN)"
-        else:
-            name = ((ansicht.ausgangslage or {}).get("unternehmen") or {}).get("name")
-            ordner = lieferordner(
-                lieferungen,
-                mandantenkuerzel(name, ansicht.kopf.company_id),
-                paket_id,
-                ansicht.kopf.fassung,
+            baue_praesentation(
+                konzepte,
+                priorisierung,
+                sperrgrund=ansicht.kopf.sperrgrund,
+                hinweise=ansicht.kopf.hinweise,
             )
-            try:
-                lege_ab(daten, ordner)
-                ablage = f"abgelegt: {ordner.name}/{DATEINAME}"
-            except OSError as fehler:
-                log.warning("Praesentation fuer %s nicht abgelegt: %s", paket_id, fehler)
-                ablage = "nicht abgelegt: Lieferungen-Verzeichnis fehlt oder ist nicht beschreibbar"
-
-        log.info("Praesentation fuer %s erzeugt (%d Bytes), %s", paket_id, len(daten), ablage)
+        )
+        log.info("Praesentation fuer %s erzeugt (%d Bytes)", paket_id, len(daten))
         return Response(
             daten,
             media_type=PPTX,
-            headers={
-                "Content-Disposition": f'attachment; filename="{DATEINAME}"',
-                "X-BC2-Ablage": ablage,
-            },
+            headers={"Content-Disposition": f'attachment; filename="{DATEINAME}"'},
         )
 
     @router.post("/laeufe/{paket_id}/neu")

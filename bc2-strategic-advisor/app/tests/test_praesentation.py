@@ -47,9 +47,6 @@ from praesentation import (  # noqa: E402
     KeineFreigabe,
     als_bytes,
     baue_praesentation,
-    lege_ab,
-    lieferordner,
-    mandantenkuerzel,
 )
 from praesentation.folien import KACHELN_JE_FOLIE, ZEILEN_KOSTEN  # noqa: E402
 
@@ -98,7 +95,7 @@ def messsatz_lauf() -> tuple[list[dict], dict, str | None]:
         "approved_potenzial_ids": ansicht.potenzial_ids(),
     }
     konzepte, prio = ansicht.als_vertrag(gate1)
-    return konzepte, prio, ansicht.kopf.warnung
+    return konzepte, prio, ansicht.kopf.sperrgrund
 
 
 # ---------------------------------------------------------------------------
@@ -364,11 +361,23 @@ def test_vor_der_freigabe_und_bei_ablehnung_entsteht_keine_praesentation(fixture
         baue_praesentation(konzepte, prio)
 
 
-def test_die_warnung_der_quelle_steht_auf_der_titelfolie(messsatz_lauf):
-    konzepte, prio, warnung = messsatz_lauf
-    assert warnung, "Der Messsatz trägt keine Warnung mehr — dann prüft dieser Test nichts."
-    titel = "\n".join(_texte_der_folie(baue_praesentation(konzepte, prio, warnung=warnung).slides[0]))
-    assert warnung in titel
+def test_der_sperrgrund_der_quelle_steht_auf_der_titelfolie(messsatz_lauf):
+    konzepte, prio, sperrgrund = messsatz_lauf
+    assert sperrgrund, "Der Messsatz trägt keinen Sperrgrund mehr — dann prüft dieser Test nichts."
+    titel = "\n".join(_texte_der_folie(
+        baue_praesentation(konzepte, prio, sperrgrund=sperrgrund).slides[0]
+    ))
+    assert sperrgrund in titel
+
+
+def test_hinweise_stehen_auf_der_titelfolie_ohne_warnzeichen(fixture_lauf):
+    """Ein Hinweis hält nichts auf (#305) — er steht da, aber nicht als Warnung."""
+    konzepte, prio = fixture_lauf
+    hinweis = "Schnitt und Bewertung sind Modellurteile."
+    titel = "\n".join(_texte_der_folie(
+        baue_praesentation(konzepte, prio, hinweise=[hinweis]).slides[0]
+    ))
+    assert hinweis in titel and "⚠" not in titel
 
 
 def test_derselbe_lauf_ergibt_dieselben_folien(fixture_lauf):
@@ -423,34 +432,18 @@ def test_sind_alle_ohne_wertaussage_zeigt_teil_3_gruende_statt_leerer_tabellen(k
 
 
 # ---------------------------------------------------------------------------
-# Ablage
+# Bytes für den Download
 # ---------------------------------------------------------------------------
 
 
-def test_die_ablage_schreibt_in_den_lieferordner_ohne_fassung_im_dateinamen(tmp_path, fixture_lauf):
+def test_die_bytes_sind_eine_lesbare_praesentation(fixture_lauf):
+    """Abgelegt wird sie nicht mehr (#305) — sie geht als Download an den Mandanten."""
     konzepte, prio = fixture_lauf
     daten = als_bytes(baue_praesentation(konzepte, prio))
-    basis = tmp_path / "lieferungen"
-    basis.mkdir()
-    ordner = lieferordner(basis, mandantenkuerzel("NoroAI Consulting GmbH", prio["company_id"]),
-                          prio["paket_id"], prio["fassung"])
-    pfad = lege_ab(daten, ordner)
-
-    assert pfad == basis / f"noroai-{prio['paket_id']}-f1" / DATEINAME
     assert DATEINAME == "praesentation.pptx"
-    gelesen = pptx.Presentation(io.BytesIO(pfad.read_bytes()))
+    gelesen = pptx.Presentation(io.BytesIO(daten))
     assert len(gelesen.slides) == len(baue_praesentation(konzepte, prio).slides)
 
-
-def test_ohne_lieferungen_verzeichnis_wird_nichts_erfunden(tmp_path):
-    with pytest.raises(FileNotFoundError):
-        lege_ab(b"PK", tmp_path / "gibt-es-nicht" / "noroai-PKT-f1")
-
-
-def test_das_mandantenkuerzel():
-    assert mandantenkuerzel("NoroAI Consulting GmbH", "7c2d5ee9-x") == "noroai"
-    assert mandantenkuerzel(None, "7C2D5EE9-2a9a") == "7c2d5ee9"
-    assert mandantenkuerzel("  ", "7c2d5ee9-2a9a") == "7c2d5ee9"
 
 
 # ---------------------------------------------------------------------------

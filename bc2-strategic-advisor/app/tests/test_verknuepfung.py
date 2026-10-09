@@ -87,10 +87,13 @@ def _kandidat(pid="ALT-1", tps=(TP2,), klasse="Integration", kp="KP-06") -> Kand
 
 
 def _messsatz_vorlage():
+    """Ein Messsatzlauf **ohne Sperrgrund**, als käme er aus dem echten Weg: nur
+    ein gelieferter Lauf stellt Kandidaten (#305)."""
     from laeufe import MesssatzLaufquelle
 
     q = MesssatzLaufquelle(MESSSAETZE)
-    return q.ansicht(q.uebersicht()[0].paket_id)
+    a = q.ansicht(q.uebersicht()[0].paket_id)
+    return replace(a, kopf=replace(a.kopf, sperrgrund=None))
 
 
 def test_ein_neu_gebrachter_teilprozess_ohne_potenzial_ist_trotzdem_neu_gesehen():
@@ -377,9 +380,11 @@ def test_das_zweite_paket_liefert_eine_gueltige_kette_und_eine_streichliste():
 
     dok = ergebnisse.letzter("PKT-B").dokument
     assert dok["schema_version"] == "3.1"
-    # Die Warnung kommt aus der Rechnung, nicht aus dem Kopf der Übersicht —
+    # Die Hinweise kommen aus der Rechnung, nicht aus dem Kopf der Übersicht —
     # seit die Ablage vor dem Rechnen anlegt, liegen beide nebeneinander.
-    assert "#299" in b.kopf.warnung and "Noch nicht gerechnet" not in b.kopf.warnung
+    hinweise = " ".join(b.kopf.hinweise)
+    assert "#299" in hinweise and "Noch nicht gerechnet" not in hinweise
+    assert b.kopf.lieferbar
     (neu,) = [p for k in b.konzepte for p in k["potenziale"]]
     assert neu["ersetzt_potenzial_ids"] == [alt["Potenzial P1"]]
     assert dok["gestrichene_potenziale"] == [{
@@ -443,6 +448,9 @@ def test_ohne_ausgangslage_bleibt_die_sperre():
     gate1 = SpeicherGate1Buch(ergebnisse=ergebnisse)
     laeufe = AblegendeLaufquelle(innen, ergebnisse)
     _freigeben(gate1, laeufe.ansicht("PKT-A"))
+    # Ohne Ausarbeitung trüge A selbst einen Sperrgrund und wäre nie geliefert
+    # (#305) — hier zählt nur B. A steht darum, als wäre es geliefert worden.
+    ergebnisse.zeilen["PKT-A"][-1].sperrgrund = None
 
     with pytest.raises(NachfolgerOffen, match="Vertrag 3.1"):
         laeufe.ansicht("PKT-B")

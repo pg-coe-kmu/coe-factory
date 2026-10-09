@@ -11,8 +11,8 @@ Zwei Teile, getrennt wie in ``modell/`` (#238):
   Priorisierung → ``Presentation`` im Speicher. Mit
   :mod:`~praesentation.formulierung` (wie Zahlen auf die Folie kommen) und
   :mod:`~praesentation.zeichnen` (Palette und Formen aus dem KIsult-Schnitt).
-- :mod:`~praesentation.ablage` — der **dünne Aufrufer**: zu Bytes machen und
-  in ``lieferungen/<company>-<paket_id>-f<n>/praesentation.pptx`` ablegen.
+- :mod:`~praesentation.ablage` — der **dünne Aufrufer**: zu Bytes machen für
+  den Download. Abgelegt wird sie nicht; sie geht an den Mandanten (#305).
 
 Kürzester Weg::
 
@@ -22,7 +22,7 @@ Kürzester Weg::
     daten = als_bytes(prs)
 """
 
-from .ablage import DATEINAME, als_bytes, lege_ab, lieferordner, mandantenkuerzel
+from .ablage import DATEINAME, als_bytes
 from .folien import KeineFreigabe, baue_praesentation
 
 __all__ = [
@@ -30,7 +30,4 @@ __all__ = [
     "KeineFreigabe",
     "als_bytes",
     "baue_praesentation",
-    "lege_ab",
-    "lieferordner",
-    "mandantenkuerzel",
 ]

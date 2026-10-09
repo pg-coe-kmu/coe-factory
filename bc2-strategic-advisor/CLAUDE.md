@@ -133,7 +133,8 @@ divergierenden Kopien unter `Projektgruppe/BC2/` sind aufgelöst und liegen dort
 | Ausarbeitung an echten Aufrufen messen (#301) | `bc2-strategic-advisor/tools/ausarbeitung_messen.py` — `--von /tmp/bewertung-299` nimmt Erkennung und Urteile einer früheren Erhebung |
 | **Nachfolger über Pakete** (ADR-009 · BC2, #295) | `app/nachfolge.py` (Kandidat, Ausgang, Nachprüfung — rein), Kandidatensuche in `app/ablage.py`, Zuordnung im Wächter von `app/erkennung/` |
 | **Gate-1-Oberfläche** (Fassung D, #167/#243) | `app/static/index.html` (eine Datei), `app/oberflaeche.py` (die Rufe), `app/gate1.py` (Entscheidung, Prüfung, Ablage), `app/laeufe.py` (Laufquelle) |
-| **Präsentation** (#244 entschieden, #257 gebaut) | `app/praesentation/` — `folien.py` (reine Funktion: Konzepte + Priorisierung → PPTX), `formulierung.py` (wie Zahlen auf die Folie kommen), `zeichnen.py` (KIsult-Palette), `ablage.py` (Lieferordner); das alte Template liegt in `architektur/archiv/` |
+| **Präsentation** (#244 entschieden, #257 gebaut) | `app/praesentation/` — `folien.py` (reine Funktion: Konzepte + Priorisierung → PPTX), `formulierung.py` (wie Zahlen auf die Folie kommen), `zeichnen.py` (KIsult-Palette), `ablage.py` (Bytes für den Download — abgelegt wird sie seit #306 nicht mehr); das alte Template liegt in `architektur/archiv/` |
+| **Lieferung an BC3** (#305 entschieden, #306 gebaut) | `app/lieferung.py` (welche Läufe geliefert sind: freigegeben **und** ohne Sperrgrund; `python -m lieferung` im Container, nur lesend) und `tools/lieferung_ziehen.py` (lokal: zieht über `ssh bc2`, ordnet nach Schema, schreibt neue Ordner, bricht bei Abweichung ab). Ablauf in `app/DEPLOY.md` |
 | Oberfläche ansehen, ohne Datenbank | `app/vorschau.py` — `python3 vorschau.py`, dann `http://127.0.0.1:8243/` |
 | Messsätze für die Kalibrierung | `bc2-strategic-advisor/kalibrierung/` |
 | Erkennung an einem echten Aufruf messen | `bc2-strategic-advisor/tools/erkennung_messen.py` |

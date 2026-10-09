@@ -605,7 +605,8 @@ def test_die_liste_rechnet_nicht():
     koepfe = laeufe.uebersicht()
 
     assert [k.paket_id for k in koepfe] == ["PKT-288"]
-    assert koepfe[0].anzahl_potenziale == 0 and "Noch nicht gerechnet" in koepfe[0].warnung
+    assert koepfe[0].anzahl_potenziale == 0 and "Noch nicht gerechnet" in koepfe[0].hinweise[0]
+    assert koepfe[0].sperrgrund is None
     assert modell.fragen == [] and quelle.gelesen == []
     assert laeufe.uebersicht(company_id="ein-anderer-mandant") == []
 
@@ -628,7 +629,9 @@ def test_jedes_oeffnen_rechnet_neu():
     assert set(erste.potenziale).isdisjoint(zweite.potenziale)
     assert len(erste.eintraege) == 2
     assert erste.kp_namen == {"KP-06": "Projektdurchfuehrung"}
-    assert "#299" in erste.kopf.warnung
+    # Das Modellurteil ist ein Hinweis, kein Sperrgrund (#305): der echte Weg ist lieferbar.
+    assert "#299" in " ".join(erste.kopf.hinweise)
+    assert erste.kopf.sperrgrund is None
 
 
 def test_die_ablage_rechnet_einmal_und_zeigt_dann_das_abgelegte():

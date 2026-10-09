@@ -190,3 +190,17 @@ werden einzeln richtig geprüft. Werden beide freigegeben, hat der Kandidat zwei
 vorkommen kann, hängt daran, wie BC0 Pakete schnürt; geprüft ist es nicht. Eine Sperre dagegen
 gehörte an die Freigabe, nicht an die Rechnung.
 
+
+## Nachtrag 2 · Freigegeben ist nicht geliefert (#306, 09.10.2026)
+
+Seit [#305](https://github.com/pg-coe-kmu/coe-factory/issues/305) trägt ein Lauf einen
+**Sperrgrund**, wenn er nicht geliefert werden kann (nicht nachrechenbar, kein Potenzial, nicht
+ausgearbeitet), und lässt sich trotzdem freigeben. Ein freigegebener Messsatzlauf ist damit nie bei
+BC3 angekommen. Stellte er Kandidaten, verlangte ein späteres echtes Paket einen Nachfolger für ein
+Potenzial, das BC3 nicht kennt.
+
+Die Lesart aus Nachtrag 1, Punkt 1 wird darum enger: **Kandidat ist jedes Potenzial eines
+freigegebenen Laufs ohne Sperrgrund**, das einen Teilprozess des Pakets berührt und seither weder
+fortgeschrieben noch gestrichen ist. Dieselbe Bedingung gilt für das Nachschlagen in der
+Gate-1-Ansicht. Gebaut in `app/ablage.py` (`AbgelegterLauf.geliefert`, `_SQL_KANDIDATEN`,
+`_SQL_NACHSCHLAGEN`).
