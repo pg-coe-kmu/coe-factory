@@ -34,6 +34,8 @@ Kennungen. BC2 nimmt jetzt beides an — siehe Schritt 8 und 9.
 | `eingang.py` | Ablage. Postgres im Betrieb, Arbeitsspeicher in den Tests. |
 | `migration_bc2.1_eingang.sql` | Legt `bc2.eingang` an. Wiederholbar. |
 | `migration_bc2.2_lauf.sql` | Lauf, Konzept, Potenzial und Gate 1 in `bc2`, Sicht für BC0 (#290, ADR-008 · BC2). Wiederholbar, setzt bc2.1 voraus. |
+| `migration_bc2.3_sperrgrund.sql` | `bc2.lauf.sperrgrund` und `hinweise` statt `warnung` (#306). Wiederholbar, setzt bc2.2 voraus. |
+| `lieferung.py` | Was geliefert ist, für `tools/lieferung_ziehen.py` (#306). `python -m lieferung` liest nur. |
 | `ablage.py`, `gate1.py` | Ablage von Ergebnis und Gate-1-Entscheidung. Postgres mit `DATABASE_URL`, sonst Arbeitsspeicher. |
 | `Dockerfile`, `docker-compose.yml`, `Caddyfile` | Container, Reverse-Proxy, HTTPS |
 | `.env.example` | Vorlage. Die echte `.env` liegt **nur** auf dem Server. |
@@ -117,11 +119,9 @@ DOMAIN=bc2.02da.de
 ⚠️ **Port 5432, nicht 6543.** Der Transaction-Pooler hält keine Sitzung über die
 einzelne Anweisung hinaus.
 
-**Optional: `BC2_LIEFERUNGEN`** — das Verzeichnis, unter dem die Lieferordner
-`<company>-<paket_id>-f<n>/` liegen. Ist es gesetzt (und im Container eingehängt), legt der
-Gate-1-Knopf die Präsentation dort als `praesentation.pptx` ab (#257). Ohne den Wert wird sie
-nur ausgeliefert; die Antwort sagt das im Kopf `X-BC2-Ablage`. Läufe aus einem Messsatz werden
-nie abgelegt — sie sind keine Lieferung.
+**`BC2_LIEFERUNGEN` gibt es nicht mehr** (#306). Der Dienst schreibt keine Lieferdateien und
+legt die Präsentation nirgends ab; die Lieferung an BC3 wird aus Schema `bc2` gezogen (siehe
+„Lieferung an BC3 ziehen“ unten). Steht der Wert noch in einer `.env`, wird er ignoriert.
 
 ```bash
 chmod 600 .env
@@ -133,7 +133,12 @@ chmod 600 .env
 set -a && . ./.env && set +a
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migration_bc2.1_eingang.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migration_bc2.2_lauf.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migration_bc2.3_sperrgrund.sql
 ```
+
+Für bc2.3: zwei `ALTER TABLE`, zwei `COMMENT`, zwei `UPDATE` (beim ersten Mal tragen sie die
+alten `warnung`-Texte über, danach `UPDATE 0`) und ein `COMMENT`. Die Übertragung entscheidet
+im Zweifel für **Sperrgrund**: nur das Modellurteil des echten Wegs wird Hinweis.
 
 Erwartet für bc2.1: `DO`, `CREATE TABLE`, drei `COMMENT`, `CREATE INDEX`. Für bc2.2
 Tabellen, Indizes, Funktionen, Trigger, die Sicht und am Ende ein `DO` — fehlt die
@@ -288,6 +293,25 @@ curl -X POST -H "Authorization: Bearer $BC2_TRIGGER_TOKEN" \
 
 **Kein Dauer-Polling** — die Festlegung aus
 [#165](https://github.com/pg-coe-kmu/coe-factory/issues/165) bleibt.
+
+## Lieferung an BC3 ziehen
+
+Die Freigabe am Gate 1 ist die Übergabe — bei BC3 ankommen tut der Lauf, wenn sein Ordner im
+Repo liegt (ADR-007 · BC2, Nachtrag #305). Gezogen wird **lokal**, aus dem Repo-Wurzelverzeichnis:
+
+```bash
+git switch -c lieferung/<paket_id>
+python3 bc2-strategic-advisor/tools/lieferung_ziehen.py --pruefen   # nur ansehen
+python3 bc2-strategic-advisor/tools/lieferung_ziehen.py             # schreiben
+python3 bc2-strategic-advisor/tools/validate.py
+git add contracts/bc2-to-bc3/lieferungen && git commit && gh pr create
+```
+
+Das Werkzeug ruft `ssh bc2 docker exec app-app-1 python -m lieferung`: es liest im Container,
+in einer `readonly`-Sitzung, alle freigegebenen Läufe ohne Sperrgrund. Die `DATABASE_URL`
+verlässt den Server nicht. Es schreibt nur **neue** Ordner; ein vorhandener, der jetzt anders
+herauskäme, bricht den ganzen Zug ab, bevor etwas geschrieben ist — eine übergebene Lieferung
+ändert sich nicht.
 
 ## Aktualisieren
 

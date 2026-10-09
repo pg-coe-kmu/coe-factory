@@ -154,14 +154,40 @@ def test_lauf_traegt_die_vertragsbloecke(client, kopf):
 
 
 def test_ein_nicht_nachrechenbarer_lauf_sagt_das_an(client, kopf):
-    """Die Warnung des Messsatzes reist bis in die Kopfzeile.
+    """Der Sperrgrund des Messsatzes reist bis in die Kopfzeile.
 
-    Sie zu schlucken hiesse, erfundene Zahlen wie erhobene aussehen zu lassen —
+    Ihn zu schlucken hiesse, erfundene Zahlen wie erhobene aussehen zu lassen —
     genau die Scheingenauigkeit, gegen die das ganze Bandbreitenmodell steht.
     """
     lauf = ein_lauf(client, kopf)
-    assert "warnung" in lauf["kopf"]
-    assert lauf["kopf"]["warnung"]
+    assert lauf["kopf"]["sperrgrund"]
+    assert "warnung" not in lauf["kopf"]
+
+
+def test_ein_lauf_mit_sperrgrund_laesst_sich_trotzdem_freigeben(client, kopf):
+    """Die Freigabe ist die Entscheidung des Menschen, der Sperrgrund ein Merkmal
+    des Laufs (#305, Punkt 5) — er sperrt die Lieferung, nicht Gate 1."""
+    lauf = ein_lauf(client, kopf)
+    assert lauf["kopf"]["sperrgrund"]
+    antwort = sende(client, kopf, lauf["kopf"]["paket_id"], alle_freigeben(lauf))
+    assert antwort.status_code == 200
+    assert antwort.json()["gate1"]["status"] == "approved"
+
+
+def test_hinweise_stehen_getrennt_vom_sperrgrund(buch, gate1_buch, kopf):
+    from dataclasses import replace
+
+    from fastapi.testclient import TestClient
+
+    from app import erzeuge_app
+
+    ansicht = _nachrechenbarer_lauf()
+    ansicht = replace(ansicht, kopf=replace(ansicht.kopf, hinweise=("Modellurteil.",)))
+    with TestClient(erzeuge_app(buch, laufquelle=SpeicherLaufquelle([ansicht]),
+                                gate1_buch=gate1_buch)) as c:
+        lauf = c.get("/api/oberflaeche/laeufe/PKT-2026-0042", headers=kopf).json()
+    assert lauf["kopf"]["hinweise"] == ["Modellurteil."]
+    assert "sperrgrund" not in lauf["kopf"]
 
 
 # ---------------------------------------------------------------------------
@@ -627,8 +653,6 @@ def test_praesentation_nach_freigabe_kommt_als_pptx(client, kopf):
     notizen = [f.notes_slide.notes_text_frame.text for f in prs.slides if f.has_notes_slide]
     detail = [n for n in notizen if n.startswith("potenzial_id:")]
     assert len(detail) == len(lauf["eintraege"])
-    # Ein Messsatz ist keine Lieferung: ausgeliefert ja, abgelegt nein.
-    assert antwort.headers["x-bc2-ablage"].startswith("nicht abgelegt: der Lauf ist nicht nachrechenbar")
 
 
 def _nachrechenbarer_lauf() -> Laufansicht:
@@ -670,40 +694,20 @@ def _nachrechenbarer_lauf() -> Laufansicht:
     return replace(ansicht, ausgangslage=als_ausgangslage(_M(), [konzept]))
 
 
-def test_praesentation_wird_im_lieferordner_abgelegt(buch, gate1_buch, kopf, tmp_path):
+def test_die_praesentation_wird_nirgends_abgelegt(buch, gate1_buch, kopf, tmp_path, monkeypatch):
+    """Sie geht an den Mandanten, nicht an BC3 (#305, Punkt 4): Download ja,
+    Lieferordner nein — auch nicht für einen lieferbaren Lauf."""
     from fastapi.testclient import TestClient
 
     from app import erzeuge_app
 
-    lieferungen = tmp_path / "lieferungen"
-    lieferungen.mkdir()
-    ansicht = _nachrechenbarer_lauf()
-    quelle = SpeicherLaufquelle([ansicht])
-    with TestClient(erzeuge_app(buch, laufquelle=quelle, gate1_buch=gate1_buch,
-                                lieferungen=lieferungen)) as c:
-        lauf = c.get("/api/oberflaeche/laeufe/PKT-2026-0042", headers=kopf).json()
-        assert sende(c, kopf, "PKT-2026-0042", alle_freigeben(lauf)).status_code == 200
-        antwort = _praesentation(c, kopf, "PKT-2026-0042")
-
-    assert antwort.status_code == 200
-    ziel = lieferungen / "noroai-PKT-2026-0042-f1" / "praesentation.pptx"
-    assert antwort.headers["x-bc2-ablage"] == "abgelegt: noroai-PKT-2026-0042-f1/praesentation.pptx"
-    # Ein Erzeugungsvorgang, zwei Empfänger: dieselben Bytes.
-    assert ziel.read_bytes() == antwort.content
-
-
-def test_praesentation_ohne_lieferungen_verzeichnis_wird_ausgeliefert_nicht_abgelegt(
-        buch, gate1_buch, kopf, tmp_path):
-    from fastapi.testclient import TestClient
-
-    from app import erzeuge_app
-
+    monkeypatch.chdir(tmp_path)
     quelle = SpeicherLaufquelle([_nachrechenbarer_lauf()])
-    with TestClient(erzeuge_app(buch, laufquelle=quelle, gate1_buch=gate1_buch,
-                                lieferungen=None)) as c:
+    with TestClient(erzeuge_app(buch, laufquelle=quelle, gate1_buch=gate1_buch)) as c:
         lauf = c.get("/api/oberflaeche/laeufe/PKT-2026-0042", headers=kopf).json()
+        assert "sperrgrund" not in lauf["kopf"]
         sende(c, kopf, "PKT-2026-0042", alle_freigeben(lauf))
         antwort = _praesentation(c, kopf, "PKT-2026-0042")
     assert antwort.status_code == 200
-    assert antwort.headers["x-bc2-ablage"].startswith("nicht abgelegt: kein Lieferungen-Verzeichnis")
+    assert "x-bc2-ablage" not in antwort.headers
     assert not any(tmp_path.iterdir())

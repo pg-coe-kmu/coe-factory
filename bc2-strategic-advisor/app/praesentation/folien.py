@@ -237,7 +237,8 @@ def baue_praesentation(
     konzepte: Sequence[Mapping],
     priorisierung: Mapping,
     *,
-    warnung: str | None = None,
+    sperrgrund: str | None = None,
+    hinweise: Sequence[str] = (),
 ) -> Presentation:
     """Zeichnet den Foliensatz eines freigegebenen Laufs.
 
@@ -247,9 +248,10 @@ def baue_praesentation(
     einem Messsatz, der sie nicht trägt; die Folie sagt dann an, dass der Text
     fehlt, statt einen Platzhalter zu zeigen.
 
-    ``warnung`` ist die Warnung der Laufquelle (Messsatz, Simulation). Sie ist
-    keine Information über den Mandanten, sondern über die Herkunft des Laufs,
-    und steht deshalb auf der Titelfolie, wo sie nicht übersehen wird.
+    ``sperrgrund`` und ``hinweise`` kommen aus dem Laufkopf (ADR-007 · BC2,
+    Nachtrag #305). Sie sagen nichts über den Mandanten, sondern etwas über die
+    Herkunft des Laufs, und stehen deshalb auf der Titelfolie, wo sie nicht
+    übersehen werden — der Sperrgrund rot, die Hinweise zurückhaltend.
 
     :raises KeineFreigabe: wenn ``gate1.status`` nicht ``approved`` ist.
     """
@@ -261,7 +263,7 @@ def baue_praesentation(
     )
     satz = _Satz(fusszeile)
 
-    _titel(satz, lauf, warnung)
+    _titel(satz, lauf, sperrgrund, tuple(hinweise))
     _agenda(satz)
     divider(satz.folie(fuss=False), "01", "Ausgangslage",
             "Das Unternehmen und seine zentralen Herausforderungen")
@@ -283,7 +285,9 @@ def baue_praesentation(
 # --- 1 Titel ---------------------------------------------------------------
 
 
-def _titel(satz: _Satz, lauf: _Lauf, warnung: str | None) -> None:
+def _titel(
+    satz: _Satz, lauf: _Lauf, sperrgrund: str | None, hinweise: tuple[str, ...]
+) -> None:
     p = lauf.priorisierung
     g = p["gate1"]
     s = satz.folie(fuss=False)
@@ -306,9 +310,15 @@ def _titel(satz: _Satz, lauf: _Lauf, warnung: str | None) -> None:
         f"{freigabe}  ·  Erstellt von BC2 — Strategic Advisor (Autonomous CoE Factory)",
     ]
     txt(s, Inches(0.9), Inches(4.8), Inches(11.5), Inches(1.5), "\n".join(zeilen), 14, WHITE)
-    if warnung:
-        box(s, Inches(0.9), Inches(3.45), Inches(11.5), Inches(0.9), f"⚠ {warnung}", WARN_FILL, RED,
+    # Eine Fläche, nicht zwei: zwischen Untertitel und Akzentlinie ist Platz
+    # für genau eine. Gibt es einen Sperrgrund, steht er vorn und färbt sie rot.
+    if sperrgrund:
+        text = " ".join([f"⚠ {sperrgrund}", *hinweise])
+        box(s, Inches(0.9), Inches(3.45), Inches(11.5), Inches(0.9), text, WARN_FILL, RED,
             12, True, align=PP_ALIGN.LEFT, line=RED)
+    elif hinweise:
+        box(s, Inches(0.9), Inches(3.45), Inches(11.5), Inches(0.9), "Hinweis: " + " ".join(hinweise),
+            LIGHT, INK, 11, False, align=PP_ALIGN.LEFT, line=LINE)
 
 
 # --- 2 Agenda --------------------------------------------------------------

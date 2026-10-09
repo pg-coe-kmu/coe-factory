@@ -54,8 +54,11 @@
       Zahlen sind darum nicht auf stand_zum(uebergeben_am) gerechnet und nicht
       nachrechenbar.
     - Die PRÄSENTATION gibt es erst nach der Freigabe (#244/#257); der Knopf
-      erscheint im Laufkopf, sobald Gate 1 freigegeben ist. Ob sie zusätzlich
-      im Lieferordner abgelegt wurde, sagt der Dienst — die Seite zeigt es an.
+      erscheint im Laufkopf, sobald Gate 1 freigegeben ist. Sie geht an den
+      Mandanten und wird nirgends abgelegt (#305).
+    - Ein SPERRGRUND (Messsatz, kein Potenzial) macht einen Lauf unlieferbar,
+      nicht unfreigebbar; HINWEISE stehen nur da (#305). An BC3 geht ein Lauf
+      erst, wenn tools/lieferung_ziehen.py ihn in den Lieferordner zieht.
 -->
 <style>
 :root{
@@ -760,6 +763,8 @@ function zeichneKopf(){
     <div class="kennung">Gate 1<b style="color:${
       zustand === "approved" ? "var(--ok)" : zustand === "rejected" ? "var(--warn)" : "inherit"
     }">${zeichen}</b></div>
+    <div class="kennung">Lieferbar<b style="color:${k.sperrgrund ? "var(--warn)" : "inherit"}"
+      title="${esc(k.sperrgrund || "")}">${k.sperrgrund ? "nein" : "ja"}</b></div>
     ${zustand === "approved"
       ? `<div class="kennung"><button class="btn sm" data-praesentation>Präsentation herunterladen</button></div>`
       : ""}
@@ -787,8 +792,8 @@ async function praesentationHolen(){
   a.download = "praesentation.pptx";
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  Z.meldung = {art: "info", text: `<b>Präsentation erzeugt.</b> Lieferordner: ${
-    esc(antwort.headers.get("X-BC2-Ablage") || "keine Angabe")}.`};
+  Z.meldung = {art: "info", text: `<b>Präsentation erzeugt.</b> Sie geht an den Mandanten
+    und liegt nicht im Lieferordner.`};
   zeichne();
 }
 
@@ -894,18 +899,23 @@ function zeichneBuehne(){
     ziel.innerHTML = `<div class="wrap"><p class="hinweis info">Kein Lauf ausgewählt.</p></div>`;
     return;
   }
+  const k = Z.ansicht.kopf;
+  // Sperrgrund und Hinweise sind zwei Dinge (#305): der eine macht den Lauf
+  // unlieferbar, die anderen stehen nur da.
+  const sperre = k.sperrgrund
+    ? `<p class="hinweis warn"><b>Dieser Lauf ist nicht lieferbar.</b> Freigeben lässt er
+        sich, an BC3 geht er nicht. ${esc(k.sperrgrund)}</p>` : "";
+  const hinweise = (k.hinweise || []).map(h =>
+    `<p class="hinweis info"><b>Hinweis.</b> ${esc(h)}</p>`).join("");
   if (!Z.ansicht.eintraege.length){
-    ziel.innerHTML = `<div class="wrap"><p class="hinweis luecke">
+    ziel.innerHTML = `<div class="wrap">${sperre}${hinweise}<p class="hinweis luecke">
       Dieser Lauf trägt <b>keine Potenziale</b>. Entweder hat die Erkennung nichts gefunden,
       oder sie ist für dieses Paket noch nicht gelaufen.</p>${streichlisteHtml()}</div>`;
     return;
   }
 
   const offen = ohneBegruendung();
-  const warnungen = [];
-  if (Z.ansicht.kopf.warnung)
-    warnungen.push(`<p class="hinweis warn"><b>Diese Zahlen sind nicht nachrechenbar.</b>
-      ${esc(Z.ansicht.kopf.warnung)}</p>`);
+  const warnungen = [sperre, hinweise].filter(Boolean);
   if (Z.fluechtig)
     warnungen.push(`<p class="hinweis luecke"><b>Die Entscheidung überlebt keinen Neustart.</b>
       Sie liegt im Arbeitsspeicher des Dienstes — er läuft ohne Datenbank. Mit Datenbank liegt
@@ -984,7 +994,9 @@ function fussleiste(offen){
     const wann = Z.gate1.entschieden_am
       ? new Date(Z.gate1.entschieden_am).toLocaleString("de-DE") : "";
     return `<div class="fussleiste">
-      <b>Gate 1 ${status === "approved" ? "freigegeben" : "abgelehnt"}</b>
+      <b>Gate 1 ${status === "approved"
+        ? (Z.ansicht.kopf.sperrgrund ? "freigegeben, nicht lieferbar" : "freigegeben")
+        : "abgelehnt"}</b>
       <span style="color:var(--muted)">Fassung ${Z.ansicht.kopf.fassung}${
         Z.gate1.entscheider ? ` · ${esc(Z.gate1.entscheider)}` : ""}${wann ? ` · ${wann}` : ""}
         · endgültig</span>
@@ -1186,8 +1198,12 @@ async function entscheiden(status){
   Z.gate1 = antwort.rumpf.gate1;
   Z.geaendert = false;
   Z.meldung = {art: "info", text: status === "approved"
-    ? `<b>Gate 1 freigegeben.</b> ${Z.freigegeben.size} Potenzial(e) gehen an BC3.
-       Die Präsentation steht jetzt oben im Laufkopf zum Herunterladen bereit.`
+    ? (Z.ansicht.kopf.sperrgrund
+        ? `<b>Gate 1 freigegeben, nicht lieferbar.</b> ${esc(Z.ansicht.kopf.sperrgrund)}
+           An BC3 geht nichts. Die Präsentation steht oben im Laufkopf bereit.`
+        : `<b>Gate 1 freigegeben.</b> ${Z.freigegeben.size} Potenzial(e) gehen an BC3, sobald
+           die Lieferung gezogen ist (<code>tools/lieferung_ziehen.py</code>). Die Präsentation
+           steht jetzt oben im Laufkopf zum Herunterladen bereit.`)
     : `<b>Lauf abgelehnt.</b> Es wird nichts ausgeliefert und nichts gelöscht; ein erneuter
        Lauf erzeugt Fassung ${Z.ansicht.kopf.fassung + 1}, diese bleibt abrufbar.`};
   await ladeListe();

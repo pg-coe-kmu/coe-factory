@@ -128,9 +128,21 @@ class AbgelegterLauf:
     konzepte: list[dict] = field(default_factory=list)
     #: ``kp_id`` → Klartextname, soweit bekannt.
     kp_namen: dict[str, str] = field(default_factory=dict)
-    warnung: str | None = None
+    #: Warum der Lauf nicht geliefert werden kann; ``None`` heißt lieferbar.
+    sperrgrund: str | None = None
+    hinweise: tuple[str, ...] = ()
     #: Gate-1-Zustand, wie die Datenbank ihn kennt; ``pending`` ohne Entscheidung.
     gate1_status: str = "pending"
+
+    @property
+    def geliefert(self) -> bool:
+        """Freigegeben **und** ohne Sperrgrund — erst dann liegt er bei BC3.
+
+        Eine Freigabe allein ist keine Lieferung (ADR-007 · BC2, Nachtrag #305):
+        ein freigegebener Messsatzlauf ist nie bei BC3 angekommen und darf
+        darum auch keinen Nachfolger verlangen (ADR-009 · BC2 §2.2).
+        """
+        return self.gate1_status == "approved" and self.sperrgrund is None
 
 
 class Ergebnisbuch(Protocol):
@@ -161,7 +173,8 @@ class Ergebnisbuch(Protocol):
         konzepte: list[dict],
         *,
         kp_namen: dict[str, str] | None = None,
-        warnung: str | None = None,
+        sperrgrund: str | None = None,
+        hinweise: tuple[str, ...] = (),
     ) -> None:
         """Lauf, Konzepte und Potenziale in **einer** Transaktion."""
         ...
@@ -176,8 +189,8 @@ class Ergebnisbuch(Protocol):
         """Die **geltenden** gelieferten Potenziale desselben Mandanten, die
         einen dieser Teilprozesse berühren (ADR-009 · BC2 §2.2).
 
-        Geliefert heißt: aus einem ``approved``-Lauf eines **anderen** Pakets.
-        Abgelehnte Fassungen zählen nicht, an Gate 1 herausgenommene Potenziale
+        Geliefert heißt: aus einem ``approved``-Lauf eines **anderen** Pakets,
+        der keinen Sperrgrund trägt (#305). Abgelehnte Fassungen zählen nicht, an Gate 1 herausgenommene Potenziale
         eines freigegebenen Laufs schon — sie stehen markiert in der gelieferten
         Datei. Geltend heißt: kein freigegebener Lauf hat es seither
         fortgeschrieben oder gestrichen.
@@ -196,6 +209,14 @@ class Ergebnisbuch(Protocol):
 
         Für die Gate-1-Ansicht: der Vertrag nennt Vorgänger und Gestrichene nur
         mit Kennung, der Mensch muss sie wiedererkennen.
+        """
+        ...
+
+    def geliefert(self) -> list[str]:
+        """Die ``paket_id`` aller gelieferten Läufe: freigegeben, ohne Sperrgrund.
+
+        Nach ``approved`` gibt es keine neue Fassung (ADR-008 · BC2, 2.1) —
+        :meth:`letzter` gibt darum genau den gelieferten Lauf zurück.
         """
         ...
 
@@ -322,7 +343,8 @@ def ansicht_aus_ablage(lauf: AbgelegterLauf) -> Laufansicht:
             anzahl_potenziale=len(dok["eintraege"]),
             kp_ids=tuple(r["kp_id"] for r in dok["prozess_raenge"]),
             gate1_status=lauf.gate1_status,
-            warnung=lauf.warnung,
+            sperrgrund=lauf.sperrgrund,
+            hinweise=lauf.hinweise,
             # Die Paketliste liegt nicht in ``bc2``; zum Zeigen genügen die
             # berührten Teilprozesse.
             teilprozess_ids=tuple(sorted({
@@ -469,7 +491,8 @@ class AblegendeLaufquelle:
                     dokument,
                     konzepte,
                     kp_namen=gerechnet.kp_namen,
-                    warnung=gerechnet.kopf.warnung,
+                    sperrgrund=gerechnet.kopf.sperrgrund,
+                    hinweise=gerechnet.kopf.hinweise,
                 )
             except LaufNichtInArbeit:
                 pass  # ein anderer Schreiber war schneller — sein Ergebnis gilt
@@ -524,7 +547,7 @@ class AblegendeLaufquelle:
 
 _SQL_LETZTER = """
 SELECT l.priorisierung_id::text, l.company_id, l.paket_id, l.uebergeben_am,
-       l.fassung, l.zustand, l.dokument, l.warnung,
+       l.fassung, l.zustand, l.dokument, l.sperrgrund, l.hinweise,
        coalesce(g.status, 'pending') AS gate1_status
   FROM bc2.lauf l
   LEFT JOIN bc2.gate1 g USING (priorisierung_id)
@@ -559,7 +582,7 @@ UPDATE bc2.lauf SET zustand = 'in_arbeit', fehler = NULL, begonnen_am = now()
 _SQL_ERGEBNIS = """
 UPDATE bc2.lauf
    SET dokument = %(dokument)s, zustand = 'offen', gerechnet_am = now(),
-       warnung = %(warnung)s
+       sperrgrund = %(sperrgrund)s, hinweise = %(hinweise)s::text[]
  WHERE priorisierung_id = %(priorisierung_id)s AND zustand = 'in_arbeit'
 """
 
@@ -589,6 +612,7 @@ WITH geliefert AS (
     FROM bc2.lauf  l
     JOIN bc2.gate1 g USING (priorisierung_id)
    WHERE g.status = 'approved'
+     AND l.sperrgrund IS NULL
      AND l.company_id = %(company_id)s
 ),
 erledigt AS (
@@ -623,9 +647,19 @@ SELECT p.potenzial_id, l.paket_id, p.kp_id, e ->> 'titel' AS titel
   JOIN bc2.konzept k ON k.konzept_id = p.konzept_id
   CROSS JOIN LATERAL jsonb_array_elements(k.dokument -> 'potenziale') e
  WHERE g.status = 'approved'
+   AND l.sperrgrund IS NULL
    AND l.company_id = %(company_id)s
    AND p.potenzial_id = ANY(%(ids)s::text[])
    AND e ->> 'potenzial_id' = p.potenzial_id
+"""
+
+_SQL_GELIEFERT = """
+SELECT l.paket_id
+  FROM bc2.lauf  l
+  JOIN bc2.gate1 g USING (priorisierung_id)
+ WHERE g.status = 'approved'
+   AND l.sperrgrund IS NULL
+ ORDER BY l.paket_id
 """
 
 _SQL_FEHLER = """
@@ -645,15 +679,24 @@ def _dsn(dsn: str | None) -> str:
 
 
 class PostgresErgebnisbuch:
-    """Ablage in Schema ``bc2``. Verbindet je Vorgang neu, wie ``PostgresEingangsbuch``."""
+    """Ablage in Schema ``bc2``. Verbindet je Vorgang neu, wie ``PostgresEingangsbuch``.
 
-    def __init__(self, dsn: str | None = None) -> None:
+    ``nur_lesen`` setzt jede Sitzung ``readonly`` — für das Ziehen der
+    Lieferung (``python -m lieferung``), das an der gemeinsamen Datenbank
+    nichts schreiben darf.
+    """
+
+    def __init__(self, dsn: str | None = None, *, nur_lesen: bool = False) -> None:
         self._dsn = _dsn(dsn)
+        self._nur_lesen = nur_lesen
 
     def _verbindung(self):
         import psycopg2
 
-        return psycopg2.connect(self._dsn)
+        conn = psycopg2.connect(self._dsn)
+        if self._nur_lesen:
+            conn.set_session(readonly=True)
+        return conn
 
     @staticmethod
     def _beleg(z: dict) -> Laufbeleg:
@@ -689,7 +732,8 @@ class PostgresErgebnisbuch:
             dokument=z["dokument"],
             konzepte=[k["dokument"] for k in geordnet],
             kp_namen={k["kp_id"]: k["kp_name"] for k in geordnet if k["kp_name"]},
-            warnung=z["warnung"],
+            sperrgrund=z["sperrgrund"],
+            hinweise=tuple(z["hinweise"] or ()),
             gate1_status=z["gate1_status"],
         )
 
@@ -746,7 +790,8 @@ class PostgresErgebnisbuch:
         konzepte: list[dict],
         *,
         kp_namen: dict[str, str] | None = None,
-        warnung: str | None = None,
+        sperrgrund: str | None = None,
+        hinweise: tuple[str, ...] = (),
     ) -> None:
         from psycopg2.extras import Json
 
@@ -758,7 +803,7 @@ class PostgresErgebnisbuch:
             cur.execute(
                 _SQL_ERGEBNIS,
                 {"priorisierung_id": beleg.priorisierung_id, "dokument": Json(dokument),
-                 "warnung": warnung},
+                 "sperrgrund": sperrgrund, "hinweise": list(hinweise)},
             )
             if cur.rowcount != 1:
                 raise LaufNichtInArbeit(beleg.priorisierung_id)
@@ -820,6 +865,11 @@ class PostgresErgebnisbuch:
                 for z in cur.fetchall()
             }
 
+    def geliefert(self) -> list[str]:
+        with self._verbindung() as conn, conn.cursor() as cur:
+            cur.execute(_SQL_GELIEFERT)
+            return [z[0] for z in cur.fetchall()]
+
     def erreichbar(self) -> bool:
         try:
             with self._verbindung() as conn, conn.cursor() as cur:
@@ -870,7 +920,8 @@ class _Zeile:
     dokument: dict | None = None
     konzepte: list[dict] = field(default_factory=list)
     kp_namen: dict[str, str] = field(default_factory=dict)
-    warnung: str | None = None
+    sperrgrund: str | None = None
+    hinweise: tuple[str, ...] = ()
     gate1_status: str = "pending"
     fehler: str | None = None
 
@@ -908,7 +959,8 @@ class SpeicherErgebnisbuch:
             return None
         return AbgelegterLauf(
             beleg=z.beleg, dokument=z.dokument, konzepte=list(z.konzepte),
-            kp_namen=dict(z.kp_namen), warnung=z.warnung, gate1_status=z.gate1_status,
+            kp_namen=dict(z.kp_namen), sperrgrund=z.sperrgrund, hinweise=z.hinweise,
+            gate1_status=z.gate1_status,
         )
 
     def beginnen(
@@ -944,7 +996,8 @@ class SpeicherErgebnisbuch:
         konzepte: list[dict],
         *,
         kp_namen: dict[str, str] | None = None,
-        warnung: str | None = None,
+        sperrgrund: str | None = None,
+        hinweise: tuple[str, ...] = (),
     ) -> None:
         self._pruefe()
         z = self._finden(beleg.priorisierung_id)
@@ -956,7 +1009,8 @@ class SpeicherErgebnisbuch:
         z.dokument = dokument
         z.konzepte = list(konzepte)
         z.kp_namen = dict(kp_namen or {})
-        z.warnung = warnung
+        z.sperrgrund = sperrgrund
+        z.hinweise = tuple(hinweise)
         z.beleg = replace(z.beleg, zustand="offen")
 
     def fehler_melden(self, beleg: Laufbeleg, text: str) -> None:
@@ -970,7 +1024,9 @@ class SpeicherErgebnisbuch:
             z
             for reihe in self.zeilen.values()
             for z in reihe
-            if z.gate1_status == "approved" and z.beleg.company_id == company_id
+            if z.gate1_status == "approved"
+            and z.sperrgrund is None
+            and z.beleg.company_id == company_id
         ]
 
     def kandidaten(
@@ -1023,6 +1079,14 @@ class SpeicherErgebnisbuch:
             for p in k.get("potenziale", [])
             if p["potenzial_id"] in gesucht
         }
+
+    def geliefert(self) -> list[str]:
+        self._pruefe()
+        return sorted(
+            paket_id
+            for paket_id, reihe in self.zeilen.items()
+            if reihe and reihe[-1].gate1_status == "approved" and reihe[-1].sperrgrund is None
+        )
 
     def abschliessen(self, paket_id: str, fassung: int, status: str) -> None:
         """Was in Postgres ``PostgresGate1Buch.merken`` in derselben Transaktion tut."""

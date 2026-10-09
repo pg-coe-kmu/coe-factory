@@ -16,8 +16,8 @@ nicht gesehen hat.
   ``BC2_LAUFQUELLE=pakete`` den echten Weg einschaltet (#288, siehe
   ``app.laufquelle_aus_umgebung``) — und sie ist eine Behelfslösung.
   Ein Messsatz ist nicht auf ``stand_zum(uebergeben_am)`` gelesen, seine Zahlen
-  sind darum nicht nachrechenbar — die Quelle reicht die Warnung
-  der Datei bis in die Oberfläche durch, statt sie zu schlucken.
+  sind darum nicht nachrechenbar — sein Lauf trägt deshalb immer einen
+  **Sperrgrund** und wird nie geliefert (ADR-007 · BC2, Nachtrag #305).
 - ``SpeicherLaufquelle`` nimmt fertige Ansichten entgegen; die Tests benutzen
   sie.
 - ``PaketLaufquelle`` ist der **echte Weg** (#288): Paket lesen auf
@@ -48,8 +48,12 @@ __all__ = [
     "Laufkopf",
     "Laufansicht",
     "Laufquelle",
+    "KEIN_POTENZIAL",
     "LaufAngehalten",
+    "MODELLURTEIL",
     "MesssatzLaufquelle",
+    "NICHT_AUSGEARBEITET",
+    "NICHT_NACHRECHENBAR",
     "PaketLaufquelle",
     "Paketeintrag",
     "Paketverzeichnis",
@@ -89,8 +93,14 @@ class Laufkopf:
     anzahl_potenziale: int = 0
     kp_ids: tuple[str, ...] = ()
     gate1_status: str = "pending"
-    #: Warum dieser Lauf nicht nachrechenbar ist, falls er es nicht ist.
-    warnung: str | None = None
+    #: Warum dieser Lauf nicht geliefert werden kann — nicht nachrechenbar,
+    #: kein Potenzial, nicht ausgearbeitet. ``None`` heißt lieferbar. Die
+    #: Freigabe sperrt er nicht: sie ist die Entscheidung des Menschen, der
+    #: Sperrgrund ein Merkmal des Laufs (ADR-007 · BC2, Nachtrag #305, Punkt 5).
+    sperrgrund: str | None = None
+    #: Was der Entscheider wissen soll, ohne dass es die Lieferung aufhält —
+    #: etwa dass Schnitt und Bewertung Modellurteile sind.
+    hinweise: tuple[str, ...] = ()
     #: Die Teilprozesse des **Pakets**, auch die, aus denen kein Potenzial
     #: entstand. An ihnen hängt die Suche nach Vorgängern (ADR-009 · BC2 §2.2):
     #: ein schon gelieferter Teilprozess, den das Paket neu bringt, ist neu
@@ -108,9 +118,15 @@ class Laufkopf:
             "kp_ids": list(self.kp_ids),
             "gate1_status": self.gate1_status,
         }
-        if self.warnung:
-            eintrag["warnung"] = self.warnung
+        if self.sperrgrund:
+            eintrag["sperrgrund"] = self.sperrgrund
+        if self.hinweise:
+            eintrag["hinweise"] = list(self.hinweise)
         return eintrag
+
+    @property
+    def lieferbar(self) -> bool:
+        return self.sperrgrund is None
 
 
 @dataclass(frozen=True)
@@ -230,7 +246,8 @@ def aus_lauf(
     *,
     uebergeben_am: datetime,
     fassung: int = 1,
-    warnung: str | None = None,
+    sperrgrund: str | None = None,
+    hinweise: tuple[str, ...] = (),
     kp_namen: dict[str, str] | None = None,
 ) -> Laufansicht:
     """Baut die Ansicht aus einem gerechneten :class:`~modell.rechnen.Lauf`.
@@ -260,7 +277,8 @@ def aus_lauf(
             fassung=fassung,
             anzahl_potenziale=len(lauf.potenziale),
             kp_ids=tuple(r.kp_id for r in lauf.prozess_raenge),
-            warnung=warnung,
+            sperrgrund=sperrgrund,
+            hinweise=tuple(hinweise),
             teilprozess_ids=tuple(
                 sorted({t for p in lauf.potenziale for t in p.betroffene_teilprozess_ids})
             ),
@@ -307,7 +325,8 @@ class MesssatzLaufquelle:
 
     **Behelfsquelle, bis der Erkennungsschritt gebaut ist (#248).** Sie liest
     keine Datenbank und kann darum auch nicht auf dem Freigabestand rechnen;
-    die ``warnung`` der Datei reist deshalb bis in die Kopfzeile der Oberfläche.
+    jeder ihrer Läufe trägt deshalb einen Sperrgrund — die ``warnung`` der
+    Datei, sonst :data:`NICHT_NACHRECHENBAR`.
     """
 
     def __init__(self, verzeichnis: Path | str, uebergeben_am: datetime | None = None) -> None:
@@ -329,7 +348,10 @@ class MesssatzLaufquelle:
             pfad.stat().st_mtime
         ).astimezone()
         return aus_lauf(
-            lauf, satz.eingaenge, uebergeben_am=zeitpunkt, warnung=satz.warnung
+            lauf,
+            satz.eingaenge,
+            uebergeben_am=zeitpunkt,
+            sperrgrund=satz.warnung or NICHT_NACHRECHENBAR,
         )
 
     def uebersicht(self, company_id: str | None = None) -> list[Laufkopf]:
@@ -468,13 +490,24 @@ class PostgresPaketverzeichnis:
         ]
 
 
-#: Was jeder so gerechnete Lauf ansagt. Er ist auf ``stand_zum`` gelesen, aber
-#: der **Schnitt** ist ein Modellurteil: ein Neulauf schneidet neu, und nicht
-#: zwingend gleich — und ob das Urteil stabil genug ist, ist offen (#299).
+#: Der **Hinweis**, den jeder so gerechnete Lauf trägt. Er ist auf ``stand_zum``
+#: gelesen, aber Schnitt und Bewertung sind Modellurteile: ein Neulauf schneidet
+#: und bewertet neu, nicht zwingend gleich (#299). Die Lieferung hält er nicht auf.
 MODELLURTEIL = (
     "Schnitt und Bewertung sind Modellurteile: ein Neulauf desselben Pakets schneidet "
-    "und bewertet neu, nicht zwingend gleich. Die Stabilitaetsabnahme des "
-    "Bewertungsschritts ist gescheitert (#288); der Schnitt wird in #299 neu gestellt."
+    "und bewertet neu, nicht zwingend gleich. Die Bewertung ist der Median aus drei "
+    "Urteilen (#299)."
+)
+
+#: Die **Sperrgründe** (ADR-007 · BC2, Nachtrag #305): ein Lauf mit einem davon
+#: lässt sich freigeben, wird aber nicht geliefert.
+NICHT_NACHRECHENBAR = (
+    "Nicht nachrechenbar: der Lauf stammt aus einem Messsatz, nicht aus "
+    "stand_zum(uebergeben_am)."
+)
+KEIN_POTENZIAL = "Aus diesem Paket ist kein Potenzial geschnitten worden."
+NICHT_AUSGEARBEITET = (
+    "Nicht ausgearbeitet: die Konzepttexte fehlen, der Vertrag waere nicht schemagueltig (#301)."
 )
 
 
@@ -534,7 +567,7 @@ class PaketLaufquelle:
                 uebergeben_am=e.uebergeben_am,
                 anzahl_potenziale=0,
                 kp_ids=tuple(sorted({t.split(".")[0] for t in e.teilprozess_ids})),
-                warnung="Noch nicht gerechnet — Oeffnen schneidet und bewertet das Paket.",
+                hinweise=("Noch nicht gerechnet — Oeffnen schneidet und bewertet das Paket.",),
                 teilprozess_ids=e.teilprozess_ids,
             )
             for e in self._verzeichnis.pakete()
@@ -602,12 +635,7 @@ class PaketLaufquelle:
             # Ein Paket ohne Potenzial ist ein Ergebnis, kein Fehler: die
             # Erkennung hat seine Teilprozesse als nicht geschnitten gemeldet.
             return Laufansicht(
-                kopf=replace(
-                    kopf,
-                    warnung=" ".join(
-                        ["Aus diesem Paket ist kein Potenzial geschnitten worden.", *hinweise]
-                    ),
-                ),
+                kopf=replace(kopf, sperrgrund=KEIN_POTENZIAL, hinweise=tuple(hinweise)),
                 score_formel=SCORE_FORMEL,
                 eintraege=[],
                 prozess_raenge=[],
@@ -621,7 +649,7 @@ class PaketLaufquelle:
             lauf,
             list(bewertung.eingaenge),
             uebergeben_am=e.uebergeben_am,
-            warnung=" ".join([*hinweise, MODELLURTEIL]),
+            hinweise=(*hinweise, MODELLURTEIL),
             kp_namen=kp_namen,
         )
         ansicht = replace(
@@ -630,7 +658,7 @@ class PaketLaufquelle:
             nachfolge=nachfolge,
         )
         if not self._ausarbeiten:
-            return ansicht
+            return replace(ansicht, kopf=replace(ansicht.kopf, sperrgrund=NICHT_AUSGEARBEITET))
 
         # Nach der Rechnung, nie davor (ADR-010 · BC2): die Texte kennen den
         # Rang, bewegen ihn aber nicht.

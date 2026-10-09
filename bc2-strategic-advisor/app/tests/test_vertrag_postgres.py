@@ -226,7 +226,11 @@ def gate1_buch():
 
 @pytest.fixture
 def quelle(ergebnisse, test_paket_id):
-    """Der Messsatz unter einer TEST-Paketkennung, hinter der echten Ablage."""
+    """Der Messsatz unter einer TEST-Paketkennung, hinter der echten Ablage.
+
+    **Ohne Sperrgrund**, als käme der Lauf aus dem echten Weg: nur ein
+    gelieferter Lauf stellt Kandidaten (#305), und die Kette ist hier zu prüfen.
+    """
     from dataclasses import replace
     from pathlib import Path
 
@@ -237,7 +241,11 @@ def quelle(ergebnisse, test_paket_id):
     vorlage = MesssatzLaufquelle(messsaetze)
     ansicht = vorlage.ansicht(vorlage.uebersicht()[0].paket_id)
     test_ansicht = replace(
-        ansicht, kopf=replace(ansicht.kopf, paket_id=test_paket_id, company_id="TEST-MANDANT")
+        ansicht,
+        kopf=replace(
+            ansicht.kopf, paket_id=test_paket_id, company_id="TEST-MANDANT",
+            sperrgrund=None, hinweise=("Vertragstest.",),
+        ),
     )
     return AblegendeLaufquelle(SpeicherLaufquelle([test_ansicht]), ergebnisse)
 
@@ -271,6 +279,54 @@ def test_migration_bc2_2_ist_gelaufen():
             assert cur.fetchone()[0] is not None, (
                 f"{objekt} fehlt. migration_bc2.2_lauf.sql einspielen."
             )
+
+
+def test_migration_bc2_3_ist_gelaufen():
+    with _db() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_schema = 'bc2' AND table_name = 'lauf' "
+            "AND column_name IN ('sperrgrund', 'hinweise')"
+        )
+        assert {z[0] for z in cur.fetchall()} == {"sperrgrund", "hinweise"}, (
+            "migration_bc2.3_sperrgrund.sql einspielen."
+        )
+
+
+def test_sperrgrund_und_hinweise_liegen_getrennt(quelle, ergebnisse, gate1_buch, test_paket_id):
+    """#306 gegen echtes SQL: ``text[]`` hin und zurück, und ``geliefert`` sieht
+    nur, was freigegeben ist und keinen Sperrgrund trägt."""
+    a = quelle.ansicht(test_paket_id)
+    abgelegt = ergebnisse.letzter(test_paket_id)
+    assert abgelegt.sperrgrund is None and abgelegt.hinweise == ("Vertragstest.",)
+    assert test_paket_id not in ergebnisse.geliefert(), "noch nicht freigegeben"
+
+    gate1_buch.merken(_entscheidung(a, "approved"))
+    assert test_paket_id in ergebnisse.geliefert()
+
+
+def test_die_lieferung_liest_nur(quelle, gate1_buch, test_paket_id):
+    """``python -m lieferung`` läuft gegen die gemeinsame Datenbank — lesend."""
+    import psycopg2
+
+    from ablage import PostgresErgebnisbuch
+    from lieferung import lieferungen
+
+    a = quelle.ansicht(test_paket_id)
+    gate1_buch.merken(_entscheidung(a, "approved"))
+    lesend = PostgresErgebnisbuch(nur_lesen=True)
+    from gate1 import PostgresGate1Buch
+
+    gefunden = {
+        l.priorisierung["paket_id"]: l
+        for l in lieferungen(lesend, PostgresGate1Buch(nur_lesen=True))
+    }
+    l = gefunden[test_paket_id]
+    assert l.priorisierung["gate1"]["status"] == "approved"
+    assert l.ordner.endswith(f"-{test_paket_id}-f1")
+    with pytest.raises(psycopg2.errors.ReadOnlySqlTransaction):
+        with lesend._verbindung() as conn, conn.cursor() as cur:
+            cur.execute("DELETE FROM bc2.lauf WHERE paket_id = %s", (test_paket_id,))
 
 
 def test_lauf_konzepte_und_potenziale_liegen_zusammen(quelle, ergebnisse, test_paket_id):

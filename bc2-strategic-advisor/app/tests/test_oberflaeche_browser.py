@@ -342,6 +342,8 @@ def test_nach_der_freigabe_laesst_sich_die_praesentation_herunterladen(seite_mit
     seite.fill("input[data-entscheider]", "S. Morazan")
     seite.locator('[data-tat="approved"]').click()
     seite.wait_for_selector("[data-praesentation]", timeout=5000)
+    # Ein Messsatz trägt einen Sperrgrund: freigeben ja, liefern nein (#305).
+    assert "freigegeben, nicht lieferbar" in seite.locator(".fussleiste").inner_text()
 
     with seite.expect_download(timeout=10_000) as laden:
         seite.locator("[data-praesentation]").click()
@@ -349,7 +351,7 @@ def test_nach_der_freigabe_laesst_sich_die_praesentation_herunterladen(seite_mit
     assert download.suggested_filename == "praesentation.pptx"
     assert Path(download.path()).read_bytes()[:2] == b"PK"
     seite.wait_for_selector("#meldung .hinweis", timeout=5000)
-    assert "nicht nachrechenbar" in seite.locator("#meldung").inner_text()
+    assert "liegt nicht im Lieferordner" in seite.locator("#meldung").inner_text()
 
 
 def test_nach_reject_rechnet_der_knopf_die_naechste_fassung(seite_mit_ablage):
