@@ -14,14 +14,14 @@ from bc1_core.store import InMemoryStateStore
 from bc1_service.api import HINWEIS_GUELTIG, HINWEIS_UNGELOEST, create_app
 from bc1_service.discovery_paket import Bc0Kontext, baue_discovery_paket
 from bc1_service.profil_writer import ProfilWriter
-from tests.db_fixture import DSN, MANDANT_A, MANDANT_B, frische_db, verbindung
+from tests.db_fixture import ANFRAGE_A, DSN, MANDANT_A, MANDANT_B, frische_db, verbindung
 
 pytestmark = pytest.mark.skipif(not DSN, reason="BC1_TEST_DB_DSN nicht gesetzt")
 
 KONTEXT = Bc0Kontext(
     company_id=MANDANT_A,
     teilprozesse=(("KP-01.TP-1", "Erfassen"), ("KP-01.TP-2", "Pruefen")),
-    system_ids=("S-01", "S-02"))
+    system_ids=("S-01", "S-02"), anfrage_id=ANFRAGE_A)
 
 # Alle 26 Pflichtfelder des Discovery-Pakets in einer Nachricht — so ist der
 # Durchstich ein Turn und der Test bleibt lesbar.
@@ -76,7 +76,7 @@ def _client(umgebung, ohne=(), abweichend=None):
     pool, paket = umgebung
     return TestClient(create_app(
         InMemoryStateStore(), _llm(ohne, abweichend), paket, company_id=MANDANT_A,
-        writer=ProfilWriter(pool, MANDANT_A, paket)))
+        anfrage_id=ANFRAGE_A, writer=ProfilWriter(pool, MANDANT_A, paket)))
 
 
 def _turn(client, mid, text, session="s1", **extra):
@@ -92,10 +92,11 @@ def test_durchstich_schreibt_genau_eine_eingefrorene_zeile(umgebung):
         zeilen = conn.execute(
             "SELECT focus_step_id, process_id, status, erhebung_id, "
             "       frequency_per_year, focus_step_duration_confidence_pct, "
-            "       paket_version, profil "
+            "       paket_version, profil, anfrage_id "
             "  FROM bc1.prozessprofil").fetchall()
     assert len(zeilen) == 1
     zeile = zeilen[0]
+    assert zeile[8] == ANFRAGE_A
     assert zeile[0] == "KP-01.TP-1" and zeile[1] == "KP-01"
     assert zeile[2] == "fertig" and zeile[3] == "E-2026-02"
     assert zeile[4] == 120 and zeile[5] == 70
@@ -354,6 +355,33 @@ def test_fremder_mandant_beim_nachladen_wird_abgewiesen_statt_geschrieben(umgebu
                             ).fetchone()[0] == 0
 
 
+class _StoreMitFremderAnfrageBeimNachladen(_StoreMitFremdemNachladen):
+    """Wie oben, nur kippt die Anfrage statt des Mandanten (B5)."""
+
+    def load(self, session_id: str):
+        state = InMemoryStateStore.load(self, session_id)
+        if state is None:
+            return None
+        self.geladen += 1
+        if self.geladen == 1:
+            state.anfrage_id = "A-FREMD"
+        return state
+
+
+def test_fremde_anfrage_beim_nachladen_wird_abgewiesen_statt_geschrieben(umgebung):
+    pool, paket = umgebung
+    client = TestClient(create_app(
+        _StoreMitFremderAnfrageBeimNachladen(), _llm(), paket,
+        company_id=MANDANT_A, anfrage_id=ANFRAGE_A,
+        writer=ProfilWriter(pool, MANDANT_A, paket)))
+    antwort = _turn(client, "m1", "alles")
+    assert antwort.status_code == 409
+    assert antwort.json()["detail"] == "anfrage_konflikt"
+    with verbindung(DSN) as conn:
+        assert conn.execute("SELECT count(*) FROM bc1.prozessprofil"
+                            ).fetchone()[0] == 0
+
+
 def test_main_verdrahtet_den_profil_writer(umgebung, monkeypatch):
     # Ohne diesen Test bliebe die Produktions-Verdrahtung ungeschuetzt: faellt
     # das writer-Argument in main.py weg, bleibt die ganze Suite gruen — und der
@@ -372,15 +400,197 @@ def test_main_verdrahtet_den_profil_writer(umgebung, monkeypatch):
     monkeypatch.setattr(api_modul, "create_app", _stub_create_app)
     monkeypatch.setenv("BC1_DB_DSN", DSN)
     monkeypatch.setenv("BC1_COMPANY_ID", MANDANT_A)
+    monkeypatch.setenv("BC1_ANFRAGE_ID", ANFRAGE_A)
     monkeypatch.setenv("BC1_LLM", "ollama")     # kein API-Key noetig
+    monkeypatch.setenv("BC1_BC0_MELDUNGEN", "aus")
     monkeypatch.delitem(sys.modules, "bc1_service.main", raising=False)
     main = importlib.import_module("bc1_service.main")
     try:
         assert gesehen["company_id"] == MANDANT_A
+        assert gesehen["anfrage_id"] == ANFRAGE_A
         assert isinstance(gesehen["writer"], ProfilWriter)
         # Dasselbe Paket-Objekt fuer Kern und Writer: zwei getrennte Bauten
         # koennten auseinanderlaufen (Reihenfolge der BC0-Mengen).
         assert gesehen["writer"]._package is gesehen["package"]
+        # B4: BC1_BC0_MELDUNGEN=aus -> kein Melder (die Uebergabe an create_app prueft Task 5).
+        assert main._melder is None
+        assert gesehen["melder"] is None
+    finally:
+        main._store.close()
+        main._profil_pool.close()
+        sys.modules.pop("bc1_service.main", None)
+
+
+class _StartMelder:
+    def __init__(self):
+        self.gemeldet: list[str] = []
+        self.gate: list[str] = []
+        self.geprueft = 0
+
+    def pruefe_konto(self):
+        self.geprueft += 1
+
+    def ziehe_gate_nach(self, anfrage_id):
+        self.gate.append(anfrage_id)
+
+    def melde_interview_laeuft(self, anfrage_id):
+        self.gemeldet.append(anfrage_id)
+
+
+def _main_mit_melder(monkeypatch, anfrage_id, melder, gesehen=None):
+    import importlib
+    import sys
+
+    from bc1_service import api as api_modul
+    from bc1_service import bc0_meldungen
+
+    def _stub_create_app(*a, **kw):
+        if gesehen is not None:
+            gesehen.update(kw)
+        return "app"
+
+    monkeypatch.setattr(api_modul, "create_app", _stub_create_app)
+    monkeypatch.setattr(bc0_meldungen, "baue_melder", lambda umgebung, cid: melder)
+    monkeypatch.setenv("BC1_DB_DSN", DSN)
+    monkeypatch.setenv("BC1_COMPANY_ID", MANDANT_A)
+    monkeypatch.setenv("BC1_ANFRAGE_ID", anfrage_id)
+    monkeypatch.setenv("BC1_LLM", "ollama")
+    monkeypatch.delitem(sys.modules, "bc1_service.main", raising=False)
+    return importlib.import_module("bc1_service.main")
+
+
+def test_main_meldet_eine_zugeordnete_anfrage_beim_start(umgebung, monkeypatch):
+    import sys
+
+    melder = _StartMelder()
+    main = _main_mit_melder(monkeypatch, ANFRAGE_A, melder)        # Fixture: 'zugeordnet'
+    try:
+        assert melder.gemeldet == [ANFRAGE_A]
+        assert main._melder is melder
+    finally:
+        main._store.close()
+        main._profil_pool.close()
+        sys.modules.pop("bc1_service.main", None)
+
+
+def test_main_zieht_beim_start_das_gate_fuer_die_eigene_anfrage_nach(umgebung, monkeypatch):
+    import sys
+
+    melder = _StartMelder()
+    main = _main_mit_melder(monkeypatch, ANFRAGE_A, melder)
+    try:
+        assert melder.gate == [ANFRAGE_A]
+        assert melder.gemeldet == [ANFRAGE_A]
+    finally:
+        main._store.close()
+        main._profil_pool.close()
+        sys.modules.pop("bc1_service.main", None)
+
+
+def test_main_bricht_ab_wenn_das_gate_die_anfrage_schon_abschliesst(umgebung, monkeypatch):
+    class _GateSchliesstAb(_StartMelder):
+        def ziehe_gate_nach(self, anfrage_id):
+            super().ziehe_gate_nach(anfrage_id)
+            # So wirkt BC0, wenn alle Teilprozesse der Anfrage fertig sind (v3.13).
+            with verbindung(DSN, None) as conn:
+                conn.execute("UPDATE ref_anfragen SET status = 'am_gate' "
+                             "WHERE company_id = %s AND anfrage_id = %s", (MANDANT_A, anfrage_id))
+                conn.commit()
+
+    melder = _GateSchliesstAb()
+    with pytest.raises(RuntimeError, match="steht auf 'am_gate'"):
+        _main_mit_melder(monkeypatch, ANFRAGE_A, melder)
+    assert melder.gemeldet == []
+
+
+def test_main_meldet_eine_anfrage_im_interview_nicht_erneut(umgebung, monkeypatch):
+    import sys
+
+    # ANFRAGE_A (startfaehig: alle TPs bewertet) auf 'im_interview' stellen — die
+    # Fixture-Anfrage im Stand 'im_interview' (A-2026-02, ganzer KP-01) bricht schon an
+    # der B5-Pruefung ab (KP-01.TP-3 unbewertet, test_start.py).
+    with verbindung(DSN, None) as conn:
+        conn.execute("UPDATE ref_anfragen SET status = 'im_interview' "
+                     "WHERE company_id = %s AND anfrage_id = %s", (MANDANT_A, ANFRAGE_A))
+        conn.commit()
+    melder = _StartMelder()
+    main = _main_mit_melder(monkeypatch, ANFRAGE_A, melder)
+    try:
+        assert melder.gemeldet == []
+    finally:
+        main._store.close()
+        main._profil_pool.close()
+        sys.modules.pop("bc1_service.main", None)
+
+
+def test_main_bricht_bei_im_interview_ab_wenn_die_kontopruefung_scheitert(umgebung, monkeypatch):
+    from bc1_service.bc0_meldungen import Bc0MeldungFehler
+
+    with verbindung(DSN, None) as conn:
+        conn.execute("UPDATE ref_anfragen SET status = 'im_interview' "
+                     "WHERE company_id = %s AND anfrage_id = %s", (MANDANT_A, ANFRAGE_A))
+        conn.commit()
+
+    class _KontoKaputt(_StartMelder):
+        def pruefe_konto(self):
+            super().pruefe_konto()          # zaehlt den Aufruf, dann der Mangel
+            raise Bc0MeldungFehler("Das BC0-Anwendungskonto darf nicht schreiben (Rolle 'leser').")
+
+    melder = _KontoKaputt()
+    with pytest.raises(Bc0MeldungFehler, match="darf nicht schreiben"):
+        _main_mit_melder(monkeypatch, ANFRAGE_A, melder)
+    assert melder.geprueft == 1
+    assert melder.gemeldet == []
+
+
+def test_main_schliesst_die_pools_wenn_die_meldung_scheitert(umgebung, monkeypatch):
+    from bc1_service.bc0_meldungen import Bc0MeldungFehler
+
+    geschlossen: list[str] = []
+    original = ConnectionPool.close
+
+    def _close(self, *a, **kw):
+        geschlossen.append("pool")
+        return original(self, *a, **kw)
+
+    class _Kaputt(_StartMelder):
+        def melde_interview_laeuft(self, anfrage_id):
+            raise Bc0MeldungFehler("BC0 unter https://x ist nicht erreichbar (ConnectError).")
+
+    monkeypatch.setattr(ConnectionPool, "close", _close)
+    with pytest.raises(Bc0MeldungFehler, match="nicht erreichbar"):
+        _main_mit_melder(monkeypatch, ANFRAGE_A, _Kaputt())
+    assert len(geschlossen) >= 2          # Session-Store-Pool + Profil-Pool
+
+
+def test_main_schliesst_die_pools_wenn_das_gate_beim_start_scheitert(umgebung, monkeypatch):
+    from bc1_service.bc0_meldungen import Bc0MeldungFehler
+
+    geschlossen: list[str] = []
+    original = ConnectionPool.close
+
+    def _close(self, *a, **kw):
+        geschlossen.append("pool")
+        return original(self, *a, **kw)
+
+    class _GateKaputt(_StartMelder):
+        def ziehe_gate_nach(self, anfrage_id):
+            raise Bc0MeldungFehler("BC0 antwortet auf 'Gate nachziehen' mit 500: x")
+
+    monkeypatch.setattr(ConnectionPool, "close", _close)
+    with pytest.raises(Bc0MeldungFehler, match="Gate nachziehen"):
+        _main_mit_melder(monkeypatch, ANFRAGE_A, _GateKaputt())
+    assert len(geschlossen) >= 2
+
+
+def test_main_reicht_den_melder_an_die_app_durch(umgebung, monkeypatch):
+    import sys
+
+    melder = _StartMelder()
+    gesehen: dict = {}
+    main = _main_mit_melder(monkeypatch, ANFRAGE_A, melder, gesehen)
+    try:
+        assert gesehen["melder"] is melder
     finally:
         main._store.close()
         main._profil_pool.close()
@@ -519,3 +729,37 @@ def test_write_fehler_erzeugt_503_und_der_replay_holt_ihn_nach(umgebung):
     with verbindung(DSN) as conn:
         assert conn.execute("SELECT status FROM bc1.prozessprofil").fetchall() == [
             ("fertig",)]
+
+
+class _GateZaehler:
+    def __init__(self):
+        self.aufrufe = 0
+        self.anfragen: list[str] = []
+
+    def ziehe_gate_nach(self, anfrage_id):
+        self.aufrufe += 1
+        self.anfragen.append(anfrage_id)
+        return [ANFRAGE_A]
+
+
+def test_eingefrorenes_profil_stoesst_das_gate_einmal_an(umgebung):
+    pool, paket = umgebung
+    melder = _GateZaehler()
+    client = TestClient(create_app(
+        InMemoryStateStore(), _llm(), paket, company_id=MANDANT_A, anfrage_id=ANFRAGE_A,
+        writer=ProfilWriter(pool, MANDANT_A, paket), melder=melder))
+    antwort = _turn(client, "m1", "alles")
+    assert antwort.json()["status"] == "fertig"
+    assert melder.aufrufe == 1
+    with verbindung(DSN) as conn:
+        assert conn.execute("SELECT status FROM bc1.prozessprofil").fetchone()[0] == "fertig"
+
+
+def test_eingefrorenes_profil_zieht_das_gate_fuer_die_eigene_anfrage_nach(umgebung):
+    pool, paket = umgebung
+    melder = _GateZaehler()
+    client = TestClient(create_app(
+        InMemoryStateStore(), _llm(), paket, company_id=MANDANT_A, anfrage_id=ANFRAGE_A,
+        writer=ProfilWriter(pool, MANDANT_A, paket), melder=melder))
+    _turn(client, "m1", "alles")
+    assert melder.anfragen == [ANFRAGE_A]

@@ -1,7 +1,8 @@
 import pytest
 
 from bc1_service import bc0_lesepfade
-from tests.db_fixture import DSN, MANDANT_A, MANDANT_B, frische_db, verbindung
+from tests.db_fixture import (ANFRAGE_A, ANFRAGE_A_EINGEGANGEN, ANFRAGE_A_KERNPROZESS,
+                              ANFRAGE_B, DSN, MANDANT_A, MANDANT_B, frische_db, verbindung)
 
 pytestmark = pytest.mark.skipif(not DSN, reason="BC1_TEST_DB_DSN nicht gesetzt")
 
@@ -136,3 +137,37 @@ def test_nacherhebungs_ids_wie_bc0_v28_akzeptiert_und_richtig_gereiht():
             assert "erhebung_id" in str(fehler.value), kaputt
     with verbindung(DSN) as conn:
         assert bc0_lesepfade.erhebung_id(conn, MANDANT_A, "KP-01.TP-3") == "E-2026-08-2"
+
+
+def test_anfrage_sichten_sind_fuer_bc1_role_lesbar_und_mandantengetrennt():
+    frische_db(DSN)
+    with verbindung(DSN) as conn:
+        a = conn.execute(
+            "SELECT sub_process_id FROM v_anfrage_teilprozesse "
+            "WHERE company_id = %s AND anfrage_id = %s ORDER BY 1",
+            (MANDANT_A, ANFRAGE_A)).fetchall()
+        b = conn.execute(
+            "SELECT sub_process_id FROM v_anfrage_teilprozesse "
+            "WHERE company_id = %s AND anfrage_id = %s ORDER BY 1",
+            (MANDANT_B, ANFRAGE_B)).fetchall()
+        status = conn.execute(
+            "SELECT status FROM v_anfrage_prozessbezug "
+            "WHERE company_id = %s AND anfrage_id = %s",
+            (MANDANT_A, ANFRAGE_A_EINGEGANGEN)).fetchone()
+    assert a == [("KP-01.TP-1",), ("KP-01.TP-2",)]
+    assert b == [("KP-02.TP-2",)]
+    assert status == ("eingegangen",)
+
+
+def test_kernprozess_bezug_loest_nur_aktive_teilprozesse_auf():
+    frische_db(DSN)
+    with verbindung(DSN, None) as conn:
+        conn.execute("UPDATE ref_teilprozesse SET aktiv = false "
+                     "WHERE company_id = %s AND sub_process_id = 'KP-01.TP-3'", (MANDANT_A,))
+        conn.commit()
+    with verbindung(DSN) as conn:
+        tps = conn.execute(
+            "SELECT sub_process_id FROM v_anfrage_teilprozesse "
+            "WHERE company_id = %s AND anfrage_id = %s ORDER BY 1",
+            (MANDANT_A, ANFRAGE_A_KERNPROZESS)).fetchall()
+    assert tps == [("KP-01.TP-1",), ("KP-01.TP-2",)]

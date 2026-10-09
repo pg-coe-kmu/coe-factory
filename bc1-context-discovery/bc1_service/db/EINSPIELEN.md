@@ -3,7 +3,8 @@
 > Betriebsdoku für den Menschen, der die BC1-Tabellen in eine Datenbank bringt.
 > Stand 13.09.2026. Alle Zahlen und Rollennamen hier sind **gemessen**, nicht angenommen.
 > `prozessprofil.sql` ist seit dem 08.09. **in der Ziel-Supabase ausgeführt** (Abschnitt 9),
-> `sessions.sql` (B1) seit dem 13.09. (Abschnitt 10).
+> `sessions.sql` (B1) seit dem 13.09. (Abschnitt 10). B5 (Spalte `anfrage_id`, 05.10.2026):
+> Abschnitt 12 — vorbereitet, noch nicht in der Supabase ausgeführt.
 
 ## Das Wichtigste in fünf Sätzen
 
@@ -12,7 +13,7 @@ dem passt, was sie erwartet. Sie läuft in **einer** Transaktion: entweder alles
 nichts. Trifft sie auf eine leere Datenbank, legt sie an (**Fall 1**); trifft sie den
 exakt erwarteten Bestand, tut sie nichts (**Fall 2**); weicht irgendetwas ab, **bricht sie
 ab und ändert nichts** (**Fall 3**). Die Prüfung vergleicht den Ist-Zustand des Katalogs
-Zeile für Zeile mit einer im Skript hinterlegten **Sollsignatur** (176 Zeilen). Wer die
+Zeile für Zeile mit einer im Skript hinterlegten **Sollsignatur** (179 Zeilen). Wer die
 DDL ändert, muss die Signatur neu erzeugen — sonst blockiert sich das Skript selbst.
 
 Seit B1 (13.09.2026) gibt es eine **zweite Datei `sessions.sql`** für die Sitzungstabelle
@@ -24,6 +25,16 @@ bleibt davon unberührt und meldet weiter Fall 2 (im Container in beide Richtung
 getestet). Der Dienst legt die Sitzungstabelle nicht mehr selbst an — fehlt sie oder
 fehlen der DSN-Rolle die Rechte, bricht er beim Start mit Verweis auf diese Anleitung ab.
 
+Seit #255 (22.09.2026) gibt es eine **dritte Datei `prozessprofil_d3.sql`**, die **vor**
+`prozessprofil.sql` läuft: BC2 hat Frage D3 gebunden (Vertrag 1.2), `step_frequency_per_year`
+ist deshalb eine echte Spalte in `bc1.prozessprofil` (numeric, im Wertebereichs-CHECK). Weil
+`prozessprofil.sql` einen Bestand nie verändert (nur anlegen oder bestätigen), bringt diese
+Datei den **vorhandenen** Bestand auf den neuen Stand — eigene Vierfallregel: **M0** Tabelle
+fehlt → nichts zu tun (frische DB) · **M1** Spalte fehlt + alter CHECK → Spalte anlegen, CHECK
+erweitern, Nachprüfung in derselben Transaktion · **M2** schon migriert → nichts zu tun ·
+**M3** alles andere → Abbruch ohne Änderung. Der Nachweis, dass die Migration stimmt, ist
+`prozessprofil.sql` danach: **Fall 2**. Gleiches Muster wie BC0s `schema_v3.x`-Dateien.
+
 ---
 
 ## 1. Voraussetzungen: welche Rechte BC1 braucht
@@ -33,9 +44,10 @@ Erteilt von BC0 am 02.09.2026, in der Ziel-Supabase nachgemessen:
 | Recht | Auf | Weg |
 |---|---|---|
 | `REFERENCES` | `companies`, `ref_prozesse`, `ref_teilprozesse`, `mandant_rollen`, `ref_erhebungen` | direkt an `bc1_role` |
-| `SELECT` | `v_bewertung_aktuell`, `mandant_systeme`, `ref_teilprozesse`, `companies`, `v_prozesse_lesen` | über die Gruppenrolle `bc_leser` (in der `bc1_role` Mitglied ist) |
+| `SELECT` | `v_bewertung_aktuell`, `v_prozesse_lesen`, `v_teilprozesse_lesen`, `v_systeme_lesen`, `companies` (seit 22.09. nur Sichten — BC0 v3.4, sie filtern `aktiv`) | über die Gruppenrolle `bc_leser` (in der `bc1_role` Mitglied ist) |
+| `SELECT` | `v_anfrage_prozessbezug`, `v_anfrage_teilprozesse` (B5 — der Start liest die Anfrage; Abschnitt 0 der DDL prüft es und bricht sonst ab) | über `bc_leser` (BC0-Schemata v2.3 / v2.7); in der Ziel-Supabase vor dem B5-Lauf **nachzumessen** (Abschnitt 12) |
 | `SELECT` | `ref_erhebungen` | erteilt, am 02.09. gemessen — Abschnitt 0 der DDL prüft es und bricht sonst ab |
-| `REFERENCES` | `ref_personen`, `prozess_personen` | direkt an `bc1_role`; in Etappe 1 ungenutzt |
+| — | `ref_personen`, `prozess_personen` | direktes SELECT mit BC0 v3.5 entzogen (#216, 21.09.) — auf unseren Wunsch; BC1 liest den Eigner über `v_prozesse_lesen.owner_rolle_id` |
 
 `bc1.profil_write_status` ist unsere interne Tabelle — BC0 muss dafür nichts vorbereiten.
 
@@ -46,16 +58,22 @@ Erteilt von BC0 am 02.09.2026, in der Ziel-Supabase nachgemessen:
 Aus `bc1-context-discovery/`, **als `bc1_role`**:
 
 ```bash
-psql "$BC1_DB_DSN" -v ON_ERROR_STOP=1 -1 -f bc1_service/db/prozessprofil.sql \
+psql "$BC1_DB_DSN" -v ON_ERROR_STOP=1 -1 -f bc1_service/db/prozessprofil_d3.sql \
+                                         -f bc1_service/db/prozessprofil_b5.sql \
+                                         -f bc1_service/db/prozessprofil.sql \
   && psql "$BC1_DB_DSN" -v ON_ERROR_STOP=1 -1 -f bc1_service/db/sessions.sql
 ```
 
 `-1` ist nicht optional: Die Dreifallregel verlässt sich darauf, dass ein Abbruch alles
-zurückrollt. Jede Datei ist eine eigene Transaktion und prüft **eigenständig** (beide auch
-die Mitgliedschafts-Kanten); jede meldet ihren eigenen Fall 1/2/3. Das `&&` ist Pflicht:
-meldet die erste Datei Fall 3, darf die zweite gar nicht erst laufen — erst die Abweichung
-verstehen. Reihenfolge erst `prozessprofil.sql`, dann `sessions.sql`, damit die Live-
-Meldungen in derselben Ordnung stehen wie die Tests (`tests/db_fixture.py`).
+zurückrollt. **`prozessprofil_d3.sql`, `prozessprofil_b5.sql` und `prozessprofil.sql` laufen in EINER Transaktion**
+(drei `-f` hinter einem `-1`, seit B5 mit `prozessprofil_b5.sql` dazwischen): Die Migrationen
+prüfen nur Spalte und CHECK (M0–M3), die volle Signaturprüfung macht erst `prozessprofil.sql` — meldet die Fall 3, rollt das die Migration
+mit zurück, statt sie committet stehen zu lassen (Codex-Review 22.09., Test
+`test_fall_3_von_prozessprofil_sql_rollt_die_migration_in_derselben_transaktion_zurueck`).
+`sessions.sql` ist eine eigene Transaktion und prüft eigenständig (wie `prozessprofil.sql`
+auch die Mitgliedschafts-Kanten). Das `&&` ist Pflicht: meldet die erste Klammer Fall 3,
+darf `sessions.sql` gar nicht erst laufen — erst die Abweichung verstehen. Reihenfolge wie
+in den Tests (`tests/db_fixture.py`), damit die Live-Meldungen in derselben Ordnung stehen.
 
 ## 3. Die Dreifallregel lesen
 
@@ -267,3 +285,75 @@ Ausgeführt als `bc1_role` (Session Pooler), Signatur **40 Zeilen**, alle Zeilen
 Fremdschema liest sie, ein `GRANT` ist weder nötig noch erwünscht. Die Löschkaskade von
 `companies` läuft mit den Rechten von `bc1_role` (im Container unter einem rechtelosen
 Löschkonto gemessen, Test `test_kaskade_raeumt_die_sitzung_auch_unter_rechtelosem_loeschkonto`).
+
+## 11. Dritter Lauf: `prozessprofil_d3.sql` in der Supabase — 22.09.2026 (#255)
+
+Anlass: BC2 liest über `contracts/bc1-to-bc2/lesen.sql` `p.step_frequency_per_year`; ohne die
+Spalte parst die Vertragsabfrage nicht, BC2 liest **über den Vertragsweg** nichts (#255,
+gemessen von BC2 am 21.09.2026; BC2s Dienstcode liest D3 übergangsweise aus dem JSON).
+Ausgeführt am 22.09.2026 von Richard per `lauf.sh d3` als `bc1_role` (Session Pooler), alle
+Zeilen gemessen (`einspielen-d3.log` im SDD-Ordner). Damit läuft BC2s Vertragsabfrage wieder —
+vor dem Durchstich KW 40 (#206).
+
+**Bestandsannahmen vorab (BC2-Messung #249):** 6 Zeilen, kein gültiger D3-Wert im JSON.
+Gemessen: 6 Zeilen, **alle 6 `fertig`** (3 Teilprozesse × 2 Fassungen; `lesen.sql` nimmt die
+jüngste je Teilprozess), 0 JSON-D3 — M1 lief ohne Abbruch. Hätte eine Zeile einen gültigen
+JSON-D3-Wert getragen, wäre die Übernahme zu entscheiden gewesen (fertige Zeilen: neue
+Fassung, kein UPDATE), nicht das Skript zu lockern.
+
+| Schritt | Erwartung | Gemessen |
+|---|---|---|
+| Vorprüfung | neue `prozessprofil.sql` allein am Altbestand: `Fall 3` mit `- fehlt: spalte\|prozessprofil\|step_frequency_per_year\|…` und je einer `fehlt`/`zuviel`-Zeile für den CHECK — **Rollback, nichts geändert**. Mehr Zeilen = der Bestand weicht auch anderswo ab → STOPP | **genau 3 Zeilen** (`+ zuviel` alter CHECK, `- fehlt` neuer CHECK, `- fehlt` Spalte), `ERROR … Abbruch OHNE Aenderung`, Rollback |
+| Lauf 1 (eine Transaktion) | `NOTICE: M1: Bestand ohne Spalte, kein JSON-D3-Wert — Spalte anlegen und CHECK erweitern.` · `NOTICE: M1: erledigt …` · `prozessprofil.sql`: `NOTICE: Fall 2` | **genau so** — `M1: Bestand ohne Spalte, kein JSON-D3-Wert …`, `M1: erledigt …`, `Fall 2` (beide DO-Blöcke) |
+| Lauf 2 (Idempotenz) | `NOTICE: M2: Spalte und CHECK bereits auf Stand #255 — No-op.` · `Fall 2` | **genau so** — Idempotenz im Ziel bewiesen |
+| Nichtbeeinflussung | `sessions.sql`: `NOTICE: Fall 2` | **genau so** (Signatur 40 Zeilen) |
+| Nachprüfung A–C | Spalte numeric/nullable · CHECK validiert und nennt die Spalte · Zeilen gesamt / mit Spaltenwert (0) / mit gültigem JSON-D3 (0) / fertig | **`numeric`/`YES` · `convalidated = t`, nennt die Spalte · 6 / 0 / 0 / 6** |
+| Nachprüfung D | `lesen.sql` **wörtlich** per psycopg als `bc1_role` je Mandant ausgeführt: parst, liefert die fertigen Profile, D3 = NULL | **parst, 1 Mandant, 3 Profile (jüngste Fassung je TP), 20 Spalten, D3 in der Spaltenliste, Werte NULL** — KP-05.TP-1 (260 / 25 min), KP-06.TP-1 (40 / 60), KP-06.TP-2 (180 / 90) |
+
+**Was D nicht beweist:** den Lesezugriff von `bc2_role` — den kann nur BC2 messen (die
+Tabellen-ACL gilt für die neue Spalte mit, es gibt keine Spalten-ACLs; ein zusätzlicher GRANT
+ist nicht nötig). Deshalb nach dem Lauf in #255 melden und BC2 um die Gegenprobe bitten.
+**Für BC0 heißt das:** nichts zu tun.
+
+## 12. B5 — Spalte `anfrage_id` (Bestand)
+
+Anlass: BC1 interviewt seit B5 nur noch zu **einer** BC0-Anfrage (Pflichtvariable
+`BC1_ANFRAGE_ID`, Form `A-JJJJ-NN`); das Profil trägt deren Nummer in der neuen Spalte
+`bc1.prozessprofil.anfrage_id` (text, nullable, CHECK auf die Form). Wie bei D3 gilt: ein
+Bestand **ohne** die Spalte wäre gegen die neue Sollsignatur Fall 3 — deshalb die eigene
+Datei `prozessprofil_b5.sql` mit Vierfallregel **M0–M3** (M0 Tabelle fehlt · M1 Spalte und
+CHECK fehlen → anlegen und nachprüfen · M2 schon auf Stand → No-op · M3 alles andere →
+Abbruch ohne Änderung). Der Bestand bleibt unberührt: die Altzeilen behalten `anfrage_id`
+NULL (eingefroren, keine Nachzuordnung); es gibt keinen FK auf `ref_anfragen`.
+
+**Stand:** **live eingespielt am 06.10.2026** per `lauf.sh b5` als `bc1_role` (nach Merge von #277).
+Gemessen — alles wie erwartet:
+
+| Schritt | Live gemessen |
+|---|---|
+| Vorprüfung | `Fall 3`, Rollback; Abweichung **nur** `constraint\|…\|prozessprofil_anfrage_format\|…` und `spalte\|prozessprofil\|anfrage_id\|text\|null\|\|-\|-` (die zwei „Fehlerzeilen“ des Laufs sind genau dieser gewollte Abbruch) |
+| Lauf 1 | d3 `M2` · b5 `M1: Bestand ohne Spalte — anfrage_id anlegen.` + `M1: erledigt` · prozessprofil `Fall 2` |
+| Lauf 2 (Idempotenz) | d3 `M2` · b5 `M2` · prozessprofil `Fall 2` |
+| `sessions.sql` | `Fall 2` |
+| Nachprüfung | `spalte\|text\|YES` · `bestand_ohne_anfrage\|6` = `bestand_gesamt\|6` |
+| Gegenprobe `lesen.sql` | parst, 1 Mandant, 3 Profile, 20 Spalten, Werte unverändert (`step_frequency_per_year` in der Spaltenliste) |
+
+**Reihenfolge ist normativ:** `prozessprofil_d3.sql` → `prozessprofil_b5.sql` →
+`prozessprofil.sql`, **eine** Transaktion. Danach `sessions.sql` (eigene Transaktion).
+
+| Schritt | Erwartung auf dem heutigen Live-Bestand (d3 schon eingespielt) |
+|---|---|
+| Vorprüfung | neue `prozessprofil.sql` allein am Bestand: `Fall 3`, Rollback, nichts geändert; die Abweichungszeilen betreffen **nur** `anfrage_id` (Spalte und CHECK `prozessprofil_anfrage_format` fehlen). Weitere Zeilen = der Bestand weicht auch anderswo ab → STOPP |
+| Lauf 1 (eine Transaktion) | `prozessprofil_d3.sql`: `NOTICE: M2: …` · `prozessprofil_b5.sql`: `NOTICE: M1: Bestand ohne Spalte — anfrage_id anlegen.` und `NOTICE: M1: erledigt …` · `prozessprofil.sql`: `NOTICE: Fall 2` |
+| `sessions.sql` | `NOTICE: Fall 2` (Nichtbeeinflussung; die Sitzungstabelle bekommt keine Spalte) |
+| Nachprüfung | `einspielen-nachpruefung-b5.sql`: `spalte\|text\|YES` · `bestand_ohne_anfrage` **=** `bestand_gesamt` (alle Altzeilen NULL) |
+| Gegenprobe | `lesen.sql` wörtlich per psycopg als `bc1_role` (`lesen_gegenprobe.py`, wie bei D3): parst, Ausgabe **unverändert** — `anfrage_id` steht nicht im Vertrag 1.2 |
+| Idempotenz (optional, zweiter Lauf) | `M2` · `M2` · `Fall 2` |
+
+Auf einer **frischen** Datenbank meldet d3 `M0`, b5 `M0`, und `prozessprofil.sql` legt
+alles an (`Fall 1`). Ein Abbruch mit `M3` heißt: Spalte oder CHECK weichen vom Soll ab —
+nicht lockern, erst den Bestand verstehen.
+
+**Vor dem Durchstich:** BC0s Gate-Funktion verknüpft das Profil noch **nicht** über
+`anfrage_id`; für den Durchstich einen Teilprozess wählen, zu dem es noch kein fertiges
+BC1-Profil gibt (Details in `bc1_service/n8n/SMOKE.md`).

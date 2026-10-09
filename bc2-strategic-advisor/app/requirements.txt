@@ -1,3 +1,8 @@
 fastapi>=0.110
 uvicorn>=0.29
 psycopg2-binary>=2.9
+
+# Der Erkennungsschritt ruft das Modell ueber die Anthropic-API (#248).
+# `erkennung.modellruf` importiert es erst beim Aufruf — der Trigger-Endpunkt
+# und die Tests kommen ohne aus, der Container braucht es.
+anthropic>=0.40

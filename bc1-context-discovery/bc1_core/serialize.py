@@ -23,6 +23,7 @@ def state_to_dict(state: SessionState) -> dict:
         "schema_version": state.schema_version,
         "paket_name": state.paket_name,
         "company_id": state.company_id,
+        "anfrage_id": state.anfrage_id,
         "status": state.status.value,
         "version": state.version,
         "rounds": state.rounds,
@@ -39,6 +40,8 @@ def state_from_dict(daten: dict) -> SessionState:
         schema_version=daten["schema_version"],
         paket_name=daten["paket_name"],
         company_id=daten.get("company_id"),
+        # .get: Alt-Zustaende ohne Schluessel bleiben lesbar (der Guard weist sie ab).
+        anfrage_id=daten.get("anfrage_id"),
         status=SessionStatus(daten["status"]),
         version=daten["version"],
         rounds=daten["rounds"],

@@ -170,10 +170,13 @@ Deployment mit Docker Compose und Caddy: siehe `app/DEPLOY.md`. Backup und Wiede
 > [#220](https://github.com/pg-coe-kmu/coe-factory/issues/220). Bis dahin ist diese Tabelle die Stelle,
 > an der eine gezogene Nummer einzutragen ist — damit sich der Fall nicht wiederholt.
 >
-> **Ablage:** ADR-004 in `bc0-baseline-onboarding/app/`, ADR-005 · BC2 in
-> `bc2-strategic-advisor/docs/adr/`. **ADR-005 · BC0 liegt nicht im Repo** — Volltext laut #209 unter
-> `11_Entscheidungen_ADR/BC0_ADR-005_Ergebnispflicht_und_Herkunft.md`, also außerhalb. Genau das hat
-> die Doppelvergabe möglich gemacht: eine Nummer, die im Repo nicht auftaucht, sieht wie eine freie aus.
+> **Ablage:** ADR-003 und **ADR-005 · BC0** in `bc0-baseline-onboarding/docs/entscheidungen/`
+> (beide seit 21.09.2026), ADR-004 in `bc0-baseline-onboarding/app/`, ADR-005 · BC2 in
+> `bc2-strategic-advisor/docs/adr/`.
+>
+> **ADR-005 · BC0 lag bis zum 21.09.2026 nicht im Repo** — und genau das hat die Doppelvergabe
+> möglich gemacht: eine Nummer, die im Repo nicht auftaucht, sieht wie eine freie aus. Das Papier
+> trägt den Hinweis jetzt selbst, an seinem Kopf. **Umbenannt wird keines der beiden.**
 
 ---
 

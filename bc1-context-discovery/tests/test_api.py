@@ -1,3 +1,4 @@
+import logging
 import threading
 from contextlib import asynccontextmanager
 from dataclasses import replace
@@ -8,8 +9,9 @@ from bc1_core.llm import ExtractionCandidate, FakeLLM
 from bc1_core.package import FieldSpec, TOY_PROZESS, UseCasePackage
 from bc1_core.store import InMemoryStateStore, StaleStateError
 from bc1_core.types import SessionState, SessionStatus
-from bc1_service.api import (ABBRUCH_TEXT, OVERLAY_SCHLUESSEL, _sweep_hinweise,
-                             create_app)
+from bc1_service.api import (ABBRUCH_TEXT, MELDUNG_GATE_FEHLGESCHLAGEN,
+                             OVERLAY_SCHLUESSEL, _sweep_hinweise, create_app)
+from bc1_service.bc0_meldungen import Bc0MeldungFehler
 
 MANDANT = "11111111-1111-1111-1111-111111111111"
 MANDANT_B = "22222222-2222-2222-2222-222222222222"
@@ -364,6 +366,88 @@ def test_alt_session_ohne_company_id_bekommt_409():
     assert _turn(client, "m1", "hallo").status_code == 409
 
 
+ANFRAGE = "A-2026-01"
+
+
+def test_fremde_anfrage_bekommt_409_anfrage_konflikt():
+    store = InMemoryStateStore()
+    alt = TestClient(create_app(store, _fake_llm(), TOY_PROZESS,
+                                company_id=MANDANT, anfrage_id=ANFRAGE))
+    assert _turn(alt, "m1", "Der Prozess heißt Urlaubsantrag").status_code == 200
+    neu = TestClient(create_app(store, _fake_llm(), TOY_PROZESS,
+                                company_id=MANDANT, anfrage_id="A-2026-02"))
+    antwort = _turn(neu, "m2", "Ausgelöst durch einen Antrag")
+    assert antwort.status_code == 409
+    assert antwort.json()["detail"] == "anfrage_konflikt"
+
+
+def test_dieselbe_anfrage_setzt_die_sitzung_ueber_mehrere_turns_fort():
+    # Pinnt, dass der Dienst die Anfrage beim ersten Turn in die Sitzung schreibt
+    # (sonst wiese der Guard schon den zweiten Turn derselben Anfrage ab).
+    store = InMemoryStateStore()
+    client = TestClient(create_app(store, _fake_llm(), TOY_PROZESS,
+                                   company_id=MANDANT, anfrage_id=ANFRAGE))
+    assert _turn(client, "m1", "Der Prozess heißt Urlaubsantrag").status_code == 200
+    assert _turn(client, "m2", "Ausgelöst durch einen Antrag").status_code == 200
+    assert store.load("s1").anfrage_id == ANFRAGE
+
+
+class _StoreMitAnfrageWechselImKern(InMemoryStateStore):
+    """Der zweite load MIT Zustand (der des Kerns, nach dem Gate der API) liefert
+    eine fremde Anfrage — nur so ist der Kern-Guard hinter dem API-Guard messbar."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.geladen = 0
+
+    def load(self, session_id: str):
+        state = super().load(session_id)
+        if state is None:
+            return None
+        self.geladen += 1
+        if self.geladen == 2:
+            state.anfrage_id = "A-FREMD"
+        return state
+
+
+def test_anfrage_konflikt_des_kerns_wird_zu_409_anfrage_konflikt():
+    store = _StoreMitAnfrageWechselImKern()
+    client = TestClient(create_app(store, _fake_llm(), TOY_PROZESS,
+                                   company_id=MANDANT, anfrage_id=ANFRAGE))
+    assert _turn(client, "m1", "Der Prozess heißt Urlaubsantrag").status_code == 200
+    antwort = _turn(client, "m2", "Ausgelöst durch einen Antrag")
+    assert antwort.status_code == 409
+    assert antwort.json()["detail"] == "anfrage_konflikt"
+
+
+def test_alt_sitzung_ohne_anfrage_wird_abgewiesen():
+    store = InMemoryStateStore()
+    store.save(SessionState("s1", TOY_PROZESS.schema_version, paket_name=TOY_PROZESS.name,
+                            company_id=MANDANT))
+    client = TestClient(create_app(store, _fake_llm(), TOY_PROZESS,
+                                   company_id=MANDANT, anfrage_id=ANFRAGE))
+    antwort = _turn(client, "m1", "hallo")
+    assert antwort.status_code == 409
+    assert antwort.json()["detail"] == "anfrage_konflikt"
+
+
+def test_recovery_replay_wechselt_nie_die_anfrage():
+    # Der Paket-Guard laesst einen abweichenden ctx-Hash beim terminalen Replay
+    # passieren (darf_recovery_replay) — der Anfrage-Guard darf das NICHT.
+    store = InMemoryStateStore()
+    llm = FakeLLM()
+    alt = TestClient(create_app(store, llm, IDENT_PAKET, company_id=MANDANT,
+                                anfrage_id=ANFRAGE))
+    _turn(alt, "m1", "a")
+    _turn(alt, "m2", "b")
+    neues_paket = replace(IDENT_PAKET, schema_version="1.1+ctx-bbbbbbbbbbbbbbbb")
+    neu = TestClient(create_app(store, llm, neues_paket, company_id=MANDANT,
+                                anfrage_id="A-2026-02"))
+    antwort = _turn(neu, "m2", "b", schema_version="1.1+ctx-aaaaaaaaaaaaaaaa")
+    assert antwort.status_code == 409
+    assert antwort.json()["detail"] == "anfrage_konflikt"
+
+
 def test_recovery_replay_mit_alter_schema_version_geht_durch():
     store = InMemoryStateStore()
     llm = FakeLLM()
@@ -409,3 +493,160 @@ def test_overlay_laesst_die_kern_eigenen_schluessel_unangetastet():
     # in Kern und DB gleich, Codex-Review 03.09.) — daher als Vertrag gepinnt.
     assert "schema_version" not in OVERLAY_SCHLUESSEL
     assert "abschluss_text" not in OVERLAY_SCHLUESSEL
+
+
+class _WriterOhneDb:
+    """Der Gate-Anstoss haengt nur an 'Writer verdrahtet + fertig' — die DB-Seite
+    prueft test_api_profil.py."""
+
+    def reconcile(self, state, antwort):
+        return None
+
+
+class _GateMelder:
+    def __init__(self, fehler=None):
+        self.aufrufe = 0
+        self.anfragen: list[str] = []
+        self._fehler = fehler
+
+    def ziehe_gate_nach(self, anfrage_id):
+        self.aufrufe += 1
+        self.anfragen.append(anfrage_id)
+        if self._fehler is not None:
+            raise self._fehler
+        return [ANFRAGE]
+
+
+def _gate_client(melder, writer=_WriterOhneDb()):
+    return TestClient(create_app(InMemoryStateStore(), _fake_llm(), TOY_PROZESS,
+                                 company_id=MANDANT, anfrage_id=ANFRAGE,
+                                 writer=writer, melder=melder))
+
+
+def _bis_fertig(client):
+    _turn(client, "m1", "Der Prozess heißt Urlaubsantrag")
+    _turn(client, "m2", "Ausgelöst durch einen Antrag")
+    return _turn(client, "m3", "Etwa 100 mal pro Jahr")
+
+
+def test_fertig_mit_writer_zieht_das_gate_genau_einmal_nach():
+    melder = _GateMelder()
+    antwort = _bis_fertig(_gate_client(melder))
+    assert antwort.json()["status"] == "fertig"
+    assert melder.aufrufe == 1
+
+
+def test_gate_im_hintergrund_reicht_die_eigene_anfrage_durch():
+    melder = _GateMelder()
+    _bis_fertig(_gate_client(melder))
+    assert melder.anfragen == [ANFRAGE]
+
+
+def test_gate_wird_erst_nach_der_antwort_angestossen():
+    # Der Chat wartet nie auf BC0 (Spec B4, Abschnitt 4). Der TestClient laesst
+    # Hintergrundaufgaben vor post() laufen und zeigt die Reihenfolge deshalb nicht —
+    # der letzte Turn geht hier direkt gegen die ASGI-Schnittstelle.
+    import asyncio
+    import json
+
+    ereignisse: list[str] = []
+
+    class _ReihenfolgeMelder:
+        def ziehe_gate_nach(self, anfrage_id):
+            ereignisse.append("gate")
+            return []
+
+    app = create_app(InMemoryStateStore(), _fake_llm(), TOY_PROZESS,
+                     company_id=MANDANT, anfrage_id=ANFRAGE,
+                     writer=_WriterOhneDb(), melder=_ReihenfolgeMelder())
+    client = TestClient(app)
+    _turn(client, "m1", "Der Prozess heißt Urlaubsantrag")
+    _turn(client, "m2", "Ausgelöst durch einen Antrag")
+    rumpf = json.dumps({"session_id": "s1", "message_id": "m3",
+                        "message": "Etwa 100 mal pro Jahr"}).encode()
+    scope = {"type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1",
+             "method": "POST", "path": "/turn", "raw_path": b"/turn",
+             "query_string": b"", "root_path": "", "scheme": "http",
+             "server": ("testserver", 80), "client": ("testclient", 5),
+             "headers": [(b"content-type", b"application/json"),
+                         (b"content-length", str(len(rumpf)).encode())]}
+
+    async def empfangen():
+        return {"type": "http.request", "body": rumpf, "more_body": False}
+
+    async def senden(nachricht):
+        if nachricht["type"] == "http.response.body" and not nachricht.get("more_body"):
+            ereignisse.append("antwort_gesendet")
+
+    asyncio.run(app(scope, empfangen, senden))
+    assert ereignisse == ["antwort_gesendet", "gate"]
+
+
+def test_zwischenstand_zieht_das_gate_nicht_nach():
+    melder = _GateMelder()
+    _turn(_gate_client(melder), "m1", "Der Prozess heißt Urlaubsantrag")
+    assert melder.aufrufe == 0
+
+
+def test_ohne_writer_wird_nichts_eingefroren_und_nichts_nachgezogen():
+    melder = _GateMelder()
+    _bis_fertig(_gate_client(melder, writer=None))
+    assert melder.aufrufe == 0
+
+
+def _api_log(caplog):
+    return [r for r in caplog.records if r.name == "bc1_service.api"]
+
+
+def test_ohne_melder_kein_aufruf_und_keine_logzeile(caplog):
+    with caplog.at_level(logging.INFO, logger="bc1_service.api"):
+        antwort = _bis_fertig(_gate_client(None))
+    assert antwort.json()["status"] == "fertig"
+    assert _api_log(caplog) == []
+
+
+def test_gescheitertes_gate_laesst_die_antwort_unberuehrt_und_warnt(caplog):
+    melder = _GateMelder(Bc0MeldungFehler("BC0 antwortet auf 'Gate nachziehen' mit 500: x"))
+    with caplog.at_level(logging.WARNING, logger="bc1_service.api"):
+        antwort = _bis_fertig(_gate_client(melder))
+    assert antwort.status_code == 200 and antwort.json()["status"] == "fertig"
+    assert [r.getMessage() for r in _api_log(caplog)] == [MELDUNG_GATE_FEHLGESCHLAGEN.format(
+        grund="BC0 antwortet auf 'Gate nachziehen' mit 500: x",
+        anfrage_id=ANFRAGE, company_id=MANDANT)]
+
+
+def test_unerwartete_ausnahme_im_hintergrund_nennt_nur_die_klasse(caplog):
+    melder = _GateMelder(AttributeError("interna mit geheimnis"))
+    with caplog.at_level(logging.WARNING, logger="bc1_service.api"):
+        antwort = _bis_fertig(_gate_client(melder))
+    assert antwort.status_code == 200
+    eintraege = _api_log(caplog)
+    assert len(eintraege) == 1
+    assert "AttributeError" in eintraege[0].getMessage()
+    assert "geheimnis" not in eintraege[0].getMessage()
+
+
+def test_replay_des_abschlusses_zieht_erneut_nach():
+    melder = _GateMelder()
+    client = _gate_client(melder)
+    _bis_fertig(client)
+    assert _turn(client, "m3", "Etwa 100 mal pro Jahr").status_code == 200
+    assert melder.aufrufe == 2
+
+
+def test_nachgezogenes_gate_wird_mit_den_gesetzten_anfragen_geloggt(caplog):
+    with caplog.at_level(logging.INFO, logger="bc1_service.api"):
+        _bis_fertig(_gate_client(_GateMelder()))
+    assert [r.getMessage() for r in _api_log(caplog)] == [
+        f"Gate bei BC0 nachgezogen (Anfrage {ANFRAGE}): auf am_gate gesetzt: {ANFRAGE}"]
+
+
+def test_nachgezogenes_gate_ohne_gesetzte_anfrage_sagt_keine(caplog):
+    class _NichtsZuTun(_GateMelder):
+        def ziehe_gate_nach(self, anfrage_id):
+            return []
+
+    with caplog.at_level(logging.INFO, logger="bc1_service.api"):
+        _bis_fertig(_gate_client(_NichtsZuTun()))
+    assert [r.getMessage() for r in _api_log(caplog)] == [
+        f"Gate bei BC0 nachgezogen (Anfrage {ANFRAGE}): auf am_gate gesetzt: keine"]

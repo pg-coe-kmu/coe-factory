@@ -12,19 +12,24 @@ Zwischen Gate 0 und Gate 1. Verantwortlich: **Sergio, allein** — Eike ist seit
 läuft im Betrieb und nimmt BC0s Pakete an ([#190](https://github.com/pg-coe-kmu/coe-factory/issues/190),
 [#205](https://github.com/pg-coe-kmu/coe-factory/issues/205)); das **Value- und Priorisierungsmodell**
 (`app/modell/`) rechnet nach ADR-006 · BC2 ([#238](https://github.com/pg-coe-kmu/coe-factory/issues/238));
-die **Gate-1-Oberfläche** (`app/static/index.html`, `app/oberflaeche.py`) zeigt einen Lauf und nimmt
-die Freigabe entgegen ([#243](https://github.com/pg-coe-kmu/coe-factory/issues/243)).
-Offen sind der **Bau** des Erkennungsschritts ([#248](https://github.com/pg-coe-kmu/coe-factory/issues/248) —
-der Schnitt selbst ist in [#194](https://github.com/pg-coe-kmu/coe-factory/issues/194) entschieden,
-Schnitt C; dort liegt auch das Lesen auf `stand_zum(uebergeben_am)`), Präsentation
-([#244](https://github.com/pg-coe-kmu/coe-factory/issues/244)) und der **Tabellenentwurf für Schema
-`bc2`** ([#250](https://github.com/pg-coe-kmu/coe-factory/issues/250)).
+der **Erkennungsschritt** (`app/erkennung/`) schneidet die Potenziale — ein Modellaufruf je Paket,
+deterministisch nachkontrolliert ([#194](https://github.com/pg-coe-kmu/coe-factory/issues/194) entschieden,
+[#248](https://github.com/pg-coe-kmu/coe-factory/issues/248) gebaut). Dort liegt auch das Lesen auf
+`stand_zum(uebergeben_am)`. Die **Gate-1-Oberfläche** (`app/static/index.html`, `app/oberflaeche.py`)
+zeigt einen Lauf und nimmt die Freigabe entgegen ([#243](https://github.com/pg-coe-kmu/coe-factory/issues/243)).
+Offen sind Präsentation ([#244](https://github.com/pg-coe-kmu/coe-factory/issues/244)), der
+**Tabellenentwurf für Schema `bc2`** ([#250](https://github.com/pg-coe-kmu/coe-factory/issues/250)) und —
+neu aufgefallen beim Bau von #248 — die **drei übrigen Urteilsstellen des LLM** (Lage im Korridor, die
+fünf Nutzwert-Kategorien, das begründete Überschreiben der Komplexität;
+[#260](https://github.com/pg-coe-kmu/coe-factory/issues/260)). Ohne sie ist ein `modell.Potenzialeingang`
+nicht vollständig; siehe `app/erkennung/erkennen.py`.
 
 ⚠ **Die Oberfläche ist noch nicht betriebsfest**, und sie sagt das selbst an: ihre Läufe kommen aus
-einem Messsatz statt aus der Datenbank (das ist #248), und ihre Entscheidung liegt im
-**Arbeitsspeicher**, weil Schema `bc2` dafür keinen Ort hat (das ist #250). Beides hängt hinter je
-einem Protokoll — `Laufquelle` und `Gate1Buch` —, die Umsetzungen werden getauscht, nicht die
-Oberfläche.
+einem Messsatz statt aus der Datenbank — der Erkennungsschritt ist gebaut, aber noch nicht an die
+`Laufquelle` angeschlossen, und ohne #260 lieferte er keinen vollständigen Eingang —, und ihre
+Entscheidung liegt im **Arbeitsspeicher**, weil Schema `bc2` dafür keinen Ort hat (das ist #250). Beides
+hängt hinter je einem Protokoll — `Laufquelle` und `Gate1Buch` —, die Umsetzungen werden getauscht,
+nicht die Oberfläche.
 Owner-Angaben in den Alt-Issues (#84–#99) nennen teils Eike und sind damit hinfällig.
 *(Korrigiert am 20.09.2026: die Vorgängerfassung sagte „Es gibt noch keinen BC2-Code. Der Bau
 beginnt bei null" — ein Stand vom 30.08., der schon durch #190 überholt war.)*
@@ -97,9 +102,11 @@ divergierenden Kopien unter `Projektgruppe/BC2/` sind aufgelöst und liegen dort
 | Systemarchitektur (27.06., teils überholt) | `bc2-strategic-advisor/architektur/` |
 | Trigger-Endpunkt (läuft im Betrieb) | `bc2-strategic-advisor/app/app.py`, `app/eingang.py` |
 | **Value- und Priorisierungsmodell** (ADR-006 · BC2) | `bc2-strategic-advisor/app/modell/` — `parameter.py` (Setzungen), `rechnen.py` (reiner Kern), `ausgabe.py` (Vertragsform), `laden.py` (Messsatz lesen) |
+| **Erkennungsschritt** (#194 / #248) | `bc2-strategic-advisor/app/erkennung/` — `bestand.py` (Leseseite), `nutzlast.py` (was das Modell sieht), `anweisung.py`, `modellruf.py` (Naht zum LLM), `pruefen.py` (Nachkontrolle) |
 | **Gate-1-Oberfläche** (Fassung D, #167/#243) | `app/static/index.html` (eine Datei), `app/oberflaeche.py` (die vier Rufe), `app/gate1.py` (Entscheidung, Prüfung, Ablage), `app/laeufe.py` (Laufquelle) |
 | Oberfläche ansehen, ohne Datenbank | `app/vorschau.py` — `python3 vorschau.py`, dann `http://127.0.0.1:8243/` |
 | Messsätze für die Kalibrierung | `bc2-strategic-advisor/kalibrierung/` |
+| Erkennung an einem echten Aufruf messen | `bc2-strategic-advisor/tools/erkennung_messen.py` |
 
 Der Vertrag verlor beim Sprung v1→v2 die Felder `akzeptanzkriterien_geschaeftlich`,
 `fachliche_anforderungen` und die Tiefe von `to_be_vision`. ✅ **Zurück seit v3.0**
@@ -126,6 +133,22 @@ verantwortet.
   ist ein Übungsmandant und trägt keine auswertbaren Werte.
 - **`v_bewertung_aktuell` statt `bitkom_bewertungen`** für jede Auswertung — sonst fließen
   überschriebene Stände mit ein.
+- **Eine fehlende Bewertung ist eine Lücke, keine Null — und die Regel greift beim _Lesen_.**
+  `erkennung.Teilprozess.bewertet` fragt nach dem **Vorhandensein**, nie nach `avg > 0`. Wer eine
+  0 als Note liest, hält den unerhobenen Teilprozess für den am schlechtesten automatisierbaren
+  im Bestand — dieselbe Falle wie `v_gate_prozessstand.tp_mit_medienbruch` (#163), dieselbe Regel
+  wie #167. *(Auflage 4 aus [#248](https://github.com/pg-coe-kmu/coe-factory/issues/248).)*
+  **Wo die Null herkommt, ist am 21.09.2026 berichtigt worden** ([#249](https://github.com/pg-coe-kmu/coe-factory/issues/249)):
+  nicht aus der Datenbank. `v_prozessautomatisierung` hat 23 Zeilen und keine einzige Null — ein
+  `GROUP BY` über Bewertungen kann keinen unbewerteten Teilprozess erzeugen. Die »27 von 50 mit
+  `avg: 0`« aus #194 sind ein **Artefakt des Snapshot-Exports**. Die Lücke besteht trotzdem
+  (27 von 50 sind unbewertet), und weil BC2s Fixtures auf dem Snapshot laufen, wiegt die Regel
+  dort **schwerer** als im Produktionsweg, nicht leichter.
+- **Die fünf Lösungsklassen werden wörtlich geschrieben** — `Regelwerk/Weiterleitung`,
+  `Integration`, `Extraktion`, `Textgenerierung`, `Assistenz`. An ihnen hängt der Korridor des
+  Automatisierungsgrads; eine andere Schreibweise hat keinen. Der Prototyp zu #194 bot dem Modell
+  fünf **andere** an, und 10 von 10 seiner Potenziale wären am Vertrag gescheitert. Wer eine Liste
+  dieser Namen braucht, liest sie aus `modell.parameter.STANDARD.korridore` statt sie zu wiederholen.
 - **Das LLM bewertet qualitativ, rechnet aber nicht.** Zahlen entstehen deterministisch in Python,
   damit sie reproduzierbar und testbar bleiben. Es urteilt an **genau vier** Stellen (ADR-006 · BC2,
   2.0): Lösungsansatz-Klasse, Lage im Korridor, die fünf Nutzwert-Kategorien und das begründete

@@ -76,7 +76,9 @@ def test_bewertung_nach_abschluss_legt_nacherhebung_an(client, mandant):
     r = client.post("/api/companies/" + mandant + "/rating",
                     json={"key": tp, "items": {"1": {"stufe": 5, "beleg": "nachgebessert"}}})
     assert r.status_code == 200, r.text
-    assert r.json() == {"ok": True, "saved": 1, "erhebung_id": BASIS + "-2", "erhebung_neu": True}
+    j = r.json()   # v3.12: die Antwort meldet zusaetzlich den Dokumentstand
+    assert {k: j[k] for k in ("ok", "saved", "erhebung_id", "erhebung_neu")} == \
+        {"ok": True, "saved": 1, "erhebung_id": BASIS + "-2", "erhebung_neu": True}
 
     d = _erhebungen(client, mandant)
     assert d["offen"] == BASIS + "-2" and d["massgeblich"] == BASIS + "-2"

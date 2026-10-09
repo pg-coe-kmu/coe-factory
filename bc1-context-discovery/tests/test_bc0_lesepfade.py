@@ -1,7 +1,9 @@
 import pytest
 
 from bc1_service import bc0_lesepfade
-from tests.db_fixture import DSN, MANDANT_A, MANDANT_B, frische_db, verbindung
+from tests.db_fixture import (
+    ANFRAGE_A, ANFRAGE_A_EINGEGANGEN, ANFRAGE_B, DSN, MANDANT_A, MANDANT_B, frische_db,
+    verbindung)
 
 pytestmark = pytest.mark.skipif(not DSN, reason="BC1_TEST_DB_DSN nicht gesetzt")
 
@@ -9,6 +11,20 @@ pytestmark = pytest.mark.skipif(not DSN, reason="BC1_TEST_DB_DSN nicht gesetzt")
 @pytest.fixture(scope="module", autouse=True)
 def db():
     frische_db(DSN)
+
+
+def test_anfrage_status_ist_mandantengefiltert():
+    with verbindung(DSN) as conn:
+        assert bc0_lesepfade.anfrage_status(conn, MANDANT_A, ANFRAGE_A_EINGEGANGEN) == "eingegangen"
+        # A-2026-03 gibt es nur bei A — bei B ist sie unbekannt.
+        assert bc0_lesepfade.anfrage_status(conn, MANDANT_B, ANFRAGE_A_EINGEGANGEN) is None
+
+
+def test_anfrage_teilprozesse_kommen_aus_der_anfrage_und_nicht_vom_nachbarmandanten():
+    with verbindung(DSN) as conn:
+        assert bc0_lesepfade.anfrage_teilprozesse(conn, MANDANT_A, ANFRAGE_A) == [
+            "KP-01.TP-1", "KP-01.TP-2"]
+        assert bc0_lesepfade.anfrage_teilprozesse(conn, MANDANT_B, ANFRAGE_B) == ["KP-02.TP-2"]
 
 
 def test_mandant_existiert_nur_fuer_bekannte_uuid():

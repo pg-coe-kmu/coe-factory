@@ -44,9 +44,9 @@ Nachricht = tuple[str, tuple[tuple[str, str], ...]]
 
 @dataclass(frozen=True)
 class Fall:
-    """anfrage_id ist dokumentarisch (die BC0-Anfrage, an der der Fokus-TP haengt —
-    BC0 setzt am_gate, sobald ihr Profil fertig ist); fokus_tp muss zum focus_step
-    im Skript passen, ein Test prueft das."""
+    """anfrage_id ist seit B5 die Anfrage, zu der der Fall interviewt wird
+    (BC1_ANFRAGE_ID-Aequivalent; BC0 setzt am_gate, sobald ihr Profil fertig ist);
+    fokus_tp muss zum focus_step im Skript passen, ein Test prueft das."""
     session_id: str
     anfrage_id: str
     fokus_tp: str
@@ -139,7 +139,7 @@ def fuehre_interview(store, paket, fall: Fall, *, company_id: str, writer=None) 
     antwort: dict = {}
     for i, (text, _) in enumerate(fall.nachrichten, start=1):
         antwort = process_turn(store, llm, paket, fall.session_id, f"m{i}", text,
-                               company_id=company_id)
+                               company_id=company_id, anfrage_id=fall.anfrage_id)
         if writer is not None:
             db_profil = writer.reconcile(store.load(fall.session_id), antwort)
             if db_profil is not None:
@@ -152,13 +152,14 @@ def fuehre_interview(store, paket, fall: Fall, *, company_id: str, writer=None) 
 
 def schreibe_testprofile(pool, company_id: str) -> list[dict]:
     """Schreibt alle Faelle ueber den regulaeren Writer-Pfad; Session-Store
-    bewusst In-Memory — kein ungeprueftes bc1.sessions in der Ziel-DB."""
-    with pool.connection() as conn:
-        kontext = lade_kontext(conn, company_id)
-    paket = baue_discovery_paket(kontext=kontext)
-    writer = ProfilWriter(pool, company_id, paket)
+    bewusst In-Memory — kein ungeprueftes bc1.sessions in der Ziel-DB.
+    Seit B5 je Fall mit dessen Anfrage: Auswahl, Fingerabdruck und Writer haengen an ihr."""
     ergebnis = []
     for fall in FAELLE:
+        with pool.connection() as conn:
+            kontext = lade_kontext(conn, company_id, fall.anfrage_id)
+        paket = baue_discovery_paket(kontext=kontext)
+        writer = ProfilWriter(pool, company_id, paket)
         antwort = fuehre_interview(InMemoryStateStore(), paket, fall,
                                    company_id=company_id, writer=writer)
         ergebnis.append({"session_id": fall.session_id, "status": antwort["status"],

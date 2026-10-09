@@ -166,6 +166,16 @@ def test_einspielen_als_falscher_eigentuemer_wird_abgewiesen():
         assert not _tabellen(conn)                  # vollstaendiger Rollback
 
 
+def test_vorpruefung_meldet_fehlende_anfrage_sicht():
+    frische_db(DSN, mit_ddl=False)
+    with verbindung(DSN, None) as conn:
+        conn.execute("REVOKE SELECT ON v_anfrage_teilprozesse FROM bc_leser")
+        conn.commit()
+    with pytest.raises(Exception) as fehler:
+        spiele_ddl_ein(DSN)
+    assert "v_anfrage_teilprozesse" in str(fehler.value)
+
+
 def test_spaltenrecht_an_fremde_rolle_wird_erkannt():
     # Codex N10-C1: Spaltenrechte liegen in pg_attribute.attacl, nicht in
     # pg_class.relacl. Ein GRANT auf EINE Spalte umging Signatur UND Rechte-Test.

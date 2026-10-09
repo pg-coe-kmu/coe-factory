@@ -516,11 +516,61 @@ function zeigeAnmeldung(hinweis){
 }
 function verbergeAnmeldung(){$('gate').classList.remove('on');$('loginPw').value='';$('loginErr').textContent='';}
 
+/* Nur-Lesen-Modus (Vorgang #211, ab 22.09.2026) --------------------------------
+   Die Rolle `leser` darf sehen, aber nichts aendern. Der Server weist jeden
+   schreibenden Endpunkt mit 403 ab (Depends(schreibender_benutzer)); was hier
+   steht, ist ausschliesslich Bequemlichkeit: Man soll niemandem einen Knopf
+   zeigen, der nur eine Fehlermeldung erzeugt.
+
+   Zwei Wege, weil die Oberflaeche ihre Knoepfe zum grossen Teil erst zur
+   Laufzeit erzeugt:
+     - Eingabefelder werden gesperrt, ausser den ausdruecklich erlaubten
+       (Anmeldung, eigenes Passwort, Freitextsuche ueber die Prozesse).
+     - Knoepfe werden an ihrer Beschriftung erkannt. Die Liste unten deckt den
+       Bestand vom 22.09.2026 ab; ein neuer Knopf, der durchrutscht, fuehrt zu
+       einer 403-Meldung und nicht zu einer Aenderung.
+   Der zweite Weg ist der schwaechere, und das ist hier vertretbar: Die Sperre
+   liegt im Server, diese Datei blendet nur aus. */
+var NUR_LESEN = false;
+var LESEN_ERLAUBT = {q:1, loginMail:1, loginPw:1, loginBtn:1, pwNeu:1, pwNeu2:1};
+var SCHREIBKNOPF = /speichern|anlegen|hinzuf|l\u00f6schen|loeschen|hochladen|entfernen|\u00fcbernehmen|uebernehmen|beginnen|abschlie\u00dfen|abschliessen|freigeben|zur\u00fcckweisen|widerrufen|schn\u00fcren|nachliefern|stellen|zuordnen|^\+|^\u2715$/i;
+
+function nurLesenDurchsetzen(){
+  if(!NUR_LESEN) return;
+  document.querySelectorAll('input,select,textarea').forEach(function(f){
+    if(LESEN_ERLAUBT[f.id] || f.hasAttribute('data-lesen-ok')) return;
+    f.disabled = true;
+  });
+  document.querySelectorAll('button').forEach(function(b){
+    if(LESEN_ERLAUBT[b.id]) return;
+    if(SCHREIBKNOPF.test((b.textContent||'').trim())) b.style.display='none';
+  });
+  /* Zwei Bloecke verschwinden ganz, weil ein gesperrtes Feld daneben nur
+     Ratlosigkeit erzeugt: das Hochladen von Belegen und die Volltextsuche
+     ueber die Belegtexte. Letztere liefert Auszuege aus dem Beleg und faellt
+     damit unter dieselbe Festlegung wie der Beleg selbst (#211, 22.09.2026). */
+  var docFile=$('docFile'); if(docFile && docFile.parentElement) docFile.parentElement.style.display='none';
+  var belegQ=$('belegQ');
+  if(belegQ && belegQ.closest('div') && belegQ.closest('div').parentElement)
+    belegQ.closest('div').parentElement.style.display='none';
+}
+
 function zeigeBenutzer(){
   if(!BENUTZER){$('who').style.display='none';return;}
   $('whoName').textContent=BENUTZER.name;
-  $('whoRolle').textContent=BENUTZER.ist_admin?'Admin':'Benutzer';
+  NUR_LESEN = (BENUTZER.rolle==='leser');
+  $('whoRolle').textContent=BENUTZER.ist_admin?'Admin':(NUR_LESEN?'Leser':'Benutzer');
   $('who').style.display='flex';
+  if(NUR_LESEN){
+    document.body.classList.add('nur-lesen');
+    /* Ein Beobachter, weil die Ansichten nachgeladen werden. Ohne ihn waeren
+       nur die Knoepfe gesperrt, die beim Anmelden schon im Baum standen. */
+    if(!window._leserBeobachter){
+      window._leserBeobachter = new MutationObserver(function(){ nurLesenDurchsetzen(); });
+      window._leserBeobachter.observe(document.body, {childList:true, subtree:true});
+    }
+    nurLesenDurchsetzen();
+  }
   /* Neue Mandanten anlegen ist Admins vorbehalten (Etappe 4b). Der Server weist
      einen Versuch mit 403 ab — die Knoepfe werden zusaetzlich ausgeblendet, weil
      man niemandem einen Knopf zeigen sollte, der nur eine Fehlermeldung erzeugt.
@@ -1536,7 +1586,13 @@ async function renderDocs(){var el=$('docsList');if(!el)return;var ref=rkey();va
   try{var ds=await api('/api/companies/'+cur.company.id+'/documents?ref_id='+encodeURIComponent(ref));
     if(!ds.length){el.innerHTML='<span class="mut">Noch keine Dateien.</span>';return;}
     el.innerHTML=ds.map(function(d){return '<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)">'
-      +'<a href="/api/companies/'+cur.company.id+'/documents/'+d.doc_id+'/file" target="_blank" rel="noopener">&#128206; '+esc(d.filename)+'</a>'
+      /* Vorgang #211: Der Leser sieht, DASS ein Beleg vorliegt — den Beleg
+         selbst nicht. Der Server weist /documents/{id}/file fuer ihn mit 403
+         ab (Depends(beleg_zugriff)); hier wird aus dem Verweis schlichter
+         Text, damit kein Klick ins Leere fuehrt. */
+      +(NUR_LESEN
+        ? '<span>&#128206; '+esc(d.filename)+'</span>'
+        : '<a href="/api/companies/'+cur.company.id+'/documents/'+d.doc_id+'/file" target="_blank" rel="noopener">&#128206; '+esc(d.filename)+'</a>')
       +'<span class="mut" style="font-size:11.5px">'+esc((d.uploaded_at||'').slice(0,16).replace('T',' '))+' &middot; '+esc(d.status)+'</span>'
       +'<button class="btn sec" style="margin-left:auto" data-doccite="1" data-fn="'+esc(d.filename)+'">Zitat kopieren</button>'
       +'<button class="btn sec" data-docdel="'+d.doc_id+'" title="L\u00f6schen">&#10005;</button></div>';}).join('');

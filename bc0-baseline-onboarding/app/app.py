@@ -87,7 +87,9 @@ SUPABASE_SERVICE_KEY = (os.environ.get("SUPABASE_SERVICE_KEY") or "").strip()
 SUPABASE_BUCKET = os.environ.get("SUPABASE_BUCKET", "belege")
 SB_STORAGE = bool(SUPABASE_URL and SUPABASE_SERVICE_KEY)
 MAX_DOC_MB = int(os.environ.get("MAX_DOC_MB", "15"))
-REF_RE = re.compile(r"^KP-\d{2}(\.TP-\d+)?$")
+# "MANDANT" (30.09.2026, V2/Vorgang 910): Dokumente zum ganzen Unternehmen, nicht zu einem
+# Prozess — Grundlage fuer die manuell erfassten Unternehmensdaten und spaeter OCR.
+REF_RE = re.compile(r"^(KP-\d{2}(\.TP-\d+)?|MANDANT)$")
 
 def _sb(method, path, data=None, ctype=None, extra=None):
     """Ruft die Supabase-REST-Schnittstelle auf — der einzige Weg dorthin.
@@ -370,6 +372,17 @@ CREATE TABLE IF NOT EXISTS prozess_personen (
   hinweis    TEXT,
   PRIMARY KEY (company_id, process_id, person_id, funktion)
 );
+-- v3.9 (29.09.2026, Vorgang 911): weitere Rollen je Person. ref_personen.rolle_id bleibt
+-- die Hauptrolle (aus ihr liest v_prozesse_lesen.owner_rolle_id). Massgeblich:
+-- schema_v3.9_person_rollen.sql.
+CREATE TABLE IF NOT EXISTS person_rollen (
+  company_id UUID NOT NULL,
+  person_id  TEXT NOT NULL,
+  rolle_id   TEXT NOT NULL,
+  PRIMARY KEY (company_id, person_id, rolle_id),
+  FOREIGN KEY (company_id, person_id) REFERENCES ref_personen(company_id, person_id) ON DELETE CASCADE,
+  FOREIGN KEY (company_id, rolle_id)  REFERENCES mandant_rollen(company_id, rolle_id)
+);
 CREATE TABLE IF NOT EXISTS ref_systeme_katalog (
   katalog_id  TEXT PRIMARY KEY,
   bezeichnung TEXT NOT NULL,
@@ -390,6 +403,94 @@ CREATE TABLE IF NOT EXISTS mandant_systeme (
   PRIMARY KEY (company_id, system_id)
 );
 """
+# ---- KI-Controlling (Schema v3.11, 04.10.2026, Vorgang 915) ----------------------------
+# Fachkonzept: 13_Konzepte_Architektur/BC0_Konzept_KI-Transformation_KI-Controlling_v1.
+# Massgeblich ist schema_v3.11_ki_controlling.sql (traegt zusaetzlich die Rechte).
+KIC_DDL_PG = """
+CREATE TABLE IF NOT EXISTS ki_schulungen (
+  id          BIGSERIAL PRIMARY KEY,
+  company_id  UUID NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
+  person_id   TEXT,
+  thema       TEXT NOT NULL,
+  termin      DATE,
+  erledigt_am DATE,
+  nachweis    TEXT
+);
+CREATE TABLE IF NOT EXISTS ki_research_bereiche (
+  company_id  UUID NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
+  bereich     TEXT NOT NULL,
+  person_id   TEXT,
+  PRIMARY KEY (company_id, bereich)
+);
+CREATE TABLE IF NOT EXISTS ki_research_notizen (
+  id          BIGSERIAL PRIMARY KEY,
+  company_id  UUID NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
+  bereich     TEXT NOT NULL,
+  datum       DATE NOT NULL,
+  person_id   TEXT,
+  notiz       TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS ki_wissensdb (
+  company_id      UUID PRIMARY KEY REFERENCES companies(company_id) ON DELETE CASCADE,
+  vorhanden       TEXT NOT NULL CHECK (vorhanden IN ('ja','nein','im_aufbau')),
+  system          TEXT,
+  ort             TEXT,
+  person_id       TEXT,
+  aktualisiert_am DATE,
+  takt_tage       INTEGER
+);
+CREATE TABLE IF NOT EXISTS ki_strategie (
+  company_id       UUID PRIMARY KEY REFERENCES companies(company_id) ON DELETE CASCADE,
+  sachstand        TEXT NOT NULL CHECK (sachstand IN ('keine','entwurf','beschlossen','in_umsetzung')),
+  beschreibung     TEXT,
+  person_id        TEXT,
+  beschlossen_am   DATE,
+  ueberarbeitet_am DATE
+);
+CREATE TABLE IF NOT EXISTS ki_meilensteine (
+  id          BIGSERIAL PRIMARY KEY,
+  company_id  UUID NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
+  titel       TEXT NOT NULL,
+  zieldatum   DATE NOT NULL,
+  erreicht_am DATE
+);
+CREATE TABLE IF NOT EXISTS ki_laufdaten (
+  id             BIGSERIAL PRIMARY KEY,
+  company_id     UUID NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
+  zeitpunkt      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  process_id     TEXT,
+  sub_process_id TEXT,
+  kontext        TEXT NOT NULL DEFAULT 'betrieb',
+  modell         TEXT NOT NULL,
+  input_tokens   INTEGER,
+  output_tokens  INTEGER,
+  kosten_eur     NUMERIC(12,6),
+  status         TEXT NOT NULL DEFAULT 'ok' CHECK (status IN ('ok','fehler','abgebrochen')),
+  korrigiert     BOOLEAN,
+  dauer_ms       INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_ki_laufdaten_co_zeit ON ki_laufdaten(company_id, zeitpunkt);
+"""
+KIC_DDL_SQLITE = """
+CREATE TABLE IF NOT EXISTS ki_schulungen(id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER NOT NULL,
+  person_id TEXT, thema TEXT NOT NULL, termin TEXT, erledigt_am TEXT, nachweis TEXT);
+CREATE TABLE IF NOT EXISTS ki_research_bereiche(company_id INTEGER NOT NULL, bereich TEXT NOT NULL, person_id TEXT,
+  PRIMARY KEY(company_id, bereich));
+CREATE TABLE IF NOT EXISTS ki_research_notizen(id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER NOT NULL,
+  bereich TEXT NOT NULL, datum TEXT NOT NULL, person_id TEXT, notiz TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS ki_wissensdb(company_id INTEGER PRIMARY KEY,
+  vorhanden TEXT NOT NULL CHECK (vorhanden IN ('ja','nein','im_aufbau')), system TEXT, ort TEXT, person_id TEXT,
+  aktualisiert_am TEXT, takt_tage INTEGER);
+CREATE TABLE IF NOT EXISTS ki_strategie(company_id INTEGER PRIMARY KEY,
+  sachstand TEXT NOT NULL CHECK (sachstand IN ('keine','entwurf','beschlossen','in_umsetzung')),
+  beschreibung TEXT, person_id TEXT, beschlossen_am TEXT, ueberarbeitet_am TEXT);
+CREATE TABLE IF NOT EXISTS ki_meilensteine(id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER NOT NULL,
+  titel TEXT NOT NULL, zieldatum TEXT NOT NULL, erreicht_am TEXT);
+CREATE TABLE IF NOT EXISTS ki_laufdaten(id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER NOT NULL,
+  zeitpunkt TEXT NOT NULL, process_id TEXT, sub_process_id TEXT, kontext TEXT NOT NULL DEFAULT 'betrieb',
+  modell TEXT NOT NULL, input_tokens INTEGER, output_tokens INTEGER, kosten_eur REAL,
+  status TEXT NOT NULL DEFAULT 'ok' CHECK (status IN ('ok','fehler','abgebrochen')), korrigiert INTEGER, dauer_ms INTEGER);
+"""
 ENTITAET_DDL_SQLITE = """
 CREATE TABLE IF NOT EXISTS ref_personen(
   company_id INTEGER NOT NULL, person_id TEXT NOT NULL, name TEXT, funktion TEXT,
@@ -397,6 +498,9 @@ CREATE TABLE IF NOT EXISTS ref_personen(
   email TEXT, telefon TEXT,
   aktiv INTEGER NOT NULL DEFAULT 1, angelegt_am TEXT,
   PRIMARY KEY(company_id, person_id));
+CREATE TABLE IF NOT EXISTS person_rollen(
+  company_id INTEGER NOT NULL, person_id TEXT NOT NULL, rolle_id TEXT NOT NULL,
+  PRIMARY KEY(company_id, person_id, rolle_id));
 CREATE TABLE IF NOT EXISTS prozess_personen(
   company_id INTEGER NOT NULL, process_id TEXT NOT NULL, person_id TEXT NOT NULL,
   funktion TEXT NOT NULL, hinweis TEXT,
@@ -716,7 +820,7 @@ BC1_FELD_ZU_PRUEFPUNKT = (
 
 #: Arten von Hindernissen, in der Reihenfolge, in der sie abzuarbeiten sind.
 #: `ansprechpartner` ist am 18.08.2026 entfallen — siehe GATE_ANSPRECHPARTNER.
-GATE_HINDERNIS_ARTEN = ("eigner", "bewertung")
+GATE_HINDERNIS_ARTEN = ("eigner", "bewertung", "dokument")   # v3.12: dokument
 
 #: Startbestand des Systemkatalogs. Global wie ITEMS, deshalb im Code und nicht
 #: je Mandant. Die ersten vier stammen aus dem NoroAI-Bestand, die uebrigen sind
@@ -1209,6 +1313,7 @@ def init_db():
         c.execute(DOC_DDL_PG)
         c.execute(STAMM_DDL_PG)
         c.execute(ENTITAET_DDL_PG)
+        c.execute(KIC_DDL_PG)
         c.execute(ERHEBUNG_DDL_PG)
         c.execute(GATE0_DDL_PG)
         c.executemany("INSERT INTO ref_gate_pruefpunkte(pruefpunkt,bezeichnung,erlaeuterung,"
@@ -1272,6 +1377,7 @@ def init_db():
     c.c.executescript(DOC_DDL_SQLITE)
     c.c.executescript(STAMM_DDL_SQLITE)
     c.c.executescript(ENTITAET_DDL_SQLITE)
+    c.c.executescript(KIC_DDL_SQLITE)
     c.c.executescript(ERHEBUNG_DDL_SQLITE)
     c.c.executescript(GATE0_DDL_SQLITE)
     # Nachtrag: dienstliche Kontaktdaten (Schema v1.5). SQLite kennt kein
@@ -1312,8 +1418,10 @@ from bc0_auth import AuthDienst, Benutzer                            # noqa: E40
 from bc0_auth.abhaengigkeiten import (                               # noqa: E402
     admin,
     angemeldeter_benutzer,
+    beleg_zugriff,
     dienst_setzen,
     pruefe_mandant,
+    schreibender_benutzer,
 )
 from bc0_auth.middleware import AnmeldepflichtMiddleware             # noqa: E402
 from bc0_auth.routen import router as auth_router                    # noqa: E402
@@ -1478,7 +1586,7 @@ def get_company(cid:str, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
             "ratings":ratings,"erhebung":dict(erh) if erh else None}
 
 @app.put("/api/companies/{cid}/profile")
-async def save_profile(cid:str, req:Request, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+async def save_profile(cid:str, req:Request, benutzer: Benutzer = Depends(schreibender_benutzer)):
     """Speichert Unternehmensdaten und Profil.
 
     ``name`` ist über ``COALESCE(?,name)`` geschützt: Ein nicht mitgeschicktes
@@ -1499,10 +1607,25 @@ async def save_profile(cid:str, req:Request, benutzer: Benutzer = Depends(angeme
             (b.get("name"),b.get("branche"),b.get("rechtsform"),b.get("ma") or None,b.get("region"),cid))
     c.execute("UPDATE company_profile SET geschaeftsmodell=?,tech_stack=? WHERE "+W_CO,
         (b.get("geschaeftsmodell"),b.get("tech_stack"),cid))
+    # Unternehmensdaten manuell (30.09.2026, V2/Vorgang 910). Bisher schrieb nur der
+    # YAML-Import ``profile_json``. Nur wenn der Schluessel mitkommt — sonst bleibt der
+    # Bestand unangetastet (die alte Oberflaeche schickt ihn nie). Erlaubt ist ein
+    # Objekt (Abschnitt -> Inhalt), als Objekt oder als JSON-Text.
+    if "profile_json" in b:
+        pj = b.get("profile_json")
+        if isinstance(pj, str):
+            try: pj = json.loads(pj) if pj.strip() else {}
+            except ValueError:
+                c.close(); raise HTTPException(400, "profile_json ist kein gueltiges JSON")
+        if pj is None: pj = {}
+        if not isinstance(pj, dict):
+            c.close(); raise HTTPException(400, "profile_json muss ein Objekt sein (Abschnitt -> Inhalt)")
+        c.execute("UPDATE company_profile SET profile_json=? WHERE "+W_CO,
+            (json.dumps(pj, ensure_ascii=False), cid))
     c.commit(); c.close(); return {"ok":True}
 
 @app.put("/api/companies/{cid}/process")
-async def save_process(cid:str, req:Request, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+async def save_process(cid:str, req:Request, benutzer: Benutzer = Depends(schreibender_benutzer)):
     """Speichert einen Kernprozess samt seiner fünf Teilprozesse.
 
     Ausschließlich ``UPDATE``, kein ``INSERT``: Der Prozessbaum entsteht beim
@@ -1563,7 +1686,7 @@ def _naechste_kp_nummer(c, cid):
 
 
 @app.post("/api/companies/{cid}/process/add")
-async def add_process(cid:str, req:Request, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+async def add_process(cid:str, req:Request, benutzer: Benutzer = Depends(schreibender_benutzer)):
     """Nimmt einen weiteren Kernprozess in den Umfang auf.
 
     **Geaendert am 27.08.2026.** Bis dahin nahm dieser Endpunkt einen
@@ -1631,7 +1754,7 @@ async def add_process(cid:str, req:Request, benutzer: Benutzer = Depends(angemel
 
 
 @app.post("/api/companies/{cid}/process/{pid}/subprocess/add")
-async def add_subprocess(cid:str, pid:str, req:Request, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+async def add_subprocess(cid:str, pid:str, req:Request, benutzer: Benutzer = Depends(schreibender_benutzer)):
     """Haengt einen weiteren Teilprozess an einen Kernprozess.
 
     **Neu am 27.08.2026.** Diesen Weg gab es bisher gar nicht:
@@ -1673,7 +1796,7 @@ async def add_subprocess(cid:str, pid:str, req:Request, benutzer: Benutzer = Dep
     return {"ok": True, "sub_process_id": sid, "step_no": n}
 
 @app.post("/api/companies/{cid}/rating")
-async def save_rating(cid:str, req:Request, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+async def save_rating(cid:str, req:Request, benutzer: Benutzer = Depends(schreibender_benutzer)):
     """Speichert die Bitkom-Bewertungen eines Teilprozesses.
 
     Drei Eigenschaften, die hier zusammenkommen:
@@ -1729,9 +1852,31 @@ async def save_rating(cid:str, req:Request, benutzer: Benutzer = Depends(angemel
                          ON CONFLICT(company_id,erhebung_id,id) DO UPDATE SET stufe=excluded.stufe,beleg=excluded.beleg,quelle=excluded.quelle,bewertet_am=excluded.bewertet_am""",
                 (cid,eid,rid,key,pid,int(nr),int(v["stufe"]),v.get("beleg","").strip(),v.get("quelle","manuell"),now()))
     c.execute("UPDATE companies SET status='laeuft' WHERE "+KEY_CO+" AND status='neu'", (cid,))
-    c.commit(); c.close()
+    c.commit()
+    # v3.12: Ohne Dokument am Teilprozess ist das Speichern eine Zwischenspeicherung.
+    n_dok = _tp_dokumente(c, cid).get(key, 0); c.close()
     return {"ok": True, "saved": len([1 for v in items.values() if v.get('stufe')]),
-            "erhebung_id": eid, "erhebung_neu": erhebung_neu}   # v2.8
+            "erhebung_id": eid, "erhebung_neu": erhebung_neu,   # v2.8
+            "dokumente": n_dok, "belegt": n_dok > 0, "zwischenstand": n_dok == 0,
+            "hinweis": None if n_dok else DOK_HINWEIS_ZWISCHENSTAND}
+
+#: v3.12 (Vorgang 917, 05.10.2026): Je Teilprozess MUSS mindestens ein Dokument
+#: hochgeladen sein. Es zaehlt nur ein Dokument genau am Teilprozess (ref_id
+#: ``KP-XX.TP-Y``) in jedem Status ausser ``verworfen`` — auch ein Scan, dessen Text
+#: noch fehlt. Ein Dokument am Kernprozess oder am Mandanten belegt keinen
+#: Teilprozess. Die Text-Belegpflicht je Item (ADR-005) bleibt unveraendert.
+DOK_HINWEIS_ZWISCHENSTAND = ("Zwischenstand gespeichert — für diesen Teilprozess ist noch kein Dokument "
+                             "hochgeladen. Ohne Dokument gilt er als nicht belegt; Gate 0 bleibt gesperrt.")
+
+
+def _tp_dokumente(c, cid):
+    """Anzahl Dokumente je Teilprozess (nur ref_id KP-XX.TP-Y, ohne verworfene)."""
+    status = "status::text" if PG else "status"
+    zeilen = c.execute("SELECT ref_id, count(*) AS n FROM beleg_dokumente WHERE " + W_CO +
+                       " AND ref_id LIKE ? AND " + status + " <> 'verworfen' GROUP BY ref_id",
+                       (cid, "KP-%.TP-%")).fetchall()
+    return {z["ref_id"]: int(z["n"]) for z in zeilen}
+
 
 def _avg(rows):
     """Mittelwert über die gesetzten Werte, auf zwei Stellen gerundet.
@@ -2003,6 +2148,13 @@ def _satz_kurzfassung(rep, tp, offen):
     if rep["beleg_quote"] == 100:
         s.append("Grundlage sind %d Einzelbewertungen; jede von ihnen ist mit einem Beleg hinterlegt."
                  % rep["n_bewertungen"])
+    # v3.12: Dokumentpflicht je Teilprozess — die Zahl rechnet mit, der Satz warnt.
+    nb = rep.get("nicht_belegt") or []
+    if nb:
+        s.append("Nicht belegt! %d von %d Teilprozessen fehlt das Pflichtdokument (%s); ihre Werte sind "
+                 "mitgerechnet, aber nicht belegt." % (len(nb), len(tp), ", ".join(nb)))
+    elif tp:
+        s.append("Für jeden der %d Teilprozesse liegt mindestens ein Dokument vor." % len(tp))
     else:
         s.append("Grundlage sind %d Einzelbewertungen; %d Prozent von ihnen sind mit einem Beleg "
                  "hinterlegt." % (rep["n_bewertungen"], rep["beleg_quote"]))
@@ -2354,6 +2506,7 @@ def report(cid:str, bis: str = None, benutzer: Benutzer = Depends(angemeldeter_b
     # dagegen den vollen Wert — sonst vergleicht er eine Auswahl mit einer
     # Schwelle, die fuer das ganze Modell gesetzt wurde.
     tp_rows=[]
+    tp_dok=_tp_dokumente(c, cid)   # v3.12
     for p in procs:
         pid=p["process_id"]
         for tp in c.execute(SEL_TP+" WHERE "+W_CO+" AND process_id=? ORDER BY step_no",(cid,pid)).fetchall():
@@ -2363,7 +2516,8 @@ def report(cid:str, bis: str = None, benutzer: Benutzer = Depends(angemeldeter_b
                             "avg":_avg([b["stufe"] for b in bt]),
                             "dims":{d:_avg([b["stufe"] for b in bt if dim_of.get(b["item_nr"])==d]) for d in DIMS},
                             "n_bew":len(bt),
-                            "ohne_beleg":sum(1 for b in bt if not (b["beleg"] or "").strip())})
+                            "ohne_beleg":sum(1 for b in bt if not (b["beleg"] or "").strip()),
+                            "dokumente":tp_dok.get(sid,0),"belegt":tp_dok.get(sid,0)>0})
 
     # ---- Herkunft: welche Erhebungen stecken im massgeblichen Stand? ----
     # ADR-005. Ein Bericht ohne diese Angabe ist eine Behauptung.
@@ -2391,6 +2545,10 @@ def report(cid:str, bis: str = None, benutzer: Benutzer = Depends(angemeldeter_b
          "kette":kette,"cockpit":cockpit,"kategorien":list(KATEGORIEN),
          "cf_delta":CF_DELTA,"cockpit_stufen":[t for _,t in COCKPIT_STUFEN],
          "schwelle":SCHWELLE,"erstellt_am":datetime.date.today().isoformat(),
+         # v3.12: Dokumentpflicht je Teilprozess. Der Reifegrad rechnet weiter mit,
+         # die nicht belegten Teilprozesse stehen aber ausdruecklich daneben.
+         "dok_quote":(round(100*sum(1 for t in tp_rows if t["belegt"])/len(tp_rows)) if tp_rows else 0),
+         "nicht_belegt":[t["sub_process_id"] for t in tp_rows if not t["belegt"]],
          "bis":({"erhebung_id":grenze["erhebung_id"],"bezeichnung":grenze["bezeichnung"],
                  "stand":str(grenze["stand"]),"status":grenze["status"],"fest":bool(grenze["fest"])}
                 if grenze else None)}   # v2.9
@@ -2574,7 +2732,7 @@ def ki_readiness_lesen(cid:str, benutzer: Benutzer = Depends(angemeldeter_benutz
 
 
 @app.put("/api/companies/{cid}/ki_readiness")
-async def ki_readiness_speichern(cid:str, req:Request, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+async def ki_readiness_speichern(cid:str, req:Request, benutzer: Benutzer = Depends(schreibender_benutzer)):
     """Eine Erhebung mit ihren vier Dimensionswerten.
 
     Die Kennung wird aus dem Stichtag gebildet (KR-JJJJ-MM) und nicht vom
@@ -2701,7 +2859,7 @@ PD_PFLICHT = ["bezeichnung","zweck","ersteller","version","ablauf","grenzen"]
 
 @app.put("/api/companies/{cid}/prozessdok/{sid}")
 async def prozessdok_speichern(cid:str, sid:str, req:Request,
-                               benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+                               benutzer: Benutzer = Depends(schreibender_benutzer)):
     """Blatt, Werkzeuge, Agenten und Tests in einem Zug.
 
     Werkzeuge, Agenten und Tests werden ERSETZT, nicht zusammengefuehrt: Die
@@ -2790,6 +2948,18 @@ async def import_yaml(req: Request, _: Benutzer = Depends(admin)):
         raise HTTPException(400, "YAML-Fehler: %s" % e)
     if not isinstance(data, dict):
         raise HTTPException(400, "YAML-Wurzel muss ein Objekt sein (company:/profile:/prozesse:).")
+    # v3.12 (Befund N6, 05.10.2026): Bisher wurde ein leerer Beleg zu „Aus YAML
+    # uebernommen" — die Belegpflicht war auf diesem Weg umgangen und die Belegquote
+    # zeigte trotzdem 100 %. Jetzt: erst alles pruefen, dann schreiben.
+    ohne = []
+    for p in (data.get("prozesse", []) or []):
+        for tp in (p.get("teilprozesse", []) or []):
+            for nr, b in (tp.get("bewertungen", {}) or {}).items():
+                if b and b.get("stufe") and not str(b.get("beleg") or "").strip():
+                    ohne.append("%s.TP-%s I-%02d" % (p.get("process_id"), tp.get("step"), int(nr)))
+    if ohne:
+        raise HTTPException(400, "Beleg fehlt fuer %d Bewertung(en), z. B. %s — nichts importiert."
+                            % (len(ohne), ", ".join(ohne[:5])))
     co = data.get("company", {}) or {}
     c = db()
     if PG:
@@ -2823,7 +2993,7 @@ async def import_yaml(req: Request, _: Benutzer = Depends(admin)):
                  tp.get("tools"), tp.get("medienbrueche"), tp.get("schnittstellen"), tp.get("api")))
             for nr, b in (tp.get("bewertungen", {}) or {}).items():
                 if not b or not b.get("stufe"): continue
-                nr = int(nr); beleg = (b.get("beleg") or "").strip() or "Aus YAML übernommen"
+                nr = int(nr); beleg = str(b.get("beleg") or "").strip()   # v3.12: oben geprueft
                 rid = "%s.I-%02d" % (sid, nr)
                 if PG:
                     c.execute("""INSERT INTO bitkom_bewertungen(company_id,erhebung_id,id,sub_process_id,item_nr,stufe,beleg,quelle,bewertet_am) VALUES(?,?,?,?,?,?,?,?,?)
@@ -3091,14 +3261,14 @@ def _fundstelle(ocr_text, begriff):
 
 @app.post("/api/companies/{cid}/documents")
 async def upload_document(cid: str, ref_id: str = Form(...), file: UploadFile = File(...),
-                          benutzer: Benutzer = Depends(angemeldeter_benutzer)):
-    """Nimmt ein Belegdokument entgegen und legt es ab.
+                          benutzer: Benutzer = Depends(schreibender_benutzer)):
+    r"""Nimmt ein Belegdokument entgegen und legt es ab.
 
     Die Prüfungen laufen in dieser Reihenfolge, und die Reihenfolge ist
     beabsichtigt — es wird nichts geschrieben, bevor nicht alles geprüft ist:
 
     1. Mandantenrecht (:func:`pruefe_mandant`),
-    2. ``ref_id`` gegen :data:`REF_RE` — nur ``KP-XX`` oder ``KP-XX.TP-Y``. Der
+    2. ``ref_id`` gegen :data:`REF_RE` — nur ``KP-XX``, ``KP-XX.TP-Y`` oder ``MANDANT``. Der
        Wert geht in den Ablagepfad ein; das ist die Stelle, an der ein
        Pfaddurchstieg entstünde,
     3. Mandant existiert,
@@ -3125,7 +3295,7 @@ async def upload_document(cid: str, ref_id: str = Form(...), file: UploadFile = 
     """
     pruefe_mandant(benutzer, cid)
     if not REF_RE.match(ref_id or ""):
-        raise HTTPException(400, "ref_id muss 'KP-XX' oder 'KP-XX.TP-Y' sein")
+        raise HTTPException(400, "ref_id muss 'KP-XX', 'KP-XX.TP-Y' oder 'MANDANT' sein")
     c = db()
     if not c.execute(SEL_CO + " WHERE " + KEY_CO, (cid,)).fetchone():
         c.close(); raise HTTPException(404, "Mandant unbekannt")
@@ -3161,7 +3331,7 @@ async def upload_document(cid: str, ref_id: str = Form(...), file: UploadFile = 
 
 @app.get("/api/companies/{cid}/documents/suche")
 def suche_belege(cid: str, q: str = "",
-                 benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+                 benutzer: Benutzer = Depends(beleg_zugriff)):
     """Volltextsuche ueber die Belege eines Mandanten (Stufe 2, Schritt 6).
 
     **Wofuer.** BC0 erzwingt eine Belegpflicht — keine Bewertung ohne
@@ -3257,7 +3427,7 @@ def list_documents(cid: str, ref_id: str = None,
 
 @app.get("/api/companies/{cid}/documents/{doc_id}/file")
 def get_document_file(cid: str, doc_id: str,
-                      benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+                      benutzer: Benutzer = Depends(beleg_zugriff)):
     """Liefert den Inhalt eines Belegdokuments aus.
 
     Der einzige Weg zu den Dateien: Der Ablagekorb ist nicht öffentlich, und
@@ -3311,7 +3481,7 @@ def get_document_file(cid: str, doc_id: str,
 
 @app.delete("/api/companies/{cid}/documents/{doc_id}")
 def delete_document(cid: str, doc_id: str,
-                    benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+                    benutzer: Benutzer = Depends(schreibender_benutzer)):
     """Löscht ein Belegdokument — Datei und Datenbankzeile.
 
     Die Reihenfolge ist Datei zuerst, Zeile danach. :func:`delete_file`
@@ -3549,7 +3719,7 @@ def rollen_kosten(cid: str, benutzer: Benutzer = Depends(angemeldeter_benutzer))
 
 @app.put("/api/companies/{cid}/rollen_kosten")
 async def save_rollen_kosten(cid: str, req: Request,
-                             benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+                             benutzer: Benutzer = Depends(schreibender_benutzer)):
     """Speichert Rollen und Kostensaetze.
 
     Zwei Eigenheiten, beide mit Absicht:
@@ -3702,11 +3872,17 @@ def entitaeten(cid: str, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
         katalog = [dict(r) for r in c.execute(
             "SELECT katalog_id, bezeichnung, kategorie, hersteller FROM ref_systeme_katalog "
             "ORDER BY kategorie, bezeichnung").fetchall()]
+        # v3.9: weitere Rollen je Person (die Hauptrolle steht in ref_personen.rolle_id).
+        weitere = {}
+        for r in c.execute("SELECT person_id, rolle_id FROM person_rollen WHERE " + W_CO +
+                           " ORDER BY person_id, rolle_id", (cid,)).fetchall():
+            weitere.setdefault(r["person_id"], []).append(r["rolle_id"])
     finally:
         c.close()
     for p in personen:
         p["aktiv"] = bool(p["aktiv"]) and str(p["aktiv"]) != "0"
         p["extern"] = bool(p["extern"]) and str(p["extern"]) != "0"
+        p["weitere_rollen"] = weitere.get(p["person_id"], [])
     for s in systeme:
         s["aktiv"] = bool(s["aktiv"]) and str(s["aktiv"]) != "0"
     return {"personen": personen, "systeme": systeme, "zuordnungen": zuordnungen,
@@ -3716,7 +3892,7 @@ def entitaeten(cid: str, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
 
 @app.put("/api/companies/{cid}/entitaeten")
 async def save_entitaeten(cid: str, req: Request,
-                          benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+                          benutzer: Benutzer = Depends(schreibender_benutzer)):
     """Speichert Personen, Systeme und Zuordnungen.
 
     **Jeder Block ist einzeln optional.** Fehlt der Schluessel im Rumpf, wird der
@@ -3787,6 +3963,28 @@ async def save_entitaeten(cid: str, req: Request,
                               "VALUES(?,?,?,?,?,?,?,?,?,?,?)",
                               werte + (cid, person_id))
                 gesendet.add(person_id)
+
+                # v3.9 (Vorgang 911): weitere Rollen — nur wenn der Schluessel mitkommt,
+                # dann ersetzt die Liste den Bestand dieser Person. Die alte Oberflaeche
+                # schickt ihn nie und loescht damit nichts. Die Hauptrolle wird hier nicht
+                # doppelt gefuehrt.
+                if "weitere_rollen" in eintrag:
+                    liste = eintrag.get("weitere_rollen") or []
+                    if not isinstance(liste, list):
+                        raise HTTPException(400, "weitere_rollen muss eine Liste sein")
+                    weitere = []
+                    for w in liste:
+                        w = (str(w) if w is not None else "").strip()
+                        if not w or w == rolle_id or w in weitere:
+                            continue
+                        if w not in bekannte_rollen:
+                            raise HTTPException(400, "Unbekannte Rolle: %s" % w)
+                        weitere.append(w)
+                    c.execute("DELETE FROM person_rollen WHERE " + W_CO + " AND person_id=?",
+                              (cid, person_id))
+                    for w in weitere:
+                        c.execute("INSERT INTO person_rollen(company_id,person_id,rolle_id) VALUES(?,?,?)",
+                                  (cid, person_id, w))
 
             for verschwunden in vorhanden - gesendet:
                 c.execute("UPDATE ref_personen SET aktiv=? WHERE " + W_CO + " AND person_id=?",
@@ -4089,6 +4287,8 @@ def _gate_luecken(zeile):
         luecken.append(("bewertung", "Bewertung unvollstaendig: %d von 30 Items bewertet "
                         "(mindestens %d noetig)"
                         % (zeile["items_bewertet"], GATE_ITEMS_MIN)))
+    if not zeile.get("dokument_vorhanden", True):
+        luecken.append(("dokument", "Kein Dokument am Teilprozess hochgeladen"))
     return luecken
 
 
@@ -4127,6 +4327,7 @@ GATE_HINDERNIS_TEXT = {
     "eigner": "Dem Prozess ist keine Person als Eigner zugeordnet",
     "bewertung": "Selbsteinschaetzung unvollstaendig (mindestens %d von 30 Items je "
                  "Teilprozess)" % GATE_ITEMS_MIN,
+    "dokument": "Nicht belegt: am Teilprozess ist kein Dokument hochgeladen",
 }
 
 
@@ -4160,6 +4361,7 @@ def _gate_bogen(c, cid, sub_process_id=None):
     """Vorbelegung des Bogens je Teilprozess: Vorbedingungen, Reifegrad, Stand."""
     eigner, ansprechpartner = _gate_beteiligungen(c, cid)
     reifegrade = _gate_reifegrade(c, cid)
+    dokumente = _tp_dokumente(c, cid)   # v3.12
     staende = _gate_letzter_stand(c, cid, sub_process_id)
     # v3.3: Einmal je Mandant, nicht einmal je Teilprozess. Bei fuenfzig
     # Teilprozessen waeren das sonst fuenfzig Abfragen fuer eine Liste.
@@ -4170,6 +4372,7 @@ def _gate_bogen(c, cid, sub_process_id=None):
         hat_eigner = t["process_id"] in eigner
         hat_ansprechpartner = t["process_id"] in ansprechpartner
         vollstaendig = items >= GATE_ITEMS_MIN
+        n_dok = dokumente.get(t["sub_process_id"], 0)
         stand = staende.get(t["sub_process_id"])
         zeile = {
             "sub_process_id": t["sub_process_id"], "process_id": t["process_id"],
@@ -4181,7 +4384,9 @@ def _gate_bogen(c, cid, sub_process_id=None):
             # Zwei Vorbedingungen, nicht drei: Ein zugeordneter Eigner ist die
             # zugeordnete Person UND die auskunftsfaehige. Deckungsgleich mit
             # v_gate_bogen.bogen_ausfuellbar.
-            "bogen_ausfuellbar": hat_eigner and vollstaendig,
+            # v3.12: dritte Vorbedingung — mindestens ein Dokument am Teilprozess.
+            "dokumente": n_dok, "dokument_vorhanden": n_dok > 0,
+            "bogen_ausfuellbar": hat_eigner and vollstaendig and n_dok > 0,
             "stand": stand["stand"] if stand else None,
             "entschieden_am": stand["entschieden_am"] if stand else None,
             "hinweis_an_bc2": stand["hinweis_an_bc2"] if stand else None,
@@ -4228,6 +4433,8 @@ def _gate_fehlende_vorbedingungen(zeile):
     if not zeile["vollstaendig_bewertet"]:
         fehlt.append("nur %d von 30 Items bewertet (mindestens %d noetig)"
                      % (zeile["items_bewertet"], GATE_ITEMS_MIN))
+    if not zeile.get("dokument_vorhanden", True):
+        fehlt.append("am Teilprozess ist kein Dokument hochgeladen (Dokumentpflicht je Teilprozess)")
     return fehlt
 
 
@@ -4941,7 +5148,7 @@ def anfragen(cid: str, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
 
 
 @app.post("/api/companies/{cid}/anfragen")
-async def anfrage_anlegen(cid: str, req: Request, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+async def anfrage_anlegen(cid: str, req: Request, benutzer: Benutzer = Depends(schreibender_benutzer)):
     """Eine Anfrage aufnehmen.
 
     Der `originaltext` wird nie veraendert — weder gekuerzt noch umformuliert noch
@@ -5375,7 +5582,7 @@ def anfrage_vorschlaege(cid: str, anfrage_id: str,
 
 @app.put("/api/companies/{cid}/anfragen/{anfrage_id}/zuordnung")
 async def anfrage_zuordnen(cid: str, anfrage_id: str, req: Request,
-                           benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+                           benutzer: Benutzer = Depends(schreibender_benutzer)):
     """Traegt den Prozessbezug einer Anfrage nach.
 
     **Wofuer.** Eine Anfrage darf ohne Prozessbezug entstehen — der
@@ -5479,8 +5686,16 @@ async def anfrage_zuordnen(cid: str, anfrage_id: str, req: Request,
 
 
 @app.post("/api/companies/{cid}/anfragen/gate_nachziehen")
-def anfrage_gate_nachziehen(cid: str, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+def anfrage_gate_nachziehen(cid: str, anfrage_id: str | None = None,
+                            benutzer: Benutzer = Depends(schreibender_benutzer)):
     """Zieht Anfragen auf ``am_gate`` nach, deren BC1-Profile fertig sind.
+
+    **Je Anfrage (v3.13, 08.10.2026).** Optional ``?anfrage_id=A-2026-07``: dann
+    wird nur diese Anfrage betrachtet. Ohne den Parameter wie bisher alle Anfragen
+    des Mandanten. Gezaehlt werden seit v3.13 nur Profile mit **derselben**
+    ``anfrage_id`` — ein fertiges Profil aus einer frueheren Anfrage auf demselben
+    Teilprozess schickt eine neue Anfrage nicht mehr ans Gate (Befund im Review
+    von PR #280). BC1 ruft nach jedem eingefrorenen Profil hierher.
 
     **Wofuer.** ``am_gate`` stand seit v2.2 in der Wertemenge — und **keine
     Zeile Code setzte ihn.** Befund vom 07.09.2026. Simeon: *„Wenn er
@@ -5502,13 +5717,21 @@ def anfrage_gate_nachziehen(cid: str, benutzer: Benutzer = Depends(angemeldeter_
         Je betrachteter Anfrage: alter Status, neuer Status, Hinweis.
     """
     pruefe_mandant(benutzer, cid)
+    anfrage_id = (anfrage_id or "").strip() or None
+    if anfrage_id is not None and not re.fullmatch(r"A-\d{4}-\d{2}", anfrage_id):
+        raise HTTPException(400, "anfrage_id '%s' hat nicht die Form A-JJJJ-NN." % anfrage_id[:40])
     _nur_pg("Das Nachziehen auf am_gate")
     c = db()
     try:
         _gate_mandant(c, cid)
+        if anfrage_id is not None and not c.execute(
+                "SELECT 1 FROM ref_anfragen WHERE " + W_CO + " AND anfrage_id=?",
+                (cid, anfrage_id)).fetchone():
+            raise HTTPException(404, "Unbekannte Anfrage: %s" % anfrage_id)
         zeilen = [dict(r) for r in c.execute(
             "SELECT anfrage_id, status_alt, status_neu, hinweis"
-            " FROM anfrage_am_gate_nachziehen(?) ORDER BY anfrage_id", (cid,)).fetchall()]
+            " FROM anfrage_am_gate_nachziehen(?, ?) ORDER BY anfrage_id",
+            (cid, anfrage_id)).fetchall()]
         c.commit()
     finally:
         c.close()
@@ -5520,7 +5743,7 @@ def anfrage_gate_nachziehen(cid: str, benutzer: Benutzer = Depends(angemeldeter_
 
 @app.put("/api/companies/{cid}/anfragen/{anfrage_id}/status")
 async def anfrage_status_setzen(cid: str, anfrage_id: str, req: Request,
-                                benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+                                benutzer: Benutzer = Depends(schreibender_benutzer)):
     """Setzt den Status einer Anfrage.
 
     **Wofuer.** Der Status stand seit v2.2 in der Datenbank, wurde angezeigt —
@@ -5588,7 +5811,7 @@ async def anfrage_status_setzen(cid: str, anfrage_id: str, req: Request,
 
 @app.post("/api/companies/{cid}/prozesskanten")
 async def prozesskante_anlegen(cid: str, req: Request,
-                               benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+                               benutzer: Benutzer = Depends(schreibender_benutzer)):
     """Traegt eine Kante zwischen zwei Kernprozessen nach.
 
     **Wofuer.** BC0 erhebt die Kanten und liefert sie als gegeben. Fehlt eine
@@ -5732,6 +5955,174 @@ def anfrage_sw():
     return FileResponse(os.path.join(HERE, "static", "anfrage", "sw.js"),
                         media_type="application/javascript",
                         headers={"Cache-Control": "no-cache"})
+
+
+# =============================================================================
+# KI-Controlling (Schema v3.11, 04.10.2026, Vorgang 915)
+# =============================================================================
+# Sechs Bausteine nach dem Fachkonzept S-153. Bausteine 3-6 (Schulungen,
+# Bereichs-Research, Wissensdatenbank, Strategie mit Meilensteinen) erfasst BC0.
+# Bausteine 1-2 (Drift, Tokenverbrauch) stammen aus ki_laufdaten — diese Tabelle
+# SCHREIBT BC4 je Modellaufruf (Entscheidung Simeon 04.10.2026). Solange sie leer
+# ist, zeigt die Oberflaeche Platzhalter und sagt das.
+KIC_DATUM_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+def _kic_datum(wert, feld, pflicht=False):
+    w = (str(wert).strip() if wert is not None else "")
+    if not w:
+        if pflicht: raise HTTPException(400, "%s fehlt" % feld)
+        return None
+    if not KIC_DATUM_RE.match(w):
+        raise HTTPException(400, "%s muss JJJJ-MM-TT sein: %s" % (feld, w))
+    try: datetime.date.fromisoformat(w)
+    except ValueError: raise HTTPException(400, "%s ist kein gueltiges Datum: %s" % (feld, w))
+    return w
+
+def _kic_text(wert):
+    w = (str(wert).strip() if wert is not None else "")
+    return w or None
+
+def _kic_person(wert, bekannte):
+    p = _kic_text(wert)
+    if p and p not in bekannte:
+        raise HTTPException(400, "Unbekannte Person: %s" % p)
+    return p
+
+def _kic_iso(v):
+    return v.isoformat() if hasattr(v, "isoformat") else v
+
+@app.get("/api/companies/{cid}/ki_controlling")
+def ki_controlling(cid: str, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+    """Alle Bausteine des KI-Controllings fuer einen Mandanten.
+
+    ``laufdaten`` ist verdichtet: je Tag und Modell die Token-Summe, je Tag und
+    Teilprozess Laeufe/Korrekturen/Fehler. Leer, solange BC4 nichts geschrieben hat
+    (``laufdaten.vorhanden`` = false) — die Oberflaeche zeigt dann Platzhalter.
+    """
+    pruefe_mandant(benutzer, cid)
+    c = db()
+    try:
+        def alle(sql, *p):
+            return [{k: _kic_iso(v) for k, v in dict(r).items()} for r in c.execute(sql, (cid,) + p).fetchall()]
+        schulungen = alle("SELECT id, person_id, thema, termin, erledigt_am, nachweis FROM ki_schulungen WHERE "
+                          + W_CO + " ORDER BY termin, id")
+        bereiche = alle("SELECT bereich, person_id FROM ki_research_bereiche WHERE " + W_CO + " ORDER BY bereich")
+        notizen = alle("SELECT id, bereich, datum, person_id, notiz FROM ki_research_notizen WHERE " + W_CO
+                       + " ORDER BY datum DESC, id DESC")
+        w = alle("SELECT vorhanden, system, ort, person_id, aktualisiert_am, takt_tage FROM ki_wissensdb WHERE " + W_CO)
+        st = alle("SELECT sachstand, beschreibung, person_id, beschlossen_am, ueberarbeitet_am FROM ki_strategie WHERE " + W_CO)
+        meilensteine = alle("SELECT id, titel, zieldatum, erreicht_am FROM ki_meilensteine WHERE " + W_CO
+                            + " ORDER BY zieldatum, id")
+        tag = "date(zeitpunkt)" if not PG else "zeitpunkt::date"
+        token = alle("SELECT " + tag + " AS tag, modell, sum(coalesce(input_tokens,0)+coalesce(output_tokens,0)) AS token, "
+                     "sum(coalesce(kosten_eur,0)) AS kosten_eur, count(*) AS aufrufe FROM ki_laufdaten WHERE " + W_CO
+                     + " GROUP BY 1,2 ORDER BY 1,2")
+        token_prozess = alle("SELECT " + tag + " AS tag, coalesce(sub_process_id, process_id, '—') AS prozess, "
+                             "sum(coalesce(input_tokens,0)+coalesce(output_tokens,0)) AS token FROM ki_laufdaten WHERE "
+                             + W_CO + " GROUP BY 1,2 ORDER BY 1,2")
+        korr = "CASE WHEN korrigiert THEN 1 ELSE 0 END" if PG else "coalesce(korrigiert,0)"
+        laeufe = alle("SELECT " + tag + " AS tag, coalesce(sub_process_id, process_id, '—') AS prozess, count(*) AS laeufe, "
+                      "sum(" + korr + ") AS korrigiert, sum(CASE WHEN status<>'ok' THEN 1 ELSE 0 END) AS fehler "
+                      "FROM ki_laufdaten WHERE " + W_CO + " GROUP BY 1,2 ORDER BY 2,1")
+    finally:
+        c.close()
+    for z in token + token_prozess:
+        z["token"] = int(z["token"] or 0)
+    for z in token:
+        z["kosten_eur"] = float(z["kosten_eur"] or 0)
+    for z in laeufe:
+        for k in ("laeufe", "korrigiert", "fehler"): z[k] = int(z[k] or 0)
+    return {"schulungen": schulungen, "research_bereiche": bereiche, "research_notizen": notizen,
+            "wissensdb": w[0] if w else None, "strategie": st[0] if st else None, "meilensteine": meilensteine,
+            "laufdaten": {"vorhanden": bool(token or laeufe), "token_tag_modell": token,
+                          "token_tag_prozess": token_prozess, "laeufe_tag_prozess": laeufe}}
+
+@app.put("/api/companies/{cid}/ki_controlling")
+async def save_ki_controlling(cid: str, req: Request, benutzer: Benutzer = Depends(schreibender_benutzer)):
+    """Speichert die Bausteine 3-6. **Jeder Block ist einzeln optional**: fehlt der
+    Schluessel, bleibt der Block unberuehrt. Listen (Schulungen, Bereiche, Notizen,
+    Meilensteine) ersetzen den Bestand des Mandanten — sie tragen keine IDs, auf
+    die von aussen verwiesen wird. Laufdaten schreibt BC4, nicht dieser Endpunkt.
+    Erst wird alles geprueft, dann geschrieben; ein Fehler schreibt nichts.
+    """
+    pruefe_mandant(benutzer, cid)
+    b = await req.json()
+    if not isinstance(b, dict): raise HTTPException(400, "Objekt erwartet")
+    c = db()
+    try:
+        bekannte = {r["person_id"] for r in c.execute("SELECT person_id FROM ref_personen WHERE " + W_CO, (cid,)).fetchall()}
+        def liste(name):
+            v = b.get(name)
+            if not isinstance(v, list): raise HTTPException(400, "%s muss eine Liste sein" % name)
+            return v
+        plan = []
+        if "schulungen" in b:
+            zeilen = []
+            for e in liste("schulungen"):
+                thema = _kic_text(e.get("thema"))
+                if not thema: continue
+                zeilen.append((cid, _kic_person(e.get("person_id"), bekannte), thema, _kic_datum(e.get("termin"), "termin"),
+                               _kic_datum(e.get("erledigt_am"), "erledigt_am"), _kic_text(e.get("nachweis"))))
+            plan.append(("DELETE FROM ki_schulungen WHERE " + W_CO, [(cid,)]))
+            plan.append(("INSERT INTO ki_schulungen(company_id,person_id,thema,termin,erledigt_am,nachweis) VALUES(?,?,?,?,?,?)", zeilen))
+        if "research_bereiche" in b:
+            zeilen, gesehen = [], set()
+            for e in liste("research_bereiche"):
+                bereich = _kic_text(e.get("bereich"))
+                if not bereich or bereich in gesehen: continue
+                gesehen.add(bereich)
+                zeilen.append((cid, bereich, _kic_person(e.get("person_id"), bekannte)))
+            plan.append(("DELETE FROM ki_research_bereiche WHERE " + W_CO, [(cid,)]))
+            plan.append(("INSERT INTO ki_research_bereiche(company_id,bereich,person_id) VALUES(?,?,?)", zeilen))
+        if "research_notizen" in b:
+            zeilen = []
+            for e in liste("research_notizen"):
+                bereich, notiz = _kic_text(e.get("bereich")), _kic_text(e.get("notiz"))
+                if not bereich or not notiz: continue
+                zeilen.append((cid, bereich, _kic_datum(e.get("datum"), "datum", pflicht=True),
+                               _kic_person(e.get("person_id"), bekannte), notiz))
+            plan.append(("DELETE FROM ki_research_notizen WHERE " + W_CO, [(cid,)]))
+            plan.append(("INSERT INTO ki_research_notizen(company_id,bereich,datum,person_id,notiz) VALUES(?,?,?,?,?)", zeilen))
+        if "wissensdb" in b:
+            w = b.get("wissensdb") or {}
+            if not isinstance(w, dict): raise HTTPException(400, "wissensdb muss ein Objekt sein")
+            vorhanden = (w.get("vorhanden") or "nein")
+            if vorhanden not in ("ja", "nein", "im_aufbau"): raise HTTPException(400, "vorhanden: ja / nein / im_aufbau")
+            takt = w.get("takt_tage")
+            if takt not in (None, ""):
+                try: takt = int(takt)
+                except (TypeError, ValueError): raise HTTPException(400, "takt_tage muss eine Zahl sein")
+                if takt <= 0: raise HTTPException(400, "takt_tage muss groesser 0 sein")
+            else: takt = None
+            plan.append(("DELETE FROM ki_wissensdb WHERE " + W_CO, [(cid,)]))
+            plan.append(("INSERT INTO ki_wissensdb(company_id,vorhanden,system,ort,person_id,aktualisiert_am,takt_tage) VALUES(?,?,?,?,?,?,?)",
+                         [(cid, vorhanden, _kic_text(w.get("system")), _kic_text(w.get("ort")),
+                           _kic_person(w.get("person_id"), bekannte), _kic_datum(w.get("aktualisiert_am"), "aktualisiert_am"), takt)]))
+        if "strategie" in b:
+            st = b.get("strategie") or {}
+            if not isinstance(st, dict): raise HTTPException(400, "strategie muss ein Objekt sein")
+            sachstand = st.get("sachstand") or "keine"
+            if sachstand not in ("keine", "entwurf", "beschlossen", "in_umsetzung"):
+                raise HTTPException(400, "sachstand: keine / entwurf / beschlossen / in_umsetzung")
+            plan.append(("DELETE FROM ki_strategie WHERE " + W_CO, [(cid,)]))
+            plan.append(("INSERT INTO ki_strategie(company_id,sachstand,beschreibung,person_id,beschlossen_am,ueberarbeitet_am) VALUES(?,?,?,?,?,?)",
+                         [(cid, sachstand, _kic_text(st.get("beschreibung")), _kic_person(st.get("person_id"), bekannte),
+                           _kic_datum(st.get("beschlossen_am"), "beschlossen_am"), _kic_datum(st.get("ueberarbeitet_am"), "ueberarbeitet_am"))]))
+        if "meilensteine" in b:
+            zeilen = []
+            for e in liste("meilensteine"):
+                titel = _kic_text(e.get("titel"))
+                if not titel: continue
+                zeilen.append((cid, titel, _kic_datum(e.get("zieldatum"), "zieldatum", pflicht=True),
+                               _kic_datum(e.get("erreicht_am"), "erreicht_am")))
+            plan.append(("DELETE FROM ki_meilensteine WHERE " + W_CO, [(cid,)]))
+            plan.append(("INSERT INTO ki_meilensteine(company_id,titel,zieldatum,erreicht_am) VALUES(?,?,?,?)", zeilen))
+        for sql, werte in plan:
+            for w in werte: c.execute(sql, w)
+        c.commit()
+    finally:
+        c.close()
+    return {"ok": True}
 
 @app.get("/anfrage/manifest.json")
 def anfrage_manifest():

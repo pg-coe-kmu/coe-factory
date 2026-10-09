@@ -1,0 +1,15 @@
+{
+  "baseline": "Etappe 1, bereitgestellt am 02.10.2026",
+  "files": [
+    {
+      "file": "UC2_Indexierung_Etappe1.json",
+      "nodes": 18,
+      "sha256": "daaf84dfc4b6fa5d5333c36a65d9bb2a51a5870b67bef2f018fa1b4a0ed0ce32"
+    },
+    {
+      "file": "UC2_Fragenbeantwortung_Etappe1.json",
+      "nodes": 13,
+      "sha256": "cb3c5636f6cba42a5b0ece4ac8092cea9c7cd613ecc0fa1aa49cb370ccb2641b"
+    }
+  ]
+}

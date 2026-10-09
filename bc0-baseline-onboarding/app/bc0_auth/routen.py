@@ -128,6 +128,12 @@ def _als_antwort(benutzer: Benutzer) -> dict:
         "name": benutzer.name,
         "rolle": benutzer.rolle.value,
         "ist_admin": benutzer.ist_admin,
+        # Vorgang #211: Die Oberflaeche blendet damit aus, was ein Leser nicht
+        # darf. Beide Angaben sind abgeleitet und stehen hier nur, damit die
+        # PWA sie nicht aus `rolle` nachbauen muss -- massgeblich bleibt die
+        # Pruefung im Server.
+        "darf_schreiben": benutzer.darf_schreiben,
+        "darf_belege_oeffnen": benutzer.darf_belege_oeffnen,
         "mandanten": sorted(benutzer.mandanten),
         "aktiv": benutzer.aktiv,
     }
