@@ -61,8 +61,16 @@ _Avoid_: Batch, Lieferung, Charge
 **Analyselauf**:
 Eine Bearbeitung genau eines Pakets durch BC2, von der Annahme des Anstoßes bis zum fertigen
 Ergebnis. Die Einheit, auf die sich Reproduzierbarkeit bezieht: derselbe Lauf auf demselben
-Datenstand ergibt dasselbe Ergebnis.
+Datenstand ergibt dasselbe Ergebnis. Ein Paket kann mehrere Analyseläufe haben — jeder ist eine
+**Fassung**.
 _Avoid_: Durchlauf, Analyse, Job
+
+**Fassung**:
+Die laufende Nummer eines Analyselaufs über **dasselbe** Paket. Eine neue Fassung entsteht nur,
+wenn Gate 1 die vorige abgelehnt hat, und BC2 stößt sie selbst an; die abgelehnte bleibt
+abrufbar. Ein neues Paket beginnt wieder bei der ersten Fassung — neue Daten sind ein neues Paket,
+keine neue Fassung. Ein technischer Fehlschlag ist keine Fassung.
+_Avoid_: Version, Revision, Iteration
 
 **Ausgangslage**:
 Die Beschreibung dessen, was heute geschieht — Prozessverlauf, beteiligte Systeme, Schmerzpunkte.

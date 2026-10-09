@@ -18,7 +18,8 @@ deterministisch nachkontrolliert ([#194](https://github.com/pg-coe-kmu/coe-facto
 `stand_zum(uebergeben_am)`. Die **Gate-1-Oberfläche** (`app/static/index.html`, `app/oberflaeche.py`)
 zeigt einen Lauf und nimmt die Freigabe entgegen ([#243](https://github.com/pg-coe-kmu/coe-factory/issues/243)).
 Offen sind Präsentation ([#244](https://github.com/pg-coe-kmu/coe-factory/issues/244)), der
-**Tabellenentwurf für Schema `bc2`** ([#250](https://github.com/pg-coe-kmu/coe-factory/issues/250)) und —
+**Bau von Schema `bc2`** ([#290](https://github.com/pg-coe-kmu/coe-factory/issues/290); der Entwurf
+steht seit dem 09.10.2026 in ADR-008 · BC2, [#250](https://github.com/pg-coe-kmu/coe-factory/issues/250)) und —
 neu aufgefallen beim Bau von #248 — die **drei übrigen Urteilsstellen des LLM** (Lage im Korridor, die
 fünf Nutzwert-Kategorien, das begründete Überschreiben der Komplexität). Ihr Schnitt ist entschieden
 ([#260](https://github.com/pg-coe-kmu/coe-factory/issues/260), ADR-006 · BC2 Nachtrag 4–6 und §6: ein
@@ -29,7 +30,8 @@ nicht vollständig; siehe `app/erkennung/erkennen.py`.
 ⚠ **Die Oberfläche ist noch nicht betriebsfest**, und sie sagt das selbst an: ihre Läufe kommen aus
 einem Messsatz statt aus der Datenbank — der Erkennungsschritt ist gebaut, aber noch nicht an die
 `Laufquelle` angeschlossen, und ohne #260 lieferte er keinen vollständigen Eingang —, und ihre
-Entscheidung liegt im **Arbeitsspeicher**, weil Schema `bc2` dafür keinen Ort hat (das ist #250). Beides
+Entscheidung liegt im **Arbeitsspeicher**, weil Schema `bc2` dafür noch keinen Ort hat (entworfen in
+ADR-008 · BC2, gebaut wird er in #290). Beides
 hängt hinter je einem Protokoll — `Laufquelle` und `Gate1Buch` —, die Umsetzungen werden getauscht,
 nicht die Oberfläche.
 Owner-Angaben in den Alt-Issues (#84–#99) nennen teils Eike und sind damit hinfällig.

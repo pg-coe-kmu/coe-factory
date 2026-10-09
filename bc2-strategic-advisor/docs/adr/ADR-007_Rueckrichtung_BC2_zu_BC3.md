@@ -73,6 +73,12 @@ Bei `gate1.status = rejected` geht **nichts** in den Lieferordner — dieser Ord
 und was dort liegt, gilt als übergeben. Der abgelehnte Lauf bleibt mit seiner Begründung stehen.
 Ein erneuter Lauf über dasselbe Paket erzeugt eine **neue Fassung**; die alte bleibt abrufbar.
 
+> **Nachgeschärft am 09.10.2026 ([#250](https://github.com/pg-coe-kmu/coe-factory/issues/250),
+> ADR-008 · BC2 §2.1):** diesen erneuten Lauf stößt **BC2 selbst** an, an Gate 1 und nur nach
+> einem Reject — `bc2.eingang` nimmt dasselbe Paket von BC0 nur einmal an. §2.4 widerspricht dem
+> nicht, es meint einen anderen Anlass: eine Nacherhebung ergibt ein **neues Paket**, das wieder
+> bei `f1` beginnt. Nach `approved` gibt es keine neue Fassung.
+
 Das ist dasselbe Muster, das [#172](https://github.com/pg-coe-kmu/coe-factory/issues/172) für den
 nachgelieferten Rollenwert entschieden hat: **nicht neu rechnen** (das zerstört, worauf eine
 übergebene Lieferung sich beruft) und **nicht nur markieren** (ein Potenzial kann bei anderen
@@ -131,7 +137,8 @@ was der Unveränderlichkeit widerspricht.
    ohne dass je ein Ergebnis folgt — dieselbe Lücke wie an Gate 0, eine Station weiter. Der Weg
    dahin ist Schema `bc2` (BC0 darf lesen), nicht ein Endpunkt bei BC0. Bis dahin erfährt BC0 einen
    Reject **nur über Menschen**, und das ist BC0 zu sagen — gefragt mit [#241](https://github.com/pg-coe-kmu/coe-factory/issues/241), zusammen mit der Zusage aus 2.4, dass BC0 nach einer Nacherhebung neu schnürt.
-4. **Ein abgelehnter Lauf hat heute keinen Ablageort.** Er lebt nur im Arbeitsstand von BC2. „Die
+4. **Ein abgelehnter Lauf hat heute keinen Ablageort.** *(Entworfen am 09.10.2026 in ADR-008 · BC2,
+   [#250](https://github.com/pg-coe-kmu/coe-factory/issues/250); erledigt mit dem Bau.)* Er lebt nur im Arbeitsstand von BC2. „Die
    alte Fassung bleibt abrufbar" trägt erst, wenn Schema `bc2` steht — der Tabellenentwurf muss
    deshalb auch die **abgelehnten** Läufe tragen, nicht nur die ausgelieferten.
 5. **Die Schema-Prüfung in der CI deckt `bc2-to-bc3` nicht ab.** `vertraege-pruefen.yml` läuft bei
