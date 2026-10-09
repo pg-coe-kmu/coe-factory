@@ -18,8 +18,9 @@ Potenziale — ein Modellaufruf je Paket, deterministisch nachkontrolliert
 ([#194](https://github.com/pg-coe-kmu/coe-factory/issues/194) entschieden,
 [#248](https://github.com/pg-coe-kmu/coe-factory/issues/248) gebaut). Dort liegt auch das Lesen auf
 `stand_zum(uebergeben_am)`. Der **Bewertungsschritt** (`app/bewertung/`) urteilt Lage im Korridor,
-Nutzwert, Überschreiben der Komplexität und den Umsetzungsaufwand — ein Aufruf je Lauf, bewacht
-([#260](https://github.com/pg-coe-kmu/coe-factory/issues/260) entschieden, #288 gebaut). Die
+Nutzwert, Überschreiben der Komplexität und den Umsetzungsaufwand — ein Aufruf je Lauf, bewacht,
+**dreimal gestellt, je Feld der Median** ([#260](https://github.com/pg-coe-kmu/coe-factory/issues/260)
+entschieden, #288 gebaut, [#299](https://github.com/pg-coe-kmu/coe-factory/issues/299) stabil gemacht). Die
 **Gate-1-Oberfläche** (`app/static/index.html`, `app/oberflaeche.py`)
 zeigt einen Lauf und nimmt die Freigabe entgegen ([#243](https://github.com/pg-coe-kmu/coe-factory/issues/243));
 nach der Freigabe zeichnet `app/praesentation/` den Foliensatz als PPTX ([#257](https://github.com/pg-coe-kmu/coe-factory/issues/257),
@@ -38,10 +39,10 @@ kein Vertrag 3.1, und ein Lauf mit Kandidaten hält dann an, statt `[]` zu liefe
 weiter der **Messsatz**: der echte Weg — angenommenes Paket → Erkennung → Bewertung → Rechenkern
 (`laeufe.PaketLaufquelle`) — ist gebaut, aber ein **Schalter** (`BC2_LAUFQUELLE=pakete`), weil
 keiner seiner Außenwege beim Bau gefahren werden konnte (lokal keine `DATABASE_URL`, `SdkModell`
-nie gegen die API). Wer ihn umlegt, fährt den ersten echten Lauf (#206) — **nicht umlegen, bevor
-[#299](https://github.com/pg-coe-kmu/coe-factory/issues/299) entschieden ist**: die Stabilitätsabnahme
-des Bewertungsschritts ist gescheitert (dasselbe Paket zweimal bewertet, Nutzwerte bis 3 Punkte
-auseinander, ein Potenzial wechselt die Gruppe). **Die Entscheidung liegt seit #290 in Schema `bc2`**,
+nie gegen die API). Wer ihn umlegt, fährt den ersten echten Lauf (#206). Die Stabilitätsabnahme des Bewertungsschritts
+ist seit #299 bestanden — als **Median aus drei Urteilen**, und genau auf der Grenze (95,0 % der
+Paare). Beim ersten echten Lauf ist die Zehnermessung zu wiederholen
+(`tools/bewertung_messen.py --n 10`, ADR-006 · BC2, 6.7); fällt sie unter 95 %, wird `URTEILE = 5`. **Die Entscheidung liegt seit #290 in Schema `bc2`**,
 sobald `DATABASE_URL` gesetzt ist; ohne sie im Arbeitsspeicher, und die Oberfläche sagt das an. Die
 `AblegendeLaufquelle` umhüllt die innere Quelle: gerechnet wird einmal, gezeigt wird danach das
 abgelegte Dokument. Der Schalter tauscht nur die innere Quelle, nicht die Ablage — `PaketLaufquelle`

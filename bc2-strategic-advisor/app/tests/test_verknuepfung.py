@@ -117,7 +117,7 @@ def test_ein_neu_gebrachter_teilprozess_ohne_potenzial_ist_trotzdem_neu_gesehen(
 
 def test_die_paketquelle_traegt_die_paketliste_in_den_kopf():
     verzeichnis = SpeicherPaketverzeichnis([Paketeintrag("PKT-A", NOROAI, STAND, (TP1, TP2))])
-    quelle = PaketLaufquelle(verzeichnis, _Quelle(), Doppelgaenger([]))
+    quelle = PaketLaufquelle(verzeichnis, _Quelle(), Doppelgaenger([]), urteile=1)
     assert quelle.uebersicht()[0].teilprozess_ids == (TP1, TP2)
 
 
@@ -362,7 +362,7 @@ def _strecke(*antworten, pakete=None):
         Paketeintrag("PKT-B", NOROAI, STAND, (TP2,)),
     ]
     modell = _Antwortend(*antworten)
-    innen = PaketLaufquelle(SpeicherPaketverzeichnis(pakete), _Quelle(), modell)
+    innen = PaketLaufquelle(SpeicherPaketverzeichnis(pakete), _Quelle(), modell, urteile=1)
     ergebnisse = SpeicherErgebnisbuch()
     gate1 = SpeicherGate1Buch(ergebnisse=ergebnisse)
     return AblegendeLaufquelle(_MitVertrag(innen), ergebnisse), ergebnisse, gate1, modell
@@ -461,7 +461,7 @@ def test_ohne_ausgangslage_bleibt_die_sperre():
     pakete = [Paketeintrag("PKT-A", NOROAI, STAND, (TP1, TP2)),
               Paketeintrag("PKT-B", NOROAI, STAND, (TP2,))]
     modell = _Antwortend(_erkannt(), _gut(), _b_erkannt, _b_bewertet())
-    innen = PaketLaufquelle(SpeicherPaketverzeichnis(pakete), _Quelle(), modell)
+    innen = PaketLaufquelle(SpeicherPaketverzeichnis(pakete), _Quelle(), modell, urteile=1)
     ergebnisse = SpeicherErgebnisbuch()
     gate1 = SpeicherGate1Buch(ergebnisse=ergebnisse)
     laeufe = AblegendeLaufquelle(innen, ergebnisse)

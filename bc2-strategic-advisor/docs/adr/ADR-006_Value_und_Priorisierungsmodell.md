@@ -492,8 +492,8 @@ Ein Paket, einmal erkannt, zweimal bewertet (7 Potenziale, Sonnet über die CLI)
 weicht bei 2 von 7 um 1,2 Punkte ab, die Kategorien bei 9 von 35 Werten um mehr als einen Punkt
 (höchstens 3); ein Potenzial wechselt die Prioritätsgruppe. Lage im Korridor und Komplexität blieben
 stabil. Der Schnitt ist damit neu zu stellen — in
-[#299](https://github.com/pg-coe-kmu/coe-factory/issues/299). Bis dahin gilt dieser Abschnitt als
-gebaut, aber nicht abgenommen.
+[#299](https://github.com/pg-coe-kmu/coe-factory/issues/299). ✅ **Neu gestellt in 6.7:** ein Aufruf
+je Lauf bleibt, wird aber dreimal gestellt, und je Feld gilt der Median.
 
 ### 6.3 Was der Aufruf sieht
 
@@ -548,3 +548,73 @@ Annahme in `value.annahmen` mitreist.
   Dauern (6.3): wie oft ein Schritt läuft, macht die Lösung nicht größer.
 - **Der Preis.** Eine geurteilte Zahl in einer Euro-Rechnung. Sichtbar bleibt das über die Annahme
   am Potenzial; kalibriert wird sie wie Korridor und Anker am ersten echten Lauf (#206).
+
+### 6.7 Nachtrag 8 — drei Urteile, je Feld der Median · 09.10.2026 ([#299](https://github.com/pg-coe-kmu/coe-factory/issues/299))
+
+**Was „stabil" heißen soll.** Belastbarkeit, nicht Wiederholbarkeit: die Zahl soll nicht davon
+abhängen, welche Stichprobe das Modell gerade zieht. Dass ein *ausgelieferter* Lauf beim zweiten
+Lesen dieselben Zahlen zeigt, trägt schon die Ablage in Schema `bc2` — er wird nicht neu erfragt
+(2.9). **Temperatur 0 ist darum kein Schnitt:** sie friert eine Ziehung ein, statt sie zu glätten;
+wo P1-Durchlaufzeit zwischen 4 und 7 kippt, stünde stabil eine der beiden. Dazu kommt, dass die
+Nachfolger von Sonnet 4.6 (`claude-sonnet-5`, `-5-5`) eine abweichende Temperatur mit Fehler 400
+ablehnen und die CLI sie gar nicht setzen kann — der Schnitt bände BC2 an ein Modell.
+
+**Abgenommen wird am Nutzwert-Mittel** — der Glossargröße, die in den Impact eingeht: kein Mittel
+weicht um mehr als einen Punkt ab. Kategorien und Wechsel der Prioritätsgruppe werden ausgewiesen,
+entscheiden aber nicht: eine Kategorie ist ein Fünftel der Eingabe, und ein Potenzial an einer
+Bandgrenze wechselt bei jeder noch so kleinen Streuung — das sieht und überschreibt der Mensch am
+Gate 1.
+
+**Ein Aufruf je Potenzial bleibt verworfen**, jetzt mit Beleg. Jeder Aufruf trägt eine eigene
+Verschiebung: über zehn Urteile schwankt das Nutzwert-Mittel aller Potenziale je Urteil zwischen
+5,00 und 5,89, der mittlere Aufwand zwischen 7,3 und 14,0 PT. Innerhalb eines Laufs trifft diese
+Verschiebung alle Potenziale gleich und lässt die Rangfolge stehen; je Potenzial bekäme jedes seine
+eigene — genau das Rauschen, das 6.2 befürchtete.
+
+**Die Regel stand vor der Messung.** Denselben Schnitt zehnmal bewerten, alle Paare disjunkter
+Gruppen ziehen, jede Gruppe zum Median zusammenführen und die Grenze anlegen:
+
+1. halten mindestens 95 % der Dreierpaare → **Median aus drei**;
+2. sonst halten 95 % der Fünferpaare → **Median aus fünf**;
+3. sonst sind die Anker der am stärksten streuenden Kategorien zu schärfen.
+
+**Gemessen am 09.10.2026** (Prototyp-Paket, 16 Teilprozesse aus BC0s Snapshot, 7 Potenziale,
+Sonnet über die CLI, `tools/bewertung_messen.py --n 10`; kein Wächterverstoß in zehn Urteilen):
+
+| Gruppe | Paare | halten | größte Abweichung | Gruppenwechsel |
+|---|---|---|---|---|
+| je 1 (bis #299) | 45 | 80,0 % | 1,6 | 77,8 % |
+| **je 3** | 2.100 | **95,0 %** (1.995) | 1,4 | 74,0 % |
+| je 5 | 126 | 100 % | 1,0 | 61,1 % |
+
+**Entscheidung (Sergio, 09.10.2026): drei Urteile** (`bewertung.URTEILE`), nach Regel 1 — genau
+auf der Grenze, ohne Abstand. Eine vorab gesetzte Regel nach dem Blick auf die Daten zu verbiegen
+hätte sie entwertet, auch in die vorsichtige Richtung. Darum zwei Auflagen: die Zehnermessung wird
+**am ersten echten Lauf wiederholt** (#206), und fällt sie dort unter 95 %, gilt Regel 2 ohne neue
+Debatte — `URTEILE = 5`.
+
+**Wie zusammengeführt wird** (`app/bewertung/zusammenfuehren.py`):
+
+- **Nutzwert und Aufwand:** Median je Feld; die Begründung stammt aus dem ersten Urteil, dessen Wert
+  der Median ist — Zahl und Satz gehören zusammen.
+- **Lage im Korridor:** Median von Unter- und Obergrenze **getrennt**. Er bleibt im Korridor und
+  hält min ≤ max, weil jedes einzelne Urteil das tut.
+- **Komplexität:** ein Urteil ohne Überschreiben zählt mit dem gemessenen Wert; landet der Median
+  dort, gilt sie als nicht überschrieben.
+- **Klassenzweifel** reist nur mit, wenn ihn die **Mehrheit** äußert.
+- **Nur ungerade *n*:** dann ist der Median eines der Urteile, also eine ganze Zahl, wo der Wächter
+  eine verlangt. Die Streuung (kleinster und größter Wert) geht ins Protokoll (`Bewertung.streuung`),
+  **nicht** in den Vertrag — v3.1 bleibt unberührt.
+- **Die Urteile laufen parallel**; der Wächter bewacht jedes einzeln (6.5). Bricht eines endgültig,
+  **bricht der Lauf ab** — ein Median aus zweien ist keiner.
+
+**Was die Messung offenlässt.** Die Gruppenwechsel treffen nur **P6 und P7**, beide an der Grenze
+PRIO 2/3 (Score 15–24); P1–P5 bleiben in allen Dreier- und Fünfergruppen in PRIO 2. Bei P7 kommt der
+Wechsel fast ganz aus der **Komplexität** (7 gegen 8), die im Snapshot überall *geurteilt* ist, weil
+er keine BC1-Profile trägt. Mit Profilen wird sie gemessen, und diese Quelle entfällt. Der Befund
+gehört darum an die Kalibrierung der Score-Bänder (#206), nicht an diesen Schnitt. Und die
+Stichprobe ist **ein** Paket ohne Profile: dass der Median trägt, ist für dieses Paket gezeigt, nicht
+allgemein — eben deshalb die Wiederholung am ersten echten Lauf.
+
+**Der Preis.** Drei Aufrufe statt einem je Lauf: rund 22.000 Zeichen und gut drei Minuten je Urteil,
+parallel also kaum mehr Wartezeit, aber die dreifachen Kosten des Bewertungsschritts.
