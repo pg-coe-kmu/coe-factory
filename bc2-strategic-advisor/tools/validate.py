@@ -2,8 +2,10 @@
 
 Zwei Vertragsstaende nebeneinander, mit Absicht:
 
-  * **v3.0** -- der aktuelle Vertrag (`contracts/bc2-to-bc3/`). Dagegen laufen die Fixtures in
-    `contracts/examples/`.
+  * **v3.1** -- der aktuelle Vertrag (`contracts/bc2-to-bc3/`). Additiv gegenueber v3.0 (#254):
+    die Priorisierung traegt die `ausgangslage` des Laufs. Dagegen laufen die Fixtures in
+    `contracts/examples/` (Priorisierung auf 3.1) **und** die simulierte Lieferung vom 21.09.2026,
+    die auf 3.0 bleibt -- eine 3.0-Datei ist gegen das 3.1-Schema gueltig.
   * **v2.0** -- eingefroren in `contracts/bc2-to-bc3/archiv/`. Dagegen laeuft nur noch die bereits
     uebergebene Lieferung vom 30.08.2026. Ein uebergebenes Konzept wird nie ungueltig, es veraltet
     (ADR-007 BC2, 2.4); es nachzuziehen zerstoerte, worauf die Lieferung sich beruft.
@@ -47,7 +49,8 @@ PAARE = (
         (KONZEPT_V2, f"{LIEFERUNG}/konzept_KP-03.json"),
         (KONZEPT_V2, f"{LIEFERUNG}/konzept_KP-04.json"),
         (PRIO_V2, f"{LIEFERUNG}/prozesspriorisierung.json"),
-        # Aktuell: die simulierte Rueckfall-Lieferung gegen v3.0.
+        # Aktuell: die simulierte Rueckfall-Lieferung (schema_version 3.0) gegen das 3.1-Schema --
+    # die Probe, dass v3.1 additiv ist.
         (KONZEPT_V3, f"{SIM}/konzept_KP-06.json"),
         (PRIO_V3, f"{SIM}/prozesspriorisierung.json"),
     ]
@@ -96,7 +99,7 @@ for schema_pfad, daten_pfad in PAARE:
 #    zueinander passen: das Rechenmodell aus ADR-006 BC2 laesst sich nachrechnen, und die
 #    beiden Artefakte eines Laufs widersprechen sich nicht.
 # ---------------------------------------------------------------------------
-print("\n--- Fixtures v3.0 ---")
+print("\n--- Fixtures v3.0 / v3.1 ---")
 konzepte = [lies(p) for p in FIXTURE_KONZEPTE]
 prio = lies(FIXTURE_PRIO)
 potenziale = {p["potenzial_id"]: (k, p) for k in konzepte for p in k["potenziale"]}
@@ -283,6 +286,41 @@ pruefe(
     "User Stories: durchgaengig SOPHIST ('Als ... moechte ... damit')",
     f"User Stories ohne SOPHIST-Schablone bei: {ohne_story}",
 )
+
+# 2.9 Die Ausgangslage (v3.1, #254) erfindet nichts: jede Herausforderung steht woertlich als
+#     Schmerzpunkt in einem Konzept ihrer kp_ids, und jeder Schmerzpunkt kommt in ihr vor.
+#     Die Praesentation traegt keine eigene Information (Glossar) -- und die Ausgangslage, aus
+#     der sie Teil 1 zeichnet, darf es dann auch nicht.
+aus = prio.get("ausgangslage")
+pruefe(
+    (prio["schema_version"] == "3.1") == (aus is not None),
+    "Ausgangslage: vorhanden genau dann, wenn die Priorisierung v3.1 ist",
+    f"Ausgangslage und schema_version {prio['schema_version']} passen nicht zusammen",
+)
+if aus is not None:
+    def _schluessel(s):
+        return (s["beschreibung"], s["auswirkung"], s.get("haeufigkeit"))
+
+    in_konzepten = {
+        (k["kontext"]["kp_id"], _schluessel(s))
+        for k in konzepte
+        for s in k["kontext"]["hauptschmerzpunkte"]
+    }
+    in_ausgangslage = {
+        (kp, _schluessel(h)) for h in aus["herausforderungen"] for kp in h["kp_ids"]
+    }
+    pruefe(
+        in_konzepten == in_ausgangslage,
+        f"Ausgangslage: {len(aus['herausforderungen'])} Herausforderungen sind genau die "
+        "zusammengefuehrten Schmerzpunkte der Konzepte",
+        f"Ausgangslage: erfunden {in_ausgangslage - in_konzepten}, verloren {in_konzepten - in_ausgangslage}",
+    )
+    namen = {k["kontext"].get("unternehmen") for k in konzepte} - {None}
+    pruefe(
+        not namen or namen == {aus["unternehmen"]["name"]},
+        "Ausgangslage: der Mandantenname stimmt mit kontext.unternehmen der Konzepte ueberein",
+        f"Ausgangslage: Mandant {aus['unternehmen']['name']!r}, Konzepte nennen {namen}",
+    )
 
 # ---------------------------------------------------------------------------
 # 3. Lieferung 2026-08-30 (v2.0, eingefroren) -- unveraendert uebernommene Pruefungen.

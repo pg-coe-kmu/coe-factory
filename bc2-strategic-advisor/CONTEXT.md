@@ -61,6 +61,10 @@ _Avoid_: Durchlauf, Analyse, Job
 **Ausgangslage**:
 Die Beschreibung dessen, was heute geschieht — Prozessverlauf, beteiligte Systeme, Schmerzpunkte.
 Wird je Kernprozess aus dem Datenstand des Pakets geschrieben, nicht als eigenes Artefakt geführt.
+Für den ganzen **Analyselauf** fasst die Priorisierung sie zusammen (seit Vertrag v3.1, #254): die
+Angaben zum Mandanten aus seinem Mandantensatz, die Schmerzpunkte aller Konzepte als
+**Herausforderungen** zusammengeführt und eine optionale Kernaussage. Sie ist Teil 1 der
+Präsentation — und steht deshalb im Vertrag, damit die Präsentation sie nicht erfinden muss.
 _Avoid_: Prozessprofil, Ist-Aufnahme, Baseline
 
 > **`Prozessprofil` ist kein Wort von BC2.** Es bezeichnet BC1s Erhebungsergebnis je Teilprozess und
@@ -83,7 +87,8 @@ _Avoid_: Automatisierungsfall, Maßnahme, Use Case
 
 **Schmerzpunkt**:
 Eine benannte Schwierigkeit im heutigen Ablauf — Wartezeit, Medienbruch, Doppelerfassung. Motiviert
-Potenziale, schneidet sie aber nicht.
+Potenziale, schneidet sie aber nicht. Über alle Konzepte eines Laufs zusammengeführt heißt er in der
+Ausgangslage **Herausforderung** — dasselbe Ding auf Laufebene, kein neues Urteil.
 _Avoid_: Pain Point, Problem, Engpass
 
 **Lösungsansatz**:

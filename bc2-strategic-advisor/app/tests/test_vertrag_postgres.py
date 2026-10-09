@@ -158,3 +158,30 @@ def test_abgleich_laeuft_gegen_die_echte_view_durch(buch):
         assert p.paket_id and p.company_id
         assert p.quelle == "nachgeholt"
         assert isinstance(p.nutzlast.get("teilprozesse"), list)
+
+
+def test_der_mandantensatz_ist_auf_dem_freigabestand_lesbar(buch):
+    """Die Quelle von ``ausgangslage.unternehmen`` (v3.1, #254), **nur lesend**.
+
+    Beim Bau von #254 lag keine Verbindung vor; die Abfrage ist gegen BC0s
+    Schemadateien geschnitten (``companies`` + ``company_profile``, beide unter
+    ``stand_zum``). Dieser Test ist die Gegenprobe: dass sie übersetzt, dass
+    ``bc2_role`` beide Tabellen über die Historie lesen darf und dass der Name
+    aus der Spalte ``name`` kommt — die Vorgängerfassung las ``company_name``
+    und bekam still ``NULL``. Er schreibt nichts.
+    """
+    import psycopg2
+    import psycopg2.extras
+
+    from erkennung.bestand import _SQL_MANDANT
+
+    noroai = "7c2d5ee9-2a9a-5990-810f-502ea2b2012d"
+    with psycopg2.connect(os.environ["DATABASE_URL"]) as conn:
+        conn.set_session(readonly=True)
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(_SQL_MANDANT, {"company_id": noroai, "stand": datetime.now(timezone.utc)})
+            zeile = cur.fetchone()
+
+    assert zeile is not None, "stand_zum('companies', …) liefert fuer NoroAI keine Zeile."
+    assert zeile["name"], "Der Mandantenname kommt leer an — Spaltenname pruefen."
+    assert set(zeile) == {"name", "branche", "mitarbeitende", "region", "geschaeftsmodell"}

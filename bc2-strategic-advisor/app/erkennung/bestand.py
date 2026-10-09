@@ -205,10 +205,20 @@ class Kernprozess:
 
 @dataclass(frozen=True)
 class Mandant:
+    """Der Mandantensatz — die Quelle von ``ausgangslage.unternehmen`` (v3.1, #254).
+
+    Gelesen aus ``public.companies`` (Name, Branche, Mitarbeitende, Region) und
+    ``public.company_profile`` (Geschäftsmodell), beide auf
+    ``stand_zum(uebergeben_am)``. Eine fehlende Angabe bleibt ``None`` — sie
+    wird nicht geraten und nicht mit 0 aufgefüllt.
+    """
+
     company_id: str
     name: str | None = None
     branche: str | None = None
     mitarbeitende: int | None = None
+    region: str | None = None
+    geschaeftsmodell: str | None = None
 
 
 @dataclass(frozen=True)
@@ -357,11 +367,26 @@ SELECT b.sub_process_id,
  ORDER BY b.sub_process_id, b.item_nr
 """
 
+# Der Mandantensatz: ``companies`` traegt Name, Branche, Mitarbeitende und
+# Region, das Geschaeftsmodell liegt 1:1 daneben in ``company_profile``
+# (BC0 ``schema_v1.1.1.sql``, Doku v1.3 § 4). Beide Tabellen liegen in
+# ``public`` und damit unter BC0s Historie; ``stand_zum`` liest ``audit_log``,
+# nicht die Tabelle selbst — wer ``companies`` so lesen darf, darf es auch fuer
+# ``company_profile``.
+#
+# **Berichtigt am 09.10.2026 (#254):** die Vorgaengerfassung las
+# ``s ->> 'company_name'``. Die Spalte heisst ``name``; ``->>`` auf einen
+# fehlenden Schluessel ergibt still NULL, der Mandantenname waere in jedem Lauf
+# leer gewesen.
 _SQL_MANDANT = """
-SELECT s ->> 'company_name' AS name,
-       s ->> 'branche'      AS branche,
-       (s ->> 'mitarbeitende')::int AS mitarbeitende
-  FROM stand_zum('companies', %(stand)s, %(company_id)s) s
+SELECT c ->> 'name'                AS name,
+       c ->> 'branche'             AS branche,
+       (c ->> 'mitarbeitende')::int AS mitarbeitende,
+       c ->> 'region'              AS region,
+       p ->> 'geschaeftsmodell'    AS geschaeftsmodell
+  FROM stand_zum('companies', %(stand)s, %(company_id)s) c
+  LEFT JOIN stand_zum('company_profile', %(stand)s, %(company_id)s) p ON TRUE
+ WHERE c ->> 'company_id' = %(company_id)s::text
  LIMIT 1
 """
 
@@ -548,6 +573,8 @@ class PostgresBestand:
                 name=m.get("name"),
                 branche=m.get("branche"),
                 mitarbeitende=m.get("mitarbeitende"),
+                region=m.get("region"),
+                geschaeftsmodell=m.get("geschaeftsmodell"),
             ),
             paket_id=paket_id,
             uebergeben_am=uebergeben_am,
@@ -702,6 +729,8 @@ class SnapshotBestand:
                 name=mand.get("name"),
                 branche=mand.get("branche"),
                 mitarbeitende=mand.get("mitarbeitende"),
+                region=mand.get("region"),
+                geschaeftsmodell=(mand.get("profil_kurz") or {}).get("geschaeftsmodell"),
             ),
             paket_id=paket_id,
             uebergeben_am=uebergeben_am,

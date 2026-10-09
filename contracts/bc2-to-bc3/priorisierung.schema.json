@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://coe-factory/contracts/bc2/priorisierung.schema.json",
   "title": "BC2 Priorisierung (das Ergebnis eines Analyselaufs)",
-  "description": "Das Ergebnis fuer den ANALYSELAUF: die Reihenfolge ueber alle Potenziale aller Konzepte, samt Prozessrang und Gate-1-Entscheidung. Haelt die n Konzepte eines Laufs zusammen -- uebergeben wird der LAUF, nicht das einzelne Konzept (ADR-007 BC2, 2.1). Version: 3.0. Brechende Aenderungen ggue. v2.0 -- (1) company_id, paket_id, uebergeben_am und fassung sind Pflicht und machen die Datei zum Behaelter des Laufs; (2) 'gate1' ist hierher gewandert, aus konzept.schema.json; (3) impact und umsetzungskomplexitaet von vier Stufen auf 1-10; (4) Geldgroessen sind Spannen; (5) Kategorie 'Long Bet' heisst 'Zurueckgestellt'. Neu: konzept_ids, prozess_raenge, prioritaetsgruppe, nutzwert_mittel, impact_monetaer, und in gate1 die finale Reihenfolge samt Begruendung der Abweichung.",
+  "description": "Das Ergebnis fuer den ANALYSELAUF: die Reihenfolge ueber alle Potenziale aller Konzepte, samt Prozessrang und Gate-1-Entscheidung. Haelt die n Konzepte eines Laufs zusammen -- uebergeben wird der LAUF, nicht das einzelne Konzept (ADR-007 BC2, 2.1). Version: 3.1 (additiv ggue. 3.0, #254: neues Feld ausgangslage; eine 3.0-Datei bleibt gueltig). Brechende Aenderungen von v2.0 auf v3.0 -- (1) company_id, paket_id, uebergeben_am und fassung sind Pflicht und machen die Datei zum Behaelter des Laufs; (2) 'gate1' ist hierher gewandert, aus konzept.schema.json; (3) impact und umsetzungskomplexitaet von vier Stufen auf 1-10; (4) Geldgroessen sind Spannen; (5) Kategorie 'Long Bet' heisst 'Zurueckgestellt'. Neu: konzept_ids, prozess_raenge, prioritaetsgruppe, nutzwert_mittel, impact_monetaer, und in gate1 die finale Reihenfolge samt Begruendung der Abweichung.",
   "type": "object",
   "required": [
     "priorisierung_id",
@@ -21,7 +21,11 @@
   "additionalProperties": false,
   "properties": {
     "priorisierung_id": { "type": "string", "format": "uuid" },
-    "schema_version": { "type": "string", "const": "3.0" },
+    "schema_version": {
+      "type": "string",
+      "enum": ["3.0", "3.1"],
+      "description": "3.1 seit #254 -- additiv: einziger Unterschied ist das Feld 'ausgangslage', das eine 3.1 traegt und eine 3.0 nicht (siehe allOf am Ende). Eine 3.0-Datei bleibt gegen dieses Schema gueltig; uebergebene Lieferungen werden nicht nachgezogen (ADR-007 BC2, 2.4)."
+    },
     "company_id": {
       "type": "string",
       "format": "uuid",
@@ -147,6 +151,54 @@
         }
       }
     },
+    "ausgangslage": {
+      "type": "object",
+      "description": "Neu in v3.1 (#254, entschieden in #244): die Ausgangslage des LAUFS -- Teil 1 der Praesentation, der im Vertrag bis v3.0 keinen Ort hatte. Sie entsteht im Lauf und reist mit an BC3, statt dass der Foliengenerator sie zur Erzeugungszeit erfindet: die Praesentation traegt keine eigene Information (Glossar 'Praesentation'). Bewusst NICHT enthalten: Positionierung, Marktumfeld, strategische Ziele aus dem Unternehmensprofil -- Fliesstext ohne Datengrundlage im Paket. Die Ausgangslage je Kernprozess bleibt in konzept.kontext.",
+      "required": ["unternehmen", "herausforderungen"],
+      "additionalProperties": false,
+      "properties": {
+        "unternehmen": {
+          "type": "object",
+          "description": "MASCHINELL aus dem Mandantensatz, kein LLM: public.companies (name, branche, mitarbeitende, region) und public.company_profile (geschaeftsmodell), gelesen auf stand_zum(uebergeben_am). Alle fuenf Schluessel sind Pflicht, jeder Wert darf null sein: eine fehlende Angabe ist null -- nie eine 0, nie eine leere Zeichenkette. Die maschinelle Identitaet bleibt company_id; name ist Anzeige.",
+          "required": ["name", "branche", "mitarbeitende", "region", "geschaeftsmodell"],
+          "additionalProperties": false,
+          "properties": {
+            "name": { "type": ["string", "null"], "minLength": 1 },
+            "branche": { "type": ["string", "null"], "minLength": 1 },
+            "mitarbeitende": { "type": ["integer", "null"], "minimum": 0 },
+            "region": { "type": ["string", "null"], "minLength": 1 },
+            "geschaeftsmodell": { "type": ["string", "null"], "minLength": 1 }
+          }
+        },
+        "herausforderungen": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Die hauptschmerzpunkte aller Konzepte des Laufs, ZUSAMMENGEFUEHRT: woertlich gleiche Schmerzpunkte (beschreibung, auswirkung, haeufigkeit) werden eine Herausforderung mit allen ihren Kernprozessen; aehnliche bleiben getrennt, denn sie zu verschmelzen waere ein Urteil. Reihenfolge: die der konzept_ids, darin die der Schmerzpunkte. Kein neuer Inhalt -- jede Herausforderung steht woertlich in mindestens einem Konzept.",
+          "items": {
+            "type": "object",
+            "required": ["beschreibung", "auswirkung", "kp_ids"],
+            "additionalProperties": false,
+            "properties": {
+              "beschreibung": { "type": "string" },
+              "auswirkung": { "type": "string" },
+              "haeufigkeit": { "type": "string" },
+              "kp_ids": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": { "type": "string", "pattern": "^KP-(0[1-9]|10)$" },
+                "description": "Die Kernprozesse, in deren Konzept der Schmerzpunkt steht. Jede Ausgabe fuehrt die Prozesszuordnung mit (Auflage BC0)."
+              }
+            }
+          }
+        },
+        "kernaussage": {
+          "type": "string",
+          "minLength": 1,
+          "description": "OPTIONAL. Eine Aussage zum groessten Hebel des Laufs, beim Paketaufruf des Erkennungsschritts mitentstanden (#248) -- aus denselben Daten wie die Potenziale, also pruefbar. Optional mit Absicht: die Praesentation soll auch ohne sie erzeugt werden koennen. Fehlt sie, fehlt das Feld; eine leere Kernaussage waere ein Platzhalter."
+        }
+      }
+    },
     "gate1": {
       "type": "object",
       "description": "Die Entscheidung des Menschen ueber die PRIORISIERUNG: freigeben, ablehnen oder die vorgeschlagene Reihenfolge ueberschreiben. In v2.0 stand dieser Block im Konzept, also je Kernprozess -- entschieden wurde damit an einer Stelle und protokolliert an einer anderen. Seit v3.0 lebt er hier, beim Lauf (ADR-007 BC2, 2.1). Bei Erzeugung 'pending'. Was Gate 1 NICHT darf: Annahmen aendern -- das waere Rechnen von Hand und zerstoerte die Reproduzierbarkeit (#167).",
@@ -193,6 +245,14 @@
       }
     }
   },
+  "allOf": [
+    {
+      "description": "v3.1 traegt die Ausgangslage, v3.0 nicht -- die Versionsnummer sagt, ob sie da ist (#254).",
+      "if": { "properties": { "schema_version": { "const": "3.1" } }, "required": ["schema_version"] },
+      "then": { "required": ["ausgangslage"] },
+      "else": { "not": { "required": ["ausgangslage"] } }
+    }
+  ],
   "$defs": {
     "spanne_oder_null": {
       "description": "Bandbreite statt Punktwert; null, wenn keine Value-Zahl vorliegt (Herkunft der Dauer ist NULL).",

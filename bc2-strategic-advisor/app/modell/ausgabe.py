@@ -1,5 +1,5 @@
 """
-BC2 · Vom Rechenergebnis in die Form des Vertrags v3.0.
+BC2 · Vom Rechenergebnis in die Form des Vertrags v3.0 / v3.1.
 
 Eigenes Modul, damit ``rechnen.py`` rein bleibt: der Kern kennt keine
 JSON-Form, und die Abbildung kennt keine Rechnung. Ändert BC3 den Vertrag,
@@ -13,15 +13,22 @@ Potenzial auch ``beschreibung``, ``to_be_vision``, ``user_story``,
 und dieser Kern nicht kennt. ``als_konzept_potenzial`` liefert die Felder, die
 BC2 *rechnet*; der Rest wird darübergelegt (``| texte``). Der Schnitt läuft
 damit genau dort, wo ADR-006 2.0 ihn zieht: Rechnen tut Python, Urteilen das LLM.
+
+**Seit v3.1 (#254) auch die Ausgangslage des Laufs** — ``als_ausgangslage``.
+Sie ist der maschinelle Teil von Teil 1 der Präsentation und liegt hier, weil
+sie dieselbe Rolle hat wie der Rest: Daten in Vertragsform bringen, nichts
+urteilen.
 """
 
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Iterable, Mapping, Protocol
 
 from .rechnen import Lauf, Nutzwert, Potenzial, Spanne, runde
 
 __all__ = [
+    "als_ausgangslage",
     "als_konzept_potenzial",
     "als_eingangswerte",
     "als_prozess_raenge",
@@ -194,3 +201,101 @@ def als_eintraege(lauf: Lauf, konzept_ids: dict[str, str]) -> list[dict]:
             eintrag["amortisation_monate"] = _spanne(pot.value.amortisation_monate, 1)
         eintraege.append(eintrag)
     return eintraege
+
+
+# ---------------------------------------------------------------------------
+# Ausgangslage (Vertrag v3.1, #254)
+# ---------------------------------------------------------------------------
+
+
+class Unternehmensangaben(Protocol):
+    """Was ``als_ausgangslage`` vom Mandantensatz braucht — mehr nicht.
+
+    Ein Protokoll statt ``erkennung.Mandant``, damit das Modell nicht von der
+    Leseseite abhängt: ``erkennung.Mandant`` erfüllt es, ein Testobjekt auch.
+    """
+
+    name: str | None
+    branche: str | None
+    mitarbeitende: int | None
+    region: str | None
+    geschaeftsmodell: str | None
+
+
+def _text_oder_luecke(wert: object) -> str | None:
+    """Eine leere Zeichenkette ist eine Lücke, kein Wert.
+
+    BC0 legt ``company_profile`` mit ``geschaeftsmodell = ''`` an, solange
+    niemand eines einträgt. Durchgereicht stünde auf der Titelfolie ein leeres
+    Feld, das wie eine Angabe aussieht.
+    """
+    if wert is None:
+        return None
+    text = str(wert).strip()
+    return text or None
+
+
+def als_ausgangslage(
+    unternehmen: Unternehmensangaben,
+    konzepte: Iterable[Mapping],
+    kernaussage: str | None = None,
+) -> dict:
+    """Die Ausgangslage des Laufs für ``priorisierung.schema.json`` v3.1.
+
+    Drei Teile, und nur der letzte ist geurteilt (#244):
+
+    - ``unternehmen`` — **maschinell** aus dem Mandantensatz
+      (``public.companies`` + ``public.company_profile`` auf
+      ``stand_zum(uebergeben_am)``). Eine fehlende Angabe ist ``None``, nie eine
+      0 oder ``""``: dieselbe Regel wie für fehlende Bewertungen.
+    - ``herausforderungen`` — die ``hauptschmerzpunkte`` der Konzepte,
+      **zusammengeführt**: wörtlich gleiche Schmerzpunkte (Beschreibung,
+      Auswirkung, Häufigkeit) werden eine Herausforderung mit allen ihren
+      Kernprozessen. Ähnliche bleiben getrennt — sie zu verschmelzen wäre ein
+      Urteil. Die Reihenfolge ist die der Konzepte und darin die der
+      Schmerzpunkte; damit ist das Ergebnis reproduzierbar.
+    - ``kernaussage`` — **optional**, entsteht beim Paketaufruf (#248). Fehlt
+      sie, fehlt das Feld; eine leere Kernaussage wäre ein Platzhalter.
+
+    ``konzepte`` sind Konzepte in Vertragsform (oder wenigstens deren
+    ``kontext``-Block). Die Ausgangslage entsteht damit aus genau dem, was
+    auch an BC3 geht, und nicht aus einer zweiten Lesung.
+    """
+    herausforderungen: list[dict] = []
+    nach_schluessel: dict[tuple, dict] = {}
+    for konzept in konzepte:
+        kontext = konzept["kontext"]
+        kp_id = kontext["kp_id"]
+        for schmerz in kontext.get("hauptschmerzpunkte", []):
+            schluessel = (
+                schmerz["beschreibung"],
+                schmerz["auswirkung"],
+                schmerz.get("haeufigkeit"),
+            )
+            vorhanden = nach_schluessel.get(schluessel)
+            if vorhanden is None:
+                eintrag: dict = {
+                    "beschreibung": schmerz["beschreibung"],
+                    "auswirkung": schmerz["auswirkung"],
+                }
+                if schmerz.get("haeufigkeit"):
+                    eintrag["haeufigkeit"] = schmerz["haeufigkeit"]
+                eintrag["kp_ids"] = [kp_id]
+                nach_schluessel[schluessel] = eintrag
+                herausforderungen.append(eintrag)
+            elif kp_id not in vorhanden["kp_ids"]:
+                vorhanden["kp_ids"].append(kp_id)
+
+    ausgangslage: dict = {
+        "unternehmen": {
+            "name": _text_oder_luecke(unternehmen.name),
+            "branche": _text_oder_luecke(unternehmen.branche),
+            "mitarbeitende": unternehmen.mitarbeitende,
+            "region": _text_oder_luecke(unternehmen.region),
+            "geschaeftsmodell": _text_oder_luecke(unternehmen.geschaeftsmodell),
+        },
+        "herausforderungen": herausforderungen,
+    }
+    if kernaussage is not None and kernaussage.strip():
+        ausgangslage["kernaussage"] = kernaussage.strip()
+    return ausgangslage
