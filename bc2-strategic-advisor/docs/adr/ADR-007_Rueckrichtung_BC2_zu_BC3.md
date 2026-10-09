@@ -137,4 +137,8 @@ was der Unveränderlichkeit widerspricht.
 5. **Die Schema-Prüfung in der CI deckt `bc2-to-bc3` nicht ab.** `vertraege-pruefen.yml` läuft bei
    jeder Änderung unter `contracts/**`, prüft aber ausschließlich `contracts/bc3-to-bc4`. Ohne
    Erweiterung ist der PR-Weg aus 2.2 ein Verfahren ohne Netz. Auflage an den Test- und CI-Schnitt.
+   **Für die Lieferstrecke erledigt mit [#253](https://github.com/pg-coe-kmu/coe-factory/issues/253):**
+   eigener Job „BC2 → BC3 Lieferungen" mit eigenem Ergebnis, `validate.py` findet jeden
+   Lieferordner selbst. Ob er den Merge *verhindert*, entscheidet erst die Pflicht-Prüfung im
+   Ruleset von `main`. BC2s Tests laufen weiterhin in keiner CI.
 6. **Gate 0 bleibt einweg**, und das ist für BC2 kein offener Punkt mehr.

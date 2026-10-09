@@ -3,20 +3,88 @@ name: Verträge prüfen
 # Haelt jede Lieferung gegen ihr Schema, sobald jemand etwas unter contracts/
 # aendert. Bis heute gab es das nicht - eine kaputte Lieferung fiel nur auf,
 # wenn ein Mensch hingeschaut hat.
+#
+# Zwei Strecken, zwei Jobs, zwei Ergebnisse (#253):
+#   schema      - BC3 -> BC4 (contracts/bc3-to-bc4)
+#   bc2-to-bc3  - BC2 -> BC3 (contracts/bc2-to-bc3), ueber bc2-strategic-advisor/tools/validate.py
+# Ein Fehler der einen Strecke macht die andere nicht rot und versteckt sich nicht in deren Rot.
+#
+# Warum kein `paths:` am Trigger: Ein Workflow, der wegen eines Pfadfilters gar nicht startet,
+# meldet keinen Status - eine erforderliche Pruefung (Ruleset) bliebe dann bei jedem fremden PR
+# auf "Expected" haengen und blockierte ihn. Deshalb startet der Workflow bei jedem PR, und der
+# Job `aenderungen` entscheidet, welche Strecke laeuft. Ein per `if:` uebersprungener Job gilt
+# fuer eine erforderliche Pruefung als bestanden; so laesst sich `bc2-to-bc3` zur Pflicht machen,
+# ohne fremde PRs aufzuhalten.
 
 on:
   pull_request:
-    paths:
-      - 'contracts/**'
   push:
     branches: [main]
-    paths:
-      - 'contracts/**'
   workflow_dispatch:
 
 jobs:
+  aenderungen:
+    name: Betroffene Strecken erkennen
+    runs-on: ubuntu-latest
+    outputs:
+      bc3: ${{ steps.pfade.outputs.bc3 }}
+      bc2: ${{ steps.pfade.outputs.bc2 }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: pfade
+        env:
+          EREIGNIS: ${{ github.event_name }}
+          PR_BASIS: ${{ github.event.pull_request.base.sha }}
+          PR_KOPF: ${{ github.event.pull_request.head.sha }}
+          PUSH_VORHER: ${{ github.event.before }}
+        run: |
+          case "$EREIGNIS" in
+            pull_request) bereich="$PR_BASIS...$PR_KOPF" ;;
+            push)         bereich="$PUSH_VORHER..$GITHUB_SHA" ;;
+            *)            bereich="" ;;
+          esac
+          # Kein Vergleich moeglich (Handstart, erster Push, unbekannte SHA): alles pruefen.
+          if [ -z "$bereich" ] || ! dateien=$(git diff --name-only "$bereich" 2>/dev/null); then
+            echo "Kein Vergleich moeglich - beide Strecken laufen."
+            echo "bc3=true" >> "$GITHUB_OUTPUT"
+            echo "bc2=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Geaenderte Dateien:"; echo "$dateien" | sed 's/^/  /'
+          treffer() { echo "$dateien" | grep -qE "$1" && echo true || echo false; }
+          # BC3 -> BC4: unveraendert alles unter contracts/, wie vor #253.
+          echo "bc3=$(treffer '^contracts/')" >> "$GITHUB_OUTPUT"
+          # BC2 -> BC3: alles, was validate.py liest, dazu das Skript und dieser Workflow.
+          echo "bc2=$(treffer '^(contracts/(bc2-to-bc3|bc1-to-bc2|examples)/|bc2-strategic-advisor/tools/validate\.py$|\.github/workflows/vertraege-pruefen\.yml$)')" >> "$GITHUB_OUTPUT"
+
+  bc2-to-bc3:
+    name: BC2 → BC3 Lieferungen
+    needs: aenderungen
+    # Faellt die Erkennung selbst aus, wird trotzdem geprueft - ein stilles Ueberspringen
+    # wuerde als bestanden zaehlen.
+    if: ${{ always() && (needs.aenderungen.result != 'success' || needs.aenderungen.outputs.bc2 == 'true') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      # validate.py braucht nur jsonschema - nicht die dev-Umgebung von BC2. BC2s Tests laufen
+      # bewusst (noch) in keiner CI; das ist der offene "Test- und CI-Schnitt" auf Karte #158.
+      - run: pip install --quiet 'jsonschema>=4.0'
+
+      - name: Lieferungen, Fixtures und Kennzeichnung prüfen (validate.py)
+        run: python bc2-strategic-advisor/tools/validate.py
+
   schema:
     name: Schema und Vollständigkeit
+    needs: aenderungen
+    if: ${{ always() && (needs.aenderungen.result != 'success' || needs.aenderungen.outputs.bc3 == 'true') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
