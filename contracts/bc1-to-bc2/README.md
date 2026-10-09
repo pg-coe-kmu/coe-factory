@@ -59,7 +59,7 @@ Sie sagen, ob und welche Pflichtfelder das Interview aufgegeben hat — und dami
 eine Rechengröße `NULL` ist (siehe „Was BC1 zusagt").
 
 **Alles Übrige aus dem Profil-JSON ist unverbindlicher Kontext** und darf sich ohne
-Rücksprache ändern. BC1 stellt 43 Fragen; BC2 rechnet auf 17 Feldern plus zwei Kopf-Angaben.
+Rücksprache ändern. BC1 stellt 43 Fragen; BC2 rechnet auf 18 Feldern (zehn Spalten, acht JSON-Felder) plus zwei Kopf-Angaben.
 
 ## Invarianten
 
@@ -229,8 +229,13 @@ die Achse je gebraucht wird. Einen Termin dafür gibt es nicht mehr.
    normalisiert — in allen sechs Zeilen gemessen.
 2. **Entschieden: `step_frequency_per_year` wird gebunden** *(BC2, 20.09.2026)* — mit
    Vorrang vor `frequency_per_year` für den Fokus-Schritt, siehe **Invariante I8**. Das
-   Feld ist ab Fassung 1.2 Vertragsbestandteil und steht in `lesen.sql`. **BC1 muss dafür
-   nichts ändern:** D3 wird ohnehin gefragt, das Feld war nur ungebunden. Damit sind beide
+   Feld ist ab Fassung 1.2 Vertragsbestandteil und steht in `lesen.sql`. *(Berichtigt in
+   Fassung 1.3:)* Die Annahme „BC1 muss dafür nichts ändern" war falsch — D3 lag nur im
+   JSON, und `lesen.sql` brach an der laufenden Datenbank
+   ([#249](https://github.com/pg-coe-kmu/coe-factory/issues/249)). BC1 hat die Spalte am
+   22.09.2026 nachgezogen (PR [#263](https://github.com/pg-coe-kmu/coe-factory/pull/263)),
+   BC2 hat `lesen.sql` am 09.10.2026 als `bc2_role` gegengeprüft
+   ([#255](https://github.com/pg-coe-kmu/coe-factory/issues/255)). Damit sind beide
    offenen Punkte geschlossen.
 
 **K-K wird hingenommen.** Dass eine *offene* Erhebung als aktuell gilt und BC0 sie später
@@ -239,6 +244,14 @@ kommt seit [#165](https://github.com/pg-coe-kmu/coe-factory/issues/165) erst nac
 Gate-0-Freigabe. BC1 muss dafür nichts ändern.
 
 ## Stand
+
+**Fassung 1.3 — BC2, 09.10.2026.** Nach der Gegenprobe
+[#255](https://github.com/pg-coe-kmu/coe-factory/issues/255): `step_frequency_per_year` ist
+eine Spalte von BC1 (#263) und steht im Schema jetzt unter `required` (`lesen.sql` liefert
+sie immer, gegebenenfalls `NULL`) · die Feldzählung auf 18 berichtigt · die Aussage
+„BC1 musste dafür nichts ändern" zurückgenommen. `lesen.sql` selbst ist unverändert: an der
+laufenden Datenbank läuft sie als `bc2_role` durch. `anfrage_id` (BC1 B5, #277) ist **nicht**
+gebunden — BC2 bezieht die Anfrage aus dem Paket (`v_uebergabe_offen`).
 
 **Fassung 1.2 — BC2, 20.09.2026.** Zwei Folgen aus
 [#172](https://github.com/pg-coe-kmu/coe-factory/issues/172): **`step_frequency_per_year`
