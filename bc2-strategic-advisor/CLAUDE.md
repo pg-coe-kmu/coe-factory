@@ -100,12 +100,12 @@ divergierenden Kopien unter `Projektgruppe/BC2/` sind aufgelöst und liegen dort
 
 | Was | Wo |
 |---|---|
-| Verträge an BC3 (**v3.0**) | `contracts/bc2-to-bc3/` — **Endlage, wird nicht mehr verschoben**; `archiv/` hält v2.0 für die Lieferung vom 30.08. |
+| Verträge an BC3 (**v3.1**, additiv seit #254; BC3-Bestätigung offen) | `contracts/bc2-to-bc3/` — **Endlage, wird nicht mehr verschoben**; `archiv/` hält v2.0 für die Lieferung vom 30.08. |
 | Mocks / Fixtures | `contracts/examples/` |
 | `migriere_bc3_vorlage.py`, `validate.py`, `kalibrierung.py` | `bc2-strategic-advisor/tools/` — aus dem Repo-Wurzelverzeichnis aufrufen |
 | Systemarchitektur (27.06., teils überholt) | `bc2-strategic-advisor/architektur/` |
 | Trigger-Endpunkt (läuft im Betrieb) | `bc2-strategic-advisor/app/app.py`, `app/eingang.py` |
-| **Value- und Priorisierungsmodell** (ADR-006 · BC2) | `bc2-strategic-advisor/app/modell/` — `parameter.py` (Setzungen), `rechnen.py` (reiner Kern), `ausgabe.py` (Vertragsform), `laden.py` (Messsatz lesen) |
+| **Value- und Priorisierungsmodell** (ADR-006 · BC2) | `bc2-strategic-advisor/app/modell/` — `parameter.py` (Setzungen), `rechnen.py` (reiner Kern), `ausgabe.py` (Vertragsform, seit v3.1 auch die Ausgangslage des Laufs), `laden.py` (Messsatz lesen) |
 | **Erkennungsschritt** (#194 / #248) | `bc2-strategic-advisor/app/erkennung/` — `bestand.py` (Leseseite), `nutzlast.py` (was das Modell sieht), `anweisung.py`, `modellruf.py` (Naht zum LLM), `pruefen.py` (Nachkontrolle) |
 | **Gate-1-Oberfläche** (Fassung D, #167/#243) | `app/static/index.html` (eine Datei), `app/oberflaeche.py` (die vier Rufe), `app/gate1.py` (Entscheidung, Prüfung, Ablage), `app/laeufe.py` (Laufquelle) |
 | Oberfläche ansehen, ohne Datenbank | `app/vorschau.py` — `python3 vorschau.py`, dann `http://127.0.0.1:8243/` |

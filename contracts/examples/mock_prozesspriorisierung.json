@@ -1,6 +1,6 @@
 {
   "priorisierung_id": "5d4dc1de-8e52-534f-b4d2-73aa3253c2ea",
-  "schema_version": "3.0",
+  "schema_version": "3.1",
   "company_id": "7c2d5ee9-2a9a-5990-810f-502ea2b2012d",
   "paket_id": "FIXTURE-BC3-VORLAGE-2026-08-31",
   "uebergeben_am": "2026-08-31T00:00:00+02:00",
@@ -202,6 +202,89 @@
       "begruendung": "Bestes Potenzial auf Rang 2 des Laufs. Der Prozessrang folgt dem besten Potenzial, nicht der Summe oder dem Mittel -- angefangen wird mit dem, was sich zuerst lohnt."
     }
   ],
+  "ausgangslage": {
+    "unternehmen": {
+      "name": "NoroAI Consulting GmbH",
+      "branche": "KI-Beratung",
+      "mitarbeitende": 10,
+      "region": "FH-Suedwestfalen-Region",
+      "geschaeftsmodell": "KI-Beratung mit eigenem Tech-Stack"
+    },
+    "herausforderungen": [
+      {
+        "beschreibung": "Wissen ist über gewachsene Drive-Ordner verstreut",
+        "auswirkung": "Suche dauert Stunden statt Sekunden",
+        "haeufigkeit": "jede Recherche",
+        "kp_ids": [
+          "KP-05"
+        ]
+      },
+      {
+        "beschreibung": "Dokumente müssen einzeln geöffnet und gelesen werden",
+        "auswirkung": "rund 20 Min je Frage",
+        "haeufigkeit": "jede Recherche",
+        "kp_ids": [
+          "KP-05"
+        ]
+      },
+      {
+        "beschreibung": "Antworten werden nicht festgehalten",
+        "auswirkung": "dieselbe Frage verursacht mehrfach denselben Aufwand",
+        "haeufigkeit": "laufend",
+        "kp_ids": [
+          "KP-05"
+        ]
+      },
+      {
+        "beschreibung": "Anfragen kommen als Freitext und müssen manuell gelesen werden",
+        "auswirkung": "25 Min je Vorgang, Hauptzeitfresser",
+        "haeufigkeit": "jede Anfrage",
+        "kp_ids": [
+          "KP-06"
+        ]
+      },
+      {
+        "beschreibung": "Verfügbarkeiten werden nacheinander in mehreren Portalen geprüft",
+        "auswirkung": "Bearbeitung dauert Stunden statt Minuten",
+        "haeufigkeit": "jede Anfrage",
+        "kp_ids": [
+          "KP-06"
+        ]
+      },
+      {
+        "beschreibung": "Buchungsnummern werden von Hand in eine Excel-Liste übertragen",
+        "auswirkung": "Medienbruch, Liste veraltet",
+        "haeufigkeit": "jede Buchung",
+        "kp_ids": [
+          "KP-06"
+        ]
+      },
+      {
+        "beschreibung": "Lebensläufe liegen unstrukturiert als Dateien im Ordner",
+        "auswirkung": "rund 20 Min Ablage- und Lesearbeit je Dokument",
+        "haeufigkeit": "jeder Eingang",
+        "kp_ids": [
+          "KP-06"
+        ]
+      },
+      {
+        "beschreibung": "Abgleich mit Projektanforderungen erfolgt vollständig von Hand",
+        "auswirkung": "rund 3 Stunden je Ausschreibung",
+        "haeufigkeit": "jede Ausschreibung",
+        "kp_ids": [
+          "KP-06"
+        ]
+      },
+      {
+        "beschreibung": "Auswahl hängt an der Erinnerung einzelner Personen",
+        "auswirkung": "passende Profile werden übersehen",
+        "haeufigkeit": "laufend",
+        "kp_ids": [
+          "KP-06"
+        ]
+      }
+    ]
+  },
   "gate1": {
     "status": "pending",
     "kommentar": "FIXTURE aus BC3s Formatvorlage vom 31.08.2026 -- keine BC2-Lieferung und nicht zur Freigabe bestimmt. Alle Zahlen sind hergeleitet (value_quelle 'annahme')."

@@ -2,14 +2,16 @@
 
 Zwei Vertragsstaende nebeneinander, mit Absicht:
 
-  * **v3.0** -- der aktuelle Vertrag (`contracts/bc2-to-bc3/`). Dagegen laufen die Fixtures in
-    `contracts/examples/`.
+  * **v3.1** -- der aktuelle Vertrag (`contracts/bc2-to-bc3/`). Additiv gegenueber v3.0 (#254):
+    die Priorisierung traegt die `ausgangslage` des Laufs. Das eine Schema nimmt `schema_version`
+    3.0 und 3.1 an und verlangt die Ausgangslage genau bei 3.1. Dagegen laufen die Fixtures in
+    `contracts/examples/` (Priorisierung auf 3.1) und jede Lieferung, gleich welcher der beiden.
   * **v2.0** -- eingefroren in `contracts/bc2-to-bc3/archiv/`. Dagegen laeuft nur noch die bereits
     uebergebene Lieferung vom 30.08.2026. Ein uebergebenes Konzept wird nie ungueltig, es veraltet
     (ADR-007 BC2, 2.4); es nachzuziehen zerstoerte, worauf die Lieferung sich beruft.
 
 Jede **andere** Lieferung unter `contracts/bc2-to-bc3/lieferungen/` wird gefunden, nicht
-aufgezaehlt, und laeuft gegen v3.0 (Abschnitt 4). Die CI startet dieses Skript bei jeder
+aufgezaehlt, und laeuft gegen v3.0/v3.1 (Abschnitt 4) -- samt Ausgangslage-Pruefung, wo eine da ist. Die CI startet dieses Skript bei jeder
 Aenderung an der Lieferstrecke (`.github/workflows/vertraege-pruefen.yml`, #253).
 
 Aufruf aus dem Repo-Wurzelverzeichnis:
@@ -72,6 +74,50 @@ def kfm(x):
     return int(math.floor(x + 0.5))
 
 
+def pruefe_ausgangslage(name, konzepte, prio):
+    """Die Ausgangslage (v3.1, #254) erfindet nichts.
+
+    Sie ist da genau dann, wenn die Priorisierung 3.1 ist; jede Herausforderung steht woertlich als
+    Schmerzpunkt in einem Konzept ihrer kp_ids, und jeder Schmerzpunkt kommt in ihr vor. Die
+    Praesentation traegt keine eigene Information (Glossar) -- die Ausgangslage, aus der sie Teil 1
+    zeichnet, darf es dann auch nicht. Gilt fuer die Fixtures und fuer **jede** Lieferung.
+    """
+    aus = prio.get("ausgangslage")
+    pruefe(
+        (prio["schema_version"] == "3.1") == (aus is not None),
+        f"{name}: Ausgangslage vorhanden genau dann, wenn die Priorisierung v3.1 ist "
+        f"(hier {prio['schema_version']})",
+        f"{name}: Ausgangslage und schema_version {prio['schema_version']} passen nicht zusammen",
+    )
+    if aus is None:
+        return
+
+    def schluessel(s):
+        return (s["beschreibung"], s["auswirkung"], s.get("haeufigkeit"))
+
+    in_konzepten = {
+        (k["kontext"]["kp_id"], schluessel(s))
+        for k in konzepte
+        for s in k["kontext"]["hauptschmerzpunkte"]
+    }
+    in_ausgangslage = {
+        (kp, schluessel(h)) for h in aus["herausforderungen"] for kp in h["kp_ids"]
+    }
+    pruefe(
+        in_konzepten == in_ausgangslage,
+        f"{name}: {len(aus['herausforderungen'])} Herausforderungen sind genau die "
+        "zusammengefuehrten Schmerzpunkte der Konzepte",
+        f"{name}: Ausgangslage erfindet {in_ausgangslage - in_konzepten}, "
+        f"verliert {in_konzepten - in_ausgangslage}",
+    )
+    namen = {k["kontext"].get("unternehmen") for k in konzepte} - {None}
+    pruefe(
+        not namen or namen == {aus["unternehmen"]["name"]},
+        f"{name}: der Mandantenname stimmt mit kontext.unternehmen der Konzepte ueberein",
+        f"{name}: Mandant {aus['unternehmen']['name']!r}, Konzepte nennen {namen}",
+    )
+
+
 # ---------------------------------------------------------------------------
 # 1. Schema-Gueltigkeit
 # ---------------------------------------------------------------------------
@@ -94,7 +140,7 @@ for schema_pfad, daten_pfad in PAARE:
 #    zueinander passen: das Rechenmodell aus ADR-006 BC2 laesst sich nachrechnen, und die
 #    beiden Artefakte eines Laufs widersprechen sich nicht.
 # ---------------------------------------------------------------------------
-print("\n--- Fixtures v3.0 ---")
+print("\n--- Fixtures v3.0 / v3.1 ---")
 konzepte = [lies(p) for p in FIXTURE_KONZEPTE]
 prio = lies(FIXTURE_PRIO)
 potenziale = {p["potenzial_id"]: (k, p) for k in konzepte for p in k["potenziale"]}
@@ -282,6 +328,9 @@ pruefe(
     f"User Stories ohne SOPHIST-Schablone bei: {ohne_story}",
 )
 
+# 2.9 Die Ausgangslage (v3.1, #254).
+pruefe_ausgangslage("Fixtures", konzepte, prio)
+
 # ---------------------------------------------------------------------------
 # 3. Lieferung 2026-08-30 (v2.0, eingefroren) -- unveraendert uebernommene Pruefungen.
 #    Drei Konzepte + eine Priorisierung ueber alle drei, mit Vorlaeufigkeits-Kennzeichnung (#168).
@@ -349,13 +398,13 @@ pruefe(
 )
 
 # ---------------------------------------------------------------------------
-# 4. Lieferungen v3.0 -- JEDER Ordner unter lieferungen/, nicht eine feste Liste (#253).
+# 4. Lieferungen v3.0/v3.1 -- JEDER Ordner unter lieferungen/, nicht eine feste Liste (#253).
 #    Bis #253 stand hier genau ein Ordner, fest eingetragen. Eine neue Lieferung per PR waere
 #    damit gruen gewesen, ohne je geprueft worden zu sein -- das Netz aus ADR-007 BC2, 2.2
 #    haette genau die Faelle durchgelassen, fuer die es da ist. Jetzt gilt: was unter
-#    lieferungen/ liegt und nicht die eingefrorene v2-Lieferung ist, laeuft gegen v3.0.
-#    Ein neuer Vertragsstand faellt damit rot auf (schema_version ist const), bis er hier
-#    eingetragen ist -- gewollt.
+#    lieferungen/ liegt und nicht die eingefrorene v2-Lieferung ist, laeuft gegen das aktuelle
+#    Schema, das 3.0 und 3.1 annimmt (#254). Ein weiterer Vertragsstand faellt rot auf
+#    (schema_version ist ein Enum), bis er hier eingetragen ist -- gewollt.
 # ---------------------------------------------------------------------------
 LIEFERUNGEN = BASE / "contracts/bc2-to-bc3/lieferungen"
 #: Ordner, die oben gegen die archivierten v2-Schemas laufen und hier nicht noch einmal.
@@ -434,7 +483,7 @@ def pruefe_lieferung_v3(ordner):
     global ok
     name = ordner.name
     rel = ordner.relative_to(BASE).as_posix()
-    print(f"\n--- Lieferung {name} (v3.0) ---")
+    print(f"\n--- Lieferung {name} ---")
 
     konzept_dateien = sorted(ordner.glob("konzept_*.json"))
     prio_datei = ordner / "prozesspriorisierung.json"
@@ -521,7 +570,10 @@ def pruefe_lieferung_v3(ordner):
         f"{name}: Ordnername passt nicht zu paket_id und Fassung -- erwartet '<company>{endung}'",
     )
 
-    # 4.6 Eine simulierte Lieferung muss als solche erkennbar bleiben (#168).
+    # 4.6 Die Ausgangslage (v3.1, #254): da genau bei 3.1, und sie erfindet nichts.
+    pruefe_ausgangslage(name, konzepte, prio)
+
+    # 4.7 Eine simulierte Lieferung muss als solche erkennbar bleiben (#168).
     if prio["paket_id"].startswith("SIM-"):
         pruefe_kennzeichnung_sim(name, konzepte, prio)
 
@@ -529,7 +581,7 @@ def pruefe_lieferung_v3(ordner):
 v3_ordner = sorted(o for o in LIEFERUNGEN.iterdir() if o.is_dir() and o.name not in EINGEFROREN_V2)
 for o in v3_ordner:
     pruefe_lieferung_v3(o)
-print(f"\n{len(v3_ordner)} Lieferung(en) gegen v3.0 geprueft: "
+print(f"\n{len(v3_ordner)} Lieferung(en) gegen v3.0/v3.1 geprueft: "
       f"{', '.join(o.name for o in v3_ordner) or '(keine)'}")
 
 print("\nGESAMT: " + ("gruen" if ok else "ROT -- siehe FAIL-Zeilen oben"))

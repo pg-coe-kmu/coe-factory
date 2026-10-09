@@ -1,5 +1,6 @@
 """
 Hebt BC3s Formatvorlage vom 31.08.2026 auf den Vertrag v3.0 -- als Fixture, nicht als Lieferung.
+Seit #254 traegt die Priorisierung zusaetzlich die Ausgangslage des Laufs (v3.1).
 
 ZWECK. Ticket #187 verlangt, dass BC3s drei Beispielkonzepte gegen das neue Schema validieren.
 Woertlich koennen sie das nicht: sie tragen schema_version '2.1-bc3', fuehren gate1 im Konzept
@@ -32,11 +33,20 @@ import json
 import math
 import pathlib
 import re
+import sys
 import uuid
+from datetime import datetime
 
 BASE = pathlib.Path(__file__).resolve().parents[2]
 QUELLE = BASE / "bc3-engineering-architect/bc2-anforderung"
 ZIEL = BASE / "contracts/examples"
+#: Der Mandantensatz fuer ``ausgangslage.unternehmen`` (v3.1, #254). Im Betrieb kommt er aus
+#: ``public.companies`` + ``public.company_profile`` auf ``stand_zum(uebergeben_am)``; die Fixture
+#: liest ihn aus BC0s eingefrorenem Snapshot -- derselbe Mandant, dieselbe Leseabbildung
+#: (``erkennung.SnapshotBestand``), keine zweite.
+SNAPSHOT = BASE / "bc0-baseline-onboarding/app/snapshots/NoroAI_Consulting_GmbH_baseline_v3.json"
+
+sys.path.insert(0, str(BASE / "bc2-strategic-advisor" / "app"))
 
 # --- Fixture-Rahmen -------------------------------------------------------------------------
 # NoroAI aus bc2-strategic-advisor/CLAUDE.md. Die paket_id ist eine Fixture-Kennung: BC3s Vorlage
@@ -456,9 +466,18 @@ def main():
         for i, (k, p, n) in enumerate(prozess_raenge, start=1)
     ]
 
+    # Ausgangslage (v3.1, #254): dieselbe Abbildung wie im Lauf, nicht nachgebaut. Ohne
+    # Kernaussage -- die entsteht beim Paketaufruf (#248), und den gibt es fuer eine Fixture nicht.
+    from erkennung import SnapshotBestand  # noqa: E402  (braucht den Pfad oben)
+    from modell.ausgabe import als_ausgangslage  # noqa: E402
+
+    mandant = SnapshotBestand(SNAPSHOT).lies_paket(
+        COMPANY_ID, PAKET_ID, datetime.fromisoformat(UEBERGEBEN_AM), []
+    ).mandant
+
     priorisierung = {
         "priorisierung_id": str(uuid.uuid5(NS, f"{PAKET_ID}/priorisierung/f1")),
-        "schema_version": "3.0",
+        "schema_version": "3.1",
         "company_id": COMPANY_ID,
         "paket_id": PAKET_ID,
         "uebergeben_am": UEBERGEBEN_AM,
@@ -475,6 +494,7 @@ def main():
         "konzept_ids": [k["konzept_id"] for k in konzepte],
         "eintraege": eintraege,
         "prozess_raenge": prozess_raenge,
+        "ausgangslage": als_ausgangslage(mandant, konzepte),
         "gate1": {
             "status": "pending",
             "kommentar": (

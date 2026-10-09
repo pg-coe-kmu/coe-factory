@@ -4,8 +4,8 @@
 
 | Datei | Liefergegenstand | Version |
 |---|---|---|
-| `konzept.schema.json` | L2-01 Automatisierungskonzept, je **Kernprozess** | **3.0** |
-| `priorisierung.schema.json` | L2-02 Priorisierung, je **Analyselauf** | **3.0** |
+| `konzept.schema.json` | L2-01 Automatisierungskonzept, je **Kernprozess** | **3.0** (in v3.1 unverändert) |
+| `priorisierung.schema.json` | L2-02 Priorisierung, je **Analyselauf** | **3.1** (nimmt 3.0 weiter an) |
 | [`archiv/`](archiv/) | eingefrorene v2.0-Fassung für die Lieferung vom 30.08.2026 | 2.0 |
 
 Fixtures liegen in [`../examples/`](../examples/): `mock_automatisierungskonzept.json` (KP-06),
@@ -53,6 +53,36 @@ Die Dateien lagen bis zum 30.08.2026 außerhalb des Repos und davor in zwei weit
 divergierenden Kopien. Sie liegen jetzt hier und werden **nicht noch einmal verschoben** — BC3
 hatte am 20.08. darum gebeten. Aufgeräumt in
 [#162](https://github.com/pg-coe-kmu/coe-factory/issues/162).
+
+## Was sich von v3.0 auf v3.1 geändert hat
+
+**Additiv, ein Feld** ([#254](https://github.com/pg-coe-kmu/coe-factory/issues/254), entschieden in
+[#244](https://github.com/pg-coe-kmu/coe-factory/issues/244)). ⚠️ **Von BC3 noch nicht bestätigt.**
+
+| Was | v3.0 | v3.1 | Warum |
+|---|---|---|---|
+| `ausgangslage` in der Priorisierung | — | `unternehmen{name, branche, mitarbeitende, region, geschaeftsmodell}`, `herausforderungen[]{beschreibung, auswirkung, haeufigkeit?, kp_ids[]}`, `kernaussage?` | Teil 1 der Präsentation hatte im Vertrag keinen Ort. Erzeugte der Foliengenerator sie selbst, trüge die Präsentation eigene Information — unversioniert und nie bei BC3 |
+| `schema_version` der Priorisierung | `const "3.0"` | `"3.0"` oder `"3.1"` | Eine 3.0-Datei bleibt gültig; eine 3.1 **trägt** die Ausgangslage, eine 3.0 **trägt sie nicht** — die Nummer sagt, ob sie da ist |
+
+- **`unternehmen` ist maschinell**, kein LLM: aus `public.companies` und `public.company_profile`
+  auf `stand_zum(uebergeben_am)`. Alle fünf Schlüssel sind Pflicht, jeder Wert darf `null` sein —
+  eine fehlende Angabe ist `null`, nie `0` und nie `""`.
+- **`herausforderungen` erfinden nichts:** es sind die `kontext.hauptschmerzpunkte` aller Konzepte,
+  wörtlich gleiche zusammengeführt (mit allen ihren `kp_ids`), ähnliche getrennt gelassen.
+  `validate.py` prüft, dass beide Mengen übereinstimmen.
+- **`kernaussage` ist optional** — sie entsteht beim Paketaufruf des Erkennungsschritts
+  ([#248](https://github.com/pg-coe-kmu/coe-factory/issues/248)), und die Präsentation soll ohne sie
+  erzeugt werden können.
+- **Nicht übernommen:** Positionierung, Marktumfeld und strategische Ziele aus dem
+  Unternehmensprofil v6.0. Fließtext ohne Datengrundlage im Paket; ihn zu verdichten hieße, im Lauf
+  Aussagen zu erzeugen, die niemand prüfen kann.
+- **`konzept.schema.json` bleibt auf 3.0.** Ein Lauf in v3.1 trägt also Konzepte mit
+  `schema_version: "3.0"` und eine Priorisierung mit `"3.1"` — die Nummer steht je Datei für deren
+  Form, nicht für den Lauf.
+
+**Was BC3 tun muss:** wer die Priorisierung gegen eine eigene Kopie des v3.0-Schemas prüft, lehnt
+eine v3.1 ab (`additionalProperties: false`, `const "3.0"`). Die Kopie ist zu ersetzen; Lesecode,
+der `ausgangslage` nicht kennt, kann es ignorieren.
 
 ## Was sich von v2.0 auf v3.0 geändert hat
 
@@ -114,19 +144,21 @@ python3 -m pip install jsonschema
 python3 bc2-strategic-advisor/tools/validate.py   # aus dem Repo-Wurzelverzeichnis
 ```
 
-Prüft die Fixtures gegen v3.0 und die alte Lieferung gegen die archivierten v2-Schemas, dann die
+Prüft die Fixtures gegen v3.1 und die alte Lieferung gegen die archivierten v2-Schemas, dann die
 fachliche Konsistenz: dass sich das Rechenmodell aus ADR-006 · BC2 nachrechnen lässt (Nutzwert,
 Impact, Score, Kategorie, Prioritätsgruppe), dass Konzepte und Priorisierung eines Laufs sich
-nicht widersprechen, dass der Prozessrang dem jeweils besten Potenzial folgt und dass die beiden
-Textformen eingehalten sind. Exit 0 = grün.
+nicht widersprechen, dass der Prozessrang dem jeweils besten Potenzial folgt, dass die beiden
+Textformen eingehalten sind und dass die Ausgangslage nur zusammenführt, was in den Konzepten steht.
+Exit 0 = grün.
 
 `bc2-strategic-advisor/tools/migriere_bc3_vorlage.py` erzeugt die Fixtures neu. Der frühere
 `gen_mocks.py` ist nach `bc2-strategic-advisor/tools/archiv/gen_mocks_v2.py` eingefroren.
 
 Gefunden wird **jeder** Ordner unter `lieferungen/`, nicht eine feste Liste: was dort liegt und
-nicht die eingefrorene v2-Lieferung ist, läuft gegen v3.0 — Schema, ein Lauf je Ordner, Konzepte
-und Priorisierung decken dieselben Potenziale, Rangfolge wie im Rechenkern, Ordnername
-`<company>-<paket_id>-f<n>`, und bei `paket_id` `SIM-…` die Simulations-Kennzeichnung.
+nicht die eingefrorene v2-Lieferung ist, läuft gegen das aktuelle Schema (nimmt 3.0 und 3.1) —
+Schema, ein Lauf je Ordner, Konzepte und Priorisierung decken dieselben Potenziale, Rangfolge wie
+im Rechenkern, Ordnername `<company>-<paket_id>-f<n>`, bei 3.1 die Ausgangslage (genau die
+Schmerzpunkte der Konzepte, nichts dazu), und bei `paket_id` `SIM-…` die Simulations-Kennzeichnung.
 
 **Die CI prüft das bei jedem PR, der die Lieferstrecke berührt** (#253): Job **„BC2 → BC3
 Lieferungen"** in `.github/workflows/vertraege-pruefen.yml` startet `validate.py`, sobald sich
