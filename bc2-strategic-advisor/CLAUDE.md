@@ -126,7 +126,7 @@ divergierenden Kopien unter `Projektgruppe/BC2/` sind aufgelöst und liegen dort
 | Systemarchitektur (27.06., teils überholt) | `bc2-strategic-advisor/architektur/` |
 | Trigger-Endpunkt (läuft im Betrieb) | `bc2-strategic-advisor/app/app.py`, `app/eingang.py` |
 | **Value- und Priorisierungsmodell** (ADR-006 · BC2) | `bc2-strategic-advisor/app/modell/` — `parameter.py` (Setzungen), `rechnen.py` (reiner Kern), `ausgabe.py` (Vertragsform, seit v3.1 auch die Ausgangslage des Laufs), `laden.py` (Messsatz lesen) |
-| **Erkennungsschritt** (#194 / #248) | `bc2-strategic-advisor/app/erkennung/` — `bestand.py` (Leseseite), `nutzlast.py` (was das Modell sieht), `anweisung.py`, `modellruf.py` (Naht zum LLM), `pruefen.py` (Nachkontrolle) |
+| **Erkennungsschritt** (#194 / #248) | `bc2-strategic-advisor/app/erkennung/` — `bestand.py` (Leseseite), `nutzlast.py` (was das Modell sieht), `anweisung.py` (samt `antwortschema()`), `modellruf.py` (Naht zum LLM: `frage(text, schema)`, SDK über `output_config`, CLI über `--json-schema`), `pruefen.py` (Nachkontrolle) |
 | **Bewertungsschritt** (#260 / #288) | `bc2-strategic-advisor/app/bewertung/` — `nutzlast.py` (ohne Stunden, Euro, Dauern; BC1-Profil → `Schrittmessung`), `anweisung.py`, `pruefen.py` (Wächter 6.5), `bewerten.py` |
 | **Nutzwert-Anker** (Nachtrag 6) | `app/modell/parameter.py`, `nutzwert_anker` — Setzung, am ersten echten Lauf mitzuprüfen |
 | **Ausarbeitungsschritt** (ADR-010 · BC2, #301) | `bc2-strategic-advisor/app/ausarbeitung/` — `nutzlast.py` (je Konzept, ohne Zahl aus der Rechnung), `anweisung.py` (zwei Platzhalter `{grad_min}`/`{grad_max}`), `pruefen.py` (Wächter: Schablonen, Systeme aus Bestand oder Tech-Stack, Rechenverbot), `ausarbeiten.py` (Ablauf und Zusammensetzen) |
@@ -189,6 +189,15 @@ verantwortet.
   Die **Konzepttexte** des Ausarbeitungsschritts sind Darstellung, kein Urteil, das rechnet, und
   tragen ebenfalls keine Zahl mit Einheit — mit genau zwei Platzhaltern, `{grad_min}` und
   `{grad_max}`, in die Python den gerechneten Automatisierungsgrad einsetzt (ADR-010 · BC2, 2.4).
+- **Die Form sichert das Antwortschema, den Inhalt der Wächter** ([#319](https://github.com/pg-coe-kmu/coe-factory/issues/319)).
+  Jeder der drei Schritte gibt neben seiner Anweisung ein Antwortschema mit (`ANTWORTSCHEMA`
+  bzw. `erkennung.anweisung.antwortschema()`); über die API ist gültiges JSON damit garantiert,
+  außer bei `stop_reason` `max_tokens` oder `refusal` — die bleiben benannte Lesefehler. Das
+  Schema kennt kein `minLength`, kein `minimum` und keine Wortgrenzen: Mindestlängen,
+  Rechenverbot, Platzhalter, SOPHIST/GWT und gebundene Systeme prüft weiter Python. Jedes Feld
+  ist Pflicht, Lücken stehen als `null` (die API nimmt höchstens 24 optionale Felder und 16
+  Union-Typen je Request); `tests/test_antwortschema.py` hält das und den Gleichlauf mit dem
+  Ausgabeteil der Anweisung fest. `lies_json` bleibt als Netz darunter.
 - **Gemessen wird je berührtem Teilprozess, nicht je Potenzial** (ADR-006 · BC2, Nachtrag 4/5).
   Jahresstunden = Σ `(step_frequency_per_year ?? frequency_per_year) × focus_step_duration_minutes / 60`,
   Herkunft die schwächste, Komplexität das Maximum. `total_duration_minutes` beschreibt den ganzen

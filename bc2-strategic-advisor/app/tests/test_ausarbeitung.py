@@ -100,7 +100,7 @@ class _JeKonzept:
         self.aendere = aendere or _lexware
         self.fragen: list[str] = []
 
-    def frage(self, text: str) -> Antwort:
+    def frage(self, text: str, schema: dict | None = None) -> Antwort:
         self.fragen.append(text)
         if "## Die Nutzlast" in text:
             n = _nutzlast_aus(text)

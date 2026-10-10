@@ -4,8 +4,10 @@ psycopg2-binary>=2.9
 
 # Der Erkennungsschritt ruft das Modell ueber die Anthropic-API (#248).
 # `erkennung.modellruf` importiert es erst beim Aufruf — der Trigger-Endpunkt
-# und die Tests kommen ohne aus, der Container braucht es.
-anthropic>=0.40
+# und die Tests kommen ohne aus, der Container braucht es. Ab 0.77 kennt
+# `messages.create` den Parameter `output_config` (strukturierte Ausgabe, #319);
+# im Betrieb laeuft 1.13.0.
+anthropic>=0.77
 
 # Die Präsentation am Gate 1 (#257, Format entschieden in #244): reine
 # Python-Abhängigkeit ohne Systempakete. Auf 1.x gehalten — die Entscheidung

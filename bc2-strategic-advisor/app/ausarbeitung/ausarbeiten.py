@@ -39,7 +39,7 @@ from erkennung.modellruf import Modellruf
 from modell.ausgabe import als_ausgangslage, als_eingangswerte
 from modell.rechnen import Lauf
 
-from .anweisung import PLATZHALTER, baue_frage
+from .anweisung import ANTWORTSCHEMA, PLATZHALTER, baue_frage
 from .nutzlast import baue_nutzlast
 from .pruefen import Erwartung, normalisiere, pruefe_ausarbeitung
 
@@ -290,7 +290,7 @@ def arbeite_aus(
         while True:
             versuch += 1
             frage = baue_frage(nutzlast, gruende or None)
-            antwort = modell.frage(frage)
+            antwort = modell.frage(frage, schema=ANTWORTSCHEMA)
             gruende = list(pruefe_ausarbeitung(antwort.ergebnis, erwartung))
             if antwort.lesefehler:
                 gruende.append(antwort.lesefehler)

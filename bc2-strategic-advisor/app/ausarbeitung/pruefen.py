@@ -23,14 +23,9 @@ from typing import Any, Iterator
 
 from erkennung.pruefen import ZAHL_MIT_EINHEIT
 
-from .anweisung import PLATZHALTER
+from .anweisung import INTEGRATIONEN, PLATZHALTER, ROLLEN, STUFEN
 
 __all__ = ["Erwartung", "ROLLEN", "INTEGRATIONEN", "STUFEN", "normalisiere", "pruefe_ausarbeitung"]
-
-#: Die Aufzählungen aus ``konzept.schema.json`` v3.1.
-ROLLEN = ("Quelle", "Ziel", "Quelle+Ziel")
-INTEGRATIONEN = ("API", "RPA", "Datei", "DB", "Email", "OCR", "Manuell")
-STUFEN = ("low", "med", "high")
 
 #: Mindestlängen aus dem Vertrag. ``beschreibung`` und ``to_be_vision`` werden
 #: am **Rohtext** gemessen, vor dem Einsetzen — ein Platzhalter macht einen zu

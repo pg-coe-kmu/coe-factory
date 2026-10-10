@@ -18,6 +18,16 @@ Schritt ohne API-Schlüssel an einem echten Aufruf zu messen.
 **Tests rufen nie ein Modell.** :class:`Doppelgaenger` antwortet aus einer
 Liste. Er beweist nichts über das Modell — er hält die Prüfkette prüfbar.
 
+**Die Form sichert das Antwortschema, den Inhalt der Wächter (#319).** Jeder
+Schritt reicht neben seiner Anweisung ein Schema mit. :class:`SdkModell` gibt es
+als ``output_config`` weiter, und die API dekodiert beschränkt: die Antwort *ist*
+gültiges JSON in dieser Form — außer bei ``stop_reason`` ``max_tokens`` oder
+``refusal``, die darum eigene Lesefehler bleiben. :class:`CliModell` gibt es als
+``--json-schema`` weiter; die CLI dekodiert nicht beschränkt, sondern prüft und
+fragt nach. Mindestlängen, Rechenverbot, Platzhalter, SOPHIST/GWT und gebundene
+Systeme kann ein Schema nicht ausdrücken (kein ``minLength``, keine Muster mit
+Wortgrenzen) — sie bleiben in Python. :func:`lies_json` bleibt als Netz darunter.
+
 Modellwahl: **Sonnet** als Voreinstellung, weil die Entscheidung in #194 auf
 Sonnet gemessen wurde. Auf Opus zu wechseln hieße, den einzigen Beleg gegen ein
 ungemessenes Modell zu tauschen; es bleibt ein Parameter, kein Umbau.
@@ -35,7 +45,7 @@ from typing import Protocol
 
 __all__ = [
     "Antwort", "CliModell", "Doppelgaenger", "Modellruf", "SdkModell",
-    "lies_json", "protokolliere_unlesbar", "schaele_json",
+    "lies_json", "objekt", "oder_null", "protokolliere_unlesbar", "schaele_json",
 ]
 
 #: Voreinstellung. Siehe Modulkopf.
@@ -72,10 +82,31 @@ class Antwort:
 
 
 class Modellruf(Protocol):
-    """Was der Erkennungsschritt vom Modell braucht — mehr nicht."""
+    """Was die drei Schritte vom Modell brauchen — mehr nicht."""
 
-    def frage(self, text: str) -> Antwort:
+    def frage(self, text: str, schema: dict | None = None) -> Antwort:
         ...
+
+
+def objekt(**eigenschaften: dict) -> dict:
+    """Ein Objekt im Antwortschema: jedes Feld Pflicht, keine fremden Felder.
+
+    Alles Pflicht, weil die API höchstens 24 optionale Felder je Request
+    zulässt und optionale Felder in der Ausgabe hinter die Pflichtfelder
+    rücken. Was fehlen darf, ist :func:`oder_null` — ausdrücklich ``null``
+    statt weggelassen, wie es die Anweisungen ohnehin verlangen.
+    """
+    return {
+        "type": "object",
+        "properties": eigenschaften,
+        "required": list(eigenschaften),
+        "additionalProperties": False,
+    }
+
+
+def oder_null(schema: dict) -> dict:
+    """Ein Feld, das ``null`` sein darf. Zählt gegen die 16 Union-Typen."""
+    return {**schema, "type": [schema["type"], "null"]}
 
 
 def lies_json(roh: str) -> tuple[dict | None, str | None]:
@@ -168,17 +199,14 @@ class SdkModell:
     Paket wird erst beim Aufruf importiert, damit Tests und der Trigger-Endpunkt
     ohne es auskommen.
 
-    .. warning::
-       **Beim Bau (#248) nicht gefahren** — es lag kein ``ANTHROPIC_API_KEY``
-       vor. Gemessen wurde über :class:`CliModell`. Der erste echte Lauf über
-       diesen Weg gehört zu #206.
+    Erster echter Lauf am 10.10.2026 (#206); mit Antwortschema seit #319.
     """
 
     modell: str = "claude-sonnet-4-6"
     max_token: int = STANDARD_MAX_TOKEN
     schluessel: str | None = None
 
-    def frage(self, text: str) -> Antwort:
+    def frage(self, text: str, schema: dict | None = None) -> Antwort:
         import anthropic
 
         schluessel = self.schluessel or (os.environ.get("ANTHROPIC_API_KEY") or "").strip()
@@ -189,10 +217,16 @@ class SdkModell:
             )
         klient = anthropic.Anthropic(api_key=schluessel)
         beginn = time.monotonic()
+        zusatz = (
+            {"output_config": {"format": {"type": "json_schema", "schema": schema}}}
+            if schema is not None
+            else {}
+        )
         antwort = klient.messages.create(
             model=self.modell,
             max_tokens=self.max_token,
             messages=[{"role": "user", "content": text}],
+            **zusatz,
         )
         roh = "".join(b.text for b in antwort.content if getattr(b, "type", "") == "text")
         # Jeder Aufruf ins Protokoll: Abbruchgrund, Token, Dauer. Der zweite echte
@@ -206,8 +240,19 @@ class SdkModell:
             getattr(nutzung, "input_tokens", "?"), getattr(nutzung, "output_tokens", "?"),
             time.monotonic() - beginn, len(roh),
         )
-        if antwort.stop_reason == "max_tokens":
-            roh += f"\n[BC2: abgeschnitten bei max_tokens={self.max_token}]"
+        # Die beiden Fälle, in denen auch das Schema nichts garantiert: die
+        # Antwort ist abgeschnitten oder eine Ablehnung. Nicht schälen — ein
+        # zufällig lesbarer Rest wäre schlimmer als ein benannter Fehler.
+        grund = {
+            "max_tokens": (
+                f"Die Antwort ist bei max_tokens={self.max_token} abgeschnitten "
+                "(stop_reason=max_tokens). Fasse die Texte knapper."
+            ),
+            "refusal": "Das Modell hat die Antwort abgelehnt (stop_reason=refusal).",
+        }.get(antwort.stop_reason)
+        if grund:
+            protokolliere_unlesbar(self.modell, roh, grund)
+            return Antwort(roh=roh, ergebnis=None, modell=self.modell, lesefehler=grund)
         return _antwort(roh, self.modell)
 
 
@@ -216,21 +261,62 @@ class CliModell:
     """Die Werkbank: ``claude -p`` als Unterprozess, wie im Prototyp zu #194.
 
     Nur für Messungen von Hand. Im Container gibt es die CLI nicht.
+
+    Mit Schema antwortet die CLI als JSON-Hülle (``--output-format json``), das
+    Ergebnis steht in ``structured_output``. Die CLI dekodiert nicht beschränkt,
+    sie prüft gegen das Schema und fragt selbst nach; gibt sie auf
+    (``error_max_structured_output_retries``) oder meldet ``success`` ohne
+    Ergebnis, ist das ein Lesefehler wie jeder andere.
     """
 
     modell: str = STANDARDMODELL
     zeitgrenze_s: int = 900
 
-    def frage(self, text: str) -> Antwort:
+    def frage(self, text: str, schema: dict | None = None) -> Antwort:
+        befehl = ["claude", "-p", "--model", self.modell]
+        if schema is not None:
+            befehl += [
+                "--output-format", "json",
+                "--json-schema", json.dumps(schema, ensure_ascii=False),
+            ]
         lauf = subprocess.run(
-            ["claude", "-p", "--model", self.modell, text],
+            befehl + [text],
             capture_output=True,
             text=True,
             timeout=self.zeitgrenze_s,
         )
-        if lauf.returncode != 0:
-            raise RuntimeError(f"claude-CLI scheiterte: {lauf.stderr[-2000:]}")
-        return _antwort(lauf.stdout, f"cli:{self.modell}")
+        name = f"cli:{self.modell}"
+        if schema is None:
+            if lauf.returncode != 0:
+                raise RuntimeError(f"claude-CLI scheiterte: {lauf.stderr[-2000:]}")
+            return _antwort(lauf.stdout, name)
+        return _aus_huelle(lauf.stdout, lauf.stderr, name)
+
+
+def _aus_huelle(stdout: str, stderr: str, modell: str) -> Antwort:
+    """Das Ergebnis aus der JSON-Hülle der CLI — oder der Grund, warum keines da ist.
+
+    Der Rückgabewert des Prozesses entscheidet nicht: ein gescheiterter Lauf
+    druckt seine Hülle trotzdem, und erst ``subtype`` sagt, woran er scheiterte.
+    """
+    try:
+        huelle = json.loads(stdout)
+    except json.JSONDecodeError:
+        raise RuntimeError(
+            f"claude-CLI lieferte keine JSON-Hülle: {(stderr or stdout)[-2000:]}"
+        ) from None
+    ergebnis = huelle.get("structured_output") if isinstance(huelle, dict) else None
+    art = huelle.get("subtype") if isinstance(huelle, dict) else None
+    if art == "success" and isinstance(ergebnis, dict):
+        return Antwort(
+            roh=json.dumps(ergebnis, ensure_ascii=False), ergebnis=ergebnis, modell=modell
+        )
+    if art == "success":
+        grund = "Die CLI meldet Erfolg, aber ohne structured_output."
+    else:
+        grund = f"Die CLI hat kein schemagültiges Ergebnis geliefert ({art})."
+    protokolliere_unlesbar(modell, stdout, grund)
+    return Antwort(roh=stdout, ergebnis=None, modell=modell, lesefehler=grund)
 
 
 @dataclass
@@ -247,10 +333,15 @@ class Doppelgaenger:
     #: Jede gestellte Frage, in der Reihenfolge — damit ein Test prüfen kann,
     #: dass die Wiederholung die Mahnung wirklich mitführt.
     fragen: list[str] = field(default_factory=list)
+    #: Das mitgegebene Antwortschema je Frage. Geprüft wird die vorbereitete
+    #: Antwort dagegen **nicht** — die Tests füttern absichtlich auch Formen,
+    #: die nur über die CLI oder ohne Schema ankommen können.
+    schemas: list[dict | None] = field(default_factory=list)
     modell: str = "doppelgaenger"
 
-    def frage(self, text: str) -> Antwort:
+    def frage(self, text: str, schema: dict | None = None) -> Antwort:
         self.fragen.append(text)
+        self.schemas.append(schema)
         if not self.antworten:
             raise AssertionError(
                 "Doppelgaenger: mehr Aufrufe als vorbereitete Antworten "

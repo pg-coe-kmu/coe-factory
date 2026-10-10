@@ -61,11 +61,11 @@ class _Protokollierend:
         self.aus = aus
         self.zaehler = 0
 
-    def frage(self, text: str):
+    def frage(self, text: str, schema: dict | None = None):
         self.zaehler += 1
         nr = self.zaehler
         t = time.time()
-        antwort = self.innen.frage(text)
+        antwort = self.innen.frage(text, schema)
         (self.aus / f"antwort-{nr:02d}.txt").write_text(antwort.roh, encoding="utf-8")
         print(f"  Aufruf {nr:>2}: {time.time() - t:.0f} s, {len(text)} Zeichen Frage, "
               f"{len(antwort.roh)} Zeichen Antwort", flush=True)

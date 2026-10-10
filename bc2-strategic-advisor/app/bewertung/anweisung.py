@@ -12,6 +12,11 @@ Das Rechenverbot gilt hier für die **Begründungstexte**. Genau diese Trennung
 kennt der Wächter aus #248 nicht (er prüft das ganze JSON); der Wächter dieses
 Schritts prüft nur die Texte (6.5).
 
+**Das Antwortschema sichert die Form, nicht die Lage** (#319). Die Noten 1–10
+stehen dort als Aufzählung, weil die API ``minimum``/``maximum`` nicht kennt;
+ob die Lage im Korridor liegt, hängt an der Klasse jedes Potenzials und bleibt
+im Wächter.
+
 **Die Anker stehen nicht hier, sondern in der Nutzlast.** Sie sind eine Setzung
 in :mod:`modell.parameter` und sollen sich dort ändern lassen, ohne die
 Anweisung anzufassen.
@@ -21,7 +26,11 @@ from __future__ import annotations
 
 import json
 
-__all__ = ["ANWEISUNG", "MAHNUNG", "baue_frage"]
+from erkennung.modellruf import objekt, oder_null
+
+from .pruefen import KATEGORIEN
+
+__all__ = ["ANTWORTSCHEMA", "ANWEISUNG", "MAHNUNG", "baue_frage"]
 
 ANWEISUNG = """\
 Du bist der Bewertungsschritt von BC2 (Strategic Advisor) in einer CoE-Factory.
@@ -116,6 +125,26 @@ Antworte mit NICHTS als einem JSON-Objekt dieser Form, ein Eintrag je Potenzial:
   ]
 }
 """
+
+_TEXT = {"type": "string"}
+_NOTE = {"type": "integer", "enum": list(range(1, 11))}
+
+#: Die Form der Antwort, wie sie die API beim Dekodieren einhält (#319).
+#: Feldreihenfolge wie im Ausgabeteil der Anweisung.
+ANTWORTSCHEMA = objekt(
+    bewertungen={"type": "array", "items": objekt(
+        id=_TEXT,
+        angesetzt_min_pct={"type": "number"},
+        angesetzt_max_pct={"type": "number"},
+        korridor_begruendung=_TEXT,
+        nutzwert=objekt(**{k: objekt(wert=_NOTE, begruendung=_TEXT) for k in KATEGORIEN}),
+        komplexitaet_ueberschrieben={"enum": [*range(1, 11), None]},
+        komplexitaet_begruendung=oder_null(_TEXT),
+        aufwand_schaetzung_pt={"type": "number"},
+        aufwand_begruendung=_TEXT,
+        klassenzweifel=oder_null(_TEXT),
+    )},
+)
 
 MAHNUNG = """\
 
