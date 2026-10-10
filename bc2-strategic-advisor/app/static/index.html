@@ -1094,6 +1094,7 @@ function zeigeTor(text){
     <button class="btn" id="anmelden">weiter</button>
   </div>`;
   document.getElementById("schluesselfeld").focus();
+  document.getElementById("schluesselfeld").focus();
 }
 
 async function ladeListe(){
@@ -1374,6 +1375,16 @@ document.addEventListener("click", async e => {
   if (ziel && !t.closest("[data-frei]")){
     Z.gewaehlt = Z.gewaehlt === ziel.dataset.id ? null : ziel.dataset.id;
     return zeichne();
+  }
+});
+
+// Enter im Schlüsselfeld meldet an wie „weiter“. Ohne das blieb, wer einfügte und
+// Enter drückte, vor einer leeren Laufauswahl stehen — und hielt den Lauf für
+// „nicht auswählbar“ (10.10.2026).
+document.addEventListener("keydown", e => {
+  if (e.key === "Enter" && e.target.id === "schluesselfeld"){
+    e.preventDefault();
+    document.getElementById("anmelden").click();
   }
 });
 

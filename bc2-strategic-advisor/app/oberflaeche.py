@@ -411,7 +411,13 @@ def erzeuge_seiten_router() -> APIRouter:
     unter einem Pfad, den sich niemand merkt.
     """
     router = APIRouter()
-    kopf = {"Content-Security-Policy": seiten_csp((STATIC / "index.html").read_text("utf-8"))}
+    kopf = {
+        "Content-Security-Policy": seiten_csp((STATIC / "index.html").read_text("utf-8")),
+        # Nach jedem Ausrollen die neue Seite, nie eine alte aus dem Cache: ohne
+        # Cache-Control darf der Browser sie nach Gutdünken frisch halten, und
+        # ein altes Skript gegen einen neuen Server bricht still.
+        "Cache-Control": "no-cache",
+    }
 
     @router.get("/", include_in_schema=False)
     def seite():

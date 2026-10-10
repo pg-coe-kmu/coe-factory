@@ -459,3 +459,15 @@ def test_anmelden_rechnet_nichts_gerechnet_wird_auf_knopfdruck(seite_teuer):
     seite.wait_for_selector("#buehne h1", timeout=15000)  # „Priorisierung“: der Lauf ist da
     assert teuer.gerechnet == 1
     assert "Potenziale" in seite.locator("#laufwahl").inner_text()
+
+
+def test_enter_im_schluesselfeld_meldet_an(dienst):
+    """Wer den Schlüssel einfügt und Enter drückt, ist angemeldet (10.10.2026)."""
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        blatt = browser.new_page()
+        blatt.goto(dienst, wait_until="networkidle")
+        blatt.fill("#schluesselfeld", SCHLUESSEL)
+        blatt.press("#schluesselfeld", "Enter")
+        blatt.wait_for_selector(".kpblock", timeout=10_000)
+        browser.close()
