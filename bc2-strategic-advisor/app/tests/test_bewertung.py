@@ -430,6 +430,17 @@ def test_eine_wiederholung_mit_benanntem_verstoss_dann_durch():
     assert "ACHTUNG" in modell.fragen[-1] and "ausserhalb des Korridors" in modell.fragen[-1]
 
 
+def test_die_mahnung_nennt_die_stelle_an_der_das_json_bricht():
+    bestand = _bestand()
+    kaputt = json.dumps(_gut(), ensure_ascii=False)[:-1]  # die letzte Klammer fehlt
+    modell = Doppelgaenger([_erkannt(), kaputt, _gut()])
+    erkennung = erkenne(bestand, modell)
+
+    bewerte(erkennung, bestand, modell, urteile=1)
+
+    assert "ACHTUNG" in modell.fragen[-1] and "Spalte" in modell.fragen[-1]
+
+
 def test_bricht_die_wiederholung_auch_haelt_der_lauf_an():
     bestand = _bestand()
     schlecht = _gut()

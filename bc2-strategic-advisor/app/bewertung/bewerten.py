@@ -227,6 +227,8 @@ def bewerte(
             frage = baue_frage(nutzlast, gruende or None)
             antwort = modell.frage(frage)
             gruende = list(pruefe_bewertung(antwort.ergebnis, erwartet))
+            if antwort.lesefehler:
+                gruende.append(antwort.lesefehler)
             if not gruende:
                 break
             verworfen.extend(gruende)

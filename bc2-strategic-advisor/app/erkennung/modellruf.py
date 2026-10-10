@@ -33,7 +33,10 @@ import time
 from dataclasses import dataclass, field
 from typing import Protocol
 
-__all__ = ["Antwort", "CliModell", "Doppelgaenger", "Modellruf", "SdkModell", "schaele_json"]
+__all__ = [
+    "Antwort", "CliModell", "Doppelgaenger", "Modellruf", "SdkModell",
+    "lies_json", "protokolliere_unlesbar", "schaele_json",
+]
 
 #: Voreinstellung. Siehe Modulkopf.
 _log = logging.getLogger("bc2.modell")
@@ -55,6 +58,9 @@ class Antwort:
     #: ``None``, wenn sich aus der Antwort kein JSON schälen ließ.
     ergebnis: dict | None
     modell: str
+    #: Warum ``ergebnis`` fehlt — als fertiger Prüfgrund mit Stelle und Umfeld,
+    #: damit er in die Mahnung und an den Lauf gehen kann (#317).
+    lesefehler: str | None = None
 
     @property
     def potenziale(self) -> list[dict]:
@@ -72,31 +78,85 @@ class Modellruf(Protocol):
         ...
 
 
-def schaele_json(roh: str) -> dict | None:
-    """Zieht das JSON-Objekt aus einer Modellantwort.
+def lies_json(roh: str) -> tuple[dict | None, str | None]:
+    """Zieht das JSON-Objekt aus einer Modellantwort — oder sagt, woran es bricht.
 
-    Übernommen aus dem Prototyp. Das Modell hält sich meist an „antworte mit
-    nichts als JSON", aber eben nur meist — und ein Lauf an einem
-    Einleitungssatz scheitern zu lassen, wäre teurer Purismus.
+    Gelesen wird ab der ersten ``{`` mit ``raw_decode``: das endet am Ende des
+    Objekts, also stören weder ein äußerer ```` ```json ````-Zaun noch ein
+    Nachsatz. Bis #317 wurde die Antwort an *jedem* Zaun zerlegt — ein
+    Codeblock in einem Markdown-Feld (``loesungsansatz``) schnitt das JSON dann
+    mittendrin ab, und drei von vier Ausarbeitungen scheiterten daran.
+
+    Die Zerlegung am Zaun bleibt als Rückfall für eine Einleitung, die selbst
+    eine ``{`` enthält. Der Lesefehler stammt aus dem ersten Versuch, weil der
+    auf das ganze Objekt zielt.
     """
     t = roh.strip()
-    if "```" in t:
-        for teil in t.split("```"):
-            teil = teil.lstrip()
-            if teil.startswith("json"):
-                teil = teil[4:]
-            teil = teil.strip()
-            if teil.startswith("{"):
-                t = teil
-                break
-    a, b = t.find("{"), t.rfind("}")
-    if a == -1 or b == -1:
-        return None
+    a = t.find("{")
+    if a == -1:
+        return None, (
+            "Die Antwort enthält kein JSON-Objekt: es gibt keine öffnende "
+            "geschweifte Klammer {."
+        )
     try:
-        geschaelt = json.loads(t[a : b + 1])
-    except json.JSONDecodeError:
-        return None
-    return geschaelt if isinstance(geschaelt, dict) else None
+        gelesen, _ = json.JSONDecoder().raw_decode(t, a)
+    except json.JSONDecodeError as fehler:
+        gelesen, lesefehler = None, _lesefehler(fehler)
+    else:
+        if isinstance(gelesen, dict):
+            return gelesen, None
+        lesefehler = "Die Antwort ist kein JSON-Objekt, sondern ein anderer JSON-Wert."
+    for teil in t.split("```")[1:]:
+        teil = teil.lstrip()
+        if teil.startswith("json"):
+            teil = teil[4:]
+        teil = teil.strip()
+        if teil.startswith("{"):
+            try:
+                gelesen, _ = json.JSONDecoder().raw_decode(teil)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(gelesen, dict):
+                return gelesen, None
+    return None, lesefehler
+
+
+def _lesefehler(fehler: json.JSONDecodeError, rand: int = 100) -> str:
+    """Stelle und Umfeld eines Lesefehlers, für Mensch und Modell lesbar."""
+    s, pos = fehler.doc, fehler.pos
+    umfeld = s[max(0, pos - rand) : pos] + "⟦hier⟧" + s[pos : pos + rand]
+    return (
+        f"Die Antwort ist kein gültiges JSON: {fehler.msg} "
+        f"(Zeile {fehler.lineno}, Spalte {fehler.colno}). Umfeld: {umfeld!r}. "
+        'Häufigste Ursache: ein Anführungszeichen " in einem Text, das nicht '
+        'als \\" geschützt ist.'
+    )
+
+
+def schaele_json(roh: str) -> dict | None:
+    """Nur das Objekt aus :func:`lies_json` — für alle, die den Grund nicht brauchen."""
+    return lies_json(roh)[0]
+
+
+def protokolliere_unlesbar(modell: str, roh: str, lesefehler: str | None) -> None:
+    """Die **ganze** Rohantwort ins Protokoll, wenn sie sich nicht lesen ließ.
+
+    Am Lauf stehen nur Anfang und Ende; beim ersten Fehlschlag (#317) ließ sich
+    deshalb nicht sagen, woran 27.726 Zeichen gescheitert waren. Ins Log, nicht
+    in die Datenbank: die Antwort trägt die Texte des Mandanten, und eine
+    Fehlerspalte ist kein Archiv.
+    """
+    _log.warning(
+        "Antwort von %s nicht lesbar (%s). Vollständig, %d Zeichen:\n%s",
+        modell, lesefehler, len(roh), roh,
+    )
+
+
+def _antwort(roh: str, modell: str, *, protokollieren: bool = True) -> Antwort:
+    ergebnis, lesefehler = lies_json(roh)
+    if ergebnis is None and protokollieren:
+        protokolliere_unlesbar(modell, roh, lesefehler)
+    return Antwort(roh=roh, ergebnis=ergebnis, modell=modell, lesefehler=lesefehler)
 
 
 @dataclass
@@ -148,7 +208,7 @@ class SdkModell:
         )
         if antwort.stop_reason == "max_tokens":
             roh += f"\n[BC2: abgeschnitten bei max_tokens={self.max_token}]"
-        return Antwort(roh=roh, ergebnis=schaele_json(roh), modell=self.modell)
+        return _antwort(roh, self.modell)
 
 
 @dataclass
@@ -170,9 +230,7 @@ class CliModell:
         )
         if lauf.returncode != 0:
             raise RuntimeError(f"claude-CLI scheiterte: {lauf.stderr[-2000:]}")
-        return Antwort(
-            roh=lauf.stdout, ergebnis=schaele_json(lauf.stdout), modell=f"cli:{self.modell}"
-        )
+        return _antwort(lauf.stdout, f"cli:{self.modell}")
 
 
 @dataclass
@@ -204,4 +262,4 @@ class Doppelgaenger:
             if isinstance(naechste, str)
             else json.dumps(naechste, ensure_ascii=False)
         )
-        return Antwort(roh=roh, ergebnis=schaele_json(roh), modell=self.modell)
+        return _antwort(roh, self.modell, protokollieren=False)
