@@ -48,7 +48,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 from fastapi import APIRouter, Request
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 
 from ablage import NeulaufNichtErlaubt
 from gate1 import (
@@ -402,7 +402,7 @@ def erzeuge_router(
     return router
 
 
-def erzeuge_seiten_router() -> APIRouter:
+def erzeuge_seiten_router(vorschau: bool = False) -> APIRouter:
     """Liefert die Oberfläche selbst aus.
 
     Eine Datei, kein Bauschritt, über ``StaticFiles`` — die Technikentscheidung
@@ -411,8 +411,15 @@ def erzeuge_seiten_router() -> APIRouter:
     unter einem Pfad, den sich niemand merkt.
     """
     router = APIRouter()
+    html = (STATIC / "index.html").read_text("utf-8")
+    if vorschau:
+        # Das Kennzeichen sitzt am <body>, nicht im Skript: so bleibt der Hash in
+        # der Policy derselbe, und es steht schon vor der Anmeldung da.
+        html = html.replace("\n<body>\n", "\n<body data-vorschau>\n", 1)
+        if "<body data-vorschau>" not in html:
+            raise RuntimeError("index.html: <body> steht nicht auf eigener Zeile")
     kopf = {
-        "Content-Security-Policy": seiten_csp((STATIC / "index.html").read_text("utf-8")),
+        "Content-Security-Policy": seiten_csp(html),
         # Nach jedem Ausrollen die neue Seite, nie eine alte aus dem Cache: ohne
         # Cache-Control darf der Browser sie nach Gutdünken frisch halten, und
         # ein altes Skript gegen einen neuen Server bricht still.
@@ -421,7 +428,7 @@ def erzeuge_seiten_router() -> APIRouter:
 
     @router.get("/", include_in_schema=False)
     def seite():
-        return FileResponse(STATIC / "index.html", headers=kopf)
+        return HTMLResponse(html, headers=kopf)
 
     return router
 

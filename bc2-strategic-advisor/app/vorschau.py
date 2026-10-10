@@ -47,7 +47,11 @@ def main() -> int:
 
     # Vor dem Import von app.py: der Lebenszyklus verweigert sonst den Start.
     os.environ["BC2_TRIGGER_TOKEN"] = argumente.schluessel
-    os.environ.pop("DATABASE_URL", None)
+    os.environ["BC2_VORSCHAU"] = "1"  # Kennzeichen „VORSCHAU“ im Kopf der Seite
+    # Nichts aus dem Betrieb: keine Datenbank, kein Modell, kein echter Weg —
+    # auch wenn die Umgebung (etwa im Container) etwas davon mitbrächte.
+    for name in ("DATABASE_URL", "ANTHROPIC_API_KEY", "BC2_LAUFQUELLE"):
+        os.environ.pop(name, None)
 
     import uvicorn
 

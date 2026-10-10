@@ -73,7 +73,23 @@ def test_die_seite_wird_ausgeliefert(client):
     assert antwort.status_code == 200
     assert "text/html" in antwort.headers["content-type"]
     # Sie holt ihre Daten selbst; im Auslieferungsstand steht nichts Fachliches.
-    assert "/api/oberflaeche/laeufe" in antwort.text
+    # Relativ, damit sie auch unter /vorschau/ ihren eigenen Dienst ruft.
+    assert '"api/oberflaeche/laeufe"' in antwort.text
+    assert '"/api/oberflaeche' not in antwort.text and "`/api/oberflaeche" not in antwort.text
+    assert "data-vorschau" not in antwort.text.split("<body")[1][:30]
+
+
+def test_die_vorschau_ist_gekennzeichnet_und_ihre_policy_passt(monkeypatch, buch, gate1_buch, laufquelle):
+    """Das Kennzeichen steht am <body>, nicht im Skript — der Hash bleibt derselbe."""
+    from fastapi.testclient import TestClient
+
+    from app import erzeuge_app
+
+    normal = TestClient(erzeuge_app(buch, laufquelle=laufquelle, gate1_buch=gate1_buch)).get("/")
+    monkeypatch.setenv("BC2_VORSCHAU", "1")
+    vorschau = TestClient(erzeuge_app(buch, laufquelle=laufquelle, gate1_buch=gate1_buch)).get("/")
+    assert "<body data-vorschau>" in vorschau.text
+    assert vorschau.headers["content-security-policy"] == normal.headers["content-security-policy"]
 
 
 def test_die_seite_traegt_keine_daten_im_quelltext(client):
