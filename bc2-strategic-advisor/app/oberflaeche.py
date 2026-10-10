@@ -33,7 +33,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import logging
-import re
+from html.parser import HTMLParser
 from pathlib import Path
 
 from fastapi import APIRouter, Request
@@ -340,6 +340,36 @@ def erzeuge_seiten_router() -> APIRouter:
     return router
 
 
+class _Skripte(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=False)
+        self.inhalte: list[str] = []
+        self._offen = False
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "script" and not dict(attrs).get("src"):
+            self._offen = True
+            self.inhalte.append("")
+
+    def handle_endtag(self, tag):
+        if tag == "script":
+            self._offen = False
+
+    def handle_data(self, data):
+        if self._offen:
+            self.inhalte[-1] += data
+
+
+def inline_skripte(html: str) -> list[str]:
+    """Der Inhalt jedes Inline-``<script>``, Zeichen für Zeichen wie der Browser
+    ihn hasht — über den Parser statt einen Ausdruck, damit Groß-/Kleinschreibung
+    und Attribute am Tag den Hash nicht still verlieren."""
+    leser = _Skripte()
+    leser.feed(html)
+    leser.close()
+    return leser.inhalte
+
+
 def seiten_csp(html: str) -> str:
     """Die Content-Security-Policy der Seite — so eng, wie die eine Datei es zulässt.
 
@@ -355,10 +385,9 @@ def seiten_csp(html: str) -> str:
     die Seite setzt ``style``-Attribute in erzeugtem HTML, und die deckt kein
     Hash. Ein Stil kann kein Skript ausführen.
     """
-    skripte = re.findall(r"<script>(.*?)</script>", html, flags=re.S)
     hashes = " ".join(
         "'sha256-" + base64.b64encode(hashlib.sha256(s.encode("utf-8")).digest()).decode() + "'"
-        for s in skripte
+        for s in inline_skripte(html)
     )
     return (
         f"default-src 'none'; script-src {hashes}; style-src 'unsafe-inline'; "

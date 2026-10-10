@@ -719,13 +719,16 @@ def test_die_seite_bringt_ihre_eigene_enge_policy_mit(client):
     Die Browsertests laufen unter genau dieser Policy; hier steht, wie sie aussieht."""
     import base64
     import hashlib
-    import re
 
-    from oberflaeche import STATIC
+    from oberflaeche import STATIC, inline_skripte
 
     antwort = client.get("/")
     csp = antwort.headers["content-security-policy"]
-    (skript,) = re.findall(r"<script>(.*?)</script>", (STATIC / "index.html").read_text("utf-8"), re.S)
+    # Gegenprobe ohne den Parser: von Hand zwischen den Tags geschnitten.
+    html = (STATIC / "index.html").read_text("utf-8")
+    anfang = html.index("<script>") + len("<script>")
+    skript = html[anfang:html.index("</script>", anfang)]
+    assert inline_skripte(html) == [skript]
     erwartet = base64.b64encode(hashlib.sha256(skript.encode("utf-8")).digest()).decode()
     assert f"script-src 'sha256-{erwartet}'" in csp
     assert "'unsafe-inline'" not in csp.split("script-src")[1].split(";")[0]
@@ -735,3 +738,10 @@ def test_die_seite_bringt_ihre_eigene_enge_policy_mit(client):
 def test_die_json_api_bringt_keine_eigene_policy_mit(client, kopf):
     """Dort setzt Caddy ``default-src 'none'`` — die Anwendung darf es nicht überschreiben."""
     assert "content-security-policy" not in client.get("/api/oberflaeche/laeufe", headers=kopf).headers
+
+
+def test_der_hash_uebersteht_schreibweise_und_attribute():
+    from oberflaeche import inline_skripte
+
+    html = '<SCRIPT type="module">a < b</SCRIPT><script src="x.js"></script><Script>c</Script>'
+    assert inline_skripte(html) == ["a < b", "c"]
