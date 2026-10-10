@@ -15,6 +15,13 @@ services:
       # app/ und damit ausserhalb des Bau-Kontexts — ohne diese Einhaengung
       # zeigte die Oberflaeche im Container keinen einzigen Lauf (#290).
       - BC2_MESSSAETZE=/kalibrierung
+      # Der echte Weg (#288): `pakete` schaltet Erkennung, Bewertung und
+      # Ausarbeitung ueber das Modell ein; leer bleibt es beim Messsatz. Beides
+      # kam bis #306 gar nicht im Container an — die .env allein reicht nicht,
+      # was hier nicht steht, sieht die Anwendung nicht.
+      - BC2_LAUFQUELLE=${BC2_LAUFQUELLE:-}
+      # Nur fuer den echten Weg. Liegt ausschliesslich in der Server-.env (ADR-003).
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
     volumes:
       - ../kalibrierung:/kalibrierung:ro
     expose:
