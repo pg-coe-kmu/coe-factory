@@ -1,0 +1,366 @@
+{
+  "konzept_id": "5d82f848-fdbc-40a9-9169-c03c0893b077",
+  "ersetzt_konzept_id": null,
+  "schema_version": "3.1",
+  "company_id": "7c2d5ee9-2a9a-5990-810f-502ea2b2012d",
+  "paket_id": "8c7d19c1-838c-458f-aa59-39ca8194753e",
+  "uebergeben_am": "2026-09-18T08:05:19.912797+00:00",
+  "gelesen_am": "2026-10-10T10:08:35.950630+00:00",
+  "fassung": 1,
+  "erzeugt_am": "2026-10-10T10:11:21.878871+00:00",
+  "erzeugt_von": "bc2-strategic-advisor · Ausarbeitung · claude-sonnet-4-6",
+  "kontext": {
+    "prozess_kurzbeschreibung": "Mitarbeitende suchen bei Wissensbedarf manuell in Google Drive, öffnen und lesen Dokumente einzeln und geben Antworten unstrukturiert und ohne Quellennachweis mündlich oder per Mail weiter.",
+    "kp_id": "KP-05",
+    "unternehmen": "NoroAI Consulting GmbH",
+    "hauptschmerzpunkte": [
+      {
+        "beschreibung": "Manuelles Öffnen und Durchlesen einzelner Dokumente",
+        "haeufigkeit": "Tritt bei jeder Wissensanfrage auf",
+        "auswirkung": "Der Suchvorgang bindet erhebliche Arbeitszeit, die nicht für wertschöpfende Beratungsarbeit zur Verfügung steht."
+      },
+      {
+        "beschreibung": "Suchergebnis ist abhängig vom Erfahrungsstand der suchenden Person",
+        "auswirkung": "Unerfahrene Mitarbeitende übersehen relevante Dokumente oder lesen selektiv, was zu lückenhaften oder fehlerhaften Antworten führt."
+      },
+      {
+        "beschreibung": "Wissen aus verteilten Dokumenten wird nicht systemisch zusammengeführt",
+        "auswirkung": "Zusammenhänge zwischen Inhalten in verschiedenen Dateien bleiben unerkannt; die Antwortqualität hängt davon ab, wie viele Dokumente die suchende Person zufällig findet."
+      },
+      {
+        "beschreibung": "Antworten werden unstrukturiert und ohne Quellennachweis weitergegeben",
+        "auswirkung": "Nachvollziehbarkeit und Dokumentation des Wissenstransfers sind nicht gewährleistet; Fehler oder veraltete Inhalte lassen sich im Nachhinein nicht zurückverfolgen."
+      }
+    ]
+  },
+  "potenziale": [
+    {
+      "potenzial_id": "288edb94-7229-4aac-8844-e74a75697289",
+      "ersetzt_potenzial_ids": [
+        "85191e37-f91a-4b70-8083-e8c890ef8b29"
+      ],
+      "titel": "KI-gestützte Wissenssuche im Google-Drive-Bestand",
+      "potenzialrang": 1,
+      "prioritaetsgruppe": "PRIO 2",
+      "beschreibung": "## KI-gestützte Wissenssuche im Google-Drive-Bestand\n\n### Was wird automatisiert?\nDer manuelle Suchschritt innerhalb von **KP-05.TP-1** wird durch eine RAG-Schicht (Retrieval-Augmented Generation) ersetzt. Anstatt Dokumente einzeln zu öffnen und zu lesen, stellen Mitarbeitende ihre Frage in natürlicher Sprache an eine interne Suchanwendung. Das System liefert einen strukturierten Antwortvorschlag inklusive Quellenverweisen auf die zugrunde liegenden Dokumente im Drive-Bestand.\n\n### In welchen Teilprozessen?\nDas Potenzial wirkt ausschließlich innerhalb von **KP-05.TP-1 – Wissenstransfer**, konkret im Schritt zwischen dem Entstehen einer Frage und dem Zusammentragen der Antwort. Die abschließende Prüfung und Freigabe sowie die Weitergabe der Antwort verbleiben beim Menschen.\n\n### Mit welchem Ergebnis?\nMitarbeitende erhalten innerhalb von Sekunden einen Antwortvorschlag, der relevante Textstellen aus dem indizierten Drive-Bestand bündelt und mit direkten Dokumentenreferenzen versieht. Das Ergebnis ist reproduzierbar, quellenbelegt und unabhängig vom individuellen Erfahrungsstand der anfragenden Person. Der Automatisierungsgrad liegt zwischen 10 % und 25 % der Anfragen, die ohne wesentliche manuelle Nachsuche bearbeitet werden können — abhängig von Qualität und Aktualität des Dokumentenbestands.\n\n### Datenflüsse\nDie freigegebenen Dokumente aus dem Google-Drive-Bestand werden periodisch über einen Connector (n8n oder direktes Google-Drive-API) ausgelesen, per OCR (PaddleOCR / Tesseract) für nicht-native Textdokumente aufbereitet, in Chunks zerlegt und als Vektoren in **Qdrant** indiziert. Bei einer Nutzeranfrage wird der Anfragetext vektorisiert, der semantisch ähnlichste Dokumentraum in Qdrant abgerufen und gemeinsam mit dem Kontext an ein LLM (Ollama lokal oder Anthropic Claude API mit AVV) übergeben, das den Antwortvorschlag generiert. Quellenverweise werden aus den Metadaten der Chunks (Dateiname, Pfad, Stand) zusammengesetzt und mit der Antwort zurückgegeben.\n\n### Beteiligte Rollen\n- **Mitarbeitende (Anfragende):** stellen Fragen in natürlicher Sprache, prüfen den Antwortvorschlag und nehmen ihn ab oder verwerfen ihn.\n- **Wissensverantwortliche / Admins:** pflegen die Zugriffsrechte, steuern, welche Drive-Ordner indiziert werden, und führen Dokumentenbereinigungen durch.\n- **IT / DevOps:** betreiben die Indizierungspipeline, Qdrant, n8n und das LLM-Backend.\n\n### Vorbedingungen\nDer Google-Drive-Bestand muss in einem definierten, freigegebenen Ordnerbereich liegen. Die bestehende Zugriffsrechtestruktur in Google Drive muss bekannt und dokumentiert sein, damit die RAG-Schicht dieselben Berechtigungen spiegeln kann. Ein hinreichend gepflegter und konsistenter Dokumentenbestand ist Voraussetzung für akzeptable Antwortqualität; stark veraltete oder widersprüchliche Dokumente müssen vor der Indizierung bereinigt oder markiert werden.\n\n### Sonderfälle und Ausnahmen\n- Dokumente mit sehr spezialisiertem Fachvokabular oder mandantenspezifischen Abkürzungen, die im Training der Embedding-Modelle nicht vorkommen, können schlechter abgerufen werden und erfordern manuelle Nachsuche.\n- Dokumente, deren Zugriffsrechte nicht gespiegelt werden können (etwa wegen komplexer Gruppenstrukturen), werden aus dem indizierten Bestand ausgeschlossen und verbleiben in der manuellen Suche.\n- Sehr kurze oder rein grafische Dokumente ohne Textebene liefern nach OCR-Verarbeitung möglicherweise keinen nutzbaren Chunk und werden im Index als leer markiert.\n- Bei widersprüchlichen Inhalten in verschiedenen Dokumentversionen gibt das System beide Quellen aus; die Entscheidung, welche Version gilt, trifft der Mensch.",
+      "to_be_vision": "Im Soll-Zustand öffnet keine Mitarbeiterin und kein Mitarbeiter mehr manuell einzelne Dokumente, um eine Wissensfrage zu beantworten. Stattdessen gibt die anfragende Person ihre Frage in natürlicher Sprache in die interne Wissenssuche ein. Das System durchsucht den indizierten Drive-Bestand semantisch, bündelt die relevantesten Textstellen aus allen zutreffenden Dokumenten und präsentiert innerhalb weniger Sekunden einen strukturierten Antwortvorschlag — ergänzt um direkte Verweise auf die Quelldokumente inklusive Dateiname und Pfad.\n\nDie anfragende Person prüft den Vorschlag, nimmt ihn ab oder ergänzt ihn und gibt die Information strukturiert weiter. Quellenverweise bleiben erhalten und sind für alle Beteiligten nachvollziehbar. Der Wissenstransfer ist damit nicht länger vom Erfahrungsstand der suchenden Person abhängig: Ein neues Teammitglied erzielt dasselbe Suchergebnis wie eine erfahrene Kollegin, weil das System den gesamten freigegebenen Dokumentenbestand gleichmäßig und vollständig berücksichtigt.\n\nDer indizierte Bestand wird automatisch aktualisiert, wenn neue oder geänderte Dokumente im Drive abgelegt werden. Wissensverantwortliche steuern über die Ordner- und Rechtestruktur, was indiziert wird; unberechtigte Informationsweitergabe wird durch die Zugriffsrechtsspiegelung strukturell verhindert. Die freigewordene Zeit nutzen die Mitarbeitenden für anspruchsvollere, wertschöpfende Beratungsaufgaben.",
+      "user_story": "Als Mitarbeitende bei NoroAI möchte ich Wissensfragen in natürlicher Sprache stellen und sofort einen strukturierten, quellenbasierten Antwortvorschlag erhalten, damit ich keine Zeit mehr mit manuellem Durchsuchen und Lesen einzelner Drive-Dokumente verbringe und mich stattdessen auf die eigentliche Beratungsarbeit konzentrieren kann.",
+      "akzeptanzkriterien_geschaeftlich": [
+        {
+          "kriterium": "Gegeben eine freigegebene Frage, die mit Inhalten aus dem indizierten Drive-Bestand beantwortet werden kann, wenn die anfragende Person die Frage in die Wissenssuche eingibt, dann liefert das System einen Antwortvorschlag mit mindestens einem validen Quellverweis auf ein tatsächlich im Index vorhandenes Dokument.",
+          "messverfahren": "Stichprobe aus abgeschlossenen Anfragen: Für jede geprüfte Anfrage wird im Systemprotokoll nachgewiesen, dass der Quellverweis auf ein real indexiertes Dokument zeigt und der angezeigte Dateiname mit dem tatsächlichen Drive-Pfad übereinstimmt."
+        },
+        {
+          "kriterium": "Gegeben ein Dokument, auf das eine Mitarbeiterin aufgrund ihrer Drive-Berechtigungen keinen Zugriff hat, wenn das System einen Antwortvorschlag zu einem Thema generiert, das ausschließlich in diesem Dokument beschrieben ist, dann wird das betreffende Dokument weder im Antwortvorschlag noch im Quellverweis genannt.",
+          "messverfahren": "Gezielter Testlauf mit einem Testnutzer ohne Zugriff auf ein definiertes Testdokument: Sichtprüfung des Antwortvorschlags auf Nennung des Dokuments; Abgleich mit dem Zugriffsrechte-Mapping im Index."
+        },
+        {
+          "kriterium": "Gegeben ein neu in den indizierten Drive-Ordner abgelegtes Dokument, wenn der geplante Indizierungslauf abgeschlossen ist, dann ist das Dokument bei inhaltlich passenden Anfragen im Antwortvorschlag als Quelle abrufbar.",
+          "messverfahren": "Protokoll des Indizierungslaufs (Zeitstempel, Anzahl verarbeiteter Dokumente); anschließende Kontrollanfrage zu einem im neuen Dokument enthaltenen Begriff mit Sichtprüfung des Quellverweises."
+        },
+        {
+          "kriterium": "Gegeben eine Anfrage zu einem Thema, zu dem kein ausreichend relevanter Inhalt im indizierten Bestand vorliegt, wenn das System die Anfrage verarbeitet, dann weist die Anwendung die anfragende Person explizit darauf hin, dass kein hinreichend gesicherter Antwortvorschlag erzeugt werden konnte, anstatt eine inhaltlich falsche Antwort zu präsentieren.",
+          "messverfahren": "Testlauf mit definierten Fragen zu Themen außerhalb des indizierten Bestands; Sichtprüfung der Systemantwort auf das Vorhandensein eines expliziten Hinweises auf fehlende Belege."
+        }
+      ],
+      "fachliche_anforderungen": [
+        "Die Zugriffsrechtespiegelung muss sicherstellen, dass Mitarbeitende über die Wissenssuche ausschließlich Inhalte aus Dokumenten erhalten, für die sie in Google Drive eine Leseberechtigung besitzen.",
+        "Jeder Antwortvorschlag muss mindestens einen Quellverweis enthalten, der Dateiname, Pfad und — sofern aus den Dokumentmetadaten verfügbar — Datum der letzten Änderung ausweist.",
+        "Das System muss erkennbar machen, wenn ein Antwortvorschlag nicht mit ausreichender Belegdichte aus dem indizierten Bestand gestützt werden kann, sodass die anfragende Person zur manuellen Suche wechseln kann.",
+        "Die Indizierung darf ausschließlich Dokumente aus explizit freigegebenen Drive-Ordnern erfassen; der Umfang des freigegebenen Bereichs muss von Wissensverantwortlichen steuerbar sein.",
+        "Widersprüchliche Inhalte aus verschiedenen Dokumentversionen müssen als solche kenntlich gemacht werden, anstatt zu einer synthetisierten Antwort zusammengefasst zu werden, die den Widerspruch verdeckt.",
+        "Die Lösung muss die EU-First- und Open-Source-First-Maxime von NoroAI einhalten; der Einsatz der Anthropic Claude API ist nur zulässig, wenn ein gültiger AVV vorliegt und der Mehrwert gegenüber den lokal betriebenen Ollama-Modellen dokumentiert ist."
+      ],
+      "betroffene_teilprozess_ids": [
+        "KP-05.TP-1"
+      ],
+      "betroffene_prozessschritte": [
+        "Wissenstransfer"
+      ],
+      "betroffene_systeme": [
+        {
+          "name": "Nextcloud Hub",
+          "rolle": "Quelle",
+          "integration": "API"
+        },
+        {
+          "name": "n8n",
+          "rolle": "Quelle+Ziel",
+          "integration": "API"
+        },
+        {
+          "name": "Qdrant",
+          "rolle": "Ziel",
+          "integration": "API"
+        },
+        {
+          "name": "PaddleOCR",
+          "rolle": "Quelle",
+          "integration": "API"
+        },
+        {
+          "name": "Ollama",
+          "rolle": "Ziel",
+          "integration": "API"
+        },
+        {
+          "name": "PostgreSQL 16",
+          "rolle": "Ziel",
+          "integration": "DB"
+        },
+        {
+          "name": "Authentik",
+          "rolle": "Quelle",
+          "integration": "API"
+        }
+      ],
+      "manueller_aufwand_heute": {
+        "stunden_jahr": 108.3,
+        "herkunft": "geschaetzt",
+        "konfidenz_pct": 50.0
+      },
+      "automatisierungsgrad": {
+        "klasse": "Assistenz",
+        "angesetzt_min_pct": 10.0,
+        "angesetzt_max_pct": 25.0,
+        "begruendung": "Das untere Ende des Korridors wird übernommen, weil die Qualität und Konsistenz des Drive-Bestands unbekannt ist und veraltete oder widersprüchliche Dokumente den Nutzen der RAG-Schicht erheblich einschränken können. Das obere Ende bleibt unter dem Korridor-Maximum, weil die abschließende Prüfung durch den Menschen zwingend verbleibt und die Zugriffsrechtsspiegelung in der Praxis Fälle ausschließen kann, die nicht vollständig abgedeckt werden; bei einem gut gepflegten, einheitlichen Dokumentenbestand wäre das obere Ende des Korridors erreichbar.",
+        "bc1_schaetzung_pct": null
+      },
+      "nutzwert": {
+        "qualitaet": {
+          "wert": 7,
+          "begruendung": "Die Lösung liefert Antwortvorschläge mit Quellenverweisen, wodurch Ergebnisse spürbar einheitlicher und nachvollziehbarer werden und Nacharbeit durch unvollständige oder quellenlose Weitergabe deutlich zurückgeht."
+        },
+        "durchlaufzeit": {
+          "wert": 7,
+          "begruendung": "Der zeitaufwändige Schritt des manuellen Öffnens und Durchlesens einzelner Dokumente entfällt weitgehend, sodass die Antwort deutlich früher vorliegt; ein Prüf- und Abnahmeschritt durch den Menschen verbleibt und verhindert den höchsten Ankerwert."
+        },
+        "fehlerreduktion": {
+          "wert": 6,
+          "begruendung": "Das Vergessen relevanter Dokumente und das selektive Lesen durch unerfahrene Mitarbeitende werden weitgehend abgefangen; Quellenverweise machen Luecken sichtbar, auch wenn inhaltliche Interpretationsfehler beim Menschen verbleiben."
+        },
+        "mitarbeiterzufriedenheit": {
+          "wert": 7,
+          "begruendung": "Das wiederholte manuelle Durchsuchen und Lesen von Dokumenten ist eine monotone, wenig wertschöpfende Aufgabe; sie fällt für den Großteil der Fälle weg, und die freigewordene Zeit kann für anspruchsvollere Beratungsarbeit genutzt werden."
+        },
+        "compliance": {
+          "wert": 4,
+          "begruendung": "Die Quellenverweise in den Antwortvorschlägen verbessern die Nachvollziehbarkeit und Dokumentation des Wissenstransfers, ohne dass heute ein konkretes regulatorisches Risiko erkennbar ist; die Zugriffsrechtsspiegelung schützt vor unberechtigter Informationsweitergabe, was ebenfalls dokumentationsstärkend wirkt."
+        },
+        "mittel": 6.2
+      },
+      "impact": 4,
+      "impact_monetaer": 1,
+      "umsetzungskomplexitaet": 5,
+      "komplexitaet_herkunft": "gemessen",
+      "komplexitaet_begruendung": "Mittel aus BC1s vier Skalen — KP-05.TP-1: Skalen 3/3/3/4, Mittel 3.25, round(11 − 2 × 3.25) = 5.",
+      "value": {
+        "value_quelle": "berechnet",
+        "ist_kosten_eur_jahr": {
+          "min": 2795,
+          "max": 6522
+        },
+        "einsparung_eur_jahr": {
+          "min": 280,
+          "max": 1630
+        },
+        "ersparnis_prozent": {
+          "min": 10.0,
+          "max": 25.0
+        },
+        "investition_eur_richtwert": 17600,
+        "amortisation_monate": {
+          "min": 129.5,
+          "max": 755.6
+        },
+        "annahmen": [
+          "Mischsatz 43 EUR/h aus dem NoroAI-Unternehmensprofil (#172) — die Rollenachse wird nicht erhoben.",
+          "Bausatz 800 EUR/PT fuer die Investition; ein anderer Satz als die Einsparungsseite, mit Absicht (ADR-006, 2.1). Reine Setzung.",
+          "Automatisierungsgrad 10–25 % aus dem Korridor der Klasse 'Assistenz' — gesetzt, nicht erhoben.",
+          "Bandbreite ±40 % aus der Herkunft der Dauer (geschaetzt).",
+          "Zusammensetzung als Eckenrechnung: bewusst pessimistisch, sie unterstellt gleichsinnige Fehler.",
+          "Aufwandsrichtwert 22 PT vom Bewertungsschritt geurteilt, nicht erhoben (ADR-006 · BC2, Nachtrag 7): Der Aufwand entsteht aus vier Hauptblöcken: Konzeption und Datenstrategie für die Indizierung des Drive-Bestands einschließlich Bereinigungsprüfung, Aufbau und Konfiguration der RAG-Pipeline mit Anbindung an Google Drive, Einbindung der Zugriffsrechteslogik sowie Test und strukturierte Abnahme mit Endnutzerinnen und Endnutzern."
+        ]
+      },
+      "aufwand_schaetzung_pt": 22.0,
+      "prioritaet_score": 24,
+      "kategorie": "Optional",
+      "querschnitte": {
+        "zukunftssicherheit": "Die Lösung ist modular aufgebaut: Qdrant, Ollama und n8n können unabhängig voneinander skaliert oder durch leistungsfähigere Pendants ersetzt werden, und der Dokumentenbestand kann wachsen, ohne die Architektur zu ändern.",
+        "reifegrad": "Bitkom-Stufe im Mittel 3,2 von 5, aus 30 Bewertungen der berührten Teilprozesse. Rangiert, trennt aber nicht (#161).",
+        "abhaengigkeiten": []
+      },
+      "potenzielle_loesung": {
+        "ansatz": "## Technischer Lösungsansatz\n\n### Grundprinzip\nEine RAG-Pipeline (Retrieval-Augmented Generation) indiziert den freigegebenen Dokumentenbestand semantisch und stellt ihn über eine interne Suchanwendung zur Verfügung. Der manuelle Suchschritt wird dadurch auf einen Prüf- und Abnahmeschritt reduziert.\n\n### Indizierungspipeline\n- **Connector:** n8n-Workflow liest periodisch (z. B. stündlich oder ereignisgesteuert bei Drive-Änderungen) die freigegebenen Ordner aus.\n- **Vorverarbeitung:** Native Textdokumente werden direkt verarbeitet; Scans und Bilddokumente durchlaufen PaddleOCR oder Tesseract zur Texterkennung.\n- **Chunking:** Texte werden in semantisch sinnvolle Abschnitte (Chunks) zerlegt; Metadaten (Dateiname, Pfad, Berechtigungsgruppen, Änderungsdatum) werden an jeden Chunk angehängt.\n- **Embedding:** Chunks werden mit einem lokal betriebenen Embedding-Modell (via Ollama) in Vektoren überführt.\n- **Speicherung:** Vektoren werden in Qdrant (self-hosted) abgelegt; Metadaten und Chunk-Text werden parallel in PostgreSQL 16 persistiert, um Quellverweise rekonstruieren zu können.\n\n### Zugriffsrechtespiegelung\n- Berechtigungsgruppen aus Authentik (SSO) werden über n8n oder einen dedizierten Sync-Job in die Chunk-Metadaten übernommen.\n- Bei jeder Anfrage wird die Identität der anfragenden Person gegen Authentik geprüft; Qdrant-Abfragen werden mit einem Berechtigungsfilter versehen, der ausschließlich Chunks der erlaubten Gruppen zurückgibt.\n\n### Anfragebearbeitung\n1. Die anfragende Person gibt ihre Frage in natürlicher Sprache in die Wissenssuche ein.\n2. Der Anfragetext wird mit demselben Embedding-Modell vektorisiert.\n3. Qdrant liefert die semantisch ähnlichsten Chunks (gefilterter Berechtigungsraum).\n4. Chunks und Originalfrage werden als Kontext an das LLM (Ollama lokal; Anthropic Claude API als Fallback bei dokumentiertem Mehrwert und gültigem AVV) übergeben.\n5. Das LLM generiert einen strukturierten Antwortvorschlag; Quellenverweise werden aus den Chunk-Metadaten zusammengesetzt und dem Vorschlag beigefügt.\n6. Liegt die Relevanz der besten Chunks unter einem definierten Schwellenwert, gibt die Anwendung einen expliziten Hinweis aus, dass kein ausreichend belegter Vorschlag erzeugt werden konnte.\n\n### Frontend / Integration\n- Einfache Chat-Oberfläche (z. B. als n8n-Workflow mit Webhook-Frontend oder als eigenständige Lightweight-Web-App, die in Nextcloud Hub eingebettet werden kann).\n- Jede Anfrage und jede abgenommene oder verworfene Antwort wird protokolliert (Zeitstempel, Nutzer-ID pseudonymisiert, Quellenverweise, Freigabestatus) in PostgreSQL 16 — Basis für spätere Qualitätsauswertungen.\n\n### Aktualisierung und Wartung\n- Der n8n-Workflow erkennt geänderte oder neu hinzugefügte Dokumente und löst eine Re-Indizierung der betroffenen Chunks aus.\n- Gelöschte oder aus dem freigegebenen Bereich entfernte Dokumente werden aus dem Qdrant-Index entfernt.",
+        "tech_stack_empfehlung": [
+          "Qdrant (self-hosted, Hetzner) — Vector-DB für semantische Indizierung und gefilterte Abfragen",
+          "Ollama mit Mistral oder Qwen — lokales LLM für Embedding-Generierung und Antwortvorschläge (EU, OSS, kein Datenabfluss)",
+          "PaddleOCR — Texterkennung für nicht-native Dokumente",
+          "n8n (self-hosted, Hetzner) — Orchestrierung der Indizierungspipeline, Webhook-Anbindung und Scheduler",
+          "PostgreSQL 16 — persistente Ablage von Chunk-Metadaten, Quellenverweisen und Anfrage-Protokollen",
+          "Authentik (self-hosted, IONOS) — Identitätsprüfung und Berechtigungsgruppen für die Zugriffsrechtespiegelung",
+          "Nextcloud Hub (self-hosted, Hetzner) — primäre Dokumentenquelle; API-Zugriff auf Ordnerstruktur und Dateimetadaten",
+          "Anthropic Claude API (EU-Region, nur mit gültigem AVV) — optionaler Fallback für komplexe Antwortgenerierung, wenn lokal betriebene Modelle dokumentiert nicht ausreichen"
+        ],
+        "to_be_kurz": "Mitarbeitende stellen Wissensfragen in natürlicher Sprache und erhalten sofort einen quellenbasierten Antwortvorschlag aus dem gesamten indizierten Drive-Bestand — ohne ein einziges Dokument manuell öffnen zu müssen. Die Prüfung und Freigabe verbleibt beim Menschen."
+      },
+      "voraussetzungen": [
+        "Der freigegebene Dokumentenbestand in Nextcloud Hub (als Ablösung oder Ergänzung des Google-Drive-Bestands im NoroAI-Stack) oder der tatsächlich genutzte Drive-Speicher ist identifiziert und mit klaren Ordnergrenzen definiert.",
+        "Die bestehende Zugriffsrechtestruktur ist dokumentiert und lässt sich auf Authentik-Gruppen abbilden.",
+        "Eine initiale Dokumentenbereinigung hat stattgefunden: veraltete, widersprüchliche oder redundante Dokumente sind entweder entfernt, archiviert oder mit einem Statusvermerk versehen.",
+        "Die Ollama-Instanz ist mit einem geeigneten Embedding-Modell betrieben und erreichbar.",
+        "Qdrant ist in der Produktionsumgebung deployed und erreichbar.",
+        "Ein gültiger AVV mit Anthropic liegt vor, sofern die Claude API als Fallback eingesetzt werden soll."
+      ],
+      "risiken": [
+        {
+          "beschreibung": "Schlechte Dokumentenqualität im Drive-Bestand führt zu ungenauen oder widersprüchlichen Antwortvorschlägen, was das Vertrauen der Mitarbeitenden in das System schnell untergräbt.",
+          "wahrscheinlichkeit": "high",
+          "auswirkung": "high",
+          "gegenmassnahme": "Vor der Indizierung eine strukturierte Bestandsaufnahme und Bereinigung durchführen; Dokumente mit bekannt veralteten Inhalten mit einem Statusattribut kennzeichnen, das im Antwortvorschlag sichtbar wird."
+        },
+        {
+          "beschreibung": "Fehler in der Zugriffsrechtespiegelung geben Mitarbeitenden Zugang zu Inhalten, für die sie in der Quelldatei keine Berechtigung haben.",
+          "wahrscheinlichkeit": "med",
+          "auswirkung": "high",
+          "gegenmassnahme": "Zugriffsrechtespiegelung als eigene, testgetriebene Komponente entwickeln; regelmäßige automatisierte Stichprobentests mit dedizierten Testnutzern und bekannten Berechtigungsgrenzen einplanen."
+        },
+        {
+          "beschreibung": "Mitarbeitende übernehmen Antwortvorschläge ohne eigene Prüfung, obwohl die abschließende Beurteilung fachlich beim Menschen verbleiben soll.",
+          "wahrscheinlichkeit": "med",
+          "auswirkung": "med",
+          "gegenmassnahme": "UI-Design macht den Vorschlagscharakter explizit sichtbar (z. B. Kennzeichnung als 'Vorschlag zur Prüfung'); Protokollierung von Freigaben schafft Verantwortlichkeit; Einführungsschulung für alle Nutzenden."
+        },
+        {
+          "beschreibung": "Lokal betriebene Embedding- und LLM-Modelle liefern für fachspezifisches Vokabular (KI-Beratung, mandantenspezifische Begriffe) schlechtere Ergebnisse als erwartet.",
+          "wahrscheinlichkeit": "med",
+          "auswirkung": "med",
+          "gegenmassnahme": "In der Pilotphase systematische Qualitätsmessung mit einem Testset aus realen Wissensfragen; bei Bedarf Fine-Tuning des Embedding-Modells oder Wechsel auf ein domänennahes Modell."
+        },
+        {
+          "beschreibung": "Der Indizierungslauf erzeugt hohe Last auf den Hetzner-Instanzen und beeinträchtigt produktive Workloads.",
+          "wahrscheinlichkeit": "low",
+          "auswirkung": "med",
+          "gegenmassnahme": "Indizierung in Nebenzeiten (Nacht/Wochenende) planen; Ressourcengrenzen für den n8n-Workflow und den Qdrant-Import setzen; Monitoring via Grafana und Prometheus mit Alerts einrichten."
+        }
+      ],
+      "hinweise": [
+        {
+          "art": "testdaten",
+          "text": "Die Quelle ist als Testdaten gekennzeichnet: 'Testdaten Use-Case-Definition 24.08., nicht erhoben. Quelle: Projektgruppe CoE-Factory.'. Durchgereicht statt abgewiesen (#184)."
+        }
+      ]
+    }
+  ],
+  "gesamtempfehlung": {
+    "reihenfolge_potenzial_ids": [
+      "288edb94-7229-4aac-8844-e74a75697289"
+    ],
+    "begruendung": "Der Kernprozess KP-05 enthält genau ein umsetzbares Potenzial, das den einzigen Teilprozess des Wissensmanagements adressiert. Eine Priorisierungsentscheidung zwischen mehreren Potenzialen entfällt daher. Die Empfehlung lautet, mit P1 in einer kontrollierten Pilotphase zu beginnen: Zunächst wird eine abgegrenzte Teilmenge des Dokumentenbestands indiziert, um Qualität des Retrievals und Korrektheit der Zugriffsrechtespiegelung unter realen Bedingungen zu validieren, bevor der gesamte freigegebene Bestand aufgenommen wird. Diese schrittweise Einführung begrenzt das Risiko, das aus der bisher nicht erhobenen Dokumentenqualität entsteht, und ermöglicht es, Vertrauen der Mitarbeitenden in das System aufzubauen, bevor es zum Standard-Recherchewerkzeug wird. Die technische Basis — Qdrant, Ollama, n8n, PostgreSQL 16, Authentik — ist im bestehenden Stack bereits produktiv; der Aufwand für Infrastruktur ist damit gering. Der größte Vorlaufbedarf liegt in der fachlichen Dokumentenbereinigung, die als eigenständige Aufgabe vor dem ersten Indizierungslauf eingeplant werden muss."
+  },
+  "eingangswerte": [
+    {
+      "groesse": "frequency_per_year",
+      "wert": 260.0,
+      "einheit": "Durchlaeufe/Jahr",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "frequency_per_year",
+      "herkunft_id": "E-2026-08",
+      "betrifft_teilprozess_id": "KP-05.TP-1",
+      "gelesen_am": "2026-10-10T10:08:35.950630+00:00",
+      "kennzeichnung": "Testdaten Use-Case-Definition 24.08., nicht erhoben. Quelle: Projektgruppe CoE-Factory."
+    },
+    {
+      "groesse": "focus_step_duration_minutes",
+      "wert": 25.0,
+      "einheit": "Minuten/Durchlauf",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "focus_step_duration_minutes",
+      "herkunft_id": "E-2026-08",
+      "betrifft_teilprozess_id": "KP-05.TP-1",
+      "gelesen_am": "2026-10-10T10:08:35.950630+00:00",
+      "kennzeichnung": "Testdaten Use-Case-Definition 24.08., nicht erhoben. Quelle: Projektgruppe CoE-Factory."
+    },
+    {
+      "groesse": "focus_step_duration_source",
+      "wert": "geschaetzt",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "focus_step_duration_source",
+      "herkunft_id": "E-2026-08",
+      "betrifft_teilprozess_id": "KP-05.TP-1",
+      "gelesen_am": "2026-10-10T10:08:35.950630+00:00",
+      "kennzeichnung": "Testdaten Use-Case-Definition 24.08., nicht erhoben. Quelle: Projektgruppe CoE-Factory."
+    },
+    {
+      "groesse": "focus_step_duration_confidence_pct",
+      "wert": 50.0,
+      "einheit": "%",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "focus_step_duration_confidence_pct",
+      "herkunft_id": "E-2026-08",
+      "betrifft_teilprozess_id": "KP-05.TP-1",
+      "gelesen_am": "2026-10-10T10:08:35.950630+00:00",
+      "kennzeichnung": "Testdaten Use-Case-Definition 24.08., nicht erhoben. Quelle: Projektgruppe CoE-Factory."
+    },
+    {
+      "groesse": "documentation_status",
+      "wert": 3,
+      "einheit": "1-5",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "documentation_status",
+      "herkunft_id": "E-2026-08",
+      "betrifft_teilprozess_id": "KP-05.TP-1",
+      "gelesen_am": "2026-10-10T10:08:35.950630+00:00",
+      "kennzeichnung": "Testdaten Use-Case-Definition 24.08., nicht erhoben. Quelle: Projektgruppe CoE-Factory."
+    },
+    {
+      "groesse": "standardization_level",
+      "wert": 3,
+      "einheit": "1-5",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "standardization_level",
+      "herkunft_id": "E-2026-08",
+      "betrifft_teilprozess_id": "KP-05.TP-1",
+      "gelesen_am": "2026-10-10T10:08:35.950630+00:00",
+      "kennzeichnung": "Testdaten Use-Case-Definition 24.08., nicht erhoben. Quelle: Projektgruppe CoE-Factory."
+    },
+    {
+      "groesse": "data_availability_score",
+      "wert": 3,
+      "einheit": "1-5",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "data_availability_score",
+      "herkunft_id": "E-2026-08",
+      "betrifft_teilprozess_id": "KP-05.TP-1",
+      "gelesen_am": "2026-10-10T10:08:35.950630+00:00",
+      "kennzeichnung": "Testdaten Use-Case-Definition 24.08., nicht erhoben. Quelle: Projektgruppe CoE-Factory."
+    },
+    {
+      "groesse": "stability_score",
+      "wert": 4,
+      "einheit": "1-5",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "stability_score",
+      "herkunft_id": "E-2026-08",
+      "betrifft_teilprozess_id": "KP-05.TP-1",
+      "gelesen_am": "2026-10-10T10:08:35.950630+00:00",
+      "kennzeichnung": "Testdaten Use-Case-Definition 24.08., nicht erhoben. Quelle: Projektgruppe CoE-Factory."
+    },
+    {
+      "groesse": "mischsatz_eur_h",
+      "wert": 43.0,
+      "einheit": "EUR/h",
+      "herkunft_tabelle": "(Setzung)",
+      "herkunft_spalte": "NoroAI-Unternehmensprofil Kap. 9.2, #172",
+      "gelesen_am": "2026-10-10T10:08:35.950630+00:00"
+    },
+    {
+      "groesse": "bausatz_eur_pt",
+      "wert": 800.0,
+      "einheit": "EUR/PT",
+      "herkunft_tabelle": "(Setzung)",
+      "herkunft_spalte": "ADR-006 BC2, 2.1",
+      "gelesen_am": "2026-10-10T10:08:35.950630+00:00"
+    }
+  ]
+}

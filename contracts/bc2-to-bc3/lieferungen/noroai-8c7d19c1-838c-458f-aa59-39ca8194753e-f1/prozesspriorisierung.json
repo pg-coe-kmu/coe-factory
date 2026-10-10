@@ -1,0 +1,101 @@
+{
+  "priorisierung_id": "d79e5912-afc7-45cf-add4-2e1b59f7c7c4",
+  "schema_version": "3.1",
+  "company_id": "7c2d5ee9-2a9a-5990-810f-502ea2b2012d",
+  "paket_id": "8c7d19c1-838c-458f-aa59-39ca8194753e",
+  "uebergeben_am": "2026-09-18T08:05:19.912797+00:00",
+  "fassung": 1,
+  "erzeugt_am": "2026-10-10T10:11:21.878871+00:00",
+  "score_formel": "`score = impact × (11 − umsetzungskomplexitaet)`, Bereich 1…100.\n\n- `impact = round((impact_monetaer + nutzwert) / 2)` — beide auf 1–10.\n- `umsetzungskomplexitaet = round(11 − 2 × Mittel der vier BC1-Skalen)`; fehlen die Skalen, urteilt das LLM und die Herkunft ist `geurteilt`.\n- Die **lineare** Umkehrung der Komplexität ist bewusst gesetzt, obwohl der Sprung ins sehr Aufwendige fachlich überproportional wäre — offengelegt, nicht kaschiert (ADR-006 · BC2).",
+  "konzept_ids": [
+    "5d82f848-fdbc-40a9-9169-c03c0893b077"
+  ],
+  "eintraege": [
+    {
+      "potenzialrang": 1,
+      "prioritaetsgruppe": "PRIO 2",
+      "potenzial_id": "288edb94-7229-4aac-8844-e74a75697289",
+      "konzept_id": "5d82f848-fdbc-40a9-9169-c03c0893b077",
+      "titel": "KI-gestützte Wissenssuche im Google-Drive-Bestand",
+      "kp_id": "KP-05",
+      "betroffene_teilprozess_ids": [
+        "KP-05.TP-1"
+      ],
+      "kategorie": "Optional",
+      "impact": 4,
+      "impact_monetaer": 1,
+      "nutzwert_mittel": 6.2,
+      "umsetzungskomplexitaet": 5,
+      "komplexitaet_herkunft": "gemessen",
+      "score": 24,
+      "aufwand_pt": 22.0,
+      "einsparung_eur_jahr": {
+        "min": 280,
+        "max": 1630
+      },
+      "investition_eur_richtwert": 17600,
+      "amortisation_monate": {
+        "min": 129.5,
+        "max": 755.6
+      }
+    }
+  ],
+  "prozess_raenge": [
+    {
+      "prozessrang": 1,
+      "kp_id": "KP-05",
+      "konzept_id": "5d82f848-fdbc-40a9-9169-c03c0893b077",
+      "bestes_potenzial_id": "288edb94-7229-4aac-8844-e74a75697289",
+      "bester_score": 24,
+      "anzahl_potenziale": 1
+    }
+  ],
+  "gestrichene_potenziale": [],
+  "ausgangslage": {
+    "unternehmen": {
+      "name": "NoroAI Consulting GmbH",
+      "branche": "KI-Beratung",
+      "mitarbeitende": 10,
+      "region": "FH-Suedwestfalen-Region",
+      "geschaeftsmodell": "KI-Beratung mit eigenem Tech-Stack"
+    },
+    "herausforderungen": [
+      {
+        "beschreibung": "Manuelles Öffnen und Durchlesen einzelner Dokumente",
+        "auswirkung": "Der Suchvorgang bindet erhebliche Arbeitszeit, die nicht für wertschöpfende Beratungsarbeit zur Verfügung steht.",
+        "haeufigkeit": "Tritt bei jeder Wissensanfrage auf",
+        "kp_ids": [
+          "KP-05"
+        ]
+      },
+      {
+        "beschreibung": "Suchergebnis ist abhängig vom Erfahrungsstand der suchenden Person",
+        "auswirkung": "Unerfahrene Mitarbeitende übersehen relevante Dokumente oder lesen selektiv, was zu lückenhaften oder fehlerhaften Antworten führt.",
+        "kp_ids": [
+          "KP-05"
+        ]
+      },
+      {
+        "beschreibung": "Wissen aus verteilten Dokumenten wird nicht systemisch zusammengeführt",
+        "auswirkung": "Zusammenhänge zwischen Inhalten in verschiedenen Dateien bleiben unerkannt; die Antwortqualität hängt davon ab, wie viele Dokumente die suchende Person zufällig findet.",
+        "kp_ids": [
+          "KP-05"
+        ]
+      },
+      {
+        "beschreibung": "Antworten werden unstrukturiert und ohne Quellennachweis weitergegeben",
+        "auswirkung": "Nachvollziehbarkeit und Dokumentation des Wissenstransfers sind nicht gewährleistet; Fehler oder veraltete Inhalte lassen sich im Nachhinein nicht zurückverfolgen.",
+        "kp_ids": [
+          "KP-05"
+        ]
+      }
+    ]
+  },
+  "gate1": {
+    "status": "approved",
+    "entschieden_am": "2026-10-10T10:22:59.916446+00:00",
+    "approved_potenzial_ids": [
+      "288edb94-7229-4aac-8844-e74a75697289"
+    ]
+  }
+}
