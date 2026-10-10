@@ -59,6 +59,10 @@ from ablage import (
 from gate1 import Gate1Buch, PostgresGate1Buch, SpeicherGate1Buch
 from laeufe import LaufAngehalten, Laufquelle, MesssatzLaufquelle
 
+# Ohne diese Zeile erreichte keine ``bc2.*``-Meldung unter WARNING das
+# Container-Protokoll — uvicorn richtet nur seine eigenen Logger ein. Bemerkt am
+# ersten echten Lauf (10.10.2026), als die Diagnose der Modellaufrufe fehlte.
+logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(name)s: %(message)s")
 log = logging.getLogger("bc2.trigger")
 
 #: Die Messsätze sind die **Behelfsquelle** der Oberfläche, bis der

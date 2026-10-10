@@ -54,7 +54,7 @@ def _echter_lauf(*, freigeben: str | None = "approved", heraus: int = 0):
                         ("KP-06.TP-1", "KP-06.TP-2", "KP-07.TP-1"))
     ergebnisse = SpeicherErgebnisbuch()
     gate1 = SpeicherGate1Buch(ergebnisse=ergebnisse)
-    ansicht = AblegendeLaufquelle(innen, ergebnisse).ansicht("PKT-301")
+    ansicht = AblegendeLaufquelle(innen, ergebnisse).rechnen("PKT-301", neu=False)
     if freigeben:
         ids = ansicht.potenzial_ids()
         gate1.merken(Gate1Entscheidung(

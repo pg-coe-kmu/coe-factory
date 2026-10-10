@@ -133,6 +133,8 @@ class AbgelegterLauf:
     hinweise: tuple[str, ...] = ()
     #: Gate-1-Zustand, wie die Datenbank ihn kennt; ``pending`` ohne Entscheidung.
     gate1_status: str = "pending"
+    #: Warum der Lauf gescheitert ist, solange er ``fehler`` steht.
+    fehler: str | None = None
 
     @property
     def geliefert(self) -> bool:
@@ -343,6 +345,7 @@ def ansicht_aus_ablage(lauf: AbgelegterLauf) -> Laufansicht:
             anzahl_potenziale=len(dok["eintraege"]),
             kp_ids=tuple(r["kp_id"] for r in dok["prozess_raenge"]),
             gate1_status=lauf.gate1_status,
+            zustand=b.zustand,
             sperrgrund=lauf.sperrgrund,
             hinweise=lauf.hinweise,
             # Die Paketliste liegt nicht in ``bc2``; zum Zeigen genügen die
@@ -414,16 +417,23 @@ def potenzialzeilen(dokument: dict, konzepte: list[dict]) -> list[dict]:
 class AblegendeLaufquelle:
     """Rechnet einmal, legt ab, zeigt danach das Abgelegte.
 
-    **Wann gerechnet wird.** Heute beim ersten Ansehen — die innere Quelle ist
-    ein Messsatz und kennt BC0s Anstoß nicht. Sobald der Bewertungsschritt
-    angeschlossen ist (#288), gehört ``rechnen`` hinter den Eingang: dann liegt
-    das Ergebnis schon, wenn der Mensch die Seite öffnet. An der Ablage ändert
-    das nichts.
+    **Wann gerechnet wird.** Bei einer **billigen** inneren Quelle (Messsatz)
+    beim ersten Ansehen. Bei einer **teuren** (``PaketLaufquelle``: Modellaufrufe)
+    nie beim Ansehen, sondern nur auf Auftrag über :meth:`rechnen` — die
+    Oberfläche stößt es mit ``POST …/rechnen`` im Hintergrund an. So entschieden
+    am ersten echten Lauf (10.10.2026), an dem das Ansehen nach der Anmeldung
+    jedes neue Paket gerechnet hatte. ``rechnen`` hinter den Eingang zu legen,
+    sodass ein Lauf schon fertig ist, wenn BC0 anstößt, bleibt möglich.
     """
 
     def __init__(self, innen: Laufquelle, buch: Ergebnisbuch) -> None:
         self._innen = innen
         self._buch = buch
+
+    @property
+    def teuer(self) -> bool:
+        """Kostet das Rechnen Modellaufrufe? Dann nie beim bloßen Ansehen."""
+        return bool(getattr(self._innen, "teuer", False))
 
     def _zeigen(self, abgelegt: AbgelegterLauf) -> Laufansicht:
         ansicht = ansicht_aus_ablage(abgelegt)
@@ -440,15 +450,43 @@ class AblegendeLaufquelle:
             abgelegt = self._buch.letzter(kopf.paket_id)
             if abgelegt is not None and abgelegt.dokument is not None:
                 koepfe.append(ansicht_aus_ablage(abgelegt).kopf)
+            elif abgelegt is not None:
+                koepfe.append(replace(
+                    kopf, zustand=abgelegt.beleg.zustand, fassung=abgelegt.beleg.fassung
+                ))
             else:
-                koepfe.append(kopf)
+                koepfe.append(replace(kopf, zustand="ungerechnet") if self.teuer else kopf)
         return koepfe
 
     def ansicht(self, paket_id: str) -> Laufansicht | None:
+        """Der abgelegte Lauf. Ist er noch nicht gerechnet, rechnet nur eine
+        **billige** innere Quelle jetzt; eine teure gibt ``None`` — dann sagt
+        :meth:`stand`, wie weit er ist, und gerechnet wird auf Auftrag."""
         abgelegt = self._buch.letzter(paket_id)
         if abgelegt is not None and abgelegt.dokument is not None:
             return self._zeigen(abgelegt)
+        if self.teuer:
+            return None
         return self.rechnen(paket_id, neu=False)
+
+    def stand(self, paket_id: str) -> dict | None:
+        """Wie weit ein noch nicht gezeigter Lauf ist — ohne zu rechnen."""
+        kopf = next((k for k in self.uebersicht() if k.paket_id == paket_id), None)
+        if kopf is None:
+            return None
+        abgelegt = self._buch.letzter(paket_id)
+        return {
+            "kopf": kopf.als_json(),
+            "zustand": kopf.zustand or "ungerechnet",
+            "fehler": abgelegt.fehler if abgelegt is not None else None,
+        }
+
+    def neulauf_pruefen(self, paket_id: str) -> None:
+        """Wirft ``NeulaufNichtErlaubt``, bevor im Hintergrund gerechnet wird —
+        dort ginge der Grund verloren. Dieselbe Regel wie ``beginnen``."""
+        abgelegt = self._buch.letzter(paket_id)
+        if abgelegt is not None:
+            _beginnen_entscheiden((abgelegt.beleg, abgelegt.gate1_status), neu=True)
 
     def neu_rechnen(self, paket_id: str) -> Laufansicht | None:
         """Die nächste Fassung nach einem Reject (ADR-008 · BC2, 2.1)."""
@@ -547,7 +585,7 @@ class AblegendeLaufquelle:
 
 _SQL_LETZTER = """
 SELECT l.priorisierung_id::text, l.company_id, l.paket_id, l.uebergeben_am,
-       l.fassung, l.zustand, l.dokument, l.sperrgrund, l.hinweise,
+       l.fassung, l.zustand, l.dokument, l.sperrgrund, l.hinweise, l.fehler,
        coalesce(g.status, 'pending') AS gate1_status
   FROM bc2.lauf l
   LEFT JOIN bc2.gate1 g USING (priorisierung_id)
@@ -735,6 +773,7 @@ class PostgresErgebnisbuch:
             sperrgrund=z["sperrgrund"],
             hinweise=tuple(z["hinweise"] or ()),
             gate1_status=z["gate1_status"],
+            fehler=z["fehler"],
         )
 
     def beginnen(
@@ -960,7 +999,7 @@ class SpeicherErgebnisbuch:
         return AbgelegterLauf(
             beleg=z.beleg, dokument=z.dokument, konzepte=list(z.konzepte),
             kp_namen=dict(z.kp_namen), sperrgrund=z.sperrgrund, hinweise=z.hinweise,
-            gate1_status=z.gate1_status,
+            gate1_status=z.gate1_status, fehler=z.fehler,
         )
 
     def beginnen(

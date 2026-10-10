@@ -640,7 +640,7 @@ def test_die_ablage_rechnet_einmal_und_zeigt_dann_das_abgelegte():
     innen, _, modell = _laufquelle([_erkannt(), _gut(), _ausgearbeitet("P1", "P2")])
     laeufe = AblegendeLaufquelle(innen, SpeicherErgebnisbuch())
 
-    erste = laeufe.ansicht("PKT-288")
+    erste = laeufe.rechnen("PKT-288", neu=False)
     zweite = laeufe.ansicht("PKT-288")
 
     assert len(modell.fragen) == 3
@@ -666,11 +666,11 @@ def test_ein_angehaltener_lauf_wird_geworfen_nicht_als_leerer_lauf_abgelegt():
     laeufe = AblegendeLaufquelle(innen, buch)
 
     with pytest.raises(LaufAngehalten, match="angehalten"):
-        laeufe.ansicht("PKT-288")
+        laeufe.rechnen("PKT-288", neu=False)
     gescheitert = buch.letzter("PKT-288")
     assert gescheitert.beleg.zustand == "fehler" and gescheitert.dokument is None
 
-    nochmal = laeufe.ansicht("PKT-288")
+    nochmal = laeufe.rechnen("PKT-288", neu=False)
     assert len(nochmal.eintraege) == 2 and len(modell.fragen) == 6
     assert buch.letzter("PKT-288").beleg.fassung == 1
 

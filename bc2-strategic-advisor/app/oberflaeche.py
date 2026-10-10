@@ -9,8 +9,18 @@ Fünf Rufe, mehr braucht die Seite nicht:
 ``GET  /api/oberflaeche/laeufe/{paket_id}``             Ein Lauf samt Gate-1-Stand
 ``POST /api/oberflaeche/laeufe/{paket_id}/gate1``       Die Entscheidung
 ``POST /api/oberflaeche/laeufe/{paket_id}/praesentation``  Der Foliensatz, nur nach Freigabe (#257)
+``POST /api/oberflaeche/laeufe/{paket_id}/rechnen``     Paket rechnen, im Hintergrund
 ``POST /api/oberflaeche/laeufe/{paket_id}/neu``         Neue Fassung nach Reject (#290)
 ======================================================  ====================================
+
+**Ansehen rechnet nie** — jedenfalls nicht, wenn Rechnen Modellaufrufe kostet
+(``quelle.teuer``). Beim ersten echten Lauf (10.10.2026) öffnete die Seite nach
+der Anmeldung den obersten Lauf von selbst, und das ``GET`` rechnete jedes neue
+Paket: Modellaufrufe und ein Lauf in der gemeinsamen Datenbank, ohne dass es
+jemand entschieden hatte, und eine Anfrage, die minutenlang offen hing. Seither
+rechnet nur ``POST …/rechnen`` bzw. ``…/neu``, und zwar **im Hintergrund**; die
+Seite fragt den Stand ab. Ein Wächter im Prozess lässt je Paket nur eine
+Rechnung zu — zwei Menschen am selben Paket zahlen nicht doppelt.
 
 **Die Prüfung liegt hier, nicht im Browser.** Fassung D verlangt eine Begründung
 für jede Nicht-Freigabe und hält Gate 1 sonst geschlossen. Im Prototyp war das
@@ -33,6 +43,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import logging
+import threading
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -81,6 +92,32 @@ def erzeuge_router(
     gezogen (ADR-007 · BC2, Nachtrag #305).
     """
     router = APIRouter(prefix="/api/oberflaeche")
+    teuer = bool(getattr(quelle, "teuer", False))
+    #: Pakete, die dieser Prozess gerade rechnet. Ein Prozess, ein Worker — der
+    #: Wächter genügt; nach einem Neustart steht der Lauf in der Datenbank auf
+    #: ``in_arbeit`` und lässt sich neu anstoßen.
+    laufend: set[str] = set()
+    sperre = threading.Lock()
+
+    def _im_hintergrund(paket_id: str, *, neu: bool) -> bool:
+        """Startet die Rechnung, falls sie nicht schon läuft. ``False``: läuft schon."""
+        with sperre:
+            if paket_id in laufend:
+                return False
+            laufend.add(paket_id)
+
+        def arbeit() -> None:
+            try:
+                quelle.rechnen(paket_id, neu=neu)
+                log.info("Lauf %s gerechnet", paket_id)
+            except Exception:  # noqa: BLE001 — steht als `fehler` am Lauf
+                log.exception("Lauf %s nicht gerechnet", paket_id)
+            finally:
+                with sperre:
+                    laufend.discard(paket_id)
+
+        threading.Thread(target=arbeit, name=f"rechnen-{paket_id[:8]}", daemon=True).start()
+        return True
 
     def _wache(request: Request) -> JSONResponse | None:
         if schluessel_stimmt(request):
@@ -126,6 +163,7 @@ def erzeuge_router(
             zeile = kopf.als_json()
             if entscheidung is not None:
                 zeile["gate1_status"] = entscheidung.status
+            zeile["laeuft"] = kopf.paket_id in laufend
             eintraege.append(zeile)
         return JSONResponse({"laeufe": eintraege})
 
@@ -135,16 +173,50 @@ def erzeuge_router(
         if (abweisung := _wache(request)) is not None:
             return abweisung
 
+        if paket_id in laufend and hasattr(quelle, "stand"):
+            # Während gerechnet wird, gilt der Stand — auch wenn eine ältere
+            # Fassung abgelegt ist; sonst zeigte die Seite nach „neu rechnen“
+            # die abgelehnte und fragte nicht weiter nach.
+            stand = quelle.stand(paket_id)
+            if stand is not None:
+                return JSONResponse({**stand, "gerechnet": False, "laeuft": True})
+
         ansicht = quelle.ansicht(paket_id)
         if ansicht is None:
-            return _fehler(f"Kein Lauf mit paket_id {paket_id!r}.", 404)
+            # Ein teurer Lauf, der noch nicht gerechnet ist: Stand statt Rechnung.
+            stand = quelle.stand(paket_id) if hasattr(quelle, "stand") else None
+            if stand is None:
+                return _fehler(f"Kein Lauf mit paket_id {paket_id!r}.", 404)
+            return JSONResponse({**stand, "gerechnet": False, "laeuft": paket_id in laufend})
 
         antwort = ansicht.als_json()
+        antwort["gerechnet"] = True
         entscheidung = buch.lesen(paket_id, ansicht.kopf.fassung)
         antwort["gate1"] = (
             entscheidung.als_vertrag() if entscheidung is not None else {"status": "pending"}
         )
         return JSONResponse(antwort)
+
+    @router.post("/laeufe/{paket_id}/rechnen")
+    def rechnen(request: Request, paket_id: str):
+        """Rechnet ein angenommenes Paket — **auf Auftrag, im Hintergrund**.
+
+        ``202`` heißt angestoßen (oder läuft schon); den Fortgang zeigt
+        ``GET …/laeufe/{paket_id}``. Ein schon gerechneter Lauf wird nicht noch
+        einmal gerechnet (``409``) — eine neue Fassung gibt es nur nach Reject.
+        Ein gescheiterter (``fehler``) läuft unter derselben Fassung neu.
+        """
+        if (abweisung := _wache(request)) is not None:
+            return abweisung
+        if not hasattr(quelle, "rechnen") or not hasattr(quelle, "stand"):
+            return _fehler("Ohne Ablage wird nicht auf Auftrag gerechnet.", 501)
+        stand = quelle.stand(paket_id)
+        if stand is None:
+            return _fehler(f"Kein Lauf mit paket_id {paket_id!r}.", 404)
+        if stand["zustand"] in ("offen", "abgeschlossen"):
+            return _fehler(f"Lauf {paket_id} ist schon gerechnet.", 409)
+        gestartet = _im_hintergrund(paket_id, neu=False)
+        return JSONResponse({"laeuft": True, "gestartet": gestartet}, status_code=202)
 
     @router.post("/laeufe/{paket_id}/gate1")
     async def entscheiden(request: Request, paket_id: str):
@@ -308,6 +380,14 @@ def erzeuge_router(
             return abweisung
         if not hasattr(quelle, "neu_rechnen"):
             return _fehler("Ohne Ablage gibt es keine Fassungen.", 501)
+        if teuer:
+            # Erst prüfen, dann im Hintergrund rechnen — dort ginge der Grund verloren.
+            try:
+                quelle.neulauf_pruefen(paket_id)
+            except NeulaufNichtErlaubt as e:
+                return _fehler(str(e), 409)
+            gestartet = _im_hintergrund(paket_id, neu=True)
+            return JSONResponse({"laeuft": True, "gestartet": gestartet}, status_code=202)
         try:
             ansicht = quelle.neu_rechnen(paket_id)
         except NeulaufNichtErlaubt as e:

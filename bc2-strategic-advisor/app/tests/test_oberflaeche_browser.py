@@ -124,7 +124,7 @@ def seite_mit_ablage(dienst_mit_ablage):
 
 
 @contextmanager
-def _angemeldet(url):
+def _angemeldet(url, warte_auf: str = ".kpblock"):
     """Eine angemeldete Seite, mit scharfem Blick auf Konsolenfehler.
 
     Ein Fehler im JavaScript macht die Seite nicht kaputt genug, um aufzufallen
@@ -155,7 +155,7 @@ def _angemeldet(url):
         blatt.goto(url, wait_until="networkidle")
         blatt.fill("#schluesselfeld", SCHLUESSEL)
         blatt.click("#anmelden")
-        blatt.wait_for_selector(".kpblock", timeout=10_000)
+        blatt.wait_for_selector(warte_auf, timeout=10_000)
 
         yield blatt
 
@@ -379,8 +379,9 @@ def test_nach_reject_rechnet_der_knopf_die_naechste_fassung(seite_mit_ablage):
 def seite_mit_kette():
     """Zwei Pakete über dieselben Teilprozesse, das erste freigegeben (#295).
 
-    Das zweite liegt später und steht darum oben in der Auswahl; geöffnet wird
-    es erst im Browser, also schneidet und verkettet es der Dienst selbst.
+    Das zweite liegt später und steht darum oben in der Auswahl. Der Dienst
+    schneidet und verkettet es selbst — auf Auftrag, denn seit dem 10.10.2026
+    rechnet Öffnen nicht mehr.
     """
     from datetime import timedelta
 
@@ -394,7 +395,8 @@ def seite_mit_kette():
         pakete=[Paketeintrag("PKT-A", NOROAI, STAND, (TP1, TP2)),
                 Paketeintrag("PKT-B", NOROAI, STAND + timedelta(days=1), (TP2,))],
     )
-    _freigeben(gate1, laeufe.ansicht("PKT-A"))
+    _freigeben(gate1, laeufe.rechnen("PKT-A", neu=False))
+    laeufe.rechnen("PKT-B", neu=False)
     with _starte(erzeuge_app(SpeicherEingangsbuch(), laufquelle=laeufe, gate1_buch=gate1)) as url:
         with _angemeldet(url) as blatt:
             yield blatt
@@ -421,3 +423,39 @@ def test_vorgaenger_und_streichliste_stehen_am_gate_1(seite_mit_kette):
     # mit eingesetztem Automatisierungsgrad statt Platzhalter.
     assert "Als Projektleitung moechte ich" in text and "Akzeptanzkriterien" in text
     assert "{grad_min}" not in text and "ohne Nacharbeit abgerechnet" in text
+
+
+@pytest.fixture
+def seite_teuer():
+    """Ein Dienst mit teurer Quelle wie im Betrieb — Rechnen kostet Modellaufrufe."""
+    from ablage import AblegendeLaufquelle, SpeicherErgebnisbuch
+    from app import erzeuge_app
+    from eingang import SpeicherEingangsbuch
+    from gate1 import SpeicherGate1Buch
+
+    from test_rechnen_auf_auftrag import TeuereQuelle
+
+    teuer = TeuereQuelle()
+    ergebnisse = SpeicherErgebnisbuch()
+    with _starte(erzeuge_app(
+        SpeicherEingangsbuch(),
+        laufquelle=AblegendeLaufquelle(teuer, ergebnisse),
+        gate1_buch=SpeicherGate1Buch(ergebnisse=ergebnisse),
+    )) as url, _angemeldet(url, warte_auf="[data-rechnen]") as blatt:
+        yield blatt, teuer
+
+
+def test_anmelden_rechnet_nichts_gerechnet_wird_auf_knopfdruck(seite_teuer):
+    """Erster echter Lauf (10.10.2026): die Anmeldung öffnete den obersten Lauf und
+    rechnete ihn. Jetzt steht er mit seinem Stand da, und gerechnet wird erst auf
+    Knopfdruck — die Seite fragt danach selbst nach, bis er da ist."""
+    seite, teuer = seite_teuer
+    seite.wait_for_selector("[data-rechnen]", timeout=5000)
+    assert teuer.gerechnet == 0
+    assert "nicht gerechnet" in seite.locator("#laufwahl").inner_text()
+    assert "kostet Modellaufrufe" in seite.locator("#buehne").inner_text()
+
+    seite.locator("[data-rechnen]").click()
+    seite.wait_for_selector("#buehne h1", timeout=15000)  # „Priorisierung“: der Lauf ist da
+    assert teuer.gerechnet == 1
+    assert "Potenziale" in seite.locator("#laufwahl").inner_text()
