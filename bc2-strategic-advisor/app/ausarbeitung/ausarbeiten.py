@@ -292,6 +292,8 @@ def arbeite_aus(
             frage = baue_frage(nutzlast, gruende or None)
             antwort = modell.frage(frage)
             gruende = list(pruefe_ausarbeitung(antwort.ergebnis, erwartung))
+            if antwort.lesefehler:
+                gruende.append(antwort.lesefehler)
             if not gruende:
                 break
             verworfen.extend(gruende)

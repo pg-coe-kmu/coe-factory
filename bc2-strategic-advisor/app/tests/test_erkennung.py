@@ -482,6 +482,15 @@ def test_unlesbare_antwort_wird_wiederholt(bestand):
     assert any("JSON" in g for g in ergebnis.aufrufe[0].verworfen)
 
 
+def test_die_mahnung_nennt_die_stelle_an_der_das_json_bricht(bestand):
+    """#317: ohne die Stelle wiederholte das Modell blind — und scheiterte gleich."""
+    kaputt = json.dumps(antwort(potenzial("P1", "KP-02", ["KP-02.TP-1"])), ensure_ascii=False)
+    kaputt = kaputt.replace('"P1"', '"P"1"', 1)
+    modell = Doppelgaenger([kaputt, antwort(potenzial("P1", "KP-02", ["KP-02.TP-1"]))])
+    erkenne(bestand, modell)
+    assert "Spalte" in modell.fragen[1] and '\\"' in modell.fragen[1]
+
+
 def test_schnitt_b_stellt_den_aufrufnamen_voran(bestand):
     """Jeder Aufruf zählt bei ``P1`` wieder von vorn — zwei Potenziale mit
     derselben Kennung wären in der Lieferung nicht auseinanderzuhalten."""

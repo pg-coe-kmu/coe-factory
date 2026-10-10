@@ -270,6 +270,8 @@ def _frage_mit_waechter(
         if antwort.ergebnis is None:
             bericht = Pruefbericht(anzahl=0)
             gruende = ["Die Antwort enthielt kein lesbares JSON-Objekt."]
+            if antwort.lesefehler:
+                gruende.append(antwort.lesefehler)
         else:
             bericht = pruefe_schnitt(
                 antwort.potenziale,

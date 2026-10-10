@@ -356,6 +356,38 @@ def test_eine_wiederholung_mit_benanntem_verstoss_dann_durch():
     assert aufruf.versuche == 2 and aufruf.verworfen
 
 
+def test_die_mahnung_nennt_die_stelle_an_der_das_json_bricht():
+    """Der Befund aus fd2e… (#317): drei Ausarbeitungen scheiterten an „kein
+    JSON-Objekt“, und die Wiederholung wusste nicht, was sie ändern sollte."""
+    bestand, erkennung, bewertung, lauf, ansicht = _gerechnet()
+    gut = _ausgearbeitet("P1", "P2")
+    kaputt = json.dumps(gut, ensure_ascii=False).replace(
+        '"kontext"', '"kon"text"', 1)
+    modell = Doppelgaenger([kaputt, gut])
+
+    arbeite_aus(lauf, ansicht.potenziale, erkennung, bewertung.kennungen, bestand, modell)
+
+    assert "dieser Aufruf ist eine Wiederholung" in modell.fragen[1]
+    assert "Zeile" in modell.fragen[1] and "Spalte" in modell.fragen[1]
+
+
+def test_ein_codeblock_im_loesungsansatz_traegt():
+    """Codeblöcke dürfen in den Markdown-Feldern stehen (#317). Geschweifte
+    Klammern darin verwirft weiterhin der Platzhalter-Wächter — das ist ein
+    benannter Grund, kein Lesefehler."""
+    bestand, erkennung, bewertung, lauf, ansicht = _gerechnet()
+    gut = _mit("potenziale.0.loesungsansatz",
+               "Ein Workflow mit einem Knoten:\n```yaml\nnodes:\n  - name: Eingang\n```\nDanach die Freigabe.")(
+        _ausgearbeitet("P1", "P2"))
+    roh = "```json\n" + json.dumps(gut, ensure_ascii=False, indent=2) + "\n```"
+    modell = Doppelgaenger([roh])
+
+    a = arbeite_aus(lauf, ansicht.potenziale, erkennung, bewertung.kennungen, bestand, modell)
+
+    (aufruf,) = a.aufrufe
+    assert aufruf.versuche == 1
+
+
 # ======================================================================
 # Der Anschluss: PaketLaufquelle und Ablage
 # ======================================================================
