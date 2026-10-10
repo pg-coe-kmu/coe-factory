@@ -400,7 +400,7 @@ def test_der_abgelegte_lauf_ist_ein_schemagueltiger_vertrag_3_1():
     gate1 = SpeicherGate1Buch(ergebnisse=ergebnisse)
     laeufe = AblegendeLaufquelle(innen, ergebnisse)
 
-    ansicht = laeufe.ansicht("PKT-301")
+    ansicht = laeufe.rechnen("PKT-301", neu=False)
     entscheidung = Gate1Entscheidung(
         paket_id="PKT-301", company_id=NOROAI, status="approved", fassung=ansicht.kopf.fassung,
         approved_potenzial_ids=tuple(ansicht.potenzial_ids()), kommentar="",

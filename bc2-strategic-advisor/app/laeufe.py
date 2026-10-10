@@ -101,6 +101,10 @@ class Laufkopf:
     #: Was der Entscheider wissen soll, ohne dass es die Lieferung aufhält —
     #: etwa dass Schnitt und Bewertung Modellurteile sind.
     hinweise: tuple[str, ...] = ()
+    #: Wie weit der Lauf ist, wenn die Ablage es weiß: ``ungerechnet``,
+    #: ``in_arbeit``, ``fehler``, ``offen``, ``abgeschlossen`` (bc2.lauf.zustand).
+    #: ``None``, wo niemand es weiß (eine Quelle ohne Ablage).
+    zustand: str | None = None
     #: Die Teilprozesse des **Pakets**, auch die, aus denen kein Potenzial
     #: entstand. An ihnen hängt die Suche nach Vorgängern (ADR-009 · BC2 §2.2):
     #: ein schon gelieferter Teilprozess, den das Paket neu bringt, ist neu
@@ -122,6 +126,8 @@ class Laufkopf:
             eintrag["sperrgrund"] = self.sperrgrund
         if self.hinweise:
             eintrag["hinweise"] = list(self.hinweise)
+        if self.zustand:
+            eintrag["zustand"] = self.zustand
         return eintrag
 
     @property
@@ -511,6 +517,21 @@ NICHT_AUSGEARBEITET = (
 )
 
 
+def _antwort_kurz(fehler: Exception, rand: int = 300) -> str:
+    """Anfang und Ende der verworfenen Antwort, für den Fehlertext am Lauf.
+
+    Die Abbrüche tragen die rohe Antwort mit; beim Umwickeln in
+    :class:`LaufAngehalten` ging sie bis zum 10.10.2026 verloren — und mit ihr
+    jede Möglichkeit zu sagen, *warum* eine Antwort kein JSON enthielt.
+    """
+    roh = getattr(fehler, "roh", "") or ""
+    if not roh:
+        return ""
+    if len(roh) <= 2 * rand:
+        return f" | Antwort ({len(roh)} Zeichen): {roh!r}"
+    return f" | Antwort ({len(roh)} Zeichen), Anfang: {roh[:rand]!r} … Ende: {roh[-rand:]!r}"
+
+
 class LaufAngehalten(RuntimeError):
     """Ein Lauf ist nicht zustande gekommen — und das ist kein Absturz.
 
@@ -535,7 +556,15 @@ class PaketLaufquelle:
     Bewertungsaufrufe (#299) und je Konzept einen Ausarbeitungsaufruf (#301); die
     Übersicht zeigt ein ungerechnetes Paket darum mit ``0`` Potenzialen und sagt
     das an, statt eine Zahl zu erfinden.
+
+    **Teuer**, und das sagt sie: die ``AblegendeLaufquelle`` rechnet sie nie
+    beim bloßen Ansehen, sondern nur auf ausdrücklichen Auftrag. Bis zum ersten
+    echten Lauf (10.10.2026) öffnete die Oberfläche nach der Anmeldung den
+    obersten Lauf von selbst — und rechnete so jedes neue Paket, ohne dass es
+    jemand entschieden hatte.
     """
+
+    teuer = True
 
     def __init__(
         self,
@@ -612,7 +641,7 @@ class PaketLaufquelle:
         except (ErkennungAbgebrochen, BewertungAbgebrochen) as fehler:
             raise LaufAngehalten(
                 f"Lauf {e.paket_id} angehalten — das Modell brach seine Zusage auch in "
-                f"der Wiederholung: {fehler}"
+                f"der Wiederholung: {fehler}{_antwort_kurz(fehler)}"
             ) from fehler
         except HistorieZuAlt as fehler:
             raise LaufAngehalten(
@@ -677,7 +706,7 @@ class PaketLaufquelle:
         except AusarbeitungAbgebrochen as fehler:
             raise LaufAngehalten(
                 f"Lauf {e.paket_id} angehalten — das Modell brach seine Zusage auch in "
-                f"der Wiederholung: {fehler}"
+                f"der Wiederholung: {fehler}{_antwort_kurz(fehler)}"
             ) from fehler
         return replace(
             ansicht,

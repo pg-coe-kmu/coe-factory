@@ -366,11 +366,11 @@ def _kette() -> list:
 def test_das_zweite_paket_liefert_eine_gueltige_kette_und_eine_streichliste():
     laeufe, ergebnisse, gate1, modell = _strecke(*_kette())
 
-    a = laeufe.ansicht("PKT-A")
+    a = laeufe.rechnen("PKT-A", neu=False)
     ea = _freigeben(gate1, a)
     alt = {p["titel"]: p["potenzial_id"] for p in a.potenziale.values()}
 
-    b = laeufe.ansicht("PKT-B")
+    b = laeufe.rechnen("PKT-B", neu=False)
     eb = _freigeben(gate1, b)
 
     # Die Kandidaten standen in der Erkennungsfrage von B, ohne ihre UUID.
@@ -405,8 +405,8 @@ def test_das_zweite_paket_liefert_eine_gueltige_kette_und_eine_streichliste():
 
 def test_was_fortgeschrieben_oder_gestrichen_ist_ist_kein_kandidat_mehr():
     laeufe, ergebnisse, gate1, _ = _strecke(*_kette())
-    _freigeben(gate1, laeufe.ansicht("PKT-A"))
-    b = laeufe.ansicht("PKT-B")
+    _freigeben(gate1, laeufe.rechnen("PKT-A", neu=False))
+    b = laeufe.rechnen("PKT-B", neu=False)
 
     vorher = ergebnisse.kandidaten(NOROAI, "PKT-C", [TP1, TP2])
     assert {k.paket_id for k in vorher} == {"PKT-A"}, "B ist noch nicht freigegeben"
@@ -421,7 +421,9 @@ def test_was_fortgeschrieben_oder_gestrichen_ist_ist_kein_kandidat_mehr():
 
 def test_die_gate1_ansicht_zeigt_vorgaenger_und_streichliste(buch, kopf):
     laeufe, ergebnisse, gate1, _ = _strecke(*_kette())
-    _freigeben(gate1, laeufe.ansicht("PKT-A"))
+    _freigeben(gate1, laeufe.rechnen("PKT-A", neu=False))
+    # Ein GET rechnet nicht mehr (10.10.2026) — B wird vorher ausdrücklich gerechnet.
+    laeufe.rechnen("PKT-B", neu=False)
 
     with TestClient(erzeuge_app(buch, laufquelle=laeufe, gate1_buch=gate1)) as c:
         lauf = c.get("/api/oberflaeche/laeufe/PKT-B", headers=kopf).json()
@@ -447,13 +449,13 @@ def test_ohne_ausgangslage_bleibt_die_sperre():
     ergebnisse = SpeicherErgebnisbuch()
     gate1 = SpeicherGate1Buch(ergebnisse=ergebnisse)
     laeufe = AblegendeLaufquelle(innen, ergebnisse)
-    _freigeben(gate1, laeufe.ansicht("PKT-A"))
+    _freigeben(gate1, laeufe.rechnen("PKT-A", neu=False))
     # Ohne Ausarbeitung trüge A selbst einen Sperrgrund und wäre nie geliefert
     # (#305) — hier zählt nur B. A steht darum, als wäre es geliefert worden.
     ergebnisse.zeilen["PKT-A"][-1].sperrgrund = None
 
     with pytest.raises(NachfolgerOffen, match="Vertrag 3.1"):
-        laeufe.ansicht("PKT-B")
+        laeufe.rechnen("PKT-B", neu=False)
 
 
 def test_eine_kette_an_der_nachpruefung_vorbei_wird_nicht_abgelegt():

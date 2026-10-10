@@ -26,14 +26,18 @@ ungemessenes Modell zu tauschen; es bleibt ein Parameter, kein Umbau.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import subprocess
+import time
 from dataclasses import dataclass, field
 from typing import Protocol
 
 __all__ = ["Antwort", "CliModell", "Doppelgaenger", "Modellruf", "SdkModell", "schaele_json"]
 
 #: Voreinstellung. Siehe Modulkopf.
+_log = logging.getLogger("bc2.modell")
+
 STANDARDMODELL = "sonnet"
 
 #: Ein Erkennungsaufruf über den ganzen NoroAI-Bestand landet bei ~8.500 Token
@@ -124,12 +128,26 @@ class SdkModell:
                 "ausschliesslich in eine Umgebungsvariable (ADR-003)."
             )
         klient = anthropic.Anthropic(api_key=schluessel)
+        beginn = time.monotonic()
         antwort = klient.messages.create(
             model=self.modell,
             max_tokens=self.max_token,
             messages=[{"role": "user", "content": text}],
         )
         roh = "".join(b.text for b in antwort.content if getattr(b, "type", "") == "text")
+        # Jeder Aufruf ins Protokoll: Abbruchgrund, Token, Dauer. Der zweite echte
+        # Lauf (10.10.2026) scheiterte an einer Antwort ohne JSON, und ohne
+        # ``stop_reason`` war nicht zu sagen, ob sie abgeschnitten war.
+        nutzung = getattr(antwort, "usage", None)
+        _log.log(
+            logging.WARNING if antwort.stop_reason != "end_turn" else logging.INFO,
+            "Modellaufruf %s: stop_reason=%s, Token ein=%s aus=%s, %.0f s, %d Zeichen Antwort",
+            self.modell, antwort.stop_reason,
+            getattr(nutzung, "input_tokens", "?"), getattr(nutzung, "output_tokens", "?"),
+            time.monotonic() - beginn, len(roh),
+        )
+        if antwort.stop_reason == "max_tokens":
+            roh += f"\n[BC2: abgeschnitten bei max_tokens={self.max_token}]"
         return Antwort(roh=roh, ergebnis=schaele_json(roh), modell=self.modell)
 
 

@@ -272,7 +272,9 @@ async function ruf(pfad, optionen = {}){
 const Z = {
   laeufe: [],
   paket_id: null,
+  angefragt: null,        // der zuletzt angeforderte Lauf — spätere Antworten zählen, frühere nicht
   ansicht: null,          // die geladene Laufansicht
+  stand: null,            // ein noch nicht gerechneter Lauf: {kopf, zustand, fehler, laeuft}
   gate1: null,            // der Stand, den der Server kennt
   freigegeben: new Set(),
   ablehnungsgrund: {},    // potenzial_id -> Text
@@ -895,6 +897,10 @@ function zeichneBuehne(){
   const ziel = document.getElementById("buehne");
   ziel.className = "";
 
+  if (!Z.ansicht && Z.stand){
+    ziel.innerHTML = standHtml(Z.stand);
+    return;
+  }
   if (!Z.ansicht){
     ziel.innerHTML = `<div class="wrap"><p class="hinweis info">Kein Lauf ausgewählt.</p></div>`;
     return;
@@ -1101,29 +1107,106 @@ async function ladeListe(){
 
   const wahl = document.getElementById("laufwahl");
   wahl.innerHTML = Z.laeufe.length
-    ? Z.laeufe.map(l => `<option value="${esc(l.paket_id)}">${esc(l.paket_id)} ·
-        ${l.anzahl_potenziale} Potenziale · ${
-          {pending: "offen", approved: "freigegeben", rejected: "abgelehnt"}[l.gate1_status]
-        }</option>`).join("")
+    ? Z.laeufe.map(l => `<option value="${esc(l.paket_id)}">${esc(l.paket_id)} · ${
+        laufZeile(l)}</option>`).join("")
     : `<option value="">— kein Lauf —</option>`;
   return true;
 }
 
+/** Ob ein Lauf gerechnet ist — nur ein solcher öffnet sich von selbst. */
+function istGerechnet(l){
+  return !l.zustand || l.zustand === "offen" || l.zustand === "abgeschlossen";
+}
+
+function laufZeile(l){
+  if (l.laeuft || l.zustand === "in_arbeit") return "wird gerechnet …";
+  if (l.zustand === "ungerechnet") return "nicht gerechnet";
+  if (l.zustand === "fehler") return "gescheitert";
+  return `${l.anzahl_potenziale} Potenziale · ${
+    {pending: "offen", approved: "freigegeben", rejected: "abgelehnt"}[l.gate1_status]}`;
+}
+
 async function ladeLauf(paket_id){
-  if (!paket_id){ Z.ansicht = null; zeichne(); return; }
+  if (!paket_id){ Z.ansicht = null; Z.stand = null; zeichne(); return; }
+  Z.angefragt = paket_id;
   const {ok, status, rumpf} = await ruf("/api/oberflaeche/laeufe/" + encodeURIComponent(paket_id));
+  // Wer inzwischen einen anderen Lauf gewählt hat, bekommt dessen Antwort —
+  // nicht die eines Laufs, der später eintrifft (10.10.2026: die Antwort
+  // eines rechnenden Laufs überschrieb die Wahl des Menschen).
+  if (Z.angefragt !== paket_id) return;
   if (!ok){
-    Z.ansicht = null;
+    Z.ansicht = null; Z.stand = null;
     Z.meldung = {art: "warn", text: `Lauf ${esc(paket_id)} konnte nicht geladen werden (${status}).`};
     zeichne(); return;
   }
   Z.paket_id = paket_id;
+  if (rumpf.gerechnet === false){
+    // Ansehen rechnet nicht: der Stand wird gezeigt, gerechnet wird auf Knopfdruck.
+    Z.ansicht = null; Z.stand = rumpf; Z.meldung = null;
+    zeichne();
+    if (rumpf.laeuft || rumpf.zustand === "in_arbeit") standAbfragen(paket_id);
+    return;
+  }
+  Z.stand = null;
   Z.ansicht = rumpf;
   Z.gate1 = rumpf.gate1;
   Z.gewaehlt = null;
   Z.meldung = null;
   ausGate1(rumpf.gate1);
   zeichne();
+}
+
+/** Fragt alle fünf Sekunden nach, solange der Lauf gerechnet wird und gewählt ist. */
+function standAbfragen(paket_id){
+  setTimeout(async () => {
+    if (Z.angefragt !== paket_id || !Z.stand) return;
+    await ladeListe();
+    document.getElementById("laufwahl").value = paket_id;
+    await ladeLauf(paket_id);
+  }, 5000);
+}
+
+/** Stößt die Rechnung an — der einzige Weg, auf dem die Seite Modellaufrufe auslöst. */
+async function paketRechnen(){
+  const paket_id = Z.paket_id;
+  const antwort = await ruf(
+    `/api/oberflaeche/laeufe/${encodeURIComponent(paket_id)}/rechnen`, {method: "POST"});
+  if (antwort.status !== 202){
+    Z.meldung = {art: "warn", text: `Nicht angestoßen (${antwort.status}).
+      ${esc(antwort.rumpf?.fehler || "")}`};
+    return zeichne();
+  }
+  Z.meldung = {art: "info", text: `<b>Rechnung angestoßen.</b> Erkennung, drei Bewertungen und
+    die Ausarbeitung dauern einige Minuten; die Seite fragt selbst nach.`};
+  await ladeListe();
+  document.getElementById("laufwahl").value = paket_id;
+  await ladeLauf(paket_id);
+}
+
+function standHtml(st){
+  const k = st.kopf || {};
+  const tps = (k.kp_ids || []).join(", ") || "—";
+  if (st.laeuft || st.zustand === "in_arbeit"){
+    const unterbrochen = !st.laeuft;
+    return `<div class="wrap"><p class="hinweis info"><b>${unterbrochen
+        ? "Dieser Lauf wurde unterbrochen." : "Dieses Paket wird gerade gerechnet."}</b>
+      ${unterbrochen
+        ? "Er steht in der Datenbank auf „in Arbeit“, aber der Dienst rechnet nicht daran — etwa nach einem Neustart."
+        : "Erkennung, drei Bewertungen und die Ausarbeitung dauern einige Minuten. Die Seite fragt alle fünf Sekunden nach."}
+      </p>${unterbrochen ? rechnenKnopf("erneut anstoßen") : ""}</div>`;
+  }
+  const fehler = st.zustand === "fehler"
+    ? `<p class="hinweis warn"><b>Die letzte Rechnung ist gescheitert.</b> ${esc(st.fehler || "")}</p>` : "";
+  return `<div class="wrap">${fehler}<p class="hinweis luecke">
+      <b>Dieses Paket ist ${st.zustand === "fehler" ? "nicht" : "noch nicht"} gerechnet.</b>
+      Kernprozesse: ${esc(tps)}. Rechnen schneidet die Potenziale, bewertet sie dreimal und schreibt
+      die Konzepte — das <b>kostet Modellaufrufe</b>, dauert einige Minuten und legt den Lauf in
+      Schema <code>bc2</code> der gemeinsamen Datenbank ab. Angesehen wird erst danach.</p>
+      ${rechnenKnopf(st.zustand === "fehler" ? "erneut rechnen" : "Paket rechnen")}</div>`;
+}
+
+function rechnenKnopf(text){
+  return `<div style="margin-top:12px"><button class="btn" data-rechnen="1">${text}</button></div>`;
 }
 
 /** Baut den Rumpf, den `POST …/gate1` erwartet — die Vertragsform v3.0. */
@@ -1220,6 +1303,15 @@ async function neuRechnen(){
       ${esc(antwort.rumpf?.fehler || "")}`};
     return zeichne();
   }
+  if (antwort.status === 202){
+    // Ein teurer Lauf rechnet im Hintergrund; die Seite fragt nach.
+    await ladeListe();
+    document.getElementById("laufwahl").value = Z.paket_id;
+    await ladeLauf(Z.paket_id);
+    Z.meldung = {art: "info", text: `<b>Neue Fassung angestoßen.</b> Die abgelehnte bleibt
+      abgelegt; die Seite zeigt die neue, sobald sie gerechnet ist.`};
+    return zeichne();
+  }
   await ladeListe();
   document.getElementById("laufwahl").value = Z.paket_id;
   await ladeLauf(Z.paket_id);
@@ -1244,6 +1336,7 @@ document.addEventListener("click", async e => {
     sessionStorage.removeItem(SCHLUESSEL_FACH); schluessel = "";
     return zeigeTor("");
   }
+  if (t.closest("[data-rechnen]")) return paketRechnen();
   if (!Z.ansicht) return;
 
   if (t.closest("[data-praesentation]")) return praesentationHolen();
@@ -1426,6 +1519,10 @@ async function starten(){
   Z.neulauf = !!zustand.rumpf.neulauf;
 
   if (!await ladeListe()) return;
+  // Von selbst öffnet sich nur ein gerechneter Lauf — Öffnen darf nie Rechnen
+  // auslösen (10.10.2026). Gibt es keinen, steht der oberste mit seinem Stand da.
+  const erster = Z.laeufe.find(istGerechnet) || Z.laeufe[0];
+  if (erster) document.getElementById("laufwahl").value = erster.paket_id;
   await ladeLauf(document.getElementById("laufwahl").value);
 }
 
