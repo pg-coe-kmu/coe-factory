@@ -504,7 +504,9 @@ class PostgresBestand:
     def _verbindung(self):
         import psycopg2  # lokal: die Tests brauchen den Treiber nicht
 
-        return psycopg2.connect(self._dsn)
+        conn = psycopg2.connect(self._dsn)
+        numeric_als_float(conn)
+        return conn
 
     def lies_paket(
         self,
@@ -620,6 +622,24 @@ class PostgresBestand:
             kernprozesse=_baue_kernprozesse(kp_kopf, tps),
             hinweise=tuple(hinweise),
         )
+
+
+def numeric_als_float(conn) -> None:
+    """Liest ``numeric`` auf dieser Verbindung als ``float`` statt ``Decimal``.
+
+    Der Bestand geht als JSON in die Nutzlast, und ``Decimal`` ist kein JSON —
+    der erste Lauf gegen die echte Datenbank brach daran ab, beim Packen der
+    Erkennungsfrage (BC1s ``frequency_per_year`` und Dauern sind ``numeric``).
+    An der Lesegrenze statt je Feld, damit keine neue Spalte es wieder
+    einschleppt; Häufigkeiten und Minuten brauchen keine Dezimalgenauigkeit.
+    """
+    import psycopg2.extensions as ext
+
+    als_float = ext.new_type(
+        ext.DECIMAL.values, "BC2_NUMERIC_ALS_FLOAT",
+        lambda wert, cur: None if wert is None else float(wert),
+    )
+    ext.register_type(als_float, conn)
 
 
 def _bc1_aus_zeile(z: dict[str, Any]) -> Bc1Profil:

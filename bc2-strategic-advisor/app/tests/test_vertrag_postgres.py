@@ -174,6 +174,37 @@ def test_abgleich_laeuft_gegen_die_echte_view_durch(buch):
         assert isinstance(p.nutzlast.get("teilprozesse"), list)
 
 
+def test_der_bestand_des_pakets_ist_json(buch):
+    """Erster echter Lauf (10.10.2026): BC1s ``numeric``-Spalten kamen als
+    ``Decimal`` an, und die Erkennung brach beim Packen der Nutzlast ab. Er
+    schreibt nichts."""
+    import json
+
+    import psycopg2
+    import psycopg2.extras
+
+    from erkennung.bestand import PostgresBestand
+
+    with psycopg2.connect(os.environ["DATABASE_URL"]) as conn:
+        conn.set_session(readonly=True)
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                "SELECT e.company_id, e.paket_id, e.uebergeben_am, "
+                "array_agg(i.sub_process_id::text) AS tps FROM bc2.eingang e "
+                "JOIN public.gate_paket_inhalt i ON i.paket_id::text = e.paket_id "
+                "GROUP BY 1, 2, 3 LIMIT 1"
+            )
+            z = cur.fetchone()
+    if z is None:
+        pytest.skip("Kein angenommenes Paket mit Inhalt.")
+    bestand = PostgresBestand().lies_paket(z["company_id"], z["paket_id"], z["uebergeben_am"], z["tps"])
+    from dataclasses import asdict
+
+    json.dumps(asdict(bestand), default=str)  # default nur fuer datetime, nicht fuer Decimal
+    profile = [t.bc1_profil for kp in bestand.kernprozesse for t in kp.teilprozesse if t.bc1_profil]
+    assert all(not isinstance(p.frequency_per_year, __import__("decimal").Decimal) for p in profile)
+
+
 def test_der_mandantensatz_ist_auf_dem_freigabestand_lesbar(buch):
     """Die Quelle von ``ausgangslage.unternehmen`` (v3.1, #254), **nur lesend**.
 
