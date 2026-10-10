@@ -54,7 +54,7 @@ from modell import (
     gemessene_komplexitaet,
 )
 
-from .anweisung import baue_frage
+from .anweisung import ANTWORTSCHEMA, baue_frage
 from .nutzlast import baue_nutzlast, messungen_je_teilprozess
 from .pruefen import KATEGORIEN, Erwartung, pruefe_bewertung
 from .zusammenfuehren import fuehre_zusammen
@@ -225,7 +225,7 @@ def bewerte(
         while True:
             versuch += 1
             frage = baue_frage(nutzlast, gruende or None)
-            antwort = modell.frage(frage)
+            antwort = modell.frage(frage, schema=ANTWORTSCHEMA)
             gruende = list(pruefe_bewertung(antwort.ergebnis, erwartet))
             if antwort.lesefehler:
                 gruende.append(antwort.lesefehler)

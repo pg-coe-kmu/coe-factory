@@ -62,7 +62,7 @@ from typing import Any
 
 from nachfolge import Ausgang, Kandidat, Nachfolge, pruefe_ausgaenge
 
-from .anweisung import baue_frage
+from .anweisung import antwortschema, baue_frage
 from .bestand import Paketbestand
 from .modellruf import Modellruf
 from .nutzlast import GRENZE_ZEICHEN, Aufruf, packe
@@ -263,10 +263,11 @@ def _frage_mit_waechter(
     ausgaenge: list[Ausgang] = []
     verworfen: list[str] = []
     versuch = 0
+    schema = antwortschema(mit_vorgaenger=bool(aufruf.inhalt.get("vorgaenger_kandidaten")))
 
     while True:
         versuch += 1
-        antwort = modell.frage(baue_frage(aufruf.inhalt, gruende or None))
+        antwort = modell.frage(baue_frage(aufruf.inhalt, gruende or None), schema=schema)
         if antwort.ergebnis is None:
             bericht = Pruefbericht(anzahl=0)
             gruende = ["Die Antwort enthielt kein lesbares JSON-Objekt."]

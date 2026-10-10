@@ -248,9 +248,11 @@ class _Antwortend:
     def __init__(self, *antworten) -> None:
         self.antworten = list(antworten)
         self.fragen: list[str] = []
+        self.schemas: list[dict | None] = []
 
-    def frage(self, text: str) -> Antwort:
+    def frage(self, text: str, schema: dict | None = None) -> Antwort:
         self.fragen.append(text)
+        self.schemas.append(schema)
         naechste = self.antworten.pop(0)
         if callable(naechste):
             naechste = naechste(_kurznamen(text))
@@ -377,6 +379,9 @@ def test_das_zweite_paket_liefert_eine_gueltige_kette_und_eine_streichliste():
     frage_b = modell.fragen[3]
     assert "vorgaenger_kandidaten" in frage_b
     assert not any(pid in frage_b for pid in alt.values())
+    # … und nur dort verlangt das Antwortschema die Ausgänge (#319).
+    assert "vorgaenger" not in modell.schemas[0]["properties"]
+    assert "vorgaenger" in modell.schemas[3]["required"]
 
     dok = ergebnisse.letzter("PKT-B").dokument
     assert dok["schema_version"] == "3.1"

@@ -27,6 +27,16 @@ später *in* ihm (ADR-006, 2.2, die zweite seiner vier Urteilsstellen); ihn hier
 zu nennen hieße, Prozentzahlen in eine Anweisung zu schreiben, die Zahlen
 verbietet.
 
+Das Antwortschema
+-----------------
+
+:func:`antwortschema` legt dieselbe Form fest wie der Ausgabeteil der Anweisung,
+und die API hält sie beim Dekodieren ein (#319). Die Lösungsklasse steht dort als
+Aufzählung — eine sechste Klasse oder eine andere Schreibweise kann nicht mehr
+ankommen, :mod:`~erkennung.pruefen` prüft sie trotzdem weiter. ``vorgaenger`` ist
+nur im Schema, wenn die Anweisung danach fragt; ohne Kandidaten bleibt die Frage
+dieselbe wie bei der Messung zu #248.
+
 Das Rechenverbot
 ----------------
 
@@ -38,7 +48,7 @@ nicht als Höflichkeit.
 
 from __future__ import annotations
 
-__all__ = ["ANWEISUNG", "MAHNUNG", "VORGAENGER", "baue_frage"]
+__all__ = ["ANWEISUNG", "MAHNUNG", "VORGAENGER", "antwortschema", "baue_frage"]
 
 ANWEISUNG = """\
 Du bist der Erkennungsschritt von BC2 (Strategic Advisor) in einer CoE-Factory.
@@ -174,6 +184,43 @@ Dein vorheriger Versuch wurde von der Pruefung verworfen:
 Liefere dieselbe Analyse noch einmal und behebe genau das. Aendere den Schnitt
 nicht aus anderen Gruenden.
 """
+
+
+def antwortschema(mit_vorgaenger: bool = False) -> dict:
+    """Die Form der Antwort, wie sie die API beim Dekodieren einhält (#319).
+
+    :param mit_vorgaenger: ``True``, wenn die Nutzlast ``vorgaenger_kandidaten``
+        trägt — dieselbe Bedingung wie für :data:`VORGAENGER` in :func:`baue_frage`.
+    """
+    from .modellruf import objekt, oder_null
+    from .pruefen import erlaubte_klassen
+
+    text = {"type": "string"}
+    texte = {"type": "array", "items": text}
+    schema = objekt(
+        potenziale={"type": "array", "items": objekt(
+            id=text,
+            kernprozess_id=text,
+            titel=text,
+            beruehrte_teilprozesse={**texte, "minItems": 1},
+            ausgangslage=text,
+            schmerzpunkte=texte,
+            loesungsansatz=text,
+            loesungsklasse={"type": "string", "enum": list(erlaubte_klassen())},
+            trenntest_begruendung=text,
+            unsicherheit=oder_null(text),
+        )},
+        nicht_geschnitten={"type": "array", "items": objekt(teilprozess_id=text, grund=text)},
+    )
+    if mit_vorgaenger:
+        schema["properties"]["vorgaenger"] = {"type": "array", "items": objekt(
+            kandidat=text,
+            ausgang={"type": "string", "enum": ["fortgeschrieben", "gestrichen", "unveraendert"]},
+            nachfolger=oder_null(text),
+            begruendung=text,
+        )}
+        schema["required"].append("vorgaenger")
+    return schema
 
 
 def baue_frage(nutzlast: dict, gruende: list[str] | None = None) -> str:

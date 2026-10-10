@@ -12,6 +12,11 @@ Modell schreibt darum ``{grad_min}`` und ``{grad_max}``; Python setzt die
 gerechnete Zahl ein. Mehr Platzhalter gibt es nicht: Euro und Stunden gehören in
 ``value``, ein Kriterium „spart so und so viel“ ist kein Abnahmekriterium.
 
+**Das Antwortschema sichert nur die Form** (#319): Pflichtfelder,
+Aufzählungen, mindestens ein Eintrag, wo der Vertrag einen verlangt. Mindestlängen,
+Platzhalter, SOPHIST/GWT und die gebundenen Systeme kann es nicht ausdrücken —
+dafür bleibt der Wächter.
+
 **Die Systeme sind gebunden.** ``betroffene_systeme`` darf nur nennen, was der
 Bestand nennt — dieselbe Regel wie beim Schnitt, wo der Wächter die
 Teilprozesse nachprüft. ``rolle`` und ``integration`` sind Aufzählungen des
@@ -22,10 +27,22 @@ from __future__ import annotations
 
 import json
 
-__all__ = ["ANWEISUNG", "MAHNUNG", "PLATZHALTER", "baue_frage"]
+from erkennung.modellruf import objekt, oder_null
+
+__all__ = [
+    "ANTWORTSCHEMA", "ANWEISUNG", "INTEGRATIONEN", "MAHNUNG", "PLATZHALTER", "ROLLEN",
+    "STUFEN", "baue_frage",
+]
 
 #: Die einzigen Platzhalter, die Python einsetzt (ADR-010 · BC2, 2.4).
 PLATZHALTER = ("grad_min", "grad_max")
+
+#: Die Aufzählungen aus ``konzept.schema.json`` v3.1. Hier und nicht im Wächter,
+#: weil Anweisung, Antwortschema und Wächter sie alle drei brauchen und der
+#: Wächter ohnehin von hier liest.
+ROLLEN = ("Quelle", "Ziel", "Quelle+Ziel")
+INTEGRATIONEN = ("API", "RPA", "Datei", "DB", "Email", "OCR", "Manuell")
+STUFEN = ("low", "med", "high")
 
 ANWEISUNG = """\
 Du bist der Ausarbeitungsschritt von BC2 (Strategic Advisor) in einer
@@ -145,6 +162,48 @@ Antworte mit NICHTS als einem JSON-Objekt dieser Form:
   "gesamtempfehlung_begruendung": "..."
 }
 """
+
+_TEXT = {"type": "string"}
+_TEXTE = {"type": "array", "items": _TEXT}
+_STUFE = {"type": "string", "enum": list(STUFEN)}
+
+#: Die Form der Antwort, wie sie die API beim Dekodieren einhält (#319).
+ANTWORTSCHEMA = objekt(
+    kontext=objekt(
+        prozess_kurzbeschreibung=_TEXT,
+        hauptschmerzpunkte={"type": "array", "minItems": 1, "items": objekt(
+            beschreibung=_TEXT, auswirkung=_TEXT, haeufigkeit=oder_null(_TEXT),
+        )},
+    ),
+    potenziale={"type": "array", "items": objekt(
+        id=_TEXT,
+        beschreibung=_TEXT,
+        to_be_vision=_TEXT,
+        to_be_kurz=_TEXT,
+        user_story=_TEXT,
+        akzeptanzkriterien={"type": "array", "minItems": 1, "items": objekt(
+            kriterium=_TEXT, messverfahren=_TEXT,
+        )},
+        fachliche_anforderungen={**_TEXTE, "minItems": 1},
+        betroffene_systeme={"type": "array", "minItems": 1, "items": objekt(
+            name=_TEXT,
+            rolle={"type": "string", "enum": list(ROLLEN)},
+            integration={"type": "string", "enum": list(INTEGRATIONEN)},
+        )},
+        loesungsansatz=_TEXT,
+        tech_stack_empfehlung={**_TEXTE, "minItems": 1},
+        voraussetzungen=_TEXTE,
+        risiken={"type": "array", "items": objekt(
+            beschreibung=_TEXT,
+            wahrscheinlichkeit=_STUFE,
+            auswirkung=_STUFE,
+            gegenmassnahme=oder_null(_TEXT),
+        )},
+        zukunftssicherheit=_TEXT,
+        abhaengigkeiten={"type": "array", "items": objekt(potenzial=_TEXT, grund=_TEXT)},
+    )},
+    gesamtempfehlung_begruendung=_TEXT,
+)
 
 MAHNUNG = """\
 
