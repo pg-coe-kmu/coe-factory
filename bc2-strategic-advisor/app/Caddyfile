@@ -18,12 +18,16 @@
         X-Frame-Options "DENY"
         Referrer-Policy "strict-origin-when-cross-origin"
 
-        # Hier liegt keine Oberflaeche, nur JSON. Also alles zu.
-        Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
-
         # Der Server nennt seinen Namen nicht.
         -Server
     }
+
+    # Fuer die JSON-API: alles zu. Seit die Gate-1-Oberflaeche unter `/` liegt
+    # (#243, ausgerollt mit #290), bringt die Seite ihre eigene, engere Policy
+    # mit (oberflaeche.seiten_csp: ihr eines Skript per Hash). Das `?` setzt den
+    # Kopf nur, wenn die Anwendung keinen geschickt hat — vorher blockierte er
+    # das Skript der Seite, und sie blieb bei "wird geladen" stehen.
+    header ?Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
 
     # Zugriffsprotokoll. Caddy maskiert `Authorization` von sich aus — genau
     # deshalb steht der Schluessel dort und nicht in einem eigenen Header

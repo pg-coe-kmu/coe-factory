@@ -30,7 +30,10 @@ echten Gate-1-Beschluss nicht; es steht als Befund am Ticket.
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import logging
+from html.parser import HTMLParser
 from pathlib import Path
 
 from fastapi import APIRouter, Request
@@ -328,9 +331,66 @@ def erzeuge_seiten_router() -> APIRouter:
     unter einem Pfad, den sich niemand merkt.
     """
     router = APIRouter()
+    kopf = {"Content-Security-Policy": seiten_csp((STATIC / "index.html").read_text("utf-8"))}
 
     @router.get("/", include_in_schema=False)
     def seite():
-        return FileResponse(STATIC / "index.html")
+        return FileResponse(STATIC / "index.html", headers=kopf)
 
     return router
+
+
+class _Skripte(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=False)
+        self.inhalte: list[str] = []
+        self._offen = False
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "script" and not dict(attrs).get("src"):
+            self._offen = True
+            self.inhalte.append("")
+
+    def handle_endtag(self, tag):
+        if tag == "script":
+            self._offen = False
+
+    def handle_data(self, data):
+        if self._offen:
+            self.inhalte[-1] += data
+
+
+def inline_skripte(html: str) -> list[str]:
+    """Der Inhalt jedes Inline-``<script>``, Zeichen für Zeichen wie der Browser
+    ihn hasht — über den Parser statt einen Ausdruck, damit Groß-/Kleinschreibung
+    und Attribute am Tag den Hash nicht still verlieren."""
+    leser = _Skripte()
+    leser.feed(html)
+    leser.close()
+    return leser.inhalte
+
+
+def seiten_csp(html: str) -> str:
+    """Die Content-Security-Policy der Seite — so eng, wie die eine Datei es zulässt.
+
+    Caddy schickt für alles ``default-src 'none'`` (#190: „hier liegt keine
+    Oberfläche, nur JSON“) und setzt das seither nur noch, wenn die Anwendung
+    keine eigene Policy mitgibt. Die Seite braucht genau dreierlei: ihr
+    **eines** Inline-Skript, ihre ``style``-Attribute und ``fetch`` auf den
+    eigenen Ursprung. Das Skript wird über seinen Hash erlaubt, nicht über
+    ``'unsafe-inline'``; der Hash entsteht hier beim Start aus der Datei, damit
+    eine Änderung an ihr nicht an einer zweiten Stelle nachzuziehen ist.
+
+    ``style-src 'unsafe-inline'`` ist der Preis der Ein-Datei-Oberfläche (#167):
+    die Seite setzt ``style``-Attribute in erzeugtem HTML, und die deckt kein
+    Hash. Ein Stil kann kein Skript ausführen.
+    """
+    hashes = " ".join(
+        "'sha256-" + base64.b64encode(hashlib.sha256(s.encode("utf-8")).digest()).decode() + "'"
+        for s in inline_skripte(html)
+    )
+    return (
+        f"default-src 'none'; script-src {hashes}; style-src 'unsafe-inline'; "
+        "connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; "
+        "frame-ancestors 'none'"
+    )
