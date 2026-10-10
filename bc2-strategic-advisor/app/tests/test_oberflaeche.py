@@ -745,3 +745,7 @@ def test_der_hash_uebersteht_schreibweise_und_attribute():
 
     html = '<SCRIPT type="module">a < b</SCRIPT><script src="x.js"></script><Script>c</Script>'
     assert inline_skripte(html) == ["a < b", "c"]
+
+
+def test_die_seite_kommt_nicht_aus_dem_cache(client):
+    assert client.get("/").headers["cache-control"] == "no-cache"
