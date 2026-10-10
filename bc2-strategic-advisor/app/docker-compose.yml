@@ -27,6 +27,21 @@ services:
     expose:
       - "8000"
 
+  # Die Vorschau unter https://<domain>/vorschau/ — Messsatz im Arbeitsspeicher,
+  # zum Ausprobieren ohne Folgen. Derselbe Bau wie `app`, aber OHNE jedes
+  # Geheimnis: keine DATABASE_URL, kein Modellschluessel (vorschau.py streicht
+  # sie zusaetzlich). Ihr Schluessel ist ein eigener, kein BC2_TRIGGER_TOKEN.
+  vorschau:
+    build: .
+    restart: unless-stopped
+    command: ["python", "vorschau.py", "--host", "0.0.0.0", "--port", "8243",
+              "--messsaetze", "/kalibrierung",
+              "--schluessel", "${BC2_VORSCHAU_SCHLUESSEL:-vorschau}"]
+    volumes:
+      - ../kalibrierung:/kalibrierung:ro
+    expose:
+      - "8243"
+
   caddy:
     image: caddy:2
     restart: unless-stopped
@@ -43,6 +58,7 @@ services:
       - caddy_config:/config
     depends_on:
       - app
+      - vorschau
 
 volumes:
   caddy_data:

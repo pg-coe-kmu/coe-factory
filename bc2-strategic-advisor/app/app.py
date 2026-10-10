@@ -526,7 +526,9 @@ def erzeuge_app(
             else "postgres",
         )
     )
-    app.include_router(oberflaeche.erzeuge_seiten_router())
+    app.include_router(
+        oberflaeche.erzeuge_seiten_router(vorschau=os.environ.get("BC2_VORSCHAU") == "1")
+    )
 
     return app
 

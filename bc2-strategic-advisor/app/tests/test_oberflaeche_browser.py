@@ -471,3 +471,32 @@ def test_enter_im_schluesselfeld_meldet_an(dienst):
         blatt.press("#schluesselfeld", "Enter")
         blatt.wait_for_selector(".kpblock", timeout=10_000)
         browser.close()
+
+
+def test_die_seite_laeuft_unter_einem_praefix_mit_eigenem_schluesselfach(monkeypatch):
+    """So hängt Caddy die Vorschau unter /vorschau/ ein (Präfix abgeschnitten).
+    Die API-Rufe sind relativ und landen beim eingehängten Dienst; der Schlüssel
+    liegt in einem eigenen Fach — die Vorschau liest den der echten Seite nie."""
+    from starlette.applications import Starlette
+    from starlette.routing import Mount
+
+    from app import erzeuge_app
+    from eingang import SpeicherEingangsbuch
+    from gate1 import SpeicherGate1Buch
+    from laeufe import MesssatzLaufquelle
+
+    monkeypatch.setenv("BC2_VORSCHAU", "1")
+    innen = erzeuge_app(SpeicherEingangsbuch(), laufquelle=MesssatzLaufquelle(MESSSAETZE),
+                        gate1_buch=SpeicherGate1Buch())
+    with _starte(Starlette(routes=[Mount("/vorschau", app=innen)])) as url:
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            blatt = browser.new_page()
+            blatt.goto(url + "/vorschau/", wait_until="networkidle")
+            assert blatt.locator(".vorschau-marke").is_visible()
+            blatt.fill("#schluesselfeld", SCHLUESSEL)
+            blatt.press("#schluesselfeld", "Enter")
+            blatt.wait_for_selector(".kpblock", timeout=10_000)
+            faecher = blatt.evaluate("() => Object.keys(sessionStorage)")
+            browser.close()
+    assert faecher == ["bc2-gate1-schluessel:/vorschau/"]

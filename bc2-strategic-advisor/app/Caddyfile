@@ -37,5 +37,16 @@
         format json
     }
 
-    reverse_proxy app:8000
+    # Die Vorschau (Messsatz, Arbeitsspeicher, keine Geheimnisse). Das Praefix
+    # wird abgeschnitten; die Seite ruft ihre API relativ und landet so bei der
+    # Vorschau. Gleicher Ursprung wie die echte Oberflaeche — darum legt die
+    # Seite ihren Schluessel je Pfad in ein eigenes Fach.
+    redir /vorschau /vorschau/ 308
+    handle_path /vorschau/* {
+        reverse_proxy vorschau:8243
+    }
+
+    handle {
+        reverse_proxy app:8000
+    }
 }

@@ -82,6 +82,11 @@ button{font-family:inherit}
 .topbar{display:flex;align-items:center;gap:14px;background:var(--navy);color:#fff;
         padding:10px 18px;flex-wrap:wrap}
 .topbar .logo{font-weight:700} .topbar .sub{color:#b9c6d6;font-size:12.5px}
+/* Nur in der Vorschau sichtbar — der Dienst setzt das Attribut data-vorschau am body. */
+.vorschau-marke{display:none;background:#f0b429;color:#1a1a2e;font-weight:700;font-size:12px;
+  padding:3px 9px;border-radius:5px;letter-spacing:.02em}
+body[data-vorschau] .vorschau-marke{display:inline-block}
+body[data-vorschau] .topbar{border-bottom:4px solid #f0b429}
 .topbar .rechts{margin-left:auto;display:flex;align-items:center;gap:10px;
                 color:#cfe0f0;font-size:12.5px}
 .topbar select{background:#16324f;color:#fff;border:1px solid #2c4a6e;border-radius:7px;
@@ -217,6 +222,7 @@ button{font-family:inherit}
 
 <div class="topbar">
   <span class="logo">BC2 · Strategic Advisor</span>
+  <span class="vorschau-marke">VORSCHAU · Messsatz, nichts wird gespeichert</span>
   <span class="sub">Gate 1 — Priorisierung freigeben</span>
   <div class="rechts">
     <label for="laufwahl">Lauf</label>
@@ -244,7 +250,11 @@ button{font-family:inherit}
 // Selbstauskunft. Für ein Studienprojekt vertretbar, für einen echten
 // Gate-1-Beschluss nicht.
 
-const SCHLUESSEL_FACH = "bc2-gate1-schluessel";
+// Je Pfad ein eigenes Fach: die Vorschau unter /vorschau/ liegt auf demselben
+// Ursprung wie die echte Oberfläche und darf deren Schlüssel nie lesen. Die
+// API-Pfade sind aus demselben Grund relativ — unter /vorschau/ landen sie
+// bei der Vorschau, unter / beim Betrieb.
+const SCHLUESSEL_FACH = "bc2-gate1-schluessel:" + location.pathname;
 let schluessel = sessionStorage.getItem(SCHLUESSEL_FACH) || "";
 
 async function ruf(pfad, optionen = {}){
@@ -780,7 +790,7 @@ function zeichneKopf(){
  */
 async function praesentationHolen(){
   const antwort = await fetch(
-    `/api/oberflaeche/laeufe/${encodeURIComponent(Z.paket_id)}/praesentation`,
+    `api/oberflaeche/laeufe/${encodeURIComponent(Z.paket_id)}/praesentation`,
     {method: "POST", headers: {"Authorization": "Bearer " + schluessel}});
   if (!antwort.ok){
     let text = `Die Präsentation ist nicht entstanden (${antwort.status}).`;
@@ -1098,7 +1108,7 @@ function zeigeTor(text){
 }
 
 async function ladeListe(){
-  const {ok, status, rumpf} = await ruf("/api/oberflaeche/laeufe");
+  const {ok, status, rumpf} = await ruf("api/oberflaeche/laeufe");
   if (status === 401){ zeigeTor("Der Schlüssel stimmt nicht."); return false; }
   if (!ok){
     Z.meldung = {art: "warn", text: `Die Liste der Läufe ist nicht erreichbar (${status}).`};
@@ -1130,7 +1140,7 @@ function laufZeile(l){
 async function ladeLauf(paket_id){
   if (!paket_id){ Z.ansicht = null; Z.stand = null; zeichne(); return; }
   Z.angefragt = paket_id;
-  const {ok, status, rumpf} = await ruf("/api/oberflaeche/laeufe/" + encodeURIComponent(paket_id));
+  const {ok, status, rumpf} = await ruf("api/oberflaeche/laeufe/" + encodeURIComponent(paket_id));
   // Wer inzwischen einen anderen Lauf gewählt hat, bekommt dessen Antwort —
   // nicht die eines Laufs, der später eintrifft (10.10.2026: die Antwort
   // eines rechnenden Laufs überschrieb die Wahl des Menschen).
@@ -1171,7 +1181,7 @@ function standAbfragen(paket_id){
 async function paketRechnen(){
   const paket_id = Z.paket_id;
   const antwort = await ruf(
-    `/api/oberflaeche/laeufe/${encodeURIComponent(paket_id)}/rechnen`, {method: "POST"});
+    `api/oberflaeche/laeufe/${encodeURIComponent(paket_id)}/rechnen`, {method: "POST"});
   if (antwort.status !== 202){
     Z.meldung = {art: "warn", text: `Nicht angestoßen (${antwort.status}).
       ${esc(antwort.rumpf?.fehler || "")}`};
@@ -1254,7 +1264,7 @@ async function entscheiden(status){
   }
 
   const antwort = await ruf(
-    `/api/oberflaeche/laeufe/${encodeURIComponent(Z.paket_id)}/gate1`,
+    `api/oberflaeche/laeufe/${encodeURIComponent(Z.paket_id)}/gate1`,
     {method: "POST", body: JSON.stringify(rumpf)});
 
   if (antwort.status === 422){
@@ -1298,7 +1308,7 @@ async function entscheiden(status){
 /** Die nächste Fassung nach einem Reject (ADR-008 · BC2, 2.1). */
 async function neuRechnen(){
   const antwort = await ruf(
-    `/api/oberflaeche/laeufe/${encodeURIComponent(Z.paket_id)}/neu`, {method: "POST"});
+    `api/oberflaeche/laeufe/${encodeURIComponent(Z.paket_id)}/neu`, {method: "POST"});
   if (!antwort.ok){
     Z.meldung = {art: "warn", text: `Keine neue Fassung (${antwort.status}).
       ${esc(antwort.rumpf?.fehler || "")}`};
@@ -1520,7 +1530,7 @@ window.addEventListener("beforeunload", e => {
 async function starten(){
   if (!schluessel) return zeigeTor("");
 
-  const zustand = await ruf("/api/oberflaeche/zustand");
+  const zustand = await ruf("api/oberflaeche/zustand");
   if (zustand.status === 401) return zeigeTor("Der Schlüssel stimmt nicht.");
   if (!zustand.ok){
     Z.meldung = {art: "warn", text: `Der Dienst antwortet nicht (${zustand.status}).`};

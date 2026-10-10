@@ -294,6 +294,19 @@ curl -X POST -H "Authorization: Bearer $BC2_TRIGGER_TOKEN" \
 **Kein Dauer-Polling** — die Festlegung aus
 [#165](https://github.com/pg-coe-kmu/coe-factory/issues/165) bleibt.
 
+## Vorschau unter `/vorschau/`
+
+`https://bc2.02da.de/vorschau/` ist die Oberfläche zum Ausprobieren: Messsatz im Arbeitsspeicher,
+nichts landet in der Datenbank, nichts geht an BC3, nach einem Neustart ist alles weg. Ein eigener
+Container (`vorschau` in `docker-compose.yml`) **ohne jedes Geheimnis**. Ihr Schlüssel ist
+`BC2_VORSCHAU_SCHLUESSEL` aus der `.env` (leer: `vorschau`), nie der `BC2_TRIGGER_TOKEN`. Die Seite
+trägt oben ein gelbes „VORSCHAU“.
+
+Sie liegt auf demselben Ursprung wie die echte Oberfläche. Darum ruft die Seite ihre API relativ
+auf und legt ihren Schlüssel je Pfad in ein eigenes Fach: Die Vorschau liest den echten Schlüssel
+nie. Nach einer Änderung am `Caddyfile` Caddy mit `docker compose up -d --force-recreate caddy`
+neu anlegen, `caddy reload` sieht die einzeln eingehängte Datei nach `git pull` nicht.
+
 ## Lieferung an BC3 ziehen
 
 Die Freigabe am Gate 1 ist die Übergabe — bei BC3 ankommen tut der Lauf, wenn sein Ordner im
