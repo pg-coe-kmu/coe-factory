@@ -1,0 +1,131 @@
+{
+  "lieferung_id": "del-kp-05-2026-10-11-185943",
+  "schema_version": "3.5",
+  "projekt_kurzname": "kp-05",
+  "erzeugt_am": "2026-10-11T18:59:43.003Z",
+  "konzept_ref": {
+    "konzept_id": "5d82f848-fdbc-40a9-9169-c03c0893b077",
+    "schema_version": "3.1",
+    "source_file": "konzept_KP-05.json",
+    "kp_id": "KP-05",
+    "teilprozess_ids": [
+      "KP-05.TP-1"
+    ],
+    "value_quelle": "berechnet"
+  },
+  "prozess_kurzbeschreibung": "Mitarbeitende suchen bei Wissensbedarf manuell in Google Drive, öffnen und lesen Dokumente einzeln und geben Antworten unstrukturiert und ohne Quellennachweis mündlich oder per Mail weiter.",
+  "vorpruefung": {
+    "ampel": "yellow",
+    "ai_act_klasse": "high",
+    "anhang_iii_kategorie": "Anhang III Nr. 4 Buchstabe b",
+    "dsgvo_rechtsgrundlage": "Artikel 6 Absatz 1 Buchstabe f, Artikel 22",
+    "betroffene_datenarten": [
+      "E-Mail-Adresse"
+    ],
+    "begruendung_ampel": "Der Prozess beinhaltet Entscheidungen, die Anhang III Nr. 4 betreffen. Eine menschliche Prüfung ist erforderlich, die durch Kennzeichnung und Protokollierung unterstützt wird, um die Risiken zu mindern."
+  },
+  "pflichten": [
+    {
+      "id": "p1",
+      "tag": "[AI-Act Art. 17]",
+      "text": "Vor der Indizierung der Drive-Dokumente eine strukturierte Bestandsaufnahme und Bereinigung durchführen.",
+      "massnahme": "qualitaetssicherung",
+      "datenkategorie": "gering",
+      "stelle": "Durchführung der Indizierung der Drive-Dokumente",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3"
+    },
+    {
+      "id": "p2",
+      "tag": "[AI-Act Art. 14]",
+      "text": "Implementierung einer sichtbaren Kennzeichnung als 'Vorschlag zur Prüfung' bei Antwortvorschlägen.",
+      "massnahme": "hinweis_geben",
+      "datenkategorie": "gering",
+      "stelle": "Frageverarbeitung und Antwortgenerierung",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3"
+    },
+    {
+      "id": "p3",
+      "tag": "[AI-Act Art. 14]",
+      "text": "Menschliche Prüfung erforderlich, bevor endgültige Entscheidungen getroffen werden.",
+      "massnahme": "mensch_prueft",
+      "datenkategorie": "gering",
+      "stelle": "Frageverarbeitung und Antwortgenerierung",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3"
+    },
+    {
+      "id": "p4",
+      "tag": "[DSGVO Art. 25]",
+      "text": "Zugriffsrechtespiegelung als eigene testgetriebene Komponente entwickeln.",
+      "massnahme": "protokollieren",
+      "datenkategorie": "gering",
+      "stelle": "Zugriffsrechtespiegelung",
+      "adressat": "plattform",
+      "wird_zu_story": false,
+      "owner": "BC3"
+    }
+  ],
+  "pflichten_nach_adressat": {
+    "bc4": [
+      "p2"
+    ],
+    "organisation": [
+      "p1",
+      "p3"
+    ],
+    "plattform": [
+      "p4"
+    ],
+    "ohne_angabe": []
+  },
+  "nicht_an_bc4": [],
+  "plattform_standards": [
+    "PII-Filter",
+    "Audit-Log",
+    "Verschlüsselung"
+  ],
+  "zuordnung": [
+    {
+      "epic_id": "ep-b460-4f9d-bb2b-f789f03f5de5",
+      "use_case_id_ref": "288edb94-7229-4aac-8844-e74a75697289",
+      "titel": "KI-gestützte Wissenssuche im Google-Drive-Bestand"
+    }
+  ],
+  "nicht_zugeordnete_compliance_stories": [
+    {
+      "titel": "Hinweis auf Vorschlagscharakter",
+      "epic_id_ref": "ep-288edb94-2",
+      "use_case_id_ref": null,
+      "pflicht_ids": [
+        "p2"
+      ],
+      "grund": "kein passendes Epic gefunden"
+    }
+  ],
+  "pflichten_ohne_story": [
+    {
+      "id": "p2",
+      "tag": "[AI-Act Art. 14]",
+      "text": "Implementierung einer sichtbaren Kennzeichnung als 'Vorschlag zur Prüfung' bei Antwortvorschlägen.",
+      "owner": "BC3"
+    }
+  ],
+  "pflichten_mit_story_ohne_vermerk": [],
+  "befunde_adressat": [],
+  "pruefung_bc3": {
+    "geprueft_gegen": "tickets.schema.json 3.5",
+    "ergebnis": "bestanden",
+    "befunde": [],
+    "epics": 1,
+    "stories": 4,
+    "potenziale": 1,
+    "anforderungen_im_eingang": 6,
+    "akzeptanzkriterien_im_eingang": 4,
+    "stories_ohne_kriterium": 0
+  }
+}

@@ -1,0 +1,92 @@
+{
+  "lieferung_id": "del-kp-05-2026-10-11-185943",
+  "schema_version": "3.5",
+  "projekt_kurzname": "kp-05",
+  "konzept_ref": {
+    "konzept_id": "5d82f848-fdbc-40a9-9169-c03c0893b077",
+    "schema_version": "3.1",
+    "source_file": "konzept_KP-05.json",
+    "kp_id": "KP-05",
+    "teilprozess_ids": [
+      "KP-05.TP-1"
+    ],
+    "value_quelle": "berechnet"
+  },
+  "epics": [
+    {
+      "epic_id": "ep-b460-4f9d-bb2b-f789f03f5de5",
+      "titel": "KI-gestützte Wissenssuche im Google-Drive-Bestand",
+      "ziel": "Automatisierte und quellenbasierte Antwortgenerierung auf Nutzerfragen aus Google Drive.",
+      "kategorien": [
+        "it:backend",
+        "it:integration"
+      ],
+      "stories": [
+        {
+          "story_id": "st-b460-4f9d-bb2b-f789f03f5de5-1",
+          "titel": "Durchführung der Indizierung der Drive-Dokumente",
+          "beschreibung": "Als IT/DevOps möchte ich die periodische Indizierung der Google-Drive-Dokumente durchführen, damit sie für die KI-gestützte Suche verfügbar sind.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein neu in den indizierten Drive-Ordner abgelegtes Dokument, When der geplante Indizierungslauf abgeschlossen ist, Then ist das Dokument bei inhaltlich passenden Anfragen im Antwortvorschlag als Quelle abrufbar.",
+              "messverfahren": "Protokoll des Indizierungslaufs (Zeitstempel, Anzahl verarbeiteter Dokumente); anschließende Kontrollanfrage."
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-b460-4f9d-bb2b-f789f03f5de5-2",
+          "titel": "Frageverarbeitung und Antwortgenerierung",
+          "beschreibung": "Als Mitarbeitender möchte ich eine Frage eingeben und eine strukturierte Antwort mit Quellenverweisen erhalten, damit ich sicher und nachvollziehbar informiert bin.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine freigegebene Frage, When die anfragende Person die Frage in die Wissenssuche eingibt, Then liefert das System einen Antwortvorschlag mit mindestens einem validen Quellverweis.",
+              "messverfahren": "Stichprobe aus abgeschlossenen Anfragen: Quellverweis wird im Systemprotokoll nachgewiesen."
+            },
+            {
+              "text": "Given eine Anfrage zu einem Thema ohne ausreichend relevanten Inhalt, When das System die Anfrage verarbeitet, Then weist es auf das Fehlen hin.",
+              "messverfahren": "Testlauf mit Fragen außerhalb des indizierten Bestands; Sichtprüfung der Systemantwort."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-b460-4f9d-bb2b-f789f03f5de5-1"
+          ]
+        },
+        {
+          "story_id": "st-b460-4f9d-bb2b-f789f03f5de5-3",
+          "titel": "Zugriffsrechtespiegelung",
+          "beschreibung": "Als Systemadmin möchte ich sicherstellen, dass die Zugriffsrechte aus Google Drive in der Wissenssuche gespiegelt werden, um die Datenintegrität zu bewahren.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein Dokument ohne Zugriff durch die Mitarbeiterin, When das System einen Antwortvorschlag generiert, Then wird dieses Dokument nicht erwähnt.",
+              "messverfahren": "Gezielter Testlauf mit einem Testnutzer ohne Zugriff: Sichtprüfung des Antwortvorschlags."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-b460-4f9d-bb2b-f789f03f5de5-1"
+          ]
+        },
+        {
+          "story_id": "st-b460-4f9d-bb2b-f789f03f5de5-4",
+          "titel": "Widersprüchliche Dokumentversionen erkennen",
+          "beschreibung": "Als Mitarbeitender möchte ich auf relevante Dokumente hingewiesen werden, auch bei widersprüchlichen Inhalten, um den Informationskontext zu verstehen.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given widersprüchliche Inhalte in verschiedenen Dokumentversionen, When das System eine Antwort generiert, Then gibt es beide Quellen als widersprüchlich aus.",
+              "messverfahren": "Testlauf mit Dokumenten unterschiedlicher Versionen; Sichtprüfung der Quelle."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-b460-4f9d-bb2b-f789f03f5de5-2"
+          ]
+        }
+      ],
+      "teilprozess_ids": [
+        "KP-05.TP-1"
+      ]
+    }
+  ],
+  "gate2": {
+    "status": "approved"
+  }
+}
