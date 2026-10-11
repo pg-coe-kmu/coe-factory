@@ -1,0 +1,118 @@
+{
+  "lieferung_id": "del-kp-05-2026-10-11-184827",
+  "schema_version": "3.5",
+  "projekt_kurzname": "kp-05",
+  "konzept_ref": {
+    "konzept_id": "5d82f848-fdbc-40a9-9169-c03c0893b077",
+    "schema_version": "3.1",
+    "source_file": "konzept_KP-05.json",
+    "kp_id": "KP-05",
+    "teilprozess_ids": [
+      "KP-05.TP-1"
+    ],
+    "value_quelle": "berechnet"
+  },
+  "epics": [
+    {
+      "epic_id": "ep-b460-4f9d-bb2b-f789f03f5de5",
+      "titel": "Implementierung der KI-gestützten Wissenssuche im Google-Drive-Bestand",
+      "ziel": "Automatisierung der Wissenssuche mit strukturierten Antworten und Quellenverweisen.",
+      "kategorien": [
+        "it:backend",
+        "it:integration"
+      ],
+      "stories": [
+        {
+          "story_id": "st-b460-4f9d-bb2b-f789f03f5de5-1",
+          "titel": "Anbindung an Google Drive und Datenzugriff",
+          "beschreibung": "Als IT/DevOps möchte ich die Google-Drive-Dokumente periodisch auslesen, damit die Wissenssuche stets über aktuelle Daten verfügt.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given korrekt freigegebene Ordner When der Connector läuft Then werden aktuelle Dokumente korrekt in den Index übertragen",
+              "messverfahren": "Prüfen durch Überwachung des Datenzugriffslogs und Abgleich mit bekannten Dokumenten."
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-b460-4f9d-bb2b-f789f03f5de5-2",
+          "titel": "Vektorisierung und Indizierung von Dokumenten",
+          "beschreibung": "Als IT/DevOps möchte ich, dass die Dokumente in Chunks zerlegt und in Qdrant indiziert werden, damit Anfragen schnell verarbeitet werden.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given freigegebene Dokumente When sie vektorisiert werden Then sind sie vollständig in Qdrant indiziert",
+              "messverfahren": "Durchlauf der Indizierungsroutine mit Protokollprüfung."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-b460-4f9d-bb2b-f789f03f5de5-1"
+          ]
+        },
+        {
+          "story_id": "st-b460-4f9d-bb2b-f789f03f5de5-3",
+          "titel": "Benutzeranfrage und Antwortgenerierung",
+          "beschreibung": "Als Mitarbeitender möchte ich auf meine Frage in natürlicher Sprache eine strukturierte Antwort mit Quellenverweis bekommen, um effizient arbeiten zu können.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine Benutzeranfrage When sie verarbeitet wird Then erfolgt die Ausgabe eines Antwortvorschlags mit Quellen",
+              "messverfahren": "Vergleich der Antwort mit manuell ermitteltem Ergebnis und Überprüfung der Quellenverweise."
+            },
+            {
+              "text": "Given widersprüchliche Inhalte When eine Antwort generiert wird Then werden beide Quellen ausgegeben",
+              "messverfahren": "Prüfung durch einen Testfall mit bekannten widersprüchlichen Dokumenten."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-b460-4f9d-bb2b-f789f03f5de5-2"
+          ]
+        },
+        {
+          "story_id": "st-b460-4f9d-bb2b-f789f03f5de5-4",
+          "titel": "Zugriffsrechtespiegelung",
+          "beschreibung": "Als Wissensverantwortlicher möchte ich sicherstellen, dass nur berechtigte Inhalte abgerufen werden, damit keine unbefugten Informationen weitergegeben werden.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine Benutzeranfrage When die Zugriffsrechte geprüft werden Then werden nur berechtigte Inhalte zurückgegeben",
+              "messverfahren": "Überprüfung durch einen Zugriffstest mit unterschiedlichen Benutzerrechten."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-b460-4f9d-bb2b-f789f03f5de5-3"
+          ]
+        },
+        {
+          "story_id": "st-b460-4f9d-bb2b-f789f03f5de5-5",
+          "titel": "Qualitätskontrolle der Antwortvorschläge",
+          "beschreibung": "Als Mitarbeitender möchte ich wissen, wenn eine Antwort nicht ausreichend belegt ist, um gegebenenfalls manuell nachzusuchen.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine unzureichend belegte Antwort When keine ausreichenden Quellen vorhanden sind Then wird auf manuelle Nachsuche hingewiesen",
+              "messverfahren": "Simulation einer Anfrage, die unvollständige Antworten liefert."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-b460-4f9d-bb2b-f789f03f5de5-3"
+          ]
+        },
+        {
+          "story_id": "st-b460-4f9d-bb2b-f789f03f5de5-6",
+          "titel": "Menschliche Prüfung der Antwortvorschläge",
+          "beschreibung": "Einbau eines Systems zur menschlichen Prüfung, das sicherstellt, dass die abschließende Entscheidung über Antwortvorschläge durch eine Person erfolgt, um den Anforderungen des AI-Act Art. 14 zu entsprechen.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein generierter Antwortvorschlag When er angezeigt wird Then erfolgt die abschließende Entscheidung durch einen Menschen.",
+              "messverfahren": "Prüfung des UI-Designs und der tatsächlich erfolgten menschlichen Prüfung."
+            }
+          ],
+          "abhaengigkeiten": []
+        }
+      ],
+      "teilprozess_ids": [
+        "KP-05.TP-1"
+      ]
+    }
+  ],
+  "gate2": {
+    "status": "approved"
+  }
+}
