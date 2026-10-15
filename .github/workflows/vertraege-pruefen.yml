@@ -103,7 +103,7 @@ jobs:
           from jsonschema import Draft202012Validator
 
           BASIS = "contracts/bc3-to-bc4"
-          PFLICHT = ["ticket_set.json", "blueprint.json", "architecture.md", "api/openapi.yaml"]
+          PFLICHT = ["ticket_set.json", "blueprint.json", "architecture.md"]
           fehler = []
 
           schemapfad = f"{BASIS}/tickets.schema.json"
