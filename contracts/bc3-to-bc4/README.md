@@ -21,13 +21,13 @@ contracts/bc3-to-bc4/
     ├── ticket_set.json         die Hauptlieferung: Epics mit Stories
     ├── blueprint.json          Bauplan als JSON: Komponenten, Datenflüsse, Entscheidungspunkte
     ├── architecture.md         derselbe Bauplan als Text, mit Mermaid-Diagramm
-    ├── api/openapi.yaml         die Endpunkte, die die Stories voraussetzen
+    ├── api/openapi.yaml         optional: nur, wenn die Stories eigene Endpunkte voraussetzen
     └── compliance-audit.json   Compliance-Vorprüfung, Audit-Material
 ```
 
 ## Was BC4 braucht, und was nicht
 
-**Für eure Pipeline:** `ticket_set.json`, `blueprint.json`, `api/openapi.yaml`.
+**Für eure Pipeline:** `ticket_set.json`, `blueprint.json`. `api/openapi.yaml` ist optional, BC4 baut n8n-Workflows und liest sie nicht.`
 
 **Zum Nachschlagen für Menschen:** `architecture.md`, derselbe Inhalt wie `blueprint.json`,
 aber lesbar und mit Diagramm.
@@ -140,7 +140,7 @@ Im Projektplan, Abschnitt 3.2 BC3 → BC4, stand:
 - Akzeptanzkriterien je Story, um das Messverfahren ergänzt
 - Abhängigkeiten als ID-Verweise
 - Blueprint als Mermaid in `architecture.md`, seit v3.5 zusätzlich als `blueprint.json`
-- API-Spezifikation als OpenAPI 3.0 in `api/openapi.yaml`
+- API-Spezifikation als OpenAPI 3.0 in `api/openapi.yaml`, nur noch dort, wo die Stories eigene Endpunkte voraussetzen
 - Gate 2 als `gate2.status` im Ticket-Set
 
 **Wir weichen ab:**
