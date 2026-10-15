@@ -27,7 +27,7 @@ contracts/bc3-to-bc4/
 
 ## Was BC4 braucht, und was nicht
 
-**Für eure Pipeline:** `ticket_set.json`, `blueprint.json`. `api/openapi.yaml` ist optional, BC4 baut n8n-Workflows und liest sie nicht.`
+**Für eure Pipeline:** `ticket_set.json`, `blueprint.json`. `api/openapi.yaml` ist optional, BC4 baut n8n-Workflows und liest sie nicht.
 
 **Zum Nachschlagen für Menschen:** `architecture.md`, derselbe Inhalt wie `blueprint.json`,
 aber lesbar und mit Diagramm.
