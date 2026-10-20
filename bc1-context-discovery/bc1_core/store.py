@@ -7,6 +7,9 @@ from bc1_core.types import SessionState
 class StaleStateError(Exception):
     pass
 
+class KorrupterStateError(Exception):
+    """Der gespeicherte Zustand einer Sitzung ist nicht lesbar."""
+
 class StateStore(ABC):
     @abstractmethod
     def load(self, session_id: str) -> SessionState | None: ...

@@ -26,7 +26,7 @@ from bc1_core.core import (AnfrageKonfliktError, MandantKonfliktError,
                            pruefe_mandant)
 from bc1_core.llm import LLMClient
 from bc1_core.package import UseCasePackage
-from bc1_core.store import StaleStateError, StateStore
+from bc1_core.store import KorrupterStateError, StaleStateError, StateStore
 from bc1_service.bc0_meldungen import Bc0MeldungFehler
 from bc1_service.profil_writer import ProfilWriteError, ProfilWriter
 
@@ -62,7 +62,19 @@ FEHLER_TEXTE = {
     "profil_write_fehlgeschlagen": (
         "Das Profil konnte gerade nicht gespeichert werden. Bitte senden Sie Ihre "
         "letzte Nachricht noch einmal — es geht nichts verloren."),
+    "sitzung_beschaedigt": (                                  # P4 (#270)
+        "Diese Sitzung kann nicht fortgesetzt werden. Bitte starten Sie ein neues "
+        "Interview."),
 }
+
+
+def _lade(store: StateStore, session_id: str):
+    # P4 (#270): beschaedigte Zeile -> klare, stabile Antwort statt rohem 500. Ein
+    # Fehler auf unserer Seite (500), kein Konflikt — nur ein neues Interview hilft.
+    try:
+        return store.load(session_id)
+    except KorrupterStateError:
+        raise HTTPException(status_code=500, detail="sitzung_beschaedigt")
 
 # Diese Keys kommen bei einer fertig-Antwort aus der DB, nicht aus dem Kern
 # (Spec K3.3): der Sweep kann Werte und Zaehler veraendert haben, nachdem der
@@ -160,7 +172,7 @@ def create_app(
     @app.post("/turn")
     def turn(req: TurnRequest, hintergrund: BackgroundTasks) -> dict:
         with _session_lock(req.session_id):
-            state = store.load(req.session_id)
+            state = _lade(store, req.session_id)
             if state is not None:
                 # Reihenfolge ist normativ (R12-I1): Mandanten-Guard VOR der
                 # Schema-Ausnahme, vor der Replay-Auslieferung, vor dem
@@ -209,7 +221,7 @@ def create_app(
                 # Serverfehler. Der Client darf die Nachricht wiederholen.
                 raise HTTPException(status_code=409, detail="gleichzeitige_anfrage")
             if writer is not None:
-                stand = store.load(req.session_id)
+                stand = _lade(store, req.session_id)
                 # Nach JEDEM load als Erstes (R12-I1) — auch vor dem Reconcile:
                 # sonst ginge ein fremder Zustand in den Writer, der mit SEINER
                 # company_id schreibt (gemessen: Zeile entsteht, 200 statt 409).

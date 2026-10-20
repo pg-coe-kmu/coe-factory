@@ -15,7 +15,7 @@ from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 
 from bc1_core.serialize import state_from_dict, state_to_dict
-from bc1_core.store import StaleStateError, StateStore
+from bc1_core.store import KorrupterStateError, StaleStateError, StateStore
 from bc1_core.types import SessionState
 
 # Startpruefung: Tabelle da UND die DSN-Rolle darf sie benutzen. to_regclass braucht
@@ -64,7 +64,15 @@ class PostgresStateStore(StateStore):
                 "SELECT state FROM bc1.sessions WHERE session_id = %s",
                 (session_id,),
             ).fetchone()
-        return state_from_dict(zeile[0]) if zeile else None
+        if not zeile:
+            return None
+        try:
+            return state_from_dict(zeile[0])
+        except (AttributeError, KeyError, TypeError, ValueError) as fehler:
+            # Nur Sitzung und Fehlertyp — nie der Zeileninhalt (Gespraechsverlauf).
+            raise KorrupterStateError(
+                f"Sitzung {session_id}: gespeicherter Zustand ist nicht lesbar "
+                f"({type(fehler).__name__})") from fehler
 
     def save(self, state: SessionState) -> None:
         neue_version = state.version + 1
