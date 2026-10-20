@@ -56,6 +56,20 @@ Straßen ohne Straßenwort („Am Alten Markt 3"). Übererkennung ist akzeptiert
 von BC1: n8n speichert Ausführungsdaten mit der Chat-Eingabe, bevor der Dienst sie
 sieht — Hosting-Thema (B3). Konzept: `design/Konzept-B2-PII-Filter.md`.
 
+## Betriebsprotokoll
+
+Der Dienst schreibt je `/turn` genau eine Zeile über den Logger `bc1.dienst` — auch bei 409/503/500
+(Level INFO, bei HTTP 500 ERROR), dazu beim Start `dienst gestartet paket=… schema_version=… mandant=…`:
+
+```
+turn korrelation=<id> session=<session_id> message=<message_id> http=<200|409|503|500> status=<frage|fertig|abgebrochen_ohne_identitaet|fehler_fortsetzbar|-> dauer_ms=<int>
+```
+
+Die Correlation-ID kommt aus dem Header `X-Correlation-ID` (z. B. von n8n) oder wird erzeugt und als
+`X-Correlation-ID` zurückgegeben. **Nie im Protokoll:** Nachrichtentext, extrahierte Werte, Profildaten,
+Fragen oder Chat-Texte — nur IDs, Status und Zahlen. Das Protokoll geht auf die Standardausgabe des
+Prozesses; im Container `docker logs <container>`. Kern, KI-Adapter und Store loggen in Teil 2 (B7).
+
 ## Setup und Start
 
 Voraussetzungen: Python 3.11+, [`uv`](https://docs.astral.sh/uv/), Docker (für die Test-Datenbank), `psql`.
