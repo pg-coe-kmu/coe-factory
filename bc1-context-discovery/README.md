@@ -59,16 +59,23 @@ sieht — Hosting-Thema (B3). Konzept: `design/Konzept-B2-PII-Filter.md`.
 ## Betriebsprotokoll
 
 Der Dienst schreibt je `/turn` genau eine Zeile über den Logger `bc1.dienst` — auch bei 409/503/500
-(Level INFO, bei HTTP 500 ERROR), dazu beim Start `dienst gestartet paket=… schema_version=… mandant=…`:
+(Level INFO, bei HTTP 5xx — 503 und 500 — ERROR), dazu beim Start `dienst gestartet paket=… schema_version=… mandant=…`:
 
 ```
 turn korrelation=<id> session=<session_id> message=<message_id> http=<200|409|503|500> status=<frage|fertig|abgebrochen_ohne_identitaet|fehler_fortsetzbar|-> dauer_ms=<int>
 ```
 
 Die Correlation-ID kommt aus dem Header `X-Correlation-ID` (z. B. von n8n) oder wird erzeugt und als
-`X-Correlation-ID` zurückgegeben. **Nie im Protokoll:** Nachrichtentext, extrahierte Werte, Profildaten,
+`X-Correlation-ID` zurückgegeben. **Nie in dieser Zeile:** Nachrichtentext, extrahierte Werte, Profildaten,
 Fragen oder Chat-Texte — nur IDs, Status und Zahlen. Das Protokoll geht auf die Standardausgabe des
 Prozesses; im Container `docker logs <container>`. Kern, KI-Adapter und Store loggen in Teil 2 (B7).
+
+Auf derselben Ausgabe stehen auch andere Logger: `httpx` je ausgehender Anfrage (Methode, Adresse,
+Status — kein Inhalt), die Dienst-Schicht selbst (Gate bei BC0, beschädigte Sitzung), der Profil-Writer
+und die BC0-Meldungen. Anfragen, die schon an
+der Body-Prüfung scheitern (422), erscheinen nur im Zugriffslog von uvicorn. **Bekannte Lücke:** eine
+*unerwartete* Ausnahme protokolliert uvicorn mit Traceback („Exception in ASGI application“, stderr) —
+der Ausnahmetext kann Inhalte tragen.
 
 ## Setup und Start
 
