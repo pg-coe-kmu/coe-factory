@@ -13,9 +13,12 @@ nach der Antwort, im Hintergrund.
 from __future__ import annotations
 
 import logging
+import re
 import threading
+import time
+import uuid
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request, Response
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -31,6 +34,8 @@ from bc1_service.bc0_meldungen import Bc0MeldungFehler
 from bc1_service.profil_writer import ProfilWriteError, ProfilWriter
 
 log = logging.getLogger(__name__)
+# P5 (#271): Betriebsprotokoll des Dienstes, eine Zeile je /turn.
+dienst_log = logging.getLogger("bc1.dienst")
 
 # Fester, LLM-freier Wortlaut (Spec K0): keine Halluzinationsflaeche im
 # Terminalzustand, und der Text bleibt ueber Neustarts identisch.
@@ -173,7 +178,31 @@ def create_app(
         return {"prozesse": snapshot.prozess_liste()}
 
     @app.post("/turn")
-    def turn(req: TurnRequest, hintergrund: BackgroundTasks) -> dict:
+    def turn(req: TurnRequest, hintergrund: BackgroundTasks, request: Request,
+             response: Response) -> dict:
+        # P5 (#271): genau eine Zeile je /turn, auch auf den Fehlerpfaden — nur IDs,
+        # Status, Zahlen; nie Nachricht, payload, chat_text oder Frage.
+        korrelation = _korrelation(request.headers.get("X-Correlation-ID"))
+        beginn = time.perf_counter()
+        http, status = 500, "-"
+        try:
+            antwort = _turn_kern(req, hintergrund)
+            http, status = 200, antwort.get("status", "-")
+            response.headers["X-Correlation-ID"] = korrelation
+            return antwort
+        except HTTPException as fehler:
+            http = fehler.status_code
+            fehler.headers = {**(fehler.headers or {}), "X-Correlation-ID": korrelation}
+            raise
+        finally:
+            dienst_log.log(
+                logging.ERROR if http >= 500 else logging.INFO,
+                "turn korrelation=%s session=%s message=%s http=%s status=%s dauer_ms=%d",
+                korrelation, _protokollwert(req.session_id),
+                _protokollwert(req.message_id), http, status,
+                round((time.perf_counter() - beginn) * 1000))
+
+    def _turn_kern(req: TurnRequest, hintergrund: BackgroundTasks) -> dict:
         with _session_lock(req.session_id):
             state = _lade(store, req.session_id)
             if state is not None:
@@ -258,6 +287,23 @@ def create_app(
             return antwort
 
     return app
+
+
+_LESBAR = re.compile(r"[A-Za-z0-9._:-]{1,64}")
+
+
+def _korrelation(mitgeschickt: str | None) -> str:
+    # key=value je Zeile: ein Leerzeichen oder Umbruch im Header koennte Felder oder
+    # Zeilen faelschen — dann lieber eine eigene ID.
+    if mitgeschickt and _LESBAR.fullmatch(mitgeschickt):
+        return mitgeschickt
+    return uuid.uuid4().hex
+
+
+def _protokollwert(wert: str) -> str:
+    # session_id/message_id waehlt der Aufrufer: fremde Zeichen werden zu '?', damit
+    # niemand Felder (Leerzeichen, '=') oder Zeilen in die Zeile schmuggeln kann.
+    return re.sub(r"[^A-Za-z0-9._:-]", "?", wert[:64])
 
 
 def _gate_im_hintergrund(melder, company_id: str, anfrage_id: str | None) -> None:

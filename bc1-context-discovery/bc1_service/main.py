@@ -10,7 +10,9 @@ BC1_PAKET ("discovery" | "toy", Default discovery).
 """
 from __future__ import annotations
 
+import logging
 import os
+import sys
 from contextlib import asynccontextmanager
 
 from psycopg_pool import ConnectionPool
@@ -24,6 +26,12 @@ from bc1_service.profil_writer import ProfilWriter
 from bc1_service.snapshot import lade_snapshot
 from bc1_service.start import (lade_kontext, lies_anfrage_id, lies_company_id,
                                melde_interview_beginn, pruefe_bc0_vor_dem_start)
+
+# P5 (#271): Betriebsprotokoll auf die Standardausgabe — nur, wenn noch niemand das
+# Logging eingerichtet hat (Tests konfigurieren selbst; uvicorn nur seine eigenen Logger).
+if not logging.getLogger().handlers:
+    logging.basicConfig(level=logging.INFO, stream=sys.stdout,
+                        format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
 _dsn = os.environ.get("BC1_DB_DSN")
 if not _dsn:
@@ -93,3 +101,7 @@ app = create_app(
     writer=ProfilWriter(_profil_pool, _company_id, _paket),
     melder=_melder,
 )
+
+logging.getLogger("bc1.dienst").info(
+    "dienst gestartet paket=%s schema_version=%s mandant=%s",
+    _paket.name, _paket.schema_version, _company_id)
