@@ -1,0 +1,364 @@
+{
+  "lieferung_id": "del-kp-04-2026-10-23-051616",
+  "schema_version": "3.5",
+  "projekt_kurzname": "kp-04",
+  "erzeugt_am": "2026-10-23T05:16:16.505Z",
+  "konzept_ref": {
+    "konzept_id": "00000000-0000-4000-8000-000000000004",
+    "schema_version": "2.0",
+    "source_file": "konzept_KP-04.json",
+    "kp_id": "KP-04",
+    "teilprozess_ids": [
+      "KP-04.TP-3",
+      "KP-04.TP-5"
+    ],
+    "value_quelle": "default"
+  },
+  "prozess_kurzbeschreibung": "[VORLAEUFIG] Engagement-Steuerung (Kerngeschäftsprozess, Reifegrad 3.88/5) bei NoroAI Consulting GmbH, 10 Mitarbeitende, KI-Beratung.",
+  "vorpruefung": {
+    "ampel": "yellow",
+    "ai_act_klasse": "high",
+    "anhang_iii_kategorie": "Anhang III Nr. 4 Buchstabe a",
+    "dsgvo_rechtsgrundlage": "Artikel 6 Absatz 1 Buchstabe f (berechtigtes Interesse)",
+    "betroffene_datenarten": [
+      "Name",
+      "E-Mail-Adresse",
+      "Arbeitsleistung (z. B. bearbeitete Issues, Engagement-Metriken)",
+      "Verhaltensdaten (z. B. Teilnahme an Retrospektiven, Feedback)"
+    ],
+    "begruendung_ampel": "Der Prozess fällt unter Anhang III Nr. 4 Buchstabe a (Auswahl oder Einstellung von Personen) und ist damit als Hochrisiko-System eingestuft. Die Ampel steht auf yellow, da durch die menschliche Freigabe des Retrospektiven-Entwurfs (Artikel 14 AI Act) und die Pseudonymisierung personenbezogener Daten (Artikel 25 DSGVO) die Risiken gemindert werden. Eine rote Ampel wäre nur bei verbotenen Praktiken nach Artikel 5 AI Act gerechtfertigt, die hier nicht vorliegen."
+  },
+  "pflichten": [
+    {
+      "id": "p1",
+      "tag": "[AI-Act Art. 14]",
+      "text": "Vor der finalen Übernahme des Retrospektiven-Entwurfs muss ein Mensch die vom LLM identifizierten Auffälligkeiten, offenen Punkte und Kandidaten für Verbesserungs-Items prüfen und freigeben.",
+      "massnahme": "mensch_prueft",
+      "datenkategorie": "gering",
+      "stelle": "Given der Entwurf wird generiert, When das Team den Entwurf erhält, Then ist dieser als Materialsammlung gekennzeichnet und nicht als fertiges Ergebnis (Story ep-f003-2, Akzeptanzkriterium 2)",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3"
+    },
+    {
+      "id": "p2",
+      "tag": "[AI-Act Art. 12]",
+      "text": "Der Retrospektiven-Entwurf muss als KI-generiert gekennzeichnet sein, und die Teammitglieder müssen darüber informiert werden, dass die Inhalte vom LLM vorbereitet wurden.",
+      "massnahme": "hinweis_geben",
+      "datenkategorie": "gering",
+      "stelle": "Given der Entwurf wird generiert, When das Team den Entwurf erhält, Then ist dieser als Materialsammlung gekennzeichnet (Story ep-f003-2, Akzeptanzkriterium 2)",
+      "adressat": "bc4",
+      "wird_zu_story": false,
+      "owner": "BC3"
+    },
+    {
+      "id": "p3",
+      "tag": "[AI-Act Art. 15]",
+      "text": "Das System muss sicherstellen, dass die vom LLM generierten Inhalte korrekt, konsistent und frei von Verzerrungen sind, insbesondere bei der Identifikation von Auffälligkeiten und Verbesserungs-Items.",
+      "massnahme": "protokollieren",
+      "datenkategorie": "gering",
+      "stelle": "Given die Sprint-Daten sind abgerufen, When das LLM die Daten verdichtet, Then wird ein Entwurf mit Auffälligkeiten, offenen Punkten und Kandidaten für Verbesserungs-Items erstellt (Story ep-f003-2, Akzeptanzkriterium 1)",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3"
+    },
+    {
+      "id": "p4",
+      "tag": "[AI-Act Art. 17]",
+      "text": "Es muss ein Qualitätsmanagement-System etabliert werden, das die Genauigkeit und Zuverlässigkeit der KI-generierten Retrospektiven-Entwürfe regelmäßig überprüft.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "gering",
+      "stelle": "Prozessübergreifend (keine direkte Story-Zuordnung)",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3"
+    },
+    {
+      "id": "p5",
+      "tag": "[DSGVO Art. 25]",
+      "text": "Die Verarbeitung personenbezogener Daten (z. B. Namen, E-Mail-Adressen) muss durch Pseudonymisierung oder Anonymisierung minimiert werden, soweit dies ohne Beeinträchtigung des Zwecks möglich ist.",
+      "massnahme": "pseudonymisieren",
+      "datenkategorie": "gering",
+      "stelle": "Given der Sprint ist abgeschlossen, When das System die Datenabfrage startet, Then werden alle relevanten Sprint-Daten aus GitLab Issues und dem Grafana Engagement-Dashboard abgerufen (Story ep-f003-1, Akzeptanzkriterium 1)",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3"
+    },
+    {
+      "id": "p6",
+      "tag": "[DSGVO Art. 32]",
+      "text": "Die Sicherheit der Verarbeitung muss durch geeignete technische und organisatorische Maßnahmen gewährleistet werden, insbesondere bei der Übertragung und Speicherung der Sprint-Daten.",
+      "massnahme": "eu_modell",
+      "datenkategorie": "gering",
+      "stelle": "Prozessübergreifend (keine direkte Story-Zuordnung)",
+      "adressat": "plattform",
+      "wird_zu_story": false,
+      "owner": "BC3"
+    },
+    {
+      "id": "p7",
+      "tag": "[AI-Act Art. 4]",
+      "text": "Die Teammitglieder müssen über die Funktionsweise des KI-Systems und die Bedeutung der KI-generierten Inhalte aufgeklärt werden, um eine kompetente Nutzung zu gewährleisten.",
+      "massnahme": "hinweis_geben",
+      "datenkategorie": "gering",
+      "stelle": "Prozessübergreifend (keine direkte Story-Zuordnung)",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3"
+    },
+    {
+      "id": "p14-uebersteuern",
+      "tag": "[AI-Act Art. 14]",
+      "text": "Ausgabe übersteuern oder verwerfen im Zielsystem einbauen.",
+      "massnahme": "mensch_prueft",
+      "datenkategorie": "hoch",
+      "stelle": "ep-f003: Automatisierte Verdichtung von Sprint-Retrospektiven und Lessons Learned",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3",
+      "quelle": "BC3-Vorlage Hochrisiko"
+    },
+    {
+      "id": "p14-anhalten",
+      "tag": "[AI-Act Art. 14]",
+      "text": "Betrieb anhalten im Zielsystem einbauen.",
+      "massnahme": "mensch_prueft",
+      "datenkategorie": "hoch",
+      "stelle": "ep-f003: Automatisierte Verdichtung von Sprint-Retrospektiven und Lessons Learned",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3",
+      "quelle": "BC3-Vorlage Hochrisiko"
+    },
+    {
+      "id": "u-risikomanagement",
+      "tag": "[AI-Act Art. 9]",
+      "text": "Unterlage „Risikomanagement“ erstellen und vor Inbetriebnahme abschließen.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "hoch",
+      "stelle": "vor Inbetriebnahme",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "quelle": "BC3-Vorlage Hochrisiko",
+      "vorlage": "Zweck: [VORLAEUFIG] Engagement-Steuerung (Kerngeschäftsprozess, Reifegrad 3.88/5) bei NoroAI Consulting GmbH, 10 Mitarbeitende, KI-Beratung.\nBekannte Risiken:\n- Vorgefertigter Entwurf verengt die Retrospektive | Gegenmaßnahme laut BC2: Entwurf als Materialsammlung kennzeichnen, nicht als Ergebnis\n- KP-05 Wissensmanagement ist erst zu 1 von 5 Teilprozessen erhoben (#159) | Gegenmaßnahme laut BC2: Zielstruktur der Wissensbasis vor Umsetzung klaeren\nMaßnahmen im System:\n- [AI-Act Art. 14] Vor der finalen Übernahme des Retrospektiven-Entwurfs muss ein Mensch die vom LLM identifizierten Auffälligkeiten, offenen Punkte und Kandidaten für Verbesserungs-Items prüfen und freigeben.\n- [AI-Act Art. 12] Der Retrospektiven-Entwurf muss als KI-generiert gekennzeichnet sein, und die Teammitglieder müssen darüber informiert werden, dass die Inhalte vom LLM vorbereitet wurden.\n- [AI-Act Art. 15] Das System muss sicherstellen, dass die vom LLM generierten Inhalte korrekt, konsistent und frei von Verzerrungen sind, insbesondere bei der Identifikation von Auffälligkeiten und Verbesserungs-Items.\n- [DSGVO Art. 25] Die Verarbeitung personenbezogener Daten (z. B. Namen, E-Mail-Adressen) muss durch Pseudonymisierung oder Anonymisierung minimiert werden, soweit dies ohne Beeinträchtigung des Zwecks möglich ist.\n- [AI-Act Art. 14] Ausgabe übersteuern oder verwerfen im Zielsystem einbauen.\n- [AI-Act Art. 14] Betrieb anhalten im Zielsystem einbauen.\nRestrisiko und Bewertung: [offen]\nTests vor Inbetriebnahme: [offen]\nÜberprüfung im Betrieb (wer, wie oft): [offen]"
+    },
+    {
+      "id": "u-technische-dokumentation",
+      "tag": "[AI-Act Art. 11, Anhang IV]",
+      "text": "Unterlage „Technische Dokumentation“ erstellen und vor Inbetriebnahme abschließen.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "hoch",
+      "stelle": "vor Inbetriebnahme",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "quelle": "BC3-Vorlage Hochrisiko",
+      "vorlage": "Zweck und Einsatzbereich: [VORLAEUFIG] Engagement-Steuerung (Kerngeschäftsprozess, Reifegrad 3.88/5) bei NoroAI Consulting GmbH, 10 Mitarbeitende, KI-Beratung.\nVerarbeitete Daten: [offen: Datenarten]\nEntscheidung über Personen: Auswahl oder Einstellung von Personen (Anhang III Nr. 4 Buchstabe a)\nKomponenten und Modelle: siehe architecture.md und blueprint.json der Lieferung; im BC3-Lauf: Ratgeber (Auffälligkeiten): mistral-medium-3-5, Story-Architekt: mistral-large-2512\nAnbieter des Zielsystems, Version, Änderungshistorie: [offen]\nLeistungsgrenzen und Genauigkeit (Art. 15): [offen]"
+    },
+    {
+      "id": "u-betriebsanleitung",
+      "tag": "[AI-Act Art. 13]",
+      "text": "Unterlage „Betriebsanleitung für die Nutzenden“ erstellen und vor Inbetriebnahme abschließen.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "hoch",
+      "stelle": "vor Inbetriebnahme",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "quelle": "BC3-Vorlage Hochrisiko",
+      "vorlage": "Was das System tut und was nicht: [offen]\nGrenzen und bekannte Fehlerbilder: [offen]\nWie die Aufsicht ausgeübt wird: übersteuern, verwerfen, anhalten, protokollieren (siehe Stories zu Art. 14)\nAnsprechpartner: [offen]"
+    },
+    {
+      "id": "u-aufsichtskonzept",
+      "tag": "[AI-Act Art. 14, Art. 26 Abs. 2]",
+      "text": "Unterlage „Aufsichtskonzept“ erstellen und vor Inbetriebnahme abschließen.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "hoch",
+      "stelle": "vor Inbetriebnahme",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "quelle": "BC3-Vorlage Hochrisiko",
+      "vorlage": "Aufsicht über: Auswahl oder Einstellung von Personen (Anhang III Nr. 4 Buchstabe a)\nZuständige Personen und Vertretung: [offen]\nNötige Kompetenz und Schulung (Art. 4): [offen]\nBefugnis, Ausgaben zu verwerfen und den Betrieb anzuhalten: [offen]"
+    },
+    {
+      "id": "u-protokoll-aufbewahrung",
+      "tag": "[AI-Act Art. 12, Art. 26 Abs. 6]",
+      "text": "Unterlage „Aufbewahrung der Protokolle“ erstellen und vor Inbetriebnahme abschließen.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "hoch",
+      "stelle": "vor Inbetriebnahme",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "quelle": "BC3-Vorlage Hochrisiko",
+      "vorlage": "Was protokolliert wird: siehe Story zu Art. 12/14\nAufbewahrungsdauer (Betreiber: mindestens sechs Monate, sofern nichts anderes gilt): [offen]\nZugriff und Löschung: [offen]"
+    },
+    {
+      "id": "u-dsfa",
+      "tag": "[DSGVO Art. 35]",
+      "text": "Unterlage „Datenschutz-Folgenabschätzung“ erstellen und vor Inbetriebnahme abschließen.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "hoch",
+      "stelle": "vor Inbetriebnahme",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "quelle": "BC3-Vorlage Hochrisiko",
+      "vorlage": "Verarbeitung: [VORLAEUFIG] Engagement-Steuerung (Kerngeschäftsprozess, Reifegrad 3.88/5) bei NoroAI Consulting GmbH, 10 Mitarbeitende, KI-Beratung.\nDatenarten: [offen: Datenarten]\nRechtsgrundlage laut Vorprüfung: Artikel 6 Absatz 1 Buchstabe f (berechtigtes Interesse)\nRisiken für Betroffene und Abhilfe: [offen]\nStellungnahme Datenschutzbeauftragte(r): [offen]"
+    },
+    {
+      "id": "u-konformitaet",
+      "tag": "[AI-Act Art. 43, Art. 49]",
+      "text": "Unterlage „Konformitätsbewertung und Registrierung“ erstellen und vor Inbetriebnahme abschließen.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "hoch",
+      "stelle": "vor Inbetriebnahme",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "quelle": "BC3-Vorlage Hochrisiko",
+      "vorlage": "Verfahren (bei Anhang III Nr. 2 bis 8: interne Kontrolle nach Anhang VI): [offen]\nEU-Konformitätserklärung: [offen]\nEintrag in die EU-Datenbank: [offen]\nRolle des Unternehmens (Anbieter, Betreiber oder beides): [offen]"
+    },
+    {
+      "id": "u-information-betroffene",
+      "tag": "[AI-Act Art. 26 Abs. 11]",
+      "text": "Unterlage „Information der betroffenen Personen“ erstellen und vor Inbetriebnahme abschließen.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "hoch",
+      "stelle": "vor Inbetriebnahme",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "quelle": "BC3-Vorlage Hochrisiko",
+      "vorlage": "Betroffene: [offen]\nHinweis, dass ein Hochrisiko-System die Entscheidung unterstützt (Auswahl oder Einstellung von Personen (Anhang III Nr. 4 Buchstabe a)): [offen: Text und Zeitpunkt]\nAuskunft und Widerspruch: [offen]"
+    },
+    {
+      "id": "u-information-beschaeftigte",
+      "tag": "[AI-Act Art. 26 Abs. 7]",
+      "text": "Unterlage „Information der Beschäftigten und ihrer Vertretung“ erstellen und vor Inbetriebnahme abschließen.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "hoch",
+      "stelle": "vor Inbetriebnahme",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "quelle": "BC3-Vorlage Hochrisiko",
+      "vorlage": "Information vor Inbetriebnahme am Arbeitsplatz: [offen: wann, durch wen]\nArbeitnehmervertretung beteiligt (ggf. § 87 Abs. 1 Nr. 6 BetrVG): [offen]"
+    },
+    {
+      "id": "u-grundrechte",
+      "tag": "[AI-Act Art. 27]",
+      "text": "Prüfen, ob die Grundrechte-Folgenabschätzung nötig ist (Art. 27 Abs. 1), und sie dann vor Inbetriebnahme abschließen.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "hoch",
+      "stelle": "vor Inbetriebnahme",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "quelle": "BC3-Vorlage Hochrisiko",
+      "vorlage": "Pflicht nur für öffentliche Stellen und private Einrichtungen, die öffentliche Dienste erbringen: [offen: trifft das zu?]\nProzess und Zeitraum der Nutzung: [VORLAEUFIG] Engagement-Steuerung (Kerngeschäftsprozess, Reifegrad 3.88/5) bei NoroAI Consulting GmbH, 10 Mitarbeitende, KI-Beratung.\nBetroffene Personengruppen: [offen]\nRisiken für Grundrechte: [offen]\nAufsicht und Abhilfe: siehe Aufsichtskonzept\nMitteilung an die Marktüberwachungsbehörde: [offen]"
+    }
+  ],
+  "pflichten_nach_adressat": {
+    "bc4": [
+      "p1",
+      "p2",
+      "p3",
+      "p5",
+      "p14-uebersteuern",
+      "p14-anhalten"
+    ],
+    "organisation": [
+      "p4",
+      "p7",
+      "u-risikomanagement",
+      "u-technische-dokumentation",
+      "u-betriebsanleitung",
+      "u-aufsichtskonzept",
+      "u-protokoll-aufbewahrung",
+      "u-dsfa",
+      "u-konformitaet",
+      "u-information-betroffene",
+      "u-information-beschaeftigte",
+      "u-grundrechte"
+    ],
+    "plattform": [
+      "p6"
+    ],
+    "ohne_angabe": []
+  },
+  "nicht_an_bc4": [],
+  "plattform_standards": [
+    "Zentraler PII-Filter zur Pseudonymisierung personenbezogener Daten vor der Verarbeitung durch KI-Systeme",
+    "Audit-Log für alle KI-generierten Inhalte und Entscheidungsgrundlagen",
+    "Verschlüsselung der Datenübertragung und -speicherung",
+    "Regelmäßige Sicherheitsüberprüfungen der API-Zugänge (GitLab, Grafana)"
+  ],
+  "zuordnung": [
+    {
+      "epic_id": "ep-83df-c053-d143-3fb7eb291e6f",
+      "use_case_id_ref": "00000000-0000-4000-8000-00000000f003",
+      "id_saat": null,
+      "titel": "Automatisierte Verdichtung von Sprint-Retrospektiven und Lessons Learned"
+    },
+    {
+      "story_id": "st-83df-c053-d143-3fb7eb291e6f-6",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p1"
+      ]
+    },
+    {
+      "story_id": "st-83df-c053-d143-3fb7eb291e6f-7",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p5"
+      ]
+    },
+    {
+      "story_id": "st-83df-c053-d143-3fb7eb291e6f-8",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p3"
+      ]
+    },
+    {
+      "story_id": "st-83df-c053-d143-3fb7eb291e6f-9",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p14-uebersteuern"
+      ]
+    },
+    {
+      "story_id": "st-83df-c053-d143-3fb7eb291e6f-10",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p14-anhalten"
+      ]
+    }
+  ],
+  "nicht_zugeordnete_compliance_stories": [],
+  "pflichten_ohne_story": [],
+  "pflichten_mit_story_ohne_vermerk": [],
+  "befunde_adressat": [],
+  "pruefung_bc3": {
+    "geprueft_gegen": "tickets.schema.json 3.5",
+    "ergebnis": "bestanden",
+    "befunde": [
+      "Eintrag 1: Teilprozess KP-04.TP-3, KP-04.TP-5 nur aus dem Text gelesen, nicht aus einem Feld",
+      "Eintrag 1: Soll-Zustand nur 121 Zeichen (Kurzfassung)",
+      "Eintrag 1: keine fachlichen Anforderungen",
+      "Eintrag 1: keine Akzeptanzkriterien, BC3 muss sie selbst formulieren",
+      "Epic 1: deckt_ab nennt A, D, C, G, B, F, die es im Eingang nicht gibt."
+    ],
+    "epics": 1,
+    "stories": 5,
+    "potenziale": 1,
+    "anforderungen_im_eingang": 0,
+    "akzeptanzkriterien_im_eingang": 0,
+    "vorgaben_bc3": 0,
+    "stories_ohne_kriterium": 0
+  }
+}

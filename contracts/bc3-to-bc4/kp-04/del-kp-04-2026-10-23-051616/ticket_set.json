@@ -1,0 +1,187 @@
+{
+  "lieferung_id": "del-kp-04-2026-10-23-051616",
+  "schema_version": "3.5",
+  "projekt_kurzname": "kp-04",
+  "konzept_ref": {
+    "konzept_id": "00000000-0000-4000-8000-000000000004",
+    "schema_version": "2.0",
+    "source_file": "konzept_KP-04.json",
+    "kp_id": "KP-04",
+    "teilprozess_ids": [
+      "KP-04.TP-3",
+      "KP-04.TP-5"
+    ],
+    "value_quelle": "default"
+  },
+  "epics": [
+    {
+      "epic_id": "ep-83df-c053-d143-3fb7eb291e6f",
+      "titel": "Automatisierte Verdichtung von Sprint-Retrospektiven und Lessons Learned",
+      "ziel": "Sprint-Daten aus GitLab und Grafana werden automatisiert zu einem Retrospektiven-Entwurf verdichtet und Lessons Learned strukturiert in die Wissensbasis überführt.",
+      "kategorien": [
+        "it:backend",
+        "it:integration",
+        "it:ai-pipeline"
+      ],
+      "stories": [
+        {
+          "story_id": "st-83df-c053-d143-3fb7eb291e6f-1",
+          "titel": "Sprint-Daten aus GitLab und Grafana abrufen",
+          "beschreibung": "Als System möchte ich am Sprint-Ende die relevanten Daten aus GitLab Issues und dem Grafana Engagement-Dashboard abrufen, damit diese für die Verdichtung durch das LLM bereitstehen.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given der Sprint ist abgeschlossen, When das System die Datenabfrage startet, Then werden alle relevanten Sprint-Daten aus GitLab Issues und dem Grafana Engagement-Dashboard abgerufen und bereitgestellt.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "[von BC3 abgeleitet] Given die APIs von GitLab und Grafana sind verfügbar, When das System die Daten abruft, Then erfolgt der Abruf innerhalb der vereinbarten API-Antwortzeiten.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-83df-c053-d143-3fb7eb291e6f-2",
+          "titel": "Daten für Retrospektiven-Entwurf verdichten",
+          "beschreibung": "Als Teammitglied möchte ich einen datengestützten Entwurf der Sprint-Retrospektive erhalten, damit ich nicht bei null beginnen muss und Auffälligkeiten sowie offene Punkte direkt sichtbar sind.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given die Sprint-Daten sind abgerufen, When das LLM die Daten verdichtet, Then wird ein Entwurf mit Auffälligkeiten, offenen Punkten und Kandidaten für Verbesserungs-Items erstellt.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "[von BC3 abgeleitet] Given der Entwurf wird generiert, When das Team den Entwurf erhält, Then ist dieser als Materialsammlung gekennzeichnet und nicht als fertiges Ergebnis.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-83df-c053-d143-3fb7eb291e6f-1"
+          ]
+        },
+        {
+          "story_id": "st-83df-c053-d143-3fb7eb291e6f-3",
+          "titel": "Action-Items an KP-09 übermitteln",
+          "beschreibung": "Als Prozesseigner möchte ich, dass die beschlossenen Action-Items aus der Retrospektive strukturiert an den Prozess KP-09 übermittelt werden, damit diese ohne manuelle Nacharbeit weiterverarbeitet werden können.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given die Action-Items sind vom Team beschlossen, When das System die Übermittlung startet, Then werden die Action-Items strukturiert an KP-09 übermittelt.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-83df-c053-d143-3fb7eb291e6f-2"
+          ]
+        },
+        {
+          "story_id": "st-83df-c053-d143-3fb7eb291e6f-4",
+          "titel": "Lessons Learned in Wissensbasis (KP-05) speichern",
+          "beschreibung": "Als Teammitglied möchte ich, dass die Lessons Learned aus der Retrospektive automatisch in die Wissensbasis (KP-05) überführt werden, damit diese ohne manuelle Nacharbeit verfügbar sind.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given die Zielstruktur der Wissensbasis in KP-05 ist definiert, When das System die Lessons Learned speichert, Then werden diese strukturiert in die Wissensbasis (KP-05) überführt.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "[von BC3 abgeleitet] Given die Wissensbasis ist nur zu 1 von 5 Teilprozessen erhoben, When die Lessons Learned gespeichert werden, Then erfolgt die Speicherung gemäß der vorab geklärten Zielstruktur.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-83df-c053-d143-3fb7eb291e6f-2"
+          ]
+        },
+        {
+          "story_id": "st-83df-c053-d143-3fb7eb291e6f-5",
+          "titel": "API-Zugänge und Zielstruktur prüfen",
+          "beschreibung": "Als System möchte ich vor der Verarbeitung prüfen, ob die GitLab- und Grafana-API-Zugänge sowie die Zielstruktur der Wissensbasis (KP-05) verfügbar sind, damit die Automatisierung reibungslos ablaufen kann.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given das System startet die Verarbeitung, When die Vorbedingungen geprüft werden, Then wird bestätigt, dass GitLab- und Grafana-API-Zugänge sowie die Zielstruktur der Wissensbasis (KP-05) definiert und verfügbar sind.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-83df-c053-d143-3fb7eb291e6f-6",
+          "titel": "Menschliche Freigabe des Retrospektiven-Entwurfs",
+          "beschreibung": "Vor der finalen Übernahme des vom LLM generierten Retrospektiven-Entwurfs muss ein Teammitglied die identifizierten Auffälligkeiten, offenen Punkte und Kandidaten für Verbesserungs-Items prüfen und freigeben. Dies stellt sicher, dass die Entscheidung nicht ausschließlich automatisiert erfolgt (Artikel 22 DSGVO) und die menschliche Aufsicht nach Artikel 14 AI Act gewährleistet ist.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given der Retrospektiven-Entwurf ist generiert, When ein Teammitglied die Freigabe erteilt, Then wird der Entwurf als freigegeben markiert und für die weitere Verarbeitung freigegeben.",
+              "messverfahren": "offen: Festlegung, wer die Freigabe erteilen darf und wie der Freigabeprozess dokumentiert wird"
+            },
+            {
+              "text": "Given der Entwurf wird nicht freigegeben, When das Teammitglied Änderungen vornimmt, Then wird der überarbeitete Entwurf erneut zur Freigabe vorgelegt.",
+              "messverfahren": "offen: Festlegung des Eskalationsprozesses bei Nicht-Freigabe"
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-83df-c053-d143-3fb7eb291e6f-7",
+          "titel": "Pseudonymisierung personenbezogener Daten vor der Verarbeitung",
+          "beschreibung": "Vor der Verarbeitung durch das LLM müssen personenbezogene Daten (z. B. Namen, E-Mail-Adressen) pseudonymisiert werden, um die Anforderungen des Datenschutzes durch Technikgestaltung (Artikel 25 DSGVO) zu erfüllen. Die Pseudonymisierung erfolgt beim Abruf der Daten aus GitLab und Grafana.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given die Sprint-Daten werden abgerufen, When das System die Daten pseudonymisiert, Then sind personenbezogene Daten durch Kennungen ersetzt und können nicht direkt einer Person zugeordnet werden.",
+              "messverfahren": "offen: Festlegung des Pseudonymisierungsverfahrens und der Kennungsstruktur"
+            },
+            {
+              "text": "Given die pseudonymisierten Daten werden verarbeitet, When der Retrospektiven-Entwurf generiert wird, Then enthält der Entwurf keine direkten personenbezogenen Daten.",
+              "messverfahren": "offen: Prüfung der generierten Inhalte auf personenbezogene Daten"
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-83df-c053-d143-3fb7eb291e6f-8",
+          "titel": "Protokollierung der KI-generierten Inhalte und Entscheidungsgrundlagen",
+          "beschreibung": "Das System muss die vom LLM generierten Inhalte (z. B. Auffälligkeiten, offene Punkte, Verbesserungs-Items) sowie die zugrundeliegenden Daten und Entscheidungslogiken protokollieren, um die Anforderungen an Genauigkeit und Robustheit (Artikel 15 AI Act) zu erfüllen.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given das LLM die Daten verdichtet, When der Retrospektiven-Entwurf generiert wird, Then werden die generierten Inhalte sowie die zugrundeliegenden Daten und Entscheidungslogiken protokolliert.",
+              "messverfahren": "offen: Festlegung des Protokollierungsformats und der Aufbewahrungsfristen"
+            },
+            {
+              "text": "Given ein Teammitglied den Entwurf prüft, When Abweichungen oder Fehler identifiziert werden, Then können diese im Protokoll nachvollzogen und korrigiert werden.",
+              "messverfahren": "offen: Festlegung des Korrekturprozesses und der Dokumentation"
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-83df-c053-d143-3fb7eb291e6f-9",
+          "titel": "Ausgabe übersteuern oder verwerfen (Art. 14 KI-VO)",
+          "beschreibung": "Als zuständige Person möchte ich jede Ausgabe des Systems verwerfen oder durch eine eigene Entscheidung übersteuern können, bevor sie wirkt, damit die Entscheidung über Personen beim Menschen bleibt (Art. 14 Abs. 4 Buchst. d KI-VO).",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine Ausgabe des Systems liegt vor, When die zuständige Person sie verwirft oder ändert, Then wird ausschließlich die Entscheidung der Person weiterverwendet und die ursprüngliche Ausgabe bleibt nachvollziehbar gespeichert.",
+              "messverfahren": "Testfall je Ausgabeart (verwerfen und ändern), Prüfung des weiterverwendeten Werts und des gespeicherten Originals."
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-83df-c053-d143-3fb7eb291e6f-10",
+          "titel": "Betrieb anhalten (Art. 14 KI-VO)",
+          "beschreibung": "Als zuständige Person möchte ich den automatisierten Ablauf jederzeit anhalten können, damit bei Fehlverhalten keine weiteren Ausgaben entstehen. Angehaltene Vorgänge warten auf manuelle Bearbeitung (Art. 14 Abs. 4 Buchst. e KI-VO).",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given der Ablauf ist angehalten, When ein neuer Vorgang eingeht, Then wird keine automatische Ausgabe erzeugt und der Vorgang wartet auf manuelle Bearbeitung.",
+              "messverfahren": "Testlauf mit angehaltenem Ablauf: eingehende Vorgänge erzeugen keine Ausgabe und sind als wartend markiert. Offen: Anzahl der Testvorgänge festlegen."
+            }
+          ],
+          "abhaengigkeiten": []
+        }
+      ],
+      "teilprozess_ids": [
+        "KP-04.TP-3",
+        "KP-04.TP-5"
+      ]
+    }
+  ],
+  "gate2": {
+    "status": "approved"
+  }
+}
