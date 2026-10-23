@@ -185,10 +185,18 @@ Antwort als eine, die nicht in der Datenbank steht". Der Interview-Zustand ist h
 Abgleich noch einmal und antwortet erst, wenn geschrieben ist. Kommt der 503 wiederholt,
 liegt meist ein fremder Draft auf demselben Fokus-Schritt — dann das Rezept unten.
 
+**Im Chat reicht Neusenden nicht immer:** Die n8n-Hülle schickt beim Neusenden eine neue
+`message_id` (`exec-<id>`). Mitten im Interview läuft es damit weiter; beim **Abschluss-Turn**
+antwortet der Dienst dann mit 409 `session_abgeschlossen`, und das Profil bleibt ungeschrieben,
+bis jemand mit **derselben** `message_id` per curl an `/turn` nachholt — sie steht in der
+Protokollzeile `turn … message=<id> http=503` (README „Betriebsprotokoll“).
+
 ### K5: verwaister oder fremder `in_erhebung`-Draft
 
 Ein abgebrochener Lauf kann eine Zeile im Zustand `in_erhebung` hinterlassen. Sie belegt
 den Fokus-Schritt für alle anderen Sitzungen.
+Dasselbe kann nach einer Sitzung geschehen, die mit 500 `sitzung_beschaedigt` endet — die
+Zeile `sitzung_beschaedigt: Sitzung <id> …` im Protokoll nennt die Sitzung.
 
 > **Wichtig fürs Verständnis:** Der 503 kommt **erst im Abschluss-Turn**, nicht sofort. Eine
 > neue Sitzung zu demselben Schritt führt das ganze Interview scheinbar normal — der
