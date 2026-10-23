@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from bc1_core.llm import ExtractionCandidate, FakeLLM
 from bc1_core.package import FieldSpec, TOY_PROZESS, UseCasePackage
-from bc1_core.store import InMemoryStateStore, StaleStateError
+from bc1_core.store import InMemoryStateStore, KorrupterStateError, StaleStateError
 from bc1_core.types import SessionState, SessionStatus
 from bc1_service.api import (ABBRUCH_TEXT, FEHLER_TEXTE, MELDUNG_GATE_FEHLGESCHLAGEN,
                              OVERLAY_SCHLUESSEL, _sweep_hinweise, create_app)
@@ -724,3 +724,51 @@ def test_fehlertexte_tragen_keine_schluessel_und_keine_interna():
     for schluessel, text in FEHLER_TEXTE.items():
         assert schluessel not in text
         assert "_" not in text and "{" not in text
+
+
+# --- P4 (#270): beschaedigte Sitzungszeile -> klare Antwort statt rohem 500 ---
+
+class _BeschaedigterStore(InMemoryStateStore):
+    def load(self, session_id):
+        raise KorrupterStateError(f"Sitzung {session_id}: gespeicherter Zustand "
+                                  "ist nicht lesbar (KeyError)")
+
+
+def test_beschaedigte_sitzung_gibt_500_sitzung_beschaedigt_mit_chat_text():
+    client = TestClient(create_app(_BeschaedigterStore(), _fake_llm(), TOY_PROZESS,
+                                   company_id=MANDANT))
+    _fehler(_turn(client, "m1", "hallo"), 500, "sitzung_beschaedigt")
+
+
+def test_beschaedigte_sitzung_wird_ohne_zeileninhalt_als_fehler_geloggt(caplog):
+    # Nur die Meldung (Sitzung + Fehlertyp), nie exc_info: die angehaengte Ursache
+    # kann bei ValueError Werte aus der Zeile tragen.
+    client = TestClient(create_app(_BeschaedigterStore(), _fake_llm(), TOY_PROZESS,
+                                   company_id=MANDANT))
+    with caplog.at_level(logging.ERROR, logger="bc1_service.api"):
+        _turn(client, "m1", "hallo")
+    eintraege = _api_log(caplog)
+    assert [(r.levelno, r.getMessage()) for r in eintraege] == [
+        (logging.ERROR, "sitzung_beschaedigt: Sitzung s1: gespeicherter Zustand "
+                        "ist nicht lesbar (KeyError)")]
+    assert eintraege[0].exc_info is None
+
+
+class _BeschaedigtSobaldGespeichert(InMemoryStateStore):
+    """Frische Sitzung: API und Kern laden None, der Kern speichert — erst der load
+    vor dem Writer trifft eine (dann beschaedigte) Zeile."""
+
+    def load(self, session_id):
+        if super().load(session_id) is not None:
+            raise KorrupterStateError(f"Sitzung {session_id}: gespeicherter "
+                                      "Zustand ist nicht lesbar (TypeError)")
+        return None
+
+
+def test_beschaedigte_sitzung_vor_dem_writer_gibt_500_sitzung_beschaedigt():
+    store = _BeschaedigtSobaldGespeichert()
+    client = TestClient(create_app(store, _fake_llm(), TOY_PROZESS,
+                                   company_id=MANDANT, writer=_WriterOhneDb()))
+    _fehler(_turn(client, "m1", "Der Prozess heißt Urlaubsantrag"),
+            500, "sitzung_beschaedigt")
+    assert "m1" in InMemoryStateStore.load(store, "s1").antworten   # Kern lief durch
