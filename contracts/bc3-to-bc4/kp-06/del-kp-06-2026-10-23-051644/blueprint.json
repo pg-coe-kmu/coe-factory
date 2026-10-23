@@ -1,0 +1,165 @@
+{
+  "projekt_kurzname": "kp-06",
+  "lieferung_id": "del-kp-06-2026-10-23-051644",
+  "kp_id": "KP-06",
+  "teilprozess_ids": [
+    "KP-06.TP-1"
+  ],
+  "erzeugt_am": "2026-10-23T05:16:44.806Z",
+  "erzeugt_von": "BC3-50 Bauplan erzeugen",
+  "komponenten": [
+    {
+      "name": "Bewerbungspostfach",
+      "anbindung": "Email",
+      "rollen": [
+        "Quelle"
+      ],
+      "verwendet_in": [
+        "[SIMULIERT] Lebensläufe strukturiert erfassen und Kompetenzprofil aufbauen"
+      ]
+    },
+    {
+      "name": "Dokumentenablage Lebensläufe",
+      "anbindung": "Datei",
+      "rollen": [
+        "Quelle"
+      ],
+      "verwendet_in": [
+        "[SIMULIERT] Lebensläufe strukturiert erfassen und Kompetenzprofil aufbauen"
+      ]
+    },
+    {
+      "name": "Profilregister",
+      "anbindung": "DB",
+      "rollen": [
+        "Ziel",
+        "Quelle"
+      ],
+      "verwendet_in": [
+        "[SIMULIERT] Lebensläufe strukturiert erfassen und Kompetenzprofil aufbauen",
+        "[SIMULIERT] Projektanforderung mit Profilen abgleichen und Vorschlagsliste erzeugen"
+      ]
+    },
+    {
+      "name": "Projektausschreibung",
+      "anbindung": "Datei",
+      "rollen": [
+        "Quelle"
+      ],
+      "verwendet_in": [
+        "[SIMULIERT] Projektanforderung mit Profilen abgleichen und Vorschlagsliste erzeugen"
+      ]
+    },
+    {
+      "name": "Outlook",
+      "anbindung": "Email",
+      "rollen": [
+        "Ziel"
+      ],
+      "verwendet_in": [
+        "[SIMULIERT] Projektanforderung mit Profilen abgleichen und Vorschlagsliste erzeugen"
+      ]
+    },
+    {
+      "name": "Entscheidungsprotokoll",
+      "anbindung": "DB",
+      "rollen": [
+        "Ziel"
+      ],
+      "verwendet_in": [
+        "[SIMULIERT] Projektanforderung mit Profilen abgleichen und Vorschlagsliste erzeugen"
+      ]
+    }
+  ],
+  "datenfluesse": [
+    {
+      "von": "Bewerbungspostfach",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Dokumentenablage Lebensläufe",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Prozess",
+      "nach": "Profilregister",
+      "art": "schreibt"
+    },
+    {
+      "von": "Profilregister",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Projektausschreibung",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Prozess",
+      "nach": "Outlook",
+      "art": "schreibt"
+    },
+    {
+      "von": "Prozess",
+      "nach": "Entscheidungsprotokoll",
+      "art": "schreibt"
+    }
+  ],
+  "menschliche_entscheidungspunkte": [
+    {
+      "story_id": "st-ced5-391a-9fc7-55ce432f85ce-8",
+      "epic_id": "ep-ced5-391a-9fc7-55ce432f85ce",
+      "titel": "Ablehnung nur mit dokumentierter menschlicher Entscheidung ermöglichen",
+      "erkannt_an": "menschlich"
+    },
+    {
+      "story_id": "st-ced5-391a-9fc7-55ce432f85ce-10",
+      "epic_id": "ep-ced5-391a-9fc7-55ce432f85ce",
+      "titel": "Menschliche Entscheidung bei Auswahl und Ablehnung erzwingen",
+      "erkannt_an": "Menschlich"
+    },
+    {
+      "story_id": "st-ced5-391a-9fc7-55ce432f85ce-11",
+      "epic_id": "ep-ced5-391a-9fc7-55ce432f85ce",
+      "titel": "Protokollierung der menschlichen Aufsichtsentscheidungen",
+      "erkannt_an": "menschlich"
+    },
+    {
+      "story_id": "st-ced5-391a-9fc7-55ce432f85ce-12",
+      "epic_id": "ep-ced5-391a-9fc7-55ce432f85ce",
+      "titel": "Betrieb anhalten (Art. 14 KI-VO)",
+      "erkannt_an": "anhalten"
+    }
+  ],
+  "tech_stack": [
+    "n8n",
+    "Mistral Large",
+    "PostgreSQL",
+    "OCR-Service"
+  ],
+  "epics": [
+    {
+      "epic_id": "ep-a9be-718b-3d63-ca1b97086e3b",
+      "titel": "[SIMULIERT] Lebensläufe strukturiert erfassen und Kompetenzprofil aufbauen",
+      "kategorien": [
+        "it:backend",
+        "it:integration",
+        "it:ai-pipeline"
+      ],
+      "anzahl_stories": 9
+    },
+    {
+      "epic_id": "ep-ced5-391a-9fc7-55ce432f85ce",
+      "titel": "[SIMULIERT] Projektanforderungen mit Profilen abgleichen und Vorschlagsliste automatisiert erzeugen",
+      "kategorien": [
+        "it:backend",
+        "it:integration",
+        "it:ai-pipeline"
+      ],
+      "anzahl_stories": 12
+    }
+  ]
+}
