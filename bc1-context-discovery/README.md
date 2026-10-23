@@ -24,7 +24,7 @@
 Die offenen Pakete stehen im [Abschlussplan](design/Abschlussplan-BC1.md). Jedes Paket bekommt ein GitHub-Issue (Label `bc1`) mit Ziel, Dateien und Akzeptanzkriterien. **Ein Issue = ein Branch ab `main` = ein kleiner PR** (Squash-Merge). Die Arbeitsregeln stehen in [`CLAUDE.md`](CLAUDE.md): Test zuerst, `pytest` aus `bc1-context-discovery/`.
 
 ## Arbeitspakete
-[#48 KI-Interviewer](https://github.com/pg-coe-kmu/coe-factory/issues/48) — MVP-Kern gebaut (PR #129, DoD-Stand im Issue) · [#49 Voice/OCR](https://github.com/pg-coe-kmu/coe-factory/issues/49) — Stufe C · [#50 PII-Filter](https://github.com/pg-coe-kmu/coe-factory/issues/50) — gebaut (B2, PII-Filter) · [#51 JSON-Compiler](https://github.com/pg-coe-kmu/coe-factory/issues/51) — abgedeckt durch #123 · [#52 Doku-Generator](https://github.com/pg-coe-kmu/coe-factory/issues/52) — Stufe C · [#53 Mapper & Verifier](https://github.com/pg-coe-kmu/coe-factory/issues/53) — Stufe C
+[#48 KI-Interviewer](https://github.com/pg-coe-kmu/coe-factory/issues/48) — MVP-Kern gebaut ([PR #129](https://github.com/pg-coe-kmu/coe-factory/pull/129), DoD-Stand im Issue) · [#49 Voice/OCR](https://github.com/pg-coe-kmu/coe-factory/issues/49) — Stufe C · [#50 PII-Filter](https://github.com/pg-coe-kmu/coe-factory/issues/50) — gebaut (B2, PII-Filter) · [#51 JSON-Compiler](https://github.com/pg-coe-kmu/coe-factory/issues/51) — abgedeckt durch [#123](https://github.com/pg-coe-kmu/coe-factory/issues/123) · [#52 Doku-Generator](https://github.com/pg-coe-kmu/coe-factory/issues/52) — Stufe C · [#53 Mapper & Verifier](https://github.com/pg-coe-kmu/coe-factory/issues/53) — Stufe C
 
 Was offen ist, steht im Abschlussplan.
 
