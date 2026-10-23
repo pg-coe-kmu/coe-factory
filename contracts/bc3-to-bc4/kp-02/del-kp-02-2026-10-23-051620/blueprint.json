@@ -1,0 +1,133 @@
+{
+  "projekt_kurzname": "kp-02",
+  "lieferung_id": "del-kp-02-2026-10-23-051620",
+  "kp_id": "KP-02",
+  "teilprozess_ids": [
+    "KP-02.TP-1",
+    "KP-02.TP-2"
+  ],
+  "erzeugt_am": "2026-10-23T05:16:20.922Z",
+  "erzeugt_von": "BC3-50 Bauplan erzeugen",
+  "komponenten": [
+    {
+      "name": "E-Mail / LinkedIn-Inbound",
+      "anbindung": "Email",
+      "rollen": [
+        "Quelle"
+      ],
+      "verwendet_in": [
+        "[VORLAEUFIG] Lead-Erfassung und -Qualifizierung aus E-Mail-Anfragen ins CRM"
+      ]
+    },
+    {
+      "name": "EspoCRM",
+      "anbindung": "API",
+      "rollen": [
+        "Ziel"
+      ],
+      "verwendet_in": [
+        "[VORLAEUFIG] Lead-Erfassung und -Qualifizierung aus E-Mail-Anfragen ins CRM"
+      ]
+    },
+    {
+      "name": "n8n",
+      "anbindung": "API",
+      "rollen": [
+        "Quelle+Ziel"
+      ],
+      "verwendet_in": [
+        "[VORLAEUFIG] Lead-Erfassung und -Qualifizierung aus E-Mail-Anfragen ins CRM"
+      ]
+    }
+  ],
+  "datenfluesse": [
+    {
+      "von": "E-Mail / LinkedIn-Inbound",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Prozess",
+      "nach": "EspoCRM",
+      "art": "schreibt"
+    },
+    {
+      "von": "n8n",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Prozess",
+      "nach": "n8n",
+      "art": "schreibt"
+    }
+  ],
+  "menschliche_entscheidungspunkte": [
+    {
+      "story_id": "st-9491-9a1f-14e8-fbb799d51e6b-2",
+      "epic_id": "ep-9491-9a1f-14e8-fbb799d51e6b",
+      "titel": "Strukturierte Lead-Daten aus Anfragen extrahieren",
+      "erkannt_an": "manuellen Prüfung"
+    },
+    {
+      "story_id": "st-9491-9a1f-14e8-fbb799d51e6b-3",
+      "epic_id": "ep-9491-9a1f-14e8-fbb799d51e6b",
+      "titel": "Lead-Daten über EspoCRM-API anlegen",
+      "erkannt_an": "manuellen Prüfung"
+    },
+    {
+      "story_id": "st-9491-9a1f-14e8-fbb799d51e6b-5",
+      "epic_id": "ep-9491-9a1f-14e8-fbb799d51e6b",
+      "titel": "Konfidenzschwelle für Lead-Erfassung prüfen",
+      "erkannt_an": "manuellen Prüfung"
+    },
+    {
+      "story_id": "st-9491-9a1f-14e8-fbb799d51e6b-6",
+      "epic_id": "ep-9491-9a1f-14e8-fbb799d51e6b",
+      "titel": "DSGVO-konforme Verarbeitung von Kontaktdaten sicherstellen",
+      "erkannt_an": "manuellen Prüfung"
+    },
+    {
+      "story_id": "st-9491-9a1f-14e8-fbb799d51e6b-10",
+      "epic_id": "ep-9491-9a1f-14e8-fbb799d51e6b",
+      "titel": "Menschliche Freigabe für Lead-Scoring und Lead-Erfassung implementieren",
+      "erkannt_an": "Menschlich"
+    },
+    {
+      "story_id": "st-9491-9a1f-14e8-fbb799d51e6b-11",
+      "epic_id": "ep-9491-9a1f-14e8-fbb799d51e6b",
+      "titel": "Ausgabe übersteuern oder verwerfen (Art. 14 KI-VO)",
+      "erkannt_an": "übersteuer"
+    },
+    {
+      "story_id": "st-9491-9a1f-14e8-fbb799d51e6b-12",
+      "epic_id": "ep-9491-9a1f-14e8-fbb799d51e6b",
+      "titel": "Betrieb anhalten (Art. 14 KI-VO)",
+      "erkannt_an": "anhalten"
+    },
+    {
+      "story_id": "st-9491-9a1f-14e8-fbb799d51e6b-13",
+      "epic_id": "ep-9491-9a1f-14e8-fbb799d51e6b",
+      "titel": "Aufsichtsentscheidungen protokollieren (Art. 12 und 14 KI-VO)",
+      "erkannt_an": "Freigab"
+    }
+  ],
+  "tech_stack": [
+    "n8n",
+    "EspoCRM (API)",
+    "Claude (Sonnet 4.6)",
+    "PostgreSQL"
+  ],
+  "epics": [
+    {
+      "epic_id": "ep-9491-9a1f-14e8-fbb799d51e6b",
+      "titel": "Automatisierte Lead-Erfassung und -Qualifizierung aus E-Mail- und LinkedIn-Anfragen ins CRM",
+      "kategorien": [
+        "it:backend",
+        "it:integration",
+        "it:ai-pipeline"
+      ],
+      "anzahl_stories": 13
+    }
+  ]
+}
