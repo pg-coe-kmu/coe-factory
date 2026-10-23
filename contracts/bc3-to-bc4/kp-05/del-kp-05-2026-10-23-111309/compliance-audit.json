@@ -1,0 +1,208 @@
+{
+  "lieferung_id": "del-kp-05-2026-10-23-111309",
+  "schema_version": "3.5",
+  "projekt_kurzname": "kp-05",
+  "erzeugt_am": "2026-10-23T11:13:09.908Z",
+  "konzept_ref": {
+    "konzept_id": "5d82f848-fdbc-40a9-9169-c03c0893b077",
+    "schema_version": "3.1",
+    "source_file": "konzept_KP-05.json",
+    "kp_id": "KP-05",
+    "teilprozess_ids": [
+      "KP-05.TP-1"
+    ],
+    "value_quelle": "berechnet"
+  },
+  "prozess_kurzbeschreibung": "Mitarbeitende suchen bei Wissensbedarf manuell in Google Drive, öffnen und lesen Dokumente einzeln und geben Antworten unstrukturiert und ohne Quellennachweis mündlich oder per Mail weiter.",
+  "vorpruefung": {
+    "ampel": "green",
+    "ai_act_klasse": "limited",
+    "anhang_iii_kategorie": null,
+    "dsgvo_rechtsgrundlage": "Artikel 6 Absatz 1 Buchstabe f DSGVO (berechtigtes Interesse)",
+    "betroffene_datenarten": [
+      "E-Mail-Adresse (Stufe gering)"
+    ],
+    "begruendung_ampel": "Der Prozess fällt unter die KI-Klasse 'limited', da er Antwortvorschläge in Textform erzeugt (Artikel 50 Absatz 1 und 2 AI Act). Es liegt kein Hochrisiko nach Anhang III vor, da das System keine Entscheidungen über Personen trifft (keine Auswahl, Bewertung oder Zuweisung von Aufgaben, Leistungen oder Verträgen). Die Gegenmaßnahmen zu den identifizierten Risiken (Zugriffsrechtespiegelung, Transparenzhinweise, Pseudonymisierung) sind im Konzept und in den Epics bereits angelegt und werden durch die empfohlenen Zusatz-Stories ergänzt. Die Ampel steht auf 'green', da keine verbotenen Praktiken nach Artikel 5 AI Act vorliegen und alle Pflichten durch technische oder organisatorische Maßnahmen umsetzbar sind."
+  },
+  "pflichten": [
+    {
+      "id": "p1",
+      "tag": "[AI-Act Art. 4]",
+      "text": "Schulung der Mitarbeitenden, die das KI-System nutzen, zu dessen Funktionsweise, Grenzen und verantwortungsvollem Umgang, damit sie die Antwortvorschläge sachkundig prüfen und weitergeben können.",
+      "massnahme": "hinweis_geben",
+      "datenkategorie": "gering",
+      "stelle": "Einführungsschulung für alle Nutzenden (Risikogegenmaßnahme im Konzept)",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p2",
+      "tag": "[AI-Act Art. 50 Absatz 1]",
+      "text": "Hinweis an die Nutzenden, dass sie mit einem KI-System interagieren, wenn sie die Wissenssuche verwenden.",
+      "massnahme": "hinweis_geben",
+      "datenkategorie": "gering",
+      "stelle": "UI der Wissenssuche (Epic ep-288edb94-3, Akzeptanzkriterium: 'Given eine freigegebene Frage, When die anfragende Person die Frage in die Wissenssuche eingibt, Then liefert das System einen Antwortvorschlag')",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p3",
+      "tag": "[DSGVO Art. 25]",
+      "text": "Pseudonymisierung der E-Mail-Adressen der anfragenden Personen vor der Verarbeitung durch das KI-System, um den Personenbezug zu minimieren.",
+      "massnahme": "pseudonymisieren",
+      "datenkategorie": "gering",
+      "stelle": "Indizierungspipeline (Epic ep-288edb94-1, Akzeptanzkriterium: 'Given ein freigegebener Drive-Ordner mit Dokumenten, When der Indizierungslauf startet, Then werden alle Dokumente ausgelesen')",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p4",
+      "tag": "[DSGVO Art. 32]",
+      "text": "Verschlüsselung der Daten während der Übertragung und im Ruhezustand, um die Sicherheit der Verarbeitung zu gewährleisten.",
+      "massnahme": "eu_modell",
+      "datenkategorie": "gering",
+      "stelle": "Indizierungspipeline und RAG-Schicht (Epic ep-288edb94-1 und ep-288edb94-3)",
+      "adressat": "plattform",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p5",
+      "tag": "[DSGVO Art. 28]",
+      "text": "Abschluss eines Auftragsverarbeitungsvertrags (AVV) mit Anthropic, falls die Claude API als Fallback genutzt wird, um die datenschutzrechtliche Verantwortung zu regeln.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "gering",
+      "stelle": "Fallback auf Anthropic Claude API (Epic ep-288edb94-6, Akzeptanzkriterium: 'Given ein gültiger AVV mit Anthropic und dokumentierter Mehrwert gegenüber lokalen Modellen')",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p6",
+      "tag": "[DSGVO Art. 5 Absatz 1 Buchstabe c]",
+      "text": "Beschränkung der Verarbeitung personenbezogener Daten auf das für den Zweck der Wissenssuche notwendige Maß, insbesondere durch Ausschluss nicht freigegebener Drive-Ordner.",
+      "massnahme": "feld_weglassen",
+      "datenkategorie": "gering",
+      "stelle": "Steuerung der indizierten Ordner (Epic ep-288edb94-5, Akzeptanzkriterium: 'Given ein Dokument in einem nicht freigegebenen Ordner, When der Indizierungslauf startet, Then wird das Dokument nicht indiziert')",
+      "adressat": "bc4",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": [
+        "ep-288edb94-5"
+      ]
+    },
+    {
+      "id": "p7",
+      "tag": "[AI-Act Art. 50 Absatz 2]",
+      "text": "Maschinenlesbare Kennzeichnung der Antwortvorschläge als künstlich erzeugt, da diese Textinhalte darstellen.",
+      "massnahme": "hinweis_geben",
+      "datenkategorie": "gering",
+      "stelle": "Antwortgenerierung (Epic ep-288edb94-3, Akzeptanzkriterium: 'Given eine erfolgreiche Antwortgenerierung, When der Antwortvorschlag ausgegeben wird, Then trägt er einen Status')",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    }
+  ],
+  "pflichten_nach_adressat": {
+    "bc4": [
+      "p2",
+      "p3",
+      "p6",
+      "p7"
+    ],
+    "organisation": [
+      "p1",
+      "p5"
+    ],
+    "plattform": [
+      "p4"
+    ],
+    "ohne_angabe": []
+  },
+  "nicht_an_bc4": [],
+  "plattform_standards": [
+    "Verschlüsselung der Daten während der Übertragung (TLS 1.2 oder höher) und im Ruhezustand (AES-256 oder gleichwertig)",
+    "Zentrales Audit-Log für alle Zugriffe auf die Indizierungspipeline und RAG-Schicht",
+    "Automatisierte Löschung von Pseudonym-Kennungen nach Sitzungsende"
+  ],
+  "zuordnung": [
+    {
+      "epic_id": "ep-35ec-f2fb-68d5-6d6dddfa6fa7",
+      "use_case_id_ref": "288edb94-7229-4aac-8844-e74a75697289",
+      "id_saat": "85191e37-f91a-4b70-8083-e8c890ef8b29",
+      "titel": "KI-gestützte Wissenssuche im Nextcloud/Google-Drive-Bestand mit RAG-Schicht"
+    },
+    {
+      "story_id": "st-35ec-f2fb-68d5-6d6dddfa6fa7-7",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p2"
+      ]
+    },
+    {
+      "story_id": "st-35ec-f2fb-68d5-6d6dddfa6fa7-8",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p3"
+      ]
+    },
+    {
+      "story_id": "st-35ec-f2fb-68d5-6d6dddfa6fa7-5",
+      "herkunft": "fachlich mit Pflicht",
+      "pflicht_ids": [
+        "p6"
+      ],
+      "quelle": "abgedeckt_durch"
+    }
+  ],
+  "nicht_zugeordnete_compliance_stories": [],
+  "zuordnung_korrigiert": [
+    {
+      "verweis": "ep-288edb94-3",
+      "epic_id": "ep-288edb94"
+    },
+    {
+      "verweis": "ep-288edb94-1",
+      "epic_id": "ep-288edb94"
+    }
+  ],
+  "zusammengelegt": [],
+  "befunde_zuordnung": [
+    "Prüfen: Pflicht p6 [DSGVO Art. 5 Absatz 1 Buchstabe c] gilt laut BC3-30 durch „Steuerung der indizierten Ordner durch Wissensverantwortlich“ als erfüllt.",
+    "Compliance-Story verwies auf ep-288edb94-3, dem Epic ep-288edb94 zugeordnet.",
+    "Compliance-Story verwies auf ep-288edb94-1, dem Epic ep-288edb94 zugeordnet."
+  ],
+  "pflichten_ohne_story": [
+    {
+      "id": "p7",
+      "tag": "[AI-Act Art. 50 Absatz 2]",
+      "text": "Maschinenlesbare Kennzeichnung der Antwortvorschläge als künstlich erzeugt, da diese Textinhalte darstellen.",
+      "owner": "BC3"
+    }
+  ],
+  "pflichten_mit_story_ohne_vermerk": [
+    "p6"
+  ],
+  "befunde_adressat": [],
+  "pruefung_bc3": {
+    "geprueft_gegen": "tickets.schema.json 3.5",
+    "ergebnis": "bestanden",
+    "befunde": [],
+    "epics": 1,
+    "stories": 6,
+    "potenziale": 1,
+    "anforderungen_im_eingang": 6,
+    "akzeptanzkriterien_im_eingang": 4,
+    "vorgaben_bc3": 9,
+    "stories_ohne_kriterium": 0
+  }
+}
