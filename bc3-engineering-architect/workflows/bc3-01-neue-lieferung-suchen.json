@@ -1,0 +1,530 @@
+{
+  "name": "BC3-01 Neue Lieferung suchen",
+  "description": "Sucht neue, an Gate 1 freigegebene Lieferungen von BC2 im Repo und startet BC3-00 einmal je Konzept",
+  "nodes": [
+    {
+      "id": "8d20acb8-0015-46fa-8639-5fb32330a9fa",
+      "name": "Alle 15 Minuten",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        80
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "0ec74ef7-4bd1-41de-9f50-5d09212447ca",
+      "name": "Auftrag prüfen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        176
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Zeitplan startet immer, Aufrufer sagen selbst, was sie wollen\nconst rein = $input.first().json;\nconst art = rein.art || 'starten';\nif (!['auflisten', 'starten'].includes(art)) throw new Error('Unbekannte Art: ' + art);\nconst pfad = String(rein.pfad || '').trim();\n\nreturn [{\n  json: {\n    art: pfad ? 'pfad' : art,\n    pfad,\n    gestartet_von: rein.gestartet_von || (rein.timestamp ? 'Zeitplan' : 'BC3-01'),\n    bemerkung: rein.bemerkung || '',\n  },\n}];\n"
+      }
+    },
+    {
+      "id": "0dcb3b9c-5b16-48e2-a666-188ed29c5fa4",
+      "name": "Aufgerufen",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        272
+      ],
+      "parameters": {
+        "inputSource": "workflowInputs",
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "art",
+              "type": "string"
+            },
+            {
+              "name": "pfad",
+              "type": "string"
+            },
+            {
+              "name": "gestartet_von",
+              "type": "string"
+            },
+            {
+              "name": "bemerkung",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "d45dae5d-295e-4f91-88e9-b1d2f56b7779",
+      "name": "Handstart mit Pfad?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        448,
+        176
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.art }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "pfad"
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "60069abf-6ad8-4bc6-9d81-ae70482bc699",
+      "name": "BC3-00 starten",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        2240,
+        0
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Mi0FNs8k9wCMgHQu",
+          "cachedResultName": "BC3-00 Orchestrator"
+        },
+        "mode": "each",
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "pfad": "={{ $json.pfad }}",
+            "gestartet_von": "={{ $json.gestartet_von }}",
+            "bemerkung": "={{ $json.bemerkung }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "pfad",
+              "displayName": "pfad",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "gestartet_von",
+              "displayName": "gestartet_von",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "bemerkung",
+              "displayName": "bemerkung",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
+    },
+    {
+      "id": "647fef7a-d49e-4e45-b828-4511791876b1",
+      "name": "Antwort",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2464,
+        80
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Ergebnis für den Aufrufer, BC3-82 zeigt es an\nconst auftrag = $('Auftrag prüfen').first().json;\nif (auftrag.art === 'pfad') {\n  return [{ json: { art: 'pfad', geprueft_am: new Date().toISOString(), liste: [], neu: [], gestartet: [auftrag.pfad] } }];\n}\nconst e = $('Neue bestimmen').first().json;\nreturn [{ json: { ...e, gestartet: e.art === 'starten' ? e.neu : [] } }];\n"
+      }
+    },
+    {
+      "id": "183df170-9865-4e6c-90ea-8c29f8741d1b",
+      "name": "Lieferungen auflisten",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        672,
+        240
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.github.com/repos/pg-coe-kmu/coe-factory/git/trees/main?recursive=1",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "b3a2b606-d398-4973-928a-d0899b30585b",
+      "name": "Ordner auswerten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        144
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Lieferordner von BC2 mit ihren Konzepten, ein Eintrag je Ordner\nconst REPO = 'pg-coe-kmu/coe-factory';\nconst BASIS = 'contracts/bc2-to-bc3/lieferungen/';\nconst antwort = $input.first().json;\nif (antwort.truncated) throw new Error('Dateiliste von GitHub unvollständig (truncated)');\n\nconst ordner = {};\nfor (const t of antwort.tree || []) {\n  if (t.type !== 'blob' || !t.path.startsWith(BASIS)) continue;\n  const teile = t.path.slice(BASIS.length).split('/');\n  if (teile.length !== 2) continue;\n  const [name, datei] = teile;\n  ordner[name] ??= { ordner: name, konzepte: [], prio_pfad: null };\n  if (/^konzept_.+[.]json$/.test(datei)) ordner[name].konzepte.push(t.path);\n  if (datei === 'prozesspriorisierung.json') ordner[name].prio_pfad = t.path;\n}\n\nconst alle = Object.values(ordner).filter(o => o.konzepte.length);\nif (!alle.length) throw new Error('Keine Konzepte unter ' + BASIS);\nconst ohnePrio = alle.filter(o => !o.prio_pfad).map(o => o.ordner);\n\nreturn alle.filter(o => o.prio_pfad).map(o => ({\n  json: {\n    ...o,\n    prio_url: 'https://raw.githubusercontent.com/' + REPO + '/main/' + o.prio_pfad,\n    ohne_prio: ohnePrio,\n  },\n}));\n"
+      }
+    },
+    {
+      "id": "7ececdcd-1680-44e8-855b-131785c48255",
+      "name": "Priorisierung holen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        144
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.prio_url }}",
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "24899e54-1edf-44c0-a0f0-7e6adefb8eb3",
+      "name": "Bekannte Läufe holen",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1344,
+        144
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select lauf_id, konzept_pfad, status, modus, gestartet_am from public.laeufe where konzept_pfad is not null",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "name": "Postgres BC3"
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "7f8fbb57-733d-47a6-9f94-28a1d6e8bbea",
+      "name": "Neue bestimmen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1568,
+        144
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Was ist neu, was kennt BC3 schon? Abgebrochene Läufe zählen als bekannt\nconst auftrag = $('Auftrag prüfen').first().json;\nconst ordner = $('Ordner auswerten').all().map(i => i.json);\nconst prios = $('Priorisierung holen').all().map(i => i.json);\nconst norm = p => (String(p || '').match(/contracts[/]bc2-to-bc3[/].+[.]json/) || [null])[0];\nconst zeit = z => new Date(z.gestartet_am || 0).getTime() || 0;\n\nconst laeufe = {};\nfor (const z of $input.all().map(i => i.json)) {\n  const p = norm(z.konzept_pfad);\n  if (p && (!laeufe[p] || zeit(z) > zeit(laeufe[p]))) laeufe[p] = z;\n}\n\nconst liste = [];\nordner.forEach((o, i) => {\n  const prio = prios[i] || {};\n  const lesbar = !prio.error && prio.priorisierung_id;\n  const gate1 = lesbar ? (prio.gate1?.status || null) : null;\n  for (const pfad of o.konzepte) {\n    const lauf = laeufe[pfad];\n    let stand = 'neu';\n    if (lauf) stand = 'bekannt';\n    else if (!lesbar) stand = 'priorisierung_nicht_lesbar';\n    else if (!gate1) stand = 'ohne_gate1';\n    else if (gate1 !== 'approved') stand = 'nicht_freigegeben';\n    liste.push({\n      ordner: o.ordner,\n      pfad,\n      gate1,\n      gate1_am: lesbar ? (prio.gate1?.entschieden_am || null) : null,\n      uebergeben_am: lesbar ? (prio.uebergeben_am || prio.erzeugt_am || null) : null,\n      stand,\n      lauf_id: lauf?.lauf_id || null,\n      lauf_status: lauf?.status || null,\n    });\n  }\n});\nfor (const name of ordner[0]?.ohne_prio || []) {\n  liste.push({ ordner: name, pfad: null, gate1: null, stand: 'ohne_priorisierung' });\n}\n\nreturn [{\n  json: {\n    art: auftrag.art,\n    geprueft_am: new Date().toISOString(),\n    liste,\n    neu: liste.filter(l => l.stand === 'neu').map(l => l.pfad),\n  },\n}];\n"
+      }
+    },
+    {
+      "id": "30d965de-f223-4bca-bf6d-3908d4f62981",
+      "name": "Starten?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1792,
+        144
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.art }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "starten"
+            },
+            {
+              "leftValue": "={{ $json.neu }}",
+              "operator": {
+                "type": "array",
+                "operation": "notEmpty",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "8a843863-89cf-4f35-bc16-2fc89e86766f",
+      "name": "Je Konzept ein Auftrag",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2016,
+        80
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const auftrag = $('Auftrag prüfen').first().json;\nreturn $json.neu.map(pfad => ({\n  json: { pfad, gestartet_von: auftrag.gestartet_von, bemerkung: 'neue Lieferung von BC2' },\n}));\n"
+      }
+    },
+    {
+      "id": "bf35a0ed-733b-410c-b338-866f3c59b7f1",
+      "name": "GitHub nicht erreichbar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        336
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const meldung = $json.error?.message || $json.message || 'ohne Angabe';\nthrow new Error('GitHub nicht erreichbar: api.github.com, Dateiliste von coe-factory (' + meldung + ')');\n"
+      }
+    },
+    {
+      "id": "411289f7-d58e-48c3-80fe-55fe9559f5c2",
+      "name": "Hinweis: BC3-01 Neue Lieferung suchen",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -600,
+        -300
+      ],
+      "parameters": {
+        "content": "## BC3-01 Neue Lieferung suchen\n\nSchaut alle 15 Minuten in `contracts/bc2-to-bc3/lieferungen/` (main). Startet BC3-00 einmal je Konzept, wenn BC2 es an Gate 1 freigegeben hat und es noch nicht in `laeufe` steht. Abgebrochene Läufe startet er nicht neu.\n\nBC3-82 ruft ihn mit `auflisten` (Übersicht) oder `starten` (Knopf) auf. Mit `pfad` startet er genau diesen Lauf, nur für Tests.",
+        "color": 4,
+        "width": 480,
+        "height": 240
+      }
+    }
+  ],
+  "connections": {
+    "Alle 15 Minuten": {
+      "main": [
+        [
+          {
+            "node": "Auftrag prüfen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auftrag prüfen": {
+      "main": [
+        [
+          {
+            "node": "Handstart mit Pfad?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aufgerufen": {
+      "main": [
+        [
+          {
+            "node": "Auftrag prüfen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handstart mit Pfad?": {
+      "main": [
+        [
+          {
+            "node": "BC3-00 starten",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Lieferungen auflisten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BC3-00 starten": {
+      "main": [
+        [
+          {
+            "node": "Antwort",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lieferungen auflisten": {
+      "main": [
+        [
+          {
+            "node": "Ordner auswerten",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "GitHub nicht erreichbar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ordner auswerten": {
+      "main": [
+        [
+          {
+            "node": "Priorisierung holen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Priorisierung holen": {
+      "main": [
+        [
+          {
+            "node": "Bekannte Läufe holen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bekannte Läufe holen": {
+      "main": [
+        [
+          {
+            "node": "Neue bestimmen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Neue bestimmen": {
+      "main": [
+        [
+          {
+            "node": "Starten?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Starten?": {
+      "main": [
+        [
+          {
+            "node": "Je Konzept ein Auftrag",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Antwort",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Je Konzept ein Auftrag": {
+      "main": [
+        [
+          {
+            "node": "BC3-00 starten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "D03E5Rn1DDKDZGbL",
+    "executionTimeout": 120,
+    "callerPolicy": "workflowsFromSameOwner"
+  }
+}

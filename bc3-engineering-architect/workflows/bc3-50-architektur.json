@@ -1,0 +1,320 @@
+{
+  "name": "BC3-50 Architektur",
+  "description": "Erzeugt den Bauplan (architecture.md, blueprint.json) aus den fertigen Tickets, ohne KI",
+  "nodes": [
+    {
+      "id": "trg-81993146",
+      "name": "Vom Orchestrator aufgerufen",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -656,
+        48
+      ],
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "lauf_id"
+            },
+            {
+              "name": "umschlag",
+              "type": "object"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "c-27937292",
+      "name": "Potenziale auspacken",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -448,
+        48
+      ],
+      "parameters": {
+        "jsCode": "// Der Bauplan braucht betroffene_systeme und tech_stack aus den Potenzialen.\n// Seit 22.10.2026 (Vorschlag 7): ohne Potenziale Abbruch statt stillem Ende.\n// Sonst liefe BC3-50 ohne Ausgabe durch und BC3-00 merkte es erst später.\nconst rein = $input.first().json;\nconst p = rein.umschlag?.potenziale || [];\nif (!p.length) throw new Error('BC3-50: keine Potenziale im Umschlag. Lief BC3-10 durch?');\nreturn p.map(x => ({ json: x }));\n"
+      }
+    },
+    {
+      "id": "c-94913728",
+      "name": "Tickets bereitstellen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -224,
+        48
+      ],
+      "parameters": {
+        "jsCode": "const u = $('Vom Orchestrator aufgerufen').first().json.umschlag || {};\nconst t = (u.lieferung?.dateien || []).find(x => x._datei === 'tickets');\nif (!t) throw new Error('Keine tickets.json im Umschlag. Lief BC3-40 durch?');\nreturn [{ json: t }];\n"
+      }
+    },
+    {
+      "id": "n09",
+      "name": "Bauplan erzeugen",
+      "notes": "Erzeugt architecture.md mit Mermaid-Diagramm. Ohne LLM, rein aus den Daten.",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        48
+      ],
+      "parameters": {
+        "jsCode": "/**\n * Bauplan erzeugen — Code-Node im BC3-Slicer\n *\n * Erzeugt die architecture.md aus den fertigen Epics und den Angaben zu den\n * betroffenen Systemen. Löst Issue #111.\n *\n * Bewusst OHNE Sprachmodell: Diagramm und Komponententabelle folgen direkt aus\n * den Daten, die schon da sind. Ein LLM könnte hier nur Fehler hinzufügen.\n *\n * Quellen:\n *   - Epics/Stories       aus dem Final-Builder (erstes Item)\n *   - betroffene_systeme  aus \"Use Cases extrahieren\" (dort stehen sie)\n *   - tech_stack          ebenda\n *\n * Gibt ein Item zurueck, das der Upload-Node zu architecture.md macht.\n */\n\nconst tickets = $input.first().json;\n\n// Use-Case-Daten holen - dort stehen Systeme und Tech-Stack\nlet ucItems = [];\ntry {\n  ucItems = $('Potenziale auspacken').all().map(i => i.json);\n} catch (e) {\n  ucItems = [];\n}\n\n// ---------------------------------------------------------------- Sammeln\n\n// Epics und Use Cases stehen in derselben Reihenfolge: \"Use Cases extrahieren\"\n// gibt sie der Reihe nach aus, der Story-Architekt verarbeitet jedes einzeln,\n// \"Epics aggregieren\" sammelt sie in Eingangsreihenfolge. Über den Index\n// lässt sich also zuordnen, welches System zu welchem Epic gehört.\n//\n// Die Rolle wird JE USE CASE gemerkt, nicht einmal je System. Dasselbe System\n// ist oft in einem Schritt Quelle und im nächsten Ziel - die Buchungsdatenbank\n// wird in UC1 beschrieben, in UC2 gelesen, in UC3 wieder beschrieben. Die\n// früherer Fassung nahm die zuerst gesehene Rolle für alle Schritte; dadurch\n// zeigten im Diagramm Pfeile in die falsche Richtung.\nconst systeme = new Map();   // name -> { integration, verwendetIn[], rollen: Map(epicIdx -> rolle) }\nconst techStack = new Set();\n\nucItems.forEach((uc, idx) => {\n  for (const t of uc.tech_stack || []) techStack.add(String(t));\n  for (const s of uc.betroffene_systeme || []) {\n    const name = String(s.name || '').trim();\n    if (!name) continue;\n    if (!systeme.has(name)) {\n      systeme.set(name, { integration: '', verwendetIn: [], rollen: new Map() });\n    }\n    const eintrag = systeme.get(name);\n    if (!eintrag.integration && s.integration) eintrag.integration = s.integration;\n    eintrag.verwendetIn.push(uc.use_case_titel || uc.use_case_id);\n    eintrag.rollen.set(idx, String(s.rolle || ''));\n  }\n});\n\n/** Mermaid-Bezeichner: nur Buchstaben und Ziffern, sonst bricht das Diagramm. */\nfunction kennung(praefix, text, i) {\n  const rein = String(text).replace(/[^A-Za-z0-9]/g, '').slice(0, 12);\n  return `${praefix}${i}${rein}`;\n}\n\n/** Text für Mermaid-Beschriftungen entschärfen. */\nfunction label(text, max = 40) {\n  let s = String(text || '').replace(/[\"\\[\\]{}|]/g, '').trim();\n  if (s.length > max) s = s.slice(0, max - 1) + '…';\n  return s;\n}\n\n// ---------------------------------------------------------------- Diagramm\n\nconst istQuelle = r => /quelle/i.test(r);\nconst istZiel = r => /ziel/i.test(r);\n\nconst eintraege = [...systeme.entries()];\n\n// Jedes System bekommt GENAU EINEN Knoten, unabhängig davon, in wie vielen\n// Rollen es auftritt. Sonst gäbe es denselben Kasten zweimal im Bild.\nconst knoten = new Map();\neintraege.forEach(([name], i) => knoten.set(name, kennung('s', name, i)));\n\nconst rollenVon = v => [...v.rollen.values()];\nconst nurQuelle = eintraege.filter(([, v]) => rollenVon(v).some(istQuelle) && !rollenVon(v).some(istZiel));\nconst nurZiel = eintraege.filter(([, v]) => rollenVon(v).some(istZiel) && !rollenVon(v).some(istQuelle));\nconst beides = eintraege.filter(([, v]) => rollenVon(v).some(istQuelle) && rollenVon(v).some(istZiel));\nconst sonstige = eintraege.filter(([, v]) => !rollenVon(v).some(istQuelle) && !rollenVon(v).some(istZiel));\n\nconst zeilen = ['flowchart LR'];\n\nif (nurQuelle.length) {\n  zeilen.push('  subgraph Eingang');\n  nurQuelle.forEach(([name]) => zeilen.push(`    ${knoten.get(name)}[\"${label(name)}\"]`));\n  zeilen.push('  end');\n}\n\nzeilen.push('  subgraph Verarbeitung');\ntickets.epics.forEach((e, i) => {\n  zeilen.push(`    ${kennung('e', e.titel, i)}[\"${label(e.titel)}<br/>${e.stories.length} Stories\"]`);\n});\nzeilen.push('  end');\n\nif (nurZiel.length) {\n  zeilen.push('  subgraph Ausgang');\n  nurZiel.forEach(([name]) => zeilen.push(`    ${knoten.get(name)}[\"${label(name)}\"]`));\n  zeilen.push('  end');\n}\n\n// Systeme, die gelesen UND beschrieben werden, gehören in keine der beiden\n// Seiten - sonst müsste man sie doppelt zeichnen.\nif (beides.length || sonstige.length) {\n  zeilen.push('  subgraph \"Lesend und schreibend\"');\n  [...beides, ...sonstige].forEach(([name]) => zeilen.push(`    ${knoten.get(name)}[\"${label(name)}\"]`));\n  zeilen.push('  end');\n}\n\n// Verbindungen: je System und Use Case eine Kante in der Richtung, die dort\n// gilt. Quelle -> ins Epic hinein, Ziel -> aus dem Epic heraus.\nconst epicIds = tickets.epics.map((e, i) => kennung('e', e.titel, i));\n\nfor (const [name, v] of eintraege) {\n  for (const [idx, rolle] of v.rollen) {\n    const epic = epicIds[idx];\n    if (!epic) continue;\n    // Seit 22.10.2026: ohne Rolle keine Kante, sonst stuende das System als Quelle da\n    if (istZiel(rolle)) zeilen.push(`  ${epic} --> ${knoten.get(name)}`);\n    if (istQuelle(rolle)) zeilen.push(`  ${knoten.get(name)} --> ${epic}`);\n  }\n}\n\n// Seit 22.10.2026 (Vorschlag 7): keine Pfeile Epic -> Epic mehr. Die Reihenfolge\n// der Epics ist der Rang von BC2, kein Ablauf; ein Pfeil behauptete einen.\n\nconst mermaid = zeilen.join('\\n');\n\n// ---------------------------------------------------------------- Markdown\n\nconst heute = new Date().toISOString().slice(0, 10);\nconst md = [];\n\nmd.push(`# Bauplan — ${tickets.projekt_kurzname}`);\nmd.push('');\nmd.push(`**Lieferung:** \\`${tickets.lieferung_id}\\`  `);\nmd.push(`**Konzept:** \\`${tickets.konzept_ref?.konzept_id ?? 'unbekannt'}\\`  `);\nmd.push(`**Erzeugt am:** ${heute} durch den BC3-Slicer`);\nmd.push('');\nmd.push('> Automatisch erzeugt aus dem Ticket-Set. Nicht von Hand ändern —');\nmd.push('> Änderungen gehen beim nächsten Lauf verloren.');\nmd.push('');\nmd.push('## Überblick');\nmd.push('');\nmd.push('```mermaid');\nmd.push(mermaid);\nmd.push('```');\nmd.push('');\nmd.push('Die Epics stehen in der Reihenfolge der Umsetzungsempfehlung von BC2. Das ist kein Ablauf.');\nmd.push('');\n\nmd.push('## Komponenten');\nmd.push('');\nif (systeme.size) {\n  // Spalte heisst \"Use Case\", nicht \"Verwendet in\": Die Namen stammen aus den\n  // Use Cases des Konzepts, während die Abschnitte weiter unten Epic-Titel\n  // tragen. Beides ist richtig, las sich aber wie ein Widerspruch.\n  md.push('| Komponente | Rolle | Anbindung | Use Case |');\n  md.push('|---|---|---|---|');\n  for (const [name, v] of [...nurQuelle, ...beides, ...sonstige, ...nurZiel]) {\n    const wo = [...new Set(v.verwendetIn)].map(t => label(t, 34)).join(', ');\n    // Alle vorkommenden Rollen nennen, nicht nur die erste\n    const rollen = [...new Set(rollenVon(v).filter(Boolean))].join(', ');\n    md.push(`| ${name} | ${rollen || '—'} | ${v.integration || '—'} | ${wo || '—'} |`);\n  }\n} else {\n  md.push('_Keine Systemangaben im Konzept vorhanden._');\n}\nmd.push('');\n\nif (techStack.size) {\n  // Seit 22.10.2026: Angabe von BC2, keine Empfehlung von BC3\n  md.push('## Tech-Stack laut Konzept (BC2)');\n  md.push('');\n  md.push([...techStack].map(t => `- ${t}`).join('\\n'));\n  md.push('');\n}\n\nmd.push('## Epics und Stories');\nmd.push('');\nfor (const e of tickets.epics) {\n  md.push(`### ${e.titel}`);\n  md.push('');\n  md.push(`\\`${e.epic_id}\\`  `);\n  md.push(`**Ziel:** ${e.ziel}  `);\n  if (e.kategorien?.length) md.push(`**Kategorien:** ${e.kategorien.join(', ')}`);\n  md.push('');\n  md.push('| Story | Titel | Akzeptanzkriterien |');\n  md.push('|---|---|---|');\n  for (const s of e.stories) {\n    const nr = s.story_id.split('-').pop();\n    md.push(`| ${nr} | ${label(s.titel, 60)} | ${s.akzeptanzkriterien?.length ?? 0} |`);\n  }\n  md.push('');\n}\n\nconst anzahlStories = tickets.epics.reduce((n, e) => n + e.stories.length, 0);\nmd.push('---');\nmd.push('');\nmd.push(`${tickets.epics.length} Epics · ${anzahlStories} Stories · ${systeme.size} Komponenten`);\nmd.push('');\n\n// --- Zweite Ausgabe: derselbe Bauplan als JSON -----------------------------\n// BC4 erwartet seit Juli eine blueprint.json (Backlog C2). Die Daten liegen\n// hier schon strukturiert vor, BEVOR Markdown daraus wird - es wäre unsinnig,\n// sie später wieder aus dem Markdown herauszulesen.\n//\n// architecture.md bleibt daneben bestehen: Prüfpunkt 8 an Gate 2 verlangt sie\n// wörtlich, GitHub stellt das Mermaid-Diagramm dar, und ein Mensch am Tor\n// liest Markdown, kein JSON.\nconst komponenten = [...systeme.entries()].map(([name, v]) => ({\n  name,\n  anbindung: v.integration || null,\n  rollen: [...new Set(rollenVon(v).filter(Boolean))],\n  verwendet_in: [...new Set(v.verwendetIn)],\n}));\n\n// Datenflüsse aus den Rollen: was Quelle ist, fliesst in den Prozess hinein,\n// was Ziel ist, hinaus. Dieselbe Grundlage wie das Diagramm oben.\nconst datenfluesse = [];\nfor (const k of komponenten) {\n  for (const r of k.rollen) {\n    if (/quelle/i.test(r)) datenfluesse.push({ von: k.name, nach: 'Prozess', art: 'liest' });\n    if (/ziel/i.test(r)) datenfluesse.push({ von: 'Prozess', nach: k.name, art: 'schreibt' });\n  }\n}\n\n// Menschliche Entscheidungspunkte: sie sind der Kern der Artikel-14-Auflage\n// und müssen im Bauplan sichtbar sein, nicht nur im Compliance-Befund.\n//\n// Seit 22.10.2026 (Vorschlag 7): nur noch, wo ein Mensch handelt. Vorher\n// zaehlten 'prüf', 'entscheid', 'kontrolle' und 'bestätig' allein - im\n// UC1-Lauf 1813 waren so 8 Stories Entscheidungspunkte, darunter\n// \"Verfügbarkeit prüfen\" und \"Eingangsbestätigung senden\", echt waren 3.\n// Beide Schreibweisen, weil ältere Lieferungen ae/ue enthalten koennen.\n// \"manuell\" allein nicht: meist steht es fuer Aufwand, der wegfaellt (UC1-Lauf 1880)\nconst HANDLUNG = /freigab|freigeb|genehmig|abnahm|vier-augen|(ü|ue)bersteuer|verwerf|anhalten|menschlich|einem? menschen|manuelle[nr]? (pr(ü|ue)fung|bearbeitung|freigabe|entscheidung)|human/i;\n// Prüfen, entscheiden, kontrollieren nur, wenn ein Mensch es tut\nconst MIT_MENSCH = /(mensch|person|teamleitung|sachbearbeit\\w*|zust(ä|ae)ndige?)\\s+(\\S+\\s+){0,3}(entscheid|pr(ü|ue)ft|kontrolliert|best(ä|ae)tigt)|(entscheid\\w*|pr(ü|ue)fung|kontrolle|best(ä|ae)tigung)\\s+(durch|von)\\s+(\\S+\\s+){0,2}(mensch|person|teamleitung|sachbearbeit|zust(ä|ae)ndig)/i;\n// \"ohne manuelle Zusammenführung\" ist das Gegenteil eines Entscheidungspunkts\nconst OHNE = /(ohne|keine?\\w*|nicht)\\s+(\\S+\\s+){0,2}(manuell|menschlich)\\w*|(manuell|menschlich)\\w*\\s+(\\S+\\s+){0,2}(entf(ä|ae)llt|entfallen|(ü|ue)berfl(ü|ue)ssig)/gi;\nconst grundVon = text => {\n  const t = String(text || '').replace(OHNE, ' ');\n  return (t.match(HANDLUNG) || t.match(MIT_MENSCH) || [])[0] || null;\n};\nconst entscheidungspunkte = [];\nfor (const e of tickets.epics) {\n  for (const s of e.stories || []) {\n    // Kriterien zaehlen nur, wenn sie einen Menschen nennen (K4: \"einem Menschen zugewiesen\")\n    const kriterien = (s.akzeptanzkriterien || []).map(k => k.text || '').join(' ').replace(OHNE, ' ');\n    const grund = grundVon(`${s.titel || ''} ${s.beschreibung || ''}`)\n      || (kriterien.match(/einem? menschen|menschlich|manuelle[nr]? (pr(ü|ue)fung|bearbeitung|freigabe|entscheidung)/i) || [])[0] || null;\n    if (grund) entscheidungspunkte.push({ story_id: s.story_id, epic_id: e.epic_id, titel: s.titel, erkannt_an: grund });\n  }\n}\n\nconst blueprint = {\n  lieferung_id: tickets.lieferung_id,\n  projekt_kurzname: tickets.projekt_kurzname,\n  kp_id: tickets.konzept_ref?.kp_id || null,\n  teilprozess_ids: tickets.konzept_ref?.teilprozess_ids || [],\n  erzeugt_am: new Date().toISOString(),\n  erzeugt_von: 'BC3-50 Bauplan erzeugen',\n  komponenten,\n  datenfluesse,\n  menschliche_entscheidungspunkte: entscheidungspunkte,\n  tech_stack: [...techStack],\n  epics: tickets.epics.map(e => ({\n    epic_id: e.epic_id,\n    titel: e.titel,\n    kategorien: e.kategorien || [],\n    anzahl_stories: (e.stories || []).length,\n  })),\n};\n\nreturn [\n  {\n    json: {\n      _datei: 'architecture',\n      _endung: 'md',\n      projekt_kurzname: tickets.projekt_kurzname,\n      inhalt: md.join('\\n'),\n      anzahl_komponenten: systeme.size,\n    }\n  },\n  {\n    json: {\n      _datei: 'blueprint',\n      _endung: 'json',\n      projekt_kurzname: tickets.projekt_kurzname,\n      ...blueprint,\n    }\n  },\n];\n"
+      }
+    },
+    {
+      "id": "c-69126609",
+      "name": "Bauplan in den Umschlag",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        48
+      ],
+      "parameters": {
+        "jsCode": "// Seit dem Umbau kommen ZWEI Items: architecture.md und blueprint.json.\nconst ausgaben = $input.all().map(i => i.json);\nconst arch = ausgaben.find(x => x._datei === 'architecture') || ausgaben[0];\nconst blueprint = ausgaben.find(x => x._datei === 'blueprint') || null;\nconst rein = $('Vom Orchestrator aufgerufen').first().json;\nconst u = rein.umschlag || {};\nreturn [{\n  json: {\n    lauf_id: rein.lauf_id,\n    umschlag: {\n      ...u,\n      architektur: arch,\n      // Nicht ersetzen, sondern ergänzen - sonst gehen andere Felder\n      // von lieferung verloren, sobald es welche gibt.\n      lieferung: { ...(u.lieferung || {}),\n                   dateien: [...(u.lieferung?.dateien || []), ...ausgaben] },\n      protokoll: [...(u.protokoll || []), {\n        stufe: 'BC3-50 Architektur',\n        zeitpunkt: new Date().toISOString(),\n        status: 'ok',\n        umfang: { komponenten: arch.anzahl_komponenten,\n                  entscheidungspunkte: (blueprint?.menschliche_entscheidungspunkte || []).length },\n        befunde: blueprint ? [] : ['blueprint.json wurde nicht erzeugt'],\n      }],\n    },\n  },\n}];\n"
+      }
+    },
+    {
+      "id": "n-29889980",
+      "name": "Hinweis: BC3-50 Architektur",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -656,
+        -304
+      ],
+      "parameters": {
+        "content": "## BC3-50 Architektur\n\nErzeugt aus den fertigen Tickets und den Systemangaben der Potenziale den Bauplan: `architecture.md` mit Diagramm und `blueprint.json` mit den menschlichen Entscheidungspunkten. Ohne KI, alles folgt aus den Daten.",
+        "height": 260,
+        "width": 420,
+        "color": 4
+      }
+    },
+    {
+      "id": "cf48b212-e333-45ec-a3a6-db5a4f259af4",
+      "name": "Laufprotokoll",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        720,
+        48
+      ],
+      "parameters": {
+        "mode": "once",
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "lJEmDjgpCHVBybUO",
+          "cachedResultName": "BC3-91 Laufprotokoll"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "lauf_id": "={{ $json.lauf_id }}",
+            "umschlag": "={{ $json.umschlag }}",
+            "schritt": "BC3-50",
+            "status": "laeuft",
+            "naechster": "BC3-70",
+            "ursache": ""
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "lauf_id",
+              "displayName": "lauf_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "umschlag",
+              "displayName": "umschlag",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            },
+            {
+              "id": "schritt",
+              "displayName": "schritt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "naechster",
+              "displayName": "naechster",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "ursache",
+              "displayName": "ursache",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "notes": "Beide Enden (mit und ohne API) kommen hier an. Scheitert das Schreiben, läuft der Lauf weiter, BC3-99 meldet den Fehler",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "b9591678-b10c-4f2c-9787-7382d6fa5727",
+      "name": "Ohne Protokoll weiter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        208
+      ],
+      "parameters": {
+        "jsCode": "// Protokoll gescheitert, Umschlag trotzdem weitergeben\nreturn [{ json: $('Bauplan abschließen').first().json }];\n"
+      }
+    },
+    {
+      "id": "b5e1e6b3-8d3d-4a4d-afb1-b86df4d4689f",
+      "name": "Hinweis: API-Teil abgeschaltet",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -176,
+        -304
+      ],
+      "parameters": {
+        "content": "## API-Teil abgeschaltet\n\nSeit 22.10.2026 abgeschaltet, weil BC4 die `openapi.yaml` nicht liest. Die Bausteine sind gesichert (n8n-Versionsverlauf, Ablage `n8n-workflows\\BC3-50-architektur-vor-loeschen-2026-10-23.json`).",
+        "width": 460,
+        "height": 340,
+        "color": 3
+      }
+    },
+    {
+      "id": "e83643c1-34e6-4724-a944-60fbdc704146",
+      "name": "Bauplan abschließen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        48
+      ],
+      "parameters": {
+        "jsCode": "// Abschluss von BC3-50: der Bauplan ist fertig und liegt im Umschlag.\n// API-Abgleich und openapi.yaml sind seit 22.10.2026 abgeschaltet, weil BC4 die openapi.yaml nicht liest.\n// Der Hinweis hängt am Protokolleintrag „BC3-50 Architektur“, kein zweiter Eintrag.\nconst rein = $input.first().json;\nconst u = rein.umschlag || {};\nconst prot = [...(u.protokoll || [])];\nconst satz = 'API-Abgleich und openapi.yaml sind abgeschaltet, BC4 liest die openapi.yaml nicht '\n  + '(Entscheidung 15.10.2026).';\nconst i = prot.map(p => p.stufe).lastIndexOf('BC3-50 Architektur');\nif (i >= 0) {\n  prot[i] = { ...prot[i], befunde: [...(prot[i].befunde || []), satz] };\n} else {\n  prot.push({ stufe: 'BC3-50 Architektur', status: 'ok', zeitpunkt: new Date().toISOString(), befunde: [satz] });\n}\nreturn [{ json: { ...rein, umschlag: { ...u, protokoll: prot } } }];\n"
+      }
+    }
+  ],
+  "connections": {
+    "Vom Orchestrator aufgerufen": {
+      "main": [
+        [
+          {
+            "node": "Potenziale auspacken",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Potenziale auspacken": {
+      "main": [
+        [
+          {
+            "node": "Tickets bereitstellen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tickets bereitstellen": {
+      "main": [
+        [
+          {
+            "node": "Bauplan erzeugen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bauplan erzeugen": {
+      "main": [
+        [
+          {
+            "node": "Bauplan in den Umschlag",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Laufprotokoll": {
+      "main": [
+        null,
+        [
+          {
+            "node": "Ohne Protokoll weiter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bauplan in den Umschlag": {
+      "main": [
+        [
+          {
+            "node": "Bauplan abschließen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bauplan abschließen": {
+      "main": [
+        [
+          {
+            "node": "Laufprotokoll",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionTimeout": 300,
+    "executionOrder": "v1",
+    "errorWorkflow": "D03E5Rn1DDKDZGbL"
+  }
+}

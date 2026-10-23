@@ -1,0 +1,331 @@
+{
+  "name": "BC3-40 Tickets bauen und prüfen",
+  "description": "Baut aus Epics und Compliance-Befund tickets.json und compliance-audit.json und prüft beides gegen den Vertrag mit BC4, ohne KI",
+  "nodes": [
+    {
+      "id": "trg-81993146",
+      "name": "Vom Orchestrator aufgerufen",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -660,
+        40
+      ],
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "lauf_id",
+              "type": "string"
+            },
+            {
+              "name": "umschlag",
+              "type": "object"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "c-36293122",
+      "name": "Umschlag auspacken",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -440,
+        40
+      ],
+      "parameters": {
+        "jsCode": "// Liefert das Aggregat aus BC3-20, „Tickets und Audit bauen“ und „Lieferung prüfen“\n// greifen per $('Umschlag auspacken') darauf zu.\nconst rein = $input.first().json;\nconst a = rein.umschlag?.aggregat;\nif (!a) throw new Error('Kein Aggregat im Umschlag. Lief BC3-20 durch?');\nreturn [{ json: a }];\n"
+      }
+    },
+    {
+      "id": "c-51700219",
+      "name": "Compliance bereitstellen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -220,
+        40
+      ],
+      "parameters": {
+        "jsCode": "// „Tickets und Audit bauen“ erwartet die Compliance-Antwort als $input.first().json.output.\nconst u = $('Vom Orchestrator aufgerufen').first().json.umschlag || {};\nreturn [{ json: { output: u.compliance_roh ?? JSON.stringify(u.compliance || {}) } }];\n"
+      }
+    },
+    {
+      "id": "n08",
+      "name": "Tickets und Audit bauen",
+      "notes": "Erzeugt tickets.json (schema-valide) + compliance-audit.json. Vergibt die IDs.",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        40
+      ],
+      "parameters": {
+        "jsCode": "// Tickets und Audit bauen: aus den Epics von BC3-20 und dem Befund von BC3-30\n// entstehen tickets.json (Vertrag mit BC4) und compliance-audit.json.\n// Die IDs vergibt dieser Baustein, nicht das Sprachmodell: gleiches Konzept\n// ergibt dieselben IDs, Läufe bleiben vergleichbar.\n// Gibt zwei Items zurück: [0] tickets, [1] compliance-audit.\n\n// ---------------------------------------------------------------- Eingaben\nconst complianceRaw = $input.first().json.output;\nlet cleaned = String(complianceRaw).trim();\ncleaned = cleaned.replace(/^```json\\s*/i, '').replace(/^```\\s*/i, '').replace(/```\\s*$/i, '').trim();\n\nlet compliance = {};\nlet complianceFehler = null;\ntry {\n  compliance = JSON.parse(cleaned);\n} catch (e) {\n  complianceFehler = e.message;\n  compliance = {};\n}\n\nconst aggregate = $('Umschlag auspacken').first().json;\n\n// Vertragsversion: '3.5' mit Prozess- und Teilprozesskennung (Auflage BC0), '3.4' ohne\nconst TICKETS_SCHEMA_VERSION = '3.5';\nconst MIT_KENNUNG = TICKETS_SCHEMA_VERSION === '3.5';\n\n\n// ---------------------------------------------------------------- Helfer\n\n/** Deterministische Hex-Kette aus einem Text (FNV-1a, mehrfach gefaltet). */\nfunction hexAus(text, laenge) {\n  let out = '';\n  for (let runde = 0; out.length < laenge; runde++) {\n    let x = 2166136261 ^ runde;\n    const s = String(text) + '#' + runde;\n    for (let i = 0; i < s.length; i++) {\n      x ^= s.charCodeAt(i);\n      x = Math.imul(x, 16777619);\n    }\n    out += (x >>> 0).toString(16).padStart(8, '0');\n  }\n  return out.slice(0, laenge);\n}\n\n/** 24 Hex-Zeichen, aufgeteilt als 4-4-4-12. */\nfunction idBlock(saat) {\n  const h = hexAus(saat, 24);\n  return `${h.slice(0, 4)}-${h.slice(4, 8)}-${h.slice(8, 12)}-${h.slice(12, 24)}`;\n}\n\n/** Auf ^[a-z0-9-]{2,30}$ bringen. */\nfunction kurzname(text) {\n  let s = String(text || '')\n    .toLowerCase()\n    .replace(/[äàáâ]/g, 'a').replace(/[öòóô]/g, 'o').replace(/[üùúû]/g, 'u')\n    .replace(/ß/g, 'ss')\n    .replace(/[^a-z0-9]+/g, '-')\n    .replace(/^-+|-+$/g, '')\n    .slice(0, 30)\n    .replace(/-+$/g, '');\n  if (s.length < 2) s = 'lieferung';\n  return s;\n}\n\n// ---------------------------------------------------------------- Aufbau\n\nconst basis = String(aggregate.original_filename || 'lieferung').replace(/\\.[^.]+$/, '');\nconst projekt = kurzname(basis.replace(/^mock[-_]?/, '').replace(/^konzept[-_]?/, ''));\n\n// Zuordnung Epic -> Use Case, nur für das Compliance-Audit\nconst zuordnung = [];\n\n// Alte Story-ID des Modells -> neue ID, je Epic eine Karte: das Modell vergibt\n// in jedem Epic dieselben schlichten IDs (ep-1-1, ep-1-2 ...)\nconst idKarten = [];\n\n// ------------------------------------------------- Compliance-Stories zuordnen\n//\n// Vor dem Aufbau, weil nur eindeutige Zuordnungen gelten. use_case_id_ref\n// schlägt epic_id_ref (\"ep-1\" passt auf alle Epics). Mehrdeutiges wird\n// gemeldet, nicht geraten.\nconst epicListe = aggregate.epics || [];\n\n/** Pflicht-IDs einer Zusatz-Story als Liste (\"p4\" oder \"p2,p5\"). */\nfunction pflichtIds(zs) {\n  return String(zs.begruendung_pflicht_id || '')\n    .split(/[,;\\s]+/)\n    .map(s => s.trim())\n    .filter(Boolean);\n}\n\n// BC3-30 nennt manchmal eine Story statt des Epics (ep-288edb94-3): auf das\n// Epic kürzen, bei nur einem Epic dorthin\nconst korrigiert = [];\nfunction trefferFuer(wert) {\n  if (!wert) return [];\n  const treffer = [];\n  epicListe.forEach((e, i) => {\n    if (e.use_case_id_ref === wert || e.epic_id === wert) treffer.push(i);\n  });\n  if (treffer.length) return treffer;\n  const gekuerzt = String(wert).replace(/-\\d+$/, '');\n  epicListe.forEach((e, i) => { if (gekuerzt !== wert && e.epic_id === gekuerzt) treffer.push(i); });\n  if (treffer.length) {\n    korrigiert.push({ verweis: wert, epic_id: gekuerzt });\n    return treffer;\n  }\n  return [];\n}\n\n// Dublettenbremse: Ähnlichkeit = Anteil gemeinsamer Wortstämme ohne Füllwörter.\n// Schwelle 0,4 (Doppel lagen bei 0,42 bis 0,70, andere höchstens bei 0,25)\nconst AEHNLICH_AB = 0.4;\nconst FUELLWOERTER = new Set(('given when then eine einer einem einen ein der die das den dem des und oder ist sind '\n  + 'wird werden nur mit von zu im in am an auf aus bei für fuer sie er es dies diese dieser als nicht kein keine '\n  + 'so dass wenn').split(' '));\nfunction staemme(text) {\n  const flach = String(text || '').toLowerCase()\n    .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss');\n  return new Set(flach.split(/[^a-z0-9]+/).filter(w => w.length > 2 && !FUELLWOERTER.has(w)).map(w => w.slice(0, 6)));\n}\nfunction aehnlichkeit(a, b) {\n  const A = staemme(a), B = staemme(b);\n  const gemeinsam = [...A].filter(x => B.has(x)).length;\n  return gemeinsam / ((A.size + B.size - gemeinsam) || 1);\n}\nconst zusammengelegt = [];\n\n// abgedeckt_durch aus BC3-30: vorhandene Story, die eine Pflicht schon erfüllt.\n// Gilt nur für existierende Kennungen, dann keine Zusatz-Story\nconst vorhandeneIds = new Set(epicListe.flatMap(e => (e.stories || []).map(s => String(s.story_id))));\nconst abgedecktDurch = new Map();   // Pflicht-ID -> [alte Story-IDs]\nconst verweisUngueltig = [];\nfor (const p of compliance.pflichten || []) {\n  const ids = (Array.isArray(p.abgedeckt_durch) ? p.abgedeckt_durch : [p.abgedeckt_durch])\n    .filter(x => x && !/^</.test(String(x))).map(String);\n  if (!ids.length || (p.adressat || 'bc4') !== 'bc4') continue;\n  const gut = ids.filter(id => vorhandeneIds.has(id));\n  ids.filter(id => !vorhandeneIds.has(id)).forEach(id => verweisUngueltig.push({ pflicht_id: p.id, verweis: id }));\n  if (gut.length) abgedecktDurch.set(p.id, gut);\n}\n\nconst zusatzProEpic = new Map();   // epicIndex -> [zusatzStory]\nconst nichtZugeordnet = [];\nconst nichtAnBc4 = [];\n\n// Nur was BC4 bauen kann, wird ein Ticket. Organisatorische Pflichten (Mensch,\n// Frist) bleiben im Audit. Fehlt der Adressat, gilt 'bc4' mit Befund\nconst adressatVon = new Map((compliance.pflichten || []).map(p => [p.id, p.adressat || null]));\nlet ohneAdressat = 0;\n\nfunction darfAnBc4(ids) {\n  if (!ids.length) return true;               // ohne Bezug nicht blockieren\n  const arten = ids.map(id => {\n    const a = adressatVon.get(id);\n    if (!a) ohneAdressat++;\n    return a || 'bc4';\n  });\n  return arten.includes('bc4');\n}\n\nfor (const zs of compliance.empfohlene_zusatz_stories || []) {\n  const ids = pflichtIds(zs);\n  if (!darfAnBc4(ids)) {\n    nichtAnBc4.push({\n      titel: String(zs.titel || ''),\n      pflicht_ids: ids,\n      adressaten: [...new Set(ids.map(i => adressatVon.get(i) || 'bc4'))],\n      grund: 'Diese Pflicht kann BC4 nicht bauen. Sie steht als Pflicht im Audit.',\n    });\n    continue;\n  }\n  let treffer = trefferFuer(zs.use_case_id_ref);\n  let quelle = 'use_case_id_ref';\n  if (treffer.length !== 1) {\n    treffer = trefferFuer(zs.epic_id_ref);\n    quelle = 'epic_id_ref';\n  }\n  if (!treffer.length && epicListe.length === 1) {\n    korrigiert.push({ verweis: zs.epic_id_ref || zs.use_case_id_ref || 'ohne Angabe', epic_id: epicListe[0].epic_id });\n    treffer = [0];\n  }\n\n  if (treffer.length === 1) {\n    const i = treffer[0];\n    if (!zusatzProEpic.has(i)) zusatzProEpic.set(i, []);\n    zusatzProEpic.get(i).push(zs);\n  } else {\n    nichtZugeordnet.push({\n      titel: String(zs.titel || ''),\n      epic_id_ref: zs.epic_id_ref || null,\n      use_case_id_ref: zs.use_case_id_ref || null,\n      pflicht_ids: pflichtIds(zs),\n      grund: treffer.length > 1\n        ? `mehrdeutig - ${quelle} passt auf ${treffer.length} Epics`\n        : 'kein passendes Epic gefunden',\n    });\n  }\n}\n\nconst epics = epicListe.map((epic, i) => {\n  // Saat: älteste potenzial_id (id_saat), damit ein Nachfolger dieselbe\n  // Epic-ID bekommt wie sein Vorgänger (#242)\n  const saat = epic.id_saat\n    ? `potenzial|${epic.id_saat}`\n    : `${aggregate.konzept_id}|${epic.use_case_id_ref || epic.epic_id || i}`;\n  const block = idBlock(saat);\n  const epicId = `ep-${block}`;\n\n  zuordnung.push({\n    epic_id: epicId,\n    use_case_id_ref: epic.use_case_id_ref || null,\n    id_saat: epic.id_saat || null,\n    titel: epic.titel,\n  });\n\n  // Fachliche Stories aus BC3-20\n  const idKarte = new Map();\n  idKarten.push(idKarte);\n  const fachlich = (epic.stories || []).map((s, n) => {\n    const neueId = `st-${block}-${n + 1}`;\n    if (s.story_id) idKarte.set(String(s.story_id), neueId);\n    return {\n      story_id: neueId,\n      titel: String(s.titel || ''),\n      beschreibung: String(s.beschreibung || ''),\n      akzeptanzkriterien: Array.isArray(s.akzeptanzkriterien) ? s.akzeptanzkriterien : [],\n      // roh, wird unten auf die neuen IDs umgeschrieben\n      abhaengigkeiten: Array.isArray(s.abhaengigkeiten) ? s.abhaengigkeiten : [],\n    };\n  });\n\n  // Compliance-Stories anhängen, außer ihre Pflicht oder ihre Kriterien stehen\n  // schon in einer Story dieses Epics\n  const vorhanden = fachlich.flatMap(s => s.akzeptanzkriterien.map(k => ({ story_id: s.story_id, titel: s.titel, text: k.text || '' })));\n  const zusatzRoh = [];\n  for (const zs of zusatzProEpic.get(i) || []) {\n    const pids = pflichtIds(zs);\n    if (pids.length && pids.every(id => abgedecktDurch.has(id))) {\n      zusammengelegt.push({\n        titel: String(zs.titel || ''),\n        pflicht_ids: pids,\n        steht_schon_in: [...new Set(pids.flatMap(id => abgedecktDurch.get(id)))].map(alt => {\n          const s = (epic.stories || []).find(x => String(x.story_id) === alt);\n          return { story_id: idKarte.get(alt) || alt, titel: s ? String(s.titel || '') : alt };\n        }),\n        quelle: 'abgedeckt_durch',\n      });\n      continue;\n    }\n    const kriterien = Array.isArray(zs.akzeptanzkriterien) ? zs.akzeptanzkriterien : [];\n    const gleich = kriterien.map(k => {\n      let best = null;\n      for (const v of vorhanden) {\n        const a = aehnlichkeit(k.text, v.text);\n        if (a >= AEHNLICH_AB && (!best || a > best.a)) best = { ...v, a };\n      }\n      return best;\n    });\n    if (kriterien.length && gleich.every(Boolean)) {\n      const stories = [...new Map(gleich.map(g => [g.story_id, g.titel])).entries()];\n      zusammengelegt.push({\n        titel: String(zs.titel || ''),\n        pflicht_ids: pflichtIds(zs),\n        steht_schon_in: stories.map(([story_id, titel]) => ({ story_id, titel })),\n        aehnlichkeit: gleich.map(g => Math.round(g.a * 100) / 100),\n      });\n      for (const [story_id] of stories) zuordnung.push({ story_id, herkunft: 'fachlich mit Pflicht', pflicht_ids: pflichtIds(zs) });\n      continue;\n    }\n    const neueId = `st-${block}-${fachlich.length + zusatzRoh.length + 1}`;\n    for (const k of kriterien) vorhanden.push({ story_id: neueId, titel: String(zs.titel || ''), text: k.text || '' });\n    zusatzRoh.push(zs);\n  }\n\n  const zusatz = zusatzRoh.map((zs, n) => ({\n    story_id: `st-${block}-${fachlich.length + n + 1}`,\n    titel: String(zs.titel || ''),\n    beschreibung: String(zs.beschreibung || ''),\n    akzeptanzkriterien: Array.isArray(zs.akzeptanzkriterien) ? zs.akzeptanzkriterien : [],\n    abhaengigkeiten: [],\n  }));\n\n  // Herkunft der Compliance-Stories für das Audit festhalten\n  zusatzRoh.forEach((zs, n) => {\n    zuordnung.push({\n      story_id: `st-${block}-${fachlich.length + n + 1}`,\n      herkunft: 'compliance',\n      pflicht_ids: pflichtIds(zs),\n    });\n  });\n\n  const gebaut = {\n    epic_id: epicId,\n    titel: String(epic.titel || ''),\n    ziel: String(epic.ziel || ''),\n    kategorien: Array.isArray(epic.kategorien) ? epic.kategorien : [],\n    stories: [...fachlich, ...zusatz],\n  };\n\n  // Teilprozesskennung nur in 3.5\n  if (MIT_KENNUNG && Array.isArray(epic.teilprozess_ids) && epic.teilprozess_ids.length) {\n    gebaut.teilprozess_ids = epic.teilprozess_ids;\n  }\n\n  return gebaut;\n});\n\n// Abhängigkeiten auf die neuen IDs umschreiben, unauflösbare fallen weg\nlet verworfeneVerweise = 0;\nepics.forEach((epic, i) => {\n  const idKarte = idKarten[i] || new Map();\n  for (const s of epic.stories) {\n    const umgeschrieben = [];\n    for (const alt of s.abhaengigkeiten) {\n      const neu = idKarte.get(String(alt));\n      if (neu && neu !== s.story_id) umgeschrieben.push(neu);\n      else verworfeneVerweise++;\n    }\n    s.abhaengigkeiten = [...new Set(umgeschrieben)];\n  }\n});\n\n// Abgleich Pflichten <-> Stories. Fehlende Compliance-Stories nur melden,\n// nicht erfinden\nconst abgedeckt = new Set();\n// Pflichten, die BC3-30 über abgedeckt_durch einer vorhandenen Story zuordnet\nfor (const [pid, alte] of abgedecktDurch) {\n  for (const alt of alte) {\n    const i = idKarten.findIndex(k => k.has(alt));\n    if (i >= 0) zuordnung.push({ story_id: idKarten[i].get(alt), herkunft: 'fachlich mit Pflicht', pflicht_ids: [pid], quelle: 'abgedeckt_durch' });\n  }\n}\nfor (const z of zuordnung) {\n  if (z.herkunft === 'compliance' || z.herkunft === 'fachlich mit Pflicht') for (const id of z.pflicht_ids || []) abgedeckt.add(id);\n}\n\n// Nur Pflichten, die BC4 bauen kann\nconst pflichtenOhneStory = (compliance.pflichten || [])\n  .filter(p => p.wird_zu_story === true && (p.adressat || 'bc4') === 'bc4'\n               && !abgedeckt.has(p.id))\n  .map(p => ({\n    id: p.id || null,\n    tag: p.tag || null,\n    text: String(p.text || ''),\n    owner: p.owner || null,\n  }));\n\nconst storiesOhnePflichtvermerk = (compliance.pflichten || [])\n  .filter(p => p.wird_zu_story !== true && abgedeckt.has(p.id))\n  .map(p => p.id);\n\n// Kennung mit Sekunden, einmal berechnet, reist im Umschlag mit\nconst jetzt = new Date().toISOString();\nconst lieferungId = `del-${projekt}-${jetzt.slice(0, 10)}-${jetzt.slice(11, 19).replace(/:/g, '')}`;\n\n\n// source_file ist Pflicht im Vertrag\nconst konzeptRef = {\n  konzept_id: aggregate.konzept_id,\n  schema_version: aggregate.schema_version,\n  source_file: aggregate.original_filename,\n};\nif (MIT_KENNUNG) {\n  konzeptRef.kp_id = aggregate.kp_id;\n  if ((aggregate.teilprozess_ids || []).length) {\n    konzeptRef.teilprozess_ids = aggregate.teilprozess_ids;\n  }\n  if (aggregate.value_quelle) {\n    konzeptRef.value_quelle = aggregate.value_quelle;\n  }\n}\n\n// --- Datei 1: tickets.json (nur die im Vertrag erlaubten Felder) ----------\nconst tickets = {\n  lieferung_id: lieferungId,\n  schema_version: TICKETS_SCHEMA_VERSION,\n  projekt_kurzname: projekt,\n  konzept_ref: konzeptRef,\n  epics: epics,\n  gate2: { status: 'pending' },\n};\n\n\n// --- Datei 2: compliance-audit.json ---------------------------------------\nconst complianceAudit = {\n  lieferung_id: lieferungId,\n  schema_version: TICKETS_SCHEMA_VERSION,\n  projekt_kurzname: projekt,\n  erzeugt_am: new Date().toISOString(),\n  konzept_ref: tickets.konzept_ref,\n  prozess_kurzbeschreibung: aggregate.prozess,\n  vorpruefung: {\n    ampel: compliance.ampel ?? null,\n    ai_act_klasse: compliance.ai_act_klasse ?? null,\n    anhang_iii_kategorie: compliance.anhang_iii_kategorie ?? null,\n    dsgvo_rechtsgrundlage: compliance.dsgvo_rechtsgrundlage ?? null,\n    betroffene_datenarten: compliance.betroffene_datenarten ?? [],\n    begruendung_ampel: compliance.begruendung_ampel ?? null,\n  },\n  pflichten: compliance.pflichten ?? [],\n  // Nach Adressat sortiert, BC4 baut nur die erste Gruppe\n  pflichten_nach_adressat: (() => {\n    const g = { bc4: [], organisation: [], plattform: [], ohne_angabe: [] };\n    for (const p of compliance.pflichten || []) {\n      const a = p.adressat;\n      (g[a] || g[a === undefined || a === null ? 'ohne_angabe' : 'bc4']).push(p.id);\n    }\n    return g;\n  })(),\n  nicht_an_bc4: nichtAnBc4,\n  plattform_standards: compliance.plattform_standards ?? [],\n  zuordnung: zuordnung,\n  nicht_zugeordnete_compliance_stories: nichtZugeordnet,\n  zuordnung_korrigiert: korrigiert,\n  zusammengelegt: zusammengelegt,\n  befunde_zuordnung: [\n    // Jede Zuordnung aus abgedeckt_durch prüft ein Mensch an Gate 2, darum zuerst\n    ...[...abgedecktDurch].map(([pid, alte]) => {\n      const p = (compliance.pflichten || []).find(x => x.id === pid) || {};\n      const titel = alte.map(alt => {\n        const s = epicListe.flatMap(e => e.stories || []).find(x => String(x.story_id) === alt);\n        return `„${String(s?.titel || alt).slice(0, 60)}“`;\n      }).join(' und ');\n      return `Prüfen: Pflicht ${pid} ${p.tag || ''} gilt laut BC3-30 durch ${titel} als erfüllt.`.replace(/\\s+/g, ' ');\n    }),\n    ...verweisUngueltig.map(v => `Pflicht ${v.pflicht_id}: abgedeckt_durch nennt ${v.verweis}, diese Story gibt es nicht.`),\n    ...korrigiert.map(k => `Compliance-Story verwies auf ${k.verweis}, dem Epic ${k.epic_id} zugeordnet.`),\n    ...zusammengelegt.map(z => `Compliance-Story „${z.titel}“ nicht angehängt, `\n      + (z.quelle === 'abgedeckt_durch' ? 'BC3-30 ordnet die Pflicht der vorhandenen Story ' : 'ihre Kriterien stehen schon in ')\n      + z.steht_schon_in.map(s => `„${s.titel}“`).join(' und ') + (z.quelle === 'abgedeckt_durch' ? ' zu' : '') + ` (Pflicht ${z.pflicht_ids.join(', ') || 'ohne Angabe'}).`),\n  ],\n  // Pflichten, die laut BC3-30 eine Story brauchen, aber keine haben\n  pflichten_ohne_story: pflichtenOhneStory,\n  pflichten_mit_story_ohne_vermerk: storiesOhnePflichtvermerk,\n  befunde_adressat: [\n    ...(ohneAdressat\n      ? [`${ohneAdressat} Verweise auf Pflichten ohne Angabe des Adressaten. ` +\n         `Ersatzweise als 'bc4' behandelt - bitte im Compliance-Befund nachsehen.`]\n      : []),\n    ...(nichtAnBc4.length\n      ? [`${nichtAnBc4.length} Compliance-Story nicht an BC4 geliefert, weil BC4 sie ` +\n         `nicht bauen kann: ${nichtAnBc4.map(x => x.titel).join('; ')}`]\n      : []),\n  ],\n  // Kein Feld dsb_freigabe: einen Datenschutzbeauftragten gibt es im Projekt nicht\n};\n\n// --- Kennzahlen für die Ausführungsansicht ------------------------------\nconst anzahlStories = epics.reduce((n, e) => n + e.stories.length, 0);\nconst anzahlCompliance = zuordnung.filter(z => z.herkunft === 'compliance').length;\n\nreturn [\n  {\n    json: {\n      _datei: 'tickets',\n      ...tickets,\n      _statistik: {\n        anzahl_epics: epics.length,\n        anzahl_stories: anzahlStories,\n        davon_compliance: anzahlCompliance,\n        ampel: compliance.ampel ?? null,\n        compliance_parse_fehler: complianceFehler,\n        verworfene_verweise: verworfeneVerweise,\n        compliance_stories_ohne_epic: nichtZugeordnet.length,\n        pflichten_ohne_story: pflichtenOhneStory.length,\n        zusammengelegt: zusammengelegt.length,\n      },\n    },\n  },\n  {\n    json: {\n      _datei: 'compliance-audit',\n      ...complianceAudit,\n    },\n  },\n];\n"
+      }
+    },
+    {
+      "id": "bc3-pruef-ausgang",
+      "name": "Lieferung prüfen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        40
+      ],
+      "parameters": {
+        "jsCode": "/**\n * Ausgangsprüfung, läuft vor dem Hochladen.\n *\n * Prüft die tickets.json gegen tickets.schema.json, von Hand nachgebaut,\n * weil ein Code-Baustein keine Schema-Bibliothek hat. Bricht ab, wenn etwas\n * nicht passt: lieber keine Lieferung als eine vertragswidrige.\n *\n * Geprüft wird gegen die Fassung, die in „Tickets und Audit bauen“ eingestellt ist.\n * Bei 3.4 sind kp_id und teilprozess_ids nicht erlaubt, bei 3.5 schon.\n */\nconst items = $input.all();\nconst tickets = items.find(i => i.json._datei === 'tickets')?.json;\nconst audit   = items.find(i => i.json._datei !== 'tickets')?.json;\nconst f = [];\nconst weich = [];\n\nif (!tickets) throw new Error('Ausgangspruefung: keine tickets.json im Eingang gefunden.');\n\nconst V = String(tickets.schema_version || '');\nconst mitKennung = V === '3.5';\n\nconst ERLAUBT_OBEN = ['lieferung_id', 'schema_version', 'projekt_kurzname', 'konzept_ref', 'epics', 'gate2'];\nconst RE_LIEFERUNG = /^(del-[a-z0-9-]+|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;\nconst RE_EPIC  = /^ep-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;\nconst RE_STORY = /^st-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-[0-9]+$/;\nconst RE_KAT   = /^(it|fin|gov|sec):[a-z0-9-]+$/;\nconst RE_KURZ  = /^[a-z0-9-]{2,30}$/;\nconst RE_KP    = /^KP-(0[1-9]|10)$/;\nconst RE_TP    = /^KP-(0[1-9]|10)\\.TP-[1-9][0-9]?$/;\n\n// --- oberste Ebene ---------------------------------------------------------\nconst oben = Object.keys(tickets).filter(k => !k.startsWith('_'));\noben.filter(k => !ERLAUBT_OBEN.includes(k))\n    .forEach(k => f.push(`Oberste Ebene: \"${k}\" ist im Vertrag nicht vorgesehen (additionalProperties: false).`));\nERLAUBT_OBEN.filter(k => tickets[k] === undefined)\n    .forEach(k => f.push(`Oberste Ebene: Pflichtfeld \"${k}\" fehlt.`));\n\nif (!RE_LIEFERUNG.test(String(tickets.lieferung_id))) f.push(`lieferung_id \"${tickets.lieferung_id}\" passt nicht zum Muster.`);\nif (!RE_KURZ.test(String(tickets.projekt_kurzname))) f.push(`projekt_kurzname \"${tickets.projekt_kurzname}\" passt nicht zu ^[a-z0-9-]{2,30}$.`);\nif (!['3.4', '3.5'].includes(V)) f.push(`schema_version \"${V}\" ist weder 3.4 noch 3.5.`);\n\n// --- konzept_ref -----------------------------------------------------------\nconst kr = tickets.konzept_ref || {};\n['konzept_id', 'schema_version', 'source_file'].forEach(k => {\n  if (!kr[k]) f.push(`konzept_ref: Pflichtfeld \"${k}\" fehlt.`);\n});\nif (mitKennung) {\n  if (!kr.kp_id) f.push('konzept_ref: kp_id fehlt (in 3.5 Pflicht, Auflage BC0).');\n  else if (!RE_KP.test(kr.kp_id)) f.push(`konzept_ref: kp_id \"${kr.kp_id}\" passt nicht zum Muster.`);\n  (kr.teilprozess_ids || []).forEach(t => {\n    if (!RE_TP.test(t)) f.push(`konzept_ref: Teilprozess \"${t}\" passt nicht zum Muster.`);\n  });\n} else {\n  ['kp_id', 'teilprozess_ids', 'value_quelle'].forEach(k => {\n    if (kr[k] !== undefined) f.push(`konzept_ref: \"${k}\" ist in 3.4 nicht erlaubt. Entweder Vertrag auf 3.5 heben oder Feld weglassen.`);\n  });\n}\n\n// --- Epics und Stories -----------------------------------------------------\nif (!Array.isArray(tickets.epics) || tickets.epics.length === 0) f.push('epics ist leer.');\n\nconst alleStoryIds = new Set();\n(tickets.epics || []).forEach((e, i) => {\n  const wo = `Epic ${i + 1}`;\n  const erlaubt = mitKennung\n    ? ['epic_id', 'titel', 'ziel', 'kategorien', 'stories', 'teilprozess_ids']\n    : ['epic_id', 'titel', 'ziel', 'kategorien', 'stories'];\n  Object.keys(e).filter(k => !erlaubt.includes(k))\n        .forEach(k => f.push(`${wo}: Feld \"${k}\" ist nicht erlaubt.`));\n\n  if (!RE_EPIC.test(String(e.epic_id))) f.push(`${wo}: epic_id \"${e.epic_id}\" passt nicht zum Muster.`);\n  if (String(e.titel || '').length < 5 || String(e.titel || '').length > 150) f.push(`${wo}: titel muss 5 bis 150 Zeichen haben (ist ${String(e.titel || '').length}).`);\n  if (String(e.ziel || '').length < 20 || String(e.ziel || '').length > 600) f.push(`${wo}: ziel muss 20 bis 600 Zeichen haben (ist ${String(e.ziel || '').length}).`);\n  if (!(e.kategorien || []).length) f.push(`${wo}: kategorien ist leer.`);\n  (e.kategorien || []).forEach(k => { if (!RE_KAT.test(k)) f.push(`${wo}: Kategorie \"${k}\" passt nicht zu it|fin|gov|sec:...`); });\n  // BC0 verlangt die Kennung auf Prozess- ODER Teilprozessebene. kp_id steht\n  // in konzept_ref und ist Pflicht; die Teilprozess-ID ist ein Zugewinn.\n  if (mitKennung && !(e.teilprozess_ids || []).length) {\n    weich.push(`${wo}: keine Teilprozess-Kennung. Die Zuordnung läuft nur über kp_id ${kr.kp_id || '?'}.`);\n  }\n\n  const st = e.stories || [];\n  if (!st.length) f.push(`${wo}: keine Stories.`);\n  st.forEach((s, j) => {\n    const wos = `${wo}, Story ${j + 1}`;\n    Object.keys(s).filter(k => !['story_id', 'titel', 'beschreibung', 'akzeptanzkriterien', 'abhaengigkeiten'].includes(k))\n          .forEach(k => f.push(`${wos}: Feld \"${k}\" ist nicht erlaubt.`));\n    if (!RE_STORY.test(String(s.story_id))) f.push(`${wos}: story_id \"${s.story_id}\" passt nicht zum Muster.`);\n    else alleStoryIds.add(s.story_id);\n    if (String(s.titel || '').length < 5 || String(s.titel || '').length > 150) f.push(`${wos}: titel muss 5 bis 150 Zeichen haben.`);\n    const b = String(s.beschreibung || '');\n    if (b.length < 20 || b.length > 1500) f.push(`${wos}: beschreibung muss 20 bis 1500 Zeichen haben (ist ${b.length}).`);\n    const ak = s.akzeptanzkriterien || [];\n    if (!ak.length) f.push(`${wos}: kein Akzeptanzkriterium.`);\n    ak.forEach((k, n) => {\n      if (String(k.text || '').length < 10) f.push(`${wos}, Kriterium ${n + 1}: text zu kurz.`);\n      if (String(k.messverfahren || '').length < 5) f.push(`${wos}, Kriterium ${n + 1}: messverfahren fehlt oder zu kurz.`);\n      Object.keys(k).filter(x => !['text', 'messverfahren'].includes(x))\n            .forEach(x => f.push(`${wos}, Kriterium ${n + 1}: Feld \"${x}\" ist nicht erlaubt.`));\n    });\n    if (!Array.isArray(s.abhaengigkeiten)) f.push(`${wos}: abhaengigkeiten muss eine Liste sein.`);\n  });\n});\n\n// Verweise müssen auf vorhandene Stories zeigen\n(tickets.epics || []).forEach((e, i) => (e.stories || []).forEach((s, j) => {\n  (s.abhaengigkeiten || []).forEach(v => {\n    if (!RE_STORY.test(String(v))) f.push(`Epic ${i + 1}, Story ${j + 1}: Verweis \"${v}\" passt nicht zum Muster.`);\n    else if (!alleStoryIds.has(v)) f.push(`Epic ${i + 1}, Story ${j + 1}: Verweis \"${v}\" zeigt ins Leere.`);\n  });\n}));\n\n// --- gate2 -----------------------------------------------------------------\n// 'nachbessern' seit dem 04.09.2026: Gate 2 hat drei Entscheidungen statt zwei.\n// Ohne diesen Wert wirft die Ausgangspruefung beim Wiederholungslauf nach einer\n// Nachbesserung - die dritte Entscheidung waere eine Falle gewesen.\nif (!['pending', 'approved', 'rejected', 'nachbessern']\n      .includes(String(tickets.gate2?.status))) {\n  f.push(`gate2.status \"${tickets.gate2?.status}\" ist kein zulässiger Wert.`);\n}\n\n// --- Abschreibschutz (seit 12.10.2026) ------------------------------------\n// Ozans Generator gibt das GANZE ticket_set als ORIGINALTICKET an sein\n// Sprachmodell ('n8n-Workflow erzeugen' in wf_generator.json). Nennt es den\n// handgebauten UC2-Prototyp, kann der Generator ihn nachbauen - und der\n// Soll-Ist-Vergleich gegen genau diesen Prototyp beweist nichts mehr.\n// Gesperrt sind nur volle Namen und Kennungen aus dem Prototyp (Stand GitHub\n// main, 03.10.2026), keine Teilwoerter: 'Aurelia' und die AUR-Dokumente\n// braucht ein erzeugter Workflow rechtmaessig.\nconst SPERRLISTE = [\n  // Dateien\n  'UC2_Indexierung_14_Dokumente', 'UC2_Fragenbeantwortung_14_Dokumente_v2_4',\n  'UC2_TEST_Quellenkonflikt', 'manifest_abschluss', 'etappe1_sollantworten',\n  'ABSCHLUSSTESTS.md', 'LOKALE_PAKETPRUEFUNG', 'bc4-autonomous-builder/examples/uc2-wissensbasis',\n  // Workflow-Namen\n  'UC2 Aurelia – GitHub Indexierung – 14 Dokumente',\n  'UC2 Aurelia – Fragen mit Quellen – 14 Dokumente v2.4',\n  'UC2 TEST – isolierter Quellenkonflikt',\n  // Versionskennungen aus manifest_abschluss.json\n  'uc2-qa-v2.4-14docs', 'uc2-prompt-v2.2', 'uc2_grounded_answer_v2_2', 'uc2-validator-v2.4',\n  // Tabellen und Funktionen aus den SQL-Dateien 001-006\n  'uc2_documents', 'uc2_chunks', 'uc2_query_runs', 'uc2_index_state',\n  'uc2_replace_document', 'uc2_search', 'uc2_log_run',\n];\nconst ticketText = JSON.stringify(tickets).toLowerCase();\nconst gesperrt = SPERRLISTE.filter(s => ticketText.includes(s.toLowerCase()));\nif (gesperrt.length) {\n  const satz = `Abschreibschutz: das Ticket-Set nennt den UC2-Prototyp von BC4 (${gesperrt.join(', ')}). `\n    + `Der Generator saehe damit die Referenz, gegen die er gemessen wird.`;\n  // Seit 22.10.2026 bei jedem Konzept ein harter Fehler, nicht nur bei KP-05\n  f.push(satz + ' Den Verweis in BC3-20 entfernen.');\n}\n\n// --- Verbotene Praktik nach Art. 5 (seit 22.10.2026) ------------------------\n// Gate 2 muss die Stories mit anderer Bauweise pruefen, bevor etwas an BC4 geht\nif (String(audit?.vorpruefung?.ai_act_klasse || '').toLowerCase() === 'unacceptable') {\n  const andere = (audit.pflichten || []).filter(p => p.massnahme === 'andere_bauweise').map(p => p.id);\n  weich.push(`Verbotene Praktik nach Art. 5 laut BC3-30${andere.length ? ` (Pflichten ${andere.join(', ')})` : ''}: `\n    + 'Stories mit anderer Bauweise vor der Freigabe an Gate 2 prüfen.');\n}\n\nif (f.length) {\n  // EINE Zeile: n8n reicht dem Orchestrator nur die erste Zeile einer\n  // Fehlermeldung weiter. Mit Zeilenumbruechen kam bei R6 und im Protokoll\n  // bis zum 12.10.2026 nur die Kopfzeile an, ohne einen einzigen Verstoss.\n  throw new Error(\n    `Ausgangspruefung fehlgeschlagen — ${f.length} Verstoss/Verstöße gegen tickets.schema.json (${V}). ` +\n    `Es wurde nichts hochgeladen. Verstöße: ` + f.join(' | ')\n  );\n}\n\n// Ergebnis der Prüfung ins Audit schreiben, damit es die Lieferung begleitet\nconst stats = $('Umschlag auspacken').first().json.pruefung_vollstaendigkeit || {};\nif (audit) {\n  audit.pruefung_bc3 = {\n    geprueft_gegen: `tickets.schema.json ${V}`,\n    ergebnis: 'bestanden',\n    befunde: weich,\n    epics: (tickets.epics || []).length,\n    stories: (tickets.epics || []).reduce((s, e) => s + (e.stories || []).length, 0),\n    ...stats,\n    // Nach ...stats: stats bringt die Befunde aus BC3-20 mit und hat bis zum\n    // 12.10.2026 die eigenen weichen Befunde von BC3-40 still ueberschrieben.\n    befunde: [...(stats.befunde || []), ...weich],\n  };\n}\n\nreturn items;\n"
+      }
+    },
+    {
+      "id": "c-7757518",
+      "name": "Umschlag ergänzen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        40
+      ],
+      "parameters": {
+        "jsCode": "const items = $input.all().map(i => i.json);\nconst rein = $('Vom Orchestrator aufgerufen').first().json;\nconst u = rein.umschlag || {};\nconst tickets = items.find(x => x._datei === 'tickets');\nconst audit = items.find(x => x._datei !== 'tickets');\n\nreturn [{\n  json: {\n    lauf_id: tickets?.lieferung_id || rein.lauf_id,\n    umschlag: {\n      ...u,\n      // Kennung und Kurzname gehören in den Umschlag, nicht nur in die Dateien.\n      // Alle Stufen dahinter - Ordnername, Dateinamen, Repo-Pfad - hängen daran.\n      lieferung: {\n        ...(u.lieferung || {}),\n        dateien: items,\n        lieferung_id: tickets?.lieferung_id || null,\n        projekt_kurzname: tickets?.projekt_kurzname || null,\n      },\n      protokoll: [...(u.protokoll || []), {\n        stufe: 'BC3-40 Tickets bauen und prüfen',\n        zeitpunkt: new Date().toISOString(),\n        status: 'ok',\n        umfang: {\n          schema_version: tickets?.schema_version,\n          epics: (tickets?.epics || []).length,\n          stories: (tickets?.epics || []).reduce((s, e) => s + (e.stories || []).length, 0),\n        },\n        // Seit 23.10.2026 (C9): zuerst die Zuordnungen (Prüfen-Befunde, korrigierte\n        // Verweise, nicht angehängte Doppel), dann die Befunde der Ausgangsprüfung\n        befunde: [...(audit?.befunde_zuordnung || []), ...(audit?.pruefung_bc3?.befunde || [])],\n      }],\n    },\n  },\n}];\n"
+      }
+    },
+    {
+      "id": "n-21363402",
+      "name": "Hinweis: BC3-40 Tickets bauen und prüfen",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -660,
+        -300
+      ],
+      "parameters": {
+        "content": "## BC3-40 Tickets bauen und prüfen\n\nBaut aus Epics und Compliance-Befund `tickets.json` und `compliance-audit.json` und prüft beides gegen den Vertrag mit BC4 (Version in `TICKETS_SCHEMA_VERSION`). Ohne KI.\n\nPasst etwas nicht, bricht er ab und es geht nichts weiter. Das gilt auch, wenn das Ticket-Set den UC2-Prototyp von BC4 nennt (Abschreibschutz).",
+        "width": 420,
+        "height": 280,
+        "color": 4
+      }
+    },
+    {
+      "id": "e742002f-128b-464e-a2bd-35ea8d2e2091",
+      "name": "Laufprotokoll",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        720,
+        40
+      ],
+      "parameters": {
+        "mode": "once",
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "lJEmDjgpCHVBybUO",
+          "cachedResultName": "BC3-91 Laufprotokoll"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "lauf_id": "={{ $json.lauf_id }}",
+            "umschlag": "={{ $json.umschlag }}",
+            "schritt": "BC3-40",
+            "status": "laeuft",
+            "naechster": "BC3-50",
+            "ursache": ""
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "lauf_id",
+              "displayName": "lauf_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "umschlag",
+              "displayName": "umschlag",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            },
+            {
+              "id": "schritt",
+              "displayName": "schritt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "naechster",
+              "displayName": "naechster",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "ursache",
+              "displayName": "ursache",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "notes": "Scheitert das Schreiben, läuft der Lauf weiter, BC3-99 meldet den Fehler",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "e8d17a5a-eba6-4f83-98a8-1fea0d62aa5b",
+      "name": "Ohne Protokoll weiter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        200
+      ],
+      "parameters": {
+        "jsCode": "// Protokoll gescheitert, Umschlag trotzdem weitergeben\nreturn [{ json: $('Umschlag ergänzen').first().json }];\n"
+      }
+    },
+    {
+      "id": "f354a69e-b2dc-4dc6-9fc8-6a37be4e649a",
+      "name": "Compliance-Befund prüfen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        120,
+        220
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Ohne lesbaren Compliance-Befund keine Lieferung: Einstufung und Pflichten fehlten sonst still\nconst items = $input.all();\nconst t = items.find(i => i.json._datei === 'tickets')?.json || {};\nconst audit = items.find(i => i.json._datei === 'compliance-audit')?.json || {};\nconst v = audit.vorpruefung || {};\n\nconst fehlt = [];\nif (t._statistik?.compliance_parse_fehler) fehlt.push(`Antwort unlesbar (${t._statistik.compliance_parse_fehler})`);\nif (!v.ai_act_klasse) fehlt.push('ai_act_klasse');\nif (!v.ampel) fehlt.push('ampel');\nif (!Array.isArray(audit.pflichten)) fehlt.push('pflichten');\n\n// Text „Prüfung fehlgeschlagen“ nicht ändern, BC3-99 erkennt daran die Art\nif (fehlt.length) {\n  throw new Error(`Prüfung fehlgeschlagen: Compliance-Befund aus BC3-30 fehlt oder ist unvollständig (${fehlt.join(', ')}), nichts geliefert (BC3-40)`);\n}\nreturn items;\n"
+      }
+    }
+  ],
+  "connections": {
+    "Vom Orchestrator aufgerufen": {
+      "main": [
+        [
+          {
+            "node": "Umschlag auspacken",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Umschlag auspacken": {
+      "main": [
+        [
+          {
+            "node": "Compliance bereitstellen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compliance bereitstellen": {
+      "main": [
+        [
+          {
+            "node": "Tickets und Audit bauen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lieferung prüfen": {
+      "main": [
+        [
+          {
+            "node": "Umschlag ergänzen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Umschlag ergänzen": {
+      "main": [
+        [
+          {
+            "node": "Laufprotokoll",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Laufprotokoll": {
+      "main": [
+        null,
+        [
+          {
+            "node": "Ohne Protokoll weiter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compliance-Befund prüfen": {
+      "main": [
+        [
+          {
+            "node": "Lieferung prüfen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tickets und Audit bauen": {
+      "main": [
+        [
+          {
+            "node": "Compliance-Befund prüfen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionTimeout": 120,
+    "executionOrder": "v1",
+    "errorWorkflow": "D03E5Rn1DDKDZGbL"
+  }
+}

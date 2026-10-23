@@ -1,0 +1,618 @@
+{
+  "name": "BC3-81 Gate-2-Seite",
+  "description": "Zeigt die Gate-2-Seite eines wartenden BC3-Laufs (Link per Telegram) und weckt den Lauf mit der geprüften Entscheidung.",
+  "nodes": [
+    {
+      "id": "b274f2ca-5848-4d19-9b1b-7257cde8a2c9",
+      "name": "Seite aufgerufen",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -400,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "__PFAD_GATE2__",
+        "responseMode": "responseNode",
+        "options": {
+          "ignoreBots": true
+        }
+      }
+    },
+    {
+      "id": "2162a2bf-0a6b-420d-a936-3c48a0749e04",
+      "name": "Anfrage prüfen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        100
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Holt Laufnummer und Token aus der Adresse (Seite) oder aus dem Body (Absenden).\n// Prüft nur die Form, ob sie stimmen, prüft \"Zugang und Eingaben prüfen\".\nconst absenden = $('Entscheidung abgesendet').isExecuted;\nconst r = $input.first().json;\nconst q = (absenden ? r.body : r.query) || {};\nconst lauf_id = String(q.lauf ?? '').trim();\nconst token = String(q.t ?? '').trim();\nconst formOk = /^bc3-[a-z0-9-]{1,40}$/.test(lauf_id) && /^[0-9a-f]{64}$/.test(token);\n\nreturn [{ json: {\n  art: absenden ? 'entscheidung' : 'seite',\n  lauf_id: formOk ? lauf_id : '',\n  token: formOk ? token : '',\n  fehler: formOk ? null : 'link unvollständig',\n  eingabe: absenden ? q : null,\n} }];\n"
+      }
+    },
+    {
+      "id": "ef6a9420-bf69-4f9a-aa71-188c88162512",
+      "name": "Entscheidung abgesendet",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -400,
+        200
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "__PFAD_GATE2__",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "d7ac5ee4-f0f1-4fca-b079-37430be47843",
+      "name": "Ansicht holen",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        60,
+        100
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select g.lauf_id, g.daten, g.resume_url, g.token, g.angelegt_am, g.entschieden_am, f.entscheidung as f_entscheidung, f.person as f_person, f.begruendung as f_begruendung, f.zeitpunkt as f_zeitpunkt from public.gate2_ansicht g left join lateral (select entscheidung, person, begruendung, zeitpunkt from public.freigaben where lauf_id = g.lauf_id order by zeitpunkt desc limit 1) f on true where g.lauf_id = $1",
+        "options": {
+          "queryReplacement": "={{ [ $json.lauf_id ] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "name": "Postgres BC3"
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "a062de61-3b1d-4c02-9e5c-550f7abdea73",
+      "name": "Zugang und Eingaben prüfen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        280,
+        100
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Prüft Token, Frist und ob schon entschieden ist, beim Absenden auch die Eingaben.\n// Baut die Antwort für BC3-80 mit denselben Feldnamen wie das frühere Formular.\n// weg: seite | entscheidung | fehler (für \"Wie weiter?\")\nconst a = $('Anfrage prüfen').first().json;\nconst z = $input.first().json || {};\nconst FRIST_TAGE = 7;\n\nconst esc = s => String(s ?? '').replace(/[&<>\"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[c]));\nfunction fehler(status, meldung) {\n  const html = '<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\">'\n    + '<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><meta name=\"robots\" content=\"noindex\">'\n    + '<title>BC3 · Gate 2</title></head><body style=\"font-family:Segoe UI,Arial,sans-serif;'\n    + 'background:#f4f6f9;color:#1f2933;margin:0\"><div style=\"background:#1F3A5F;color:#fff;padding:12px 20px\">'\n    + '<b>BC3 · Gate 2</b></div><p style=\"max-width:640px;margin:24px auto;padding:0 16px\">'\n    + esc(meldung) + '</p></body></html>';\n  return [{ json: {\n    weg: 'fehler', status, meldung,\n    inhalt: a.art === 'seite' ? html : JSON.stringify({ ok: false, meldung }),\n    inhaltstyp: a.art === 'seite' ? 'text/html; charset=utf-8' : 'application/json; charset=utf-8',\n  } }];\n}\n\nif (a.fehler) return fehler(400, a.fehler);\nif (!z.lauf_id || z.token !== a.token) {\n  return fehler(403, 'link ungültig');\n}\nconst frist = new Date(new Date(z.angelegt_am).getTime() + FRIST_TAGE * 864e5);\nconst daten = typeof z.daten === 'string' ? JSON.parse(z.daten) : z.daten;\n// Seit 22.10.2026 (Expertenrunde Gate 2): nach der Entscheidung bis zur Frist lesbar,\n// mit der Entscheidung aus freigaben oben. Absenden bleibt gesperrt.\nif (z.entschieden_am) {\n  if (a.art !== 'seite') return fehler(409, 'schon entschieden');\n  if (!(frist > new Date())) return fehler(410, 'frist abgelaufen, die Entscheidung steht in der Tabelle freigaben');\n  return [{ json: { weg: 'seite', lauf_id: z.lauf_id, daten, frist: frist.toISOString(), entschieden: {\n    zeitpunkt: z.f_zeitpunkt || z.entschieden_am, entscheidung: z.f_entscheidung || null,\n    person: z.f_person || null, begruendung: z.f_begruendung || null } } }];\n}\nif (!(frist > new Date())) {\n  return fehler(410, 'frist abgelaufen, der Lauf gilt als abgelehnt');\n}\nif (a.art === 'seite') {\n  return [{ json: { weg: 'seite', lauf_id: z.lauf_id, daten, frist: frist.toISOString() } }];\n}\n\n// Absenden: Werte nur aus festen Listen, Texte gekürzt\nconst KRITERIEN = 'Die Akzeptanzkriterien — siehst du das auch so?';\nconst AUFSICHT = 'Die menschliche Aufsicht — siehst du das auch so?';\nconst KRIT_WAHL = ['Ja, das sehe ich auch so', 'Nein, ein anderes ist schwächer',\n  'Nein, die Kriterien sind in Ordnung', 'Das kann ich hier nicht beurteilen'];\nconst AUFS_WAHL = ['Ja, das sehe ich auch so', 'Nein, ich sehe es anders', 'Betrifft diese Lieferung nicht'];\nconst ENTSCHEIDUNG = { frei: 'Freigeben', nach: 'Zurück zur Nachbesserung', ab: 'Ablehnen' };\n\nconst e = a.eingabe || {};\nconst text = (v, max) => String(v ?? '').trim().slice(0, max);\nconst wahl = text(e.entscheidung, 10);\nconst kriterien = text(e.kriterien, 100);\nconst aufsicht = text(e.aufsicht, 100);\nconst begruendung = text(e.begruendung, 4000);\nconst person = text(e.person, 80);\nconst hochrisiko = !!(daten && daten.hochrisiko);\n\nconst f = [];\nif (!ENTSCHEIDUNG[wahl]) f.push('Bitte eine Entscheidung wählen.');\nif (['nach', 'ab'].includes(wahl) && !begruendung) f.push('Bei Nachbessern und Ablehnen ist die Begründung Pflicht.');\nif (!person) f.push('Bitte angeben, wer entscheidet.');\nif (!KRIT_WAHL.includes(kriterien)) f.push('Bitte zu den Akzeptanzkriterien Stellung nehmen.');\nif (aufsicht && !AUFS_WAHL.includes(aufsicht)) f.push('Die Antwort zur Aufsicht ist unbekannt.');\nif (hochrisiko && !aufsicht) f.push('Bitte zur menschlichen Aufsicht Stellung nehmen.');\nif (f.length) return fehler(422, f.join(' '));\n\nreturn [{ json: {\n  weg: 'entscheidung',\n  lauf_id: z.lauf_id,\n  entscheidung: ENTSCHEIDUNG[wahl],\n  antwort: {\n    [KRITERIEN]: kriterien,\n    ...(aufsicht ? { [AUFSICHT]: aufsicht } : {}),\n    'Deine Entscheidung': ENTSCHEIDUNG[wahl],\n    'Deine Anmerkung': begruendung,\n    'Wer gibt frei': person,\n  },\n} }];\n"
+      }
+    },
+    {
+      "id": "86a43ec2-7fef-4d88-ada9-0c5a8856b2d3",
+      "name": "Wie weiter?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        500,
+        100
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "seite",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.weg }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "seite"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "outputKey": "entscheidung",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.weg }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "entscheidung"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "outputKey": "fehler",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.weg }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "fehler"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "49307d20-818a-4c1f-a110-7333d8f526b5",
+      "name": "Seite bauen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        740,
+        -100
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Setzt die Daten des Laufs in die Seite ein. Vorlage: gate2-seite\\n8n\\seite.html im Ablageordner.\n// \"<\" wird im JSON maskiert, damit kein Text aus der Lieferung den Skriptblock beenden kann.\nconst z = $input.first().json;\nconst daten = JSON.stringify({ lauf: z.daten, frist: z.frist, entschieden: z.entschieden || null }).replace(/</g, '\\\\u003c');\n\nconst SEITE = `<!doctype html>\n<html lang=\"de\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<meta name=\"robots\" content=\"noindex,nofollow\">\n<meta name=\"referrer\" content=\"no-referrer\">\n<title>BC3 · Gate 2</title>\n<!--\n  BC3 · Gate-2-Seite, ausgeliefert von BC3-81 (n8n). Vorlage für \"Seite bauen\".\n  Die Daten setzt BC3-81 in den Skriptblock \"daten\" ein (Zeile aus gate2_ansicht).\n  Absenden schickt die Entscheidung an dieselbe Adresse (POST), BC3-81 prüft\n  sie noch einmal und weckt den wartenden Lauf. Danach ist sie endgültig.\n-->\n<style>\n:root{\n  --navy:#1F3A5F; --accent:#3B6EA5; --bg:#f4f6f9; --ink:#1f2933; --muted:#6b7280;\n  --line:#dde2e8; --ok:#1f9d57; --warn:#c0392b; --amber:#d98c1f; --chip:#eef2f7;\n}\n*{box-sizing:border-box}\nbody{margin:0;font-family:\"Segoe UI\",Calibri,Arial,sans-serif;color:var(--ink);background:var(--bg);\n     font-size:15px;line-height:1.45}\ncode{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;background:var(--chip);\n     padding:1px 5px;border-radius:4px}\nbutton{font-family:inherit}\n.topbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--navy);color:#fff;\n        padding:12px 20px}\n.topbar b{font-size:17px}\n.topbar .sub{opacity:.85}\n.topbar select{margin-left:auto;border:none;border-radius:6px;padding:5px 8px;font-family:inherit}\n.testband{background:#fff4e0;color:#7a4b00;border-bottom:1px solid #f0d49c;padding:8px 20px;font-size:14px}\n/* Seit 23.10.2026: Seitenleiste links, rechts immer nur ein Bereich (wie die Übersicht BC3-82) */\n.rahmen{display:grid;grid-template-columns:200px minmax(0,1fr);gap:16px;max-width:1150px;margin:0 auto;padding:16px}\nnav{position:sticky;top:12px;align-self:start;display:flex;flex-direction:column;gap:2px}\nnav a{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;\n      color:var(--ink);text-decoration:none;font-size:14px;border:1px solid transparent}\nnav a:hover{background:#fff}\nnav a.aktiv{background:#fff;border-color:var(--line);color:var(--navy);font-weight:600}\nnav .tag{font-weight:400;margin:0}\nmain{min-width:0}\n.weiter{display:inline-block;background:var(--navy);color:#fff;border-radius:8px;padding:10px 16px;text-decoration:none;font-weight:600}\nsection{background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin:0 0 14px}\nh2{font-size:16px;margin:0 0 10px;color:var(--navy)}\nh3{font-size:14.5px;margin:12px 0 6px}\n.kopf{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px 16px}\n.kopf div{font-size:13.5px}\n.kopf span{display:block;color:var(--muted);font-size:12px}\n.tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12.5px;background:var(--chip);\n     color:var(--navy);margin:2px 4px 2px 0}\n.tag.rot{background:#fbe9e7;color:var(--warn)} .tag.gruen{background:#e7f6ee;color:var(--ok)}\n.tag.gelb{background:#fdf2e1;color:#8a5a00}\n.karte{border-left:4px solid var(--warn);background:#fdf6f5;padding:10px 12px;border-radius:6px;margin:8px 0}\n.karte.ok{border-color:var(--ok);background:#f3faf6}\n.karte .hilft{color:var(--muted);font-size:13.5px;margin-top:4px}\n.kriterium{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:8px 0}\n.kriterium.schwach{border-color:var(--amber);background:#fffaf2}\n.kriterium .nr{font-weight:600;color:var(--navy)}\n.kriterium .klein{font-size:13px;color:var(--muted)}\n.einwand{font-size:13.5px;margin-top:4px}\n.wahl{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}\n.wahl button{border:1px solid var(--navy);background:#fff;color:var(--navy);border-radius:8px;\n             padding:8px 12px;cursor:pointer;font-size:14px}\n.wahl button.an{background:var(--navy);color:#fff}\ndetails{border-top:1px solid var(--line);padding:6px 0}\ndetails:first-of-type{border-top:none}\nsummary{cursor:pointer;font-weight:600;color:var(--navy);padding:4px 0}\n.story{padding:6px 0 6px 12px;border-left:2px solid var(--line);margin:6px 0}\n.story .titel{font-weight:600}\n.story ul{margin:4px 0 0;padding-left:18px;font-size:13.5px}\n.story li .mess{color:var(--muted)}\n.offen-mess{color:var(--muted);font-style:italic}\n.ok-text{color:var(--ok)}\n.karte.hinweiskarte{border-color:var(--accent);background:#f4f7fb}\n.beispiel{background:#fff;border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin:8px 0;font-size:13.5px}\n.beispiel div+div{margin-top:6px}\ntable{border-collapse:collapse;width:100%;font-size:13px}\nth,td{text-align:left;border-bottom:1px solid var(--line);padding:6px 6px;vertical-align:top}\ntr.zweifel td{background:#fffaf2} tr.fehlt td{background:#fdf6f5}\n.entscheidung button{flex:1 1 150px;padding:11px 12px;font-weight:600}\n.entscheidung button.frei.an{background:var(--ok);border-color:var(--ok)}\n.entscheidung button.nach.an{background:var(--amber);border-color:var(--amber)}\n.entscheidung button.ab.an{background:var(--warn);border-color:var(--warn)}\ntextarea,input[type=text]{width:100%;border:1px solid var(--line);border-radius:7px;padding:8px 10px;\n                          font-family:inherit;font-size:14px}\ntextarea{min-height:80px;resize:vertical}\nlabel{display:block;font-weight:600;margin:12px 0 4px;font-size:14px}\n.hinweis{color:var(--muted);font-size:13.5px}\n.fehler{color:var(--warn);font-size:13.5px;margin-top:6px;min-height:1em}\n.btn{background:var(--navy);color:#fff;border:none;border-radius:8px;padding:11px 18px;font-size:15px;\n     cursor:pointer;margin-top:12px}\n.btn:disabled{opacity:.45;cursor:not-allowed}\npre{background:var(--chip);border-radius:8px;padding:10px;overflow:auto;font-size:12.5px}\n.worum p{margin:0 0 10px}\n.kopf span.tag{display:inline-block;color:var(--navy);font-size:12.5px}\n.kopf span.tag.gruen{color:var(--ok)} .kopf span.tag.rot{color:var(--warn)} .kopf span.tag.gelb{color:#8a5a00}\n.leiste{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0 12px}\n.leiste span{font-size:11.5px;padding:2px 7px;border-radius:5px;background:var(--line);color:var(--muted)}\n.leiste span.ja{background:var(--accent);color:#fff} .leiste span.jetzt{background:var(--amber);color:#fff}\n.begriffe{margin:4px 0 0;padding-left:18px;font-size:13.5px}\n.vorher{background:var(--chip);border-radius:8px;padding:10px 12px;font-size:14px}\nsection ul{font-size:13.5px}\n.klein{font-size:13px;color:var(--muted)}\n.grundlage{font-size:13.5px;margin:6px 0}\n.gesperrt .wahl button,.gesperrt textarea,.gesperrt input{pointer-events:none;opacity:.7}\n@media (max-width:700px){\n  .rahmen{grid-template-columns:1fr;padding:10px;gap:10px}\n  nav{position:static;flex-direction:row;overflow-x:auto;gap:4px;padding-bottom:4px}\n  nav a{white-space:nowrap;padding:6px 10px}\n  section{padding:14px}\n  .topbar{padding:10px 14px}\n  .topbar select{margin-left:0;width:100%}\n  .abdeckung th:nth-child(3),.abdeckung td:nth-child(3){display:none}\n}\n</style>\n</head>\n<body>\n<div class=\"topbar\">\n  <b>BC3 · Gate 2</b><span class=\"sub\">Lieferung an BC4 freigeben</span>\n  <span class=\"sub\" id=\"frist\" style=\"margin-left:auto\"></span>\n</div>\n<div id=\"testband\" class=\"testband\" hidden>\n  TESTLAUF: „Freigeben“ legt keinen Pull Request im Gruppen-Repository an.\n</div>\n<div class=\"rahmen\"><nav id=\"navi\"></nav><main id=\"seite\"></main></div>\n<script id=\"daten\" type=\"application/json\">__DATEN__</script>\n<script>\nconst DATEN = JSON.parse(document.getElementById('daten').textContent);\nconst ZUGANG = new URLSearchParams(location.search);\nconst esc = s => String(s ?? '').replace(/[&<>\"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[c]));\nconst KRIT_WAHL = ['Ja, das sehe ich auch so', 'Nein, ein anderes ist schwächer',\n  'Nein, die Kriterien sind in Ordnung', 'Das kann ich hier nicht beurteilen'];\nconst AUFS_WAHL = ['Ja, das sehe ich auch so', 'Nein, ich sehe es anders', 'Betrifft diese Lieferung nicht'];\nconst ENTSCHEIDUNG = {\n  frei: { text: 'Freigeben', wert: 'freigegeben', klasse: 'frei' },\n  nach: { text: 'Zurück zur Nachbesserung', wert: 'nachbessern', klasse: 'nach' },\n  ab: { text: 'Ablehnen', wert: 'abgelehnt', klasse: 'ab' },\n};\nlet L, Z;\n\nfunction zeigen() {\n  L = DATEN.lauf;\n  Z = { kriterien: null, aufsicht: null, entscheidung: null, begruendung: '', person: '', fertig: null, sendet: false };\n  document.getElementById('testband').hidden = L.liefermodus === 'echt';\n  if (DATEN.frist) document.getElementById('frist').textContent = 'Frist: '\n    + new Date(DATEN.frist).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' });\n  window.onhashchange = () => { merken(); zeichnen(); window.scrollTo(0, 0); };\n  zeichnen();\n}\n\n// Seit 22.10.2026 (Expertenrunde Gate 2): gegliedert wie ein Lieferschein.\n// Worum es geht → was offen ist → 1 was reinkam → 2 was im Lauf passiert ist →\n// 3 was herauskam → 4 was rausgeht → dein Urteil und deine Entscheidung.\n// Nach der Entscheidung bleibt die Seite bis zur Frist lesbar (DATEN.entschieden).\nconst SCHRITTE = ['BC3-10', 'BC3-15', 'BC3-20', 'BC3-30', 'BC3-40', 'BC3-50', 'BC3-70', 'Gate 2', 'BC3-80'];\nconst ADRESSAT = { bc4: 'an BC4', organisation: 'an die Organisation', plattform: 'an die Plattform',\n  bc2: 'an BC2', bc3: 'an BC3', bc2_und_bc4: 'an BC2 und BC4' };\nconst GATE1 = { approved: 'freigegeben', pending: 'noch offen', rejected: 'abgelehnt' };\nconst ENTSCHIEDEN = { freigegeben: 'Freigegeben', nachbessern: 'Zurück zur Nachbesserung', abgelehnt: 'Abgelehnt' };\nconst zeit = v => v ? new Date(v).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) : '–';\n\nfunction zeichnen() {\n  const stories = L.epics.reduce((n, e) => n + e.stories.length, 0);\n  const E = DATEN.entschieden;\n  const ein = L.eingang || {}, aus = L.ausgang || {};\n  // Seit 23.10.2026: jeder Bereich sammelt seine Abschnitte, die Seitenleiste zeigt einen davon\n  const B = {};\n  let s;\n  const bereich = k => { s = B[k] = []; };\n\n  // Seit 22.10.2026 (Svetlana): fehlende Messverfahren sind kein offener Punkt, sondern ein Hinweis\n  // zur Weitergabe. Sie kommen so von BC2, BC3 gibt sie unverändert weiter und vermerkt sie in den\n  // offenen Punkten. An BC2 geht das noch nicht, einen Rückweg gibt es nicht (of-17, 23.10.2026). Ältere Läufe führen sie noch als offenen Punkt, der fällt hier heraus.\n  const alleKrit = L.epics.flatMap(e => e.stories.flatMap(st => st.kriterien.map(k => ({ ...k, story: st.titel }))));\n  const ohneMess = L.epics.flatMap(e => e.stories).filter(st => st.kriterien.some(k => fehltMess(k.messverfahren)));\n  const nurMess = g => g.id === 'akzeptanzkriterien' && ohneMess.length && !/ohne Kriterium/i.test(g.beleg || '');\n  const offen = L.geprueft.filter(g => !g.ok && !nurMess(g)), ok = L.geprueft.filter(g => g.ok);\n  const messKarte = () => {\n    const mit = alleKrit.find(k => !fehltMess(k.messverfahren)), ohne = alleKrit.find(k => fehltMess(k.messverfahren));\n    return \\`<div class=\"karte hinweiskarte\"><b>Hinweis zur Weitergabe: \\${ohneMess.length} von \\${stories} Stories sagen nicht, woran man erkennt, dass sie erfüllt sind</b>\n      <div>Zu jedem Akzeptanzkriterium gehört ein Messverfahren: wie man prüft, ob es erfüllt ist. Bei diesen Stories fehlt es,\n        weil das Konzept von BC2 keins nennt. BC3 erfindet keins.</div>\n      \\${mit && ohne ? \\`<div class=\"beispiel\"><div><span class=\"ok-text\">Mit Messverfahren:</span> „\\${esc(mit.text)}“<br><span class=\"klein\">Geprüft wird so: \\${esc(mit.messverfahren)}</span></div>\n        <div><span class=\"offen-mess\">Ohne:</span> „\\${esc(ohne.text)}“<br><span class=\"klein\">Wie man das prüft, steht nirgends.</span></div></div>\\` : ''}\n      <div class=\"hilft\"><b>Was heißt das für dich?</b> Nichts, du musst deswegen weder nachbessern noch begründen.\n        BC3 gibt die Stories so weiter, wie BC2 sie geliefert hat, und vermerkt die Lücke in den offenen Punkten. An BC2 geht sie noch nicht, dafür gibt es noch keinen Weg.\n        BC4 kann sie bauen, aber später nicht nachweisen, dass sie erfüllt sind.</div>\n      <details><summary>Betroffene Stories (\\${ohneMess.length})</summary><ul>\\${ohneMess.map(st => \\`<li>\\${esc(st.titel)}</li>\\`).join('')}</ul></details></div>\\`;\n  };\n\n  // Worum es geht\n  bereich('start');\n  s.push(\\`<section class=\"worum\">\n    \\${E ? \\`<div class=\"karte \\${E.entscheidung === 'freigegeben' ? 'ok' : ''}\"><b>Entschieden am \\${zeit(E.zeitpunkt)}: \\${esc(ENTSCHIEDEN[E.entscheidung] || E.entscheidung)}</b>\n      <div>von \\${esc(E.person || '–')}\\${E.begruendung ? ' · ' + esc(E.begruendung) : ''}</div>\n      <div class=\"hilft\">Diese Seite bleibt bis zur Frist zum Nachlesen offen. Eine zweite Entscheidung ist nicht möglich.</div></div>\\` : ''}\n    <h2>Worum es geht</h2>\n    <p>BC3 hat das Konzept \\${esc(L.kp_id || '')} von BC2\\${ein.unternehmen ? ' für ' + esc(ein.unternehmen) : ''} in \\${L.epics.length} Epics mit \\${stories} Stories zerlegt,\n      rechtlich eingeordnet und abgelegt. \\${E ? '' : '<b>Du entscheidest, ob diese Lieferung an BC4 geht.</b> Schau dir dafür vor allem die offenen Punkte und die drei Akzeptanzkriterien an.'}</p>\n    \\${leiste(!!E)}\n    <div class=\"kopf\">\n      <div><span>Lauf</span>\\${esc(L.lauf_nr)}</div>\n      <div><span>Lieferung</span>\\${esc(L.lieferung_id)}</div>\n      <div><span>Kernprozess</span>\\${esc(L.kp_id)}\\${L.teilprozesse.length ? ', ' + esc(L.teilprozesse.join(', ')) : ''}</div>\n      <div><span>Vertrag</span>\\${esc(L.schema_version)}\\${L.pruefung_bc3.ergebnis ? ' · ' + esc(L.pruefung_bc3.ergebnis) : ''}</div>\n      <div><span>Einstufung</span>\\${einstufungTags()}</div>\n    </div>\n    \\${L.hochrisiko ? \\`<p class=\"hinweis\">Hochrisiko erkannt über: \\${esc(L.hochrisiko_quelle)}.</p>\\` : ''}\n    <details><summary>Begriffe auf dieser Seite</summary><ul class=\"begriffe\">\n      <li><b>Gate 2</b>: die menschliche Freigabe, bevor BC3 an BC4 liefert.</li>\n      <li><b>Epic, Story</b>: ein Epic je Potenzial von BC2, darin Stories mit Akzeptanzkriterien, die BC4 baut.</li>\n      <li><b>A, K, V</b>: fachliche Anforderung (A1 …) und Akzeptanzkriterium (K1 …) aus dem Konzept von BC2, Vorgabe von BC3 (V1 …).</li>\n      <li><b>Abdeckung</b>: ob jede dieser Nummern in einer Story steckt.</li>\n      <li><b>Akzeptanzkriterium, Messverfahren</b>: das Kriterium sagt, was erfüllt sein muss („Eine Anfrage über dem Budget geht an die Teamleitung“),\n        das Messverfahren, woran man das prüft („im Vorgangsprotokoll den Status ansehen“). BC2 liefert Messverfahren nur zu den K-Nummern,\n        BC3 erfindet keins. Fehlt es, steht „Messverfahren fehlt“.</li>\n      <li><b>Ampel, Klasse</b>: Einordnung nach der KI-Verordnung (minimal, begrenzt, hoch, verboten).</li>\n    </ul></details>\n  </section>\\`);\n\n  // Was offen ist\n  s.push(\\`<section><h2>\\${offen.length ? offen.length === 1 ? 'Ein Punkt ist offen' : offen.length + ' Punkte sind offen' : 'Nichts offen'}</h2>\n    \\${offen.map(g => \\`<div class=\"karte\"><b>\\${esc(g.titel)}</b><div>\\${esc(g.beleg)}</div>\n      <div class=\"hilft\">Was hilft: \\${esc(g.abhilfe)}</div></div>\\`).join('')}\n    \\${ohneMess.length ? messKarte() : ''}\n    \\${ok.length ? \\`<details><summary>In Ordnung (\\${ok.length})</summary>\n      \\${ok.map(g => \\`<div class=\"karte ok\"><b>\\${esc(g.titel)}</b><div>\\${esc(g.beleg)}</div></div>\\`).join('')}</details>\\` : ''}\n  </section>\\`);\n\n  // 1 Was reinkam\n  const pot = ein.potenziale || [];\n  bereich('bc2');\n  s.push(\\`<section><h2>1 · Was von BC2 kam</h2>\n    <p class=\"hinweis\">\\${pot.length} \\${pot.length === 1 ? 'Potenzial' : 'Potenziale'}, Gate 1 bei BC2: \\${esc(GATE1[ein.gate1] || ein.gate1 || 'ohne Angabe')}\\${ein.vorlaeufig ? ', Zahlen vorläufig (Annahmen)' : ''}.</p>\n      <div class=\"kopf\">\n        <div><span>Unternehmen</span>\\${esc(ein.unternehmen || '–')}</div>\n        <div><span>Paket</span>\\${esc(ein.paket_id || '–')}</div>\n        <div><span>Konzept</span>\\${esc(ein.konzept_id || '–')}</div>\n        <div><span>Quelle</span>\\${ein.quelle_link ? \\`<a href=\"\\${esc(ein.quelle_link)}\" target=\"_blank\" rel=\"noopener\">\\${esc(ein.quelle)}</a>\\` : esc(ein.quelle || '–')}</div>\n      </div>\n      \\${ein.prozess ? \\`<p class=\"hinweis\">\\${esc(ein.prozess)}</p>\\` : ''}\n      <table><tr><th>Potenzial</th><th>Rang</th><th>A</th><th>K</th><th>V</th></tr>\n        \\${pot.map(p => \\`<tr><td>\\${esc(p.titel)}</td><td>\\${p.rang ?? '–'}</td><td>\\${p.a}</td><td>\\${p.k}</td><td>\\${p.v}</td></tr>\\`).join('')}\n      </table>\n      \\${(ein.gate1_befunde || []).map(b => \\`<p class=\"hinweis\">\\${esc(b)}</p>\\`).join('')}\n  </section>\\`);\n\n  // 2 Was im Lauf passiert ist\n  const schritte = L.schritte || [];\n  bereich('lauf');\n  const befunde = schritte.reduce((n, x) => n + x.befunde.length + (x.weitere || 0), 0);\n  s.push(\\`<section><h2>2 · Was im Lauf passiert ist</h2>\n    <p class=\"hinweis\">\\${schritte.length} Schritte, \\${befunde} \\${befunde === 1 ? 'Befund' : 'Befunde'}. Modelle: \\${esc([...new Set(schritte.flatMap(x => x.modelle))].join(', ') || 'keins')}.</p>\n    \\${schritte.map(x => \\`<details><summary>\\${esc(x.stufe)} <span class=\"tag \\${x.status === 'ok' ? 'gruen' : 'gelb'}\">\\${esc(x.status)}</span>\n        \\${x.befunde.length ? \\`<span class=\"klein\">\\${x.befunde.length + (x.weitere || 0)} \\${x.befunde.length + (x.weitere || 0) === 1 ? 'Befund' : 'Befunde'}</span>\\` : ''}</summary>\n      <div class=\"klein\">\\${zeit(x.zeitpunkt)}\\${x.modelle.length ? ' · Modell ' + esc(x.modelle.join(', ')) : ' · ohne KI'}</div>\n      \\${x.befunde.length ? \\`<ul>\\${x.befunde.map(b => \\`<li>\\${esc(b)}</li>\\`).join('')}\\${x.weitere ? \\`<li>… und \\${x.weitere} weitere</li>\\` : ''}</ul>\\` : '<p class=\"klein\">Keine Befunde.</p>'}\n    </details>\\`).join('')}\n    \\${(L.regeln || []).length ? \\`<details><summary>Regeln von BC3-15</summary><ul>\n      \\${L.regeln.map(r => \\`<li><b>\\${esc(r.regel)}</b> \\${r.greift ? 'greift' : 'greift nicht'}: \\${esc(r.begruendung)}</li>\\`).join('')}</ul></details>\\` : ''}\n  </section>\\`);\n\n  // 3 Was dabei herauskam\n  const pfl = L.pflichten || [];\n  bereich('ergebnis');\n  const jeAdr = Object.entries(pfl.reduce((m, p) => (m[p.adressat] = (m[p.adressat] || 0) + 1, m), {}))\n    .map(([a, n]) => n + ' ' + (ADRESSAT[a] || a)).join(', ');\n  const zweifel = L.abdeckung.filter(a => a.status !== 'ok').length;\n  s.push(\\`<section><h2>3 · Was dabei herauskam</h2>\n    \\${L.ablage_gescheitert ? '<p class=\"hinweis\">Die Ablage im Drive ist gescheitert, hier steht der Inhalt aus dem Lauf.</p>' : ''}\n    <h3>Stories</h3>\n    \\${L.epics.map(e => \\`<details><summary>\\${esc(e.titel)} (\\${e.stories.length} Stories)</summary>\n      <p class=\"hinweis\">\\${esc(e.ziel)}</p>\n      \\${e.stories.map(st => \\`<div class=\"story\"><div class=\"titel\">\\${esc(st.titel)}</div>\n        <div class=\"klein hinweis\">\\${esc(st.beschreibung)}</div>\n        <ul>\\${st.kriterien.map(k => \\`<li>\\${esc(k.text)}<br><span class=\"\\${fehltMess(k.messverfahren) ? 'offen-mess' : 'mess'}\">Messverfahren: \\${esc(messText(k.messverfahren))}</span></li>\\`).join('')}</ul>\n      </div>\\`).join('')}\n    </details>\\`).join('')}\n    <h3>Rechtliche Einordnung</h3>\n    <div>\\${einstufungTags()}</div>\n    <p class=\"grundlage\">\\${esc(rechtsgrundlage())}</p>\\${L.einstufung.begruendung_ampel ? \\`<p class=\"hinweis\"><b>Begründung der KI (BC3-30), nicht von einem Menschen geprüft:</b> \\${esc(L.einstufung.begruendung_ampel)}</p>\\` : ''}\n    <details><summary>Pflichten (\\${pfl.length}\\${jeAdr ? ': ' + esc(jeAdr) : ''})</summary><table>\n      <tr><th>Artikel</th><th>Was einzubauen ist</th><th>an wen</th></tr>\n      \\${pfl.map(p => \\`<tr><td>\\${esc(p.tag)}</td><td>\\${esc(p.text)}\\${p.stelle ? \\`<br><span class=\"hinweis\">Stelle: \\${esc(p.stelle)}</span>\\` : ''}</td><td>\\${esc(ADRESSAT[p.adressat] || p.adressat || '–')}</td></tr>\\`).join('')}\n    </table></details>\n    <h3>Abdeckung</h3>\n    <p class=\"hinweis\">\\${L.abdeckung.length} Nummern aus dem Konzept (A, K) und von BC3 (V). \\${zweifel ? zweifel + ' davon zweifelhaft oder ohne Story.' : 'Keine fällt auf.'}</p>\n    <details><summary>Tabelle anzeigen</summary><table class=\"abdeckung\">\n      <tr><th>Nr.</th><th>Vorgabe</th><th>Story</th><th>Anteil</th></tr>\n      \\${L.abdeckung.map(a => \\`<tr class=\"\\${a.status === 'zweifelhaft' ? 'zweifel' : a.status === 'fehlt' ? 'fehlt' : ''}\">\n        <td>\\${esc(a.nummer)}</td><td>\\${esc(a.text)}</td>\n        <td>\\${esc(a.stories.map(x => x.titel).join('; ') || '—')}\\${a.naeher_an ? \\`<br><span class=\"hinweis\">passt besser zu: \\${esc(a.naeher_an)}</span>\\` : ''}</td>\n        <td>\\${a.status === 'fehlt' ? 'fehlt' : a.anteil + ' %'}</td></tr>\\`).join('')}\n    </table>\\${L.abdeckung_hinweise.map(h => \\`<p class=\"hinweis\">\\${esc(h)}</p>\\`).join('')}</details>\n  </section>\\`);\n\n  // 4 Was rausgeht\n  const op = aus.offene_punkte || {};\n  bereich('raus');\n  s.push(\\`<section><h2>4 · Was rausgeht</h2>\n    <p>\\${esc(aus.bei_freigabe || '')}</p>\n    <p class=\"hinweis\">\\${(aus.dateien || []).length} Dateien liegen im Ordner der Lieferung in _vorschau\\${aus.ordner_link ? \\` (<a href=\"\\${esc(aus.ordner_link)}\" target=\"_blank\" rel=\"noopener\">Ordner öffnen</a>)\\` : ''}.\n      \\${op.anzahl ? \\`\\${op.anzahl} offene Punkte gehen mit: \\${esc(Object.entries(op.nach_adressat || {}).map(([a, n]) => n + ' ' + (ADRESSAT[a] || a)).join(', '))}.\\` : ''}</p>\n    <h3>Dateien</h3><ul>\n      \\${(aus.dateien || []).map(d => \\`<li>\\${d.link ? \\`<a href=\"\\${esc(d.link)}\" target=\"_blank\" rel=\"noopener\">\\${esc(d.name)}</a>\\` : esc(d.name)}</li>\\`).join('')}\n    </ul><p class=\"hinweis\">Ordner in _vorschau: <code>\\${esc(L.lieferung_id)}</code>. Die Links öffnen sich nur mit Zugriff auf den Drive-Ordner.</p>\n  </section>\\`);\n\n  // 5 Urteil und Entscheidung\n  bereich('entscheiden');\n  s.push(\\`<section class=\"\\${E ? 'gesperrt' : ''}\"><h2>5 · Akzeptanzkriterien – dein Urteil</h2>\n    <p class=\"hinweis\">BC3 hat drei Kriterien gezogen und durchgesehen. Sag, ob du die Einschätzung teilst.</p>\n    \\${L.stichprobe.map((k, i) => \\`<div class=\"kriterium\\${L.stichprobe_schwaechstes === i + 1 ? ' schwach' : ''}\">\n      <span class=\"nr\">\\${i + 1}.</span> „\\${esc(k.text)}“\n      <div class=\"klein\">Story: \\${esc(k.story)}</div>\n      <div class=\"klein\\${fehltMess(k.mess) ? ' offen-mess' : ''}\">Messverfahren: \\${esc(messText(k.mess))}</div>\n      \\${k.maengel.length ? k.maengel.map(m => \\`<div class=\"einwand\">Einwand: \\${esc(m)}</div>\\`).join('')\n                         : '<div class=\"einwand\">Kein Einwand.</div>'}\n    </div>\\`).join('')}\n    <p><b>\\${L.stichprobe_schwaechstes ? \\`BC3 hält Nummer \\${L.stichprobe_schwaechstes} für das schwächste.\\`\n      : L.stichprobe_gleichauf.length > 1 ? \\`Nummer \\${L.stichprobe_gleichauf.join(' und ')} sind gleich schwach.\\`\n      : 'BC3 hat an allen dreien nichts auszusetzen.'}</b></p>\n    \\${E ? '' : \\`<div class=\"wahl\" data-feld=\"kriterien\">\\${KRIT_WAHL.map(w => knopf('kriterien', w)).join('')}</div>\\`}\n  </section>\\`);\n\n  if (L.hochrisiko) {\n    s.push(\\`<section class=\"\\${E ? 'gesperrt' : ''}\"><h2>Menschliche Aufsicht über das Zielsystem</h2>\n      <p class=\"hinweis\">Art. 14 Abs. 4 KI-VO: übersteuern oder verwerfen (d) und anhalten (e), dazu die Protokollierung nach Art. 12.</p>\n      \\${L.aufsicht.map(f => \\`<div class=\"karte\\${f.stories.length ? ' ok' : ''}\"><b>\\${esc(f.titel)}</b>\n        <div>\\${f.stories.length ? 'Belegt durch: ' + esc(f.stories.join('; ')) : 'Keine Story gefunden.'}</div></div>\\`).join('')}\n      \\${E ? '' : \\`<div class=\"wahl\" data-feld=\"aufsicht\">\\${AUFS_WAHL.map(w => knopf('aufsicht', w)).join('')}</div>\\`}\n    </section>\\`);\n  }\n\n  if (!E) {\n    s.push(\\`<section class=\"\\${Z.fertig ? 'gesperrt' : ''}\"><h2>Deine Entscheidung</h2>\n      <p class=\"vorher\">\\${esc(aus.bei_freigabe || '')} Nachbessern und Ablehnen halten nur die Entscheidung fest.</p>\n      <div class=\"wahl entscheidung\" data-feld=\"entscheidung\">\\${Object.entries(ENTSCHEIDUNG).map(([k, e]) =>\n        \\`<button type=\"button\" class=\"\\${e.klasse}\\${Z.entscheidung === k ? ' an' : ''}\" data-wert=\"\\${k}\">\\${e.text}</button>\\`).join('')}</div>\n      \\${Z.entscheidung === 'frei' && offen.length ? \\`<div class=\"karte\"><b>Du gibst trotz \\${offen.length === 1 ? 'eines offenen Punkts' : offen.length + ' offener Punkte'} frei.</b>\n        <div class=\"hilft\">Das ist erlaubt. Schreib bitte in die Begründung, warum.</div></div>\\` : ''}\n      <label for=\"begruendung\">Begründung\\${['nach', 'ab'].includes(Z.entscheidung) ? ' (Pflicht)' : ''}</label>\n      <textarea id=\"begruendung\" placeholder=\"Bei Nachbessern und Ablehnen: was soll BC3 tun?\">\\${esc(Z.begruendung)}</textarea>\n      <label for=\"person\">Wer entscheidet</label>\n      <input type=\"text\" id=\"person\" value=\"\\${esc(Z.person)}\" placeholder=\"Kürzel\">\n      <p class=\"hinweis\">Das Namensfeld ist nicht geprüft und belegt keine Vier-Augen-Kontrolle.</p>\n      <div class=\"fehler\" id=\"fehler\">\\${esc(Z.fehler || '')}</div>\n      <button class=\"btn\" id=\"absenden\" \\${Z.fertig || Z.sendet ? 'disabled' : ''}>\\${Z.sendet ? 'Wird gesendet …' : 'Entscheidung absenden'}</button>\n      \\${Z.fertig ? \\`<div class=\"karte ok\"><b>\\${esc(Z.fertig)}</b></div>\\` : ''}\n    </section>\\`);\n  }\n\n  // --- Seitenleiste -------------------------------------------------------\n  const zahl = (n, farbe) => '<span class=\"tag ' + (farbe || '') + '\">' + n + '</span>';\n  const NAVI = [\n    ['start', 'Start', offen.length ? zahl(offen.length + ' offen', 'rot') : zahl('nichts offen', 'gruen')],\n    ['bc2', '1 Von BC2', zahl(pot.length)],\n    ['lauf', '2 Lauf', zahl(befunde + ' Befunde')],\n    ['ergebnis', '3 Ergebnis', zahl(stories + ' Stories')],\n    ['raus', '4 Was rausgeht', zahl((aus.dateien || []).length)],\n    ['entscheiden', '5 Entscheiden', E ? zahl(ENTSCHIEDEN[E.entscheidung] || E.entscheidung, E.entscheidung === 'freigegeben' ? 'gruen' : 'gelb')\n      : Z.fertig ? zahl('gesendet', 'gruen') : zahl('offen', 'gelb')],\n  ];\n  const id = B[location.hash.slice(1)] ? location.hash.slice(1) : 'start';\n  // Am Ende jedes Bereichs ein Weiter zum nächsten, so lässt sich die Seite der Reihe nach durchgehen\n  const pos = NAVI.findIndex(([k]) => k === id);\n  if (pos < NAVI.length - 1) B[id].push('<p><a class=\"weiter\" href=\"#' + NAVI[pos + 1][0] + '\">Weiter: ' + NAVI[pos + 1][1] + '</a></p>');\n  document.getElementById('navi').innerHTML = NAVI.map(([k, name, z]) =>\n    '<a href=\"#' + k + '\"' + (k === id ? ' class=\"aktiv\"' : '') + '><span>' + name + '</span>' + z + '</a>').join('');\n  document.getElementById('seite').innerHTML = B[id].join('');\n  if (!E && id === 'entscheiden') binden();\n}\n\n// Messverfahren fehlt: leer oder von BC3 als \"offen: …\" markiert\nfunction fehltMess(m) { return !m || /^offen:/i.test(String(m)); }\nfunction messText(m) { return fehltMess(m) ? 'fehlt (BC2 nennt keins)' : String(m); }\n\n// Laufleiste wie auf der Übersicht BC3-82: bis Gate 2 erledigt, Gate 2 jetzt oder entschieden\nfunction leiste(entschieden) {\n  return '<div class=\"leiste\" title=\"' + esc(SCHRITTE.join(' · ')) + '\">' + SCHRITTE.map((x, i) => {\n    const k = x === 'Gate 2' ? (entschieden ? 'ja' : 'jetzt') : (i < SCHRITTE.indexOf('Gate 2') ? 'ja' : '');\n    return '<span class=\"' + k + '\">' + esc(x) + '</span>';\n  }).join('') + '</div>';\n}\n\n// Seit 23.10.2026 (C3): auf welchen Artikel der KI-Verordnung sich die Klasse stützt. Feste Liste, kein Modell.\n// Die Ampel ist eine eigene Einordnung von BC3 (KI-VO und DSGVO zusammen), keine Kategorie des Gesetzes.\nfunction rechtsgrundlage() {\n  const e = L.einstufung || {};\n  const anhang = e.anhang_iii_kategorie ? ' (' + e.anhang_iii_kategorie + ')' : '';\n  return {\n    unacceptable: 'Grundlage: Art. 5 KI-VO, verbotene Praktik. So darf das System nicht gebaut werden, die Pflichten nennen die zulässige Bauweise.',\n    high: 'Grundlage: Art. 6 Abs. 2 KI-VO mit Anhang III' + anhang + '. Daraus folgen die Pflichten nach Art. 9 bis 15 '\n      + '(Risikomanagement, Daten, Dokumentation, Protokollierung, Transparenz, menschliche Aufsicht, Genauigkeit), '\n      + 'für den Betrieb Art. 26. Ob die Ausnahme nach Art. 6 Abs. 3 greift, entscheidet ein Mensch.',\n    limited: 'Grundlage: Art. 50 KI-VO, Transparenzpflichten, etwa der Hinweis, dass man mit einer KI zu tun hat, '\n      + 'oder die Kennzeichnung erzeugter Inhalte.',\n    minimal: 'Grundlage: keine besonderen Pflichten nach der KI-Verordnung. Es gilt nur Art. 4 (KI-Kompetenz der Beschäftigten). '\n      + 'Pflichten aus der DSGVO stehen unten.',\n  }[e.ai_act_klasse] || 'Grundlage: keine Klasse angegeben.';\n}\n\nfunction einstufungTags() {\n  const e = L.einstufung || {};\n  const farbe = { green: 'gruen', yellow: 'gelb', red: 'rot' }[e.ampel] || '';\n  const ampel = { green: 'grün', yellow: 'gelb', red: 'rot' }[e.ampel] || e.ampel;\n  const klasse = { high: 'Hochrisiko', limited: 'begrenztes Risiko', minimal: 'minimales Risiko',\n    unacceptable: 'verboten (Art. 5)' }[e.ai_act_klasse] || e.ai_act_klasse;\n  return [e.ampel ? \\`<span class=\"tag \\${farbe}\">Ampel \\${esc(ampel)}</span>\\` : '',\n    e.ai_act_klasse ? \\`<span class=\"tag\">\\${esc(klasse)}</span>\\` : '',\n    e.anhang_iii_kategorie ? \\`<span class=\"tag rot\">\\${esc(e.anhang_iii_kategorie)}</span>\\` : ''].join('') || 'ohne Angabe';\n}\n\nfunction knopf(feld, wert) {\n  return \\`<button type=\"button\" class=\"\\${Z[feld] === wert ? 'an' : ''}\" data-wert=\"\\${esc(wert)}\">\\${esc(wert)}</button>\\`;\n}\n\nfunction binden() {\n  document.querySelectorAll('.wahl button').forEach(b => b.onclick = () => {\n    if (Z.fertig || Z.sendet) return;\n    Z[b.parentElement.dataset.feld] = b.dataset.wert;\n    Z.fehler = '';\n    merken(); zeichnen();\n  });\n  document.getElementById('begruendung').oninput = e => { Z.begruendung = e.target.value; };\n  document.getElementById('person').oninput = e => { Z.person = e.target.value; };\n  document.getElementById('absenden').onclick = absenden;\n}\n\nfunction merken() {\n  Z.begruendung = document.getElementById('begruendung')?.value ?? Z.begruendung;\n  Z.person = document.getElementById('person')?.value ?? Z.person;\n}\n\n// Dieselben Prüfungen macht BC3-81 auf dem Server noch einmal\nasync function absenden() {\n  merken();\n  const f = [];\n  if (!Z.entscheidung) f.push('Bitte eine Entscheidung wählen.');\n  if (['nach', 'ab'].includes(Z.entscheidung) && !Z.begruendung.trim()) f.push('Bei Nachbessern und Ablehnen ist die Begründung Pflicht.');\n  if (!Z.person.trim()) f.push('Bitte angeben, wer entscheidet.');\n  if (!Z.kriterien) f.push('Bitte zu den Akzeptanzkriterien Stellung nehmen.');\n  if (L.hochrisiko && !Z.aufsicht) f.push('Bitte zur menschlichen Aufsicht Stellung nehmen.');\n  Z.fehler = f.join(' ');\n  if (f.length) { zeichnen(); return; }\n\n  Z.sendet = true; zeichnen();\n  try {\n    const r = await fetch(location.pathname, {\n      method: 'POST', headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({ lauf: ZUGANG.get('lauf'), t: ZUGANG.get('t'), entscheidung: Z.entscheidung,\n        kriterien: Z.kriterien, aufsicht: Z.aufsicht, begruendung: Z.begruendung.trim(), person: Z.person.trim() }),\n    });\n    const a = await r.json().catch(() => ({}));\n    if (r.ok && a.ok) Z.fertig = a.meldung || 'Entscheidung gespeichert.';\n    else Z.fehler = a.meldung || \\`Nicht gespeichert (Fehler \\${r.status}).\\`;\n  } catch (e) {\n    Z.fehler = 'Keine Verbindung zum Server. Bitte noch einmal absenden.';\n  }\n  Z.sendet = false;\n  zeichnen();\n}\n\nzeigen();\n</script>\n</body>\n</html>\n`;\n\nreturn [{ json: { html: SEITE.replace('__DATEN__', () => daten) } }];\n"
+      }
+    },
+    {
+      "id": "a4aaa4cc-ebc1-4d0f-a0c6-a6a48c790cc5",
+      "name": "Seite senden",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        960,
+        -100
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.html }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "no-store"
+              },
+              {
+                "name": "X-Robots-Tag",
+                "value": "noindex, nofollow"
+              },
+              {
+                "name": "Referrer-Policy",
+                "value": "no-referrer"
+              },
+              {
+                "name": "X-Frame-Options",
+                "value": "DENY"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "317ca892-5485-48dd-967f-6f9c6fdab30a",
+      "name": "Entscheidung vermerken",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        740,
+        100
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "update public.gate2_ansicht set entschieden_am = now() where lauf_id = $1 and entschieden_am is null returning lauf_id",
+        "options": {
+          "queryReplacement": "={{ [ $json.lauf_id ] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "name": "Postgres BC3"
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "2c937ea3-85fe-47d7-908e-f65dccdb410c",
+      "name": "Vermerkt?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        960,
+        100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.lauf_id }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "cb501a11-8587-4526-88bd-ab85911a0aa6",
+      "name": "Lauf wecken",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1180,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Ansicht holen').first().json.resume_url }}",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Zugang und Eingaben prüfen').first().json.antwort) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "78deb6bf-7940-4acb-a9e3-2febdedaea68",
+      "name": "Antwort senden",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1400,
+        -100
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, meldung: 'gespeichert: ' + $('Zugang und Eingaben prüfen').first().json.entscheidung }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Cache-Control",
+                "value": "no-store"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "47d7ad3c-010e-42e3-b493-7144bf570242",
+      "name": "Schon entschieden",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1180,
+        200
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"ok\": false, \"meldung\": \"schon entschieden\"}",
+        "options": {
+          "responseCode": 409,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Cache-Control",
+                "value": "no-store"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "8e0664c6-3402-451f-b480-1f7fa927ea05",
+      "name": "Fehler melden",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        740,
+        300
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.inhalt }}",
+        "options": {
+          "responseCode": "={{ $json.status }}",
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "={{ $json.inhaltstyp }}"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "no-store"
+              },
+              {
+                "name": "X-Robots-Tag",
+                "value": "noindex, nofollow"
+              },
+              {
+                "name": "Referrer-Policy",
+                "value": "no-referrer"
+              },
+              {
+                "name": "X-Frame-Options",
+                "value": "DENY"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "43179599-7d74-4770-937e-30c8d5582005",
+      "name": "Vermerk zurücknehmen",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1400,
+        100
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "update public.gate2_ansicht set entschieden_am = null where lauf_id = $1",
+        "options": {
+          "queryReplacement": "={{ [ $('Zugang und Eingaben prüfen').first().json.lauf_id ] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "name": "Postgres BC3"
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "81cc8d28-1231-49d3-8730-7e0b4794a6fe",
+      "name": "Wecken gescheitert",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1620,
+        100
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"ok\": false, \"meldung\": \"nicht gespeichert, der Lauf wartet nicht mehr oder ist nicht erreichbar\"}",
+        "options": {
+          "responseCode": 502,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Cache-Control",
+                "value": "no-store"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "bf722bd1-0652-4f58-a21c-1401a9cda0cc",
+      "name": "Hinweis: BC3-81 Gate-2-Seite",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -420,
+        -420
+      ],
+      "parameters": {
+        "content": "## BC3-81 Gate-2-Seite\n\nZeigt die Lieferung eines wartenden Laufs und nimmt die Entscheidung an. Den Link schickt BC3-00 per Telegram, er gilt bis zur Frist (7 Tage).\n\nAbsenden prüft Token, Frist und Pflichtfelder, hält die Entscheidung fest und weckt den Lauf. Danach bleibt die Seite bis zur Frist zum Nachlesen offen.\n\nVorlage: Ablage `gate2-seite\\n8n\\seite.html`, eingebaut mit `baue-81.py`.",
+        "color": 7,
+        "width": 620,
+        "height": 360
+      }
+    }
+  ],
+  "connections": {
+    "Seite aufgerufen": {
+      "main": [
+        [
+          {
+            "node": "Anfrage prüfen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anfrage prüfen": {
+      "main": [
+        [
+          {
+            "node": "Ansicht holen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Entscheidung abgesendet": {
+      "main": [
+        [
+          {
+            "node": "Anfrage prüfen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ansicht holen": {
+      "main": [
+        [
+          {
+            "node": "Zugang und Eingaben prüfen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zugang und Eingaben prüfen": {
+      "main": [
+        [
+          {
+            "node": "Wie weiter?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wie weiter?": {
+      "main": [
+        [
+          {
+            "node": "Seite bauen",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Entscheidung vermerken",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fehler melden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Seite bauen": {
+      "main": [
+        [
+          {
+            "node": "Seite senden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Entscheidung vermerken": {
+      "main": [
+        [
+          {
+            "node": "Vermerkt?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vermerkt?": {
+      "main": [
+        [
+          {
+            "node": "Lauf wecken",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Schon entschieden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lauf wecken": {
+      "main": [
+        [
+          {
+            "node": "Antwort senden",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Vermerk zurücknehmen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vermerk zurücknehmen": {
+      "main": [
+        [
+          {
+            "node": "Wecken gescheitert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "D03E5Rn1DDKDZGbL",
+    "executionTimeout": 30,
+    "callerPolicy": "none"
+  }
+}

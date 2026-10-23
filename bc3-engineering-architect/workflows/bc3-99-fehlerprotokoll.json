@@ -1,0 +1,182 @@
+{
+  "name": "BC3-99 Fehlerprotokoll",
+  "description": "Schreibt den Fehler eines abgebrochenen BC3-Workflows in die Tabelle fehler (Supabase bc3-slicer)",
+  "nodes": [
+    {
+      "id": "ba895232-3ea5-433c-a5dd-f95e40e1845b",
+      "name": "Fehler empfangen",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -600,
+        40
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "fe8d5076-597a-433f-8ddd-239a38459238",
+      "name": "Fehler aufbereiten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -380,
+        40
+      ],
+      "parameters": {
+        "jsCode": "// Ohne execution-Block, wenn der Auslöser selbst scheitert\nconst stufe = String($json.workflow?.name || '');\nreturn [{\n  json: {\n    zeitpunkt: new Date().toISOString(),\n    workflow: stufe || null,\n    stufe: (stufe.match(/BC3-\\d+/) || [null])[0],\n    baustein: $json.execution?.lastNodeExecuted || null,\n    meldung: $json.execution?.error?.message || 'ohne Angabe',\n    link: $json.execution?.url || null,\n    // beide Schreibweisen, bis alle Meldungen Umlaute haben\n    schwere: /pr(ü|ue)fung fehlgeschlagen|freigabe nicht m(ö|oe)glich/i.test(\n               $json.execution?.error?.message || '') ? 'pruefung' : 'fehler',\n  },\n}];\n"
+      }
+    },
+    {
+      "id": "b83889bc-1ae0-467a-ba08-f4fd041f282c",
+      "name": "Hinweis: BC3-99 Fehlerprotokoll",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -600,
+        -340
+      ],
+      "parameters": {
+        "content": "## BC3-99 Fehlerprotokoll\n\nSchreibt jeden Fehler der BC3-Workflows als Zeile in die Tabelle `fehler` (Supabase bc3-slicer).\n\nDie anderen Workflows tragen diesen Workflow unter *Einstellungen, Error Workflow* ein. Er muss veröffentlicht sein, sonst springt er nicht an.\n\nZwei Arten: `pruefung` (eine Prüfung hat gewollt abgebrochen) und `fehler` (etwas ist kaputt).",
+        "color": 3,
+        "width": 460,
+        "height": 320
+      }
+    },
+    {
+      "id": "e5fda6a8-12bb-45e6-a496-7782e400b73a",
+      "name": "In Tabelle fehler schreiben",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -160,
+        40
+      ],
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public",
+          "cachedResultName": "public"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "name",
+          "value": "fehler"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "zeitpunkt": "={{ $json.zeitpunkt }}",
+            "workflow": "={{ $json.workflow }}",
+            "stufe": "={{ $json.stufe }}",
+            "baustein": "={{ $json.baustein }}",
+            "meldung": "={{ $json.meldung }}",
+            "schwere": "={{ $json.schwere }}",
+            "link": "={{ $json.link }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "zeitpunkt",
+              "displayName": "zeitpunkt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "workflow",
+              "displayName": "workflow",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "stufe",
+              "displayName": "stufe",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "baustein",
+              "displayName": "baustein",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "meldung",
+              "displayName": "meldung",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "schwere",
+              "displayName": "schwere",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "link",
+              "displayName": "link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "name": "Postgres BC3"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Fehler empfangen": {
+      "main": [
+        [
+          {
+            "node": "Fehler aufbereiten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fehler aufbereiten": {
+      "main": [
+        [
+          {
+            "node": "In Tabelle fehler schreiben",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

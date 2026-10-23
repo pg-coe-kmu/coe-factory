@@ -1,0 +1,1526 @@
+{
+  "name": "BC3-00 Orchestrator",
+  "description": "Steuert den BC3-Slicer: Konzept einlesen, Stories, Compliance, Tickets, Ablage, Gate 2, Lieferung an BC4",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trgman",
+      "name": "Von Hand starten",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1568,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "pfad",
+              "type": "string",
+              "value": "={{ $json.pfad || '' }}"
+            },
+            {
+              "id": "a2",
+              "name": "mandant",
+              "type": "string",
+              "value": "={{ $json.mandant || '' }}"
+            },
+            {
+              "id": "a3",
+              "name": "ablage",
+              "type": "string",
+              "value": "={{ $json.ablage || '_vorschau' }}"
+            },
+            {
+              "id": "a4",
+              "name": "gestartet_am",
+              "type": "string",
+              "value": "={{ $now }}"
+            },
+            {
+              "id": "a5",
+              "name": "gestartet_von",
+              "type": "string",
+              "value": "={{ $json.gestartet_von || 'Handstart' }}"
+            },
+            {
+              "id": "a6",
+              "name": "bemerkung",
+              "type": "string",
+              "value": "={{ $json.bemerkung || '' }}"
+            },
+            {
+              "id": "a7",
+              "name": "liefermodus",
+              "type": "string",
+              "value": "={{ String($json.pfad || '').startsWith('contracts/bc2-to-bc3/') ? 'echt' : 'test' }}"
+            },
+            {
+              "id": "a8",
+              "name": "ablage_ordner",
+              "type": "string",
+              "value": "__DRIVE_ORDNER_VORSCHAU__"
+            },
+            {
+              "id": "a9",
+              "name": "gate2_adresse",
+              "type": "string",
+              "value": "__N8N_ADRESSE__/webhook/__PFAD_GATE2__"
+            },
+            {
+              "id": "a10",
+              "name": "telegram_chat_id",
+              "type": "string",
+              "value": "__TELEGRAM_CHAT_ID__"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "setcfg",
+      "name": "Lauf einstellen",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1344,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Legt den Umschlag an. Ab hier reisen alle Stufen mit demselben Objekt und\n * füllen nur ihren eigenen Platz - Vorbild ist das Muster aus der Vorlage\n * workflow_20_normalize_summarize.\n *\n * Alles Mandantenspezifische steht im Baustein davor, nicht hier im Code.\n * Damit ist ein zweiter Mandant ein Konfigurationssatz und kein zweiter Workflow.\n *\n * liefermodus (seit 12.10.2026): 'test' ist der Standard. Nur bei 'echt'\n * legt BC3-80 nach einer Freigabe Zweig und Pull Request im Gruppen-Repository\n * an. Umgestellt wird ausschliesslich in \"Lauf einstellen\".\n */\nconst cfg = $input.first().json;\n\nreturn [{\n  json: {\n    lauf_id: `bc3-${$execution.id}`, // ab BC3-40 die lieferung_id\n    umschlag: {\n      lauf: {\n        lauf_nr: `bc3-${$execution.id}`, // Schlüssel für BC3-91 und laeufe\n        pfad: cfg.pfad,\n        mandant: cfg.mandant,\n        ablage: cfg.ablage,\n        ablage_ordner: cfg.ablage_ordner || null,\n        gestartet_am: cfg.gestartet_am,\n        gestartet_von: cfg.gestartet_von,\n        bemerkung: cfg.bemerkung || null,\n        liefermodus: cfg.liefermodus === 'echt' ? 'echt' : 'test',\n      },\n      quelle: {},\n      konzept: {},\n      potenziale: [],\n      epics: [],\n      protokoll: [{\n        stufe: 'BC3-00 Orchestrator',\n        zeitpunkt: new Date().toISOString(),\n        status: 'gestartet',\n        befunde: [],\n      }],\n    },\n  },\n}];\n"
+      },
+      "id": "cumschlag",
+      "name": "Umschlag anlegen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1120,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "L0kJaQpzehSf6LKY",
+          "mode": "id",
+          "cachedResultName": "BC3-10 Konzept einlesen"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "lauf_id": "={{ $json.lauf_id }}",
+            "umschlag": "={{ $json.umschlag }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "lauf_id",
+              "displayName": "lauf_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "umschlag",
+              "displayName": "umschlag",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "ruf10",
+      "name": "BC3-10 Konzept einlesen",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "retryOnFail": false,
+      "position": [
+        -896,
+        48
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "dYZc5Z0JGsd03ZMS",
+          "mode": "id",
+          "cachedResultName": "BC3-20 Stories schneiden"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "lauf_id": "={{ $json.lauf_id }}",
+            "umschlag": "={{ $json.umschlag }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "lauf_id",
+              "displayName": "lauf_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "umschlag",
+              "displayName": "umschlag",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "ruf20",
+      "name": "BC3-20 Stories schneiden",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "retryOnFail": false,
+      "position": [
+        -464,
+        48
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "4MH1nHOhouKuDtP9",
+          "mode": "id",
+          "cachedResultName": "BC3-30 Compliance prüfen"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "lauf_id": "={{ $json.lauf_id }}",
+            "umschlag": "={{ $json.umschlag }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "lauf_id",
+              "displayName": "lauf_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "umschlag",
+              "displayName": "umschlag",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "ruf30",
+      "name": "BC3-30 Compliance prüfen",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "retryOnFail": false,
+      "position": [
+        -240,
+        48
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "rc7L7WfB4HOwZuN5",
+          "mode": "id",
+          "cachedResultName": "BC3-40 Tickets bauen und prüfen"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "lauf_id": "={{ $json.lauf_id }}",
+            "umschlag": "={{ $json.umschlag }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "lauf_id",
+              "displayName": "lauf_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "umschlag",
+              "displayName": "umschlag",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "ruf40",
+      "name": "BC3-40 Tickets bauen und prüfen",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "retryOnFail": false,
+      "position": [
+        -16,
+        48
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "ScGYz1bQxqryE9Iy",
+          "mode": "id",
+          "cachedResultName": "BC3-50 Architektur"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "lauf_id": "={{ $json.lauf_id }}",
+            "umschlag": "={{ $json.umschlag }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "lauf_id",
+              "displayName": "lauf_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "umschlag",
+              "displayName": "umschlag",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "ruf50",
+      "name": "BC3-50 Architektur",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "retryOnFail": false,
+      "position": [
+        208,
+        48
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "bHwGl0vFoE8v2O00",
+          "mode": "id",
+          "cachedResultName": "BC3-70 Ausliefern"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "lauf_id": "={{ $json.lauf_id }}",
+            "umschlag": "={{ $json.umschlag }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "lauf_id",
+              "displayName": "lauf_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "umschlag",
+              "displayName": "umschlag",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "ruf70",
+      "name": "BC3-70 Ausliefern",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "retryOnFail": false,
+      "position": [
+        1088,
+        48
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fasst den Lauf zusammen, Grundlage für den Abschlussbericht und die Zeile in laeufe.\n// Hier kommen zwei Wege an: der fertige Lauf nach BC3-80 und der abgebrochene aus \"Fehler einordnen\".\nconst rein = $input.first().json;\nconst u = rein.umschlag || {};\nconst prot = u.protokoll || [];\nconst offen = prot.filter(p => p.status === 'offen');\nconst abgebrochen = prot.filter(p => p.status === 'abgebrochen');\nconst befunde = prot.flatMap(p => (p.befunde || []).map(b => ({ stufe: p.stufe, befund: b })));\n\n// \"ok\" nur, wenn wirklich geliefert und an Gate 2 entschieden wurde.\nconst fehlt = [];\nif (!(u.lieferung?.dateien || []).length) fehlt.push('keine Dateien in der Lieferung');\nif (!u.gate2?.entscheidung) fehlt.push('keine Entscheidung an Gate 2');\nconst vollstaendig = abgebrochen.length === 0 && u.lauf_status !== 'unvollständig' && fehlt.length === 0;\nconst abgelegt = (u.lieferung?.abgelegt || []).length;\n\nreturn [{\n  json: {\n    // Laufnummer für den Bericht, ab BC3-40 trägt rein.lauf_id die lieferung_id\n    lauf_id: u.lauf?.lauf_nr || rein.lauf_id,\n    lieferung_id: u.lieferung?.lieferung_id || null,\n    status: vollstaendig ? 'ok' : 'unvollständig',\n    stufen: prot.length,\n    offen: offen.map(p => p.stufe),\n    abgebrochen: abgebrochen.map(p => p.stufe.replace(/ \\(abgebrochen\\)$/, '')),\n    fehlt,\n    dateien_abgelegt: abgelegt,\n    befunde,\n    stoerfall: u.stoerfall || null,\n    gate2: u.gate2 || null,\n    naechster_schritt: !vollstaendig\n      ? (u.stoerfall?.was_tun\n          || (abgebrochen.length === 0 && fehlt.length ? `Umschlag unvollständig: ${fehlt.join(', ')}.` : '')\n          || 'In der Ausführungsansicht nachsehen, dann erneut starten.')\n      : u.gate2?.entscheidung === 'approved'\n        ? (u.gate2?.pr\n            ? (u.gate2.pr.gemergt\n                ? `Fertig. Pull Request #${u.gate2.pr.nummer} zusammengeführt, BC4 holt aus main.`\n                : `Pull Request #${u.gate2.pr.nummer} ist offen, von Hand zusammenführen.`)\n            : u.gate2?.liefermodus === 'test'\n              ? 'Testlauf freigegeben, kein Pull Request (Modus test).'\n              : 'Freigegeben, aber kein Pull Request entstanden. Protokoll von BC3-80 ansehen.')\n        : u.gate2?.entscheidung === 'nachbessern'\n          ? 'Zur Nachbesserung zurückgegeben. Nach der Nachbesserung neu starten.'\n        : u.gate2?.entscheidung === 'rejected'\n          ? 'An Gate 2 abgelehnt. Die Dateien bleiben in _vorschau, BC4 sieht nichts.'\n          : 'BC3-80 Gate 2 starten',\n    protokoll: prot,\n    umschlag: u,\n  },\n}];\n"
+      },
+      "id": "cend",
+      "name": "Lauf abschliessen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2384,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## BC3-00 Orchestrator\n\nSteuert einen Lauf: ruft BC3-10 bis BC3-70 nacheinander auf, hält an Gate 2 an und ruft nach der Entscheidung BC3-80 auf. Der Umschlag geht durch alle Schritte und sammelt Ergebnisse und Protokoll. Ohne KI.\n\nEinstellungen wie Ablageordner, Adresse der Gate-2-Seite und Telegram-Chat stehen in „Lauf einstellen“.",
+        "height": 300,
+        "width": 460,
+        "color": 3
+      },
+      "id": "n1",
+      "name": "Hinweis: BC3-00 Orchestrator",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1568,
+        -400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * R6 - einmalige Wiederholung nach einem Abbruch in BC3-40.\n *\n * Der Aufruf von BC3-40 steht auf \"Fehlerausgang weiterleiten\". Landet der Lauf\n * hier, hat eine der Prüfstellen abgebrochen. Beim ersten Mal wird BC3-20 mit\n * verschärftem Auftrag wiederholt, beim zweiten Mal ist Schluss.\n *\n * Seit 12.10.2026 reist die Meldung im Plan mit (plan.r6_fehler), damit der\n * zweite Durchgang von BC3-20 weiss, WORAN der erste gescheitert ist. Vorher\n * bekam er nur einen festen Text. Die Meldung ist seit demselben Tag einzeilig\n * (BC3-40 'Lieferung pruefen'), sonst kam hier nur die Kopfzeile an.\n */\nconst rein = $input.first().json;\nconst u = rein.umschlag || $('BC3-15 Plan festlegen').first().json.umschlag || {};\nconst plan = u.plan || { wiederholungen: 0, modi: {} };\nconst meldung = rein.error?.message || rein.message || 'ohne Angabe';\n// n8n haengt an Fehler aus Code-Bausteinen \" [line N]\" an - fuer den Auftrag\n// an das Modell ist das Rauschen.\nconst kern = String(meldung).split('\\n')[0].replace(/\\s*\\[line \\d+\\]\\s*$/, '').slice(0, 1500);\n\n// Beim zweiten Mal NICHT mehr werfen - sonst stirbt der Lauf und die\n// Arbeit davor ist verloren. Stattdessen den Bescheid weitergeben; die\n// Verzweigung dahinter schickt es in die Störfall-Behandlung.\nif ((plan.wiederholungen || 0) >= 1) {\n  return [{ json: { lauf_id: rein.lauf_id, wiederholen: false, umschlag: u,\n    error: { message: 'BC3-40 ist zum zweiten Mal abgebrochen: ' + kern } } }];\n}\n\nreturn [{\n  json: {\n    lauf_id: rein.lauf_id,\n    wiederholen: true,\n    umschlag: {\n      ...u,\n      plan: {\n        ...plan,\n        wiederholungen: (plan.wiederholungen || 0) + 1,\n        modi: { ...plan.modi, 'BC3-20': 'streng' },\n        r6_fehler: kern,\n      },\n      protokoll: [...(u.protokoll || []), {\n        stufe: 'BC3-00 Wiederholung (R6)',\n        zeitpunkt: new Date().toISOString(),\n        status: 'wiederholung',\n        befunde: ['BC3-40 abgebrochen: ' + kern,\n                  'BC3-20 wird einmal mit verschärftem Auftrag wiederholt, die Meldung geht mit'],\n      }],\n    },\n  },\n}];\n"
+      },
+      "id": "c2039372",
+      "name": "R6 Wiederholung prüfen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        256,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Ein Schritt hat abgebrochen. Dieser Baustein stellt fest, welcher, und rettet\n * den Umschlag, damit die Arbeit davor nicht verloren ist.\n *\n * Der Fehlerausgang eines Aufrufs enthält keine Daten, nur die Meldung. Der Umschlag\n * kommt deshalb vom letzten Schritt, der noch einen geliefert hat. Gescheitert ist der\n * letzte Schritt, der überhaupt gelaufen ist, n8n arbeitet die Kette der Reihe nach ab.\n */\n// Namen der Aufruf-Bausteine in diesem Workflow, bei jeder Umbenennung mitziehen\nconst STUFEN = [\"BC3-10 Konzept einlesen\", \"BC3-15 Plan festlegen\", \"BC3-20 Stories schneiden\", \"BC3-30 Compliance prüfen\", \"BC3-40 Tickets bauen und prüfen\", \"BC3-50 Architektur\", \"BC3-70 Ausliefern\", \"BC3-80 Gate 2\"];\n\nconst gelaufen = (name) => { try { return $(name).isExecuted; } catch (e) { return false; } };\nconst umschlagVon = (name) => {\n  try {\n    const j = $(name).first().json;\n    return j && j.umschlag ? j.umschlag : null;\n  } catch (e) { return null; }\n};\n\nlet gescheitert = null;\nfor (const s of STUFEN) if (gelaufen(s)) gescheitert = s;\n\nlet umschlag = null;\nconst bis = gescheitert ? STUFEN.indexOf(gescheitert) : STUFEN.length;\nfor (let i = bis - 1; i >= 0 && !umschlag; i--) umschlag = umschlagVon(STUFEN[i]);\nfor (const fallback of ['BC3-15 Plan festlegen', 'Laufprotokoll: Start', 'Umschlag anlegen']) {\n  if (!umschlag) umschlag = umschlagVon(fallback);\n}\numschlag = umschlag || {};\n\n// Die Meldung kommt je nach Baustein in unterschiedlicher Gestalt.\nconst rein = $input.first().json;\nconst f = (rein.error && typeof rein.error === 'object') ? rein.error : {};\nconst meldung = String(\n  f.message || rein.message ||\n  (typeof rein.error === 'string' ? rein.error : '') || 'ohne Angabe'\n).split('\\n')[0].slice(0, 400);\n\nlet lauf_id = null;\nfor (const n of ['Umschlag anlegen', 'Lauf einstellen']) {\n  try { lauf_id = lauf_id || $(n).first().json.lauf_id; } catch (e) { /* egal */ }\n}\n\nconst stoerfall = {\n  stufe: gescheitert || 'unbekannt',\n  baustein: f.node?.name || null,\n  baustein_typ: f.node?.type || null,\n  meldung,\n  unter_ausfuehrung: f.executionId || null,\n  wiederholungen: umschlag.plan?.wiederholungen || 0,\n  erreicht: (umschlag.protokoll || []).map(x => x.stufe),\n};\n\nreturn [{ json: { lauf_id: lauf_id || umschlag.lauf?.lauf_nr || 'unbekannt', umschlag, stoerfall } }];\n"
+      },
+      "id": "c66083082",
+      "name": "Stufe gescheitert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        912
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Wie geht es weiter? Das entscheiden REGELN, nicht der Agent.\n *\n * Der Agent hat davor erklärt, was vermutlich los ist, und darf vorschlagen.\n * Übernommen wird sein Vorschlag nur dort, wo die Regel es zulässt - genau\n * wie bei \"Hinweise übernehmen\" nach dem Auffälligkeits-Agenten.\n *\n * Ein dynamischer Wiedereintritt in eine bestimmte Stufe ist in n8n nicht\n * ausdrückbar; die Verdrahtung ist fest. Die Wiederholung bleibt deshalb eine\n * Empfehlung an den Menschen - ausser bei R6, das eigens verdrahtet ist.\n */\nconst d = $('Stufe gescheitert').first().json;\nconst s = d.stoerfall;\n\n// Bis zum 06.09.2026 stand hier der Agent „Stoerfall erklaeren“. Er ist\n// entfallen: die sieben Regelmuster unten gewinnen ohnehin immer\n// (treffer?.tun || ...), und im einzigen Fall, fuer den er gedacht war\n// (403 tier_not_allowed, Lauf 69 am 03.09.), waere er selbst mit ausgefallen -\n// er lief auf demselben Modell.\n// Der Leseversuch bleibt stehen und liefert jetzt immer null. Wer spaeter\n// wieder einen Erklaerer davorhaengt, muss hier nichts aendern.\nlet erklaerung = null;\ntry {\n  const roh = $input.first().json.output ?? $input.first().json.text;\n  const sauber = String(roh ?? '').trim()\n    .replace(/^```json\\s*/i, '').replace(/^```\\s*/i, '').replace(/```\\s*$/i, '').trim();\n  if (sauber) erklaerung = JSON.parse(sauber);\n} catch (e) { erklaerung = null; }\n\n// --- Regeltabelle: was ist zu tun ---------------------------------------\n// Bewusst hier und nicht im Modell: wer später fragt, warum ein Lauf\n// abgebrochen wurde, soll die Regel lesen koennen.\nconst REGELN = [\n  // Vor allen anderen: gesperrter Aufruf eines Kind-Workflows\n  { muster: /cannot be called by this workflow|SubworkflowPolicyDenial|is not active/i,\n    art: 'Aufruf nicht erlaubt', wiederholen: false,\n    tun: 'Der aufgerufene Workflow ist nicht veröffentlicht oder liegt in einem anderen Konto. ' +\n         'Ihn veröffentlichen oder ins Konto von BC3-00 holen, dann neu starten.' },\n  { muster: /authorization grant|refresh token|invalid_grant|unauthorized|401/i,\n    art: 'Zugang', wiederholen: false,\n    tun: 'Zugangsdaten in n8n neu anmelden, dann den Lauf erneut starten.' },\n  // Vor der allgemeinen 403-Regel, sonst wird der Tarif-Fall als Abrufgrenze\n  // gedeutet und jemand wartet vergeblich. Am 03.09.2026 an Lauf 69 passiert:\n  // mistral-large-latest war ploetzlich nicht mehr im Tarif enthalten.\n  { muster: /tier_not_allowed|not available in your subscription|insufficient.?quota|billing|payment required|402/i,\n    art: 'Modell nicht verfügbar', wiederholen: false,\n    tun: 'Das Sprachmodell ist im Tarif nicht enthalten oder das Guthaben ist leer. ' +\n         'Im Konto des Anbieters nachsehen. Wiederholen hilft nicht.' },\n  { muster: /rate limit|429|403/i,\n    art: 'Abrufgrenze', wiederholen: true,\n    tun: 'Eine Abrufgrenze ist erreicht. Später erneut starten.' },\n  // Anbieter kurz nicht erreichbar (Mistral 503 in Lauf 1343)\n  { muster: /service unavailable|bad gateway|gateway time-?out|internal server error|overloaded|try again later|\\b50[0234]\\b/i,\n    art: 'Dienst nicht erreichbar', wiederholen: true,\n    tun: 'Ein Dienst (meist das Sprachmodell) war kurz nicht erreichbar, am Lauf ist nichts falsch. ' +\n         'In ein paar Minuten neu starten.' },\n  { muster: /404|not found|nicht erreichbar/i,\n    art: 'Quelle nicht erreichbar', wiederholen: false,\n    tun: 'Die Quelle ist nicht da. Pfad der Lieferung prüfen.' },\n  { muster: /timeout|ETIMEDOUT|socket hang up|ECONNRESET/i,\n    art: 'Netzfehler', wiederholen: true,\n    tun: 'Eine Verbindung ist abgerissen. Erneut starten.' },\n  { muster: /Ausgangspr(ü|ue)fung|schema|Oberste Ebene|Pflichtfeld/i,\n    art: 'Eigener Fehler', wiederholen: true,\n    tun: 'Die Ausgangsprüfung hat abgebrochen. BC3-20 läuft bei R6 einmal streng nach.' },\n  { muster: /kein Aggregat|keine Potenziale|keine tickets|Keine Dateien|nichts geliefert/i,\n    art: 'Reihenfolge', wiederholen: false,\n    tun: 'Eine Stufe hat nichts geliefert. Zuerst die Stufe davor ansehen.' },\n];\nconst treffer = REGELN.find(r => r.muster.test(s.meldung));\n\nconst art = treffer?.art || 'unbekannt';\nconst wiederholen = treffer ? treffer.wiederholen : false;\nconst tun = treffer?.tun\n  || (erklaerung?.was_tun ? String(erklaerung.was_tun) : 'In der Ausführungsansicht nachsehen.');\n\n// Der Agent darf die Regel NICHT umstossen. Weicht er ab, wird das vermerkt.\nconst abweichung = (erklaerung && typeof erklaerung.wiederholen_sinnvoll === 'boolean'\n                    && erklaerung.wiederholen_sinnvoll !== wiederholen)\n  ? `Der Agent hält Wiederholen für ${erklaerung.wiederholen_sinnvoll ? 'sinnvoll' : 'nicht sinnvoll'}, die Regel sagt das Gegenteil. Es gilt die Regel.`\n  : null;\n\nconst u = d.umschlag || {};\nreturn [{\n  json: {\n    lauf_id: d.lauf_id,\n    umschlag: {\n      ...u,\n      lauf_status: 'unvollständig',\n      stoerfall: {\n        ...s, art, wiederholen_laut_regel: wiederholen, was_tun: tun,\n        erklaerung: erklaerung || null,\n      },\n      protokoll: [...(u.protokoll || []), {\n        stufe: s.stufe + ' (abgebrochen)',\n        zeitpunkt: new Date().toISOString(),\n        status: 'abgebrochen',\n        befunde: [\n          `${s.baustein ? 'Baustein \"' + s.baustein + '\": ' : ''}${s.meldung}`,\n          `Einordnung: ${art}. ${tun}`,\n          ...(erklaerung?.ursache_vermutlich ? ['Vermutung des Agenten: ' + erklaerung.ursache_vermutlich] : []),\n          ...(erklaerung?.unsere_schuld !== undefined\n              ? ['Unsere Schuld: ' + (erklaerung.unsere_schuld ? 'ja' : 'nein, die Umgebung')] : []),\n          ...(abweichung ? [abweichung] : []),\n          ...(s.unter_ausfuehrung ? ['Die Daten des gescheiterten Kindes liegen in Ausführung '\n                                     + s.unter_ausfuehrung + '.'] : []),\n        ],\n      }],\n    },\n  },\n}];\n"
+      },
+      "id": "c10744702",
+      "name": "Fehler einordnen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        704,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Schreibt den Abschlusssatz des Laufs.\n *\n * Bis zum 06.09.2026 stand davor der Agent „Bericht schreiben“. Er kostete\n * jeden Lauf einen Mistral-Aufruf, sein Auftrag lautete woertlich „fuer einen\n * Menschen, der VOR Gate 2 sitzt“ - und er lief HINTER Gate 2, also fuer\n * jemanden, der schon entschieden hatte. Sein Text landete hier und ging nicht\n * weiter, denn dieser Baustein ist der letzte im Workflow.\n *\n * Der Leseversuch unten bleibt stehen und liefert jetzt immer null; damit\n * greift der Satz aus den Zahlen, der ohnehin schon fertig war. Wer spaeter\n * wieder einen Berichtschreiber davorhaengt, muss hier nichts aendern.\n */\nconst z = $('Lauf abschliessen').first().json;\n\nlet text = null;\ntry {\n  text = String($input.first().json.output ?? $input.first().json.text ?? '').trim() || null;\n} catch (e) { text = null; }\n\nif (!text) {\n  const n = z.befunde.length;\n  const lauf = z.lieferung_id ? `${z.lauf_id} (Lieferung ${z.lieferung_id})` : z.lauf_id;\n  text = z.status === 'ok'\n    ? `Lauf ${lauf} vollständig: ${z.stufen} Stufen, ${z.dateien_abgelegt} Dateien abgelegt, ${n} Befunde. Nächster Schritt: ${z.naechster_schritt}`\n    : `Lauf ${lauf} unvollständig, abgebrochen in ${z.abgebrochen.join(', ') || 'unbekannt'}. ${z.naechster_schritt}`;\n}\n\nreturn [{ json: { ...z, bericht: text } }];\n"
+      },
+      "id": "c55008254",
+      "name": "Bericht anhängen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2560,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "nochmal",
+              "leftValue": "={{ $json.wiederholen }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-r6",
+      "name": "Noch ein Versuch?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        496,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Wenn ein Schritt abbricht\n\nBricht ein Schritt ab, ordnet „Fehler einordnen“ den Fehler nach festen Mustern ein (Zugang, Modell, Abrufgrenze, Quelle, Netz, eigener Fehler, Reihenfolge) und nennt den nächsten Schritt.\n\nDer Lauf endet mit Status `abgebrochen`, der Fehler steht in `fehler` und auf der Übersicht.\n\nIn `fehler` schreibt sonst BC3-99 im gescheiterten Schritt. Ist der Aufruf gesperrt oder der Schritt nicht veröffentlicht, läuft er nie an. Dann schreibt BC3-00 die Zeile selbst („Aufruf gescheitert?“).",
+        "height": 520,
+        "width": 500,
+        "color": 3
+      },
+      "id": "n-stoer",
+      "name": "Hinweis: Wenn ein Schritt abbricht",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        192,
+        1072
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "btNCECvEp5neQ2h4",
+          "mode": "id",
+          "cachedResultName": "BC3-80 Gate 2 Freigabe"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "lauf_id": "={{ $('Gate 2 vorbereiten').first().json.lauf_id }}",
+            "umschlag": "={{ $('Gate 2 vorbereiten').first().json.umschlag }}",
+            "antwort": "={{ $json.body ?? {} }}",
+            "pruefung": "={{ $('Gate 2 vorbereiten').first().json.pruefung }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "lauf_id",
+              "displayName": "lauf_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "umschlag",
+              "displayName": "umschlag",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            },
+            {
+              "id": "antwort",
+              "displayName": "antwort",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            },
+            {
+              "id": "pruefung",
+              "displayName": "pruefung",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "wf-bc380",
+      "name": "BC3-80 Gate 2",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "retryOnFail": false,
+      "position": [
+        2224,
+        48
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "content": "## Gate 2\n\nNach „Abdeckung anhängen“ stehen die Daten der Gate-2-Seite in `gate2_ansicht`, Telegram schickt den Link. Der Lauf wartet, bis jemand auf der Seite entscheidet, höchstens 7 Tage. Das ist der menschliche Entscheidungspunkt, kein Fehler.\n\nBC3-81 weckt den Lauf über seine Fortsetzungsadresse. Ohne Entscheidung geht er nach 7 Tagen weiter, BC3-80 wertet das als Fristablauf.",
+        "height": 300,
+        "width": 460,
+        "color": 5
+      },
+      "id": "n-gate2kette",
+      "name": "Hinweis: Gate 2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1280,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Start\n\n**BC3-01** sucht alle 15 Minuten nach neuen Lieferungen, die BC2 an Gate 1 freigegeben hat, und startet diesen Workflow einmal je Konzept mit `pfad`.\n\n**Von Hand starten** nur für Tests, dann gilt die Voreinstellung in *Lauf einstellen*.\n\nAlle Läufe auf einen Blick: BC3-82 Übersicht.",
+        "height": 260,
+        "width": 460,
+        "color": 6
+      },
+      "id": "n-ausloeser",
+      "name": "Hinweis: Start",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1584,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Gate 2 vorbereiten: die Maschine prueft, was sie hier noch pruefen KANN.\n *\n * Bis zum 06.09.2026 standen hier neun Pruefpunkte. Die Expertenrunde hat sie\n * einzeln gegen drei Fragen gehalten - besitzt BC3 die Aussage, kann der Punkt\n * an DIESER Stelle noch scheitern, und aendert er etwas? Vier haben bestanden.\n *\n * WEGGEFALLEN, weil sie hier nicht mehr scheitern koennen:\n *   kennung             BC3-10 \"Eingang pruefen\" wirft, wenn kp_id fehlt oder\n *                       nicht auf ^KP-(0[1-9]|10)$ passt. Was Gate 2 hier prueft,\n *                       kann gar nicht mehr falsch sein - eine Zeile, die immer\n *                       [ok] sagt, erzieht zum Ueberfliegen der anderen.\n *   nachvollziehbarkeit prueft (prot.length && lieferung_id) - beides ist\n *                       gesetzt, sobald der Lauf ueberhaupt bis hierher kommt.\n *                       Selbstauskunft, im Dokument selbst kein Sperrgrund.\n *\n * IN DIE KOPFZEILE GEWANDERT, weil sie Tatsachen sind und keine Haekchen:\n *   vertragstreue       das Urteil faellt BC3-40 \"Lieferung pruefen\" - es wirft\n *                       bei jedem harten Verstoss, bevor irgendetwas hochgeladen\n *                       wird. Hier steht nur noch, WOGEGEN geprueft wurde.\n *   herkunft            value_quelle ist eine Aussage ueber BC2s Datenhygiene.\n *                       Was ein Mensch braucht, ist die Warnung \"diese Zahlen\n *                       sind vorlaeufig\" - oben, wo sie die Beurteilung faerbt.\n *\n * ZUSAMMENGELEGT:\n *   architektur         geht in vollstaendigkeit auf - es ist dieselbe Frage:\n *                       ist alles in der Kiste.\n *   compliance          geht in pflichten_zugeordnet auf. Er prueft nur, ob\n *                       BC3-30 durchgelaufen ist; ohne Befund gibt es keine\n *                       Pflichten. Die Widerspruchspruefung laeuft weiter.\n *\n * NEU:\n *   ablage              \"Die Lieferung liegt und ist erreichbar\". Der\n *                       Formulartext schickt zur Stichprobe in ticket_set.json,\n *                       nannte aber nie einen Ort - und zeigte lauter [ok],\n *                       auch wenn die Ablage am Drive-Zugang gescheitert war.\n *                       Dieser Punkt faellt tatsaechlich, und er ist die\n *                       Vorbedingung dafuer, dass die Stichprobe beantwortbar ist.\n */\nconst rein = $input.first().json;\nconst u = rein.umschlag || {};\nconst dateien = u.lieferung?.dateien || [];\nconst t = dateien.find(x => x._datei === 'tickets') || {};\nconst audit = dateien.find(x => String(x._datei || '').startsWith('compliance')) || {};\nconst alleStories = (t.epics || []).flatMap(e => e.stories || []);\n\n// Drei Merkmale, nicht eines - und die Quelle wird mitgefuehrt. R2 belegt\n// keinen Anhang III, sondern einen Wortfund; wer das gleichsetzt, schreibt BC4\n// in den Pull Request, Anhang III sei einschlaegig, wo nur ein Wort stand.\nconst klasseRoh = String(audit.vorpruefung?.ai_act_klasse || audit.ai_act_klasse || '').trim();\nconst anhangIII = audit.vorpruefung?.anhang_iii_kategorie || audit.anhang_iii_kategorie;\nconst ausAkte = /^(high|hoch|hochrisiko|unacceptable|unzul(ae|ä)ssig|verboten)$/i\n  .test(klasseRoh) || !!anhangIII;\nconst ausPlan = u.plan?.hochrisiko === true;\nconst hochrisiko = ausAkte || ausPlan;\nconst hochrisikoQuelle = ausAkte && ausPlan ? 'Compliance-Akte und Regel R2'\n  : ausAkte ? 'Compliance-Akte'\n  : ausPlan ? 'Regel R2 (Kernprozess oder Personenbegriff im Konzept) - die Akte '\n              + 'sagt es NICHT, das ist kein Beleg für Anhang III'\n  : null;\n\nfunction ja(beleg) { return { ok: true, beleg }; }\nfunction nein(beleg, abhilfe) { return { ok: false, beleg, abhilfe }; }\n\nconst PRUEFUNGEN = [\n  {\n    id: 'vollstaendigkeit', titel: 'Die Lieferung enthält alles Gebaute',\n    pruefen: () => {\n      const epics = (t.epics || []).length;\n      const leer = (t.epics || []).filter(e => !(e.stories || []).length).map(e => e.titel);\n      const erwartet = u.aggregat?.anzahl_epics;\n      const md = dateien.find(x => x._datei === 'architecture');\n      const bp = dateien.find(x => x._datei === 'blueprint');\n      if (!epics) return nein('keine Epics in der Lieferung',\n        'BC3-20 hat nichts geliefert. Ausführung von BC3-20 ansehen.');\n      if (leer.length) return nein(`${epics} Epics, davon ohne Story: ${leer.join('; ')}`,\n        'Das betroffene Epic in BC3-20 erneut schneiden lassen.');\n      if (erwartet != null && erwartet !== epics)\n        return nein(`${epics} Epics geliefert, ${erwartet} erwartet`,\n          'Unterwegs sind Epics verloren gegangen. '\n          + 'BC3-20 „Vollständigkeit prüfen\" ansehen.');\n      const fehlt = [!md && 'architecture.md', !bp && 'blueprint.json'].filter(Boolean);\n      if (fehlt.length) return nein(\n        `${epics} Epics, ${alleStories.length} Stories - aber es fehlt: ${fehlt.join(', ')}`,\n        'BC3-50 ansehen.');\n      return ja(`${epics} Epics, ${alleStories.length} Stories, keines leer; `\n        + `architecture.md (${String(md.inhalt || '').length} Zeichen) und `\n        + `blueprint.json mit ${(bp.komponenten || []).length} Komponenten liegen bei`);\n    },\n  },\n  {\n    id: 'akzeptanzkriterien', titel: 'Akzeptanzkriterien prüfbar',\n    pruefen: () => {\n      const ohne = alleStories.filter(s => !(s.akzeptanzkriterien || []).length);\n      const ohneMess = alleStories.filter(s =>\n        (s.akzeptanzkriterien || []).some(a => !a.messverfahren || /^offen:/i.test(String(a.messverfahren))));\n      if (ohne.length) return nein(\n        `${ohne.length} von ${alleStories.length} Stories ohne Kriterium: `\n        + ohne.slice(0, 3).map(s => s.titel).join('; '),\n        'BC3-20 erzeugt sie; fehlen sie, den Story-Architekten für dieses Epic '\n        + 'erneut laufen lassen.');\n      // Seit 22.10.2026 (Svetlana): fehlende Messverfahren sind kein offener Punkt. Sie kommen\n      // so von BC2, BC3 gibt sie unverändert weiter und vermerkt sie in offene-punkte.json.\n      // Einen Rückweg zu BC2 gibt es noch nicht (of-17).\n      if (ohneMess.length) return ja(\n        `alle ${alleStories.length} Stories haben Kriterien; ${ohneMess.length} davon ohne `\n        + 'Messverfahren aus dem Konzept, in den offenen Punkten vermerkt');\n      return ja(`alle ${alleStories.length} Stories haben Kriterien mit Messverfahren`);\n    },\n  },\n  {\n    id: 'pflichten_zugeordnet', titel: 'Rechtliche Einordnung und Zuordnung',\n    pruefen: () => {\n      const a = audit.vorpruefung || audit;\n      if (!a.ampel || !a.ai_act_klasse)\n        return nein('kein Compliance-Befund in der Lieferung',\n          'BC3-30 ist nicht durchgelaufen. Ausführung ansehen.');\n      // Widerspruch in sich: eine Anhang-III-Kategorie gibt es nur bei\n      // Hochrisiko. Der Slicer entscheidet in die sichere Richtung - und sagt\n      // es, statt es zu verschlucken.\n      if (anhangIII && !/^(high|hoch|hochrisiko|unacceptable)$/i.test(klasseRoh))\n        return nein(\n          `Ampel ${a.ampel}, Klasse \"${klasseRoh}\" - aber Anhang III genannt: `\n          + `${anhangIII}. Das widerspricht sich.`,\n          'Eine Anhang-III-Kategorie gibt es nur bei Hochrisiko. Der Slicer '\n          + 'behandelt die Lieferung deshalb als Hochrisiko. Im Compliance-Befund '\n          + 'von BC3-30 nachsehen, welches der beiden Felder falsch ist.');\n      const p = audit.pflichten || [];\n      const ohne = p.filter(x => !x.adressat);\n      const g = audit.pflichten_nach_adressat || {};\n      const ohneStory = (audit.pflichten_ohne_story || []).length;\n      if (ohne.length) return nein(\n        `${ohne.length} von ${p.length} Pflichten ohne Adressaten`,\n        'Der Compliance-Agent in BC3-30 muss adressat setzen. Bis dahin gelten '\n        + 'sie als bc4 - das kann falsch sein.');\n      if (ohneStory) return nein(\n        `${ohneStory} Pflicht(en) gelten als baubar, haben aber keine Story`,\n        'BC3-40 führt sie unter pflichten_ohne_story. Entweder beim '\n        + 'Compliance-Agenten nachfordern oder ausdrücklich als offen liefern.');\n      return ja(`Ampel ${a.ampel}, Klasse ${a.ai_act_klasse}`\n        + (anhangIII ? `, ${anhangIII}` : '')\n        + `. ${p.length} Pflichten zugeordnet: `\n        + Object.entries(g).filter(([, v]) => v.length)\n            .map(([k, v]) => `${v.length} an ${k}`).join(', '));\n    },\n  },\n  {\n    // Seit 22.10.2026 (Restbefund V5): aus \"Einstufung gegenprüfen\" in BC3-30.\n    // Nur gemeldet, Pflicht und Story bleiben in der Lieferung.\n    id: 'grundlagen', titel: 'Rechtsgrundlage und Messverfahren der Pflichten',\n    pruefen: () => {\n      const c = u.compliance || {};\n      const art = c.artikel_nur_hochrisiko || [];\n      const mv = c.messverfahren_ohne_quelle || [];\n      if (!art.length && !mv.length)\n        return ja('Artikel passen zur Klasse, Messverfahren ohne Zahlen ohne Quelle');\n      return nein(\n        [...art.map(x => `Pflicht ${x.pflicht_id} beruft sich auf ${x.artikel} KI-VO, `\n          + `der nur bei Hochrisiko gilt (Klasse ${c.ai_act_klasse || 'unbekannt'})`), ...mv].join('; '),\n        'Beim Nachbessern die Grundlage richtigstellen (etwa DSGVO Art. 13 für einen Hinweis '\n        + 'an Betroffene) und Zahlen ohne Quelle durch \"offen: ...\" ersetzen. Sonst so freigeben, '\n        + 'die Pflicht bleibt inhaltlich bestehen.');\n    },\n  },\n  {\n    id: 'ablage', titel: 'Die Lieferung liegt und ist erreichbar',\n    pruefen: () => {\n      const lief = u.lieferung || {};\n      const abgelegt = lief.abgelegt || [];\n      const soll = dateien.length;\n      if (lief.ablage_gescheitert)\n        return nein('die Ablage in Google Drive ist gescheitert - in _vorschau '\n          + 'liegt nichts',\n          'Der Pull Request ist davon unberührt, er baut aus dem Umschlag. Aber '\n          + 'die Stichprobe unten kannst du nicht machen, ohne die Datei zu '\n          + 'öffnen. Zugangsdaten für Google Drive in n8n erneuern und BC3-70 '\n          + 'einzeln wiederholen.');\n      if (!abgelegt.length)\n        return nein('keine Dateikennungen im Umschlag',\n          'BC3-70 hat sie nicht mitgegeben, oder der Lauf wurde ohne Umschlag '\n          + 'gestartet.');\n      if (soll && abgelegt.length !== soll)\n        return nein(`${abgelegt.length} von ${soll} Dateien abgelegt`,\n          'Siehe Protokoll von BC3-70. Der Pull Request enthält trotzdem alle — '\n          + 'er baut aus dem Umschlag.');\n      return ja(`${abgelegt.length} von ${soll} Dateien in `\n        + `_vorschau/${lief.lieferung_id}: ${abgelegt.map(d => d.name).join(', ')}`);\n    },\n  },\n];\n\nconst ergebnis = PRUEFUNGEN.map(p => {\n  let r;\n  try { r = p.pruefen(); }\n  catch (e) { r = nein('Die Prüfung selbst ist gescheitert: ' + e.message,\n                       'Das ist ein Fehler im Prüfpunkt, nicht in der Lieferung.'); }\n  return { id: p.id, titel: p.titel, ...r };\n});\nconst bestaetigt = ergebnis.filter(r => r.ok);\nconst offen = ergebnis.filter(r => !r.ok);\n\n/**\n * Die Stichprobe - die einzige Frage, die man nicht ohne Hinsehen beantworten\n * kann.\n *\n * Vorher stand hier ein Dropdown \"Guete Akzeptanzkriterien: hoch|mittel|gering\".\n * Drei Worte zur Auswahl, ohne dass die Kriterien im Formular standen: eine\n * Frage, die man raet. Jetzt stehen drei Kriterien im Wortlaut da, und gefragt\n * ist, welches am wenigsten pruefbar ist.\n *\n * Die Auswahl ist NICHT zufaellig, sondern aus der Lieferungskennung\n * abgeleitet: derselbe Lauf zeigt immer dieselben drei. Sonst waere der\n * Nachweis nicht wiederholbar - und ein Nachweis, den man nicht nachfahren\n * kann, ist keiner.\n */\nfunction streu(text) {\n  let h = 2166136261;\n  for (let i = 0; i < text.length; i++) {\n    h ^= text.charCodeAt(i);\n    h = Math.imul(h, 16777619);\n  }\n  return h >>> 0;\n}\nconst alleKriterien = alleStories.flatMap(s =>\n  (s.akzeptanzkriterien || []).map(a => ({\n    story: s.titel,\n    text: String(a.text || '').trim(),\n    mess: a.messverfahren || null,\n  }))).filter(k => k.text);\n\nconst saat = streu(String(u.lieferung?.lieferung_id || rein.lauf_id || 'bc3'));\nconst gezogen = [];\nif (alleKriterien.length) {\n  const rest = [...alleKriterien];\n  for (let i = 0; i < 3 && rest.length; i++) {\n    gezogen.push(rest.splice((saat + i * 7919) % rest.length, 1)[0]);\n  }\n}\n\n/**\n * Die Maschine urteilt, der Mensch prueft.\n *\n * Erste Fassung vom 06.09.2026 zeigte drei Kriterien und fragte: \"Welches ist\n * am wenigsten pruefbar?\" Das war falsch herum. Svetlanas Einwand am selben\n * Tag: \"das ist keine menschliche pruefung, die ich da eintippen muss. es muss\n * ja so laufen: ki erstellt und ich pruefe, mit meinen eigenen worten.\"\n *\n * Sie hat recht, und es ist auch die richtige Lesart von Artikel 14: Aufsicht\n * heisst uebersteuern koennen, nicht selbst herleiten. Wer die Analyse\n * abverlangt, verlagert die Arbeit statt sie zu pruefen - und bekommt bei der\n * dritten Wiederholung \"keine Ahnung\", so wie in Lauf 121.\n *\n * Also: die Regeln unten nennen je Kriterium die konkreten Maengel, benennen\n * das schwaechste und sagen warum. Die Gate-2-Seite fragt nur noch, ob das stimmt.\n * Widersprechen ist dabei genauso billig wie zustimmen - ein Klick - damit die\n * Zustimmung nicht der bequemere Weg ist.\n */\nconst UNBESTIMMT = /\\b(schnell|zeitnah|einfach|benutzerfreundlich|angemessen|relevant|zuverl(ä|ae)ssig|korrekt|gut|sinnvoll|effizient|m(ö|oe)glichst|zufriedenstellend)\\b/i;\nconst ZAHL = /\\d/;\n\nfunction woerter(s) {\n  return new Set(String(s || '').toLowerCase()\n    .replace(/[^a-zäöüß0-9 ]+/g, ' ').split(/\\s+/).filter(x => x.length > 4));\n}\n\n/**\n * Was ist an diesem Kriterium schwach? Regeln, kein Modell - die Einstufung\n * muss bei jedem Lauf gleich ausfallen und nachlesbar sein.\n */\nfunction maengel(k) {\n  const m = [];\n  const text = String(k.text || '');\n  const mess = String(k.mess || '');\n\n  // Seit 23.10.2026 (Svetlana): ein fehlendes Messverfahren ist kein Einwand mehr. Es kommt so\n  // von BC2 und steht als Hinweis auf der Gate-2-Seite. Gewertet wird nur, was BC3 verantwortet.\n  if (mess && !/^offen:/i.test(mess)) {\n    // Zirkulaer: das Messverfahren wiederholt nur das Kriterium\n    const a = woerter(text), b = woerter(mess);\n    let gleich = 0;\n    for (const x of b) if (a.has(x)) gleich++;\n    if (b.size && gleich / b.size > 0.6) {\n      m.push({ schwere: 3, was: 'Das Messverfahren wiederholt nur das Kriterium mit '\n        + 'denselben Wörtern. Es misst nichts, was nicht schon dasteht.' });\n    }\n    if (/^\\s*(manuelle|händische|haendische)\\s+(pruefung|prüfung)/i.test(mess)\n        && !ZAHL.test(mess)) {\n      m.push({ schwere: 2, was: 'Als Messverfahren steht nur „manuelle Prüfung“ '\n        + 'ohne Schwelle oder Stichprobengröße. Zwei Personen kämen zu '\n        + 'verschiedenen Ergebnissen.' });\n    }\n  }\n\n  const u = text.match(UNBESTIMMT);\n  if (u) {\n    m.push({ schwere: 2, was: `Das Kriterium enthält das unbestimmte Wort „${u[0]}“. Es ist `\n      + 'nicht festgelegt, ab wann das zutrifft.' });\n  }\n  if (!/\\bgiven\\b|\\bgegeben\\b/i.test(text) || !/\\bthen\\b|\\bdann\\b/i.test(text)) {\n    m.push({ schwere: 1, was: 'Kein vollständiges Given/When/Then: Die '\n      + 'Ausgangslage oder das erwartete Ergebnis fehlt.' });\n  }\n  return m.sort((x, y) => y.schwere - x.schwere);\n}\n\nconst bewertet = gezogen.map(k => ({ ...k, maengel: maengel(k) }));\nconst punkte = bewertet.map(k => k.maengel.reduce((s, m) => s + m.schwere, 0));\nconst hoechste = Math.max(...punkte);\n// Bei Gleichstand wird das nicht verschwiegen - indexOf haette willkuerlich\n// das erste genommen, und eine willkuerliche Auswahl als Urteil auszugeben\n// ist schlechter als zu sagen, dass zwei gleich schwach sind.\nconst gleichAuf = punkte.map((p, i) => p === hoechste && p > 0 ? i : -1)\n  .filter(i => i >= 0);\nconst schwaechstes = gleichAuf.length === 1 ? gleichAuf[0] : -1;\n\n// --- Was nur ein Mensch beurteilen kann -----------------------------------\n// Geprüft werden Art. 14 Abs. 4 d und e sowie die Protokollierung nach Art. 12.\nconst FAEHIGKEITEN = [\n  { id: 'uebersteuern', titel: 'Ausgabe übersteuern oder verwerfen',\n    muster: /(ü|ue)bersteuer|verwerf|ablehn|korrigier|(ä|ae)nder.*vorschlag|manuell.*eingab/i },\n  { id: 'anhalten', titel: 'Betrieb anhalten',\n    muster: /anhalt|stopp|abbrech|pausier|aussetz|nicht ausgef(ü|ue)hrt|wartet auf/i },\n  { id: 'protokollieren', titel: 'Aufsichtsentscheidung protokollieren (Art. 12)',\n    muster: /protokoll|nachvollzieh|audit|festgehalten|dokumentiert|vermerk/i },\n];\nconst aufsicht = FAEHIGKEITEN.map(f => {\n  const treffer = alleStories.filter(s =>\n    f.muster.test(String(s.titel || '') + ' ' + String(s.beschreibung || '')));\n  return { ...f, gedeckt: treffer.length > 0, stories: treffer.map(s => s.titel) };\n});\nconst aufsichtFehlt = aufsicht.filter(f => !f.gedeckt);\nconst aufsichtStories = alleStories\n  .filter(s => FAEHIGKEITEN.some(f => f.muster.test(\n    String(s.titel || '') + ' ' + String(s.beschreibung || ''))))\n  .map(s => s.titel);\nconst offenePunkte = dateien.find(x => x._datei === 'offene-punkte');\n\nconst menschlich = [\n  { id: 'stichprobe', titel: 'Welches der drei Kriterien ist am wenigsten prüfbar?' },\n  ...(hochrisiko ? [{ id: 'aufsicht_spezifiziert',\n                      titel: 'Sind die Aufsichtsmassnahmen spezifiziert?' }] : []),\n];\n\n// --- Der Text, den ein Mensch liest --------------------------------------\n//\n// Am 06.09.2026 umgeschrieben. Er war zu kryptisch: Marker wie [ok] und ->,\n// ASCII-Umlaute (\"pruefbar\", \"Uebersteuern\") und Feldnamen statt Saetzen. Das\n// hier geht an einen Menschen, der freigeben soll - also liest es sich wie\n// etwas, das ein Mensch geschrieben hat.\nconst z = [];\nconst kp = u.konzept?.kp_id || '?';\nconst tp = (u.konzept?.teilprozess_ids || []).join(', ');\nconst anzEpics = (t.epics || []).length;\n\nz.push(`Freigabe der Lieferung ${u.lieferung?.lieferung_id || rein.lauf_id}`);\nz.push('');\nz.push(`Es geht um den Kernprozess ${kp}${tp ? ', Teilprozesse ' + tp : ''}. `\n  + `Daraus sind ${anzEpics} Epics mit ${alleStories.length} Stories geworden, `\n  + `nach Vertrag ${t.schema_version || 'unbekannt'}.`);\n\nconst quelleZahlen = t.konzept_ref?.value_quelle;\nif (quelleZahlen === 'annahme' || u.konzept?.ist_vorlaeufig === true\n    || u.aggregat?.ist_vorlaeufig === true) {\n  z.push('Die Zahlen im Konzept sind Annahmen von BC2 und noch nicht belegt. '\n    + 'Das färbt alles, was daraus abgeleitet ist.');\n} else if (quelleZahlen) {\n  z.push(`Die Zahlen im Konzept sind als \"${quelleZahlen}\" gekennzeichnet.`);\n}\n\nif (audit.pruefung_bc3) {\n  const weich = (audit.pruefung_bc3.befunde || []).length;\n  z.push(`Die Lieferung ist gegen ${audit.pruefung_bc3.geprueft_gegen} geprüft `\n    + `worden und hat bestanden`\n    + (weich ? `, mit ${weich} weichen Befunden.` : '.'));\n} else {\n  z.push('Achtung: es liegt kein Prüfergebnis gegen das Ticket-Schema vor. '\n    + 'Normalerweise fährt BC3-40 die Lieferung dagegen, bevor irgendetwas '\n    + 'hochgeladen wird.');\n}\n\nif (offen.length) {\n  z.push('');\n  z.push(offen.length === 1\n    ? 'EIN PUNKT IST OFFEN'\n    : `${offen.length} PUNKTE SIND OFFEN`);\n  z.push('');\n  for (const r of offen) {\n    z.push(`${r.titel}: ${r.beleg}`);\n    z.push(`Was hilft: ${r.abhilfe}`);\n    z.push('');\n  }\n} else {\n  z.push('');\n  z.push('Es ist nichts offen. Alles, was sich maschinell prüfen lässt, stimmt.');\n}\n\nz.push('');\nz.push('DIE AKZEPTANZKRITERIEN — hier brauche ich dein Urteil');\nz.push('');\nif (bewertet.length) {\n  z.push('Ich habe drei Kriterien aus der Lieferung gezogen und durchgesehen. '\n    + 'Bei jedem steht, was mir daran auffällt.');\n  z.push('');\n  bewertet.forEach((k, i) => {\n    z.push(`${i + 1}. „${k.text}\"`);\n    z.push(`   Gehört zur Story: ${k.story}`);\n    z.push(`   Gemessen wird das so: ${k.mess || 'Es steht kein Messverfahren dabei.'}`);\n    if (k.maengel.length) {\n      k.maengel.forEach(m => z.push(`   Mein Einwand: ${m.was}`));\n    } else {\n      z.push('   Daran habe ich nichts auszusetzen.');\n    }\n    z.push('');\n  });\n  if (schwaechstes >= 0) {\n    z.push(`Von den dreien halte ich Nummer ${schwaechstes + 1} für das schwächste.`);\n  } else if (gleichAuf.length > 1) {\n    z.push(`Nummer ${gleichAuf.map(i => i + 1).join(' und ')} sind aus meiner Sicht `\n      + 'gleich schwach. Welches schwerer wiegt, kann ich nicht entscheiden.');\n  } else {\n    z.push('An allen dreien habe ich nichts auszusetzen.');\n  }\n  z.push('Du musst das nicht selbst herausfinden — sag mir unten nur, ob du es '\n    + 'genauso siehst.');\n} else {\n  z.push('Es gibt keine Kriterien, die ich ziehen könnte. Siehe den offenen '\n    + 'Punkt oben.');\n}\n\nif (hochrisiko) {\n  z.push('');\n  z.push('MENSCHLICHE AUFSICHT ÜBER DAS ZIELSYSTEM');\n  z.push('');\n  z.push('Diese Lieferung fällt unter Hochrisiko. Erkannt habe ich das über: '\n    + hochrisikoQuelle + '.');\n  z.push('');\n  z.push('Art. 14 Abs. 4 KI-VO verlangt unter anderem, dass Menschen die Ausgabe '\n    + 'übersteuern oder verwerfen (Buchst. d) und den Betrieb anhalten können '\n    + '(Buchst. e). Dazu kommt die Protokollierung nach Art. 12. Ob die Lieferung '\n    + 'diese drei beschreibt, habe ich nachgesehen:');\n  z.push('');\n  aufsicht.forEach(f => {\n    z.push(f.gedeckt\n      ? `Ja — ${f.titel}. Abgedeckt durch: ${f.stories.slice(0, 2).join('; ')}`\n      : `Nein — ${f.titel}. Dazu habe ich keine Story gefunden.`);\n  });\n  z.push('');\n  z.push(aufsichtFehlt.length\n    ? 'Damit halte ich diesen Punkt für nicht erfüllt. Es fehlt: '\n      + (aufsichtFehlt.length === 1 ? aufsichtFehlt[0].titel\n         : aufsichtFehlt.slice(0, -1).map(f => f.titel).join(', ')\n           + ' und ' + aufsichtFehlt.at(-1).titel) + '.'\n    : 'Damit halte ich diesen Punkt für erfüllt: alle drei sind belegt.');\n  z.push('Auch hier: du musst es nicht selbst suchen, nur bestätigen oder '\n    + 'widersprechen.');\n}\n\nz.push('');\nz.push('ZUR KENNTNIS — dazu brauche ich keine Antwort');\nz.push('');\nz.push('Schnittstellen erzeugt dieser Lauf nicht (API-Teil von BC3-50 abgeschaltet).');\nif (offenePunkte) {\n  z.push(`Offen sind insgesamt ${offenePunkte.anzahl} Punkte: `\n    + Object.entries(offenePunkte.nach_adressat || {})\n        .map(([a, n]) => `${n} für ${a}`).join(', ')\n    + '. Die Liste bleibt bei uns in _vorschau, im Pull Request steht nur die Anzahl.');\n}\n\nz.push('');\nz.push(bestaetigt.length === ergebnis.length\n  ? `Maschinell geprüft habe ich ${ergebnis.length} Punkte, alle in Ordnung:`\n  : `Maschinell geprüft habe ich ${ergebnis.length} Punkte, davon `\n    + `${bestaetigt.length} in Ordnung:`);\nz.push('');\nfor (const r of bestaetigt) z.push(`${r.titel} — ${r.beleg}`);\n\nz.push('');\nz.push('WAS PASSIERT, WENN DU ENTSCHEIDEST');\nz.push('');\nz.push('Freigeben legt einen Zweig im Repo an, öffnet einen Pull Request und führt '\n  + 'ihn zusammen; BC4 holt die Lieferung aus main. Nachbessern und Ablehnen tun '\n  + 'das nicht — der Lauf endet, die Dateien bleiben in _vorschau liegen, und '\n  + 'beides wird in der Tabelle freigaben festgehalten.');\nz.push('');\nz.push('Zum Schluss etwas Unangenehmes, das dazugehört: du hast diese Lieferung '\n  + 'erstellt und gibst sie auch frei. Das Namensfeld unten ist nicht geprüft '\n  + 'und belegt keine Vier-Augen-Kontrolle. BC3 führt den Pull Request selbst '\n  + 'zusammen, eine zweite Prüfung durch BC4 findet vorher nicht statt.');\n\nreturn [{\n  json: {\n    ...rein,\n    uebersicht: z.join('\\n'),\n    pruefung: {\n      geprueft: ergebnis,\n      bestaetigt: bestaetigt.map(r => r.id),\n      offen: offen.map(r => r.id),\n      menschlich: menschlich.map(p => p.id),\n      hochrisiko,\n      hochrisiko_quelle: hochrisikoQuelle,\n      stichprobe: bewertet,\n      stichprobe_schwaechstes: schwaechstes >= 0 ? schwaechstes + 1 : null,\n      stichprobe_gleichauf: gleichAuf.map(i => i + 1),\n      aufsicht: aufsicht.map(f => ({ id: f.id, gedeckt: f.gedeckt })),\n      aufsicht_urteil: aufsichtFehlt.length ? 'nicht erfuellt' : 'erfuellt',\n      stand: `${bestaetigt.length} von ${ergebnis.length} maschinell bestätigt`,\n    },\n    tickets: t,\n  },\n}];\n"
+      },
+      "id": "c-gate2vor",
+      "name": "Gate 2 vorbereiten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1248,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "resume": "webhook",
+        "httpMethod": "POST",
+        "limitWaitTime": true,
+        "resumeAmount": 7,
+        "resumeUnit": "days",
+        "options": {}
+      },
+      "id": "w-gate2",
+      "name": "Auf Freigabe warten",
+      "notesInFlow": false,
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2048,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Abdeckungstabelle fuer Gate 2 (seit 11.10.2026, ueberarbeitet 12.10.2026).\n *\n * BC3-20 laesst jede Story angeben, welche Anforderungen (A..), Kriterien\n * (K..) von BC2 und Vorgaben von BC3 (V..) sie abdeckt (deckt_ab), und prueft,\n * dass keine Nummer fehlt. Das beweist nur, dass das Modell die Nummer NENNT.\n * Ob die Story sie auch enthaelt, kann nur ein Mensch beurteilen - deshalb\n * steht hier je Nummer der Wortlaut neben der Story, die sie beansprucht.\n *\n * Die Hinweise sind Regeln ohne Sprachmodell und ersetzen das Hinsehen nicht:\n * - Anteil der Begriffe aus der Vorgabe, die in der Story wiederkommen. Seit\n *   12.10.2026 ueber Wortteile (Dreiergruppen), damit \"Quellverweis\" und\n *   \"Quellenverweisen\" als gleich zaehlen.\n * - Bei K-Nummern das am besten passende Kriterium statt des ersten.\n * - \"passt besser zu\": eine Story, die die Nummer NICHT beansprucht, enthaelt\n *   deutlich mehr davon.\n * - Eine Story beansprucht mehr Vorgaben (V), als sie Kriterien hat.\n * - Zwei Stories sind fast gleich (Dublette, etwa nach dem zweiten Durchgang).\n *\n * Seit 12.10.2026 steht hier auch der Hinweis TESTLAUF, solange\n * umschlag.lauf.liefermodus nicht 'echt' ist: dann legt eine Freigabe keinen\n * Pull Request im Gruppen-Repository an.\n */\nconst rein = $input.first().json;\nconst u = rein.umschlag || {};\nconst potenziale = u.potenziale || [];\nconst agg = u.aggregat || {};\nconst epics = agg.epics || u.epics || [];\nconst vorgabenJeEpic = agg.vorgaben_je_epic || [];\n\nconst test = (u.lauf?.liefermodus || 'test') !== 'echt';\nconst BANNER = test\n  ? 'TESTLAUF – \"Freigeben\" legt KEINEN Pull Request im Gruppen-Repository an. '\n    + 'Echt geliefert wird erst, wenn in BC3-00 \"Lauf einstellen\" liefermodus auf echt steht.\\n\\n'\n  : '';\n\n// --- Vergleich ueber Wortteile ---------------------------------------------\nconst FUELL = new Set(['eine', 'einer', 'einem', 'einen', 'eines', 'wird', 'werden', 'wurde', 'nicht',\n  'oder', 'sowie', 'dass', 'wenn', 'dann', 'sind', 'ihre', 'ihren', 'alle', 'allen', 'mehr', 'nach',\n  'ueber', 'über', 'durch', 'beim', 'given', 'when', 'then', 'gegeben', 'diese', 'dieser', 'dieses',\n  'kann', 'muss', 'soll', 'damit', 'auch', 'noch', 'sich', 'etwa', 'jede', 'jeder', 'jedes', 'mindestens',\n  'system', 'systems', 'story']);\nconst woerter = s => [...new Set(String(s || '').toLowerCase()\n  .replace(/ß/g, 'ss')\n  .replace(/[^a-zäöü0-9 ]+/g, ' ').split(/\\s+/)\n  .filter(x => x.length > 3 && !FUELL.has(x)))];\nconst dreier = w => { const s = ` ${w} `; const g = new Set(); for (let i = 0; i < s.length - 2; i++) g.add(s.slice(i, i + 3)); return g; };\nconst DREIER = new Map();\nconst dreierVon = w => { if (!DREIER.has(w)) DREIER.set(w, dreier(w)); return DREIER.get(w); };\nfunction wortGleich(a, b) {\n  if (a === b) return true;\n  if (Math.min(a.length, b.length) >= 5 && (a.startsWith(b) || b.startsWith(a))) return true;\n  // Wortende (seit 13.10.2026): Zusammensetzungen wie 'Vorschlagsliste' / 'Liste'.\n  if (Math.min(a.length, b.length) >= 5 && (a.endsWith(b) || b.endsWith(a))) return true;\n  const A = dreierVon(a), B = dreierVon(b);\n  let g = 0; for (const x of A) if (B.has(x)) g++;\n  return (2 * g) / (A.size + B.size) >= 0.6;\n}\n/** Anteil der Begriffe aus quelle, die in ziel wiederkommen (0..1). */\nfunction anteil(quelle, ziel) {\n  const q = woerter(quelle), z = woerter(ziel);\n  if (!q.length) return 1;\n  let treffer = 0;\n  for (const w of q) if (z.some(x => wortGleich(w, x))) treffer++;\n  return treffer / q.length;\n}\n\nconst text = t => typeof t === 'string' ? t\n  : [t?.kriterium, t?.messverfahren ? `Messverfahren: ${t.messverfahren}` : null].filter(Boolean).join(' ');\nconst kurz = (s, n) => {\n  s = String(s || '').replace(/\\s+/g, ' ').trim();\n  return s.length > n ? s.slice(0, n - 1) + '…' : s;\n};\nconst storyText = s => [s.titel, s.beschreibung,\n  ...(s.akzeptanzkriterien || []).map(k => `${k.text || ''} ${k.messverfahren || ''}`)].join(' ');\nconst prozent = x => Math.round(x * 100);\n\nconst ZWEIFEL = 0.35;     // darunter: \"Bitte pruefen\"\nconst BESSER = 0.2;       // so viel naeher muss eine fremde Story sein\n\nconst zeilen = [];\nconst tabelle = [];\nconst hinweiseStories = [];\nlet zweifel = 0;\nlet fehlt = 0;\n\nepics.forEach((e, i) => {\n  const p = potenziale[i] || {};\n  const soll = [\n    ...(p.fachliche_anforderungen || []).map((x, n) => ({ nr: `A${n + 1}`, quelle: 'BC2', text: text(x), mess: null })),\n    ...(p.akzeptanzkriterien_geschaeftlich || []).map((x, n) => ({ nr: `K${n + 1}`, quelle: 'BC2',\n      text: typeof x === 'string' ? x : String(x?.kriterium || ''), mess: typeof x === 'string' ? null : (x?.messverfahren || null) })),\n    ...(vorgabenJeEpic[i] || []).map(v => ({ nr: v.nr, quelle: 'BC3', text: v.text, mess: null })),\n  ];\n  if (!soll.length) return;\n  const stories = e.stories || [];\n  const anspruch = s => (s.deckt_ab || []).map(x => String(x).trim().toUpperCase());\n  zeilen.push(`Epic ${i + 1}: ${e.titel || ''}`);\n  zeilen.push('');\n\n  for (const v of soll) {\n    const voll = v.mess ? `${v.text} Messverfahren: ${v.mess}` : v.text;\n    const beansprucht = stories.filter(s => anspruch(s).includes(v.nr));\n    const bewertet = beansprucht.map(s => {\n      // Bei K: das einzelne Kriterium, das am besten passt\n      const kriterien = s.akzeptanzkriterien || [];\n      let bestK = null, bestKw = -1;\n      for (const k of kriterien) {\n        const w = anteil(voll, `${k.text || ''} ${k.messverfahren || ''}`);\n        if (w > bestKw) { bestKw = w; bestK = k; }\n      }\n      return { s, gesamt: anteil(voll, storyText(s)), kriterium: bestK,\n               mess: v.mess && bestK ? anteil(v.mess, bestK.messverfahren || '') : null };\n    });\n    const best = bewertet.reduce((m, x) => Math.max(m, x.gesamt), 0);\n    const fremd = stories.filter(s => !anspruch(s).includes(v.nr))\n      .map(s => ({ s, gesamt: anteil(voll, storyText(s)) }))\n      .sort((a, b) => b.gesamt - a.gesamt)[0];\n    const naeher = fremd && fremd.gesamt >= ZWEIFEL && fremd.gesamt - best >= BESSER ? fremd : null;\n\n    const status = !beansprucht.length ? 'fehlt' : (best < ZWEIFEL ? 'zweifelhaft' : 'ok');\n    if (status === 'fehlt') fehlt++;\n    if (status === 'zweifelhaft') zweifel++;\n    tabelle.push({ epic: i + 1, nummer: v.nr, quelle: v.quelle, text: v.text, status,\n      anteil: prozent(best), naeher_an: naeher ? naeher.s.titel : null,\n      stories: bewertet.map(x => ({ titel: x.s.titel, anteil: prozent(x.gesamt),\n        kriterium: x.kriterium?.text || '', messverfahren_anteil: x.mess == null ? null : prozent(x.mess) })) });\n\n    zeilen.push(`${v.nr}${v.quelle === 'BC3' ? ' (Vorgabe BC3)' : ''} – „${kurz(voll, 220)}“`);\n    if (!beansprucht.length) zeilen.push('   Keine Story nennt diese Nummer.');\n    bewertet.forEach(x => zeilen.push(\n      `   → ${x.s.titel}: „${kurz(x.kriterium?.text || '', 170)}“ (${prozent(x.gesamt)} % der Begriffe wiedergefunden)`));\n    if (status === 'zweifelhaft') zeilen.push('   Bitte prüfen: wenig davon steht in der Story, die Zuordnung könnte nur behauptet sein.');\n    if (naeher) zeilen.push(`   Passt besser zu „${naeher.s.titel}“ (${prozent(naeher.gesamt)} %), die diese Nummer nicht beansprucht.`);\n    const gekuerzt = bewertet.filter(x => x.mess != null && x.mess < 0.3);\n    if (v.mess && gekuerzt.length && gekuerzt.length === bewertet.length) {\n      zeilen.push('   Das Messverfahren von BC2 ist in keinem Kriterium wiederzuerkennen – gekürzt oder ersetzt?');\n    }\n    zeilen.push('');\n  }\n\n  // Stories, die mehr Vorgaben beanspruchen, als sie Kriterien haben\n  for (const s of stories) {\n    const v = anspruch(s).filter(x => x.startsWith('V')).length;\n    const k = (s.akzeptanzkriterien || []).length;\n    if (v > 1 && v > k) {\n      hinweiseStories.push(`Epic ${i + 1}, „${s.titel}“ beansprucht ${v} Vorgaben von BC3, hat aber nur ${k} Kriterium/Kriterien. Jede Vorgabe sollte ein eigenes Kriterium haben.`);\n    }\n  }\n  // Dubletten\n  for (let a = 0; a < stories.length; a++) {\n    for (let b = a + 1; b < stories.length; b++) {\n      const x = anteil(storyText(stories[a]), storyText(stories[b]));\n      const y = anteil(storyText(stories[b]), storyText(stories[a]));\n      if (Math.min(x, y) >= 0.6) {\n        hinweiseStories.push(`Epic ${i + 1}: „${stories[a].titel}“ und „${stories[b].titel}“ sind fast gleich (${prozent(Math.min(x, y))} %) – mögliche Dublette.`);\n      }\n    }\n  }\n});\n\n// --- Sprachmodelle des Laufs (seit 12.10.2026) ------------------------------\n// Jede KI-Stufe schreibt ihr Modell ins Protokoll (Feld modelle). Regel fuer\n// BC3: Mistral mit fester Version; OpenAI ist nur fuer Tests zugelassen.\nconst modelle = (u.protokoll || []).flatMap(p => (p.modelle || []).map(m => ({ stufe: p.stufe, ...m })));\nconst regelGerecht = m => /mistral|ministral|codestral|pixtral/i.test(m.modell) && !/latest/i.test(m.modell);\nconst abweichend = modelle.filter(m => !regelGerecht(m));\nconst modellBlock = modelle.length\n  ? ['SPRACHMODELLE IN DIESEM LAUF', '',\n     ...modelle.map(m => `${m.schritt}: ${m.modell}${regelGerecht(m) ? '' : ' – nicht nach der Modellregel von BC3 (Mistral, feste Version)'}`),\n     ...(abweichend.length\n       ? [test\n           ? 'Das ist für Testläufe zugelassen. Vor einer echten Lieferung auf Mistral mit fester Version umstellen.'\n           : 'ACHTUNG: echter Lauf mit Modellen außerhalb der Regel. Vor der Freigabe auf Mistral mit fester Version umstellen.']\n       : []),\n     '']\n  : [];\n\n// Absatz \"WAS PASSIERT, WENN DU ENTSCHEIDEST\" aus 'Gate 2 vorbereiten' gilt nur\n// fuer echte Laeufe. Im Testmodus widersprach er dem Banner oben (Lauf 419).\nconst ABSATZ_ECHT = 'Freigeben legt einen Zweig im Repo an, öffnet einen Pull Request und führt '\n  + 'ihn zusammen; BC4 holt die Lieferung aus main. Nachbessern und Ablehnen tun '\n  + 'das nicht — der Lauf endet, die Dateien bleiben in _vorschau liegen, und '\n  + 'beides wird in der Tabelle freigaben festgehalten.';\nconst ABSATZ_TEST = 'TESTLAUF: Auch Freigeben legt keinen Zweig und keinen Pull Request an. '\n  + 'Bei jeder Entscheidung endet der Lauf, '\n  + 'die Dateien bleiben in _vorschau liegen, und die Entscheidung wird festgehalten.';\nconst ueb = String(rein.uebersicht || '');\n\n// --- Worauf die Einstufung beruht (seit 13.10.2026) -------------------------\n// Lauf 438: UC2 wurde Hochrisiko, ohne dass Gate 2 sagte, warum. Jetzt stehen\n// die Begruendung des Compliance-Agenten und die Belegsaetze der Regeln aus\n// BC3-20 (Tragweite) hier, damit ein Mensch die Einstufung pruefen kann.\nconst tw = agg.tragweite || {};\nconst comp = u.compliance || {};\nconst twErkannt = tw.erkannt || [];\nconst twUnsicher = tw.zu_pruefen || [];\nconst einst = [];\nif (comp.ai_act_klasse === 'high' || twErkannt.length || twUnsicher.length) {\n  einst.push('WORAUF DIE EINSTUFUNG BERUHT', '');\n  einst.push(`Compliance-Agent: Klasse ${comp.ai_act_klasse || 'unbekannt'}`\n    + `${comp.anhang_iii_kategorie ? ', ' + comp.anhang_iii_kategorie : ''}. `\n    + `Begründung: ${comp.begruendung_ampel || 'keine angegeben'}`);\n  for (const x of twErkannt) einst.push(`Regel, eindeutig: ${x.art} (${x.anhang}) – „${x.beleg}“`);\n  for (const x of twUnsicher) einst.push(`Regel, nur Stichwort – bitte prüfen: ${x.art} (${x.anhang}) – „${x.beleg}“`);\n  if (comp.ai_act_klasse === 'high' && !twErkannt.length) {\n    einst.push('ACHTUNG: Der Compliance-Agent stuft als Hochrisiko ein, die Regeln finden aber keine '\n      + 'eindeutige Entscheidung über Personen. Bitte prüfen, ob die Einstufung stimmt.');\n  }\n  if (comp.ai_act_klasse !== 'high' && twErkannt.length) {\n    einst.push('ACHTUNG: Die Regeln finden eine Entscheidung über Personen, der Compliance-Agent '\n      + 'stuft aber nicht als Hochrisiko ein. Bitte prüfen.');\n  }\n  // Seit 13.10.2026: Hochrisiko ist baubar mit Auflagen (BC3-30 'Umschlag ergaenzen').\n  const auf = comp.auflagen_hochrisiko;\n  if (auf) {\n    einst.push('', 'BAUBAR MIT AUFLAGEN',\n      `Von BC3 als Story ergänzt: ${(auf.art14_ergaenzt || []).join('; ') || 'nichts, die drei Fähigkeiten nach Art. 14 waren schon da'}.`,\n      `Unterlagen für den Betrieb, als Vorlage in compliance-audit.json (Pflichten u-…, an die Organisation): ${(auf.unterlagen || []).join('; ')}.`,\n      auf.hinweis || '');\n  }\n  einst.push('');\n}\nconst mitEinstufung = t => {\n  if (!einst.length) return t;\n  const block = einst.join('\\n');\n  for (const anker of ['\\nMENSCHLICHE AUFSICHT', '\\nZUR KENNTNIS']) {\n    if (t.includes(anker)) return t.replace(anker, '\\n' + block + anker);\n  }\n  return t + '\\n\\n' + block;\n};\nconst basis = BANNER + mitEinstufung(test ? ueb.replace(ABSATZ_ECHT, ABSATZ_TEST) : ueb);\n\nif (!tabelle.length) {\n  const nurModelle = modellBlock.length\n    ? (basis.includes('\\nZUR KENNTNIS')\n        ? basis.replace('\\nZUR KENNTNIS', '\\n\\n' + modellBlock.join('\\n') + '\\nZUR KENNTNIS')\n        : basis + '\\n\\n' + modellBlock.join('\\n'))\n    : basis;\n  return [{ json: { ...rein, uebersicht: nurModelle, liefermodus: test ? 'test' : 'echt', abdeckung: [],\n    pruefung: { ...(rein.pruefung || {}), modelle, modelle_ausserhalb_regel: abweichend.length } } }];\n}\n\nconst kopf = [\n  '',\n  'ABDECKUNG DER VORGABEN – bitte überfliegen',\n  '',\n  'Je Anforderung (A) und Akzeptanzkriterium (K) von BC2 und je Vorgabe von BC3 (V) steht hier die Story, '\n  + 'die sie abdecken soll, mit dem Anteil der Begriffe, die dort wiederkommen. '\n  + (zweifel || fehlt || hinweiseStories.length\n    ? `${zweifel} Zuordnung(en) sind zweifelhaft${fehlt ? `, ${fehlt} fehlen ganz` : ''}`\n      + `${hinweiseStories.length ? `, dazu ${hinweiseStories.length} Hinweis(e) zu einzelnen Stories` : ''}.`\n    : 'Keine Zuordnung fällt auf, ein kurzer Blick genügt.'),\n  '',\n];\nconst fuss = hinweiseStories.length\n  ? ['ZU EINZELNEN STORIES', '', ...hinweiseStories, '']\n  : [];\n\nconst anker = '\\nZUR KENNTNIS';\nconst block = [...kopf, ...zeilen, ...fuss, ...modellBlock].join('\\n');\nconst neu = basis.includes(anker)\n  ? basis.replace(anker, '\\n' + block + anker)\n  : basis + '\\n' + block;\n\nreturn [{\n  json: {\n    ...rein,\n    uebersicht: neu,\n    liefermodus: test ? 'test' : 'echt',\n    pruefung: {\n      ...(rein.pruefung || {}),\n      abdeckung: { nummern: tabelle.length, zweifelhaft: zweifel, fehlt, hinweise_stories: hinweiseStories.length },\n      modelle,\n      modelle_ausserhalb_regel: abweichend.length,\n    },\n    abdeckung: tabelle,\n    abdeckung_hinweise: hinweiseStories,\n  },\n}];"
+      },
+      "id": "91f3ac44-04e9-48fb-9cff-0d25093400fc",
+      "name": "Abdeckung anhängen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1408,
+        48
+      ],
+      "notes": "Je A/K von BC2 die beanspruchende Story, für den Blick an Gate 2."
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "lJEmDjgpCHVBybUO",
+          "cachedResultName": "BC3-91 Laufprotokoll"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "lauf_id": "={{ $json.lauf_id }}",
+            "umschlag": "={{ $json.umschlag }}",
+            "schritt": "BC3-00",
+            "status": "laeuft",
+            "naechster": "BC3-10",
+            "ursache": ""
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "lauf_id",
+              "displayName": "lauf_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "umschlag",
+              "displayName": "umschlag",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            },
+            {
+              "id": "schritt",
+              "displayName": "schritt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "naechster",
+              "displayName": "naechster",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "ursache",
+              "displayName": "ursache",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "33c3c72c-a1a8-4a5e-8554-a2fc13c45c3d",
+      "name": "Laufprotokoll: Start",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -1008,
+        240
+      ],
+      "notes": "Scheitert das Schreiben, bricht der Lauf ab, damit BC3-01 ihn nicht doppelt startet"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "V9FJSchlZhzjIw8R",
+          "cachedResultName": "BC3-15 Plan festlegen"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "lauf_id": "={{ $json.lauf_id }}",
+            "umschlag": "={{ $json.umschlag }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "lauf_id",
+              "displayName": "lauf_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "umschlag",
+              "displayName": "umschlag",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "02b13c58-f5e6-457a-9a6e-4c9735a27968",
+      "name": "BC3-15 Plan festlegen",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -688,
+        48
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "lJEmDjgpCHVBybUO",
+          "cachedResultName": "BC3-91 Laufprotokoll"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "lauf_id": "={{ $json.lauf_id }}",
+            "umschlag": "={{ $json.umschlag }}",
+            "schritt": "={{ $json.status === 'ok' ? 'BC3-00' : ($json.stoerfall?.stufe || 'BC3-00') }}",
+            "status": "={{ $json.status !== 'ok' ? 'abgebrochen' : ({ approved: 'freigegeben', nachbessern: 'nachbessern', rejected: 'abgelehnt' })[$json.gate2?.entscheidung] || 'abgebrochen' }}",
+            "naechster": "={{ $json.naechster_schritt || '' }}",
+            "ursache": "={{ $json.stoerfall?.meldung || ($json.fehlt || []).join(', ') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "lauf_id",
+              "displayName": "lauf_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "umschlag",
+              "displayName": "umschlag",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            },
+            {
+              "id": "schritt",
+              "displayName": "schritt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "naechster",
+              "displayName": "naechster",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "ursache",
+              "displayName": "ursache",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "b67c153b-c3aa-4d33-9d59-349eaa9edf29",
+      "name": "Laufprotokoll: Ende",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        2560,
+        336
+      ],
+      "onError": "continueRegularOutput",
+      "notes": "Meldet Ende oder Abbruch an BC3-91. Scheitert das Schreiben, läuft der Lauf weiter."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Baut die Daten der Gate-2-Seite aus dem Lauf (wie werkzeug\\daten-bauen.py) und die Adresse,\n// über die BC3-81 den wartenden Lauf weckt. Speichert nichts, das macht \"Gate-2-Daten speichern\".\nconst j = $input.first().json;\nconst u = j.umschlag || {};\nconst p = j.pruefung || {};\nconst t = j.tickets || {};\nconst lief = u.lieferung || {};\nconst lauf_id = (u.lauf || {}).lauf_nr;\nconst resume_url = $execution.resumeUrl;\nif (!lauf_id) throw new Error('Gate-2-Daten bauen: Laufnummer fehlt in umschlag.lauf.lauf_nr');\nif (!resume_url) throw new Error('Gate-2-Daten bauen: $execution.resumeUrl fehlt, BC3-81 könnte den Lauf nicht wecken');\n\n// Belege für die drei Fähigkeiten nach Art. 14 Abs. 4 und Art. 12 (Suchwörter wie in \"Gate 2 vorbereiten\")\nconst FAEHIGKEITEN = [\n  ['uebersteuern', 'Ausgabe übersteuern oder verwerfen (Art. 14 Abs. 4 d)',\n    /(ü|ue)bersteuer|verwerf|ablehn|korrigier|(ä|ae)nder.*vorschlag|manuell.*eingab/i],\n  ['anhalten', 'Betrieb anhalten (Art. 14 Abs. 4 e)',\n    /anhalt|stopp|abbrech|pausier|aussetz|nicht ausgef(ü|ue)hrt|wartet auf/i],\n  ['protokollieren', 'Aufsichtsentscheidung protokollieren (Art. 12)',\n    /protokoll|nachvollzieh|audit|festgehalten|dokumentiert|vermerk/i],\n];\nconst epics = t.epics || [];\nconst stories = epics.flatMap(e => e.stories || []);\nconst aufsicht = FAEHIGKEITEN.map(([id, titel, muster]) => ({\n  id, titel,\n  stories: stories.filter(s => muster.test(`${s.titel || ''} ${s.beschreibung || ''}`)).map(s => s.titel).slice(0, 3),\n}));\n\nconst audit = (lief.dateien || []).find(x => String(x._datei || '').startsWith('compliance')) || {};\nconst pb = audit.pruefung_bc3 || {};\nconst comp = u.compliance || {};\nconst konzept = u.konzept || {};\n// Gegenprobe aus BC3-30: Fundstelle unbekannt oder \"high\" ohne Treffer der Regeln\nconst strittig = comp.einstufung_strittig || [];\n\nconst kurz = (s, n) => { const x = String(s ?? ''); return x.length > n ? x.slice(0, n - 1) + '…' : x; };\n\n// Was von BC2 kam: Konzept, Gate 1, Potenziale mit Anzahl der Nummern (A, K, V)\nfunction eingangVon(u) {\n  const k = u.konzept || {}, q = u.quelle || {}, g1 = k.gate1 || {};\n  // Link auf die Datei bei GitHub statt auf die Rohfassung\n  const m = String(q.url || '').match(/^https:\\/\\/raw\\.githubusercontent\\.com\\/([^/]+\\/[^/]+)\\/([^/]+)\\/(.+)$/);\n  return {\n    unternehmen: k.unternehmen || null,\n    konzept_id: k.konzept_id || null,\n    paket_id: (u.ids || {}).paket_id || null,\n    quelle: q.pfad || (u.lauf || {}).pfad || null,\n    quelle_link: m ? `https://github.com/${m[1]}/blob/${m[2]}/${m[3]}` : null,\n    gate1: g1.status || null,\n    gate1_befunde: (g1.befunde || []).map(b => kurz(b, 200)),\n    vorlaeufig: k.ist_vorlaeufig === true,\n    prozess: kurz(k.prozess, 400),\n    potenziale: (u.potenziale || []).map(x => ({ titel: x.use_case_titel, rang: x.rang ?? null,\n      a: (x.fachliche_anforderungen || []).length, k: (x.akzeptanzkriterien_geschaeftlich || []).length,\n      v: (x.bc3_vorgaben || []).length })),\n  };\n}\n\n// Was im Lauf passiert ist: je Schritt Stand, Modell und Befunde (aus dem Protokoll)\nfunction schritteVon(u) {\n  return (u.protokoll || []).filter(x => x.status !== 'gestartet').map(x => ({\n    stufe: x.stufe, status: x.status, zeitpunkt: x.zeitpunkt || null,\n    modelle: [...new Set((x.modelle || []).map(m => m.modell).filter(Boolean))],\n    // Seit 23.10.2026: 20 statt 8, BC3-40 meldet je Zuordnung aus abgedeckt_durch einen Prüfen-Befund (C9)\n    befunde: (x.befunde || []).slice(0, 20).map(b => kurz(b, 300)),\n    weitere: Math.max(0, (x.befunde || []).length - 20),\n  }));\n}\n\n// Was rausgeht: abgelegte Dateien mit Link und was die Freigabe auslöst\nfunction ausgangVon(u, lief) {\n  const echt = (u.lauf || {}).liefermodus === 'echt';\n  return {\n    ordner_link: lief.ordner ? `https://drive.google.com/drive/folders/${lief.ordner}` : null,\n    dateien: (lief.abgelegt || []).map(d => ({ name: d.name, link: d.id ? `https://drive.google.com/file/d/${d.id}/view` : null })),\n    offene_punkte: u.offene_punkte || null,\n    bei_freigabe: echt\n      ? 'Freigeben legt einen Zweig in pg-coe-kmu/coe-factory an, öffnet einen Pull Request und führt ihn zusammen. BC4 holt die Lieferung aus main. Die Entscheidung steht in der Tabelle freigaben.'\n      : 'Testlauf: Freigeben hält nur die Entscheidung in der Tabelle freigaben fest. Es entsteht kein Pull Request, BC4 bekommt nichts.',\n  };\n}\n\nconst daten = {\n  ausfuehrung: String($execution.id),\n  lauf_nr: lauf_id,\n  liefermodus: (u.lauf || {}).liefermodus,\n  lieferung_id: lief.lieferung_id,\n  kp_id: konzept.kp_id,\n  teilprozesse: konzept.teilprozess_ids || [],\n  schema_version: t.schema_version,\n  value_quelle: (t.konzept_ref || {}).value_quelle,\n  pruefung_bc3: { geprueft_gegen: pb.geprueft_gegen, ergebnis: pb.ergebnis, befunde: pb.befunde },\n  geprueft: p.geprueft || [],\n  hochrisiko: p.hochrisiko,\n  hochrisiko_quelle: p.hochrisiko_quelle + (strittig.length ? ' – strittig: ' + strittig.join('; ') : ''),\n  stichprobe: (p.stichprobe || []).map(k => ({ story: k.story, text: k.text, mess: k.mess,\n    maengel: (k.maengel || []).map(m => m.was) })),\n  stichprobe_schwaechstes: p.stichprobe_schwaechstes,\n  stichprobe_gleichauf: p.stichprobe_gleichauf || [],\n  aufsicht,\n  einstufung: { ampel: comp.ampel, ai_act_klasse: comp.ai_act_klasse,\n    anhang_iii_kategorie: comp.anhang_iii_kategorie, begruendung_ampel: comp.begruendung_ampel,\n    strittig },\n  auflagen: comp.auflagen_hochrisiko || null,\n  abdeckung: j.abdeckung || [],\n  abdeckung_hinweise: j.abdeckung_hinweise || [],\n  modelle: p.modelle || [],\n  offene_punkte: u.offene_punkte,\n  ablage_gescheitert: lief.ablage_gescheitert,\n  epics: epics.map(e => ({ titel: e.titel, ziel: e.ziel, kategorien: e.kategorien || [],\n    stories: (e.stories || []).map(s => ({ id: s.story_id, titel: s.titel, beschreibung: s.beschreibung,\n      kriterien: s.akzeptanzkriterien || [] })) })),\n  // Seit 22.10.2026 (Expertenrunde Gate 2): die Seite zeigt wie ein Lieferschein,\n  // was reinkam, was im Lauf passiert ist und was rausgeht\n  eingang: eingangVon(u),\n  schritte: schritteVon(u),\n  regeln: ((u.plan || {}).regeln || []).map(r => ({ regel: r.regel, greift: !!r.greift, begruendung: kurz(r.begruendung, 200) })),\n  pflichten: (comp.pflichten || []).slice(0, 40).map(p => ({ tag: p.tag, text: kurz(p.text, 300),\n    massnahme: p.massnahme, adressat: p.adressat, stelle: kurz(p.stelle, 120) })),\n  ausgang: ausgangVon(u, lief),\n};\n\n// Text für Telegram: nur Kennungen und Zahlen, keine Inhalte (Server außerhalb der EU)\nconst FRIST_TAGE = 7;\nconst frist = new Date(Date.now() + FRIST_TAGE * 864e5).toLocaleString('de-DE',\n  { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });\nconst offen = (p.geprueft || []).filter(g => !g.ok).length;\nconst nachricht = `Gate 2 wartet: ${lauf_id}${daten.liefermodus === 'echt' ? '' : ' (Test)'}, `\n  + `${konzept.kp_id || 'ohne KP'}, ${epics.length} Epics, ${stories.length} Stories, `\n  + `${offen} offene${offen === 1 ? 'r Punkt' : ' Punkte'}, Hochrisiko ${p.hochrisiko ? (strittig.length ? 'strittig' : 'ja') : 'nein'}. Frist ${frist}.`;\n\nreturn [{ json: { lauf_id, resume_url, daten, nachricht } }];\n"
+      },
+      "id": "5a2d8a15-bd7c-429f-a8f2-47577967c504",
+      "name": "Gate-2-Daten bauen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1568,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into public.gate2_ansicht (lauf_id, daten, resume_url, token)\nvalues ($1, $2::jsonb, $3,\n        replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', ''))\non conflict (lauf_id) do update\n  set daten = excluded.daten, resume_url = excluded.resume_url, token = excluded.token,\n      angelegt_am = now(), entschieden_am = null\nreturning lauf_id, token, angelegt_am",
+        "options": {
+          "queryReplacement": "={{ [ $json.lauf_id, JSON.stringify($json.daten), $json.resume_url ] }}"
+        }
+      },
+      "id": "0ce54cfc-6491-4356-9588-5df0ae262890",
+      "name": "Gate-2-Daten speichern",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1728,
+        48
+      ],
+      "credentials": {
+        "postgres": {
+          "name": "Postgres BC3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Lauf einstellen').first().json.telegram_chat_id }}",
+        "text": "={{ $('Gate-2-Daten bauen').first().json.nachricht }}\n<a href=\"{{ $('Lauf einstellen').first().json.gate2_adresse }}?lauf={{ $json.lauf_id }}&amp;t={{ $json.token }}\">Gate-2-Seite öffnen</a>",
+        "additionalFields": {
+          "appendAttribution": false,
+          "disable_web_page_preview": true,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "c929431b-d72e-4aac-81b7-4b33c7acfdd9",
+      "name": "Telegram an Gate 2",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1888,
+        48
+      ],
+      "credentials": {
+        "telegramApi": {
+          "name": "PG"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "pfad"
+            },
+            {
+              "name": "gestartet_von"
+            },
+            {
+              "name": "bemerkung"
+            }
+          ]
+        }
+      },
+      "id": "aa660084-c4ad-49cb-b5ac-b350ecfc84ef",
+      "name": "Von BC3-01 gestartet",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1568,
+        144
+      ]
+    },
+    {
+      "id": "14556ed3-7c04-4136-9b50-c3237048e449",
+      "name": "Aufruf gescheitert?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        928,
+        912
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "aufruf-gesperrt",
+              "leftValue": "={{ $json.umschlag.stoerfall.art }}",
+              "rightValue": "Aufruf nicht erlaubt",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "10f9728c-0fd1-4e79-a170-b0b7ff907152",
+      "name": "Aufruffehler in fehler schreiben",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1152,
+        912
+      ],
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public",
+          "cachedResultName": "public"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "name",
+          "value": "fehler"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "zeitpunkt": "={{ $now.toISO() }}",
+            "workflow": "BC3-00 Orchestrator",
+            "stufe": "={{ (String($json.umschlag.stoerfall.stufe || '').match(/^BC3-\\d+/) || [null])[0] }}",
+            "baustein": "={{ $json.umschlag.stoerfall.stufe }}",
+            "meldung": "={{ $json.umschlag.stoerfall.meldung }}",
+            "schwere": "fehler",
+            "link": "=__N8N_ADRESSE__/workflow/{{ $workflow.id }}/executions/{{ $execution.id }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "zeitpunkt",
+              "displayName": "zeitpunkt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "workflow",
+              "displayName": "workflow",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "stufe",
+              "displayName": "stufe",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "baustein",
+              "displayName": "baustein",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "meldung",
+              "displayName": "meldung",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "schwere",
+              "displayName": "schwere",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "link",
+              "displayName": "link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "name": "Postgres BC3"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Von Hand starten": {
+      "main": [
+        [
+          {
+            "node": "Lauf einstellen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lauf einstellen": {
+      "main": [
+        [
+          {
+            "node": "Umschlag anlegen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BC3-10 Konzept einlesen": {
+      "main": [
+        [
+          {
+            "node": "BC3-15 Plan festlegen",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stufe gescheitert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BC3-20 Stories schneiden": {
+      "main": [
+        [
+          {
+            "node": "BC3-30 Compliance prüfen",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stufe gescheitert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BC3-30 Compliance prüfen": {
+      "main": [
+        [
+          {
+            "node": "BC3-40 Tickets bauen und prüfen",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stufe gescheitert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BC3-70 Ausliefern": {
+      "main": [
+        [
+          {
+            "node": "Gate 2 vorbereiten",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stufe gescheitert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "R6 Wiederholung prüfen": {
+      "main": [
+        [
+          {
+            "node": "Noch ein Versuch?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Noch ein Versuch?": {
+      "main": [
+        [
+          {
+            "node": "BC3-20 Stories schneiden",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stufe gescheitert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stufe gescheitert": {
+      "main": [
+        [
+          {
+            "node": "Fehler einordnen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lauf abschliessen": {
+      "main": [
+        [
+          {
+            "node": "Bericht anhängen",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Laufprotokoll: Ende",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BC3-80 Gate 2": {
+      "main": [
+        [
+          {
+            "node": "Lauf abschliessen",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stufe gescheitert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auf Freigabe warten": {
+      "main": [
+        [
+          {
+            "node": "BC3-80 Gate 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gate 2 vorbereiten": {
+      "main": [
+        [
+          {
+            "node": "Abdeckung anhängen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Umschlag anlegen": {
+      "main": [
+        [
+          {
+            "node": "Laufprotokoll: Start",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Laufprotokoll: Start": {
+      "main": [
+        [
+          {
+            "node": "BC3-10 Konzept einlesen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BC3-15 Plan festlegen": {
+      "main": [
+        [
+          {
+            "node": "BC3-20 Stories schneiden",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stufe gescheitert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Abdeckung anhängen": {
+      "main": [
+        [
+          {
+            "node": "Gate-2-Daten bauen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gate-2-Daten bauen": {
+      "main": [
+        [
+          {
+            "node": "Gate-2-Daten speichern",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gate-2-Daten speichern": {
+      "main": [
+        [
+          {
+            "node": "Telegram an Gate 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram an Gate 2": {
+      "main": [
+        [
+          {
+            "node": "Auf Freigabe warten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Von BC3-01 gestartet": {
+      "main": [
+        [
+          {
+            "node": "Lauf einstellen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BC3-40 Tickets bauen und prüfen": {
+      "main": [
+        [
+          {
+            "node": "BC3-50 Architektur",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "R6 Wiederholung prüfen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BC3-50 Architektur": {
+      "main": [
+        [
+          {
+            "node": "BC3-70 Ausliefern",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stufe gescheitert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fehler einordnen": {
+      "main": [
+        [
+          {
+            "node": "Lauf abschliessen",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Aufruf gescheitert?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aufruf gescheitert?": {
+      "main": [
+        [
+          {
+            "node": "Aufruffehler in fehler schreiben",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "D03E5Rn1DDKDZGbL",
+    "binaryMode": "separate"
+  }
+}

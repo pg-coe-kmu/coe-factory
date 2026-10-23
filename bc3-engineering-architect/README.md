@@ -29,5 +29,6 @@
 - [ablauf-slicer.md](ablauf-slicer.md): Ablauf eines Laufs, Schritt für Schritt
 - [nachweis-pruefstand-reproduzierbarkeit.md](nachweis-pruefstand-reproduzierbarkeit.md): Prüfstand (Precision, Recall, F1) und Reproduzierbarkeit
 - [pruefstand/risikoklasse-faelle.json](pruefstand/risikoklasse-faelle.json): 16 erfundene Testfälle für den Prüfstand
+- [workflows/](workflows/README.md): die 15 n8n-Workflows des Slicers, bereinigt exportiert, mit Zugängen und Platzhaltern
 - [bc3-architektur-bausteine.md](bc3-architektur-bausteine.md): Bausteine der Architektur (Entwurf vom 26.06.2026, mit Stand 23.10.2026)
 - `bc2-anforderung/`, `pseudonymisierung/`, `simulation/`: Beispiele, Vorarbeiten und simulierte Konzepte
