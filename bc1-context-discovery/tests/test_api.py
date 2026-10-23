@@ -9,9 +9,10 @@ from bc1_core.llm import ExtractionCandidate, FakeLLM
 from bc1_core.package import FieldSpec, TOY_PROZESS, UseCasePackage
 from bc1_core.store import InMemoryStateStore, StaleStateError
 from bc1_core.types import SessionState, SessionStatus
-from bc1_service.api import (ABBRUCH_TEXT, MELDUNG_GATE_FEHLGESCHLAGEN,
+from bc1_service.api import (ABBRUCH_TEXT, FEHLER_TEXTE, MELDUNG_GATE_FEHLGESCHLAGEN,
                              OVERLAY_SCHLUESSEL, _sweep_hinweise, create_app)
 from bc1_service.bc0_meldungen import Bc0MeldungFehler
+from bc1_service.profil_writer import ProfilWriteError
 
 MANDANT = "11111111-1111-1111-1111-111111111111"
 MANDANT_B = "22222222-2222-2222-2222-222222222222"
@@ -650,3 +651,76 @@ def test_nachgezogenes_gate_ohne_gesetzte_anfrage_sagt_keine(caplog):
         _bis_fertig(_gate_client(_NichtsZuTun()))
     assert [r.getMessage() for r in _api_log(caplog)] == [
         f"Gate bei BC0 nachgezogen (Anfrage {ANFRAGE}): auf am_gate gesetzt: keine"]
+
+
+# --- P3 (#269): verstaendliche Fehlertexte im Chat neben dem stabilen detail ---
+
+def _fehler(antwort, status, schluessel):
+    assert antwort.status_code == status
+    assert antwort.json()["detail"] == schluessel           # Schnittstelle unveraendert
+    assert antwort.json()["chat_text"] == FEHLER_TEXTE[schluessel]
+
+
+def test_session_abgeschlossen_traegt_chat_text():
+    client = _client()
+    _bis_fertig(client)
+    _fehler(_turn(client, "m4", "noch etwas!"), 409, "session_abgeschlossen")
+
+
+def test_schema_version_passt_nicht_traegt_chat_text():
+    _fehler(_turn(_client(), "m1", "egal", schema_version="99.9"),
+            409, "schema_version_passt_nicht")
+
+
+def test_paket_konflikt_traegt_chat_text():
+    store = InMemoryStateStore()
+    store.save(SessionState("s9", "9.9", paket_name="fremdes_paket",
+                            company_id=MANDANT))
+    _fehler(_turn(_client(store=store), "m1", "Hallo", session="s9"),
+            409, "paket_konflikt")
+
+
+def test_mandant_konflikt_traegt_chat_text():
+    store = InMemoryStateStore()
+    store.save(SessionState("s1", "0.1", paket_name="toy_prozess",
+                            company_id=MANDANT_B))
+    _fehler(_turn(_client(store=store), "m1", "hallo"), 409, "mandant_konflikt")
+
+
+def test_anfrage_konflikt_traegt_chat_text():
+    store = InMemoryStateStore()
+    alt = TestClient(create_app(store, _fake_llm(), TOY_PROZESS,
+                                company_id=MANDANT, anfrage_id=ANFRAGE))
+    _turn(alt, "m1", "Der Prozess heißt Urlaubsantrag")
+    neu = TestClient(create_app(store, _fake_llm(), TOY_PROZESS,
+                                company_id=MANDANT, anfrage_id="A-2026-02"))
+    _fehler(_turn(neu, "m2", "Ausgelöst durch einen Antrag"), 409, "anfrage_konflikt")
+
+
+def test_gleichzeitige_anfrage_traegt_chat_text():
+    _fehler(_turn(_client(store=_StaleBeimErstenSave()), "m1", "Hallo"),
+            409, "gleichzeitige_anfrage")
+
+
+class _WriterMitFehler:
+    def reconcile(self, state, antwort):
+        raise ProfilWriteError("Schreiben gescheitert")
+
+
+def test_profil_write_fehlgeschlagen_traegt_chat_text():
+    client = TestClient(create_app(InMemoryStateStore(), _fake_llm(), TOY_PROZESS,
+                                   company_id=MANDANT, writer=_WriterMitFehler()))
+    _fehler(_turn(client, "m1", "Der Prozess heißt Urlaubsantrag"),
+            503, "profil_write_fehlgeschlagen")
+
+
+def test_kein_snapshot_bleibt_ohne_chat_text():
+    antwort = _client().get("/prozesse")
+    assert antwort.status_code == 404
+    assert antwort.json() == {"detail": "kein_snapshot_konfiguriert"}
+
+
+def test_fehlertexte_tragen_keine_schluessel_und_keine_interna():
+    for schluessel, text in FEHLER_TEXTE.items():
+        assert schluessel not in text
+        assert "_" not in text and "{" not in text

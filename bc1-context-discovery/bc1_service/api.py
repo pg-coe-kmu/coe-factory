@@ -16,6 +16,8 @@ import logging
 import threading
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi.exception_handlers import http_exception_handler
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from bc1_core.core import (AnfrageKonfliktError, MandantKonfliktError,
@@ -34,6 +36,33 @@ log = logging.getLogger(__name__)
 # Terminalzustand, und der Text bleibt ueber Neustarts identisch.
 ABBRUCH_TEXT = ("Wir konnten den Prozess-Schritt nicht eindeutig zuordnen. "
                 "Bitte starten Sie neu und wählen Sie einen Schritt aus der Liste.")
+
+# P3 (#269): fester Chat-Text je Fehlerschluessel, neben dem stabilen `detail` — die
+# n8n-Huelle zeigt `chat_text ?? detail`. Fest wie ABBRUCH_TEXT: kein LLM, keine
+# Nutzerinhalte, keine Interna. Unbekannte Schluessel bleiben ohne chat_text.
+FEHLER_TEXTE = {
+    "session_abgeschlossen": (
+        "Dieses Interview ist bereits abgeschlossen. Für einen weiteren "
+        "Prozess-Schritt starten Sie bitte ein neues Interview."),
+    "paket_konflikt": (
+        "Die Grundlagen dieses Interviews haben sich geändert (zum Beispiel neue "
+        "Teilprozesse beim Mandanten). Bitte starten Sie ein neues Interview."),
+    "schema_version_passt_nicht": (
+        "Diese Nachricht passt nicht zur laufenden Version des Interviews. "
+        "Bitte starten Sie ein neues Interview."),
+    "mandant_konflikt": (
+        "Diese Sitzung gehört zu einem anderen Mandanten und kann hier nicht "
+        "fortgesetzt werden."),
+    "anfrage_konflikt": (
+        "Diese Sitzung gehört zu einer anderen Anfrage und kann hier nicht "
+        "fortgesetzt werden. Bitte starten Sie ein neues Interview."),
+    "gleichzeitige_anfrage": (
+        "Ihre Nachricht wurde gleichzeitig mit einer anderen verarbeitet. "
+        "Bitte senden Sie sie noch einmal."),
+    "profil_write_fehlgeschlagen": (
+        "Das Profil konnte gerade nicht gespeichert werden. Bitte senden Sie Ihre "
+        "letzte Nachricht noch einmal — es geht nichts verloren."),
+}
 
 # Diese Keys kommen bei einer fertig-Antwort aus der DB, nicht aus dem Kern
 # (Spec K3.3): der Sweep kann Werte und Zaehler veraendert haben, nachdem der
@@ -89,6 +118,17 @@ def create_app(
     # den Store). Die Factory kennt den Inhalt nicht — nur den Durchreicher.
     app = FastAPI(title="BC1 Context Discovery", version="0.2.0",
                   lifespan=lifespan)
+
+    @app.exception_handler(HTTPException)
+    async def _mit_chat_text(request, fehler: HTTPException):
+        # Die raise-Stellen bleiben, wie sie sind; nur bekannte Schluessel bekommen
+        # den Text dazu, alles andere geht unveraendert durch FastAPIs Standard.
+        text = FEHLER_TEXTE.get(fehler.detail) if isinstance(fehler.detail, str) else None
+        if text is None:
+            return await http_exception_handler(request, fehler)
+        return JSONResponse(status_code=fehler.status_code,
+                            content={"detail": fehler.detail, "chat_text": text},
+                            headers=fehler.headers)
 
     # Ein Lock je Session: /turn liest den State (Gate) und lässt ihn vom Kern
     # fortschreiben — zwei gleichzeitige Turns derselben Session würden sonst

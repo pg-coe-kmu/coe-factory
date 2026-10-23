@@ -11,7 +11,7 @@ from bc1_core.feldtypen import AUSWAHL
 from bc1_core.llm import ExtractionCandidate, FakeLLM
 from bc1_core.package import FieldSpec, UseCasePackage
 from bc1_core.store import InMemoryStateStore
-from bc1_service.api import HINWEIS_GUELTIG, HINWEIS_UNGELOEST, create_app
+from bc1_service.api import FEHLER_TEXTE, HINWEIS_GUELTIG, HINWEIS_UNGELOEST, create_app
 from bc1_service.discovery_paket import Bc0Kontext, baue_discovery_paket
 from bc1_service.profil_writer import ProfilWriter
 from tests.db_fixture import ANFRAGE_A, DSN, MANDANT_A, MANDANT_B, frische_db, verbindung
@@ -708,6 +708,7 @@ def test_503_traegt_den_stabilen_detail_string(umgebung):
     antwort = _turn(client, "m1", "alles")
     assert antwort.status_code == 503
     assert antwort.json()["detail"] == "profil_write_fehlgeschlagen"
+    assert antwort.json()["chat_text"] == FEHLER_TEXTE["profil_write_fehlgeschlagen"]
 
 
 def test_write_fehler_erzeugt_503_und_der_replay_holt_ihn_nach(umgebung):

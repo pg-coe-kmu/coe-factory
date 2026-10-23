@@ -230,8 +230,8 @@ Neustart und kein Eingriff in die Sitzung nötig.
    im Chat: Nachricht erneut gesendet → Interview läuft an der richtigen Stelle weiter.
 
 Bonus (Transport-Gate live): Nachricht in die abgeschlossene Chat-Session → Chat zeigt
-`session_abgeschlossen` (409-Detail; bewusst roher Text — hübschere Formulierung wäre
-API-Kosmetik, siehe Roadmap-Notiz im Ledger).
+„Dieses Interview ist bereits abgeschlossen. …" (seit P3/#269 trägt jeder 409/503 neben dem
+stabilen `detail`, hier `session_abgeschlossen`, einen festen `chat_text`).
 
 ## Baseline-Nachweis (BC0-Snapshot)
 
