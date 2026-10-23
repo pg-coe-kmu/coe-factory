@@ -1,0 +1,212 @@
+{
+  "lieferung_id": "del-kp-05-2026-10-23-051629",
+  "schema_version": "3.5",
+  "projekt_kurzname": "kp-05",
+  "konzept_ref": {
+    "konzept_id": "29391ca4-e90e-4db3-a15b-7f55498cfa2f",
+    "schema_version": "3.1",
+    "source_file": "konzept_KP-05.json",
+    "kp_id": "KP-05",
+    "teilprozess_ids": [
+      "KP-05.TP-1"
+    ],
+    "value_quelle": "berechnet"
+  },
+  "epics": [
+    {
+      "epic_id": "ep-35ec-f2fb-68d5-6d6dddfa6fa7",
+      "titel": "KI-gestützte Wissensdatenbank-Suche mit RAG-Pipeline",
+      "ziel": "Mitarbeitende erhalten auf Wissensfragen sofortige Antwortvorschläge mit verlinkten Quelldokumenten, um den manuellen Suchaufwand im Google-Drive-Bestand zu ersetzen.",
+      "kategorien": [
+        "it:backend",
+        "it:integration",
+        "it:ai-pipeline"
+      ],
+      "stories": [
+        {
+          "story_id": "st-35ec-f2fb-68d5-6d6dddfa6fa7-1",
+          "titel": "Initialer Aufbau des Dokumentenindex aus Google Drive",
+          "beschreibung": "Als IT-Administrator möchte ich alle freigegebenen Dokumente aus Google Drive in die Vector-Datenbank (Qdrant) einlesen, vektorisieren und indizieren, damit die KI-gestützte Suche auf dem vollständigen Dokumentenbestand basiert.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein freigegebener Google-Drive-Bestand mit maschinenlesbaren Dokumenten (PDF, DOCX, exportierte Google Docs), When der initiale Indizierungsprozess gestartet wird, Then werden alle Dokumente in Chunks zerteilt, mit dem Embedding-Modell vektorisiert und in Qdrant abgelegt.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given ein Dokument im Google-Drive-Bestand, das nicht maschinenlesbar ist (z. B. gescanntes Bild ohne OCR-Schicht), When der Indizierungsprozess dieses Dokument verarbeitet, Then wird es mit OCR (PaddleOCR/Tesseract) vorverarbeitet, bevor es vektorisiert wird.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given ein Dokument mit Zugriffsbeschränkungen in Google Drive, When der Indizierungsprozess die Zugriffsrechte auswertet, Then werden die Rechte als Metadaten im Qdrant-Index hinterlegt, sodass Abfragen nur Dokumente zurückliefern, auf die die anfragende Rolle Zugriff hat.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given der initiale Indizierungsprozess, When er abgeschlossen ist, Then liegt der Index in Qdrant vor und ist für Abfragen bereit.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-35ec-f2fb-68d5-6d6dddfa6fa7-2",
+          "titel": "Inkrementelle Aktualisierung des Dokumentenindex",
+          "beschreibung": "Als IT-Administrator möchte ich, dass Änderungen im Google-Drive-Bestand (neue, aktualisierte oder gelöschte Dokumente) automatisch erkannt und in den Qdrant-Index übernommen werden, damit der Wissensstand des Systems stets aktuell ist.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein Dokument, das nach der Erstindizierung in Google Drive aktualisiert oder neu abgelegt wird, When der Synchronisierungszyklus abgeschlossen ist, Then ist der aktualisierte Inhalt im Qdrant-Index verfügbar und ersetzt die alte Fassung.",
+              "messverfahren": "Kontrollierter Test: Dokument mit definierten Schlüsselbegriffen in Google Drive ablegen, nach dem nächsten Indizierungslauf dieselben Begriffe abfragen und prüfen, ob das Dokument in den Quellen erscheint (K2)."
+            },
+            {
+              "text": "Given ein Dokument, das in Google Drive gelöscht wird, When der Synchronisierungszyklus abgeschlossen ist, Then wird das Dokument aus dem Qdrant-Index entfernt und ist in nachfolgenden Abfragen nicht mehr verfügbar.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given der Indizierungszyklus, When er konfiguriert ist, Then läuft er in den definierten Intervallen ab, sodass Aktualisierungen im Dokumentenbestand innerhalb des vereinbarten Zeitfensters im Index sichtbar werden.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given ein erneuter Indexlauf ohne Änderungen am Google-Drive-Bestand, When der Zyklus abgeschlossen ist, Then bleibt der Qdrant-Index unverändert (V9).",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-35ec-f2fb-68d5-6d6dddfa6fa7-1"
+          ]
+        },
+        {
+          "story_id": "st-35ec-f2fb-68d5-6d6dddfa6fa7-3",
+          "titel": "Semantische Suche und Antwortgenerierung mit Quellenangabe",
+          "beschreibung": "Als wissenssuchende Mitarbeiterin möchte ich eine Frage in natürlicher Sprache eingeben und einen Antwortvorschlag mit verlinkten Quelldokumenten erhalten, damit ich die Antwort schnell prüfen und weitergeben kann.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein Wissensbedarf zu einem Thema, das in mindestens einem indizierten Dokument abgedeckt ist, When eine Mitarbeiterin die Frage in die Chat-Oberfläche eingibt, Then liefert das System einen Antwortvorschlag mit mindestens einer verlinkten Quelldatei innerhalb weniger Sekunden (K1).",
+              "messverfahren": "Stichprobe definierter Testfragen gegen den indizierten Bestand; Auswertung der Systemlogs auf Antwortzeit und Vorhandensein von Quellenangaben (K1)."
+            },
+            {
+              "text": "Given eine Frage, die sich vollständig aus dem freigegebenen Dokumentenbestand beantworten lässt, When die Anfrage verarbeitet wird, Then gibt das System die Antwort zusammen mit Quellenangaben aus (Dokument, Abschnitt, Stand oder Version) (V1).",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given eine Frage, zu der nur ein Teil der Antwort im Dokumentenbestand belegt ist, When die Anfrage verarbeitet wird, Then beantwortet das System diesen Teil, kennzeichnet die Antwort als Teilantwort und benennt den offenen Teil (V2).",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given eine Frage, zu der sich Quellen im Dokumentenbestand widersprechen, When die Anfrage verarbeitet wird, Then nennt das System alle widersprechenden Quellen und kennzeichnet den Widerspruch (V3).",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given eine Frage, zu der keine belastbare Antwort im Dokumentenbestand existiert, When die Anfrage verarbeitet wird, Then teilt das System transparent mit, dass keine ausreichende Dokumentationsgrundlage gefunden wurde (V4).",
+              "messverfahren": "Stichprobe von Testfragen zu bewusst nicht dokumentierten Themen; manuelle Prüfung der Systemausgabe auf korrekte Ablehnungsmeldung (K4)."
+            },
+            {
+              "text": "Given eine Frage, die ausschließlich in einem Dokument beantwortet wird, auf das die anfragende Rolle keinen Zugriff hat, When die Anfrage verarbeitet wird, Then erscheint das Dokument weder im Antwortvorschlag noch in den verlinkten Quellen (K3).",
+              "messverfahren": "Berechtigungstest mit einem Testkonto ohne Zugriff auf ein definiertes Dokument; Prüfung der Systemausgabe auf Abwesenheit des Dokuments (K3)."
+            },
+            {
+              "text": "Given eine leere Frage oder eine Frage über der vereinbarten Höchstlänge, When die Anfrage gestellt wird, Then wird sie mit einem verständlichen Hinweis zurückgewiesen, bevor die Suche beginnt (V6).",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given eine Antwort, die Quellenangaben enthält, When die Antwort generiert wird, Then stammen alle angegebenen Quellen aus den für diese Frage tatsächlich gefundenen Dokumenten, und wörtliche Zitate stehen genau so im Dokument (V7).",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given eine Antwort, When sie generiert wird, Then trägt sie genau einen Status aus der Liste: beantwortet, teilweise beantwortet, Widerspruch, keine Antwort im Bestand, technischer Fehler, ungültige Eingabe (V8).",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given eine Antwort, When sie generiert wird, Then werden Status, genannte Quellen und eingesetzte Versionen protokolliert; fällt das Protokoll aus, wird die Antwort trotzdem mit einem Hinweis ausgegeben (V8).",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given eine technische Störung während der Suche oder des Modellaufrufs, When die Anfrage verarbeitet wird, Then meldet das System einen technischen Fehler und nicht 'keine Antwort im Bestand' (V5).",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Nicht-funktional: Given eine Frage, die sich aus dem Dokumentenbestand beantworten lässt, When die Anfrage verarbeitet wird, Then liegt die Antwortzeit innerhalb der vereinbarten Frist (aus K1: 'innerhalb weniger Sekunden').",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-35ec-f2fb-68d5-6d6dddfa6fa7-1",
+            "st-35ec-f2fb-68d5-6d6dddfa6fa7-2"
+          ]
+        },
+        {
+          "story_id": "st-35ec-f2fb-68d5-6d6dddfa6fa7-4",
+          "titel": "Integration der Chat-Oberfläche für Nutzerinteraktion",
+          "beschreibung": "Als wissenssuchende Mitarbeiterin möchte ich eine einfache Chat-Oberfläche nutzen, um Fragen in natürlicher Sprache zu stellen und Antwortvorschläge mit Quellenangaben zu erhalten, damit ich ohne technische Vorkenntnisse auf das System zugreifen kann.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine Mitarbeiterin, die eine Frage stellen möchte, When sie die Chat-Oberfläche öffnet, Then kann sie die Frage in natürlicher Sprache eingeben und erhält einen Antwortvorschlag mit verlinkten Quellen.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given eine Antwort mit Quellenangaben, When sie in der Chat-Oberfläche angezeigt wird, Then sind die Quellen als klickbare Links dargestellt, die direkt zum Dokument in Google Drive führen.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given die Chat-Oberfläche, When sie genutzt wird, Then erfordert sie keine technischen Vorkenntnisse und ist selbsterklärend gestaltet.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-35ec-f2fb-68d5-6d6dddfa6fa7-3"
+          ]
+        },
+        {
+          "story_id": "st-35ec-f2fb-68d5-6d6dddfa6fa7-5",
+          "titel": "Betrieb und Wartung der RAG-Pipeline auf Self-hosted-Infrastruktur",
+          "beschreibung": "Als IT-Administrator möchte ich die RAG-Pipeline auf der bestehenden Self-hosted-Infrastruktur von NoroAI betreiben und warten, damit keine Daten an externe Dienste ohne AVV übermittelt werden und die Lösung skalierbar bleibt.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given die RAG-Pipeline, When sie auf der Self-hosted-Infrastruktur (Hetzner) betrieben wird, Then läuft sie stabil und skalierbar, ohne Dokumente oder Anfragen an externe Dienste ohne AVV zu übermitteln (A6).",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given die RAG-Pipeline, When sie gewartet wird, Then sind alle Komponenten (Qdrant, Ollama, n8n, PostgreSQL) auf dem aktuellen Stand und laufen fehlerfrei.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given die Kapazitätsplanung, When die RAG-Pipeline betrieben wird, Then sind ausreichend RAM und optional GPU-Ressourcen für Embedding-Generierung und Vector-Suche verfügbar.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-35ec-f2fb-68d5-6d6dddfa6fa7-1",
+            "st-35ec-f2fb-68d5-6d6dddfa6fa7-2",
+            "st-35ec-f2fb-68d5-6d6dddfa6fa7-3"
+          ]
+        },
+        {
+          "story_id": "st-35ec-f2fb-68d5-6d6dddfa6fa7-6",
+          "titel": "Aktualisierte Dokumente in Antwortvorschlägen berücksichtigen",
+          "beschreibung": "Als Wissenssuchende:r möchte ich, dass aktualisierte oder neu hinzugefügte Dokumente in Google Drive nach der Synchronisation in den Antwortvorschlägen der KI berücksichtigt werden, damit ich stets auf dem aktuellen Wissensstand basierende Antworten erhalte.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein Dokument wird nach der Erstindizierung in Google Drive aktualisiert oder neu abgelegt, When der Synchronisierungszyklus abgeschlossen ist, Then ist der Inhalt des aktualisierten Dokuments in nachfolgenden Antwortvorschlägen auffindbar.",
+              "messverfahren": "Kontrollierter Test: Dokument mit definierten Schlüsselbegriffen in Google Drive ablegen, nach dem nächsten Indizierungslauf dieselben Begriffe abfragen und prüfen, ob das Dokument in den Quellen erscheint."
+            },
+            {
+              "text": "Given ein erneuter Indexlauf ohne Änderungen am Dokumentenbestand, When der Indexlauf abgeschlossen ist, Then bleibt der Index unverändert.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given ein Dokument wird in Google Drive geändert, When der nächste Indexlauf abgeschlossen ist, Then ersetzt die neue Fassung des Dokuments die alte im Index, sodass Antworten nur noch die neue Fassung zitieren.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-35ec-f2fb-68d5-6d6dddfa6fa7-2"
+          ]
+        }
+      ],
+      "teilprozess_ids": [
+        "KP-05.TP-1"
+      ]
+    }
+  ],
+  "gate2": {
+    "status": "approved"
+  }
+}
