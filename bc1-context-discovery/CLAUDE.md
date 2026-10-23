@@ -9,10 +9,10 @@ Wandelt unstrukturierte Eingaben (MVP: Text-Chat) in ein strukturiertes **Prozes
 - `architektur/BC1_Systemarchitektur.md` — Bauweise (Hybrid: n8n-Hülle + Code-Kern) + Module
 - `design/Design-Spec.md` — das *Warum*
 - `design/Implementierungsplan-MVP-Kern.md` — Anleitung pro Arbeitspaket (TDD, inkl. Code/Tests)
-- Arbeitspakete: **#48** (Übersicht/Reihenfolge) + **#120–#126**
+- `design/Abschlussplan-BC1.md` — offene Pakete und Reihenfolge
 
 ## Wie man arbeitet
-Issue wählen (Reihenfolge siehe #48) → verlinkten Plan-Task lesen → Test zuerst → **ein Issue = ein Branch = kleiner PR**. Die „Consumes/Produces"-Blöcke im Plan sind der Vertrag zwischen parallelen Paketen.
+Issue wählen (Reihenfolge siehe Abschlussplan) → verlinkten Plan-Task lesen → Test zuerst → **ein Issue = ein Branch = kleiner PR**. Die „Consumes/Produces"-Blöcke im Plan sind der Vertrag zwischen parallelen Paketen.
 
 ## Sauber codieren
 
