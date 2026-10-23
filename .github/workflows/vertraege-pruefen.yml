@@ -118,8 +118,19 @@ jobs:
               print("Keine Lieferungsordner gefunden.")
               sys.exit(0)
 
+          # Seit 23.10.2026 liegt jede Lieferung in <projekt>/<lieferung_id>/.
+          # Geprüft wird jeder Ordner, der selbst eine ticket_set.json hat, sonst
+          # seine Unterordner; Dateien direkt unter <projekt>/ stammen von vorher.
+          ziele = []
           for o in ordner:
-              name = os.path.basename(o)
+              unter = sorted(d for d in glob.glob(f"{o}/*")
+                             if os.path.isdir(d) and os.path.exists(os.path.join(d, "ticket_set.json")))
+              if os.path.exists(os.path.join(o, "ticket_set.json")) or not unter:
+                  ziele.append(o)
+              ziele.extend(unter)
+
+          for o in ziele:
+              name = os.path.relpath(o, BASIS).replace(os.sep, "/")
               # mock/ ist das alte Beispiel und folgt der Namensgebung noch nicht
               tickets = os.path.join(o, "ticket_set.json")
               if not os.path.exists(tickets):
