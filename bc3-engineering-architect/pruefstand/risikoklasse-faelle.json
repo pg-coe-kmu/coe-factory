@@ -1,0 +1,279 @@
+{
+  "titel": "Prüfstand Risikoklasse BC3-30, Testfälle",
+  "stand": "2026-10-22, Soll-Werte von BC3 geprüft",
+  "hinweis": "Erfundene Fälle ohne echte Unternehmen oder Personen. Soll-Werte aus dem Wortlaut von Art. 5, Art. 50 und Anhang III KI-VO. Gemessen wird BC3-30 ohne Regel R2 (BC3-15), also Modell plus Gegenprobe.",
+  "faelle": [
+    {
+      "id": "U1",
+      "soll_klasse": "unacceptable",
+      "soll_fundstelle": "Art. 5 Abs. 1 Buchst. f",
+      "titel": "Stimmungsanalyse im Callcenter",
+      "prozess": "Ein Callcenter mit 40 Beschäftigten wertet die Stimme der Mitarbeitenden in Kundengesprächen aus, erkennt daraus Ärger, Stress und Langeweile und nutzt das Ergebnis für die monatliche Leistungsbewertung.",
+      "stories": [
+        [
+          "Stimmung je Gespräch erkennen",
+          "Das System erkennt aus der Stimme der Mitarbeitenden die Emotion je Gespräch."
+        ],
+        [
+          "Stimmungswerte in die Leistungsbewertung übernehmen",
+          "Die Stimmungswerte fließen in die monatliche Bewertung jeder Person ein."
+        ]
+      ]
+    },
+    {
+      "id": "U2",
+      "soll_klasse": "unacceptable",
+      "soll_fundstelle": "Art. 5 Abs. 1 Buchst. c",
+      "titel": "Mieterbewertung aus sozialem Verhalten",
+      "prozess": "Eine Hausverwaltung bewertet Mietinteressenten nach ihrem Verhalten in sozialen Netzwerken und in Nachbarschaftsforen und vergibt eine Gesamtpunktzahl. Wer wenig Punkte hat, erhält keine Besichtigungstermine und wird auch für Stellplätze und Gemeinschaftsräume gesperrt.",
+      "stories": [
+        [
+          "Soziales Verhalten bewerten",
+          "Das System sammelt Beiträge aus sozialen Netzwerken und Foren und berechnet eine Punktzahl je Person."
+        ],
+        [
+          "Zugang nach Punktzahl sperren",
+          "Personen unter dem Schwellwert erhalten keine Termine und keinen Zugang zu Stellplätzen."
+        ]
+      ]
+    },
+    {
+      "id": "U3",
+      "soll_klasse": "unacceptable",
+      "soll_fundstelle": "Art. 5 Abs. 1 Buchst. e",
+      "titel": "Gesichtsdatenbank aus dem Internet",
+      "prozess": "Ein Einzelhändler baut eine Datenbank mit Gesichtsbildern auf, indem er Fotos ungezielt von öffentlichen Webseiten und Social-Media-Profilen ausliest, um Kundinnen und Kunden im Laden wiederzuerkennen.",
+      "stories": [
+        [
+          "Gesichtsbilder aus dem Internet sammeln",
+          "Ein Crawler liest Profilfotos von öffentlichen Seiten aus und speichert Gesichtsmerkmale."
+        ],
+        [
+          "Kundschaft im Laden wiedererkennen",
+          "Kameras gleichen Gesichter am Eingang mit der Datenbank ab."
+        ]
+      ]
+    },
+    {
+      "id": "H1",
+      "soll_klasse": "high",
+      "soll_fundstelle": "Anhang III Nr. 4 Buchst. a",
+      "titel": "Bewerbungen vorsortieren",
+      "prozess": "Ein Handwerksbetrieb lässt eingehende Bewerbungen automatisch lesen, nach Eignung bewerten und als Rangliste an die Geschäftsführung geben, die daraus zu Gesprächen einlädt.",
+      "stories": [
+        [
+          "Bewerbungen auslesen",
+          "Das System liest Lebenslauf und Anschreiben aus."
+        ],
+        [
+          "Bewerbende nach Eignung ordnen",
+          "Das System bewertet jede Bewerbung und erstellt eine Rangliste."
+        ]
+      ]
+    },
+    {
+      "id": "H2",
+      "soll_klasse": "high",
+      "soll_fundstelle": "Anhang III Nr. 4 Buchst. b",
+      "titel": "Schichtzuweisung nach Leistung",
+      "prozess": "Ein Pflegedienst teilt Touren und Schichten automatisch zu. Grundlage sind Leistungskennzahlen und Pünktlichkeit der einzelnen Beschäftigten aus den letzten drei Monaten.",
+      "stories": [
+        [
+          "Leistung je Person auswerten",
+          "Das System berechnet Kennzahlen zu Tempo und Pünktlichkeit je Pflegekraft."
+        ],
+        [
+          "Touren nach Leistung zuweisen",
+          "Beliebte Touren gehen an Personen mit den besten Werten."
+        ]
+      ]
+    },
+    {
+      "id": "H3",
+      "soll_klasse": "high",
+      "soll_fundstelle": "Anhang III Nr. 5 Buchst. b",
+      "titel": "Ratenkauf für Privatkunden",
+      "prozess": "Ein Möbelhändler prüft beim Ratenkauf die Kreditwürdigkeit der Privatkundinnen und -kunden automatisch und entscheidet über Zusage und Höhe des Rahmens.",
+      "stories": [
+        [
+          "Bonität berechnen",
+          "Das System berechnet aus Einkommen und Zahlungshistorie einen Bonitätswert."
+        ],
+        [
+          "Ratenrahmen festlegen",
+          "Nach dem Bonitätswert wird der Ratenkauf zugesagt oder abgelehnt."
+        ]
+      ]
+    },
+    {
+      "id": "H4",
+      "soll_klasse": "high",
+      "soll_fundstelle": "Anhang III Nr. 3 Buchst. d",
+      "titel": "Aufsicht bei Online-Prüfungen",
+      "prozess": "Eine private Fachschule beaufsichtigt Online-Abschlussprüfungen per Kamera und markiert automatisch Verhalten, das auf Täuschung hindeutet. Markierte Prüfungen werden nicht gewertet, bis die Schule entschieden hat.",
+      "stories": [
+        [
+          "Prüfung per Kamera beobachten",
+          "Das System wertet Blickrichtung und Geräusche während der Prüfung aus."
+        ],
+        [
+          "Täuschungsverdacht markieren",
+          "Auffällige Prüfungen werden markiert und zurückgehalten."
+        ]
+      ]
+    },
+    {
+      "id": "H5",
+      "soll_klasse": "high",
+      "soll_fundstelle": "Anhang III Nr. 3 Buchst. a",
+      "titel": "Zulassung zur Weiterbildungsakademie",
+      "prozess": "Eine Akademie für berufliche Weiterbildung entscheidet über die Zulassung zu einem staatlich anerkannten Lehrgang anhand eines automatisch ausgewerteten Eingangstests und der Unterlagen.",
+      "stories": [
+        [
+          "Eingangstest auswerten",
+          "Das System bewertet den Test und die eingereichten Zeugnisse."
+        ],
+        [
+          "Über die Zulassung entscheiden",
+          "Personen über dem Schwellwert erhalten automatisch einen Platz."
+        ]
+      ]
+    },
+    {
+      "id": "H6",
+      "soll_klasse": "high",
+      "soll_fundstelle": "Anhang III Nr. 5 Buchst. c",
+      "titel": "Tarif für Krankenzusatzversicherung",
+      "prozess": "Ein Versicherungsmakler lässt für Antragstellende einer Krankenzusatzversicherung das Gesundheitsrisiko bewerten und daraus den Beitrag berechnen.",
+      "stories": [
+        [
+          "Gesundheitsangaben bewerten",
+          "Das System bewertet die Gesundheitsfragen des Antrags als Risikowert."
+        ],
+        [
+          "Beitrag berechnen",
+          "Aus dem Risikowert ergibt sich der Monatsbeitrag."
+        ]
+      ]
+    },
+    {
+      "id": "H7",
+      "soll_klasse": "high",
+      "soll_fundstelle": "Anhang III Nr. 2",
+      "titel": "Leckerkennung in der Trinkwasserversorgung",
+      "prozess": "Ein kleines Stadtwerk nutzt ein KI-System als Sicherheitsbauteil im Trinkwassernetz: Es erkennt Lecks und Druckabfälle und schließt selbsttätig Schieber, um die Versorgung zu sichern.",
+      "stories": [
+        [
+          "Druckabfall erkennen",
+          "Das System wertet Sensordaten im Netz aus und erkennt Lecks."
+        ],
+        [
+          "Schieber selbsttätig schließen",
+          "Bei einem Leck schließt das System den betroffenen Abschnitt."
+        ]
+      ]
+    },
+    {
+      "id": "F1",
+      "soll_klasse": "minimal",
+      "soll_fundstelle": null,
+      "titel": "Falle: Reiserücktrittsversicherung",
+      "prozess": "Ein Reisebüro versendet nach jeder Buchung automatisch das Angebot einer Reiserücktrittsversicherung des Partnerversicherers. Der Preis steht im Tarif fest, das Reisebüro bewertet keine Personen.",
+      "stories": [
+        [
+          "Versicherungsangebot erzeugen",
+          "Nach der Buchung wird das Angebot mit festem Tarifpreis erstellt."
+        ],
+        [
+          "Angebot versenden",
+          "Das Angebot geht per Mail an die reisende Person."
+        ]
+      ]
+    },
+    {
+      "id": "F2",
+      "soll_klasse": "minimal",
+      "soll_fundstelle": null,
+      "titel": "Falle: genehmigte Urlaube eintragen",
+      "prozess": "In einem Büro mit 25 Beschäftigten trägt ein System Urlaubsanträge, die die Führungskraft bereits genehmigt hat, in den Teamkalender und die Lohnabrechnung ein. Über die Genehmigung entscheidet allein die Führungskraft.",
+      "stories": [
+        [
+          "Genehmigten Urlaub übernehmen",
+          "Nach der Genehmigung wird der Urlaub in den Teamkalender eingetragen."
+        ],
+        [
+          "Lohnabrechnung informieren",
+          "Die Urlaubstage gehen an die Lohnabrechnung."
+        ]
+      ]
+    },
+    {
+      "id": "L1",
+      "soll_klasse": "limited",
+      "soll_fundstelle": "Art. 50 Abs. 1",
+      "titel": "Kundenchat auf der Website",
+      "prozess": "Ein Onlineshop für Fahrradteile setzt einen KI-Chat auf der Website ein, der Fragen zu Lieferzeiten, Größen und Rücksendungen beantwortet.",
+      "stories": [
+        [
+          "Fragen im Chat beantworten",
+          "Der Chat beantwortet Kundenfragen aus der Wissensbasis des Shops."
+        ],
+        [
+          "An den Kundenservice übergeben",
+          "Bei offenen Fragen übernimmt ein Mensch das Gespräch."
+        ]
+      ]
+    },
+    {
+      "id": "L2",
+      "soll_klasse": "limited",
+      "soll_fundstelle": "Art. 50 Abs. 2",
+      "titel": "Erzeugte Produktbilder",
+      "prozess": "Eine Möbelmanufaktur lässt Produktbilder in Wohnumgebungen und die zugehörigen Beschreibungstexte von einem KI-System erzeugen und veröffentlicht sie im Onlineshop.",
+      "stories": [
+        [
+          "Produktbilder erzeugen",
+          "Das System erzeugt Bilder der Möbel in verschiedenen Räumen."
+        ],
+        [
+          "Bilder und Texte veröffentlichen",
+          "Die erzeugten Inhalte werden im Shop veröffentlicht."
+        ]
+      ]
+    },
+    {
+      "id": "M1",
+      "soll_klasse": "minimal",
+      "soll_fundstelle": null,
+      "titel": "Eingangsrechnungen vorkontieren",
+      "prozess": "Ein Steuerbüro lässt Eingangsrechnungen seiner Mandanten automatisch auslesen und einen Buchungsvorschlag erzeugen, den die Buchhaltung prüft und übernimmt.",
+      "stories": [
+        [
+          "Rechnung auslesen",
+          "Das System liest Betrag, Datum und Lieferant aus."
+        ],
+        [
+          "Buchungsvorschlag erzeugen",
+          "Das System schlägt Konto und Steuerschlüssel vor."
+        ]
+      ]
+    },
+    {
+      "id": "M2",
+      "soll_klasse": "minimal",
+      "soll_fundstelle": null,
+      "titel": "Nachbestellung im Lager",
+      "prozess": "Ein Großhändler für Elektromaterial prognostiziert den Bedarf je Artikel aus den Verkäufen der letzten zwei Jahre und erzeugt Nachbestellvorschläge für den Einkauf.",
+      "stories": [
+        [
+          "Bedarf prognostizieren",
+          "Das System berechnet den Bedarf je Artikel für die nächsten acht Wochen."
+        ],
+        [
+          "Nachbestellung vorschlagen",
+          "Unter dem Mindestbestand entsteht ein Bestellvorschlag."
+        ]
+      ]
+    }
+  ]
+}
