@@ -1,0 +1,390 @@
+{
+  "name": "BC3-10 Konzept einlesen",
+  "description": "Holt das Konzept von BC2, liest die Potenziale und prüft den Eingang, ohne KI",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "lauf_id"
+            },
+            {
+              "name": "umschlag",
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "id": "trg-83692300",
+      "name": "Vom Orchestrator aufgerufen",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1008,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prüft den Eingang, bevor ein Sprachmodell Geld kostet\n// Harte Fehler brechen ab, weiche laufen mit bis ins Compliance-Audit\nconst eintraege = $input.all().map(i => i.json);\nconst hart = [];\nconst weich = [];\n\nif (eintraege.length === 0) hart.push('Keine Potenziale im Konzept (weder potenziale[] noch use_cases[])');\n\nconst KP = /^KP-(0[1-9]|10)$/;\nconst TP = /^KP-(0[1-9]|10)\\.TP-[1-9][0-9]?$/;\n\neintraege.forEach((e, i) => {\n  const wo = `Eintrag ${i + 1}`;\n\n  if (e.ist_json === false) hart.push(`${wo}: Datei ist kein gültiges JSON (${e.parse_fehler || 'ohne Angabe'})`);\n  if (!e.use_case_id) hart.push(`${wo}: keine ID (potenzial_id oder use_case_id)`);\n  if (!e.use_case_titel) hart.push(`${wo}: kein Titel`);\n\n  const text = String(e.fachliche_beschreibung || '');\n  if (text.length < 300) hart.push(`${wo}: Beschreibung zu kurz (${text.length} von 300 Zeichen)`);\n\n  // Auflage BC0 vom 24.08.2026\n  if (!e.kp_id) hart.push(`${wo}: kp_id fehlt`);\n  else if (!KP.test(e.kp_id)) hart.push(`${wo}: kp_id „${e.kp_id}“ passt nicht zu KP-01 bis KP-10`);\n\n  const tps = e.teilprozess_ids || [];\n  if (tps.length === 0) {\n    weich.push(`${wo}: keine Teilprozess-Kennung`);\n  } else if (e.tp_herkunft === 'aus dem Text gelesen') {\n    weich.push(`${wo}: Teilprozess ${tps.join(', ')} nur aus dem Text gelesen, nicht aus einem Feld`);\n  }\n  tps.forEach(t => { if (!TP.test(t)) hart.push(`${wo}: Teilprozess „${t}“ passt nicht zu KP-XX.TP-Y`); });\n\n  const vision = String(e.to_be_vision || '');\n  if (!vision) weich.push(`${wo}: kein Soll-Zustand`);\n  else if (vision.length < 400) weich.push(`${wo}: Soll-Zustand nur ${vision.length} Zeichen (Kurzfassung)`);\n\n  if (!(e.fachliche_anforderungen || []).length) weich.push(`${wo}: keine fachlichen Anforderungen`);\n  if (!(e.akzeptanzkriterien_geschaeftlich || []).length) weich.push(`${wo}: keine Akzeptanzkriterien, BC3 muss sie selbst formulieren`);\n  if (!(e.betroffene_systeme || []).length) weich.push(`${wo}: keine betroffenen Systeme`);\n});\n\n// Text „Eingangsprüfung fehlgeschlagen“ nicht ändern, BC3-99 erkennt daran die Art\nif (hart.length) {\n  throw new Error('Eingangsprüfung fehlgeschlagen: ' + hart.join(' | '));\n}\n\nreturn $input.all().map(i => ({\n  json: { ...i.json, eingang_befunde: weich, eingang_geprueft: true },\n}));\n"
+      },
+      "id": "bc3-pruef-eingang",
+      "name": "Eingang prüfen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ergebnis in den Umschlag, ab hier reisen alle Stufen mit demselben Objekt\n\n// Reihenfolge: erst die Empfehlung von BC2 (gesamtempfehlung), dann rang\nconst empfehlung = $input.all()\n  .map(i => i.json.reihenfolge_empfehlung)\n  .find(x => Array.isArray(x) && x.length) || [];\nconst platz = new Map(empfehlung.map((id, i) => [String(id), i]));\n\n// Widersprechen sich Empfehlung und rang, kommt das ins Protokoll (Rückfrage an BC2)\nconst kennung = e => String(e.potenzial_id ?? e.use_case_id ?? '');\nconst widerspruch = (() => {\n  if (empfehlung.length < 2) return null;\n  const nachRang = [...$input.all().map(i => i.json)]\n    .sort((a, b) => (a.rang ?? 999) - (b.rang ?? 999)).map(kennung);\n  const nachEmpf = empfehlung.map(String).filter(id => nachRang.includes(id));\n  if (nachRang.join() === nachEmpf.join()) return null;\n  return `Reihenfolge von BC2 widersprüchlich: Empfehlung ${nachEmpf.map(x => x.slice(-4)).join(' vor ')}, `\n    + `rang ${nachRang.map(x => x.slice(-4)).join(' vor ')}, BC3 folgt der Empfehlung, bei BC2 nachfragen`;\n})();\n\nfunction nachReihenfolge(a, b) {\n  const pa = platz.get(String(a.potenzial_id ?? a.use_case_id));\n  const pb = platz.get(String(b.potenzial_id ?? b.use_case_id));\n  if (pa != null && pb != null) return pa - pb;\n  if (pa != null) return -1;\n  if (pb != null) return 1;\n  return (a.rang ?? 999) - (b.rang ?? 999);\n}\n\n// Reihenfolge bleibt ab hier fest, BC3-20 ordnet Epic i dem Potenzial i zu\nconst eintraege = $input.all().map(i => i.json).sort(nachReihenfolge);\nconst erster = eintraege[0] || {};\nconst quelle = $('Datei holen (BC3-11)').first().json;\nconst rein = $('Vom Orchestrator aufgerufen').first().json;\nconst umschlag = rein.umschlag || {};\n// Gate 1 und Kennungen stehen an jedem Eintrag, im Umschlag nur einmal\nconst potenziale = eintraege.map(({ gate1_auswahl, kette_ids, ...rest }) => rest);\n\nreturn [{\n  json: {\n    lauf_id: rein.lauf_id,\n    umschlag: {\n      ...umschlag,\n      quelle: { art: 'github', pfad: quelle.pfad, url: quelle.url, dateiname: quelle.dateiname },\n      ids: erster.kette_ids || null,\n      konzept: {\n        konzept_id: erster.konzept_id,\n        schema_version: erster.schema_version,\n        kp_id: erster.kp_id,\n        unternehmen: erster.unternehmen || null,\n        prozess: erster.prozess,\n        schmerzpunkte: erster.schmerzpunkte || [],\n        teilprozess_ids: [...new Set(eintraege.flatMap(e => e.teilprozess_ids || []))],\n        warnung: eintraege.map(e => e.warnung).find(Boolean) || null,\n        gate1: erster.gate1_auswahl || null,\n        // Kurzfassung für Gate 2, Protokoll und Compliance\n        ist_vorlaeufig: eintraege.some(e => e.ist_vorlaeufig === true),\n        annahmen: [...new Set(eintraege.flatMap(e => e.annahmen || []))],\n      },\n      potenziale,\n      protokoll: [...(umschlag.protokoll || []), {\n        stufe: 'BC3-10 Konzept einlesen',\n        zeitpunkt: new Date().toISOString(),\n        status: 'ok',\n        befunde: [\n          ...(erster.gate1_auswahl?.befunde || []),\n          ...(widerspruch ? [widerspruch] : []),\n          ...(erster.eingang_befunde || []),\n        ],\n      }],\n    },\n  },\n}];\n"
+      },
+      "id": "c-3303645",
+      "name": "Umschlag füllen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## BC3-10 Konzept einlesen\n\nHolt das Konzept über BC3-11 und liest die Potenziale, ohne KI. Aus `prozesspriorisierung.json` nimmt er nur die an Gate 1 freigegebenen Potenziale und die Kennungen der Kette.\n\nFehlen Pflichtangaben, bricht er ab, kleinere Lücken werden vermerkt.",
+        "height": 300,
+        "width": 628,
+        "color": 4
+      },
+      "id": "n-1555509",
+      "name": "Hinweis: BC3-10 Konzept einlesen",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1680,
+        -288
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Was weitergegeben wird\n\nAußer Titel, Beschreibung und Kennungen:\n\n- `voraussetzungen`, `betroffene_prozessschritte` für BC3-20\n- `risiken` für BC3-30\n- `annahmen` für Gate 2\n\nNicht weitergegeben: Aufwand, Priorität, Kategorie, Zahlen zur Wirtschaftlichkeit. BC4 braucht sie nicht.\n\nReihenfolge: erst die Empfehlung von BC2, dann `rang`. Widersprechen sich beide, steht das im Protokoll.",
+        "height": 400,
+        "width": 480,
+        "color": 5
+      },
+      "id": "n-mitreisen",
+      "name": "Hinweis: Was weitergegeben wird",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        900,
+        -330
+      ]
+    },
+    {
+      "id": "0ca9f17f-e71f-4fa0-a1d0-d0b4ba50ae08",
+      "name": "Datei holen (BC3-11)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -600,
+        40
+      ],
+      "parameters": {
+        "mode": "once",
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "ehcA304UI8tpGUIQ",
+          "cachedResultName": "BC3-11 Datei aus GitHub holen"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "pfad": "={{ $json.umschlag.lauf.pfad }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "pfad",
+              "displayName": "pfad",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "ff346892-2820-4324-bb65-468052fe9ef9",
+      "name": "Potenziale auslesen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -208,
+        48
+      ],
+      "parameters": {
+        "jsCode": "// Ein Item je Potenzial, liest Vertrag v1 bis v3.1\nconst item = $input.first();\nconst binaryKey = Object.keys(item.binary || {})[0];\nif (!binaryKey) throw new Error('Keine Datei erhalten');\n\nconst binData = item.binary[binaryKey];\nconst buffer = await this.helpers.getBinaryDataBuffer(0, binaryKey);\nlet text = buffer.toString('utf-8');\nif (text.charCodeAt(0) === 0xFEFF) text = text.slice(1); // BOM entfernen\ntext = text.trim();\n\nlet konzept = null;\ntry {\n  konzept = JSON.parse(text);\n} catch (e) {\n  // Aus Word kopiert: „…\" mit geradem Schlusszeichen beendet den String zu früh\n  const fixed = text.replace(/„([^\"„]{1,200}?)\"/g, '„$1“');\n  try {\n    konzept = JSON.parse(fixed);\n  } catch (e2) {\n    return [{\n      json: {\n        use_case_id: 'unbekannt',\n        titel: 'Kein gültiges JSON',\n        konzept_text_raw: text,\n        ist_json: false,\n        parse_fehler: e2.message,\n        original_filename: binData.fileName\n      }\n    }];\n  }\n}\n\n// v1.0: use_cases[] mit use_case_id, ab v2: potenziale[] mit potenzial_id\nconst eintraege = konzept.potenziale || konzept.use_cases || [];\nconst kp_id = konzept.kontext?.kp_id || null;\n\nconst kontext_kompakt = {\n  konzept_id: konzept.konzept_id,\n  schema_version: konzept.schema_version,\n  kp_id: kp_id,\n  prozess: konzept.kontext?.prozess_kurzbeschreibung,\n  unternehmen: konzept.kontext?.unternehmen || null,\n  schmerzpunkte: konzept.kontext?.hauptschmerzpunkte\n};\n\n// Teilprozess-Kennungen auch aus Freitext lesen (v2.0 hat kein eigenes Feld)\nconst TP_MUSTER = /\\bKP-(?:0[1-9]|10)\\.TP-[1-9][0-9]?\\b/g;\nfunction tpAusText(objekt) {\n  return [...new Set(String(JSON.stringify(objekt || {})).match(TP_MUSTER) || [])];\n}\n\n// Warnkasten (Zeilen mit >) abtrennen, damit er nicht in die Stories wandert\nfunction warnkastenTrennen(text) {\n  const t = String(text || '');\n  const zeilen = t.split('\\n');\n  const warn = [];\n  let i = 0;\n  while (i < zeilen.length && (zeilen[i].startsWith('>') || zeilen[i].trim() === '')) {\n    if (zeilen[i].startsWith('>')) warn.push(zeilen[i].replace(/^>\\s?/, ''));\n    i++;\n  }\n  return { warnung: warn.join(' ').trim() || null, rest: zeilen.slice(i).join('\\n').trim() };\n}\n\n// Ab v3.1 ist die potenzial_id die Saat für die Epic-ID, ältere behalten ihre IDs\nconst MIT_KETTE = Number(konzept.schema_version) >= 3.1;\n\nreturn eintraege.map(uc => {\n  // Teilprozess-Kennungen: Auflage BC0 vom 24.08.2026\n  const eigene = uc.betroffene_teilprozess_ids || [];\n  const gefunden = eigene.length ? [] : [...tpAusText(uc), ...tpAusText(konzept.kontext)];\n  const tp_ids = eigene.length ? eigene : gefunden;\n  const tp_herkunft = eigene.length ? 'feld' : (gefunden.length ? 'aus dem Text gelesen' : 'keine');\n\n  const roh = uc.fachliche_beschreibung || uc.beschreibung;\n  const geteilt = warnkastenTrennen(roh);\n  const ersetzt = Array.isArray(uc.ersetzt_potenzial_ids) ? uc.ersetzt_potenzial_ids.map(String) : [];\n  return {\n    json: {\n      konzept_id: kontext_kompakt.konzept_id,\n      schema_version: kontext_kompakt.schema_version,\n      prozess: kontext_kompakt.prozess,\n      unternehmen: kontext_kompakt.unternehmen,\n      schmerzpunkte: kontext_kompakt.schmerzpunkte,\n      original_filename: binData.fileName,\n      // Reihenfolge laut BC2 (gesamtempfehlung), wird in Umschlag füllen genutzt\n      reihenfolge_empfehlung: konzept.gesamtempfehlung?.reihenfolge_potenzial_ids || [],\n      reihenfolge_begruendung: konzept.gesamtempfehlung?.begruendung || null,\n\n      // Kennungen, gehen bis ins Ticket\n      kp_id: uc.kp_id || kontext_kompakt.kp_id,\n      teilprozess_ids: tp_ids,\n      referenz_id: tp_ids.length ? tp_ids[0] : (uc.kp_id || kontext_kompakt.kp_id),\n\n      use_case_id: uc.use_case_id || uc.potenzial_id,\n      use_case_titel: uc.titel,\n      rang: uc.potenzialrang ?? uc.rang, // ab v3.0 potenzialrang\n      ersetzt_potenzial_ids: ersetzt,\n      // Saat für die Epic-ID in BC3-40: Vorgänger, sonst das Potenzial selbst (#242)\n      id_saat: MIT_KETTE ? String(ersetzt[0] || uc.potenzial_id || uc.use_case_id) : null,\n      fachliche_beschreibung: geteilt.rest || roh,\n      warnung: geteilt.warnung,\n      tp_herkunft,\n      to_be_vision: uc.to_be_vision || uc.potenzielle_loesung?.to_be_kurz || null,\n      tech_stack: uc.tech_stack_empfehlung || uc.potenzielle_loesung?.tech_stack_empfehlung || [],\n      betroffene_systeme: uc.betroffene_systeme || [],\n      betroffene_prozessschritte: uc.betroffene_prozessschritte || [],\n      voraussetzungen: uc.voraussetzungen || [],\n      fachliche_anforderungen: uc.fachliche_anforderungen || [],\n      akzeptanzkriterien_geschaeftlich: uc.akzeptanzkriterien_geschaeftlich || [],\n\n      risiken: uc.risiken || [],                                  // für BC3-30\n      annahmen: uc.value?.annahmen || uc.roi?.annahmen || [],     // für Gate 2\n\n      // Vorläufige Zahlen erkennen: value_quelle, [VORLAEUFIG] im Titel oder Text\n      value_quelle: uc.value?.value_quelle || uc.roi?.roi_quelle || null,\n      ist_vorlaeufig: ['annahme', 'default'].includes(uc.value?.value_quelle)\n        || /\\[\\s*VORL[AÄ]UFIG\\s*\\]/i.test(String(uc.titel || ''))\n        || /\\[\\s*VORL[AÄ]UFIG\\s*\\]/i.test(String(uc.beschreibung || uc.fachliche_beschreibung || ''))\n    }\n  };\n});\n"
+      },
+      "notes": "Ein Item je Potenzial, repariert kaputte deutsche Anführungszeichen"
+    },
+    {
+      "id": "c896f3d5-5943-4c60-bfb1-e524cb559feb",
+      "name": "Laufprotokoll",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        860,
+        260
+      ],
+      "parameters": {
+        "mode": "once",
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "lJEmDjgpCHVBybUO",
+          "cachedResultName": "BC3-91 Laufprotokoll"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "lauf_id": "={{ $json.lauf_id }}",
+            "umschlag": "={{ $json.umschlag }}",
+            "schritt": "BC3-10",
+            "status": "laeuft",
+            "naechster": "BC3-15",
+            "ursache": ""
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "lauf_id",
+              "displayName": "lauf_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "umschlag",
+              "displayName": "umschlag",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            },
+            {
+              "id": "schritt",
+              "displayName": "schritt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "naechster",
+              "displayName": "naechster",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "ursache",
+              "displayName": "ursache",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "notes": "Scheitert das Schreiben, läuft der Lauf weiter, BC3-99 meldet den Fehler",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "7caf8251-dc86-4b8e-9bce-98f8355498d9",
+      "name": "Ohne Protokoll weiter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1080,
+        420
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Protokoll gescheitert, Umschlag trotzdem weitergeben\nreturn [{ json: $('Umschlag füllen').first().json }];\n"
+      }
+    },
+    {
+      "id": "761f833c-a508-45d9-8a39-2c920ed213ce",
+      "name": "Priorisierung holen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        48
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Datei holen (BC3-11)').first().json.url.replace(/[^/]+$/, 'prozesspriorisierung.json') }}",
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "notes": "Liegt im selben Ordner wie das Konzept. Fehlt sie, läuft BC3-10 weiter",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "27603100-b26d-4aa7-9f20-a123678742eb",
+      "name": "Freigegebene auswählen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        48
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Nur Potenziale, die BC2 an Gate 1 freigegeben hat (A5), dazu die Kennungen der Kette (A6)\nconst items = $('Potenziale auslesen').all();\nconst potenziale = items.map(i => i.json);\n// Kaputtes JSON meldet \"Eingang prüfen\", hier nichts aussortieren\nif (potenziale.some(e => e.ist_json === false)) return items;\n\nconst p = $input.first().json || {};\nconst lesbar = !p.error && !!p.priorisierung_id;\nconst gate1 = lesbar ? (p.gate1 || {}) : {};\nconst status = gate1.status || null;\nconst frei = (gate1.approved_potenzial_ids || []).map(String);\nconst kennung = e => String(e.use_case_id ?? '');\nconst befunde = [];\nlet behalten = potenziale;\n\n// Text „Eingangsprüfung fehlgeschlagen“ nicht ändern, BC3-99 erkennt daran die Art\nif (status === 'rejected') {\n  throw new Error('Eingangsprüfung fehlgeschlagen: Gate 1 abgelehnt (' + (gate1.entschieden_am || 'ohne Datum') + ')');\n}\nif (status === 'approved' && frei.length) {\n  behalten = potenziale.filter(e => frei.includes(kennung(e)));\n  if (!behalten.length) {\n    throw new Error('Eingangsprüfung fehlgeschlagen: keines der an Gate 1 freigegebenen Potenziale steht im Konzept (' + frei.join(', ') + ')');\n  }\n  if (behalten.length < potenziale.length) {\n    befunde.push(behalten.length + ' von ' + potenziale.length + ' Potenzialen an Gate 1 freigegeben, nur diese bearbeitet');\n  }\n} else if (status === 'approved') {\n  befunde.push('Gate 1 freigegeben ohne Liste der Potenziale, alle bearbeitet');\n} else if (lesbar) {\n  befunde.push('Gate 1 nicht freigegeben (' + (status || 'ohne Status') + '), alle Potenziale bearbeitet, nur für Tests');\n} else {\n  befunde.push('Keine Priorisierung im Ordner des Konzepts, alle Potenziale bearbeitet, nur für Tests');\n}\n\nconst gate1_auswahl = {\n  status,\n  entschieden_am: gate1.entschieden_am || null,\n  freigegeben: behalten.map(kennung),\n  nicht_freigegeben: potenziale.filter(e => !behalten.includes(e)).map(kennung),\n  befunde,\n};\n// anfrage_id liefert BC2 nicht, bleibt leer\nconst kette_ids = {\n  company_id: lesbar ? (p.company_id || null) : null,\n  anfrage_id: null,\n  paket_id: lesbar ? (p.paket_id || null) : null,\n  priorisierung_id: lesbar ? (p.priorisierung_id || null) : null,\n  konzept_id: potenziale[0]?.konzept_id || null,\n  process_id: behalten[0]?.kp_id || null,\n  sub_process_id: [...new Set(behalten.flatMap(e => e.teilprozess_ids || []))].join(', ') || null,\n};\n\nreturn behalten.map(e => ({ json: { ...e, gate1_auswahl, kette_ids } }));\n"
+      }
+    }
+  ],
+  "connections": {
+    "Eingang prüfen": {
+      "main": [
+        [
+          {
+            "node": "Umschlag füllen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vom Orchestrator aufgerufen": {
+      "main": [
+        [
+          {
+            "node": "Datei holen (BC3-11)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Datei holen (BC3-11)": {
+      "main": [
+        [
+          {
+            "node": "Potenziale auslesen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Umschlag füllen": {
+      "main": [
+        [
+          {
+            "node": "Laufprotokoll",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Laufprotokoll": {
+      "main": [
+        null,
+        [
+          {
+            "node": "Ohne Protokoll weiter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Priorisierung holen": {
+      "main": [
+        [
+          {
+            "node": "Freigegebene auswählen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Freigegebene auswählen": {
+      "main": [
+        [
+          {
+            "node": "Eingang prüfen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Potenziale auslesen": {
+      "main": [
+        [
+          {
+            "node": "Priorisierung holen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionTimeout": 120,
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "errorWorkflow": "D03E5Rn1DDKDZGbL"
+  }
+}

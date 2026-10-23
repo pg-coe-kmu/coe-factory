@@ -1,3 +1,5 @@
+> **Stand 23.10.2026, so umgesetzt:** Eingang über GitHub `contracts/bc2-to-bc3/` (BC3-01 holt neue, an Gate 1 freigegebene Konzepte selbst ab), Ausgang über GitHub `contracts/bc3-to-bc4/` (Pull Request nach der Freigabe, von BC3 zusammengeführt). Lieferungs-Archiv: Tabelle `freigaben` im Supabase-Projekt von BC3 und `bc3.lieferungen` in der Team-Datenbank. Approval-UI: Gate-2-Seite BC3-81. Der Text unten ist der Diskussions-Entwurf vom 26.06.2026. Ablauf: [ablauf-slicer.md](ablauf-slicer.md).
+
 
 - **Pipeline-Engine** = n8n.
 

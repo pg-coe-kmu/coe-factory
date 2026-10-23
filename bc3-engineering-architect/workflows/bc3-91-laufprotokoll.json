@@ -1,0 +1,223 @@
+{
+  "name": "BC3-91 Laufprotokoll",
+  "description": "Schreibt den Stand eines BC3-Laufs in die Tabelle laeufe (Supabase bc3-slicer)",
+  "nodes": [
+    {
+      "id": "79092802-6cd5-4de5-abe0-766a816a5f68",
+      "name": "Aufgerufen",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -600,
+        40
+      ],
+      "parameters": {
+        "inputSource": "workflowInputs",
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "lauf_id",
+              "type": "string"
+            },
+            {
+              "name": "umschlag",
+              "type": "object"
+            },
+            {
+              "name": "schritt",
+              "type": "string"
+            },
+            {
+              "name": "status",
+              "type": "string"
+            },
+            {
+              "name": "naechster",
+              "type": "string"
+            },
+            {
+              "name": "ursache",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "da9dbc4d-4730-4648-ae7a-f7bb43a620e1",
+      "name": "Zeile bauen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -380,
+        40
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Eine Zeile je Lauf, jeder Aufruf aktualisiert sie\nconst rein = $input.first().json;\nconst u = rein.umschlag || {};\nconst lauf = u.lauf || {};\n// Seit 22.10.2026 (P4): Läufe des Prüfstands BC3-83 schreiben keine Zeile in laeufe\nif (lauf.pruefstand === true) return [{ json: { _pruefstand: true } }];\nif (!lauf.lauf_nr) throw new Error('Keine Laufnummer im Umschlag (lauf.lauf_nr)');\n\nif (!rein.status) throw new Error('Kein Status übergeben (status)');\nconst status = rein.status;\n// Endwerte wie in der Prüfregel der Tabelle (laeufe_status_check)\nconst ende = ['abgebrochen', 'freigegeben', 'nachbessern', 'abgelehnt'].includes(status);\nconst letzter = (u.protokoll || []).slice(-1)[0] || {};\nconst dateien = u.lieferung?.dateien || [];\nconst tickets = dateien.find(d => d._datei === 'tickets');\nconst epics = tickets?.epics || [];\n// Kennungen der Kette (A6), erst ab BC3-10 im Umschlag\nconst ids = u.ids || {};\n\nreturn [{\n  json: {\n    lauf_id: lauf.lauf_nr,\n    gestartet_am: lauf.gestartet_am || null,\n    beendet_am: ende ? new Date().toISOString() : null,\n    modus: lauf.liefermodus || null,\n    quelle: u.quelle?.art || null,\n    konzept_pfad: lauf.pfad || null,\n    use_case: u.lieferung?.projekt_kurzname || null,\n    company_id: ids.company_id || null,\n    paket_id: ids.paket_id || null,\n    priorisierung_id: ids.priorisierung_id || null,\n    process_id: u.konzept?.kp_id || null,\n    sub_process_id: (u.konzept?.teilprozess_ids || []).join(', ') || null,\n    schema_version: u.konzept?.schema_version || null,\n    status,\n    letzter_schritt: rein.schritt || null,\n    naechster_schritt: rein.naechster || null,\n    abbruch_stufe: status === 'abgebrochen' ? (rein.schritt || null) : null,\n    abbruch_ursache: status === 'abgebrochen' ? (rein.ursache || (letzter.befunde || []).join(' | ') || null) : null,\n    lieferung_id: u.lieferung?.lieferung_id || null,\n    anzahl_epics: tickets ? epics.length : null,\n    anzahl_stories: tickets ? epics.reduce((n, e) => n + (e.stories || []).length, 0) : null,\n    artefakte: dateien.map(d => `${d._datei}.${d._endung || 'json'}`).join(', ') || null,\n    befunde: (letzter.befunde || []).join(' | ') || null,\n  },\n}];\n"
+      }
+    },
+    {
+      "id": "ebc4762c-ba6e-4259-a9bf-384d6ad01c1d",
+      "name": "In laeufe schreiben",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -60,
+        120
+      ],
+      "parameters": {
+        "operation": "upsert",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "name",
+          "value": "laeufe"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "lauf_id"
+          ],
+          "schema": []
+        },
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "name": "Postgres BC3"
+        }
+      }
+    },
+    {
+      "id": "54ebb304-6a3b-43e7-a5d4-c8e4cf89a84d",
+      "name": "Umschlag zurückgeben",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        160,
+        40
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Umschlag unverändert zurück, damit der Aufrufer nichts verliert\nconst rein = $('Aufgerufen').first().json;\nreturn [{ json: { lauf_id: rein.lauf_id, umschlag: rein.umschlag } }];\n"
+      }
+    },
+    {
+      "id": "6ad5d465-8a0d-4b92-a0df-31b83f8023d8",
+      "name": "Hinweis: BC3-91 Laufprotokoll",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -600,
+        -260
+      ],
+      "parameters": {
+        "content": "## BC3-91 Laufprotokoll\n\nSchreibt den Stand eines Laufs in die Tabelle `laeufe` (Supabase bc3-slicer). Jeder Aufruf aktualisiert dieselbe Zeile, Schlüssel ist `lauf_id`. Gibt den Umschlag unverändert zurück.\n\nStatus wie in der Tabelle: `laeuft`, `wartet_gate2`, `freigegeben`, `nachbessern`, `abgelehnt`, `abgebrochen`. Die letzten vier beenden den Lauf.\n\nPrüfstand-Läufe schreiben nichts (Weiche „Prüfstand?“).",
+        "color": 4,
+        "width": 460,
+        "height": 240
+      }
+    },
+    {
+      "id": "86c497bc-7d3d-49f6-a7c5-e4405d16a92f",
+      "name": "Prüfstand?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -270,
+        40
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "pruefstand",
+              "leftValue": "={{ $json._pruefstand === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Aufgerufen": {
+      "main": [
+        [
+          {
+            "node": "Zeile bauen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "In laeufe schreiben": {
+      "main": [
+        [
+          {
+            "node": "Umschlag zurückgeben",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zeile bauen": {
+      "main": [
+        [
+          {
+            "node": "Prüfstand?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prüfstand?": {
+      "main": [
+        [
+          {
+            "node": "Umschlag zurückgeben",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "In laeufe schreiben",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "D03E5Rn1DDKDZGbL",
+    "executionTimeout": 30
+  }
+}

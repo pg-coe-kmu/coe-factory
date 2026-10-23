@@ -1,0 +1,432 @@
+{
+  "name": "BC3-70 Ausliefern",
+  "description": "Legt die Lieferung zur Ansicht in Google Drive ab und sammelt die offenen Punkte, ohne KI",
+  "nodes": [
+    {
+      "id": "trg4226441",
+      "name": "Vom Orchestrator aufgerufen",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -800,
+        40
+      ],
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "lauf_id",
+              "type": "string"
+            },
+            {
+              "name": "umschlag",
+              "type": "object"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "c6598071",
+      "name": "Dateien auspacken",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -580,
+        40
+      ],
+      "parameters": {
+        "jsCode": "// Über den Namen, nicht über $input: der Drive-Baustein davor ersetzt das Item\nconst rein = $('Offene Punkte sammeln').first().json;\nconst d = rein.umschlag?.lieferung?.dateien || [];\nif (!d.length) throw new Error('Keine Dateien im Umschlag (BC3-70 Dateien auspacken). Liefen BC3-40 und BC3-50 durch?');\nreturn d.map(x => ({ json: x }));\n"
+      }
+    },
+    {
+      "id": "n11",
+      "name": "Upload vorbereiten",
+      "notes": "Macht aus jedem Item eine Datei (JSON oder Markdown).",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -360,
+        40
+      ],
+      "parameters": {
+        "jsCode": "// Macht aus jeder Datei im Umschlag eine hochladbare Datei (JSON oder Text),\n// Hilfsfelder mit _ fallen weg. Dateinamen wie im Repo, die Lieferung steckt im Ordnernamen.\nconst items = $input.all();\nconst ausgabe = [];\n\nconst NAMEN = {\n  tickets: 'ticket_set.json',\n  blueprint: 'blueprint.json',\n  architecture: 'architecture.md',\n  openapi: 'openapi.yaml',\n  'compliance-audit': 'compliance-audit.json',\n  'offene-punkte': 'offene-punkte.json',\n};\n\nfor (const item of items) {\n  const daten = item.json;\n  const art = daten._datei || 'tickets';\n  const endung = daten._endung || 'json';\n\n  let text;\n  let mime;\n\n  // Alles, was nicht JSON ist, liegt fertig als Text im Feld inhalt.\n  const MIME = { md: 'text/markdown', yaml: 'application/yaml',\n                 yml: 'application/yaml', txt: 'text/plain', csv: 'text/csv' };\n  if (endung !== 'json') {\n    text = String(daten.inhalt ?? '');\n    mime = MIME[endung] || 'text/plain';\n    if (!text) {\n      throw new Error(\n        `Die Datei \"${art}.${endung}\" hat keinen Inhalt. ` +\n        'Bei allem außer JSON muss der Text im Feld \"inhalt\" stehen (BC3-70 Upload vorbereiten).'\n      );\n    }\n  } else {\n    // Hilfsfelder (_datei, _endung, _statistik ...) entfernen\n    const inhalt = {};\n    for (const [k, v] of Object.entries(daten)) {\n      if (!k.startsWith('_')) inhalt[k] = v;\n    }\n    text = JSON.stringify(inhalt, null, 2);\n    mime = 'application/json';\n  }\n  const dateiname = NAMEN[art] || `${art}.${endung}`;\n\n  ausgabe.push({\n    json: {\n      filename: dateiname,\n      art: art,\n      groesse_bytes: Buffer.byteLength(text, 'utf-8'),\n      // Kennzahlen nur beim Ticket-Set vorhanden\n      anzahl_epics: daten._statistik?.anzahl_epics,\n      anzahl_stories: daten._statistik?.anzahl_stories,\n      ampel: daten._statistik?.ampel,\n    },\n    binary: {\n      data: {\n        data: Buffer.from(text, 'utf-8').toString('base64'),\n        mimeType: mime,\n        fileName: dateiname,\n      },\n    },\n  });\n}\n\nreturn ausgabe;\n"
+      }
+    },
+    {
+      "id": "c1509317",
+      "name": "Umschlag abschliessen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        40
+      ],
+      "parameters": {
+        "jsCode": "// Hält fest, welche Dateien wo liegen (Kennung und Name), oder warum die Ablage scheiterte.\nconst rein = $('Offene Punkte sammeln').first().json;\nconst u = rein.umschlag || {};\n// Der Ordner der Lieferung, nicht _vorschau: zuerst aus den abgelegten Dateien (parents),\n// sonst aus \"Lieferungsordner anlegen\"; klappt beides nicht, bleibt _vorschau mit Befund.\nconst eltern = $('Ordnername bestimmen').first().json.eltern;\nlet angelegt = null;\nlet ordnerFehler = '';\ntry { angelegt = $('Lieferungsordner anlegen').first().json.id || null; }\ncatch (e) { ordnerFehler = String(e.message || e).split('\\n')[0].slice(0, 200); }\n\nlet fehler = null;\ntry {\n  const g = $('Ablage gescheitert').first().json;\n  if (g && g.ablage_gescheitert) fehler = g;\n} catch (e) { fehler = null; }\n\nlet abgelegt = [];\nlet ausDateien = [];\nif (!fehler) {\n  try {\n    const dateien = $('Dateien in den Lieferungsordner legen').all();\n    abgelegt = dateien.map(i => ({ id: i.json.id, name: i.json.name })).filter(x => x.id);\n    ausDateien = [...new Set(dateien.flatMap(i => i.json.parents || []))];\n  } catch (e) { abgelegt = []; }\n}\nconst ordner = (ausDateien.length === 1 ? ausDateien[0] : null) || angelegt || eltern;\n\nconst soll = (u.lieferung?.dateien || []).length;\nconst befunde = [];\nif (fehler) {\n  befunde.push(`Ablage in Google Drive gescheitert: ${fehler.ablage_meldung}`);\n  befunde.push(`Die ${fehler.versuchte_dateien.length} Dateien stehen im Umschlag `\n    + `(${fehler.versuchte_dateien.join(', ')}), BC3-70 lässt sich mit diesem Umschlag wiederholen.`);\n} else if (!abgelegt.length) {\n  befunde.push('Google Drive hat keine Dateikennungen zurückgegeben.');\n} else if (abgelegt.length !== soll) {\n  befunde.push(`Nur ${abgelegt.length} von ${soll} Dateien abgelegt.`);\n}\nif (!fehler && ordner === eltern) befunde.push('Ordner der Lieferung nicht ermittelt, der Link zeigt auf _vorschau.');\nif (!fehler && ordnerFehler) befunde.push(`Hinweis: „Lieferungsordner anlegen“ nicht lesbar (${ordnerFehler}).`);\n\nreturn [{\n  json: {\n    lauf_id: rein.lauf_id,\n    umschlag: {\n      ...u,\n      lieferung: { ...(u.lieferung || {}), abgelegt, ordner,\n                   ablage_gescheitert: !!fehler },\n      protokoll: [...(u.protokoll || []), {\n        stufe: 'BC3-70 Ausliefern',\n        zeitpunkt: new Date().toISOString(),\n        status: fehler ? 'mit Fehler' : (befunde.length ? 'mit Befund' : 'ok'),\n        ablage: fehler ? 'nicht abgelegt' : '_vorschau',\n        dateien: fehler ? fehler.versuchte_dateien : abgelegt.map(x => x.name),\n        befunde,\n      }],\n    },\n  },\n}];\n"
+      }
+    },
+    {
+      "id": "c-ablage",
+      "name": "Ablage gescheitert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        300,
+        260
+      ],
+      "parameters": {
+        "jsCode": "// Google Drive hat Ordner oder Dateien nicht angenommen. Der Lauf geht weiter,\n// die Inhalte stehen im Umschlag, BC3-70 lässt sich mit demselben Umschlag wiederholen.\nconst q = $('Vom Orchestrator aufgerufen').first().json;\nconst meldung = String(\n  $json.error?.message || $json.message ||\n  (typeof $json.error === 'string' ? $json.error : '') || 'ohne Angabe'\n).split('\\n')[0].slice(0, 300);\n\n// Scheiterte schon der Ordner, ist \"Upload vorbereiten\" nie gelaufen, dann gilt die Liste im Umschlag\nlet versucht = [];\ntry { versucht = $('Upload vorbereiten').all().map(i => i.json.filename).filter(Boolean); }\ncatch (e) { versucht = []; }\nif (!versucht.length) {\n  try {\n    versucht = ($('Offene Punkte sammeln').first().json.umschlag?.lieferung?.dateien || [])\n      .map(d => `${d._datei}.${d._endung || 'json'}`);\n  } catch (e) { versucht = []; }\n}\n\nreturn [{\n  json: {\n    ablage_gescheitert: true,\n    ablage_meldung: meldung,\n    versuchte_dateien: versucht,\n    lauf_id: q.lauf_id,\n  },\n}];\n"
+      }
+    },
+    {
+      "id": "c-ordnername",
+      "name": "Ordnername bestimmen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -460,
+        40
+      ],
+      "parameters": {
+        "jsCode": "// Ein Ordner je Lieferung, benannt nach der lieferung_id aus BC3-40.\n// Der Elternordner kommt aus dem Lauf (BC3-00 \"Lauf einstellen\"), nicht aus dem Code.\nconst rein = $input.first().json;\nconst u = rein.umschlag || {};\nconst id = u.lieferung?.lieferung_id;\nconst eltern = u.lauf?.ablage_ordner;\n\nif (!id) throw new Error('Keine lieferung_id im Umschlag (BC3-70 Ordnername bestimmen). Lief BC3-40 durch?');\nif (!eltern) throw new Error('Kein Ablageordner im Lauf (umschlag.lauf.ablage_ordner), in BC3-00 \"Lauf einstellen\" eintragen');\n\nreturn [{ json: { ...rein, ordnername: id, eltern } }];\n"
+      }
+    },
+    {
+      "id": "drive-ordner",
+      "name": "Lieferungsordner anlegen",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "position": [
+        -660,
+        40
+      ],
+      "parameters": {
+        "resource": "folder",
+        "name": "={{ $json.ordnername }}",
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list",
+          "cachedResultName": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "={{ $json.eltern }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "name": "vs drive"
+        }
+      }
+    },
+    {
+      "id": "c-offene",
+      "name": "Offene Punkte sammeln",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -680,
+        40
+      ],
+      "parameters": {
+        "jsCode": "// Sammelt, was zur Lieferung noch offen ist und von wem, als offene-punkte.json.\n// Die Datei entsteht immer, auch leer. Jeder Eintrag trägt eine Begründung.\nconst rein = $input.first().json;\nconst u = rein.umschlag || {};\nconst dateien = u.lieferung?.dateien || [];\nconst audit = dateien.find(d => String(d._datei || '').startsWith('compliance')) || {};\n\n// --- 1. Pflichten, die nicht BC4 baut --------------------------------------\nconst MASSNAHME_TEXT = {\n  mensch_prueft: 'eine menschliche Prüfung an der Stelle, an der die Daten die Entscheidung beeinflussen',\n  pseudonymisieren: 'Kontaktdaten vor dem Modellaufruf durch eine Kennung ersetzen und danach zurücksetzen',\n  eu_modell: 'ein in der EU betriebenes Modell verwenden',\n  feld_weglassen: 'das Feld gar nicht erst mitgeben, weil der Schritt es nicht braucht',\n  protokollieren: 'den Vorgang mit Zeitstempel und handelnder Person protokollieren',\n  hinweis_geben: 'einen Hinweis auf die automatisierte Erstellung mitgeben',\n  frist_vereinbaren: 'eine Frist vereinbaren und schriftlich festhalten',\n  andere_bauweise: 'eine andere Bauweise, die vorgesehene ist nach Art. 5 KI-VO oder Art. 9 bzw. 22 DSGVO nicht zulässig; die zulässige steht im Befund',\n};\n\nconst nachAdressat = audit.pflichten_nach_adressat || {};\nconst pflichtText = new Map((audit.pflichten || []).map(x => [x.id, x]));\nconst pflichten = [];\nfor (const art of ['organisation', 'plattform', 'ohne_angabe']) {\n  for (const id of (nachAdressat[art] || [])) {\n    const pf = pflichtText.get(id) || {};\n    pflichten.push({\n      art: 'pflicht',\n      titel: String(pf.text || id),\n      adressat: art,\n      tag: pf.tag || null,\n      massnahme: pf.massnahme || null,\n      datenkategorie: pf.datenkategorie || null,\n      stelle: pf.stelle || null,\n      begruendung: (pf.massnahme\n        ? `Einzubauen: ${MASSNAHME_TEXT[pf.massnahme] || pf.massnahme}`\n          + (pf.stelle ? ` bei \"${pf.stelle}\".` : '.') + ' '\n        : '')\n        + (art === 'plattform'\n        ? 'Zugewiesen an eine zentrale Vorkehrung (Plattform), nicht an BC4. Wer sie übernimmt, ist offen.'\n        : art === 'ohne_angabe'\n          ? 'Der Compliance-Befund nennt keinen Adressaten. Vor der Freigabe zuordnen.'\n          : 'Braucht einen Menschen, eine Frist oder eine Vereinbarung; BC4 baut '\n            + 'sie nicht, aber sie ist damit nicht erledigt.'),\n      quelle: 'BC3-30 Compliance',\n    });\n  }\n}\n\n// --- 2. Pflichten, die eine Story werden sollten, aber keine haben ----------\nconst ohne_story = (audit.pflichten_ohne_story || []).map(x => ({\n  art: 'pflicht_ohne_story',\n  titel: String(x.text || x.id),\n  adressat: 'bc3',\n  tag: x.tag || null,\n  begruendung: 'Der Compliance-Befund hält diese Pflicht für baubar, hat aber keine '\n    + 'Story dazu geliefert. BC3 muss nachfordern; erfunden wird sie nicht.',\n  quelle: 'BC3-40 Abgleich Pflichten gegen Stories',\n}));\n\n// --- 3. Annahmen aus Verneinungen im Konzept --------------------------------\n// BC3 schreibt keine Auflage, wenn das Konzept etwas ausschließt. Das wird mitgeliefert.\nconst dat = u.aggregat?.datenarten || {};\nconst trag = u.aggregat?.tragweite || {};\nconst annahmen = [\n  ...(dat.ausdruecklich_ausgeschlossen || []).map(x => ({\n    art: 'annahme',\n    titel: `Angenommen: ${x.art} kommt im Prozess nicht vor`,\n    adressat: 'bc2_und_bc4',\n    begruendung: `BC3 hat dazu keine Auflage geschrieben, weil das Konzept es `\n      + `ausschließt: \"${x.beleg}\" Wäre die Datenart doch betroffen, fehlt eine `\n      + `Auflage der Stufe ${x.stufe}. Wer diesen Satz im Konzept ändert, ändert `\n      + `damit die Rechtslage dieser Lieferung.`,\n    beleg: x.beleg,\n    quelle: 'BC3-20 Datenarten, Verneinung erkannt',\n  })),\n  ...(trag.ausdruecklich_ausgeschlossen || []).map(x => ({\n    art: 'annahme',\n    titel: `Angenommen: der Prozess entscheidet nicht über ${x.art.toLowerCase()}`,\n    adressat: 'bc2_und_bc4',\n    begruendung: `BC3 hat keinen Aufsichtspunkt dafür verlangt, weil das Konzept es `\n      + `ausschließt: \"${x.beleg}\" Trifft das Zielsystem diese Entscheidung doch, `\n      + `greift ${x.anhang} und es fehlt die menschliche Entscheidung an der Stelle.`,\n    beleg: x.beleg,\n    quelle: 'BC3-20 Tragweite, Verneinung erkannt',\n  })),\n];\n\n// --- 4. Messverfahren, die das Konzept nicht nennt (seit 22.10.2026) --------\n// Kein offener Punkt an Gate 2, sondern eine Rückmeldung an BC2 (Entscheidung Svetlana).\n// BC3 gibt die Stories unverändert weiter und erfindet kein Messverfahren.\nconst tickets = dateien.find(d => d._datei === 'tickets') || {};\nconst fehltMess = m => !m || /^offen:/i.test(String(m));\nconst ohneMess = (tickets.epics || []).flatMap(e => (e.stories || [])\n  .filter(s => (s.akzeptanzkriterien || []).some(k => fehltMess(k.messverfahren)))\n  .map(s => ({ story_id: s.story_id, titel: s.titel })));\nconst messverfahren = ohneMess.length ? [{\n  art: 'messverfahren_fehlt',\n  titel: `${ohneMess.length} Stories ohne Messverfahren`,\n  adressat: 'bc2',\n  begruendung: 'Das Konzept nennt zu diesen Kriterien kein Messverfahren. BC3 gibt die Stories '\n    + 'unverändert weiter und erfindet keins. BC4 kann sie bauen, aber nicht nachweisen, dass sie '\n    + 'erfüllt sind. Wie BC2 das erfährt und nachliefert, ist mit dem Team zu klären.',\n  stories: ohneMess,\n  quelle: 'BC3-20 Kriterien, Abgleich mit dem Konzept',\n}] : [];\n\nconst alle = [...pflichten, ...ohne_story, ...annahmen, ...messverfahren];\n\nconst datei = {\n  _datei: 'offene-punkte',\n  _endung: 'json',\n  projekt_kurzname: u.lieferung?.projekt_kurzname\n    || (u.konzept?.kp_id || 'bc3').toLowerCase(),\n  lieferung_id: u.lieferung?.lieferung_id || null,\n  erzeugt_am: new Date().toISOString(),\n  hinweis: 'Was zu dieser Lieferung noch offen ist und von wem. Von BC3 erzeugt, '\n    + 'nicht von Hand gepflegt. Jeder Eintrag trägt eine Begründung.',\n  anzahl: alle.length,\n  nach_adressat: alle.reduce((acc, x) => {\n    acc[x.adressat] = (acc[x.adressat] || 0) + 1;\n    return acc;\n  }, {}),\n  punkte: alle,\n};\n\nreturn [{\n  json: {\n    lauf_id: rein.lauf_id,\n    umschlag: {\n      ...u,\n      lieferung: { ...(u.lieferung || {}), dateien: [...dateien, datei] },\n      offene_punkte: { anzahl: alle.length, nach_adressat: datei.nach_adressat },\n      protokoll: [...(u.protokoll || []), {\n        stufe: 'BC3-70 Offene Punkte sammeln',\n        zeitpunkt: new Date().toISOString(),\n        status: 'ok',\n        umfang: datei.nach_adressat,\n        befunde: alle.length\n          ? [`${alle.length} offene Punkte werden mitgeliefert: `\n             + Object.entries(datei.nach_adressat).map(([a, n]) => `${n} an ${a}`).join(', ')\n             + '. Jeder mit Begründung.']\n          : ['Keine offenen Punkte.'],\n      }],\n    },\n  },\n}];\n"
+      }
+    },
+    {
+      "id": "9a7352af-5c3c-4e18-8f03-81506874b484",
+      "name": "Dateien in den Lieferungsordner legen",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -140,
+        40
+      ],
+      "parameters": {
+        "name": "={{ $json.filename }}",
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list",
+          "cachedResultName": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Lieferungsordner anlegen').first().json.id }}"
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "name": "vs drive"
+        }
+      },
+      "notes": "Legt jede Datei in den Ordner der Lieferung in _vorschau. Scheitert es, geht es über Ablage gescheitert weiter.",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "988bf4bf-a47a-4e2c-a93e-d7702187a170",
+      "name": "Laufprotokoll",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        740,
+        40
+      ],
+      "parameters": {
+        "mode": "once",
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "lJEmDjgpCHVBybUO",
+          "cachedResultName": "BC3-91 Laufprotokoll"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "lauf_id": "={{ $json.lauf_id }}",
+            "umschlag": "={{ $json.umschlag }}",
+            "schritt": "BC3-70",
+            "status": "wartet_gate2",
+            "naechster": "Gate 2",
+            "ursache": ""
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "lauf_id",
+              "displayName": "lauf_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "umschlag",
+              "displayName": "umschlag",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            },
+            {
+              "id": "schritt",
+              "displayName": "schritt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "naechster",
+              "displayName": "naechster",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "ursache",
+              "displayName": "ursache",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "notes": "Scheitert das Schreiben, läuft der Lauf weiter, BC3-99 meldet den Fehler",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "ca1c8c0b-aeb2-4200-b77c-6a8a0f6c3809",
+      "name": "Ohne Protokoll weiter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        200
+      ],
+      "parameters": {
+        "jsCode": "// Protokoll gescheitert, Umschlag trotzdem weitergeben\nreturn [{ json: $('Umschlag abschliessen').first().json }];\n"
+      }
+    },
+    {
+      "id": "fcab6a96-0de9-4ead-bc4b-66a30faa8ff0",
+      "name": "Hinweis: BC3-70 Ausliefern",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -820,
+        -260
+      ],
+      "parameters": {
+        "content": "## BC3-70 Ausliefern\n\nSammelt die offenen Punkte zur Lieferung (offene-punkte.json) und legt alle Dateien zur Ansicht in Google Drive ab, je Lieferung ein Ordner unter `_vorschau`. Den Ordner gibt BC3-00 im Lauf vor (`ablage_ordner`).\n\nScheitert die Ablage, geht der Lauf mit Befund weiter, die Dateien stehen im Umschlag.\n\nAn BC4 geht nichts von hier. Das macht BC3-80 nach der Freigabe an Gate 2 über GitHub.",
+        "width": 460,
+        "height": 260,
+        "color": 4
+      }
+    }
+  ],
+  "connections": {
+    "Vom Orchestrator aufgerufen": {
+      "main": [
+        [
+          {
+            "node": "Offene Punkte sammeln",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dateien auspacken": {
+      "main": [
+        [
+          {
+            "node": "Upload vorbereiten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ordnername bestimmen": {
+      "main": [
+        [
+          {
+            "node": "Lieferungsordner anlegen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lieferungsordner anlegen": {
+      "main": [
+        [
+          {
+            "node": "Dateien auspacken",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ablage gescheitert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Offene Punkte sammeln": {
+      "main": [
+        [
+          {
+            "node": "Ordnername bestimmen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload vorbereiten": {
+      "main": [
+        [
+          {
+            "node": "Dateien in den Lieferungsordner legen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dateien in den Lieferungsordner legen": {
+      "main": [
+        [
+          {
+            "node": "Umschlag abschliessen",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ablage gescheitert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ablage gescheitert": {
+      "main": [
+        [
+          {
+            "node": "Umschlag abschliessen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Umschlag abschliessen": {
+      "main": [
+        [
+          {
+            "node": "Laufprotokoll",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Laufprotokoll": {
+      "main": [
+        null,
+        [
+          {
+            "node": "Ohne Protokoll weiter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionTimeout": 300,
+    "executionOrder": "v1",
+    "errorWorkflow": "D03E5Rn1DDKDZGbL"
+  }
+}

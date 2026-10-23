@@ -1,0 +1,804 @@
+{
+  "name": "BC3-80 Gate 2 Freigabe",
+  "description": "Wertet die Entscheidung an Gate 2 aus, schreibt sie in freigaben und liefert nach Freigabe per Pull Request an BC4, ohne KI",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "lauf_id"
+            },
+            {
+              "name": "umschlag",
+              "type": "object"
+            },
+            {
+              "name": "antwort",
+              "type": "object"
+            },
+            {
+              "name": "pruefung",
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "id": "trg8648259",
+      "name": "Vom Orchestrator aufgerufen",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -896,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Wertet die Entscheidung von der Gate-2-Seite aus (BC3-81 weckt BC3-00, das gibt antwort, pruefung und umschlag weiter).\n// Drei Entscheidungen: freigeben (Pull Request an BC4), nachbessern, ablehnen.\n// Eine Freigabe trotz offener maschineller Punkte wird vermerkt, nicht verhindert.\nconst rein = $input.first().json;\nconst antwort = rein.antwort || {};\nconst pruefung = rein.pruefung || {};\nconst u = rein.umschlag || {};\n\nconst wahl = String(antwort['Deine Entscheidung'] || '').toLowerCase().trim();\nconst freigegeben = wahl.startsWith('freigeben');\nconst nachbessern = wahl.startsWith('zurück') || wahl.startsWith('zurueck');\nconst entscheidung = freigegeben ? 'approved' : (nachbessern ? 'nachbessern' : 'rejected');\n// Nach 7 Tagen ohne Antwort gibt BC3-00 das Item ohne Antwortfelder weiter\nconst fristAbgelaufen = antwort['Deine Entscheidung'] === undefined;\nconst FRIST_GRUND = 'Frist abgelaufen: keine Antwort an Gate 2 innerhalb von 7 Tagen, als Ablehnung gewertet';\n\nconst maschinell = pruefung.bestaetigt || [];\nconst offenGeblieben = pruefung.offen || [];\n\nconst KRITERIEN = 'Die Akzeptanzkriterien — siehst du das auch so?';\nconst AUFSICHT = 'Die menschliche Aufsicht — siehst du das auch so?';\nconst kriterienUrteil = String(antwort[KRITERIEN] || '').trim();\nconst aufsichtUrteil = String(antwort[AUFSICHT] || '').trim();\nconst anmerkung = String(antwort['Deine Anmerkung'] || '').trim();\nconst stichprobe = kriterienUrteil;\n\n// Ein Urteil zählt nur als bestätigt, wenn es positiv ist\nconst beurteilt = [\n  stichprobe ? 'akzeptanzkriterien_guete' : null,\n  aufsichtUrteil.toLowerCase().startsWith('ja') ? 'aufsicht_spezifiziert' : null,\n].filter(Boolean);\n\nconst negativ = aufsichtUrteil.toLowerCase().startsWith('nein')\n  ? [`${AUFSICHT}: ${aufsichtUrteil}`] : [];\nconst pruefpunkte = [...maschinell, ...beurteilt];\n\nconst trotzBefund = freigegeben ? offenGeblieben : [];\n\nconst befunde = [];\nif (fristAbgelaufen) {\n  befunde.push(FRIST_GRUND + '. Niemand hat die Lieferung angesehen. Es entsteht '\n    + 'kein Pull Request; für eine Lieferung neu starten.');\n} else if (!stichprobe) {\n  befunde.push('Zu den Akzeptanzkriterien liegt kein Urteil vor. BC3 hatte '\n    + 'seine Einschätzung vorgelegt; ohne Zustimmung oder Widerspruch ist '\n    + 'unbelegt, dass sie überhaupt angesehen wurde.');\n} else if (kriterienUrteil.toLowerCase().startsWith('das kann ich')) {\n  befunde.push('Die freigebende Person konnte die Akzeptanzkriterien auf der Gate-2-Seite '\n    + 'nicht beurteilen. Der Seite fehlt etwas, das sie zum Urteil bräuchte.');\n} else if (kriterienUrteil.toLowerCase().startsWith('nein')) {\n  befunde.push(`Widerspruch zur Einschätzung von BC3: \"${kriterienUrteil}\". `\n    + (anmerkung ? `Begründung: ${anmerkung}` : 'Ohne weitere Angabe.')\n    + ' BC3 hielt Nummer ' + (pruefung.stichprobe_schwaechstes ?? '-')\n    + ' für das schwächste.');\n}\nif (negativ.length) {\n  befunde.push('Ausdrückliche Vorbehalte der freigebenden Person: '\n    + negativ.join('; ') + '. Diese Punkte gelten NICHT als bestätigt.');\n}\nif (offenGeblieben.length) {\n  const namen = (pruefung.geprueft || [])\n    .filter(g => offenGeblieben.includes(g.id))\n    .map(g => `${g.titel} (${g.beleg})`);\n  befunde.push(`Maschinell nicht bestätigt: ${namen.join('; ')}.`);\n}\nif (trotzBefund.length) {\n  befunde.push(`Freigegeben trotz ${trotzBefund.length} offener Prüfpunkte: `\n    + `${trotzBefund.join(', ')}. Begründung: `\n    + `${anmerkung || 'ohne Angabe'}.`);\n}\nif (nachbessern) {\n  befunde.push('Zur Nachbesserung zurückgegeben: '\n    + (anmerkung || 'ohne Angabe')\n    + ' Es entsteht kein Pull Request; die Dateien bleiben im Lieferungsordner.');\n}\nif (!freigegeben && !nachbessern && !fristAbgelaufen) {\n  befunde.push('Lieferung abgelehnt: ' + (anmerkung || 'ohne Angabe'));\n}\n// Bei Hochrisiko ist eine fehlende Antwort zur Aufsicht ein Befund (Feld bleibt optional)\nif (pruefung.hochrisiko && !aufsichtUrteil && !fristAbgelaufen) {\n  befunde.push('Hochrisiko nach Anhang III, aber kein Urteil zur menschlichen Aufsicht. '\n    + 'Damit ist offen, ob die Tickets Übersteuern, Anhalten und Protokollieren abdecken '\n    + '(Art. 14 Abs. 4 d und e, Art. 12). Vor der Übergabe an BC4 nachtragen oder die '\n    + 'Lieferung zurückholen.');\n}\nif (pruefung.hochrisiko && aufsichtUrteil.toLowerCase().startsWith('nein')) {\n  befunde.push('Hochrisiko nach Anhang III, und die menschliche Aufsicht ist laut '\n    + 'freigebender Person nicht ausreichend beschrieben (Art. 14). Vor der Übergabe '\n    + 'an BC4 nachtragen.');\n}\n\nconst dateien = (u.lieferung?.dateien || []).map(d =>\n  d._datei === 'tickets'\n    ? { ...d, gate2: { status: entscheidung } }\n    : d\n);\n\nreturn [{\n  json: {\n    lauf_id: rein.lauf_id,\n    entscheidung,\n    ereignis: {\n      gate: 2,\n      objekt_typ: 'lieferung',\n      objekt_id: rein.lauf_id,\n      ereignis: freigegeben ? 'freigabe' : (nachbessern ? 'nachbesserung' : 'ablehnung'),\n      benutzer: antwort['Wer gibt frei'] || (fristAbgelaufen ? 'niemand (Frist abgelaufen)' : null),\n      frist_abgelaufen: fristAbgelaufen,\n      am: new Date().toISOString(),\n      grundlage: u.quelle?.url || null,\n      grund: anmerkung || (fristAbgelaufen ? FRIST_GRUND : null),\n      pruefpunkte,\n      maschinell_bestaetigt: maschinell,\n      maschinell_offen: offenGeblieben,\n      freigabe_trotz_befund: trotzBefund,\n      guete: {\n        akzeptanzkriterien: stichprobe || null,\n        stichprobe_antwort: kriterienUrteil || null,\n        anmerkung: anmerkung || null,\n        bc3_hielt_fuer_schwaechstes: pruefung.stichprobe_schwaechstes ?? null,\n        stichprobe_gezeigt: (pruefung.stichprobe || []).map(k => k.text),\n        aufsicht: aufsichtUrteil || null,\n      },\n    },\n    umschlag: {\n      ...u,\n      // ...u.lieferung erhalten, dort stehen die Dateikennungen aus BC3-70\n      lieferung: { ...(u.lieferung || {}), dateien },\n      gate2: {\n        entscheidung,\n        stand: pruefung.stand || null,\n        maschinell_offen: offenGeblieben,\n      },\n      protokoll: [...(u.protokoll || []), {\n        stufe: 'BC3-80 Gate 2',\n        zeitpunkt: new Date().toISOString(),\n        status: freigegeben ? 'freigegeben' : (nachbessern ? 'nachbessern' : 'abgelehnt'),\n        umfang: pruefung.stand || null,\n        befunde,\n      }],\n    },\n  },\n}];\n"
+      },
+      "id": "c6005472",
+      "name": "Entscheidung auswerten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -688,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f1",
+              "leftValue": "={{ $('Entscheidung auswerten').first().json.entscheidung === 'approved' && $('Entscheidung auswerten').first().json.umschlag?.lauf?.liefermodus === 'echt' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "iffreigabe",
+      "name": "Freigegeben?",
+      "notesInFlow": false,
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -256,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Baut die Lieferung für contracts/bc3-to-bc4/<projekt>/<lieferung_id>/ zusammen, legt noch nichts an.\n// Ein Ordner je Lieferung (seit 23.10.2026), damit Lieferungen zum selben Kernprozess sich nicht überschreiben.\n// Nach der Freigabe an Gate 2 führt BC3 selbst zusammen, BC4 holt aus main.\nconst REPO = 'pg-coe-kmu/coe-factory';\nconst BASIS = 'contracts/bc3-to-bc4';\nconst AUS_ZWEIG = 'main';\n\n// offene-punkte.json bleibt in _vorschau, sie ist die Akte von BC3\nconst PFADE = {\n  tickets: 'ticket_set.json',\n  blueprint: 'blueprint.json',\n  architecture: 'architecture.md',\n  'compliance-audit': 'compliance-audit.json',\n};\n\nconst g = $input.first().json;\nconst u = g.umschlag || {};\nconst lieferung = u.lieferung || {};\nconst id = lieferung.lieferung_id;\nconst projekt = lieferung.projekt_kurzname;\n\nif (g.entscheidung !== 'approved') {\n  throw new Error('Läuft nur im Freigabe-Zweig, die Verzweigung davor ist falsch verbunden (BC3-80 Lieferung ins Repo vorbereiten)');\n}\nif (!id || !projekt) {\n  throw new Error('Im Umschlag fehlt lieferung_id oder projekt_kurzname (BC3-80). Lief BC3-40 durch?');\n}\n\nconst zweig = `lieferung/${id}`;\n\n// Wächter: das Token darf im ganzen Repository schreiben\nif (!/^lieferung\\/[A-Za-z0-9._-]+$/.test(zweig)) {\n  throw new Error(`Der Zweigname \"${zweig}\" passt nicht auf lieferung/<kennung>. Abbruch.`);\n}\nif (zweig === AUS_ZWEIG || /^(main|master)$/i.test(zweig)) {\n  throw new Error('Es wird niemals auf den Hauptzweig geschrieben. Abbruch.');\n}\n\n// --- Dateiinhalte ----------------------------------------------------------\nconst dateien = [];\nfor (const d of lieferung.dateien || []) {\n  const ziel = PFADE[d._datei];\n  if (!ziel) continue;                       // Unbekanntes bleibt draußen\n\n  let text;\n  if ((d._endung || 'json') === 'json') {\n    const rein = {};\n    for (const [k, v] of Object.entries(d)) if (!k.startsWith('_')) rein[k] = v;\n    text = JSON.stringify(rein, null, 2);\n  } else {\n    text = String(d.inhalt ?? '');\n  }\n  if (!text) throw new Error(`Die Datei \"${d._datei}\" hat keinen Inhalt.`);\n\n  const pfad = `${BASIS}/${projekt}/${id}/${ziel}`;\n  if (!pfad.startsWith(BASIS + '/')) {\n    throw new Error(`Der Pfad \"${pfad}\" liegt außerhalb von ${BASIS}. Abbruch.`);\n  }\n  if (pfad.includes('..')) {\n    throw new Error(`Der Pfad \"${pfad}\" enthält \"..\". Abbruch.`);\n  }\n\n  dateien.push({\n    pfad,\n    inhalt: text,\n    bytes: Buffer.byteLength(text, 'utf-8'),\n    botschaft: `${d._datei} aus ${id}`,\n  });\n}\n\nif (!dateien.length) {\n  throw new Error('Keine lieferbare Datei im Umschlag gefunden.');\n}\n\n// --- Text des Pull Requests ------------------------------------------------\nconst t = (lieferung.dateien || []).find(x => x._datei === 'tickets') || {};\nconst anzahlStories = (t.epics || []).reduce((n, e) => n + (e.stories || []).length, 0);\nconst prot = u.protokoll || [];\nconst befunde = prot.flatMap(x => (x.befunde || []).map(b => `- **${x.stufe}:** ${b}`));\nconst e = g.ereignis || {};\n\nconst pr_text = [\n  `Erzeugt von BC3, Lieferung \\`${id}\\`.`,\n  '',\n  '| | |',\n  '|---|---|',\n  `| Kernprozess | \\`${t.konzept_ref?.kp_id || '?'}\\` |`,\n  `| Teilprozesse | ${(t.konzept_ref?.teilprozess_ids || []).join(', ') || '—'} |`,\n  `| Quelle | \\`${t.konzept_ref?.source_file || '?'}\\` |`,\n  `| Umfang | ${(t.epics || []).length} Epics, ${anzahlStories} Stories |`,\n  `| Schema | \\`${t.schema_version || '?'}\\` |`,\n  `| Herkunft der Zahlen | \\`${t.konzept_ref?.value_quelle || 'nicht angegeben'}\\` |`,\n  `| Ordner | \\`${BASIS}/${projekt}/${id}/\\` |`,\n  '',\n  '## Gate 2',\n  '',\n  `Freigegeben von **${e.benutzer || 'unbekannt'}** am `\n    + `${e.am || e.zeitpunkt || 'unbekannt'}.`,\n  '',\n  `Bestätigte Prüfpunkte: ${(e.pruefpunkte || []).join(', ') || 'keine genannt'}`,\n  (e.grund || e.begruendung) ? `\\nBegründung: ${e.grund || e.begruendung}` : '',\n  '',\n  ...((e.freigabe_trotz_befund || []).length\n    ? ['> **Freigegeben trotz offener Prüfpunkte:** '\n       + e.freigabe_trotz_befund.join(', ')\n       + '. Die Begründung steht oben, die Abhilfe je Punkt im Protokoll unten.']\n    : []),\n  ...(e.guete\n    ? ['Beurteilung durch die freigebende Person: '\n       + [`Akzeptanzkriterien ${e.guete.akzeptanzkriterien || 'nicht beurteilt'}`,\n          `Aufsicht ${e.guete.aufsicht || 'nicht beurteilt'}`].join(', ') + '.']\n    : []),\n  '',\n  // Offene Punkte bleiben in der Akte von BC3, hier nur die Zahl\n  ...(u.offene_punkte?.anzahl\n    ? [`_BC3-intern: ${u.offene_punkte.anzahl} offene Punkte in `\n       + '`offene-punkte.json` (liegt bei BC3 in `_vorschau`, nicht in dieser Lieferung): '\n       + Object.entries(u.offene_punkte.nach_adressat || {})\n           .map(([a, n]) => `${n} an ${a}`).join(', ') + '._',\n       '']\n    : []),\n  '## Befunde aus dem Lauf',\n  '',\n  befunde.length ? befunde.join('\\n') : '_keine_',\n  '',\n  '---',\n  '',\n  'Zum Prüfen: `ticket_set.json` gegen `tickets.schema.json` validieren.',\n  '`compliance-audit.json` gehört nicht in den Generator. Zwei Angaben daraus '\n    + 'braucht BC4 trotzdem: `empfohlene_zusatz_stories[].begruendung_pflicht_id` '\n    + 'sagt, welche Story welche Pflicht erfüllt, und `pflichten_nach_adressat` '\n    + 'sagt, welche Pflichten NICHT von BC4 gebaut werden.',\n  '',\n  'Freigegeben an Gate 2. BC3 führt die Lieferung selbst zusammen, BC4 holt sie aus `main`.',\n].filter(x => x !== '').join('\\n');\n\nreturn [{\n  json: {\n    repo: REPO,\n    zweig,\n    aus_zweig: AUS_ZWEIG,\n    lieferung_id: id,\n    projekt,\n    dateien,\n    pr_titel: `Lieferung ${id}`,\n    pr_text,\n    url_ref: `https://api.github.com/repos/${REPO}/git/ref/heads/${AUS_ZWEIG}`,\n    url_refs: `https://api.github.com/repos/${REPO}/git/refs`,\n    url_commits: `https://api.github.com/repos/${REPO}/git/commits`,\n    url_trees: `https://api.github.com/repos/${REPO}/git/trees`,\n    url_pulls: `https://api.github.com/repos/${REPO}/pulls`,\n  },\n}];\n"
+      },
+      "id": "c21791494",
+      "name": "Lieferung ins Repo vorbereiten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url_ref }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "gh-ref",
+      "name": "Stand von main holen",
+      "notesInFlow": false,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "position": [
+        208,
+        -256
+      ],
+      "credentials": {
+        "githubApi": {
+          "name": "GitHub coe-factory"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.koerper) }}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "gh-zweig",
+      "name": "Zweig anlegen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "position": [
+        1744,
+        -256
+      ],
+      "credentials": {
+        "githubApi": {
+          "name": "GitHub coe-factory"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Lieferung ins Repo vorbereiten').first().json.url_pulls }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ title: $('Lieferung ins Repo vorbereiten').first().json.pr_titel, head: $('Lieferung ins Repo vorbereiten').first().json.zweig, base: $('Lieferung ins Repo vorbereiten').first().json.aus_zweig, body: $('Lieferung ins Repo vorbereiten').first().json.pr_text }) }}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "gh-pr",
+      "name": "Pull Request öffnen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "position": [
+        1968,
+        -256
+      ],
+      "credentials": {
+        "githubApi": {
+          "name": "GitHub coe-factory"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Läuft einmal, nicht je Datei. Darf scheitern, ohne die Lieferung zu kippen - die Dateien liegen dann schon im Zweig."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Hält fest, welcher Pull Request zu welcher Lieferung gehört und ob BC3 ihn zusammengeführt hat.\n// Scheitert das Zusammenführen, bleibt der Pull Request offen und wird von Hand zusammengeführt.\nconst v = $('Lieferung ins Repo vorbereiten').first().json;\nconst g = $('Entscheidung auswerten').first().json;\n\nlet pr = null;\ntry {\n  const a = $('Pull Request öffnen').first().json;\n  if (a && a.number) pr = { nummer: a.number, url: a.html_url, zweig: v.zweig };\n} catch (e) { pr = null; }\n\nlet gemergt = false;\nlet mergeFehler = null;\nlet commitMain = null;\ntry {\n  const m = $input.first().json;\n  gemergt = m && m.merged === true;\n  // Seit 23.10.2026: der Squash-Commit auf main, nicht der Commit im Zweig (für bc3.lieferungen)\n  if (gemergt && m.sha) commitMain = m.sha;\n  if (!gemergt) mergeFehler = String(m?.error?.description || m?.error?.message || m?.message || 'keine Antwort').split('\\n')[0].slice(0, 200);\n} catch (e) { mergeFehler = 'Merge nicht gelaufen'; }\nif (pr) { pr.gemergt = gemergt; pr.commit_main = commitMain; }\n\nconst befunde = !pr\n  ? ['Der Pull Request konnte nicht angelegt werden. Die Dateien liegen im Zweig '\n     + v.zweig + ', der Pull Request muss von Hand aufgemacht werden.']\n  : gemergt\n    ? [`Lieferung als Pull Request #${pr.nummer} angelegt und von BC3 gemergt: ${pr.url}`,\n       'BC4 holt sie aus main.']\n    : [`Lieferung liegt als Pull Request #${pr.nummer} im Repository: ${pr.url}`,\n       `Automatischer Merge gescheitert (${mergeFehler}). Bitte von Hand mergen.`];\n\nconst u = g.umschlag || {};\nreturn [{\n  json: {\n    ...g,\n    umschlag: {\n      ...u,\n      lieferung: { ...(u.lieferung || {}), pr, zweig: v.zweig, repo: v.repo,\n                   repo_pfade: v.dateien.map(d => d.pfad) },\n      protokoll: [...(u.protokoll || []), {\n        stufe: 'BC3-80 Lieferung ins Repository',\n        zeitpunkt: new Date().toISOString(),\n        status: pr && gemergt ? 'ok' : 'mit Fehler',\n        umfang: { dateien: v.dateien.length, zweig: v.zweig },\n        befunde,\n      }],\n    },\n  },\n}];\n"
+      },
+      "id": "c74623729",
+      "name": "Lieferung vermerken",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Gibt den Umschlag an BC3-00 zurück. Im Modus test führt auch eine Freigabe hierher,\n// ohne Zweig und ohne Pull Request.\nconst g = $('Entscheidung auswerten').first().json;\nlet u = g.umschlag || {};\nconst test = (u.lauf?.liefermodus || 'test') !== 'echt';\n\n// Der Repo-Zweig lief nur bei Freigabe. Seit 23.10.2026 kommt von dort der ganze\n// Umschlag, sonst fehlte im Protokoll der Eintrag „BC3-80 Lieferung ins Repository“\n// (Lauf 2368: gescheiterter Merge stand nirgends).\nlet pr = null;\ntry {\n  const v = $('Lieferung vermerken').first().json.umschlag;\n  if (v) { u = v; pr = v.lieferung?.pr || null; }\n} catch (e) { pr = u.lieferung?.pr || null; }\nconst lieferung = u.lieferung || {};\n\nconst frei = g.entscheidung === 'approved';\nconst ent = g.entscheidung;\nconst WORT = { approved: 'Freigegeben', nachbessern: 'Zur Nachbesserung zurückgegeben',\n               rejected: 'Abgelehnt' };\nconst e = g.ereignis || {};\n\nconst neueBefunde = [\n  `${WORT[ent] || 'Entschieden'} von ${e.benutzer || 'unbekannt'}`\n+ `${e.am ? ' am ' + e.am : ''}.`,\n  ...(e.grund ? ['Begründung: ' + e.grund] : []),\n  ...(pr ? [`Lieferung liegt als Pull Request #${pr.nummer}: ${pr.url}`] : []),\n  ...(frei && test ? ['Testlauf (liefermodus test): freigegeben, aber bewusst kein Zweig und kein Pull Request im Gruppen-Repository. Echt liefern: in BC3-00 \"Lauf einstellen\" liefermodus auf echt stellen.'] : []),\n  ...(frei && !test && !pr ? ['Freigegeben, aber kein Pull Request entstanden. Siehe Protokoll davor.'] : []),\n  ...(!frei ? ['Die Dateien bleiben im Lieferungsordner in _vorschau, BC4 bekommt nichts.'] : []),\n];\nconst status = frei ? (test ? 'freigegeben (Testlauf)' : 'freigegeben') : (ent === 'nachbessern' ? 'nachbessern' : 'abgelehnt');\n\n// Seit 23.10.2026: ein Eintrag „BC3-80 Gate 2“ statt zwei. „Entscheidung auswerten“\n// legt ihn an, hier kommen Status und die Befunde zum Ausgang dazu.\nconst prot = [...(u.protokoll || [])];\nconst i = prot.map(p => p.stufe).lastIndexOf('BC3-80 Gate 2');\nif (i >= 0) {\n  prot[i] = { ...prot[i], status, befunde: [...(prot[i].befunde || []), ...neueBefunde] };\n} else {\n  prot.push({ stufe: 'BC3-80 Gate 2', zeitpunkt: new Date().toISOString(), status, befunde: neueBefunde });\n}\n\nreturn [{\n  json: {\n    lauf_id: g.lauf_id,\n    umschlag: {\n      ...u,\n      lieferung,\n      gate2: {\n        entscheidung: g.entscheidung,\n        liefermodus: test ? 'test' : 'echt',\n        person: e.benutzer || null,\n        zeitpunkt: e.am || null,\n        begruendung: e.grund || null,\n        pruefpunkte: e.pruefpunkte || [],\n        pr,\n      },\n      protokoll: prot,\n    },\n  },\n}];\n"
+      },
+      "id": "c-gate2ende",
+      "name": "Gate 2 abschliessen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Lieferung ins Repo vorbereiten').first().json.url_commits }}/{{ $json.object.sha }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "h94666929",
+      "name": "Baum von main holen",
+      "notesInFlow": false,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "position": [
+        432,
+        -256
+      ],
+      "credentials": {
+        "githubApi": {
+          "name": "GitHub coe-factory"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Baut den Baum fuer EINEN Commit: alle Dateien auf einmal.\n *\n * Die Git-Data-Schnittstelle nimmt den Inhalt als Klartext entgegen, base64\n * ist nur bei PUT /contents noetig. base_tree sorgt dafuer, dass alles andere\n * im Repository erhalten bleibt - ohne den Wert entstuende ein Commit, der\n * ausser unseren Dateien nichts enthaelt.\n */\nconst v = $('Lieferung ins Repo vorbereiten').first().json;\nconst basisBaum = $json.tree?.sha;\n\nif (!basisBaum) {\n  throw new Error('Der Basis-Baum von ' + v.aus_zweig + ' fehlt. Antwort: ' +\n                  JSON.stringify($json).slice(0, 300));\n}\n\nreturn [{\n  json: {\n    url: v.url_trees,\n    koerper: {\n      base_tree: basisBaum,\n      tree: v.dateien.map(d => ({\n        path: d.pfad,\n        mode: '100644',\n        type: 'blob',\n        content: d.inhalt,\n      })),\n    },\n  },\n}];\n"
+      },
+      "id": "c49111040",
+      "name": "Baum bauen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        -256
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.koerper) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "h87936013",
+      "name": "Baum anlegen",
+      "notesInFlow": false,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "position": [
+        864,
+        -256
+      ],
+      "credentials": {
+        "githubApi": {
+          "name": "GitHub coe-factory"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ein Commit mit allen Dateien, Elternteil ist die Spitze von main\nconst v = $('Lieferung ins Repo vorbereiten').first().json;\nconst eltern = $('Stand von main holen').first().json.object?.sha;\nconst baum = $json.sha;\n\nif (!baum) throw new Error('Der neue Baum hat keine Kennung (BC3-80 Commit vorbereiten). Antwort: ' + JSON.stringify($json).slice(0, 300));\nif (!eltern) throw new Error('Die Spitze von ' + v.aus_zweig + ' fehlt (BC3-80 Commit vorbereiten).');\n\nconst anzahl = v.dateien.length;\nreturn [{\n  json: {\n    url: v.url_commits,\n    koerper: {\n      message: `BC3-Lieferung ${v.lieferung_id}\\n\\n` +\n        `${anzahl} Dateien nach contracts/bc3-to-bc4/${v.projekt}/${v.lieferung_id}/.\\n` +\n        `Freigegeben an Gate 2, von BC3 zusammengeführt. BC4 holt aus main.`,\n      tree: baum,\n      parents: [eltern],\n    },\n  },\n}];\n"
+      },
+      "id": "c17368077",
+      "name": "Commit vorbereiten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1088,
+        -256
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.koerper) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "h78722521",
+      "name": "Commit anlegen",
+      "notesInFlow": false,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "position": [
+        1296,
+        -368
+      ],
+      "credentials": {
+        "githubApi": {
+          "name": "GitHub coe-factory"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Den Lieferungszweig auf den neuen Commit setzen.\n *\n * Der Zweig wird erst JETZT angelegt, nicht vorher - dann gibt es ihn nur,\n * wenn auch wirklich etwas darin steht. Ein halb gefuellter Zweig ohne Commit\n * hat am 03.09. fuer Verwirrung gesorgt.\n */\nconst v = $('Lieferung ins Repo vorbereiten').first().json;\nconst commit = $json.sha;\nif (!commit) throw new Error('Der Commit hat keine Kennung. Antwort: ' + JSON.stringify($json).slice(0, 300));\n\nreturn [{\n  json: {\n    url: v.url_refs,\n    koerper: { ref: `refs/heads/${v.zweig}`, sha: commit },\n    commit,\n  },\n}];\n"
+      },
+      "id": "c58222862",
+      "name": "Zweig vorbereiten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1520,
+        -256
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Zweig ließ sich nicht anlegen. 409/422 heißt: gibt es schon (erneute Freigabe nach\n// Nachbesserung), dann geht es weiter. Alles andere bricht ab, ohne Pull Request.\nconst v = $('Lieferung ins Repo vorbereiten').first().json;\nconst meldung = String($json.error?.message || $json.message || '')\n  .split('\\n')[0].slice(0, 300);\nconst schonDa = /already exists|reference already exists|422|409/i.test(meldung);\n\nif (!schonDa) {\n  throw new Error(\n    'Der Zweig ' + v.zweig + ' ließ sich nicht anlegen (BC3-80): ' + meldung +\n    ' Es entsteht kein Pull Request. Der Commit liegt ohne Zweig im Repo und wird nicht zusammengeführt.',\n  );\n}\n\nreturn [{ json: { ...v, zweig_bestand_schon: true,\n  befund: 'Den Zweig ' + v.zweig + ' gab es bereits, der Pull Request geht trotzdem auf. '\n    + 'Das ist der Normalfall bei einer erneuten Freigabe nach einer Nachbesserung.' } }];"
+      },
+      "id": "c-zweigda",
+      "name": "Zweig gab es schon",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1840,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ $('Lieferung ins Repo vorbereiten').first().json.url_pulls }}/{{ $json.number }}/merge",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ merge_method: 'squash', commit_title: 'Lieferung ' + $('Lieferung ins Repo vorbereiten').first().json.lieferung_id + ' (BC3, Gate 2 freigegeben)' }) }}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "cfc77221-8166-4f4f-a689-ee0ab8b01a83",
+      "name": "Pull Request mergen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "position": [
+        2192,
+        -256
+      ],
+      "credentials": {
+        "githubApi": {
+          "name": "GitHub coe-factory"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Seit 14.10.2026: BC3 mergt nach der Freigabe selbst (Svetlana), BC4 holt aus main. Darf scheitern: dann bleibt der PR offen und wird von Hand gemergt."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Eine Zeile je Gate-2-Entscheidung für die Tabelle freigaben (Supabase bc3-slicer)\nconst g = $input.first().json;\nconst e = g.ereignis || {};\nconst lauf = g.umschlag?.lauf?.lauf_nr || g.lauf_id;\n// Werte wie in der Prüfregel der Tabelle (freigaben_entscheidung_check)\nconst WERT = { approved: 'freigegeben', nachbessern: 'nachbessern', rejected: 'abgelehnt' };\nconst entscheidung = e.frist_abgelaufen ? 'frist_abgelaufen' : WERT[g.entscheidung];\nif (!entscheidung) throw new Error(`Unbekannte Entscheidung \"${g.entscheidung}\" (BC3-80 Freigabe-Zeile bauen)`);\nif (!lauf) throw new Error('Keine Laufnummer für freigaben (BC3-80 Freigabe-Zeile bauen)');\n\nreturn [{\n  json: {\n    lauf_id: lauf,\n    zeitpunkt: e.am || new Date().toISOString(),\n    entscheidung,\n    person: e.benutzer || null,\n    pruefpunkte: JSON.stringify(e.pruefpunkte || []),\n    guete_kriterien: e.guete?.akzeptanzkriterien || null,\n    guete_aufsicht: e.guete?.aufsicht || null,\n    grundlage: e.grundlage || null,\n    begruendung: e.grund || null,\n  },\n}];\n"
+      },
+      "id": "cf520f61-33b8-4f07-8eef-560b11d05e50",
+      "name": "Freigabe-Zeile bauen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -352,
+        -128
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "name",
+          "value": "freigaben"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      },
+      "id": "4e0bbfef-8e19-4d16-b872-2c78d9287472",
+      "name": "In freigaben schreiben",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -160,
+        -256
+      ],
+      "credentials": {
+        "postgres": {
+          "name": "Postgres BC3"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Nebenzweig, läuft bei Fehler weiter. Die Freigabe steht in freigaben, auch wenn der Pull Request danach scheitert."
+    },
+    {
+      "parameters": {
+        "content": "## BC3-80 Gate 2 Freigabe\n\nWertet die Entscheidung von der Gate-2-Seite aus und schreibt sie in `freigaben`. Ohne KI.\n\nNur bei Freigabe im Modus `echt` (Lieferungen von BC2): ein Commit mit allen Dateien auf dem Zweig `lieferung/<kennung>`, Pull Request nach `contracts/bc3-to-bc4/<projekt>/<kennung>/`, BC3 führt ihn zusammen, BC4 holt aus `main`. Dazu eine Zeile in `bc3.lieferungen` (Team-Datenbank).\n\nNie ein Commit direkt auf `main`, nie außerhalb von `contracts/bc3-to-bc4/`.",
+        "height": 340,
+        "width": 480,
+        "color": 4
+      },
+      "id": "7cbf5ac7-2cf5-470c-b776-e4624493b1da",
+      "name": "Hinweis: BC3-80 Gate 2 Freigabe",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -848,
+        -400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b1",
+              "leftValue": "={{ $json.umschlag?.gate2?.liefermodus }}",
+              "rightValue": "echt",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "96d3e4cc-27a4-4d5a-b5bb-829d54eca9c9",
+      "name": "Modus echt?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        800,
+        224
+      ],
+      "notes": "Nur Lieferungen im Modus echt kommen in die Team-Datenbank (B1, Svetlana 22.10.)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Eine Zeile je Lieferung für bc3.lieferungen (Team-Datenbank), nur Verweis auf GitHub, keine Kopien\nconst g = $input.first().json;\nconst u = g.umschlag || {};\nconst l = u.lieferung || {};\nconst z = u.gate2 || {};\nconst ids = u.ids || {};\nconst tickets = (l.dateien || []).find(d => d._datei === 'tickets') || {};\n\n// Werte wie in der Prüfregel der Tabelle, Fristablauf zählt als Ablehnung\nconst STATUS = { approved: 'approved', nachbessern: 'nachbessern', rejected: 'rejected' };\nconst status = STATUS[z.entscheidung];\n\nconst fehlt = [];\nif (!l.lieferung_id) fehlt.push('lieferung_id');\n// company_id kommt aus dem Konzept von BC2, BC3 setzt sie nicht selbst\nif (!ids.company_id) fehlt.push('company_id (fehlt im Konzept von BC2)');\nif (!l.projekt_kurzname) fehlt.push('projekt_kurzname');\nif (!status) fehlt.push('gate2_status');\nif (fehlt.length) throw new Error('bc3.lieferungen: es fehlt ' + fehlt.join(', ') + ' (BC3-80 Lieferungs-Zeile bauen)');\n\n// Seit 23.10.2026: der Squash-Commit auf main, sonst der Commit im Zweig\nlet commit = l.pr?.commit_main || null;\nif (!commit) { try { commit = $('Zweig vorbereiten').first().json.commit || null; } catch (e) { commit = null; } }\n\n// Die Spalte nimmt einen Teilprozess (Fremdschlüssel), weitere stehen im Ticket-Set\nconst tp = String(ids.sub_process_id || '').split(',')[0].trim() || null;\n\nreturn [{\n  json: {\n    werte: [\n      l.lieferung_id,\n      ids.company_id,\n      ids.process_id || u.konzept?.kp_id || null,\n      tp,\n      l.projekt_kurzname,\n      tickets.schema_version || null,\n      `contracts/bc3-to-bc4/${l.projekt_kurzname}/${l.lieferung_id}/`,\n      commit,\n      status,\n      z.person || null,\n      z.zeitpunkt || new Date().toISOString(),\n      JSON.stringify(z.pruefpunkte || []),\n      z.begruendung || null,\n    ],\n  },\n}];\n"
+      },
+      "id": "12736b3b-e70f-4ab4-bd94-c75a16ee5a1f",
+      "name": "Lieferungs-Zeile bauen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1008,
+        96
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into bc3.lieferungen\n  (lieferung_id, company_id, process_id, sub_process_id, use_case, schema_version, datei_pfad, commit_sha,\n   gate2_status, gate2_von, gate2_am, gate2_pruefpunkte, gate2_begruendung)\nvalues ($1, $2::uuid, $3, $4, $5, $6, $7, $8, $9, $10, $11::timestamptz, $12::jsonb, $13)\non conflict (lieferung_id) do update set\n  gate2_status = excluded.gate2_status,\n  gate2_von = excluded.gate2_von,\n  gate2_am = excluded.gate2_am,\n  gate2_pruefpunkte = excluded.gate2_pruefpunkte,\n  gate2_begruendung = excluded.gate2_begruendung,\n  commit_sha = coalesce(excluded.commit_sha, bc3.lieferungen.commit_sha)\nreturning lieferung_id, gate2_status",
+        "options": {
+          "queryReplacement": "={{ $json.werte }}"
+        }
+      },
+      "id": "14f9f3fc-1a45-4fd6-886f-4666256778c9",
+      "name": "In bc3.lieferungen schreiben",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1184,
+        80
+      ],
+      "credentials": {
+        "postgres": {
+          "name": "Postgres Team-Datenbank"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Team-Datenbank (Zugang Postgres Team-Datenbank, bc3_role). Läuft bei Fehler weiter, der Lauf hängt nicht an der Team-Datenbank, BC3-99 meldet nichts davon"
+    },
+    {
+      "parameters": {
+        "jsCode": "// BC3-00 bekommt den Umschlag aus \"Gate 2 abschliessen\", egal ob in bc3.lieferungen geschrieben wurde\nconst g = $('Gate 2 abschliessen').first().json;\nlet befund = null;\ntry {\n  // Seit 23.10.2026: scheitert schon die Zeile (z. B. company_id fehlt), steht deren Grund im Befund,\n  // nicht der Folgefehler der Datenbank\n  const zeile = $('Lieferungs-Zeile bauen').isExecuted ? $('Lieferungs-Zeile bauen').first().json : null;\n  if (zeile?.error) {\n    befund = 'bc3.lieferungen nicht geschrieben: ' + String(zeile.error.message || 'ohne Angabe').split('\\n')[0].slice(0, 200);\n  } else if ($('In bc3.lieferungen schreiben').isExecuted) {\n    const r = $('In bc3.lieferungen schreiben').first().json;\n    befund = r.lieferung_id\n      ? 'In bc3.lieferungen eingetragen: ' + r.lieferung_id + ' (' + r.gate2_status + ')'\n      : 'bc3.lieferungen nicht geschrieben: ' + String(r.error?.message || r.message || 'ohne Angabe').split('\\n')[0].slice(0, 200);\n  }\n} catch (e) { befund = null; }\nif (!befund) return [{ json: g }];\n\nconst u = g.umschlag || {};\nconst prot = [...(u.protokoll || [])];\n// An den Eintrag „BC3-80 Gate 2“ hängen, nicht an den letzten Eintrag\nlet i = prot.map(p => p.stufe).lastIndexOf('BC3-80 Gate 2');\nif (i < 0) i = prot.length - 1;\nif (i >= 0) prot[i] = { ...prot[i], befunde: [...(prot[i].befunde || []), befund] };\nreturn [{ json: { ...g, umschlag: { ...u, protokoll: prot } } }];\n"
+      },
+      "id": "05640346-e95e-4ea7-a6c1-815431c27278",
+      "name": "Ergebnis zurückgeben",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1392,
+        304
+      ]
+    }
+  ],
+  "connections": {
+    "Vom Orchestrator aufgerufen": {
+      "main": [
+        [
+          {
+            "node": "Entscheidung auswerten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Entscheidung auswerten": {
+      "main": [
+        [
+          {
+            "node": "Freigegeben?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Freigabe-Zeile bauen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Freigegeben?": {
+      "main": [
+        [
+          {
+            "node": "Lieferung ins Repo vorbereiten",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gate 2 abschliessen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lieferung ins Repo vorbereiten": {
+      "main": [
+        [
+          {
+            "node": "Stand von main holen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stand von main holen": {
+      "main": [
+        [
+          {
+            "node": "Baum von main holen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zweig anlegen": {
+      "main": [
+        [
+          {
+            "node": "Pull Request öffnen",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Zweig gab es schon",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Baum von main holen": {
+      "main": [
+        [
+          {
+            "node": "Baum bauen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Baum bauen": {
+      "main": [
+        [
+          {
+            "node": "Baum anlegen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Baum anlegen": {
+      "main": [
+        [
+          {
+            "node": "Commit vorbereiten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Commit vorbereiten": {
+      "main": [
+        [
+          {
+            "node": "Commit anlegen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Commit anlegen": {
+      "main": [
+        [
+          {
+            "node": "Zweig vorbereiten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zweig vorbereiten": {
+      "main": [
+        [
+          {
+            "node": "Zweig anlegen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zweig gab es schon": {
+      "main": [
+        [
+          {
+            "node": "Pull Request öffnen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pull Request öffnen": {
+      "main": [
+        [
+          {
+            "node": "Pull Request mergen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pull Request mergen": {
+      "main": [
+        [
+          {
+            "node": "Lieferung vermerken",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lieferung vermerken": {
+      "main": [
+        [
+          {
+            "node": "Gate 2 abschliessen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Freigabe-Zeile bauen": {
+      "main": [
+        [
+          {
+            "node": "In freigaben schreiben",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gate 2 abschliessen": {
+      "main": [
+        [
+          {
+            "node": "Modus echt?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Modus echt?": {
+      "main": [
+        [
+          {
+            "node": "Lieferungs-Zeile bauen",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ergebnis zurückgeben",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lieferungs-Zeile bauen": {
+      "main": [
+        [
+          {
+            "node": "In bc3.lieferungen schreiben",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "In bc3.lieferungen schreiben": {
+      "main": [
+        [
+          {
+            "node": "Ergebnis zurückgeben",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionTimeout": 300,
+    "executionOrder": "v1",
+    "errorWorkflow": "D03E5Rn1DDKDZGbL",
+    "binaryMode": "separate"
+  }
+}

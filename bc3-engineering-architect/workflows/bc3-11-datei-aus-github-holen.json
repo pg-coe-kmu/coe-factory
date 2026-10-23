@@ -1,0 +1,159 @@
+{
+  "name": "BC3-11 Datei aus GitHub holen",
+  "description": "Holt eine .json-Datei aus GitHub (coe-factory, main) für BC3-10",
+  "nodes": [
+    {
+      "id": "10242031-3fe3-4ce0-b5c0-02fb80a953db",
+      "name": "Aufgerufen",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -600,
+        40
+      ],
+      "parameters": {
+        "inputSource": "workflowInputs",
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "pfad",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "a7466227-adab-4eea-ae70-7a267e463abf",
+      "name": "Pfad prüfen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -380,
+        40
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Pfad oder GitHub-Link prüfen\nconst REPO = 'pg-coe-kmu/coe-factory';\nconst ERLAUBT = ['contracts/bc2-to-bc3/', 'bc3-engineering-architect/'];\n\nconst eingabe = String($input.first().json.pfad || '').trim();\nif (!eingabe) throw new Error('Kein Pfad angegeben');\n\nlet pfad = eingabe;\nconst link = eingabe.match(/^https:\\/\\/(?:github\\.com\\/([^/]+\\/[^/]+)\\/blob|raw\\.githubusercontent\\.com\\/([^/]+\\/[^/]+))\\/([^/]+)\\/(.+)$/);\nif (link) {\n  const repo = link[1] || link[2];\n  const zweig = link[3];\n  if (repo !== REPO) throw new Error(`Falsches Repo: ${repo}`);\n  if (zweig !== 'main') throw new Error(`Nur Zweig main, nicht ${zweig}`);\n  pfad = link[4];\n} else if (/^https?:/i.test(eingabe)) {\n  throw new Error(`Unbekannter Link: ${eingabe}`);\n}\n\npfad = decodeURIComponent(pfad.split(/[?#]/)[0]).replace(/^\\/+/, '');\nif (pfad.includes('..') || pfad.includes('\\\\')) throw new Error(`Ungültiger Pfad: ${pfad}`);\nif (!pfad.endsWith('.json')) throw new Error(`Nur .json erlaubt: ${pfad}`);\nif (!ERLAUBT.some(o => pfad.startsWith(o))) throw new Error(`Ordner nicht erlaubt: ${pfad}`);\n\nreturn [{\n  json: {\n    pfad,\n    dateiname: pfad.split('/').pop(),\n    url: `https://raw.githubusercontent.com/${REPO}/main/${pfad}`,\n  },\n}];\n"
+      }
+    },
+    {
+      "id": "27b6bcd2-6dd9-452f-8009-97bccc4ea48f",
+      "name": "Datei holen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -160,
+        40
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.url }}",
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "309d0eae-0286-44df-a8a0-1a3cae879584",
+      "name": "Ergebnis",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        60,
+        40
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// echten Dateinamen setzen, BC3-10 braucht ihn\nconst eingang = $input.first();\nconst p = $('Pfad prüfen').first().json;\nconst schluessel = Object.keys(eingang.binary || {})[0];\nif (!schluessel) throw new Error('Keine Datei erhalten');\n\neingang.binary[schluessel].fileName = p.dateiname;\neingang.binary[schluessel].mimeType = 'application/json';\n\nreturn [{\n  json: { quelle: 'github', pfad: p.pfad, dateiname: p.dateiname, url: p.url, geholt_am: new Date().toISOString() },\n  binary: eingang.binary,\n}];\n"
+      }
+    },
+    {
+      "id": "4830b8a5-bfa9-4a52-bbf7-6e6e18464674",
+      "name": "Datei nicht erreichbar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        60,
+        220
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const p = $('Pfad prüfen').first().json;\nconst meldung = $json.error?.message || $json.message || 'ohne Angabe';\nthrow new Error(`Nicht erreichbar: ${p.url} (${meldung})`);\n"
+      }
+    },
+    {
+      "id": "b85fbe2d-ab0d-41de-a7c7-5e0cc041786e",
+      "name": "Hinweis: BC3-11 Datei aus GitHub holen",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -600,
+        -240
+      ],
+      "parameters": {
+        "content": "## BC3-11 Datei aus GitHub holen\n\nHolt eine .json aus `coe-factory` (main) für BC3-10.\n\nErlaubt: `contracts/bc2-to-bc3/`, `bc3-engineering-architect/`\n\nOhne Zugang, das Repo ist öffentlich.",
+        "color": 4,
+        "width": 420,
+        "height": 220
+      }
+    }
+  ],
+  "connections": {
+    "Aufgerufen": {
+      "main": [
+        [
+          {
+            "node": "Pfad prüfen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pfad prüfen": {
+      "main": [
+        [
+          {
+            "node": "Datei holen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Datei holen": {
+      "main": [
+        [
+          {
+            "node": "Ergebnis",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Datei nicht erreichbar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 60,
+    "errorWorkflow": "D03E5Rn1DDKDZGbL"
+  }
+}
