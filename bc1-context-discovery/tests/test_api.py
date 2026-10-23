@@ -1,5 +1,4 @@
 import logging
-import sys
 import threading
 from contextlib import asynccontextmanager
 from dataclasses import replace
@@ -737,31 +736,39 @@ class _BeschaedigterStore(InMemoryStateStore):
 
 def test_beschaedigte_sitzung_gibt_500_sitzung_beschaedigt_mit_chat_text():
     client = TestClient(create_app(_BeschaedigterStore(), _fake_llm(), TOY_PROZESS,
-                                   company_id=MANDANT), raise_server_exceptions=False)
+                                   company_id=MANDANT))
     _fehler(_turn(client, "m1", "hallo"), 500, "sitzung_beschaedigt")
 
 
-class _BeschaedigtNachDemKern(InMemoryStateStore):
-    """Der Kern laedt noch einen lesbaren Stand; erst der zweite load der API (der vor
-    dem Writer) trifft eine beschaedigte Zeile. Gezaehlt werden nur die loads aus
-    api.py — wie oft der Kern laedt, ist dessen Sache."""
+def test_beschaedigte_sitzung_wird_ohne_zeileninhalt_als_fehler_geloggt(caplog):
+    # Nur die Meldung (Sitzung + Fehlertyp), nie exc_info: die angehaengte Ursache
+    # kann bei ValueError Werte aus der Zeile tragen.
+    client = TestClient(create_app(_BeschaedigterStore(), _fake_llm(), TOY_PROZESS,
+                                   company_id=MANDANT))
+    with caplog.at_level(logging.ERROR, logger="bc1_service.api"):
+        _turn(client, "m1", "hallo")
+    eintraege = _api_log(caplog)
+    assert [(r.levelno, r.getMessage()) for r in eintraege] == [
+        (logging.ERROR, "sitzung_beschaedigt: Sitzung s1: gespeicherter Zustand "
+                        "ist nicht lesbar (KeyError)")]
+    assert eintraege[0].exc_info is None
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.api_loads = 0
+
+class _BeschaedigtSobaldGespeichert(InMemoryStateStore):
+    """Frische Sitzung: API und Kern laden None, der Kern speichert — erst der load
+    vor dem Writer trifft eine (dann beschaedigte) Zeile."""
 
     def load(self, session_id):
-        if sys._getframe(1).f_globals.get("__name__") == "bc1_service.api":
-            self.api_loads += 1
-            if self.api_loads == 2:
-                raise KorrupterStateError(f"Sitzung {session_id}: gespeicherter "
-                                          "Zustand ist nicht lesbar (TypeError)")
-        return super().load(session_id)
+        if super().load(session_id) is not None:
+            raise KorrupterStateError(f"Sitzung {session_id}: gespeicherter "
+                                      "Zustand ist nicht lesbar (TypeError)")
+        return None
 
 
 def test_beschaedigte_sitzung_vor_dem_writer_gibt_500_sitzung_beschaedigt():
-    client = TestClient(create_app(_BeschaedigtNachDemKern(), _fake_llm(), TOY_PROZESS,
-                                   company_id=MANDANT, writer=_WriterOhneDb()),
-                        raise_server_exceptions=False)
+    store = _BeschaedigtSobaldGespeichert()
+    client = TestClient(create_app(store, _fake_llm(), TOY_PROZESS,
+                                   company_id=MANDANT, writer=_WriterOhneDb()))
     _fehler(_turn(client, "m1", "Der Prozess heißt Urlaubsantrag"),
             500, "sitzung_beschaedigt")
+    assert "m1" in InMemoryStateStore.load(store, "s1").antworten   # Kern lief durch

@@ -78,7 +78,10 @@ def _lade(store: StateStore, session_id: str):
     # Fehler auf unserer Seite (500), kein Konflikt — nur ein neues Interview hilft.
     try:
         return store.load(session_id)
-    except KorrupterStateError:
+    except KorrupterStateError as fehler:
+        # Nur die Meldung (Sitzung + Fehlertyp), nie exc_info: die angehaengte
+        # Ursache kann bei ValueError Werte aus der Zeile tragen.
+        log.error("sitzung_beschaedigt: %s", fehler)
         raise HTTPException(status_code=500, detail="sitzung_beschaedigt")
 
 # Diese Keys kommen bei einer fertig-Antwort aus der DB, nicht aus dem Kern

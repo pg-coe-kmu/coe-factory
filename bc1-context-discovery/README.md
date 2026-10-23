@@ -94,6 +94,19 @@ export BC1_LLM=ollama                      # lokal, ohne API-Key
 .venv/bin/uvicorn bc1_service.main:app --port 8000
 ```
 
+**Als Container:** Das Image enthält nur die Gruppe `service` aus `uv.lock` und den Code (`bc1_core/`, `bc1_service/`), keine Tests und keine Zugangsdaten; der Prozess läuft als eigener Benutzer, nicht als root. Datenbank und Tabellen müssen vorher da sein ([`bc1_service/db/EINSPIELEN.md`](bc1_service/db/EINSPIELEN.md)); alle Werte kommen per `-e` zur Laufzeit:
+
+```bash
+docker build -t bc1 bc1-context-discovery
+docker run --rm -p 8000:8000 \
+  -e BC1_DB_DSN="postgresql://…" -e BC1_COMPANY_ID="<uuid des Mandanten>" \
+  -e BC1_ANFRAGE_ID="A-2026-03" -e BC1_LLM=claude -e ANTHROPIC_API_KEY \
+  -e BC1_BC0_MELDUNGEN=aus \
+  bc1
+```
+
+`BC1_BC0_MELDUNGEN=aus` nur für einen lokalen Versuch ohne BC0 — im Betrieb stattdessen die drei BC0-Variablen wie oben. Ein Snapshot wird gemountet, nie ins Image kopiert (`-v /pfad/snapshot.json:/daten/snapshot.json:ro -e BC1_SNAPSHOT_PFAD=/daten/snapshot.json`). Eine Datenbank auf dem eigenen Rechner erreicht der Container unter `host.docker.internal` statt `localhost`.
+
 **Was der Dienst bei BC0 tut (seit B4):** Beim Start prüft er immer den Zugang (Anmeldung + eigenes Konto, ändert nichts) und bricht bei einem Mangel ab — auch bei einer Anfrage, die schon auf `im_interview` steht. Danach zieht er das Gate für die eigene Anfrage nach, noch bevor er aus der Datenbank liest (holt einen früher gescheiterten Gate-Aufruf nach; steht die Anfrage danach schon auf `am_gate`, endet der Start mit „steht auf 'am_gate'“). Dann meldet er der Anfrage `im_interview` — nur aus `zugeordnet`, ein Neustart überschreibt BC0s Stand also nicht. Nach jedem Abschluss eines Interviews zieht er das Gate bei BC0 nach, im Hintergrund; die Chat-Antwort hängt nicht davon ab. Alle Gate-Aufrufe tragen `?anfrage_id=` — BC0 prüft seit v3.13 nur diese Anfrage. Scheitert das, steht eine WARNING mit Handlungsanweisung im Log (die Anfrage bei BC0 von Hand nachziehen) — das Profil ist dann trotzdem gespeichert. Alles läuft über ein BC0-Anwendungskonto mit Schreibrecht (Rolle `benutzer` oder `admin`), das den Mandanten sieht (zugewiesen; `admin` sieht alle); das Passwort steht nur in der Umgebung, in keiner Meldung und in keinem Log. Ob das Konto bereit ist, zeigt die Live-Probe — sie ändert bei BC0 nichts (Anmeldung, dann nur Lesen des eigenen Kontos) und braucht `BC1_COMPANY_ID` und die drei BC0-Variablen, keine Datenbank:
 
 ```bash

@@ -1,0 +1,86 @@
+{
+  "priorisierung_id": "01f0cd6b-1189-5f24-a1f4-73c0981c9cd2",
+  "schema_version": "3.0",
+  "company_id": "7c2d5ee9-2a9a-5990-810f-502ea2b2012d",
+  "paket_id": "SIM-UC1-2026-10-22",
+  "uebergeben_am": "2026-10-22T00:00:00+02:00",
+  "gelesen_am": "2026-10-22T00:00:00+02:00",
+  "fassung": 1,
+  "erzeugt_am": "2026-10-22T00:00:00+02:00",
+  "score_formel": "score = impact x (11 - umsetzungskomplexitaet), Bereich 1...100, gerechnet mit BC2s app/modell/. umsetzungskomplexitaet GEURTEILT aus BC3s ordinaler Stufe -- BC1s vier Skalen liegen fuer KP-06.TP-2 nicht vor.",
+  "konzept_ids": [
+    "1d00902e-a6dc-53a1-aed4-0221e07563a1"
+  ],
+  "eintraege": [
+    {
+      "potenzialrang": 1,
+      "prioritaetsgruppe": "PRIO 2",
+      "potenzial_id": "2eadddb0-7fef-5af9-9e3f-9c37491f3273",
+      "konzept_id": "1d00902e-a6dc-53a1-aed4-0221e07563a1",
+      "titel": "[SIMULIERT] Angebot erstellen und Buchung nach Freigabe auslösen",
+      "kp_id": "KP-06",
+      "betroffene_teilprozess_ids": [
+        "KP-06.TP-2"
+      ],
+      "kategorie": "Quick Win",
+      "impact": 6,
+      "impact_monetaer": 5,
+      "nutzwert_mittel": 7.8,
+      "umsetzungskomplexitaet": 3,
+      "komplexitaet_herkunft": "geurteilt",
+      "score": 48,
+      "aufwand_pt": 15.0,
+      "einsparung_eur_jahr": {
+        "min": 3096,
+        "max": 12040
+      },
+      "investition_eur_richtwert": 12000,
+      "amortisation_monate": {
+        "min": 12.0,
+        "max": 46.5
+      }
+    },
+    {
+      "potenzialrang": 2,
+      "prioritaetsgruppe": "PRIO 2",
+      "potenzial_id": "b81aa34c-093b-5853-841c-afc38eb10c27",
+      "konzept_id": "1d00902e-a6dc-53a1-aed4-0221e07563a1",
+      "titel": "[SIMULIERT] Reiseanfrage automatisch erfassen und Verfügbarkeit prüfen",
+      "kp_id": "KP-06",
+      "betroffene_teilprozess_ids": [
+        "KP-06.TP-2"
+      ],
+      "kategorie": "Quick Win",
+      "impact": 7,
+      "impact_monetaer": 7,
+      "nutzwert_mittel": 7.8,
+      "umsetzungskomplexitaet": 5,
+      "komplexitaet_herkunft": "geurteilt",
+      "score": 42,
+      "aufwand_pt": 20.0,
+      "einsparung_eur_jahr": {
+        "min": 6450,
+        "max": 22575
+      },
+      "investition_eur_richtwert": 16000,
+      "amortisation_monate": {
+        "min": 8.5,
+        "max": 29.8
+      }
+    }
+  ],
+  "prozess_raenge": [
+    {
+      "prozessrang": 1,
+      "kp_id": "KP-06",
+      "konzept_id": "1d00902e-a6dc-53a1-aed4-0221e07563a1",
+      "bestes_potenzial_id": "2eadddb0-7fef-5af9-9e3f-9c37491f3273",
+      "bester_score": 48,
+      "anzahl_potenziale": 2
+    }
+  ],
+  "gate1": {
+    "status": "pending",
+    "kommentar": "FREIGABESPERRE. Simuliertes UC1-Konzept von BC3 fuer Tests des Slicers: Haeufigkeit und Dauer sind Annahmen aus BC3s Vorlage vom 31.08.2026, Gate 0 ist fuer KP-06.TP-2 nicht durchlaufen. Darf nicht freigegeben werden. Das echte UC1-Konzept entsteht im Kettentest am 26.10.2026."
+  }
+}

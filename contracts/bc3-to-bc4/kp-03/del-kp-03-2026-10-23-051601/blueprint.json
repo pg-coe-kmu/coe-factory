@@ -1,0 +1,97 @@
+{
+  "projekt_kurzname": "kp-03",
+  "lieferung_id": "del-kp-03-2026-10-23-051601",
+  "kp_id": "KP-03",
+  "teilprozess_ids": [
+    "KP-03.TP-4"
+  ],
+  "erzeugt_am": "2026-10-23T05:16:01.459Z",
+  "erzeugt_von": "BC3-50 Bauplan erzeugen",
+  "komponenten": [
+    {
+      "name": "AVV-Vorlage (Dokument)",
+      "anbindung": "Datei",
+      "rollen": [
+        "Quelle"
+      ],
+      "verwendet_in": [
+        "[VORLAEUFIG] AVV- und DSGVO-Abwicklung im Onboarding medienbruchfrei machen"
+      ]
+    },
+    {
+      "name": "E-Signatur-Dienst",
+      "anbindung": "API",
+      "rollen": [
+        "Quelle+Ziel"
+      ],
+      "verwendet_in": [
+        "[VORLAEUFIG] AVV- und DSGVO-Abwicklung im Onboarding medienbruchfrei machen"
+      ]
+    },
+    {
+      "name": "EspoCRM",
+      "anbindung": "API",
+      "rollen": [
+        "Ziel"
+      ],
+      "verwendet_in": [
+        "[VORLAEUFIG] AVV- und DSGVO-Abwicklung im Onboarding medienbruchfrei machen"
+      ]
+    },
+    {
+      "name": "NocoDB (VVT)",
+      "anbindung": "API",
+      "rollen": [
+        "Ziel"
+      ],
+      "verwendet_in": [
+        "[VORLAEUFIG] AVV- und DSGVO-Abwicklung im Onboarding medienbruchfrei machen"
+      ]
+    }
+  ],
+  "datenfluesse": [
+    {
+      "von": "AVV-Vorlage (Dokument)",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "E-Signatur-Dienst",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Prozess",
+      "nach": "E-Signatur-Dienst",
+      "art": "schreibt"
+    },
+    {
+      "von": "Prozess",
+      "nach": "EspoCRM",
+      "art": "schreibt"
+    },
+    {
+      "von": "Prozess",
+      "nach": "NocoDB (VVT)",
+      "art": "schreibt"
+    }
+  ],
+  "menschliche_entscheidungspunkte": [],
+  "tech_stack": [
+    "E-Signatur-Dienst",
+    "n8n",
+    "EspoCRM (API)",
+    "NocoDB"
+  ],
+  "epics": [
+    {
+      "epic_id": "ep-c0dc-7dbb-722e-31673d2f4c7b",
+      "titel": "AVV- und DSGVO-Abwicklung im Onboarding medienbruchfrei digitalisieren",
+      "kategorien": [
+        "it:backend",
+        "it:integration"
+      ],
+      "anzahl_stories": 7
+    }
+  ]
+}
