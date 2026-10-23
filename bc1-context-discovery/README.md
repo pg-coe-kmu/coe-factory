@@ -16,12 +16,17 @@
 ## Struktur
 - `architektur/` — Systemarchitektur (technische Ebene, Überblick)
 - `design/` — Design-Spec (das *Warum*) + Implementierungsplan (die *Anleitung pro Arbeitspaket*, inkl. Code/Tests)
+- `bc1_core/` — Code-Kern: Dialog, Extraktion, Confidence, PII-Filter, Store-Vertrag
+- `bc1_service/` — Dienst-Schicht: FastAPI, Postgres-Store, BC0-Lesepfade, LLM-Adapter; darin `db/` (Einspiel-Dateien) und `n8n/` (Chat-Hülle)
+- `tests/` — Tests (`pytest`), Datenbank-Tests nur mit `BC1_TEST_DB_DSN`
 
 ## Wie man hier mitarbeitet
-Ein Arbeitspaket (Issue unter [#48](https://github.com/pg-coe-kmu/coe-factory/issues/48)) öffnen → den dort verlinkten **Plan-Task** lesen (volle Anleitung) → die genannten **Abhängigkeiten** beachten → loslegen. Reihenfolge & Aufteilung stehen in der Arbeitspaket-Übersicht.
+Die offenen Pakete stehen im [Abschlussplan](design/Abschlussplan-BC1.md). Jedes Paket bekommt ein GitHub-Issue (Label `bc1`) mit Ziel, Dateien und Akzeptanzkriterien. **Ein Issue = ein Branch ab `main` = ein kleiner PR** (Squash-Merge). Die Arbeitsregeln stehen in [`CLAUDE.md`](CLAUDE.md): Test zuerst, `pytest` aus `bc1-context-discovery/`.
 
 ## Arbeitspakete
-[#48 KI-Interviewer](https://github.com/pg-coe-kmu/coe-factory/issues/48) · [#49 Voice/OCR](https://github.com/pg-coe-kmu/coe-factory/issues/49) · [#50 PII-Filter](https://github.com/pg-coe-kmu/coe-factory/issues/50) · [#51 JSON-Compiler](https://github.com/pg-coe-kmu/coe-factory/issues/51) · [#52 Doku-Generator](https://github.com/pg-coe-kmu/coe-factory/issues/52) · [#53 Mapper & Verifier](https://github.com/pg-coe-kmu/coe-factory/issues/53)
+[#48 KI-Interviewer](https://github.com/pg-coe-kmu/coe-factory/issues/48) — MVP-Kern gebaut ([PR #129](https://github.com/pg-coe-kmu/coe-factory/pull/129), DoD-Stand im Issue) · [#49 Voice/OCR](https://github.com/pg-coe-kmu/coe-factory/issues/49) — Stufe C · [#50 PII-Filter](https://github.com/pg-coe-kmu/coe-factory/issues/50) — gebaut (B2, PII-Filter) · [#51 JSON-Compiler](https://github.com/pg-coe-kmu/coe-factory/issues/51) — abgedeckt durch [#123](https://github.com/pg-coe-kmu/coe-factory/issues/123) · [#52 Doku-Generator](https://github.com/pg-coe-kmu/coe-factory/issues/52) — Stufe C · [#53 Mapper & Verifier](https://github.com/pg-coe-kmu/coe-factory/issues/53) — Stufe C
+
+Was offen ist, steht im Abschlussplan.
 
 ## Schnittstellen
 - **Input von BC0:** Baseline-Lookup (KP/TP/Reifegrad)
@@ -35,7 +40,7 @@ Ein Original gibt es danach nicht — weder in `bc1.sessions` noch im Profil. Au
 Anbieter-Ausgaben (Extraktionswerte, Antworttext) laufen durch den Filter.
 Strategie: **maskieren**, kein Mapping-Tresor (kein Konsument für eine Rückersetzung).
 
-| Klasse | Erkennung | Platzhalter | Quote Testset |
+| Klasse | Erkennung | Platzhalter | Quote Testset (Offline-Wert, kein Betriebsbestand) |
 |---|---|---|---|
 | E-Mail | Muster, auch Unicode-Domains und -Endungen (Punycode) | `[E-Mail A]` | 100 % |
 | Telefon | Muster: `+`/`0`-Präfix, `(0)`, geklammerte Vorwahl, 7–14 Ziffern, Trenner inkl. geschützter Leerzeichen; Datums-, Uhrzeit- und Dezimalformen ausgenommen | `[Telefon A]` | 100 % |
