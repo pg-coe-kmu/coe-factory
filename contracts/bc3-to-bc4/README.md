@@ -2,7 +2,7 @@
 
 An das BC4-Team,
 
-hier liegen die Lieferungen von BC3. Ein Unterordner je Projekt, dazu das JSON-Schema,
+hier liegen die Lieferungen von BC3. Ein Unterordner je Projekt, darin ein Ordner je Lieferung, dazu das JSON-Schema,
 gegen das ihr die Tickets validieren könnt.
 
 ## Wer wir sind
@@ -17,17 +17,22 @@ contracts/bc3-to-bc4/
 ├── README.md               diese Datei
 ├── tickets.schema.json     JSON Schema 2020-12, validiert die ticket_set.json
 ├── mock/                   Beispiel Aurelia Krankenkasse, erfundene Daten
-└── <projekt>/              eine echte Lieferung, ein Ordner je Projekt
-    ├── ticket_set.json         die Hauptlieferung: Epics mit Stories
-    ├── blueprint.json          Bauplan als JSON: Komponenten, Datenflüsse, Entscheidungspunkte
-    ├── architecture.md         derselbe Bauplan als Text, mit Mermaid-Diagramm
-    ├── api/openapi.yaml         optional: nur, wenn die Stories eigene Endpunkte voraussetzen
-    └── compliance-audit.json   Compliance-Vorprüfung, Audit-Material
+└── <projekt>/              ein Ordner je Projekt (Kernprozess, z. B. kp-05)
+    └── <lieferung_id>/         ein Ordner je Lieferung, z. B. del-kp-05-2026-10-23-081500
+        ├── ticket_set.json         die Hauptlieferung: Epics mit Stories
+        ├── blueprint.json          Bauplan als JSON: Komponenten, Datenflüsse, Entscheidungspunkte
+        ├── architecture.md         derselbe Bauplan als Text, mit Mermaid-Diagramm
+        └── compliance-audit.json   Compliance-Vorprüfung, Audit-Material
 ```
+
+Seit 23.10.2026 bekommt jede Lieferung einen eigenen Ordner, damit sich Lieferungen zum
+selben Kernprozess nicht überschreiben. Die aktuelle Lieferung ist die mit der jüngsten
+`lieferung_id` (Datum und Uhrzeit stehen im Namen). Dateien direkt unter `<projekt>/` stammen
+aus der Zeit davor.
 
 ## Was BC4 braucht, und was nicht
 
-**Für eure Pipeline:** `ticket_set.json`, `blueprint.json`. `api/openapi.yaml` ist optional, BC4 baut n8n-Workflows und liest sie nicht.
+**Für eure Pipeline:** `ticket_set.json`, `blueprint.json`.
 
 **Zum Nachschlagen für Menschen:** `architecture.md`, derselbe Inhalt wie `blueprint.json`,
 aber lesbar und mit Diagramm.
@@ -43,12 +48,11 @@ BC3 liefert **nicht** durch einen Commit auf `main`, sondern als Pull Request:
 1. Der BC3-Slicer erzeugt die fünf Dateien.
 2. An **Gate 2** gibt ein Mensch frei. Ohne Freigabe verlässt nichts den Vorschau-Bereich.
 3. Die Freigabe legt den Zweig `lieferung/<lieferung_id>` an, committet die Dateien nach
-   `contracts/bc3-to-bc4/<projekt>/` und öffnet einen Pull Request.
-4. CODEOWNERS fragt `team-bc3` und `team-bc4` um Freigabe.
+   `contracts/bc3-to-bc4/<projekt>/<lieferung_id>/` und öffnet einen Pull Request.
+4. BC3 führt den Pull Request selbst zusammen. Ihr holt die Lieferung aus `main`.
 
-**Der Merge ist eure Abnahme.** Solange ihr nicht merged, gilt die Lieferung als nicht
-angekommen. Und man sieht das, statt dass irgendwo stillschweigend eine alte Datei
-weiterbenutzt wird.
+Freigeben heißt bei uns: ein Mensch hat an Gate 2 entschieden. Eine zweite Abnahme durch
+BC4 vor dem Zusammenführen gibt es nicht. Passt etwas nicht, meldet euch bei BC3.
 
 Im Text des Pull Requests stehen Kernprozess, Umfang, Herkunft der Zahlen, wer an Gate 2
 freigegeben hat und alle Befunde aus dem Lauf.
@@ -90,7 +94,7 @@ python -m pip install jsonschema
 python -c "import json,jsonschema,sys; \
   s=json.load(open('contracts/bc3-to-bc4/tickets.schema.json')); \
   d=json.load(open(sys.argv[1])); jsonschema.Draft202012Validator(s).validate(d); \
-  print('gültig')" contracts/bc3-to-bc4/<projekt>/ticket_set.json
+  print('gültig')" contracts/bc3-to-bc4/<projekt>/<lieferung_id>/ticket_set.json
 ```
 
 Bei jedem Pull Request auf `contracts/**` läuft dieselbe Prüfung automatisch, siehe
@@ -140,7 +144,7 @@ Im Projektplan, Abschnitt 3.2 BC3 → BC4, stand:
 - Akzeptanzkriterien je Story, um das Messverfahren ergänzt
 - Abhängigkeiten als ID-Verweise
 - Blueprint als Mermaid in `architecture.md`, seit v3.5 zusätzlich als `blueprint.json`
-- API-Spezifikation als OpenAPI 3.0 in `api/openapi.yaml`, nur noch dort, wo die Stories eigene Endpunkte voraussetzen
+- API-Spezifikation als OpenAPI 3.0: seit 22.10.2026 abgeschaltet, BC4 baut n8n-Workflows und liest sie nicht
 - Gate 2 als `gate2.status` im Ticket-Set
 
 **Wir weichen ab:**

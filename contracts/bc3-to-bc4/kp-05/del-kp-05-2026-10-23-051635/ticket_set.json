@@ -1,0 +1,214 @@
+{
+  "lieferung_id": "del-kp-05-2026-10-23-051635",
+  "schema_version": "3.5",
+  "projekt_kurzname": "kp-05",
+  "konzept_ref": {
+    "konzept_id": "5d82f848-fdbc-40a9-9169-c03c0893b077",
+    "schema_version": "3.1",
+    "source_file": "konzept_KP-05.json",
+    "kp_id": "KP-05",
+    "teilprozess_ids": [
+      "KP-05.TP-1"
+    ],
+    "value_quelle": "berechnet"
+  },
+  "epics": [
+    {
+      "epic_id": "ep-35ec-f2fb-68d5-6d6dddfa6fa7",
+      "titel": "KI-gestützte Wissenssuche im Nextcloud/Google-Drive-Bestand mit RAG-Schicht",
+      "ziel": "Mitarbeitende erhalten innerhalb von Sekunden einen strukturierten, quellenbelegten Antwortvorschlag zu Wissensfragen aus dem indizierten Drive-Bestand, ohne manuell Dokumente durchsuchen zu müssen.",
+      "kategorien": [
+        "it:backend",
+        "it:integration",
+        "it:ai-pipeline"
+      ],
+      "stories": [
+        {
+          "story_id": "st-35ec-f2fb-68d5-6d6dddfa6fa7-1",
+          "titel": "Indizierungspipeline für Drive-Dokumente aufbauen",
+          "beschreibung": "Als IT/DevOps möchte ich eine automatisierte Pipeline einrichten, die Dokumente aus freigegebenen Drive-Ordnern periodisch ausliest, aufbereitet, in Chunks zerlegt und als Vektoren in Qdrant indiziert, damit die RAG-Schicht auf aktuelle Inhalte zugreifen kann.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein freigegebener Drive-Ordner mit Dokumenten, When der Indizierungslauf startet, Then werden alle Dokumente ausgelesen, per OCR (PaddleOCR/Tesseract) aufbereitet, in Chunks zerlegt und als Vektoren in Qdrant gespeichert.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given ein neu in den freigegebenen Ordner abgelegtes Dokument, When der nächste Indizierungslauf abgeschlossen ist, Then ist das Dokument im Qdrant-Index enthalten und bei passenden Anfragen abrufbar.",
+              "messverfahren": "K3: Protokoll des Indizierungslaufs (Zeitstempel, Anzahl verarbeiteter Dokumente); anschließende Kontrollanfrage zu einem im neuen Dokument enthaltenen Begriff mit Sichtprüfung des Quellverweises."
+            },
+            {
+              "text": "Given ein Dokument mit sehr spezialisiertem Fachvokabular oder rein grafischen Inhalten, When der Indizierungslauf das Dokument verarbeitet, Then wird es entweder erfolgreich indiziert oder als leer markiert, ohne die Pipeline zu blockieren.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given ein geändertes Dokument im freigegebenen Ordner, When der Indizierungslauf abgeschlossen ist, Then ersetzt die neue Fassung die alte im Index, sodass Antworten nur noch die aktualisierte Version zitieren.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-35ec-f2fb-68d5-6d6dddfa6fa7-2",
+          "titel": "Zugriffsrechtespiegelung zwischen Drive und RAG-Schicht einrichten",
+          "beschreibung": "Als Wissensverantwortlicher möchte ich sicherstellen, dass die RAG-Schicht nur Dokumente indiziert und ausgibt, für die die anfragende Person in Google Drive/Nextcloud eine Leseberechtigung besitzt, damit keine unberechtigten Informationen weitergegeben werden.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein Dokument, auf das eine Mitarbeiterin keine Leseberechtigung hat, When das System einen Antwortvorschlag generiert, Then wird das Dokument weder im Vorschlag noch in den Quellverweisen genannt.",
+              "messverfahren": "K2: Gezielter Testlauf mit einem Testnutzer ohne Zugriff auf ein definiertes Testdokument; Sichtprüfung des Antwortvorschlags auf Nennung des Dokuments; Abgleich mit dem Zugriffsrechte-Mapping im Index."
+            },
+            {
+              "text": "Given eine dokumentierte Zugriffsrechtestruktur in Google Drive/Nextcloud, When die RAG-Schicht die Rechte spiegelt, Then werden nur Dokumente aus Ordnern indiziert, für die die anfragende Person berechtigt ist.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given komplexe Gruppenstrukturen in den Drive-Berechtigungen, When ein Dokument nicht gespiegelt werden kann, Then wird es aus dem indizierten Bestand ausgeschlossen und bleibt in der manuellen Suche.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-35ec-f2fb-68d5-6d6dddfa6fa7-1"
+          ]
+        },
+        {
+          "story_id": "st-35ec-f2fb-68d5-6d6dddfa6fa7-3",
+          "titel": "Semantische Suche und Antwortgenerierung implementieren",
+          "beschreibung": "Als Mitarbeitende möchte ich eine Frage in natürlicher Sprache eingeben und innerhalb von Sekunden einen strukturierten Antwortvorschlag mit Quellenverweisen erhalten, damit ich schnell und reproduzierbar auf Wissen zugreifen kann.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine freigegebene Frage, die mit Inhalten aus dem indizierten Bestand beantwortet werden kann, When die Frage in die Wissenssuche eingegeben wird, Then liefert das System einen Antwortvorschlag mit mindestens einem validen Quellverweis auf ein tatsächlich im Index vorhandenes Dokument.",
+              "messverfahren": "K1: Stichprobe aus abgeschlossenen Anfragen: Für jede geprüfte Anfrage wird im Systemprotokoll nachgewiesen, dass der Quellverweis auf ein real indexiertes Dokument zeigt und der angezeigte Dateiname mit dem tatsächlichen Drive-Pfad übereinstimmt."
+            },
+            {
+              "text": "Given eine Frage, die nur teilweise aus dem Bestand beantwortet werden kann, When das System die Frage verarbeitet, Then beantwortet es den belegbaren Teil, kennzeichnet die Antwort als Teilantwort und benennt den offenen Teil.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given widersprüchliche Inhalte in verschiedenen Dokumentversionen, When das System eine Antwort generiert, Then werden alle widersprüchlichen Quellen genannt und der Widerspruch gekennzeichnet.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given eine Anfrage zu einem Thema ohne ausreichenden Beleg im Bestand, When das System die Anfrage verarbeitet, Then weist es die anfragende Person explizit auf fehlende Belege hin, anstatt eine falsche Antwort zu präsentieren.",
+              "messverfahren": "K4: Testlauf mit definierten Fragen zu Themen außerhalb des indizierten Bestands; Sichtprüfung der Systemantwort auf das Vorhandensein eines expliziten Hinweises auf fehlende Belege."
+            },
+            {
+              "text": "Given eine leere Frage oder eine Frage über der Höchstlänge, When die Frage eingegeben wird, Then wird sie mit einem verständlichen Hinweis zurückgewiesen, bevor die Suche startet.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given ein technischer Fehler bei der Suche oder Modellaufruf, When das System die Anfrage verarbeitet, Then meldet es einen technischen Fehler und nicht 'keine Antwort im Bestand'.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given eine erfolgreiche Antwortgenerierung, When der Antwortvorschlag ausgegeben wird, Then enthält er mindestens einen Quellverweis mit Dateiname, Pfad und Datum der letzten Änderung (sofern verfügbar).",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given eine Antwort mit Quellenangaben, When die Quellen geprüft werden, Then stammen sie aus den tatsächlich gefundenen Dokumenten und wörtliche Zitate stimmen mit dem Dokument überein.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given eine Antwort, When sie ausgegeben wird, Then trägt sie einen Status aus der Liste: beantwortet, teilweise beantwortet, Widerspruch, keine Antwort im Bestand, technischer Fehler, ungültige Eingabe.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given ein erneuter Indexlauf ohne Änderungen am Bestand, When der Lauf abgeschlossen ist, Then verändert sich der Index nicht.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Nicht-funktional: Given eine Frage, die aus dem Bestand beantwortet werden kann, When das System die Antwort generiert, Then liegt der Antwortvorschlag innerhalb von Sekunden vor.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-35ec-f2fb-68d5-6d6dddfa6fa7-1",
+            "st-35ec-f2fb-68d5-6d6dddfa6fa7-2"
+          ]
+        },
+        {
+          "story_id": "st-35ec-f2fb-68d5-6d6dddfa6fa7-4",
+          "titel": "Steuerung der indizierten Ordner durch Wissensverantwortliche ermöglichen",
+          "beschreibung": "Als Wissensverantwortlicher möchte ich festlegen, welche Drive-Ordner indiziert werden, damit nur freigegebene und relevante Inhalte in die Wissenssuche einfließen.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine Liste freigegebener Drive-Ordner, When Wissensverantwortliche die Ordnerauswahl anpassen, Then werden nur Dokumente aus den ausgewählten Ordnern indiziert.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given ein Ordner, der aus der Freigabeliste entfernt wird, When der nächste Indizierungslauf abgeschlossen ist, Then sind keine Dokumente aus diesem Ordner mehr im Index enthalten.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-35ec-f2fb-68d5-6d6dddfa6fa7-1"
+          ]
+        },
+        {
+          "story_id": "st-35ec-f2fb-68d5-6d6dddfa6fa7-5",
+          "titel": "Fallback auf Anthropic Claude API bei lokaler Modellinsuffizienz einrichten",
+          "beschreibung": "Als IT/DevOps möchte ich sicherstellen, dass bei dokumentierter Unzulänglichkeit der lokalen Ollama-Modelle die Anthropic Claude API als Fallback genutzt wird, um die Antwortqualität zu gewährleisten, ohne die EU-First- und Open-Source-Maxime zu verletzen.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein gültiger AVV mit Anthropic und dokumentierter Mehrwert gegenüber Ollama, When das lokale Modell keine ausreichende Antwort generieren kann, Then wird die Anfrage an die Claude API weitergeleitet und das Ergebnis als Antwortvorschlag zurückgegeben.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given kein gültiger AVV oder kein dokumentierter Mehrwert, When eine Anfrage verarbeitet wird, Then wird ausschließlich das lokale Ollama-Modell genutzt.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-35ec-f2fb-68d5-6d6dddfa6fa7-3"
+          ]
+        },
+        {
+          "story_id": "st-35ec-f2fb-68d5-6d6dddfa6fa7-6",
+          "titel": "Protokollierung und Statusverfolgung für Anfragen implementieren",
+          "beschreibung": "Als IT/DevOps möchte ich sicherstellen, dass jede Anfrage mit Status, Quellen und eingesetzten Versionen protokolliert wird, damit die Nachvollziehbarkeit und Fehleranalyse gewährleistet sind.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine bearbeitete Anfrage, When die Antwort ausgegeben wird, Then werden Status, genannte Quellen und eingesetzte Versionen in PostgreSQL protokolliert.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given ein Ausfall des Protokollsystems, When eine Antwort generiert wird, Then wird die Antwort trotzdem ausgegeben, jedoch mit einem Hinweis auf fehlende Protokollierung.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-35ec-f2fb-68d5-6d6dddfa6fa7-3"
+          ]
+        },
+        {
+          "story_id": "st-35ec-f2fb-68d5-6d6dddfa6fa7-7",
+          "titel": "Zugriffsbeschränkte Dokumente aus Antwortvorschlag ausschließen",
+          "beschreibung": "Als Mitarbeitende möchte ich, dass Dokumente, auf die ich keinen Zugriff habe, nicht in Antwortvorschlägen oder Quellverweisen erscheinen, damit die Zugriffsrechte konsistent eingehalten werden.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein Dokument, auf das eine Mitarbeiterin aufgrund ihrer Drive-Berechtigungen keinen Zugriff hat, When das System einen Antwortvorschlag zu einem Thema generiert, das ausschließlich in diesem Dokument beschrieben ist, Then wird das betreffende Dokument weder im Antwortvorschlag noch im Quellverweis genannt.",
+              "messverfahren": "Gezielter Testlauf mit einem Testnutzer ohne Zugriff auf ein definiertes Testdokument: Sichtprüfung des Antwortvorschlags auf Nennung des Dokuments; Abgleich mit dem Zugriffsrechte-Mapping im Index."
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-35ec-f2fb-68d5-6d6dddfa6fa7-8",
+          "titel": "Neu hinzugefügte Dokumente in Antwortvorschlägen berücksichtigen",
+          "beschreibung": "Als Mitarbeitende möchte ich, dass neu in den indizierten Drive-Ordner abgelegte Dokumente nach der Indizierung in Antwortvorschlägen als Quellen referenziert werden, damit aktuelle Informationen verfügbar sind.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein neu in den indizierten Drive-Ordner abgelegtes Dokument, When der geplante Indizierungslauf abgeschlossen ist, Then ist das Dokument bei inhaltlich passenden Anfragen im Antwortvorschlag als Quelle abrufbar.",
+              "messverfahren": "Protokoll des Indizierungslaufs (Zeitstempel, Anzahl verarbeiteter Dokumente); anschließende Kontrollanfrage zu einem im neuen Dokument enthaltenen Begriff mit Sichtprüfung des Quellverweises."
+            }
+          ],
+          "abhaengigkeiten": []
+        }
+      ],
+      "teilprozess_ids": [
+        "KP-05.TP-1"
+      ]
+    }
+  ],
+  "gate2": {
+    "status": "approved"
+  }
+}
