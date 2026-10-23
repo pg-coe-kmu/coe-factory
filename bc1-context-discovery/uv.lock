@@ -76,7 +76,6 @@ source = { virtual = "." }
 dev = [
     { name = "httpx" },
     { name = "httpx2" },
-    { name = "ollama" },
     { name = "pytest" },
     { name = "tdd-guard-pytest" },
 ]
@@ -86,6 +85,7 @@ service = [
     { name = "google-genai" },
     { name = "httpx" },
     { name = "jsonschema" },
+    { name = "ollama" },
     { name = "psycopg", extra = ["binary", "pool"] },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -96,7 +96,6 @@ service = [
 dev = [
     { name = "httpx" },
     { name = "httpx2" },
-    { name = "ollama" },
     { name = "pytest" },
     { name = "tdd-guard-pytest", specifier = ">=0.1.2" },
 ]
@@ -106,6 +105,7 @@ service = [
     { name = "google-genai" },
     { name = "httpx" },
     { name = "jsonschema" },
+    { name = "ollama" },
     { name = "psycopg", extras = ["binary", "pool"] },
     { name = "uvicorn", extras = ["standard"] },
 ]

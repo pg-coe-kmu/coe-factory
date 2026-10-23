@@ -8,7 +8,6 @@ dev = [
     "pytest",
     "httpx",
     "httpx2",
-    "ollama",
     "tdd-guard-pytest>=0.1.2",
 ]
 service = [
@@ -19,7 +18,13 @@ service = [
     "jsonschema",
     "httpx",
     "google-genai",
+    "ollama",
 ]
+
+# `uv sync` ohne Zusatz richtet beide Gruppen ein (Tests brauchen den Dienst);
+# das Image nimmt mit `--no-dev --group service` nur die Dienst-Gruppe.
+[tool.uv]
+default-groups = ["dev", "service"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
