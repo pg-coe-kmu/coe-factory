@@ -57,6 +57,9 @@ class Bc0Kontext:
     # (Kernprozess-ID, Rollen-ID oder None) — Kernprozesse der Anfrage-TPs, nach
     # Prozess-ID sortiert. None = keine Eigner-Rolle ableitbar. Nicht im Fingerprint.
     eigner: tuple[tuple[str, str | None], ...] = ()
+    # (Kernprozess-ID, Name) — alle aktiven Kernprozesse des Mandanten beim Laden, nach
+    # Prozess-ID sortiert. Die IDs gehen in den Fingerabdruck ein, die Namen nicht.
+    prozesse: tuple[tuple[str, str], ...] = ()
 
 
 def _ctx_fingerprint(kontext: Bc0Kontext, kp_ids: list[str]) -> str:

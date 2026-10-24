@@ -99,6 +99,16 @@ def test_start_laedt_rollen_und_eigner():
 
 
 @pytest.mark.skipif(not DSN, reason="BC1_TEST_DB_DSN nicht gesetzt")
+def test_start_laedt_alle_aktiven_kernprozesse_des_mandanten():
+    # ANFRAGE_A umfasst nur KP-01-Teilprozesse; KP-02 gehoert trotzdem in die
+    # B4-Auswahl (Spec 9.2: Zuordnung ausserhalb der Anfrage wird so sichtbar).
+    frische_db(DSN)
+    with verbindung(DSN) as conn:
+        kontext = lade_kontext(conn, MANDANT_A, ANFRAGE_A)
+    assert kontext.prozesse == (("KP-01", "Auftrag A"), ("KP-02", "Einkauf A"))
+
+
+@pytest.mark.skipif(not DSN, reason="BC1_TEST_DB_DSN nicht gesetzt")
 def test_start_ohne_aktive_rolle_bricht_ab():
     frische_db(DSN)
     with verbindung(DSN, None) as conn:
