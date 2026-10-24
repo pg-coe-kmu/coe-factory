@@ -176,6 +176,16 @@ def test_vorpruefung_meldet_fehlende_anfrage_sicht():
     assert "v_anfrage_teilprozesse" in str(fehler.value)
 
 
+def test_vorpruefung_verlangt_select_auf_mandant_rollen():
+    frische_db(DSN, mit_ddl=False)
+    with verbindung(DSN, None) as conn:
+        conn.execute("REVOKE SELECT ON mandant_rollen FROM bc_leser")
+        conn.commit()
+    with pytest.raises(Exception) as fehler:
+        spiele_ddl_ein(DSN)
+    assert "mandant_rollen" in str(fehler.value)
+
+
 def test_spaltenrecht_an_fremde_rolle_wird_erkannt():
     # Codex N10-C1: Spaltenrechte liegen in pg_attribute.attacl, nicht in
     # pg_class.relacl. Ein GRANT auf EINE Spalte umging Signatur UND Rechte-Test.

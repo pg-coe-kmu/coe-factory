@@ -118,6 +118,24 @@ def _normalisiere_minuten(wert: str) -> str:
     return wert
 
 
+# Reine Anzahl ohne Periode (z. B. Faelle je Durchlauf): ein einziges Muster per
+# fullmatch — jede Periode ("pro Woche", "im Monat"), Einheit oder zweite Zahl
+# bleibt damit unpassend und faellt in der Validierung durch.
+_ANZAHL_MUSTER = re.compile(
+    rf"\s*(?:(?:etwa|ca\.|circa|ungefähr|ungefaehr|rund|im schnitt|durchschnittlich)\s+)?"
+    rf"({_ZAHL_TOKEN})"
+    rf"(?:\s+(?:fall|fälle|faelle|vorgang|vorgänge|vorgaenge|stück|stueck))?"
+    rf"(?:\s+(?:je|pro)\s+durchlauf)?\s*", re.IGNORECASE)
+
+
+def _normalisiere_anzahl(wert: str) -> str:
+    treffer = _ANZAHL_MUSTER.fullmatch(wert)
+    if treffer is None:
+        return wert
+    zahl = _zahl_aus_token(treffer.group(1))
+    return _formatiere(zahl) if math.isfinite(zahl) else wert
+
+
 def _entferne_rand(wert: str) -> str:
     return wert.strip().strip('.!?,;:„“”‘’"\' ').strip()
 
@@ -180,6 +198,7 @@ def _ist_nichtnegative_zahl(wert: str) -> bool:
 
 ZAHL = Feldtyp("zahl", _ist_nichtnegative_zahl, _normalisiere_zahl)
 MINUTEN = Feldtyp("minuten", _ist_nichtnegative_zahl, _normalisiere_minuten)
+ANZAHL = Feldtyp("anzahl", _ist_nichtnegative_zahl, _normalisiere_anzahl)
 SKALA_1_5 = Feldtyp("skala_1_5", _ist_skala, lambda w: w.strip())
 PROZENT_0_100 = Feldtyp("prozent_0_100", _ist_prozent, _normalisiere_prozent)
 JA_NEIN = Feldtyp("ja_nein", lambda w: w in ("ja", "nein"), _normalisiere_ja_nein)

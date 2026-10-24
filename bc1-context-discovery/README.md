@@ -31,6 +31,7 @@ Was offen ist, steht im Abschlussplan.
 ## Schnittstellen
 - **Input von BC0:** Baseline-Lookup (KP/TP/Reifegrad)
 - **Output an BC2:** `contracts/bc1-to-bc2/` (Schema + Mock; gemeinsam mit BC2 + Platform)
+- **Eigner-Rolle (seit C1a):** `process_owner_rolle_id` ist nicht mehr immer leer. Sie wird aus der im Interview gewählten Rolle (Frage B3, Auswahl aus `mandant_rollen`) gefüllt, aber nur bei gültigem B3-Wert, sonst `NULL`. Weicht die Wahl von BC0s Eigner-Rolle ab, steht im Profil ein Befund `eigner_rolle_abweichung`; BC1 ändert bei BC0 nichts. Der Start bricht ab, wenn für den Mandanten keine aktive Rolle erfasst ist (Meldung `MELDUNG_KEINE_ROLLEN`).
 
 ## PII-Filter
 
@@ -60,6 +61,20 @@ Straßen ohne Straßenwort („Am Alten Markt 3"). Übererkennung ist akzeptiert
 „Fr. Vormittag" werden `[Person A]`). NER folgt erst bei gemessenem Bedarf. Außerhalb
 von BC1: n8n speichert Ausführungsdaten mit der Chat-Eingabe, bevor der Dienst sie
 sieht — Hosting-Thema (B3). Konzept: `design/Konzept-B2-PII-Filter.md`.
+
+## Use-Case-Testprofile (Version 3)
+
+Die drei Testfälle (Anhang A der DB-Profil-Planung) lassen sich über den regulären Schreibweg neu erzeugen. Version 3 trägt `executions_per_run` = 1, eine Eigner-Rolle (B3) und eine `anfrage_id`. Die Anfragen kommen als Parameter, je Fokus-Teilprozess eine:
+
+```bash
+uv run python -m bc1_service.use_case_testprofile --company-id <uuid> \
+  --anfrage KP-06.TP-2=A-… --anfrage KP-05.TP-1=A-… --anfrage KP-06.TP-1=A-… [--echt]
+```
+
+- **Ohne `--echt`** ein Trockenlauf: nichts wird geschrieben, BC0 wird nicht benachrichtigt.
+- **Mit `--echt`** braucht jeder Fall seine `--anfrage TP=A-…` und `BC1_DB_DSN` (als `bc1_role`). Das Werkzeug prüft **zuerst alle** Anfragen (vorhanden, interviewbar, umfasst den Teilprozess, Sitzungsnummer nicht an eine andere Anfrage gebunden, Eigner-Rolle der Skripte beim Mandanten aktiv); bei einem Mangel gibt es eine Meldung, es wird nichts gemeldet und nichts geschrieben.
+- **BC0 wird benachrichtigt wie vom Dienst:** Kontoprüfung, „Interview läuft“ nur aus `zugeordnet`, nach dem Schreiben das Gate. Die drei BC0-Variablen wie beim Dienst (`BC1_BC0_URL`, `BC1_BC0_KONTO_EMAIL`, `BC1_BC0_KONTO_PASSWORT`); `BC1_BC0_MELDUNGEN=aus` schaltet die Meldungen ab (nur lokal ohne BC0).
+- **Wiederholbar:** Ein zweiter Lauf mit denselben Parametern überspringt, was schon zur selben Anfrage geschrieben ist („bereits geschrieben“), und holt einen gescheiterten Gate-Aufruf nach (ein Fehler dabei ist nur eine Warnzeile).
 
 ## Betriebsprotokoll
 

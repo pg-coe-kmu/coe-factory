@@ -9,11 +9,15 @@ Erhebungs-Lookup muessen in derselben Transaktion laufen wie der Profil-Write.
 Kein voller Baseline-Lesepfad — der kommt in Etappe 2 (#148).
 
 Stilllegung (BC0 v2.2, Sichten seit v3.4): BC0 loescht nichts, es setzt aktiv = false.
-Gelesen wird deshalb NUR ueber die Sichten (v_prozesse_lesen, v_bewertung_aktuell,
+Gelesen wird deshalb ueber die Sichten (v_prozesse_lesen, v_bewertung_aktuell,
 v_teilprozesse_lesen, v_systeme_lesen) — sie filtern aktiv; die Tabellen dahinter tun
 das nicht (Simeons Brief 18.09.2026, Punkt 3; Tests: test_bc0_lesepfade_aktiv.py).
+Ausnahme: rollen() liest die Tabelle mandant_rollen (Leserecht via bc_leser) und
+filtert aktiv selbst.
 """
 from __future__ import annotations
+
+from collections.abc import Sequence
 
 
 def mandant_existiert(conn, company_id: str) -> bool:
@@ -62,6 +66,25 @@ def system_ids(conn, company_id: str) -> list[str]:
     return [zeile[0] for zeile in conn.execute(
         "SELECT system_id FROM v_systeme_lesen "
         "WHERE company_id = %s ORDER BY system_id", (company_id,)).fetchall()]
+
+
+def rollen(conn, company_id: str) -> list[tuple[str, str]]:
+    """(rolle_id, Bezeichnung) der AKTIVEN Rollen des Mandanten. mandant_rollen ist
+    eine Tabelle (Leserecht via bc_leser), keine Sicht — aktiv wird hier gefiltert."""
+    return [(zeile[0], zeile[1]) for zeile in conn.execute(
+        "SELECT rolle_id, bezeichnung FROM mandant_rollen "
+        "WHERE company_id = %s AND aktiv ORDER BY rolle_id", (company_id,)).fetchall()]
+
+
+def eigner_rollen(conn, company_id: str,
+                  process_ids: Sequence[str]) -> dict[str, str | None]:
+    """Eigner-Hauptrolle je Kernprozess (v_prozesse_lesen.owner_rolle_id, v3.4). Ein
+    Schluessel je angefragter, in der Sicht vorhandener Prozess-ID; None = BC0 kann
+    keine Eigner-Hauptrolle ableiten. Unbekannte oder stillgelegte IDs fehlen."""
+    return {zeile[0]: zeile[1] for zeile in conn.execute(
+        "SELECT process_id, owner_rolle_id FROM v_prozesse_lesen "
+        "WHERE company_id = %s AND process_id = ANY(%s)",
+        (company_id, list(process_ids))).fetchall()}
 
 
 class ErhebungFehltError(RuntimeError):

@@ -6,6 +6,7 @@ from bc1_service.start import (
     MELDUNG_ANFRAGE_OHNE_TEILPROZESSE,
     MELDUNG_ANFRAGE_UNBEKANNT,
     MELDUNG_KEINE_BEWERTUNG,
+    MELDUNG_KEINE_ROLLEN,
     MELDUNG_KEINE_TEILPROZESSE,
     MELDUNG_TEILPROZESSE_NICHT_BEREIT,
     lade_kontext,
@@ -86,6 +87,28 @@ def test_auswahl_sind_genau_die_teilprozesse_der_anfrage_mit_namen():
         kontext = lade_kontext(conn, MANDANT_A, ANFRAGE_A)
     assert kontext.teilprozesse == (("KP-01.TP-1", "Erfassen A"), ("KP-01.TP-2", "Pruefen A"))
     assert kontext.anfrage_id == ANFRAGE_A
+
+
+@pytest.mark.skipif(not DSN, reason="BC1_TEST_DB_DSN nicht gesetzt")
+def test_start_laedt_rollen_und_eigner():
+    frische_db(DSN)
+    with verbindung(DSN) as conn:
+        kontext = lade_kontext(conn, MANDANT_A, ANFRAGE_A)
+    assert kontext.rollen == (("R-01", "Sachbearbeitung"), ("R-02", "Einkauf A"))
+    assert kontext.eigner == (("KP-01", "R-02"),)
+
+
+@pytest.mark.skipif(not DSN, reason="BC1_TEST_DB_DSN nicht gesetzt")
+def test_start_ohne_aktive_rolle_bricht_ab():
+    frische_db(DSN)
+    with verbindung(DSN, None) as conn:
+        conn.execute("UPDATE mandant_rollen SET aktiv = false WHERE company_id = %s",
+                     (MANDANT_A,))
+        conn.commit()
+    with verbindung(DSN) as conn:
+        with pytest.raises(RuntimeError) as fehler:
+            lade_kontext(conn, MANDANT_A, ANFRAGE_A)
+    assert str(fehler.value) == MELDUNG_KEINE_ROLLEN
 
 
 @pytest.mark.skipif(not DSN, reason="BC1_TEST_DB_DSN nicht gesetzt")

@@ -3,8 +3,10 @@
 Feldnamen schema-nah englisch (Zielfelder des Katalogs): der Gate-0-Payload
 ist damit BC2-nah benannt. Muss-Felder (M) werden aktiv gefragt, E-Felder
 passiv miterfasst (required=False). Dokumentierte Katalog-Abweichungen
-(Spec P3): B3/H1/H2 nennen „Auswahl“ ohne Optionsliste → FREITEXT bis der
-Katalog Optionen nachliefert · E5 auf Pflicht hochgestuft (der flache
+(Spec P3): B3/H1/H2 nennen „Auswahl“ ohne Optionsliste. B3 ist im Kontext-Zweig
+(1.2) eine Auswahl aus den aktiven Rollen des Mandanten, im kontextfreien Zweig
+(1.0) Freitext; H1/H2 sind FREITEXT, bis der Katalog Optionen nachliefert ·
+E5 auf Pflicht hochgestuft (der flache
 Fokus-Schnitt hängt daran) · D4 als executions_per_run (Katalog-Zielfeld
 heißt executions_per_year, die Frage erfasst Fälle pro Durchlauf — Name
 folgt der Frage). Flach + Fokus-Schritt: die focus_step_*-Felder
@@ -17,6 +19,7 @@ import json
 from dataclasses import dataclass
 
 from bc1_core.feldtypen import (
+    ANZAHL,
     AUSWAHL,
     FREITEXT,
     JA_NEIN,
@@ -33,7 +36,7 @@ SCHEMA_VERSION = "1.0"
 # Neue Basisversion, weil sich die BEDEUTUNG aendert: focus_step ist jetzt eine
 # validierte Teilprozess-ID, focus_step_systems prueft gegen mandant_systeme
 # (Spec K2 — nur mit BC0-Kontext erreichbar, s. Bc0Kontext unten).
-SCHEMA_VERSION_CTX = "1.1"
+SCHEMA_VERSION_CTX = "1.2"
 MAX_ROUNDS_DISCOVERY = 60   # 26 Pflichtfelder × 2 Versuche + Puffer
 
 
@@ -48,6 +51,12 @@ class Bc0Kontext:
     # B5: die Anfrage, zu der interviewt wird. None nur in kontextfreien Tests —
     # main.py setzt sie immer (BC1_ANFRAGE_ID ist Pflicht).
     anfrage_id: str | None = None
+    # (Rollen-ID, Bezeichnung) — nur aktive Rollen des Mandanten. In den Fingerprint
+    # gehen nur die IDs ein.
+    rollen: tuple[tuple[str, str], ...] = ()
+    # (Kernprozess-ID, Rollen-ID oder None) — Kernprozesse der Anfrage-TPs, nach
+    # Prozess-ID sortiert. None = keine Eigner-Rolle ableitbar. Nicht im Fingerprint.
+    eigner: tuple[tuple[str, str | None], ...] = ()
 
 
 def _ctx_fingerprint(kontext: Bc0Kontext, kp_ids: list[str]) -> str:
@@ -63,6 +72,7 @@ def _ctx_fingerprint(kontext: Bc0Kontext, kp_ids: list[str]) -> str:
         {"anfrage": kontext.anfrage_id,
          "company_id": kontext.company_id.lower(),
          "kp": sorted(kp_ids),
+         "rollen": sorted(r for r, _ in kontext.rollen),
          "snn": sorted(kontext.system_ids),
          "tp": sorted(tp for tp, _ in kontext.teilprozesse)},
         sort_keys=True, separators=(",", ":"))
@@ -96,12 +106,24 @@ def baue_discovery_paket(
                     "meisten? ("
                     + ", ".join(f"{tp} = {name}" for tp, name in kontext.teilprozesse)
                     + ")")
+        b3_typ = AUSWAHL(*(rid for rid, _ in kontext.rollen))
+        b3_frage = ("Welche Rolle ist für diesen Prozess verantwortlich? "
+                    "Bitte nennen Sie die Rolle ("
+                    + ", ".join(f"{rid} = {bez}" for rid, bez in kontext.rollen)
+                    + ").")
+        if len(kontext.eigner) == 1:
+            rolle_id = kontext.eigner[0][1]
+            bezeichnung = dict(kontext.rollen).get(rolle_id)
+            if bezeichnung is not None:
+                b3_frage += f" Laut BC0 ist das {bezeichnung} ({rolle_id})."
         f2_typ = baue_system_typ(frozenset(kontext.system_ids))
         # E4 ganzzahlig NUR im Kontext-Zweig (Codex R2-N-I4): geschrieben wird
         # ausschliesslich mit BC0-Kontext, und der Zweig traegt mit 1.1+ctx-
         # ohnehin eine neue Version. Der kontextfreie Zweig bleibt bei
         # PROZENT_0_100 — sonst aendert sich Semantik unter unveraenderter 1.0.
         e4_typ = PROZENT_GANZ_0_100
+        d4_typ = ANZAHL
+        e2_frage = "Wie lange dauert ein einzelner Lauf dieses Schritts im Schnitt?"
         # Semver-Build-Metadata-Semantik (+-Suffix, von Konsumenten beim
         # Versionsvergleich ignorierbar): der Fingerprint macht Teilprozess-
         # Liste, System-Menge, Mandant UND KP-Liste Teil der Paket-Identität,
@@ -112,6 +134,10 @@ def baue_discovery_paket(
                           f"{_ctx_fingerprint(kontext, [pid for pid, _ in (prozesse or [])])}")
     else:
         e5_typ, f2_typ, e4_typ = FREITEXT, LISTE, PROZENT_0_100
+        d4_typ = ZAHL
+        e2_frage = "Wie lange dauert dieser Schritt im Schnitt?"
+        b3_typ = FREITEXT
+        b3_frage = "Welche Rolle ist für diesen Prozess verantwortlich?"
         e5_frage = ("Welcher Schritt kostet am meisten Zeit oder nervt am "
                     "meisten?")
         if prozesse:
@@ -155,8 +181,7 @@ def baue_discovery_paket(
                       "unterstuetzung?",
                       required=False,
                       typ=AUSWAHL("steuerung", "kerngeschaeft", "unterstuetzung")),
-            FieldSpec("process_owner_role",                                      # B3 (⚠️ Katalog: Auswahl ohne Optionsliste)
-                      "Welche Rolle ist für diesen Prozess verantwortlich?"),
+            FieldSpec("process_owner_role", b3_frage, typ=b3_typ),               # B3 (Katalog: Auswahl ohne Optionsliste; 1.2 aus aktiven Rollen, 1.0 Freitext)
             FieldSpec("process_id", b4_frage, typ=b4_typ),                       # B4
             FieldSpec("process_steps",                                           # B5
                       "Welche Einzelschritte hat der Prozess, von Anfang bis "
@@ -188,15 +213,14 @@ def baue_discovery_paket(
                       "abweichend?", required=False, typ=ZAHL),
             FieldSpec("executions_per_run",                                      # D4 (⚠️ Katalog-Befund: Zielfeld-Name vs. Frage)
                       "Wie viele Fälle oder Vorgänge bearbeiten Sie "
-                      "typischerweise pro Durchlauf?", typ=ZAHL),
+                      "typischerweise pro Durchlauf?", typ=d4_typ),
             # --- Block E — Zeit / Aufwand (Fokus-Schritt) ---
             FieldSpec("total_duration_minutes",                                  # E1
                       "Wie lange dauert ein kompletter Durchlauf im Schnitt?",
                       typ=MINUTEN),
             FieldSpec("focus_step", e5_frage, typ=e5_typ,                        # E5 (⚠️ auf M hochgestuft — Fokus-Schnitt)
                       identitaetskritisch=kontext is not None),
-            FieldSpec("focus_step_duration_minutes",                             # E2
-                      "Wie lange dauert dieser Schritt im Schnitt?",
+            FieldSpec("focus_step_duration_minutes", e2_frage,                   # E2
                       typ=MINUTEN),
             FieldSpec("focus_step_duration_source",                              # E3
                       "Ist diese Zeitangabe gemessen, geschaetzt oder "

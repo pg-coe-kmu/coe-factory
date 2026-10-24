@@ -79,6 +79,38 @@ def test_system_ids_sind_mandantengetrennt():
         assert bc0_lesepfade.system_ids(conn, MANDANT_B) == ["S-01", "S-03"]
 
 
+def test_rollen_nur_aktive_des_mandanten():
+    # R-03 'Archiv' ist bei A stillgelegt (aktiv = false) und darf nicht erscheinen.
+    with verbindung(DSN) as conn:
+        assert bc0_lesepfade.rollen(conn, MANDANT_A) == [
+            ("R-01", "Sachbearbeitung"), ("R-02", "Einkauf A")]
+
+
+def test_rollen_mandantengetrennt():
+    # R-01/R-02 gibt es bei beiden Mandanten mit anderer Bezeichnung; R-04 nur bei B.
+    with verbindung(DSN) as conn:
+        assert bc0_lesepfade.rollen(conn, MANDANT_B) == [
+            ("R-01", "Sachbearbeitung"), ("R-02", "Einkauf B"), ("R-04", "Nur bei B")]
+
+
+def test_eigner_rollen_je_prozess():
+    with verbindung(DSN) as conn:
+        assert bc0_lesepfade.eigner_rollen(conn, MANDANT_A, ["KP-01", "KP-02"]) == {
+            "KP-01": "R-02", "KP-02": "R-03"}
+
+
+def test_eigner_rollen_ohne_eigner_ist_none():
+    # B/KP-02 existiert, hat aber keinen Eigner: Schluessel mit None, nicht weggelassen.
+    with verbindung(DSN) as conn:
+        assert bc0_lesepfade.eigner_rollen(conn, MANDANT_B, ["KP-02"]) == {"KP-02": None}
+
+
+def test_eigner_rollen_mandantengetrennt():
+    # KP-03 gibt es nur bei B — bei A bleibt die Antwort leer, kein Schluessel.
+    with verbindung(DSN) as conn:
+        assert bc0_lesepfade.eigner_rollen(conn, MANDANT_A, ["KP-03"]) == {}
+
+
 def test_kp_existenz_laeuft_ueber_die_sicht_und_filtert_den_mandanten():
     # KP-03 gibt es NUR bei Mandant B — ein fehlender company_id-Filter faellt
     # nur mit so einer ID auf (ein nirgends existierendes 'KP-99' beweist nichts).

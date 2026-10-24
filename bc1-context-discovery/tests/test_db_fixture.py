@@ -171,3 +171,16 @@ def test_kernprozess_bezug_loest_nur_aktive_teilprozesse_auf():
             "WHERE company_id = %s AND anfrage_id = %s ORDER BY 1",
             (MANDANT_A, ANFRAGE_A_KERNPROZESS)).fetchall()
     assert tps == [("KP-01.TP-1",), ("KP-01.TP-2",)]
+
+
+def test_geruest_liefert_eigner_je_mandant():
+    # C1a: Rollen und Eigner je Mandant — Grundlage fuer die Owner-Rollen-Tests.
+    frische_db(DSN, mit_ddl=False)
+    with verbindung(DSN, "bc1_role") as conn:
+        zeilen = conn.execute(
+            "SELECT company_id, process_id, owner_rolle_id FROM v_prozesse_lesen").fetchall()
+    eigner = {(str(m), p): r for m, p, r in zeilen}
+    assert eigner == {
+        (MANDANT_A, "KP-01"): "R-02", (MANDANT_A, "KP-02"): "R-03",
+        (MANDANT_B, "KP-01"): "R-04", (MANDANT_B, "KP-02"): None,
+        (MANDANT_B, "KP-03"): None}

@@ -5,8 +5,9 @@ from dataclasses import replace
 import pytest
 
 from bc1_core.core import PaketKonfliktError, process_turn
-from bc1_core.llm import FakeLLM
+from bc1_core.llm import ExtractionCandidate, FakeLLM
 from bc1_core.store import InMemoryStateStore
+from bc1_core.types import FieldStatus
 from bc1_service.discovery_paket import (
     MAX_ROUNDS_DISCOVERY,
     SCHEMA_VERSION,
@@ -221,7 +222,84 @@ def _feld(paket, name):
 
 def test_mit_kontext_traegt_das_paket_den_ctx_fingerprint():
     paket = baue_discovery_paket(kontext=KONTEXT)
-    assert re.fullmatch(r"1\.1\+ctx-[0-9a-f]{16}", paket.schema_version)
+    assert re.fullmatch(r"1\.2\+ctx-[0-9a-f]{16}", paket.schema_version)
+
+
+def test_kontext_version_ist_1_2():
+    assert baue_discovery_paket(kontext=KONTEXT).schema_version.startswith("1.2+ctx-")
+
+
+KONTEXT_ROLLEN = replace(KONTEXT, rollen=(("R-01", "Sachbearbeitung"), ("R-02", "Einkauf A")))
+
+
+def test_b3_ist_auswahl_der_aktiven_rollen():
+    spec = _feld(baue_discovery_paket(kontext=KONTEXT_ROLLEN), "process_owner_role")
+    assert spec.required is True
+    assert spec.typ.validator("R-01") is True
+    assert spec.typ.validator("R-02") is True
+    assert spec.typ.validator("R-03") is False
+    assert spec.typ.validator("ja") is False
+    assert "R-01 = Sachbearbeitung" in spec.question
+    assert "nennen" in spec.question
+
+
+def test_b3_vorschlag_bei_einem_kernprozess_mit_aktiver_rolle():
+    kontext = replace(KONTEXT_ROLLEN, eigner=(("KP-01", "R-02"),))
+    spec = _feld(baue_discovery_paket(kontext=kontext), "process_owner_role")
+    assert "Laut BC0 ist das Einkauf A (R-02)." in spec.question
+
+
+def test_b3_kein_vorschlag_bei_stillgelegter_rolle():
+    kontext = replace(KONTEXT_ROLLEN, eigner=(("KP-02", "R-03"),))
+    spec = _feld(baue_discovery_paket(kontext=kontext), "process_owner_role")
+    assert "Laut BC0" not in spec.question
+
+
+def test_b3_kein_vorschlag_bei_mehreren_kernprozessen():
+    kontext = replace(KONTEXT_ROLLEN, eigner=(("KP-01", "R-02"), ("KP-02", "R-02")))
+    spec = _feld(baue_discovery_paket(kontext=kontext), "process_owner_role")
+    assert "Laut BC0" not in spec.question
+
+
+def test_b3_kein_vorschlag_ohne_eigner():
+    kontext = replace(KONTEXT_ROLLEN, eigner=(("KP-01", None),))
+    spec = _feld(baue_discovery_paket(kontext=kontext), "process_owner_role")
+    assert "Laut BC0" not in spec.question
+
+
+def test_ja_auf_eigner_frage_bleibt_ungueltig_und_wird_erneut_gefragt():
+    paket = baue_discovery_paket(kontext=replace(KONTEXT_ROLLEN, eigner=(("KP-01", "R-02"),)))
+    llm = FakeLLM({
+        "start": [ExtractionCandidate("request_intent", "Angebote beschleunigen"),
+                  ExtractionCandidate("request_goal", "zeit_sparen"),
+                  ExtractionCandidate("scope_focus", "einzelner_schritt"),
+                  ExtractionCandidate("process_name", "Angebotserstellung")],
+        "ja": [ExtractionCandidate("process_owner_role", "ja")]})
+    store = InMemoryStateStore()
+    process_turn(store, llm, paket, "s1", "m1", "start", company_id=KONTEXT.company_id)
+    antwort = process_turn(store, llm, paket, "s1", "m2", "ja", company_id=KONTEXT.company_id)
+    assert store.load("s1").values["process_owner_role"].status != FieldStatus.GUELTIG
+    assert antwort["payload"]["feld"] == "process_owner_role"
+
+
+def test_d4_ist_anzahl():
+    assert _feld(baue_discovery_paket(kontext=KONTEXT), "executions_per_run").typ.name == "anzahl"
+
+
+def test_e2_fragt_nach_einem_schrittlauf():
+    spec = _feld(baue_discovery_paket(kontext=KONTEXT), "focus_step_duration_minutes")
+    assert spec.question == "Wie lange dauert ein einzelner Lauf dieses Schritts im Schnitt?"
+
+
+def test_kontextfreier_zweig_unveraendert():
+    paket = baue_discovery_paket()
+    assert paket.schema_version == "1.0"
+    assert paket.field("process_owner_role").typ.name == "freitext"
+    assert paket.field("process_owner_role").question == (
+        "Welche Rolle ist für diesen Prozess verantwortlich?")
+    assert paket.field("executions_per_run").typ.name == "zahl"
+    assert paket.field("focus_step_duration_minutes").question == (
+        "Wie lange dauert dieser Schritt im Schnitt?")
 
 
 def test_fokus_schritt_ist_auswahl_und_identitaetskritisch():
@@ -251,6 +329,20 @@ def test_fingerprint_reagiert_auf_jede_grundlage_aber_nicht_auf_reihenfolge():
         Bc0Kontext(KONTEXT.company_id, KONTEXT.teilprozesse, ("S-01",)),
     ):
         assert baue_discovery_paket(kontext=abweichung).schema_version != basis
+
+
+def test_fingerabdruck_aendert_sich_mit_den_rollen_ids():
+    a = replace(KONTEXT, rollen=(("R-01", "Sachbearbeitung"),))
+    b = replace(KONTEXT, rollen=(("R-01", "Sachbearbeitung"), ("R-02", "Einkauf")))
+    assert (baue_discovery_paket(kontext=a).schema_version
+            != baue_discovery_paket(kontext=b).schema_version)
+
+
+def test_fingerabdruck_unabhaengig_von_eigner_und_bezeichnung():
+    a = replace(KONTEXT, rollen=(("R-01", "Sachbearbeitung"),), eigner=(("KP-01", "R-01"),))
+    b = replace(KONTEXT, rollen=(("R-01", "Umbenannt"),), eigner=(("KP-01", None),))
+    assert (baue_discovery_paket(kontext=a).schema_version
+            == baue_discovery_paket(kontext=b).schema_version)
 
 
 def test_fingerabdruck_reagiert_auf_die_anfrage():

@@ -155,6 +155,28 @@ def _testdaten(conn) -> None:
         "INSERT INTO ref_teilprozesse "
         "(company_id, sub_process_id, process_id, step_no, sub_process_name) "
         "VALUES (%s, 'KP-02.TP-2', 'KP-02', 2, 'Nur bei B')", (MANDANT_B,))
+    # C1a: Rollen und Eigner. R-02 gibt es in beiden Mandanten mit verschiedener
+    # Bezeichnung, R-03 (stillgelegt) nur bei A, R-04 nur bei B. Eigner nur Funktionsworte,
+    # keine Klarnamen (ck_person_bezeichnet verlangt name ODER funktion).
+    conn.execute(
+        "INSERT INTO mandant_rollen (company_id, rolle_id, bezeichnung, klasse, aktiv) "
+        "VALUES (%s, 'R-02', 'Einkauf A', 'K2', true), "
+        "       (%s, 'R-03', 'Archiv', 'K2', false), "
+        "       (%s, 'R-02', 'Einkauf B', 'K2', true), "
+        "       (%s, 'R-04', 'Nur bei B', 'K2', true)",
+        (MANDANT_A, MANDANT_A, MANDANT_B, MANDANT_B))
+    conn.execute(
+        "INSERT INTO ref_personen (company_id, person_id, funktion, rolle_id) VALUES "
+        "(%s, 'P-01', 'Einkaufsleitung', 'R-02'), "
+        "(%s, 'P-02', 'Archivleitung', 'R-03'), "
+        "(%s, 'P-01', 'Fachbereichsleitung', 'R-04')",
+        (MANDANT_A, MANDANT_A, MANDANT_B))
+    conn.execute(
+        "INSERT INTO prozess_personen (company_id, process_id, person_id, funktion) VALUES "
+        "(%s, 'KP-01', 'P-01', 'eigner'), "
+        "(%s, 'KP-02', 'P-02', 'eigner'), "
+        "(%s, 'KP-01', 'P-01', 'eigner')",
+        (MANDANT_A, MANDANT_A, MANDANT_B))
     # Systeme: S-01 gibt es in BEIDEN Mandanten (verschiedene Bedeutung),
     # S-02 nur in A, S-03 nur in B — genau der Fall, den ein fehlender Filter frisst.
     conn.execute("INSERT INTO mandant_systeme (company_id, system_id, bezeichnung) "
