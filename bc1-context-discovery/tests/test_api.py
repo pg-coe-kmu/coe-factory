@@ -726,6 +726,16 @@ def test_fehlertexte_tragen_keine_schluessel_und_keine_interna():
         assert "_" not in text and "{" not in text
 
 
+def test_503_text_verspricht_nicht_dass_neusenden_alles_rettet():
+    # Neusenden im Chat traegt eine neue message_id (n8n: exec-<id>); beim
+    # Abschluss-Turn kommt dann 409 session_abgeschlossen und das Profil fehlt
+    # weiter (Review P3, nachgemessen). Der Text sagt nur, was in beiden Faellen gilt.
+    assert FEHLER_TEXTE["profil_write_fehlgeschlagen"] == (
+        "Ihre Nachricht ist angekommen, aber das Profil konnte gerade nicht "
+        "gespeichert werden. Bitte senden Sie Ihre letzte Nachricht in einem "
+        "Moment noch einmal.")
+
+
 # --- P4 (#270): beschaedigte Sitzungszeile -> klare Antwort statt rohem 500 ---
 
 class _BeschaedigterStore(InMemoryStateStore):

@@ -12,7 +12,7 @@ Wandelt unstrukturierte Eingaben (MVP: Text-Chat) in ein strukturiertes **Prozes
 - `design/Abschlussplan-BC1.md` — offene Pakete und Reihenfolge
 
 ## Wie man arbeitet
-Issue wählen (Reihenfolge siehe Abschlussplan) → verlinkten Plan-Task lesen → Test zuerst → **ein Issue = ein Branch = kleiner PR**. Die „Consumes/Produces"-Blöcke im Plan sind der Vertrag zwischen parallelen Paketen.
+Issue wählen (Reihenfolge siehe Abschlussplan) → Issue lesen (Ziel, Dateien, Akzeptanzkriterien; verweist es auf einen Implementierungsplan, dort den Task) → Test zuerst → **ein Issue = ein Branch = kleiner PR**. Im MVP-Kern-Plan sind die „Consumes/Produces"-Blöcke der Vertrag zwischen parallelen Paketen.
 
 ## Sauber codieren
 

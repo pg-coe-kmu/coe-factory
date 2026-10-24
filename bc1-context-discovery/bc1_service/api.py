@@ -65,8 +65,9 @@ FEHLER_TEXTE = {
         "Ihre Nachricht wurde gleichzeitig mit einer anderen verarbeitet. "
         "Bitte senden Sie sie noch einmal."),
     "profil_write_fehlgeschlagen": (
-        "Das Profil konnte gerade nicht gespeichert werden. Bitte senden Sie Ihre "
-        "letzte Nachricht noch einmal — es geht nichts verloren."),
+        "Ihre Nachricht ist angekommen, aber das Profil konnte gerade nicht "
+        "gespeichert werden. Bitte senden Sie Ihre letzte Nachricht in einem "
+        "Moment noch einmal."),
     "sitzung_beschaedigt": (                                  # P4 (#270)
         "Diese Sitzung kann nicht fortgesetzt werden. Bitte starten Sie ein neues "
         "Interview."),
