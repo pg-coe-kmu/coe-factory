@@ -10,4 +10,3 @@ architektur/
 **/.env*
 **/*.log
 **/*snapshot*.json
-!bc1_service/snapshot_schema.json

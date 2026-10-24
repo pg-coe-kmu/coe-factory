@@ -26,8 +26,9 @@ USER bc1
 
 EXPOSE 8000
 
-# Datenbank, LLM-Key und BC0-Zugang kommen zur Laufzeit aus der Umgebung (-e),
-# ein Snapshot (BC1_SNAPSHOT_PFAD) wird gemountet, nie ins Image kopiert.
+# Datenbank, LLM-Key und BC0-Zugang kommen zur Laufzeit aus der Umgebung (-e).
+# Den Port nur an 127.0.0.1 veröffentlichen (README), solange der Dienst keine
+# Zugangsprüfung hat.
 #
 # Bewusst OHNE --proxy-headers --forwarded-allow-ips "*" (anders als BC0/BC2): das
 # ist nur vertretbar, wenn der Port ausschliesslich hinter einem Reverse Proxy im

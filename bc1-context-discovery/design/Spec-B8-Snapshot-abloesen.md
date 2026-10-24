@@ -1,6 +1,7 @@
 # Spec B8 — Snapshot-Modus ablösen, `GET /prozesse` streichen
 
-> Stand 24.10.2026, Entwurf 2.
+> Stand 24.10.2026, Entwurf 2, abgenommen 24.10.2026 (einschließlich 9.2–9.10).
+> - **Bau:** gebaut auf Zweig `bc1-b8-snapshot-abloesen` (nicht gemergt, nicht gepusht). **Messergebnis Abschnitt 5 (n8n ↔ Dienst bei Bindung an 127.0.0.1): ausstehend**; der Merge hängt davon ab.
 > - **Auftrag:** Go der BC1-Projektleitung am 24.10. für B8 („Snapshot-Modus ablösen und GET /prozesse absichern. Erst Plan, dann bauen").
 > - **Entscheidung der BC1-Projektleitung (24.10.):** Der Endpunkt wird gestrichen statt abgesichert, wenn ihn wirklich niemand braucht, auch kein anderer BC. Die Prüfung dazu steht in Abschnitt 7; ihr Ergebnis: Niemand ruft ihn auf.
 > - **Geprüft:** Builder-Check und Zweitmeinung Codex (beide 24.10.). Alle Befunde sind eingearbeitet oder begründet zurückgestellt (Abschnitt 10).

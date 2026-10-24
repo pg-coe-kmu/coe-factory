@@ -113,7 +113,6 @@ from bc1_core.llm import ExtractionCandidate, FakeLLM
 from bc1_core.package import TOY_PROZESS
 from bc1_service.api import create_app
 from bc1_service.postgres_store import PostgresStateStore
-from bc1_service.snapshot import lade_snapshot
 
 
 class KaputtesLLM(FakeLLM):
@@ -128,13 +127,11 @@ _SKRIPT = {
 }
 
 _llm = KaputtesLLM() if os.environ.get("BC1_DEMO_LLM") == "kaputt" else FakeLLM(_SKRIPT)
-_snapshot_pfad = os.environ.get("BC1_SNAPSHOT_PFAD")
 
 app = create_app(
     PostgresStateStore(os.environ["BC1_DB_DSN"]),
     _llm,
     TOY_PROZESS,
-    lade_snapshot(_snapshot_pfad) if _snapshot_pfad else None,
     company_id=os.environ["BC1_COMPANY_ID"],   # Pflicht-Argument seit Task 10
     anfrage_id=os.environ["BC1_ANFRAGE_ID"],   # seit B5; der Guard prüft sie je Turn
 )
@@ -241,7 +238,7 @@ Bonus (Transport-Gate live): Nachricht in die abgeschlossene Chat-Session → Ch
 „Dieses Interview ist bereits abgeschlossen. …" (seit P3/#269 trägt jeder 409/503 neben dem
 stabilen `detail`, hier `session_abgeschlossen`, einen festen `chat_text`).
 
-## Baseline-Nachweis (BC0-Snapshot)
+## Baseline-Nachweis (BC0-Snapshot; seit B8 entfallen)
 
 5. ☑ **`GET /prozesse` liefert die Baseline:** Dienst mit gesetztem `BC1_SNAPSHOT_PFAD`
    gestartet → `curl http://localhost:8000/prozesse` gibt die **10 Kernprozess-Einträge**
@@ -303,8 +300,8 @@ Das echte Interview (26 aktive Fragen, Katalog A–J) ist seit P3 der Default:
 schnelle Testen auf das alte Mini-Paket zurück.
 
 1. Dienst wie oben starten (Postgres, DSN, `BC1_LLM=ollama` oder Claude-Key);
-   optional `BC1_SNAPSHOT_PFAD` setzen — dann bietet die Kernprozess-Frage
-   (B4) die echten KP-IDs aus der Baseline als Auswahl an.
+   B4 kommt aus der DB (`v_prozesse_lesen`): die Kernprozess-Frage bietet die
+   aktiven Kernprozesse des Mandanten als Auswahl an (Stand beim Start).
 2. Chat öffnen und frei antworten. Erwartung ehrlich: ~15–30 Minuten für
    ein vollständiges Interview; mit dem 8B-Modell sind schräge
    Frage-Formulierungen und Extraktions-Lücken normal (Nachfrage-Mechanik
@@ -322,7 +319,7 @@ schnelle Testen auf das alte Mini-Paket zurück.
 Setup: `BC1_LLM=ollama` · `BC1_PAKET` ungesetzt (= Discovery-Default) ·
 `BC1_SNAPSHOT_PFAD` auf die lokale Baseline (bleibt strikt lokal) · Postgres-Testcontainer.
 
-1. ☑ `GET /prozesse` → die 10 Kernprozess-Einträge der Baseline.
+1. ☑ `GET /prozesse` → die 10 Kernprozess-Einträge der Baseline. (Seit B8 entfallen.)
 2. ☑ Multi-Fakten-Einstieg („… automatisieren, ganzer Prozess, Zeit sparen") →
    A1/A2/A3 in EINEM Turn extrahiert; DB: `paket_name=discovery`,
    `request_goal=zeit_sparen` (AUSWAHL-kanonisiert), nächste Frage ist B1.
