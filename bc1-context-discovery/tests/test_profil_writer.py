@@ -1,3 +1,4 @@
+import psycopg
 import pytest
 from psycopg_pool import ConnectionPool
 
@@ -60,6 +61,69 @@ def _zeilen(spalten="focus_step_id, profil_version, status"):
         return conn.execute(
             f"SELECT {spalten} FROM bc1.prozessprofil ORDER BY focus_step_id"
         ).fetchall()
+
+
+# PAKET plus B3 (Eigner-Rolle). Eigenes Paket statt Umbau von PAKET: die uebrigen
+# Tests brauchen kein B3.
+EIGNER_PAKET = UseCasePackage(
+    name="discovery", schema_version="1.2+ctx-aaaaaaaaaaaaaaaa",
+    fields=PAKET.fields + (
+        FieldSpec("process_owner_role", "Wer ist Eigner?",
+                  typ=AUSWAHL("R-01", "R-02")),
+    ),
+)
+
+
+def test_interview_mit_abweichung_endet_fertig_mit_spalte_und_befund(pool):
+    # Mandant A, KP-01: BC0-Eigner ist R-02, der Interviewte waehlt R-01.
+    zustand = _state(process_owner_role=("R-01", FieldStatus.GUELTIG))
+    payload = ProfilWriter(pool, MANDANT_A, EIGNER_PAKET).reconcile(zustand, FERTIG)
+    assert payload is not None
+    assert _zeilen("status, process_owner_rolle_id, profil->'befunde'"
+                   "->'eigner_rolle_abweichung'") == [
+        ("fertig", "R-01", {"process_id": "KP-01", "interview_rolle": "R-01",
+                            "bc0_rolle": "R-02"})]
+    with verbindung(DSN, None) as conn:
+        with pytest.raises(psycopg.errors.RestrictViolation, match="eingefroren"):
+            conn.execute("UPDATE bc1.prozessprofil SET process_owner_rolle_id = 'R-02'"
+                         " WHERE company_id = %s", (MANDANT_A,))
+
+
+def test_befund_nimmt_den_bc0_stand_beim_schreiben(pool):
+    # Der Writer liest den BC0-Eigner beim Schreiben (wie kp_existiert), nicht aus dem
+    # Startkontext. Wechselt BC0 ihn mitten im Interview, zaehlt der neue Stand (Spec §1/§4).
+    writer = ProfilWriter(pool, MANDANT_A, EIGNER_PAKET)
+    zustand = _state(process_owner_role=("R-02", FieldStatus.GUELTIG))
+    writer.reconcile(zustand, FRAGE)
+    with verbindung(DSN, None) as conn:
+        conn.execute("INSERT INTO ref_personen (company_id, person_id, funktion, "
+                     "rolle_id) VALUES (%s, 'P-05', 'Sachbearbeitungsleitung', 'R-01')",
+                     (MANDANT_A,))
+        conn.execute("UPDATE prozess_personen SET person_id = 'P-05' "
+                     " WHERE company_id = %s AND process_id = 'KP-01' "
+                     "   AND funktion = 'eigner'", (MANDANT_A,))
+        conn.commit()
+    writer.reconcile(zustand, FERTIG)
+    assert _zeilen("profil->'befunde'->'eigner_rolle_abweichung'->>'bc0_rolle'") == [
+        ("R-01",)]
+
+
+def test_geloeschte_rolle_bricht_erst_den_abschluss(pool, caplog):
+    # BC0 loescht die gewaehlte Rolle vor dem ersten Schreiben (Kaskade im Geruest
+    # raeumt ref_personen/prozess_personen mit). Der FK auf mandant_rollen schlaegt zu:
+    # ein nichtterminaler Turn blockiert nicht, der Abschluss ist ein 503.
+    with verbindung(DSN, None) as conn:
+        conn.execute("DELETE FROM mandant_rollen WHERE company_id = %s "
+                     "AND rolle_id = 'R-01'", (MANDANT_A,))
+        conn.commit()
+    writer = ProfilWriter(pool, MANDANT_A, EIGNER_PAKET)
+    zustand = _state(process_owner_role=("R-01", FieldStatus.GUELTIG))
+    with caplog.at_level("WARNING"):
+        assert writer.reconcile(zustand, FRAGE) is None
+    assert "profil_write_uebersprungen" in caplog.text
+    with pytest.raises(ProfilWriteError):
+        writer.reconcile(zustand, FERTIG)
+    assert _zeilen() == []
 
 
 def test_erster_turn_legt_draft_und_bindung_an(pool):

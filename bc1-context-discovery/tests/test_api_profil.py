@@ -3,6 +3,8 @@
 Der Durchstich laeuft ueber HTTP: was hier gemessen wird, ist das Verhalten des
 Dienstes, nicht das des Writers (den prueft test_profil_writer.py isoliert).
 """
+import dataclasses
+
 import pytest
 from fastapi.testclient import TestClient
 from psycopg_pool import ConnectionPool
@@ -21,7 +23,8 @@ pytestmark = pytest.mark.skipif(not DSN, reason="BC1_TEST_DB_DSN nicht gesetzt")
 KONTEXT = Bc0Kontext(
     company_id=MANDANT_A,
     teilprozesse=(("KP-01.TP-1", "Erfassen"), ("KP-01.TP-2", "Pruefen")),
-    system_ids=("S-01", "S-02"), anfrage_id=ANFRAGE_A)
+    system_ids=("S-01", "S-02"), anfrage_id=ANFRAGE_A,
+    rollen=(("R-01", "Sachbearbeitung"),))
 
 # Alle 26 Pflichtfelder des Discovery-Pakets in einer Nachricht — so ist der
 # Durchstich ein Turn und der Test bleibt lesbar.
@@ -30,7 +33,7 @@ WERTE = {
     "request_goal": "zeit_sparen",
     "scope_focus": "einzelner_schritt",
     "process_name": "Angebotserstellung",
-    "process_owner_role": "Vertriebsleitung",
+    "process_owner_role": "R-01",
     "process_id": "KP-01",
     "process_steps": "Anfrage, Kalkulation, Angebot",
     "trigger_text": "Kundenanfrage per Mail",
@@ -100,7 +103,7 @@ def test_durchstich_schreibt_genau_eine_eingefrorene_zeile(umgebung):
     assert zeile[0] == "KP-01.TP-1" and zeile[1] == "KP-01"
     assert zeile[2] == "fertig" and zeile[3] == "E-2026-02"
     assert zeile[4] == 120 and zeile[5] == 70
-    assert zeile[6].startswith("1.1+ctx-")
+    assert zeile[6].startswith("1.2+ctx-")
     assert zeile[7]["felder"]["process_name"]["wert"] == "Angebotserstellung"
     # Kanonisierung bis in die DB (Spec K4): 's-01' wird als 'S-01' gespeichert.
     assert zeile[7]["felder"]["focus_step_systems"]["wert"] == "SAP (S-01)"
@@ -314,6 +317,50 @@ def test_recovery_nach_neustart_mit_geaendertem_ctx_holt_den_write_nach(umgebung
     with verbindung(DSN) as conn:
         assert conn.execute("SELECT status FROM bc1.prozessprofil").fetchall() == [
             ("fertig",)]
+
+
+def test_recovery_mit_inzwischen_stillgelegter_rolle(umgebung):
+    # Review Focus 5: Der Abschluss scheitert (fremder Draft), danach legt BC0 die
+    # gewaehlte Rolle still und der Neustart-Kontext kennt sie nicht mehr (anderer
+    # Fingerabdruck). Der Replay mit der alten schema_version holt den Write trotzdem
+    # nach: gespeichert wird, was der Nutzer gewaehlt hat.
+    pool, paket = umgebung
+    store = InMemoryStateStore()
+    with verbindung(DSN) as conn:                        # fremder Draft blockiert
+        conn.execute(
+            "INSERT INTO bc1.prozessprofil (company_id, focus_step_id, "
+            "profil_version, process_id, status, erhebung_id, paket_version, profil) "
+            "VALUES (%s, 'KP-01.TP-1', 1, 'KP-01', 'in_erhebung', 'E-2026-02', "
+            "'1.1+ctx-0000000000000000', '{}')", (MANDANT_A,))
+        conn.commit()
+    client = TestClient(create_app(store, _llm(), paket, company_id=MANDANT_A,
+                                   anfrage_id=ANFRAGE_A,
+                                   writer=ProfilWriter(pool, MANDANT_A, paket)))
+    assert _turn(client, "m1", "alles").status_code == 503
+    with verbindung(DSN, None) as conn:
+        conn.execute("DELETE FROM bc1.prozessprofil WHERE status = 'in_erhebung'")
+        conn.execute("UPDATE mandant_rollen SET aktiv = false "
+                     " WHERE company_id = %s AND rolle_id = 'R-01'", (MANDANT_A,))
+        conn.commit()
+
+    neuer_kontext = dataclasses.replace(KONTEXT, rollen=(("R-02", "Einkauf A"),))
+    neues_paket = baue_discovery_paket(kontext=neuer_kontext)
+    assert neues_paket.schema_version != paket.schema_version
+    client_neu = TestClient(create_app(
+        store, _llm(), neues_paket, company_id=MANDANT_A, anfrage_id=ANFRAGE_A,
+        writer=ProfilWriter(pool, MANDANT_A, neues_paket)))
+    antwort = _turn(client_neu, "m1", "alles", schema_version=paket.schema_version)
+    assert antwort.status_code == 200
+    assert antwort.json()["status"] == "fertig"
+    with verbindung(DSN) as conn:
+        zeile = conn.execute(
+            "SELECT status, process_owner_rolle_id, "
+            "       profil->'felder'->'process_owner_role', anfrage_id "
+            "  FROM bc1.prozessprofil").fetchall()
+    assert len(zeile) == 1
+    status, spalte, feld, anfrage = zeile[0]
+    assert (status, spalte, anfrage) == ("fertig", "R-01", ANFRAGE_A)
+    assert feld["status"] == "gueltig" and feld["wert"] == "R-01"
 
 
 class _StoreMitFremdemNachladen(InMemoryStateStore):

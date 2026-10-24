@@ -41,6 +41,9 @@ MELDUNG_ANFRAGE_NICHT_IM_INTERVIEW = (
 MELDUNG_ANFRAGE_OHNE_TEILPROZESSE = (
     "Die Anfrage {anfrage_id} ist keinem Teilprozess zugeordnet. Das Interview kann "
     "erst geführt werden, wenn BC0 die Anfrage zugeordnet hat.")
+MELDUNG_KEINE_ROLLEN = (
+    "Für diesen Mandanten ist keine aktive Rolle erfasst. Das Interview fragt nach der "
+    "verantwortlichen Rolle und kann erst geführt werden, wenn BC0 Rollen gepflegt hat.")
 MELDUNG_TEILPROZESSE_NICHT_BEREIT = (
     "Zur Anfrage {anfrage_id} sind diese Teilprozesse nicht bewertet oder stillgelegt: "
     "{liste}. BC0 übergibt eine Anfrage nur vollständig — das Interview startet "
@@ -98,11 +101,17 @@ def lade_kontext(conn, company_id: str, anfrage_id: str) -> Bc0Kontext:
     if fehlend:
         raise RuntimeError(MELDUNG_TEILPROZESSE_NICHT_BEREIT.format(
             anfrage_id=anfrage_id, liste=", ".join(fehlend)))
+    rollen = bc0_lesepfade.rollen(conn, company_id)
+    if not rollen:
+        raise RuntimeError(MELDUNG_KEINE_ROLLEN)
     return Bc0Kontext(
         company_id=company_id,
         teilprozesse=tuple((tp, bewertete[tp]) for tp in soll),
         system_ids=tuple(bc0_lesepfade.system_ids(conn, company_id)),
-        anfrage_id=anfrage_id)
+        anfrage_id=anfrage_id,
+        rollen=tuple(rollen),
+        eigner=tuple(sorted(bc0_lesepfade.eigner_rollen(
+            conn, company_id, sorted({tp.split(".")[0] for tp in soll})).items())))
 
 
 def pruefe_bc0_vor_dem_start(melder, anfrage_id: str) -> None:

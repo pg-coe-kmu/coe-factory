@@ -3,7 +3,10 @@
 Die Normalisierungs-Regeln sind BC2-relevanter Vertrag (Spec-Tabelle P3):
 gespeichert wird IMMER der normalisierte Wert.
 """
+import pytest
+
 from bc1_core.feldtypen import (
+    ANZAHL,
     AUSWAHL,
     FREITEXT,
     JA_NEIN,
@@ -322,3 +325,42 @@ def test_pii_platzhalter_passieren_text_und_listenfelder_unveraendert():
     assert JA_NEIN.normalisiere("[Person A]") == "[Person A]"
     # In Zahlenfeldern gewinnt die Zahl — gewollt (Konzept T3, Review M3).
     assert ZAHL.normalisiere("30 pro Monat [Person A]") == "360"
+
+
+# --- ANZAHL: reine Anzahl, keine Periode -------------------------------------
+
+@pytest.mark.parametrize("eingabe, erwartet", [
+    ("0", "0"),
+    ("1", "1"),
+    ("3", "3"),
+    ("2,5", "2.5"),
+    ("1.000", "1000"),
+    ("3 Fälle", "3"),
+    ("1 Fall", "1"),
+    ("3 Vorgänge pro Durchlauf", "3"),
+    ("etwa 3", "3"),
+    ("ca. 3 Fälle", "3"),
+    ("im Schnitt 2 Vorgänge je Durchlauf", "2"),
+])
+def test_anzahl_gueltig(eingabe, erwartet):
+    assert ANZAHL.name == "anzahl"
+    assert ANZAHL.normalisiere(eingabe) == erwartet
+    assert ANZAHL.validator(ANZAHL.normalisiere(eingabe)) is True
+
+
+@pytest.mark.parametrize("eingabe", [
+    "5 pro Woche",
+    "15 im Monat",
+    "40 im Jahr",
+    "5/Monat",
+    "5 täglich",
+    "3 %",
+    "3 Stunden",
+    "1 Fall pro Woche",
+    "-1",
+    "",
+    "3 oder 4",
+    "9" * 400,
+])
+def test_anzahl_ungueltig(eingabe):
+    assert ANZAHL.validator(ANZAHL.normalisiere(eingabe)) is False

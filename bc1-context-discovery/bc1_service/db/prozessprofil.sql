@@ -53,7 +53,7 @@ BEGIN
     SELECT array_agg(t) INTO fehlend FROM unnest(ARRAY[
         'v_bewertung_aktuell', 'v_prozesse_lesen', 'v_teilprozesse_lesen',
         'v_systeme_lesen', 'companies', 'ref_erhebungen',
-        'v_anfrage_prozessbezug', 'v_anfrage_teilprozesse'
+        'v_anfrage_prozessbezug', 'v_anfrage_teilprozesse', 'mandant_rollen'
     ]) AS t WHERE NOT has_table_privilege(current_user, t, 'SELECT');
     IF fehlend IS NOT NULL THEN
         RAISE EXCEPTION 'GRANT SELECT fehlt auf: %.', array_to_string(fehlend, ', ');

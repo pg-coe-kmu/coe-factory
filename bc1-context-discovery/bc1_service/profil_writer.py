@@ -124,7 +124,8 @@ def _payload_wert(profil: dict, feld: str) -> str | None:
 
 def baue_profilinhalt(state: SessionState, package: UseCasePackage, *,
                       kp_bekannt: Callable[[str], bool],
-                      bekannte_systeme: frozenset[str]) -> Profilinhalt | None:
+                      bekannte_systeme: frozenset[str],
+                      bc0_eigner: Callable[[str], str | None]) -> Profilinhalt | None:
     """Payload bauen, bereinigen, DANN ableiten — in dieser Reihenfolge.
 
     Invariante (Entscheidung Richard 02.09., Option a): **Spalten werden nie aus
@@ -174,7 +175,20 @@ def baue_profilinhalt(state: SessionState, package: UseCasePackage, *,
         log.warning("kp_tp_diskrepanz session=%s interview_kp=%s abgeleitet=%s",
                     state.session_id, interview_kp, process_id)
 
-    spalten: dict[str, object] = {"process_owner_rolle_id": None}   # Etappe 1
+    # Eigner-Rolle: BC0 wird beim Schreiben gelesen (wie kp_existiert); wechselt der
+    # Eigner mitten im Interview, zaehlt der neue Stand (Spec §1/§4). Nur die IDs
+    # wandern in Befund und Log, nie Nutzertext.
+    interview_rolle = _payload_wert(profil, "process_owner_role")
+    bc0_rolle = bc0_eigner(process_id)
+    if (interview_rolle is not None and bc0_rolle is not None
+            and interview_rolle != bc0_rolle):
+        profil["befunde"]["eigner_rolle_abweichung"] = {
+            "process_id": process_id, "interview_rolle": interview_rolle,
+            "bc0_rolle": bc0_rolle}
+        log.warning("eigner_rolle_abweichung session=%s kp=%s interview=%s bc0=%s",
+                    state.session_id, process_id, interview_rolle, bc0_rolle)
+
+    spalten: dict[str, object] = {}
     for spalte, feld, konverter, ziel in (
             [(s, f, _dezimal, "numeric") for s, f in _ZAHLENSPALTEN.items()]
             + [(s, f, _ganzzahl, "integer") for s, f in _GANZZAHLSPALTEN.items()]):
@@ -193,6 +207,10 @@ def baue_profilinhalt(state: SessionState, package: UseCasePackage, *,
             raise
     for spalte, feld in _TEXTSPALTEN.items():
         spalten[spalte] = _payload_wert(profil, feld)
+    # Nur der gueltige B3-Wert; keine zweite Pruefung gegen den Kontext (die
+    # Auswahl hat ihn beim Antworten geprueft, eine inzwischen stillgelegte Rolle
+    # aendert nichts an dem, was der Nutzer gewaehlt hat).
+    spalten["process_owner_rolle_id"] = _payload_wert(profil, "process_owner_role")
     spalten["upstream_process_id"] = _fremde_kp(
         profil, "upstream_process", process_id, kp_bekannt)
     spalten["downstream_process_id"] = _fremde_kp(
@@ -360,7 +378,9 @@ class ProfilWriter:
                 kp_bekannt=lambda kp: bc0_lesepfade.kp_existiert(
                     conn, self._company_id, kp),
                 bekannte_systeme=frozenset(
-                    bc0_lesepfade.system_ids(conn, self._company_id)))
+                    bc0_lesepfade.system_ids(conn, self._company_id)),
+                bc0_eigner=lambda kp: bc0_lesepfade.eigner_rollen(
+                    conn, self._company_id, [kp]).get(kp))
             if inhalt is None:
                 # Keine gueltige Identitaet in diesem Turn. Der Draft bleibt
                 # stehen: eine Klaerung kann den alten Wert bestaetigen (R6-C1).

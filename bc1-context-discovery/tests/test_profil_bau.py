@@ -61,9 +61,100 @@ def _state(**werte):
 
 
 def _bau(state, kp_bekannt=lambda kp: kp in {"KP-01", "KP-02"},
-         bekannte_systeme=frozenset({"S-01", "S-02"})):
+         bekannte_systeme=frozenset({"S-01", "S-02"}),
+         bc0_eigner=lambda kp: None):
     return baue_profilinhalt(state, PAKET, kp_bekannt=kp_bekannt,
-                             bekannte_systeme=bekannte_systeme)
+                             bekannte_systeme=bekannte_systeme,
+                             bc0_eigner=bc0_eigner)
+
+
+# PAKET plus B3 (Eigner-Rolle als Auswahl). PAKET/VOLL_PAKET haben bewusst kein B3 —
+# ihre Erwartung `process_owner_rolle_id is None` sichert den Fall "B3 fehlt".
+EIGNER_PAKET = UseCasePackage(
+    name="discovery", schema_version="1.2+ctx-ffffffffffffffff",
+    fields=PAKET.fields + (
+        FieldSpec("process_owner_role", "Wer ist Eigner?", typ=AUSWAHL("R-01", "R-02")),
+    ),
+)
+
+
+def test_eigner_spalte_aus_gueltigem_b3():
+    st = _state(focus_step=("KP-01.TP-1", FieldStatus.GUELTIG),
+                process_owner_role=("R-02", FieldStatus.GUELTIG))
+    inhalt = baue_profilinhalt(st, EIGNER_PAKET, kp_bekannt=lambda kp: False,
+                               bekannte_systeme=frozenset(),
+                               bc0_eigner=lambda kp: None)
+    assert inhalt.spalten["process_owner_rolle_id"] == "R-02"
+
+
+def test_eigner_spalte_null_bei_ungeloest():
+    st = _state(focus_step=("KP-01.TP-1", FieldStatus.GUELTIG),
+                process_owner_role=(None, FieldStatus.UNGELOEST))
+    inhalt = baue_profilinhalt(st, EIGNER_PAKET, kp_bekannt=lambda kp: False,
+                               bekannte_systeme=frozenset(),
+                               bc0_eigner=lambda kp: None)
+    assert inhalt.spalten["process_owner_rolle_id"] is None
+
+
+def test_eigner_spalte_null_bei_ungueltigem_wert():
+    st = _state(focus_step=("KP-01.TP-1", FieldStatus.GUELTIG),
+                process_owner_role=("ja", FieldStatus.UNGUELTIG))
+    inhalt = baue_profilinhalt(st, EIGNER_PAKET, kp_bekannt=lambda kp: False,
+                               bekannte_systeme=frozenset(),
+                               bc0_eigner=lambda kp: None)
+    assert inhalt.spalten["process_owner_rolle_id"] is None
+
+
+def test_spalte_bleibt_bei_inzwischen_stillgelegter_rolle():
+    # Review Focus 5: das Paket (Auswahl) kennt R-03 nicht mehr, der gueltige
+    # Wert im State bleibt trotzdem das, was der Nutzer gewaehlt hat.
+    st = _state(focus_step=("KP-01.TP-1", FieldStatus.GUELTIG),
+                process_owner_role=("R-03", FieldStatus.GUELTIG))
+    inhalt = baue_profilinhalt(st, EIGNER_PAKET, kp_bekannt=lambda kp: False,
+                               bekannte_systeme=frozenset(),
+                               bc0_eigner=lambda kp: None)
+    assert inhalt.spalten["process_owner_rolle_id"] == "R-03"
+
+
+def test_eigner_abweichung_ergibt_befund_und_warnung(caplog):
+    st = _state(focus_step=("KP-01.TP-1", FieldStatus.GUELTIG),
+                process_owner_role=("R-01", FieldStatus.GUELTIG))
+    with caplog.at_level("WARNING"):
+        inhalt = baue_profilinhalt(st, EIGNER_PAKET, kp_bekannt=lambda kp: False,
+                                   bekannte_systeme=frozenset(),
+                                   bc0_eigner=lambda kp: "R-02")
+    assert inhalt.profil["befunde"]["eigner_rolle_abweichung"] == {
+        "process_id": "KP-01", "interview_rolle": "R-01", "bc0_rolle": "R-02"}
+    treffer = [s for s in caplog.messages if "eigner_rolle_abweichung session=" in s]
+    assert len(treffer) == 1, caplog.messages
+
+
+def test_kein_befund_bei_gleicher_rolle():
+    st = _state(focus_step=("KP-01.TP-1", FieldStatus.GUELTIG),
+                process_owner_role=("R-02", FieldStatus.GUELTIG))
+    inhalt = baue_profilinhalt(st, EIGNER_PAKET, kp_bekannt=lambda kp: False,
+                               bekannte_systeme=frozenset(),
+                               bc0_eigner=lambda kp: "R-02")
+    assert "eigner_rolle_abweichung" not in inhalt.profil["befunde"]
+
+
+def test_kein_befund_ohne_bc0_eigner():
+    st = _state(focus_step=("KP-01.TP-1", FieldStatus.GUELTIG),
+                process_owner_role=("R-02", FieldStatus.GUELTIG))
+    inhalt = baue_profilinhalt(st, EIGNER_PAKET, kp_bekannt=lambda kp: False,
+                               bekannte_systeme=frozenset(),
+                               bc0_eigner=lambda kp: None)
+    assert "eigner_rolle_abweichung" not in inhalt.profil["befunde"]
+
+
+def test_befund_vergleicht_mit_stillgelegter_bc0_rolle():
+    # Review Focus 4: eine stillgelegte BC0-Rolle ist weiterhin der Eigner.
+    st = _state(focus_step=("KP-01.TP-1", FieldStatus.GUELTIG),
+                process_owner_role=("R-02", FieldStatus.GUELTIG))
+    inhalt = baue_profilinhalt(st, EIGNER_PAKET, kp_bekannt=lambda kp: False,
+                               bekannte_systeme=frozenset(),
+                               bc0_eigner=lambda kp: "R-03")
+    assert inhalt.profil["befunde"]["eigner_rolle_abweichung"]["bc0_rolle"] == "R-03"
 
 
 def test_auch_zahl_und_textspalten_kommen_aus_dem_gesweepten_wert():
@@ -86,7 +177,8 @@ def test_auch_zahl_und_textspalten_kommen_aus_dem_gesweepten_wert():
                 frequency_per_year=("42 (S-99)", FieldStatus.GUELTIG),
                 focus_step_duration_source=("gemessen (S-99)", FieldStatus.GUELTIG))
     inhalt = baue_profilinhalt(st, freitext_paket, kp_bekannt=lambda kp: False,
-                               bekannte_systeme=frozenset({"S-01"}))
+                               bekannte_systeme=frozenset({"S-01"}),
+                               bc0_eigner=lambda kp: None)
     assert inhalt.spalten["frequency_per_year"] == Decimal("42")
     assert inhalt.spalten["focus_step_duration_source"] == "gemessen"
 
@@ -138,7 +230,7 @@ def test_nur_gueltige_werte_landen_in_den_spalten():
                          total_duration_minutes=("90", FieldStatus.UNKLAR)))
     assert inhalt.spalten["frequency_per_year"] == Decimal("120")
     assert inhalt.spalten["total_duration_minutes"] is None    # UNKLAR => NULL
-    assert inhalt.spalten["process_owner_rolle_id"] is None     # Etappe 1
+    assert inhalt.spalten["process_owner_rolle_id"] is None     # kein B3 im Paket
 
 
 def test_zahlen_kommen_als_decimal_nie_als_float():
@@ -243,7 +335,8 @@ def test_step_frequency_liest_aus_d3_und_nicht_aus_frequency_per_year():
         st.values[name] = FieldValue(value=wert, status=FieldStatus.GUELTIG,
                                      source_message_id="m1")
     inhalt = baue_profilinhalt(st, paket, kp_bekannt=lambda kp: False,
-                               bekannte_systeme=frozenset())
+                               bekannte_systeme=frozenset(),
+                               bc0_eigner=lambda kp: None)
     assert inhalt.spalten["step_frequency_per_year"] == Decimal("66")
     assert inhalt.spalten["frequency_per_year"] == Decimal("11")
 
@@ -264,7 +357,8 @@ def test_jede_spalte_liest_aus_ihrem_eigenen_feld():
                                      source_message_id="m1")
     inhalt = baue_profilinhalt(
         st, VOLL_PAKET, kp_bekannt=lambda kp: kp in {"KP-02", "KP-03"},
-        bekannte_systeme=frozenset({"S-01", "S-02"}))
+        bekannte_systeme=frozenset({"S-01", "S-02"}),
+        bc0_eigner=lambda kp: None)
     assert inhalt.spalten == {
         "process_owner_rolle_id": None,
         "frequency_per_year": Decimal("11"), "step_frequency_per_year": None,
