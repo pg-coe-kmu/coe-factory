@@ -3,6 +3,7 @@ import threading
 from contextlib import asynccontextmanager
 from dataclasses import replace
 
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from bc1_core.llm import ExtractionCandidate, FakeLLM
@@ -152,8 +153,12 @@ def test_paket_guard_gibt_409_mit_stabilem_detail():
     assert antwort.json()["detail"] == "paket_konflikt"
 
 
-def test_prozesse_ohne_snapshot_404():
-    assert _client().get("/prozesse").status_code == 404
+def test_prozesse_gibt_es_nicht_mehr():
+    client = _client()
+    assert "/prozesse" not in client.app.openapi()["paths"]
+    antwort = client.get("/prozesse")
+    assert antwort.status_code == 404
+    assert antwort.json() == {"detail": "Not Found"}
 
 
 class _StaleBeimErstenSave(InMemoryStateStore):
@@ -731,10 +736,16 @@ def test_profil_write_fehlgeschlagen_traegt_chat_text():
             503, "profil_write_fehlgeschlagen")
 
 
-def test_kein_snapshot_bleibt_ohne_chat_text():
-    antwort = _client().get("/prozesse")
-    assert antwort.status_code == 404
-    assert antwort.json() == {"detail": "kein_snapshot_konfiguriert"}
+def test_unbekannter_fehlerschluessel_geht_ohne_chat_text_durch():
+    app = create_app(InMemoryStateStore(), _fake_llm(), TOY_PROZESS, company_id=MANDANT)
+
+    @app.get("/test-unbekannt")
+    def _wirft():
+        raise HTTPException(status_code=418, detail="unbekannter_schluessel")
+
+    antwort = TestClient(app).get("/test-unbekannt")
+    assert antwort.status_code == 418
+    assert antwort.json() == {"detail": "unbekannter_schluessel"}
 
 
 def test_fehlertexte_tragen_keine_schluessel_und_keine_interna():
