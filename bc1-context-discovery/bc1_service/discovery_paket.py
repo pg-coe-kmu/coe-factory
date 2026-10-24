@@ -64,10 +64,10 @@ class Bc0Kontext:
 
 def _ctx_fingerprint(kontext: Bc0Kontext, kp_ids: list[str]) -> str:
     # Kanonisch, strukturiert, sortiert (Spec K2, R5-M7): gleiche Grundlagen =>
-    # gleicher Wert, unabhaengig von Query-Reihenfolge. Wie beim B4-Fingerprint
-    # unten fliessen nur die IDs ein, nicht die Anzeige-Namen — eine reine
-    # Umbenennung im BC0-Snapshot aendert die Validator-Semantik nicht und
-    # soll die Paket-Identitaet nicht unnoetig churnen lassen.
+    # gleicher Wert, unabhaengig von Query-Reihenfolge. Es fliessen nur die IDs
+    # ein, nicht die Anzeige-Namen — eine reine Umbenennung in BC0 aendert die
+    # Validator-Semantik nicht und soll die Paket-Identitaet nicht unnoetig
+    # churnen lassen.
     # Die Anfrage ist Teil der Paketidentitaet. Den Schutz gegen eine fremde Anfrage
     # traegt aber `pruefe_anfrage` (core) — der Recovery-Replay darf einen
     # abweichenden ctx-Hash passieren.
@@ -82,24 +82,12 @@ def _ctx_fingerprint(kontext: Bc0Kontext, kp_ids: list[str]) -> str:
     return hashlib.sha256(roh.encode()).hexdigest()[:16]
 
 
-def baue_discovery_paket(
-    prozesse: list[tuple[str, str]] | None = None,
-    kontext: Bc0Kontext | None = None,
-) -> UseCasePackage:
-    """prozesse: (ID, Name)-Paare aus dem BC0-Snapshot für B4; None → Freitext.
-    kontext: einmalig beim Dienststart geladene BC0-Anbindung (Spec K2) —
-    schaltet focus_step auf eine geprüfte Teilprozess-Auswahl (identitäts-
-    kritisch) und focus_step_systems auf die Mandanten-Systemmenge um. Ohne
-    Kontext bleibt das Etappe-0-Verhalten (Freitext, schema_version 1.0)
-    unverändert."""
-    if prozesse:
-        b4_typ = AUSWAHL(*(pid for pid, _ in prozesse))
-        b4_frage = ("Zu welchem Ihrer Kernprozesse gehört das? ("
-                    + ", ".join(f"{pid} = {name}" for pid, name in prozesse) + ")")
-    else:
-        b4_typ = FREITEXT
-        b4_frage = "Zu welchem Ihrer Kernprozesse gehört das?"
-
+def baue_discovery_paket(*, kontext: Bc0Kontext | None = None) -> UseCasePackage:
+    """kontext: einmalig beim Dienststart geladene BC0-Anbindung (Spec K2) —
+    schaltet B4 auf die Kernprozess-Auswahl, focus_step auf eine geprüfte
+    Teilprozess-Auswahl (identitätskritisch) und focus_step_systems auf die
+    Mandanten-Systemmenge um. Ohne Kontext bleibt das Etappe-0-Verhalten
+    (Freitext, schema_version 1.0) unverändert."""
     if kontext is not None:
         # B4 kommt im Kontext-Zweig aus den beim Start geladenen Kernprozessen.
         if kontext.prozesse:
@@ -152,19 +140,9 @@ def baue_discovery_paket(
         b3_frage = "Welche Rolle ist für diesen Prozess verantwortlich?"
         e5_frage = ("Welcher Schritt kostet am meisten Zeit oder nervt am "
                     "meisten?")
-        if prozesse:
-            # Verifikations-Critical (Codex-Residuum, Fix-Welle 5): 8 Hex-
-            # Zeichen (32 Bit) sind kollisionsanfällig — Codex hat real zwei
-            # verschiedene Prozess-IDs mit identischem 8-Hex-Fingerprint
-            # gebruteforced; der Paket-Guard griff dann bei einem Snapshot-
-            # Wechsel NICHT. 16 Hex (64 Bit) statt 8. sorted(): paketrelevant
-            # ist der Options-INHALT, nicht die Reihenfolge.
-            fp = hashlib.sha256(
-                repr(sorted(pid for pid, _ in prozesse)).encode()
-            ).hexdigest()[:16]
-            schema_version = f"{SCHEMA_VERSION}+kp-{fp}"
-        else:
-            schema_version = SCHEMA_VERSION
+        b4_typ = FREITEXT
+        b4_frage = "Zu welchem Ihrer Kernprozesse gehört das?"
+        schema_version = SCHEMA_VERSION
 
     return UseCasePackage(
         name="discovery",

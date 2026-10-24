@@ -49,10 +49,6 @@ _melder = bc0_meldungen.baue_melder(os.environ, _company_id)
 
 _snapshot_pfad = os.environ.get("BC1_SNAPSHOT_PFAD")
 _snapshot = lade_snapshot(_snapshot_pfad) if _snapshot_pfad else None
-_prozesse = (
-    [(p["process_id"], p["process_name"]) for p in _snapshot.prozess_liste()]
-    if _snapshot is not None else None
-)
 _store = PostgresStateStore(_dsn)
 
 # Zweiter, kleiner Pool fuer die Profil-Seite. Der Session-Store behaelt seinen
@@ -88,7 +84,7 @@ async def _lebenszyklus(app):
     _profil_pool.close()
 
 
-_paket = waehle_paket(os.environ, _prozesse, _kontext)
+_paket = waehle_paket(os.environ, kontext=_kontext)
 
 app = create_app(
     _store,

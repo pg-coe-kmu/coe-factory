@@ -9,12 +9,12 @@ from bc1_service.discovery_paket import Bc0Kontext, baue_discovery_paket
 
 def waehle_paket(
     umgebung: Mapping[str, str],
-    prozesse: list[tuple[str, str]] | None = None,
+    *,
     kontext: Bc0Kontext | None = None,
 ) -> UseCasePackage:
     wahl = umgebung.get("BC1_PAKET", "discovery")
     if wahl == "discovery":
-        return baue_discovery_paket(prozesse, kontext)
+        return baue_discovery_paket(kontext=kontext)
     if wahl == "toy":
         return TOY_PROZESS
     raise RuntimeError(

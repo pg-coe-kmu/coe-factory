@@ -468,6 +468,38 @@ def test_main_verdrahtet_den_profil_writer(umgebung, monkeypatch):
         sys.modules.pop("bc1_service.main", None)
 
 
+def test_main_baut_b4_aus_den_kernprozessen_des_mandanten(umgebung, monkeypatch):
+    import importlib
+    import sys
+
+    from bc1_service import api as api_modul
+
+    gesehen: dict = {}
+
+    def _stub_create_app(store, llm, package, snapshot=None, lifespan=None, **kw):
+        gesehen.update(kw, package=package)
+        return "app"
+
+    monkeypatch.setattr(api_modul, "create_app", _stub_create_app)
+    monkeypatch.setenv("BC1_DB_DSN", DSN)
+    monkeypatch.setenv("BC1_COMPANY_ID", MANDANT_A)
+    monkeypatch.setenv("BC1_ANFRAGE_ID", ANFRAGE_A)
+    monkeypatch.setenv("BC1_LLM", "ollama")     # kein API-Key noetig
+    monkeypatch.setenv("BC1_BC0_MELDUNGEN", "aus")
+    monkeypatch.delitem(sys.modules, "bc1_service.main", raising=False)
+    main = importlib.import_module("bc1_service.main")
+    try:
+        paket = gesehen["package"]
+        b4 = paket.field("process_id").typ
+        assert b4.validator("KP-02") is True and b4.validator("KP-03") is False
+        e5 = paket.field("focus_step").typ          # E5 bleibt auf ANFRAGE_A begrenzt
+        assert e5.validator("KP-01.TP-1") is True and e5.validator("KP-02.TP-1") is False
+    finally:
+        main._store.close()
+        main._profil_pool.close()
+        sys.modules.pop("bc1_service.main", None)
+
+
 class _StartMelder:
     def __init__(self):
         self.gemeldet: list[str] = []

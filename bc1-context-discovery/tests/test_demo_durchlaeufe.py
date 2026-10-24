@@ -13,7 +13,7 @@ MANDANT = "11111111-1111-1111-1111-111111111111"
 
 
 def _lauf(session_id, nachrichten):
-    paket = baue_discovery_paket(None)
+    paket = baue_discovery_paket()
     llm = FakeLLM({
         text: [ExtractionCandidate(feld, wert) for feld, wert in felder]
         for text, felder in nachrichten

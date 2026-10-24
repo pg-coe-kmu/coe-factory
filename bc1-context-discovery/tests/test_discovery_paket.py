@@ -62,83 +62,15 @@ def test_paket_metadaten():
     assert paket.name == "discovery"
     assert paket.schema_version == SCHEMA_VERSION == "1.0"
     assert paket.max_rounds == MAX_ROUNDS_DISCOVERY == 60
-    # Ohne Snapshot (None oder leere Liste) bleibt die Version unverändert —
-    # der Fingerprint kommt erst mit echten Prozessen ins Spiel.
-    assert baue_discovery_paket([]).schema_version == "1.0"
 
 
-def test_b4_mit_snapshot_wird_auswahl_ueber_die_ids():
-    paket = baue_discovery_paket([("KP-01", "Angebotserstellung"), ("KP-02", "Onboarding")])
-    spec = paket.field("process_id")
-    assert spec.typ.validator("KP-01") is True
-    assert spec.typ.validator("KP-99") is False
-    assert spec.typ.normalisiere("kp-02") == "KP-02"
-    assert "KP-01 = Angebotserstellung" in spec.question
+def test_fabrik_nimmt_keine_prozessliste_mehr():
+    with pytest.raises(TypeError, match=r"baue_discovery_paket\(\) takes 0 positional"):
+        baue_discovery_paket([("KP-01", "X")])
 
 
-def test_b4_ohne_snapshot_ist_freitext():
-    spec = baue_discovery_paket(None).field("process_id")
-    assert spec.typ.validator("irgendein Prozess") is True
-
-
-def test_b4_snapshot_fingerprint_in_schema_version():
-    # Codex-Repro: B4-Optionen kommen aus dem mutierbaren BC0-Snapshot, die
-    # Paket-Identität (schema_version) muss den Snapshot-Inhalt spiegeln,
-    # sonst validiert eine fortgesetzte Session gegen einen anderen
-    # Options-Satz als den, mit dem sie gestartet wurde.
-    mit_kp01 = baue_discovery_paket([("KP-01", "X")])
-    assert mit_kp01.schema_version.startswith("1.0+kp-")
-    # Verifikations-Critical (Codex-Residuum, Fix-Welle 5): 8 Hex-Zeichen
-    # (32 Bit) sind kollisionsanfällig — Codex hat real zwei unterschiedliche
-    # Prozess-IDs mit identischem 8-Hex-Fingerprint gefunden (siehe unten),
-    # der Paket-Guard griff dann NICHT. Fix: 16 Hex-Zeichen (64 Bit).
-    assert len(mit_kp01.schema_version.split("+kp-", 1)[1]) == 16
-
-    gleich = baue_discovery_paket([("KP-01", "X")])
-    assert gleich.schema_version == mit_kp01.schema_version
-
-    anders = baue_discovery_paket([("KP-02", "Y")])
-    assert anders.schema_version != mit_kp01.schema_version
-
-    # Codex-Kollisions-Repro: unter dem alten 8-Hex-Fingerprint lieferten
-    # diese beiden unterschiedlichen Prozess-IDs denselben Wert (1.0+kp-
-    # a1036665) — eine mit KP-60702 gestartete Session hätte unbemerkt mit
-    # KP-71431 fortgesetzt werden können. Mit 16 Hex müssen sie sich
-    # unterscheiden.
-    kollision_a = baue_discovery_paket([("KP-60702", "X")])
-    kollision_b = baue_discovery_paket([("KP-71431", "X")])
-    assert kollision_a.schema_version != kollision_b.schema_version
-
-
-def test_b4_fingerprint_haengt_nur_von_den_prozess_ids_ab():
-    # Verifikations-Minor: der Kommentar in baue_discovery_paket() sagt
-    # "paketrelevant ist der Options-INHALT (welche IDs gültig sind)" — die
-    # Implementierung hashte aber sorted(prozesse), also (ID, Name)-Paare.
-    # Damit invalidierte eine reine Prozess-UMBENENNUNG im Snapshot (gleiche
-    # IDs, andere Namen) laufende Sessions, obwohl der Validator nur von den
-    # IDs abhängt. Fix: nur die sortierten IDs fließen in den Fingerprint.
-    mit_namen_a = baue_discovery_paket([("KP-01", "Angebotserstellung")])
-    mit_namen_b = baue_discovery_paket([("KP-01", "Angebotserledigung")])
-    assert mit_namen_a.schema_version == mit_namen_b.schema_version
-
-
-def test_b4_snapshot_wechsel_wird_vom_bestehenden_paket_guard_abgelehnt():
-    # End-to-End: der Fingerprint allein bewirkt nichts — erst zusammen mit
-    # dem bestehenden Paket-Guard (core.py, PaketKonfliktError) greift er:
-    # eine Session, die mit Snapshot A gestartet wurde, darf nicht mit
-    # Snapshot B fortgesetzt werden (Codex-Repro).
-    paket_a = baue_discovery_paket([("KP-01", "X")])
-    paket_b = baue_discovery_paket([("KP-02", "Y")])
-    store = InMemoryStateStore()
-    process_turn(store, FakeLLM(), paket_a, "s1", "m1", "hallo", company_id=MANDANT)
-    with pytest.raises(PaketKonfliktError):
-        process_turn(store, FakeLLM(), paket_b, "s1", "m2", "hallo", company_id=MANDANT)
-
-
-def test_b4_leere_snapshot_liste_ist_ebenfalls_freitext():
-    # Leere Liste fällt über Truthiness auf FREITEXT zurück wie None (Gesamt-
-    # Review F5) — bisher nur implizit korrekt, hier als Vertrag gepinnt.
-    spec = baue_discovery_paket([]).field("process_id")
+def test_b4_ohne_kontext_ist_freitext():
+    spec = baue_discovery_paket().field("process_id")
     assert spec.typ.validator("irgendein Prozess") is True
 
 
