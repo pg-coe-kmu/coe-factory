@@ -62,6 +62,13 @@ def test_stillgelegter_kernprozess_ist_nicht_bekannt():
         assert bc0_lesepfade.kp_existiert(conn, MANDANT_A, "KP-01") is True
 
 
+def test_stillgelegter_kernprozess_fehlt_in_der_kernprozessliste():
+    frische_db(DSN)
+    _stilllegen("ref_prozesse", "process_id", "KP-02")
+    with verbindung(DSN) as conn:
+        assert bc0_lesepfade.kernprozesse(conn, MANDANT_A) == [("KP-01", "Auftrag A")]
+
+
 def test_teilprozesse_eines_stillgelegten_kernprozesses_sind_nicht_interviewbar():
     # BC0s Sichten pruefen nur tp.aktiv (v3.4) — ein stillgelegter Kernprozess mit
     # aktiven Kindern bliebe interviewbar. BC1 verlangt zusaetzlich den aktiven

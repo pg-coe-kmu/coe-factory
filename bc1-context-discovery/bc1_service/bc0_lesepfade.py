@@ -76,6 +76,14 @@ def rollen(conn, company_id: str) -> list[tuple[str, str]]:
         "WHERE company_id = %s AND aktiv ORDER BY rolle_id", (company_id,)).fetchall()]
 
 
+def kernprozesse(conn, company_id: str) -> list[tuple[str, str]]:
+    """(process_id, process_name) der AKTIVEN Kernprozesse des Mandanten, nach ID
+    sortiert. v_prozesse_lesen filtert aktiv selbst (seit v3.4)."""
+    return [(zeile[0], zeile[1]) for zeile in conn.execute(
+        "SELECT process_id, process_name FROM v_prozesse_lesen "
+        "WHERE company_id = %s ORDER BY process_id", (company_id,)).fetchall()]
+
+
 def eigner_rollen(conn, company_id: str,
                   process_ids: Sequence[str]) -> dict[str, str | None]:
     """Eigner-Hauptrolle je Kernprozess (v_prozesse_lesen.owner_rolle_id, v3.4). Ein
