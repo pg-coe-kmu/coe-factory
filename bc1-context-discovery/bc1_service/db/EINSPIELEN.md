@@ -13,7 +13,7 @@ dem passt, was sie erwartet. Sie läuft in **einer** Transaktion: entweder alles
 nichts. Trifft sie auf eine leere Datenbank, legt sie an (**Fall 1**); trifft sie den
 exakt erwarteten Bestand, tut sie nichts (**Fall 2**); weicht irgendetwas ab, **bricht sie
 ab und ändert nichts** (**Fall 3**). Die Prüfung vergleicht den Ist-Zustand des Katalogs
-Zeile für Zeile mit einer im Skript hinterlegten **Sollsignatur** (179 Zeilen). Wer die
+Zeile für Zeile mit einer im Skript hinterlegten **Sollsignatur** (207 Zeilen). Wer die
 DDL ändert, muss die Signatur neu erzeugen — sonst blockiert sich das Skript selbst.
 
 Seit B1 (13.09.2026) gibt es eine **zweite Datei `sessions.sql`** für die Sitzungstabelle
@@ -219,7 +219,8 @@ sie enthalten personenbezogene Angaben aus Interviews. Ein still hinzugefügtes 
 fiele ohne diese Prüfung niemandem auf. Deshalb umfasst die Signatur: ACLs einschließlich
 Spaltenrechten, Mitgliedschafts-Kanten in jede Rolle, über die man an die Tabellen käme,
 die **effektiven** Rechte jeder Rolle (also auch geerbte), RLS-Zustand und Policies,
-Rewrite-Regeln, Trigger einschließlich der internen FK-Trigger, Funktionsrechte und die
+Rewrite-Regeln, Trigger einschließlich der internen FK-Trigger auf beiden Seiten (auch der
+Löschkaskade auf `companies`), Funktionsrechte und die
 Tabellenkommentare.
 
 **Was sie ausdrücklich NICHT abdeckt** (Review 03.09., jeder Punkt im Container
@@ -232,12 +233,16 @@ nachgestellt — kein Fall 3, Zugriff funktionierte):
 - **Standardrechte** (`pg_default_acl`) — sie wirken erst auf *künftige* Objekte, siehe
   Abschnitt 8 (K-I).
 - **Diese Lücke gilt für beide Dateien.** `sessions.sql` prüft dieselben Arten wie
-  `prozessprofil.sql` — einschließlich Mitgliedschafts-Kanten — und zusätzlich die
-  RI-Trigger **beider** Seiten ihres Fremdschlüssels (der Kaskaden-Trigger sitzt auf
-  `companies`; Review 13.09.). Funktionen prüft sie nicht, weil sie keine hat; eine fremde
-  `SECURITY DEFINER`-Funktion oder View auf `bc1.sessions` sähe **keine** der beiden
-  Dateien (Abschlussplan C4: Inventarprüfung fremder Objekte in `bc1`). Die Signatur-Sicht
-  liegt zweimal im Repo (je Datei) — bewusst, solange es zwei Einheiten sind.
+  `prozessprofil.sql` — einschließlich Mitgliedschafts-Kanten und der RI-Trigger
+  **beider** Seiten jedes Fremdschlüssels (die Kaskaden-Trigger sitzen auf `companies`,
+  die NO-ACTION-Trigger auf den übrigen BC0-Tabellen; `sessions.sql` seit Review 13.09.,
+  `prozessprofil.sql` seit C4 (b), 24.10.). Funktionen prüft sie nicht, weil sie keine hat;
+  eine fremde `SECURITY DEFINER`-Funktion oder View auf `bc1.sessions` sähe **keine** der
+  beiden Dateien (Abschlussplan C4: Inventarprüfung fremder Objekte in `bc1`). Einen
+  **fremden Fremdschlüssel** auf eine der drei Tabellen meldet `prozessprofil.sql` (über
+  dessen Trigger auf unserer Tabelle), `sessions.sql` für `bc1.sessions` nicht — gemessen
+  24.10., ebenfalls C4. Die Signatur-Sicht liegt zweimal im Repo (je Datei) — bewusst,
+  solange es zwei Einheiten sind.
 
 Wer im Schema `bc1` etwas anlegen darf, kann daran vorbei. Die Prüfung ersetzt also nicht
 die Frage, **wer `CREATE` in diesem Schema hat** — sie sichert, dass die drei
@@ -357,3 +362,27 @@ nicht lockern, erst den Bestand verstehen.
 **Vor dem Durchstich:** BC0s Gate-Funktion verknüpft das Profil noch **nicht** über
 `anfrage_id`; für den Durchstich einen Teilprozess wählen, zu dem es noch kein fertiges
 BC1-Profil gibt (Details in `bc1_service/n8n/SMOKE.md`).
+
+## 13. C4 (b) — RI-Trigger beider FK-Seiten in `prozessprofil.sql` (24.10.2026)
+
+Anlass: `prozessprofil.sql` signierte nur die internen FK-Trigger, die auf **unseren**
+Tabellen sitzen. Die zweite Seite jedes Fremdschlüssels liegt auf BC0-Tabellen, darunter
+`RI_FKey_cascade_del` auf `companies`: Daran hängt die DSGVO-Löschkaskade
+`companies → bc1.prozessprofil`, die übrigen sind NO-ACTION-Trigger auf `ref_*` und
+`mandant_rollen`. War einer davon deaktiviert, meldete das Einspielen trotzdem `Fall 2`
+(gemessen im Container). Jetzt wird wie in `sessions.sql` über die Constraint gejoint, mit
+Tabelle und Triggerfunktion: `trigger_intern` hat 40 statt 12 Zeilen, die Sollsignatur
+207 statt 179 Zeilen.
+
+Wie groß die Lücke war: Einen internen RI-Trigger kann nur ein Superuser abschalten.
+Gemessen: auch der Tabelleneigentümer nicht (`… is a system trigger`). In der Supabase ist
+`postgres` kein Superuser. Realistisch blieb also ein Eingriff der Plattform, etwa ein
+abgebrochener Datenimport unter Superuser-Rechten, der die Trigger aus lässt. Die Prüfung
+war schmal, aber billig zu schließen. Seither prüfen beide Dateien dasselbe.
+
+**Kein neues Einspielen nötig.** Die Prüfung wurde strenger, an der Datenbank ändert sich
+nichts. Am 24.10. live gemessen, nur lesend und als `bc1_role` (PostgreSQL 17.6): Die 40
+neuen `trigger_intern`-Zeilen stimmen mit der Sollsignatur überein, alle Trigger sind
+aktiv. Der nächste Lauf meldet für diesen Teil also `Fall 2`. Weicht er ab, zeigt die Zeile
+`trigger_intern|…|<Tabelle>|<Funktion>|D`, welcher Trigger auf welcher Tabelle deaktiviert
+wurde. In diesem Fall gilt: nicht neu erzeugen, sondern mit BC0 klären.

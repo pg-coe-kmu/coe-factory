@@ -380,6 +380,48 @@ def test_deaktivierter_interner_fk_trigger_wird_erkannt():
     assert "Sollsignatur" in str(fehler.value)
 
 
+@pytest.mark.parametrize("constraint, funktion, tabelle", [
+    ("prozessprofil_company_fk", "RI_FKey_cascade_del", "companies"),         # DSGVO-Kaskade
+    ("prozessprofil_teilprozess_fk", "RI_FKey_noaction_del", "ref_teilprozesse"),
+])
+def test_deaktivierter_ri_trigger_auf_der_bc0_seite_wird_erkannt(constraint, funktion, tabelle):
+    # C4 (b), wie sessions.sql seit Review 13.09., Befund 7: die referenzierte Seite
+    # eines FK traegt zwei RI-Trigger auf der BC0-Tabelle. Deaktiviert laeuft die
+    # Loeschkaskade ins Leere bzw. BC0 loescht referenzierte Zeilen, ohne dass sich an
+    # bc1.* etwas aendert. Gemessen 24.10.: vorher Fall 2.
+    frische_db(DSN)
+    with verbindung(DSN, None) as conn:
+        name = conn.execute(
+            "SELECT t.tgname FROM pg_trigger t "
+            "  JOIN pg_constraint c ON c.oid = t.tgconstraint "
+            "  JOIN pg_proc p ON p.oid = t.tgfoid "
+            " WHERE c.conname = %s AND p.proname = %s", (constraint, funktion)
+        ).fetchone()[0]
+        conn.execute(f'ALTER TABLE {tabelle} DISABLE TRIGGER "{name}"')
+        conn.commit()
+    with pytest.raises(Exception) as fehler:
+        spiele_ddl_ein(DSN)
+    assert "Sollsignatur" in str(fehler.value) and funktion in str(fehler.value)
+
+
+def test_fremder_fk_auf_prozessprofil_wird_erkannt():
+    # Sein RI-Trigger sitzt auf bc1.prozessprofil, die Constraint gehoert der fremden
+    # Tabelle. Mit NO ACTION blockierte er BC0s Loeschkaskade. Die Signatur sah das
+    # schon vor C4 (b) (ueber den Trigger auf unserer Tabelle) — der Umbau auf den
+    # Constraint-Join darf es nicht verlieren.
+    frische_db(DSN)
+    with verbindung(DSN, None) as conn:
+        conn.execute(
+            "CREATE TABLE public.fremd (company_id uuid, focus_step_id text, "
+            "profil_version integer, CONSTRAINT fremd_profil_fk "
+            "FOREIGN KEY (company_id, focus_step_id, profil_version) "
+            "REFERENCES bc1.prozessprofil (company_id, focus_step_id, profil_version))")
+        conn.commit()
+    with pytest.raises(Exception) as fehler:
+        spiele_ddl_ein(DSN)
+    assert "Sollsignatur" in str(fehler.value) and "fremd_profil_fk" in str(fehler.value)
+
+
 def test_zweiter_lauf_in_derselben_session_ist_ein_no_op():
     # Codex N10-I4: die TEMP VIEW kennt kein ON COMMIT DROP und ueberlebt den
     # Commit. Ein zweiter Lauf in DERSELBEN Session lief deshalb auf

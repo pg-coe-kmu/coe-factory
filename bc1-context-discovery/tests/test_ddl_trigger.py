@@ -1,5 +1,6 @@
 import threading
 
+import psycopg
 import pytest
 
 from tests.db_fixture import DSN, MANDANT_A, MANDANT_B, frische_db, verbindung
@@ -272,6 +273,37 @@ def test_kaskade_laeuft_auch_unter_echter_rollentrennung(db):
     with verbindung(db, None) as conn:
         assert conn.execute("SELECT count(*) FROM bc1.prozessprofil").fetchone()[0] == 0
         assert conn.execute("SELECT count(*) FROM bc1.profil_rollen").fetchone()[0] == 0
+
+
+def test_kaskade_scheitert_laut_ohne_select_von_bc1_role_auf_companies(db):
+    # Dauerregel 15.09. (an BC0 zugesichert, #215): der Freeze-Trigger liest companies
+    # mit den Rechten von bc1_role. Kappt ein Rechte-Umbau diesen Weg, muss BC0s
+    # Loeschung LAUT scheitern und zurueckrollen — nie still Profile stehen lassen.
+    with verbindung(db, None) as conn:
+        conn.execute("DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles "
+                     "WHERE rolname = 'bc0_loescher') THEN CREATE ROLE bc0_loescher; "
+                     "END IF; END $$")
+        conn.execute("GRANT SELECT, DELETE ON companies TO bc0_loescher")
+        conn.execute("GRANT USAGE ON SCHEMA public TO bc0_loescher")
+        conn.commit()
+    with verbindung(db) as conn:
+        _insert(conn)
+        conn.execute("UPDATE bc1.prozessprofil SET status = 'fertig'")
+        conn.commit()
+    with verbindung(db, None) as conn:
+        conn.execute("REVOKE SELECT ON companies FROM bc_leser")    # der gekappte Weg
+        conn.commit()
+        assert conn.execute(
+            "SELECT has_table_privilege('bc1_role', 'companies', 'SELECT')"
+        ).fetchone()[0] is False
+    with verbindung(db, "bc0_loescher") as conn:
+        with pytest.raises(psycopg.errors.InsufficientPrivilege) as fehler:
+            conn.execute("DELETE FROM companies WHERE company_id = %s", (MANDANT_A,))
+        assert "companies" in str(fehler.value)
+    with verbindung(db, None) as conn:
+        assert conn.execute("SELECT count(*) FROM companies WHERE company_id = %s",
+                            (MANDANT_A,)).fetchone()[0] == 1
+        assert conn.execute("SELECT count(*) FROM bc1.prozessprofil").fetchone()[0] == 1
 
 
 def test_fremdes_delete_auf_rollenzeile_einer_fertigen_version_prallt(db):

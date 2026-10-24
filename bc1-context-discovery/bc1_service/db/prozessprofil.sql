@@ -271,18 +271,46 @@ INSERT INTO pg_temp.bc1_soll_signatur (zeile) VALUES
     ('spalte|prozessprofil|step_frequency_per_year|numeric|null||-|-'),
     ('spalte|prozessprofil|total_duration_minutes|numeric|null||-|-'),
     ('spalte|prozessprofil|upstream_process_id|character varying(8)|null||-|-'),
-    ('trigger_intern|profil_rollen|profil_rollen_profil_fk|O'),
-    ('trigger_intern|profil_rollen|profil_rollen_rolle_fk|O'),
-    ('trigger_intern|profil_write_status|profil_write_status_profil_fk|O'),
-    ('trigger_intern|prozessprofil|profil_rollen_profil_fk|O'),
-    ('trigger_intern|prozessprofil|profil_write_status_profil_fk|O'),
-    ('trigger_intern|prozessprofil|prozessprofil_company_fk|O'),
-    ('trigger_intern|prozessprofil|prozessprofil_downstream_fk|O'),
-    ('trigger_intern|prozessprofil|prozessprofil_erhebung_fk|O'),
-    ('trigger_intern|prozessprofil|prozessprofil_owner_rolle_fk|O'),
-    ('trigger_intern|prozessprofil|prozessprofil_prozess_fk|O'),
-    ('trigger_intern|prozessprofil|prozessprofil_teilprozess_fk|O'),
-    ('trigger_intern|prozessprofil|prozessprofil_upstream_fk|O'),
+    ('trigger_intern|profil_rollen|profil_rollen_profil_fk|bc1.profil_rollen|RI_FKey_check_ins|O'),
+    ('trigger_intern|profil_rollen|profil_rollen_profil_fk|bc1.profil_rollen|RI_FKey_check_upd|O'),
+    ('trigger_intern|profil_rollen|profil_rollen_profil_fk|bc1.prozessprofil|RI_FKey_cascade_del|O'),
+    ('trigger_intern|profil_rollen|profil_rollen_profil_fk|bc1.prozessprofil|RI_FKey_noaction_upd|O'),
+    ('trigger_intern|profil_rollen|profil_rollen_rolle_fk|bc1.profil_rollen|RI_FKey_check_ins|O'),
+    ('trigger_intern|profil_rollen|profil_rollen_rolle_fk|bc1.profil_rollen|RI_FKey_check_upd|O'),
+    ('trigger_intern|profil_rollen|profil_rollen_rolle_fk|mandant_rollen|RI_FKey_noaction_del|O'),
+    ('trigger_intern|profil_rollen|profil_rollen_rolle_fk|mandant_rollen|RI_FKey_noaction_upd|O'),
+    ('trigger_intern|profil_write_status|profil_write_status_profil_fk|bc1.profil_write_status|RI_FKey_check_ins|O'),
+    ('trigger_intern|profil_write_status|profil_write_status_profil_fk|bc1.profil_write_status|RI_FKey_check_upd|O'),
+    ('trigger_intern|profil_write_status|profil_write_status_profil_fk|bc1.prozessprofil|RI_FKey_cascade_del|O'),
+    ('trigger_intern|profil_write_status|profil_write_status_profil_fk|bc1.prozessprofil|RI_FKey_noaction_upd|O'),
+    ('trigger_intern|prozessprofil|prozessprofil_company_fk|bc1.prozessprofil|RI_FKey_check_ins|O'),
+    ('trigger_intern|prozessprofil|prozessprofil_company_fk|bc1.prozessprofil|RI_FKey_check_upd|O'),
+    ('trigger_intern|prozessprofil|prozessprofil_company_fk|companies|RI_FKey_cascade_del|O'),
+    ('trigger_intern|prozessprofil|prozessprofil_company_fk|companies|RI_FKey_noaction_upd|O'),
+    ('trigger_intern|prozessprofil|prozessprofil_downstream_fk|bc1.prozessprofil|RI_FKey_check_ins|O'),
+    ('trigger_intern|prozessprofil|prozessprofil_downstream_fk|bc1.prozessprofil|RI_FKey_check_upd|O'),
+    ('trigger_intern|prozessprofil|prozessprofil_downstream_fk|ref_prozesse|RI_FKey_noaction_del|O'),
+    ('trigger_intern|prozessprofil|prozessprofil_downstream_fk|ref_prozesse|RI_FKey_noaction_upd|O'),
+    ('trigger_intern|prozessprofil|prozessprofil_erhebung_fk|bc1.prozessprofil|RI_FKey_check_ins|O'),
+    ('trigger_intern|prozessprofil|prozessprofil_erhebung_fk|bc1.prozessprofil|RI_FKey_check_upd|O'),
+    ('trigger_intern|prozessprofil|prozessprofil_erhebung_fk|ref_erhebungen|RI_FKey_noaction_del|O'),
+    ('trigger_intern|prozessprofil|prozessprofil_erhebung_fk|ref_erhebungen|RI_FKey_noaction_upd|O'),
+    ('trigger_intern|prozessprofil|prozessprofil_owner_rolle_fk|bc1.prozessprofil|RI_FKey_check_ins|O'),
+    ('trigger_intern|prozessprofil|prozessprofil_owner_rolle_fk|bc1.prozessprofil|RI_FKey_check_upd|O'),
+    ('trigger_intern|prozessprofil|prozessprofil_owner_rolle_fk|mandant_rollen|RI_FKey_noaction_del|O'),
+    ('trigger_intern|prozessprofil|prozessprofil_owner_rolle_fk|mandant_rollen|RI_FKey_noaction_upd|O'),
+    ('trigger_intern|prozessprofil|prozessprofil_prozess_fk|bc1.prozessprofil|RI_FKey_check_ins|O'),
+    ('trigger_intern|prozessprofil|prozessprofil_prozess_fk|bc1.prozessprofil|RI_FKey_check_upd|O'),
+    ('trigger_intern|prozessprofil|prozessprofil_prozess_fk|ref_prozesse|RI_FKey_noaction_del|O'),
+    ('trigger_intern|prozessprofil|prozessprofil_prozess_fk|ref_prozesse|RI_FKey_noaction_upd|O'),
+    ('trigger_intern|prozessprofil|prozessprofil_teilprozess_fk|bc1.prozessprofil|RI_FKey_check_ins|O'),
+    ('trigger_intern|prozessprofil|prozessprofil_teilprozess_fk|bc1.prozessprofil|RI_FKey_check_upd|O'),
+    ('trigger_intern|prozessprofil|prozessprofil_teilprozess_fk|ref_teilprozesse|RI_FKey_noaction_del|O'),
+    ('trigger_intern|prozessprofil|prozessprofil_teilprozess_fk|ref_teilprozesse|RI_FKey_noaction_upd|O'),
+    ('trigger_intern|prozessprofil|prozessprofil_upstream_fk|bc1.prozessprofil|RI_FKey_check_ins|O'),
+    ('trigger_intern|prozessprofil|prozessprofil_upstream_fk|bc1.prozessprofil|RI_FKey_check_upd|O'),
+    ('trigger_intern|prozessprofil|prozessprofil_upstream_fk|ref_prozesse|RI_FKey_noaction_del|O'),
+    ('trigger_intern|prozessprofil|prozessprofil_upstream_fk|ref_prozesse|RI_FKey_noaction_upd|O'),
     ('trigger|profil_rollen|tr_freeze_rollen|CREATE TRIGGER tr_freeze_rollen BEFORE INSERT OR DELETE OR UPDATE ON bc1.profil_rollen FOR EACH ROW EXECUTE FUNCTION bc1.tf_freeze_rollen()|O'),
     ('trigger|prozessprofil|tr_freeze_profil|CREATE TRIGGER tr_freeze_profil BEFORE DELETE OR UPDATE ON bc1.prozessprofil FOR EACH ROW EXECUTE FUNCTION bc1.tf_freeze_profil()|O'),
     ('trigger|prozessprofil|tr_version_vergeben|CREATE TRIGGER tr_version_vergeben BEFORE INSERT ON bc1.prozessprofil FOR EACH ROW EXECUTE FUNCTION bc1.tf_version_vergeben()|O');
@@ -325,13 +353,27 @@ UNION ALL
 -- AKTIVIERUNGSZUSTAND gehoert aber in die Signatur — ein deaktivierter RI-Trigger
 -- laesst die Constraint-Definition unveraendert und erzwingt den FK trotzdem
 -- nicht mehr. Schluessel ist deshalb der Constraint-Name, nicht der Triggername.
-SELECT format('trigger_intern|%s|%s|%s', c.relname, con.conname, t.tgenabled)
+-- C4 (b), wie sessions.sql: BEIDE FK-Seiten, dazu Tabelle und Triggerfunktion — die
+-- Loeschkaskade haengt am RI_FKey_cascade_del auf COMPANIES, die NO-ACTION-Trigger auf
+-- den BC0-Tabellen; deaktiviert aenderte sich an bc1.* nichts. Deshalb ueber die
+-- Constraint gejoint. ODER-Zweig: jeder interne Trigger AUF unseren Tabellen, auch der
+-- einer FREMDEN Constraint (fremder FK auf bc1.prozessprofil) — das sah die Signatur
+-- vorher schon und darf nicht verloren gehen (Test).
+SELECT format('trigger_intern|%s|%s|%s|%s|%s', cc.relname, con.conname,
+              t.tgrelid::regclass, p.proname, t.tgenabled)
   FROM pg_trigger t
-  JOIN pg_class c ON c.oid = t.tgrelid
-  JOIN pg_namespace n ON n.oid = c.relnamespace
   JOIN pg_constraint con ON con.oid = t.tgconstraint
- WHERE n.nspname = 'bc1' AND c.relname IN ('prozessprofil', 'profil_rollen', 'profil_write_status')
-   AND t.tgisinternal
+  JOIN pg_class cc ON cc.oid = con.conrelid
+  JOIN pg_proc p ON p.oid = t.tgfoid
+ WHERE t.tgisinternal
+   AND (con.conrelid IN (SELECT c.oid FROM pg_class c
+                           JOIN pg_namespace n ON n.oid = c.relnamespace
+                          WHERE n.nspname = 'bc1' AND c.relname IN
+                                ('prozessprofil', 'profil_rollen', 'profil_write_status'))
+        OR t.tgrelid IN (SELECT c.oid FROM pg_class c
+                           JOIN pg_namespace n ON n.oid = c.relnamespace
+                          WHERE n.nspname = 'bc1' AND c.relname IN
+                                ('prozessprofil', 'profil_rollen', 'profil_write_status')))
 UNION ALL
 -- Nicht nur der Rumpf: Sprache, SECURITY-Modus, Volatilitaet und die
 -- Funktionskonfiguration gehoeren zur Semantik (Codex R1-I2).
