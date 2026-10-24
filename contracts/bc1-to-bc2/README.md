@@ -63,17 +63,29 @@ Rücksprache ändern. BC1 stellt 43 Fragen; BC2 rechnet auf 18 Feldern (zehn Spa
 
 ## Invarianten
 
-**I1 · Dauern gelten je Prozessdurchlauf.** `total_duration_minutes` und
-`focus_step_duration_minutes` sind Minuten **je Prozessdurchlauf**, einschließlich der darin bearbeiteten `executions_per_run` Fälle. Frage E1 lautet „Wie
-lange dauert ein kompletter Durchlauf im Schnitt?", Frage E2 „Wie lange dauert dieser
-Schritt im Schnitt?".
+**I1 · Die Prozessdauer gilt je Prozessdurchlauf, die Schrittdauer je Ausführung des
+Fokus-Schritts.** `total_duration_minutes` sind Minuten **je Prozessdurchlauf**,
+einschließlich der darin bearbeiteten `executions_per_run` Fälle (Frage E1 „Wie lange
+dauert ein kompletter Durchlauf im Schnitt?"). `focus_step_duration_minutes` sind Minuten
+**je Ausführung des Fokus-Schritts** (Frage E2 „Wie lange dauert ein einzelner Lauf dieses
+Schritts im Schnitt?", ab Paketfassung 1.2 — das ist der Teil vor dem `+` in
+`paket_version`, nicht die Fassung dieses Vertrags).
 
     Jahresminuten = frequency_per_year × total_duration_minutes
 
+**Ohne `step_frequency_per_year` gilt eine Ausführung des Fokus-Schritts je
+Prozessdurchlauf** (I8); dann fallen beide Bezugsgrößen zusammen. Das ist eine Annahme,
+keine Prüfung: BC1 erfasst D3 nur, wenn die befragte Person es von sich aus nennt, `NULL`
+heißt „nicht erwähnt" ([#286](https://github.com/pg-coe-kmu/coe-factory/issues/286)).
+Läuft der Schritt mehrmals je Prozessdurchlauf, etwa einmal je Fall, und fehlt D3, ist die
+Schrittzeit im Jahr zu niedrig; `executions_per_run` gleicht das nicht aus (I2).
+
 **Die Bezugsgröße ist eine Annahme aus dem Fragetext, keine Prüfung.** BC1 speichert den
 normalisierten Zahlenwert; ein Zusatz wie „pro Fall" oder „je Mitarbeiter" geht dabei
-verloren („90 Minuten pro Fall" → `90`). E2 nennt im Fragetext gar keine Bezugsgröße.
-BC1 schärft E2 mit der nächsten Paket-Revision; bis dahin gilt: je Durchlauf, ungeprüft.
+verloren („90 Minuten pro Fall" → `90`). Profile mit Paketfassung vor 1.2 haben E2 ohne
+Bezugsgröße gefragt („Wie lange dauert dieser Schritt im Schnitt?"); dort gilt je
+Prozessdurchlauf, ungeprüft, und I8 passt nur, wenn `step_frequency_per_year` `NULL` ist.
+In den Testprofilen ist es nicht gesetzt.
 
 **`frequency_per_year` und `total_duration_minutes` beschreiben den Prozess, wie ihn der
 Befragte in `process_name` gerahmt hat** — D1 und E1 fragen nach „dem gesamten Prozess",
@@ -155,9 +167,10 @@ Was BC1 aus einer Antwort macht, bevor sie in die Spalte kommt — gemessen am B
 Dauern (E1, E2): `3 Stunden` → `180`, `90 min` → `90`; die Einheit wird auf Minuten
 gerechnet, Zusätze zur Bezugsgröße verworfen (siehe I1). Die Konfidenz (E4) ist ganzzahlig.
 
-**D4 (`executions_per_run`) nutzt heute denselben Normalisierer wie D1** — „5 pro Woche"
-würde zu `260` „Fällen je Durchlauf". Für eine Fallzahl je Durchlauf ist das sinnlos; BC1
-stellt D4 mit der nächsten Paket-Revision auf einen reinen Zähl-Typ um.
+**D4 (`executions_per_run`) ist eine reine Anzahl** (ab Paketfassung 1.2): `3`, `etwa 3`,
+`3 Fälle`, `3 je Durchlauf` → `3`. Eine Periode („5 pro Woche") ist keine Fallzahl je
+Durchlauf; das Interview fragt nach, nach zwei Nachfragen `ungeloest` → `NULL`. Vor 1.2
+lief D4 durch denselben Normalisierer wie D1 („5 pro Woche" → `260`).
 
 ## Güte
 
@@ -199,10 +212,17 @@ würde BC1 blockieren, ohne dass BC2 etwas gewinnt.
 
 **Die Rollenachse ist abgewählt** *(20.09.2026,
 [#172](https://github.com/pg-coe-kmu/coe-factory/issues/172))*. `bc1.profil_rollen` ist
-strukturell abgenommen (inklusive `zeitanteil_pct`) und **leer**, `process_owner_rolle_id`
-ist immer `NULL` — **und das bleibt so.** BC1 baut Paket C1b nicht; es war zuvor als
-Etappe 2 vorgesehen. Eine leere Rollenliste ist damit der **Dauerzustand**, nicht der
-Aufbaustand.
+strukturell abgenommen (inklusive `zeitanteil_pct`) und **leer — und das bleibt so.** BC1
+baut Paket C1b nicht; es war zuvor als Etappe 2 vorgesehen. Eine leere Rollenliste ist
+damit der **Dauerzustand**, nicht der Aufbaustand.
+
+**Anders `process_owner_rolle_id`:** Ab Paketfassung 1.2 (BC1 C1a) steht dort die Rolle,
+die die befragte Person als Eigner des Prozesses wählt (Frage B3, Auswahl aus den aktiven
+Rollen des Mandanten; hat die Anfrage genau einen Kernprozess und ist dessen Eigner-Rolle
+bei BC0 aktiv, schlägt das Interview sie vor). Weicht die Wahl von BC0s Eintrag zum
+Zeitpunkt des Schreibens ab, hält `profil.befunde.eigner_rolle_abweichung` das fest. Ältere Zeilen und ein
+nicht gültig beantwortetes B3 ergeben `NULL`. BC2 rechnet nicht damit; die Rollenachse
+bleibt abgewählt.
 
 **BC2 rechnet stattdessen mit einem Mischsatz:** 341 €/PT ≈ **43 €/h** aus dem
 NoroAI-Unternehmensprofil Kap. 9.2 (750.000 € / 2.200 PT), nicht mit
@@ -223,8 +243,10 @@ die Achse je gebraucht wird. Einen Termin dafür gibt es nicht mehr.
 ## Offene Punkte
 
 1. **`executions_per_run` gleich `frequency_per_year` — bestätigt als Eingabeartefakt**
-   (BC1 in #195, 12.09.2026; alle drei Zeilen gemessen, Spalte wie JSON). BC1 legt
-   korrigierte Testprofile als Version 3 nach; bis dahin trägt I2. Erledigt ist damit auch
+   (BC1 in #195, 12.09.2026; alle drei Zeilen gemessen, Spalte wie JSON). Die Ursache ist
+   geklärt. BC1 hat korrigierte Testprofile als Version 3 gebaut (C1a,
+   `executions_per_run` = 1); geschrieben werden sie, sobald BC0 interviewbare Anfragen hat
+   (für KP-05.TP-1 eine neue). Bis dahin trägt I2. Erledigt ist damit auch
    die Frage nach `focus_step_media_break`: in der Datenbank steht `ja`/`nein`,
    normalisiert — in allen sechs Zeilen gemessen.
 2. **Entschieden: `step_frequency_per_year` wird gebunden** *(BC2, 20.09.2026)* — mit
@@ -244,6 +266,17 @@ kommt seit [#165](https://github.com/pg-coe-kmu/coe-factory/issues/165) erst nac
 Gate-0-Freigabe. BC1 muss dafür nichts ändern.
 
 ## Stand
+
+**Fassung 1.4 — Vorschlag von BC1, 24.10.2026 (Paket C1a).** `process_owner_rolle_id` ist
+gefüllt (B3 als Auswahl der aktiven Rollen, Befund `eigner_rolle_abweichung` bei Abweichung
+von BC0) · E2 fragt nach einer Ausführung des Fokus-Schritts, I1 entsprechend (passt zu
+I8; ohne D3 eine Annahme, siehe I1) · D4 ist eine reine Anzahl · offener Punkt 1 auf den
+Stand von Version 3 · Schema-Beschreibungen zu `process_id`, `paket_version`,
+`executions_per_run`, `focus_step_duration_minutes`, `process_owner_rolle_id` und `rollen`
+nachgezogen. Typen, Pflichtfelder und `lesen.sql` sind unverändert. Angefragt in
+[#286](https://github.com/pg-coe-kmu/coe-factory/issues/286) am 24.10.2026; BC2 hatte bis
+zum Abend nicht geantwortet, BC1 ist von Zustimmung ausgegangen. Einwände bitte in #286,
+BC1 zieht nach.
 
 **Fassung 1.3 — BC2, 09.10.2026.** Nach der Gegenprobe
 [#255](https://github.com/pg-coe-kmu/coe-factory/issues/255): `step_frequency_per_year` ist

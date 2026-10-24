@@ -41,7 +41,7 @@
     "process_id": {
       "type": "string",
       "pattern": "^KP-[0-9]{2}$",
-      "description": "Kernprozess. Von BC1 aus dem Präfix der Teilprozess-ID abgeleitet, nicht aus der Interview-Antwort — die dient nur dem Abgleich: nennt der Befragte eine andere kanonische KP-ID, steht in profil.befunde.kp_tp_diskrepanz ein Objekt {interview_kp, abgeleiteter_kp}; sonst fehlt der Schlüssel und profil.befunde ist {}."
+      "description": "Kernprozess. Von BC1 aus dem Präfix der Teilprozess-ID abgeleitet, nicht aus der Interview-Antwort — die dient nur dem Abgleich: nennt der Befragte eine andere kanonische KP-ID, steht in profil.befunde.kp_tp_diskrepanz ein Objekt {interview_kp, abgeleiteter_kp}; sonst fehlt der Schlüssel. profil.befunde kann weitere Befunde tragen, etwa snn_entfernt und ab Paketfassung 1.2 eigner_rolle_abweichung (siehe process_owner_rolle_id); ohne Befund ist profil.befunde {}."
     },
     "status": {
       "const": "fertig",
@@ -55,7 +55,7 @@
     "paket_version": {
       "type": "string",
       "minLength": 1,
-      "description": "Schema-Version des BC1-Fragepakets samt Kontext-Fingerabdruck, z. B. '1.1+ctx-…'. BC2 hebt sie roh auf: sie sagt, gegen welchen Fragenkatalog das Profil erhoben wurde, und ist damit die einzige Handhabe, wenn BC1 den Katalog ändert."
+      "description": "Schema-Version des BC1-Fragepakets samt Kontext-Fingerabdruck, z. B. '1.2+ctx-…' (ältere Zeilen '1.1+ctx-…'). Der Teil vor dem '+' ist die Paketfassung, auf die sich 'ab Paketfassung 1.2' bezieht — nicht die Fassung dieses Vertrags. BC2 hebt sie roh auf: sie sagt, gegen welchen Fragenkatalog das Profil erhoben wurde, und ist damit die einzige Handhabe, wenn BC1 den Katalog ändert."
     },
     "frequency_per_year": {
       "type": ["number", "null"],
@@ -70,7 +70,7 @@
     "executions_per_run": {
       "type": ["number", "null"],
       "minimum": 0,
-      "description": "FÄLLE JE PROZESSDURCHLAUF (Frage D4). KEIN MULTIPLIKATOR DER DAUER — siehe Invariante I2 im README. Der Wert ist Kontext für die Fallschwere, nicht für die Jahresminuten. In den drei Zeilen vom 08.09.2026 ist er gleich frequency_per_year gesetzt (180/180, 260/260, 40/40) — von BC1 als Eingabeartefakt der Testdaten bestätigt (#195), Version 3 folgt. Null nach aufgegebenem Nachfragen, wie frequency_per_year."
+      "description": "FÄLLE JE PROZESSDURCHLAUF (Frage D4), ab Paketfassung 1.2 eine reine Anzahl: 'etwa 3', '3 Fälle' → 3; eine Periode wie '5 pro Woche' wird nachgefragt, nicht hochgerechnet (davor lief D4 durch den Normalisierer von D1). KEIN MULTIPLIKATOR DER DAUER — siehe Invariante I2 im README. Der Wert ist Kontext für die Fallschwere, nicht für die Jahresminuten. In den drei Zeilen vom 08.09.2026 ist er gleich frequency_per_year gesetzt (180/180, 260/260, 40/40) — von BC1 als Eingabeartefakt der Testdaten bestätigt (#195); die Testprofile Version 3 setzen 1. Null nach aufgegebenem Nachfragen, wie frequency_per_year."
     },
     "total_duration_minutes": {
       "type": ["number", "null"],
@@ -80,7 +80,7 @@
     "focus_step_duration_minutes": {
       "type": ["number", "null"],
       "minimum": 0,
-      "description": "MINUTEN JE PROZESSDURCHLAUF für den Fokus-Schritt (Frage E2: 'Wie lange dauert dieser Schritt im Schnitt?' — der Fragetext nennt keine Bezugsgröße; BC1 nimmt dieselbe wie bei total_duration_minutes an und schärft den Text mit der nächsten Paket-Revision). Der Fokus-Schritt ist der Teilprozess aus focus_step_id. Null nach aufgegebenem Nachfragen. Wie oft der Fokus-Schritt laeuft, steht in step_frequency_per_year, sofern abweichend — dieses Feld hat dann Vorrang (Invariante I8)."
+      "description": "MINUTEN JE AUSFÜHRUNG DES FOKUS-SCHRITTS (Frage E2 ab Paketfassung 1.2: 'Wie lange dauert ein einzelner Lauf dieses Schritts im Schnitt?'; davor 'Wie lange dauert dieser Schritt im Schnitt?' ohne Bezugsgröße, dort gilt je Prozessdurchlauf, ungeprüft). Ohne step_frequency_per_year rechnet BC2 mit einer Ausführung je Prozessdurchlauf — eine Annahme, D3 wird nur passiv erfasst (Invariante I1). Der Fokus-Schritt ist der Teilprozess aus focus_step_id. Null nach aufgegebenem Nachfragen. Wie oft der Fokus-Schritt laeuft, steht in step_frequency_per_year, sofern abweichend — dieses Feld hat dann Vorrang (Invariante I8)."
     },
     "focus_step_duration_source": {
       "type": ["string", "null"],
@@ -105,11 +105,11 @@
     },
     "process_owner_rolle_id": {
       "type": ["string", "null"],
-      "description": "Verweis auf mandant_rollen. In BC1s Etappe 1 IMMER NULL; die Antwort auf Frage B3 bleibt Freitext im Profil-JSON. Struktur ist abgenommen, Befüllung kommt mit BC1s Rollen-Lesepfad (Abschlussplan C1)."
+      "description": "Verweis auf mandant_rollen: die Rolle, die die befragte Person als Eigner des Prozesses wählt (Frage B3, Auswahl aus den aktiven Rollen des Mandanten; hat die Anfrage genau einen Kernprozess und ist dessen Eigner-Rolle bei BC0 aktiv, wird sie vorgeschlagen). Gefüllt ab Paketfassung 1.2 (BC1 C1a); ältere Zeilen und ein nicht gültig beantwortetes B3 ergeben null. Weicht die Wahl von BC0s Eintrag zum Zeitpunkt des Schreibens ab, steht in profil.befunde.eigner_rolle_abweichung ein Objekt {process_id, interview_rolle, bc0_rolle}. BC2 rechnet nicht damit (Rollenachse abgewählt, #172)."
     },
     "rollen": {
       "type": "array",
-      "description": "Rollen am Fokus-Schritt aus bc1.profil_rollen. Die Tabelle ist strukturell abgenommen und in Etappe 1 LEER — BC2 erwartet hier heute eine leere Liste. Sie ist der Eingang für die Kapazitätsachse (fte_anteil, Option D in #172); bis sie trägt, verdrahtet BC2 diese Achse nicht.",
+      "description": "Rollen am Fokus-Schritt aus bc1.profil_rollen. Die Tabelle ist strukturell abgenommen und LEER — BC2 erwartet hier eine leere Liste. Die Rollenachse ist abgewählt (#172, 20.09.2026); BC1 baut Paket C1b nicht, die Struktur bleibt nur verbindlich, falls die Achse je gebraucht wird.",
       "items": {
         "type": "object",
         "required": ["pos"],
@@ -118,7 +118,7 @@
           "pos": { "type": "integer", "minimum": 1, "description": "Reihenfolge innerhalb des Profils." },
           "rolle_id": { "type": ["string", "null"], "description": "Verweis auf mandant_rollen. Genau eine Quelle je Zeile: entweder rolle_id ODER rolle_freitext, nie beides." },
           "rolle_freitext": { "type": ["string", "null"], "description": "Rolle als Text, wenn keine Stammdatenrolle zugeordnet werden konnte." },
-          "zeitanteil_pct": { "type": ["integer", "null"], "minimum": 0, "maximum": 100, "description": "Zeitanteil dieser Rolle am Fokus-Schritt. Erhebt heute niemand — die Frage gehört zu BC1s Etappe 2." }
+          "zeitanteil_pct": { "type": ["integer", "null"], "minimum": 0, "maximum": 100, "description": "Zeitanteil dieser Rolle am Fokus-Schritt. Erhebt niemand — die Rollenachse ist abgewählt (#172), BC1 baut Paket C1b nicht." }
         }
       }
     },
