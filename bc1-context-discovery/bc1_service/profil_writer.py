@@ -162,8 +162,8 @@ def baue_profilinhalt(state: SessionState, package: UseCasePackage, *,
     # 'focus_step_id LIKE process_id||".%"' ist damit per Konstruktion erfuellt.
     process_id = focus_step_id.split(".", 1)[0]
 
-    # Nur eine kanonische KP-ID kann der abgeleiteten widersprechen. Ohne BC0-Snapshot
-    # ist das Feld FREITEXT (main.py: BC1_SNAPSHOT_PFAD ist optional) — dann waere jede
+    # Nur eine kanonische KP-ID kann der abgeleiteten widersprechen. Ohne Kernprozess-
+    # Liste im Startkontext ist das Feld FREITEXT — dann waere jede
     # normale Antwort ein Befund und das Log schriebe bei jeder Sitzung rohen
     # Nutzertext mit. Abweichung vom Plan (Rev. 11), begruendet im Review 02.09.
     interview_kp = _payload_wert(profil, "process_id")

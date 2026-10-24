@@ -214,13 +214,19 @@ def test_ohne_diskrepanz_kein_befund():
 
 
 def test_freitext_kernprozess_erzeugt_keinen_diskrepanz_befund():
-    # Ohne BC0-Snapshot ist das KP-Feld FREITEXT (BC1_SNAPSHOT_PFAD ist laut main.py
-    # ausdruecklich optional). Dann waere JEDE normale Antwort != "KP-01", der Befund
+    # Freitext gibt es nur noch im Minimalkontext (ohne Kernprozesse) und im
+    # kontextfreien Zweig. Dann waere JEDE normale Antwort != "KP-01", der Befund
     # entstuende in jedem Profil und das Warnlog schriebe bei jeder Sitzung rohen
     # Nutzertext mit (Review 02.09., am echten Paket gemessen). Ein Freitext
     # widerspricht einer KP-ID nicht — er ist schlicht etwas anderes.
     inhalt = _bau(_state(focus_step=("KP-01.TP-1", FieldStatus.GUELTIG),
                          process_id=("Auftragsabwicklung", FieldStatus.GUELTIG)))
+    assert "kp_tp_diskrepanz" not in inhalt.profil["befunde"]
+
+
+def test_ungeloestes_b4_erzeugt_keinen_diskrepanz_befund():
+    inhalt = _bau(_state(focus_step=("KP-01.TP-1", FieldStatus.GUELTIG),
+                         process_id=("KP-02", FieldStatus.UNGELOEST)))
     assert "kp_tp_diskrepanz" not in inhalt.profil["befunde"]
 
 

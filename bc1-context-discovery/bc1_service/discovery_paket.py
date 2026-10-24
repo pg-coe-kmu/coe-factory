@@ -101,6 +101,15 @@ def baue_discovery_paket(
         b4_frage = "Zu welchem Ihrer Kernprozesse gehört das?"
 
     if kontext is not None:
+        # B4 kommt im Kontext-Zweig aus den beim Start geladenen Kernprozessen.
+        if kontext.prozesse:
+            b4_typ = AUSWAHL(*(pid for pid, _ in kontext.prozesse))
+            b4_frage = ("Zu welchem Ihrer Kernprozesse gehört das? ("
+                        + ", ".join(f"{pid} = {name}" for pid, name in kontext.prozesse)
+                        + ")")
+        else:
+            b4_typ = FREITEXT
+            b4_frage = "Zu welchem Ihrer Kernprozesse gehört das?"
         # E5 wird zur geprüften Teilprozess-Auswahl; ohne BC0-Anbindung gibt es
         # keine Prozess-Identität, die man erzwingen könnte (identitaetskritisch
         # haengt deshalb bewusst am Kontext, nicht an einer Konstante).
@@ -134,7 +143,7 @@ def baue_discovery_paket(
         # jeder dieser Grundlagen-Änderungen zwischen zwei Turns derselben
         # Session greift.
         schema_version = (f"{SCHEMA_VERSION_CTX}+ctx-"
-                          f"{_ctx_fingerprint(kontext, [pid for pid, _ in (prozesse or [])])}")
+                          f"{_ctx_fingerprint(kontext, [pid for pid, _ in kontext.prozesse])}")
     else:
         e5_typ, f2_typ, e4_typ = FREITEXT, LISTE, PROZENT_0_100
         d4_typ = ZAHL

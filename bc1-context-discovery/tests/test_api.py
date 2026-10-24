@@ -12,6 +12,7 @@ from bc1_core.types import SessionState, SessionStatus
 from bc1_service.api import (ABBRUCH_TEXT, FEHLER_TEXTE, MELDUNG_GATE_FEHLGESCHLAGEN,
                              OVERLAY_SCHLUESSEL, _sweep_hinweise, create_app)
 from bc1_service.bc0_meldungen import Bc0MeldungFehler
+from bc1_service.discovery_paket import Bc0Kontext, baue_discovery_paket
 from bc1_service.profil_writer import ProfilWriteError
 
 MANDANT = "11111111-1111-1111-1111-111111111111"
@@ -98,6 +99,22 @@ def test_gleiche_message_id_ist_idempotent():
 
 def test_schema_version_mismatch_gibt_409():
     antwort = _turn(_client(), "m1", "egal", schema_version="99.9")
+    assert antwort.status_code == 409
+    assert antwort.json()["detail"] == "schema_version_passt_nicht"
+
+
+def test_turn_mit_paket_anderer_kernprozess_liste_gibt_409():
+    kontext = Bc0Kontext(
+        company_id=MANDANT,
+        teilprozesse=(("KP-01.TP-1", "Erfassen"),),
+        system_ids=("S-01",),
+        prozesse=(("KP-01", "Auftrag"), ("KP-02", "Einkauf")))
+    paket = baue_discovery_paket(kontext=kontext)
+    anderes = baue_discovery_paket(
+        kontext=replace(kontext, prozesse=(("KP-01", "Auftrag"),)))
+    client = TestClient(create_app(InMemoryStateStore(), FakeLLM(), paket,
+                                   company_id=MANDANT))
+    antwort = _turn(client, "m1", "egal", schema_version=anderes.schema_version)
     assert antwort.status_code == 409
     assert antwort.json()["detail"] == "schema_version_passt_nicht"
 
