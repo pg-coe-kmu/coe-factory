@@ -476,7 +476,7 @@ def test_main_baut_b4_aus_den_kernprozessen_des_mandanten(umgebung, monkeypatch)
 
     gesehen: dict = {}
 
-    def _stub_create_app(store, llm, package, snapshot=None, lifespan=None, **kw):
+    def _stub_create_app(store, llm, package, lifespan=None, **kw):
         gesehen.update(kw, package=package)
         return "app"
 

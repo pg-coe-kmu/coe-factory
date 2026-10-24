@@ -147,11 +147,13 @@ braucht keine `BC1_BC0_*`-Variablen.
 
 ```bash
 docker volume create n8n_data
-docker run -d --rm --name n8n -p 5678:5678 \
+docker run -d --rm --name n8n -p 127.0.0.1:5678:5678 \
   -e GENERIC_TIMEZONE="Europe/Berlin" -e TZ="Europe/Berlin" \
   -e N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true -e N8N_RUNNERS_ENABLED=true \
   -v n8n_data:/home/node/.n8n docker.n8n.io/n8nio/n8n
 ```
+
+Der Port ist an `127.0.0.1` gebunden, weil der Chat-Trigger ohne Anmeldung öffentlich ist und jede Nachricht an den Dienst weiterreicht. Die Oberfläche bleibt unter `localhost:5678` erreichbar; der Weg n8n → Dienst ist ausgehend und davon nicht betroffen.
 
 **3. Workflow:** `bc1-chat-workflow.json` in der n8n-UI importieren (oder Nodes von Hand).
 Die Datei ist ein **einzelnes Workflow-Objekt** (`name`, `nodes`, `connections`, `settings`) —

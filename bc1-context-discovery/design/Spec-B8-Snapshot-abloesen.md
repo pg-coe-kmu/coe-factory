@@ -1,7 +1,7 @@
 # Spec B8 — Snapshot-Modus ablösen, `GET /prozesse` streichen
 
 > Stand 24.10.2026, Entwurf 2, abgenommen 24.10.2026 (einschließlich 9.2–9.10).
-> - **Bau:** gebaut auf Zweig `bc1-b8-snapshot-abloesen` (nicht gemergt, nicht gepusht). **Messergebnis Abschnitt 5 (n8n ↔ Dienst bei Bindung an 127.0.0.1): ausstehend**; der Merge hängt davon ab.
+> - **Bau:** gebaut auf Zweig `bc1-b8-snapshot-abloesen` (nicht gemergt, nicht gepusht). **Messung n8n ↔ Dienst bei Bindung an 127.0.0.1: bestanden am 24.10.2026 (colima)**, Ergebnis in Abschnitt 5.
 > - **Auftrag:** Go der BC1-Projektleitung am 24.10. für B8 („Snapshot-Modus ablösen und GET /prozesse absichern. Erst Plan, dann bauen").
 > - **Entscheidung der BC1-Projektleitung (24.10.):** Der Endpunkt wird gestrichen statt abgesichert, wenn ihn wirklich niemand braucht, auch kein anderer BC. Die Prüfung dazu steht in Abschnitt 7; ihr Ergebnis: Niemand ruft ihn auf.
 > - **Geprüft:** Builder-Check und Zweitmeinung Codex (beide 24.10.). Alle Befunde sind eingearbeitet oder begründet zurückgestellt (Abschnitt 10).
@@ -18,9 +18,9 @@
 2. **Die Datei verschwindet.** Die Variable `BC1_SNAPSHOT_PFAD`, das Lesemodul und das Snapshot-Schema entfallen.
 3. **`GET /prozesse` wird gestrichen.** Niemand ruft ihn auf: Der n8n-Chat nutzt nur `/turn`, und in keinem anderen BC findet sich ein Aufruf (Abschnitt 7, von Codex unabhängig bestätigt). Ein Endpunkt ohne Nutzer muss nicht abgesichert werden, sondern kann weg.
 4. **Das Testprofil-Werkzeug folgt denselben Regeln.** Es baut sein Paket aus demselben Startkontext wie der Dienst. Bei gleichem Datenstand haben Dienst und Werkzeug dasselbe Paket.
-5. **Der Docker-Start lauscht nur noch auf dem eigenen Rechner.** Das README startet den Container heute mit `-p 8000:8000`. Docker veröffentlicht den Port damit auf allen Adressen des Rechners, und der Dienst kann je nach Docker-Umgebung aus dem lokalen Netz erreichbar sein. Neu: `-p 127.0.0.1:8000:8000`. Ob n8n im Container den Dienst so weiter erreicht, wird im Bau gemessen (Abschnitt 5).
+5. **Der Docker-Start lauscht nur noch auf dem eigenen Rechner.** Das README startet den Container heute mit `-p 8000:8000`. Docker veröffentlicht den Port damit auf allen Adressen des Rechners, und der Dienst kann je nach Docker-Umgebung aus dem lokalen Netz erreichbar sein. Neu: `-p 127.0.0.1:8000:8000`. Dass n8n im Container den Dienst so weiter erreicht, ist am 24.10. gemessen (Abschnitt 5).
 
-**Was B8 nicht löst — ehrlich gesagt.** Der Dienst hat **überhaupt keine Zugangsprüfung**. Auch `/turn` ist offen. Eine Sitzung ist an Mandant und Anfrage gebunden, aber wer aufruft, prüft niemand. Geschützt ist der Dienst nur dadurch, dass niemand anderes ihn erreicht. Das gilt nur, wenn er richtig gestartet wird: uvicorn direkt (lauscht standardmäßig nur auf dem eigenen Rechner) oder der Container mit der Bindung aus Punkt 5. B8 macht das zur ausdrücklichen Betriebsvoraussetzung im README. Die eigentliche Zugangsprüfung kommt mit Ziel in den Abschlussplan: vor dem ersten Betrieb auf einem Rechner, den andere erreichen (Abschnitt 6).
+**Was B8 nicht löst — ehrlich gesagt.** Der Dienst hat **überhaupt keine Zugangsprüfung**. Offen sind alle Endpunkte (`/turn`, `/gesundheit`, `/docs`, `/redoc`, `/openapi.json`) und der n8n-Chat: Sein Chat-Trigger ist öffentlich, ohne Anmeldung, und reicht jede Nachricht an `/turn` weiter. Eine Sitzung ist an Mandant und Anfrage gebunden, aber wer aufruft, prüft niemand. Geschützt ist der Dienst nur dadurch, dass niemand anderes ihn erreicht. Das gilt nur, wenn er richtig gestartet wird: uvicorn direkt (lauscht standardmäßig nur auf dem eigenen Rechner) oder der Container mit der Bindung aus Punkt 5. B8 macht das zur ausdrücklichen Betriebsvoraussetzung im README. Die eigentliche Zugangsprüfung kommt mit Ziel in den Abschlussplan: vor dem ersten Betrieb auf einem Rechner, den andere erreichen (Abschnitt 6).
 
 **Wer etwas davon merkt.**
 - **Befragte Personen:** B4 nennt die Kernprozesse mit ID und Namen. Passt eine Antwort auf keinen davon, fragt das Interview nach. Passt sie zweimal nicht, gibt es das Feld auf; B4 ist bewusst nicht identitätskritisch. Das war mit Datei schon so.
@@ -29,13 +29,16 @@
 - **Andere BCs:** sonst nichts (Abschnitt 7).
 
 **Vorbedingung der Auslieferung.** Die Paketkennung (`1.2+ctx-…`) ändert sich, weil die Kernprozess-Liste in ihren Fingerabdruck eingeht. Eine offene Sitzung ließe sich danach nicht fortsetzen. Deshalb gilt:
-- **Unmittelbar vor dem Neustart** wird immer neu gemessen: Sitzungen, Drafts und ausstehende Abschlüsse müssen 0 sein (`messung-4a-c1a.sql`, Blöcke M1 bis M3).
+- **Unmittelbar vor dem Neustart** wird immer neu gemessen (`messung-4a-c1a.sql`, Blöcke M1 bis M3; das Skript liegt nur lokal, weil es die Mandantenkennung enthält). Die drei Kriterien:
+  - **M1:** keine Sitzung im Status `aktiv`, `wartet_auf_antwort` oder `fehler_fortsetzbar` (`fertig` und `abgebrochen_ohne_identitaet` sind in Ordnung, wenn M3 leer ist);
+  - **M2:** kein Draft `in_erhebung`;
+  - **M3:** kein ausstehender Abschluss.
 - Zwischen Messung und Neustart läuft weder der alte Dienst noch das Testprofil-Werkzeug. Ein laufender Dienst prüft den Anfragestatus nur beim Start und nimmt danach weiter neue Sitzungen an.
 - Gibt es Offenes, wird es mit dem alten Stand abgeschlossen oder nach K5 verworfen, dann erneut gemessen.
 - Dasselbe gilt für einen Rückfall auf den alten Stand.
 
 **Bewusst nicht in B8:**
-- **Zugangsprüfung des Dienstes** (`/turn`, `/gesundheit`) → Abschlussplan, Ziel B3 Teil 2 (Abschnitt 6).
+- **Zugangsprüfung des Dienstes** (alle Endpunkte: `/turn`, `/gesundheit`, `/docs`, `/redoc`, `/openapi.json`) **und des n8n-Chats** → Abschlussplan, Ziel B3 Teil 2 (Abschnitt 6).
 - **B4 mit Vorschlag aus BC0** (wie bei B3 „Laut BC0 ist das …") oder B4 ganz aus dem Teilprozess ableiten → neue Funktion bzw. Feldänderung, nicht Teil des Ersatzes.
 - **Die Warnzeile `kp_tp_diskrepanz` wiederholt sich je Turn**, weil der Writer bei jedem Abgleich schreibt. Mit B8 kommt das öfter vor. Dasselbe Muster beim Eigner ist schon zurückgestellt (Abschlussplan „Neu 24.10." (4e)); beide bekommen dasselbe Ziel: B7 Teil 2.
 - **Paketfassung erhöhen:** bleibt 1.2. B4 war unter 1.2 schon eine Auswahl, wenn eine Datei gesetzt war. Der Fingerabdruck unterscheidet die Stände (Entscheidung 9.4).
@@ -93,8 +96,15 @@ Mandanten- und Anfrage-Prüfung bleiben unverändert streng.
 - **Netz (README):**
   - Der Container startet mit `-p 127.0.0.1:8000:8000`. Ebenso der Test-Postgres im README (`-p 127.0.0.1:55432:5432`), denn derselbe Fehler steht dort mit dem Passwort `test`.
   - Im Container lauscht uvicorn weiter auf `0.0.0.0`, sonst funktioniert die Portweiterleitung nicht.
-  - **Messung im Bau, vor dem Merge:** Erreicht der n8n-Container den so gebundenen Dienst über `host.docker.internal:8000/turn`? Docker läuft hier in colima; gemessen ist das noch nicht.
-  - Ist das nicht der Fall, wird der Weg über ein gemeinsames Docker-Netz ohne veröffentlichten Port beschrieben. Die Wahl kommt dann vor die BC1-Projektleitung.
+  - **Messergebnis (24.10.2026, macOS, Docker Engine in colima; in Containern löst `host.docker.internal` auf das Host-Gateway von lima auf):**
+    1. Das BC1-Image wurde gebaut und mit `-p 127.0.0.1:8000:8000` gegen die Test-DB gestartet; Docker meldet die Bindung `127.0.0.1:8000`.
+    2. Vom eigenen Rechner antwortet `/gesundheit` mit `200 ok`.
+    3. Aus dem n8n-Image (ohne `--add-host`, wie in SMOKE) antwortet `http://host.docker.internal:8000/gesundheit` mit `ok`.
+    4. `/prozesse` liefert `404 Not Found`.
+    5. Ein Wegwerf-Postgres mit `-p 127.0.0.1:55499:5432` ist aus einem Container über `host.docker.internal:55499` erreichbar.
+    6. **Nicht gemessen:** dass der Dienst aus dem lokalen Netz jetzt unerreichbar ist (Gegenprobe nicht freigegeben); die README-Aussage stützt sich auf Dockers dokumentiertes Verhalten.
+    7. **Nicht gemessen:** Linux mit Docker Engine. Dort gibt es `host.docker.internal` nur mit `--add-host=host.docker.internal:host-gateway`, es zeigt auf die Bridge-Adresse, und ein an `127.0.0.1` veröffentlichter Port ist von dort vermutlich nicht erreichbar.
+  - Ist das nicht der Fall (Punkt 7: Linux), wird der Weg über ein gemeinsames Docker-Netz ohne veröffentlichten Port beschrieben. Die Wahl kommt dann vor die BC1-Projektleitung.
 
 ### 6. Doku, Roadmap, Meldungen
 
@@ -103,7 +113,7 @@ Mandanten- und Anfrage-Prüfung bleiben unverändert streng.
 - **Kommentare** in `profil_writer.py` und `tests/test_profil_bau.py`, die sagen „ohne Snapshot ist B4 Freitext", werden auf den neuen Stand gebracht. Alte Implementierungspläne bleiben als historische Stände unverändert.
 - **Abschlussplan:**
   - B8 erledigt; B3 (d) erledigt durch Streichen; Kleinpunkt „Snapshot filtert `aktiv` nicht" erledigt (seit 23.09. ohnehin gegenstandslos).
-  - **Neuer Roadmap-Punkt unter B3 Teil 2:** „Zugangsprüfung des Dienstes — `/turn` und `/gesundheit` sind offen, geschützt nur über das Netz (README-Bindung seit B8). Ziel: vor dem ersten Betrieb auf einem Rechner, den andere erreichen, zusammen mit dem n8n-Chat auf fester Adresse."
+  - **Neuer Roadmap-Punkt unter B3 Teil 2:** „Zugangsprüfung des Dienstes — alle Endpunkte (`/turn`, `/gesundheit`, `/docs`, `/redoc`, `/openapi.json`) und der n8n-Chat (Chat-Trigger öffentlich, ohne Anmeldung) sind offen, geschützt nur über das Netz (README- und SMOKE-Bindung an 127.0.0.1 seit B8). Ziel: vor dem ersten Betrieb auf einem Rechner, den andere erreichen, zusammen mit dem n8n-Chat auf fester Adresse."
   - (4e) wird um `kp_tp_diskrepanz` ergänzt.
 - **Meldungen** werden lokal entworfen und erst nach OK der BC1-Projektleitung gepostet:
   - **#265:** Haken „`/prozesse` nur mit Zugangsprüfung" mit Verweis auf B8 als entfallen.
