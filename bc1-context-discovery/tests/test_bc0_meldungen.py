@@ -23,6 +23,7 @@ from bc1_service.bc0_meldungen import (
     MELDUNG_SCHALTER_UNBEKANNT,
     MELDUNG_SITZUNG_NICHT_ANGENOMMEN,
     MELDUNG_URL_MIT_ZUGANGSDATEN,
+    MELDUNG_URL_UNLESBAR,
     MELDUNG_ZUGANG_UNVOLLSTAENDIG,
     ZEITLIMIT_SEKUNDEN,
     Bc0MeldungFehler,
@@ -98,6 +99,22 @@ def test_unsichere_oder_unvollstaendige_adresse_bricht_ab(url):
     assert str(fehler.value) == MELDUNG_KEIN_HTTPS.format(url=url)
 
 
+# B7 Teil 2: urlsplit bzw. .port werfen hier einen ValueError, dessen Text Teile der
+# Adresse traegt; verkettet stuende er im Traceback des Starts. http://…:geheim
+# sichert die Reihenfolge — die https-Meldung wiederholt die Adresse.
+@pytest.mark.parametrize("url", [
+    "https://bc1＠bc0.example.org",          # Vollbreite-＠ (kein @)
+    "https://bc0.example.org:geheim",
+    "http://bc0.example.org:geheim",
+    "https://[bc0.example.org",
+])
+def test_unlesbare_adresse_bricht_ab_ohne_sie_zu_wiederholen(url):
+    with pytest.raises(RuntimeError) as fehler:
+        lies_bc0_zugang({**VOLL, "BC1_BC0_URL": url})
+    assert str(fehler.value) == MELDUNG_URL_UNLESBAR
+    assert fehler.value.__cause__ is None and fehler.value.__suppress_context__
+
+
 # Härtung (25.10.): Zugangsdaten in der Adresse stünden in jeder httpx-Protokollzeile und in
 # den Meldungen, die die Adresse wiederholen. Jedes @ zählt — ein Passwort mit / ? # oder ein
 # Tippfehler (https:///) entginge einer Prüfung nur auf den Rechnerteil.
@@ -134,18 +151,18 @@ def test_email_wird_beschnitten():
 ANFRAGE = "A-2026-01"
 
 
-def _eigene(caplog, logger="bc1_service.bc0_meldungen"):
+def _eigene(caplog, logger="bc1.bc0"):
     return [r.getMessage() for r in caplog.records if r.name == logger]
 
 
 def test_baue_melder_beim_aus_liefert_none_und_warnt(caplog):
-    with caplog.at_level(logging.WARNING, logger="bc1_service.bc0_meldungen"):
+    with caplog.at_level(logging.WARNING, logger="bc1.bc0"):
         assert baue_melder({"BC1_BC0_MELDUNGEN": "aus"}, MANDANT) is None
     assert _eigene(caplog) == [MELDUNG_AUS]
 
 
 def test_baue_melder_mit_zugang_liefert_einen_melder_ohne_warnung(caplog):
-    with caplog.at_level(logging.WARNING, logger="bc1_service.bc0_meldungen"):
+    with caplog.at_level(logging.WARNING, logger="bc1.bc0"):
         assert isinstance(baue_melder(VOLL, MANDANT), Bc0Melder)
     assert _eigene(caplog) == []
 

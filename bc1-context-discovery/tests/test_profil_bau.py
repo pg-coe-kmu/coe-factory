@@ -129,6 +129,30 @@ def test_eigner_abweichung_ergibt_befund_und_warnung(caplog):
     assert len(treffer) == 1, caplog.messages
 
 
+def test_eigner_wird_ohne_gueltige_rolle_nicht_gelesen():
+    # B7 Teil 2 / C1a (4e): ohne gueltiges B3 gibt es nichts zu vergleichen — kein
+    # BC0-Lesezugriff in jedem Reconcile.
+    st = _state(focus_step=("KP-01.TP-1", FieldStatus.GUELTIG),
+                process_owner_role=("ja", FieldStatus.UNGUELTIG))
+    inhalt = baue_profilinhalt(st, EIGNER_PAKET, kp_bekannt=lambda kp: False,
+                               bekannte_systeme=frozenset(),
+                               bc0_eigner=lambda kp: pytest.fail("BC0-Eigner gelesen"))
+    assert "eigner_rolle_abweichung" not in inhalt.profil["befunde"]
+
+
+def test_ohne_protokollieren_keine_eigner_warnung(caplog):
+    # B7 Teil 2: der Writer meldet Befunde nur im Abschluss-Turn; der Befund selbst
+    # steht trotzdem im Profil.
+    st = _state(focus_step=("KP-01.TP-1", FieldStatus.GUELTIG),
+                process_owner_role=("R-01", FieldStatus.GUELTIG))
+    with caplog.at_level("WARNING"):
+        inhalt = baue_profilinhalt(st, EIGNER_PAKET, kp_bekannt=lambda kp: False,
+                                   bekannte_systeme=frozenset(),
+                                   bc0_eigner=lambda kp: "R-02", protokollieren=False)
+    assert "eigner_rolle_abweichung" in inhalt.profil["befunde"]
+    assert not [s for s in caplog.messages if "eigner_rolle_abweichung" in s]
+
+
 def test_kein_befund_bei_gleicher_rolle():
     st = _state(focus_step=("KP-01.TP-1", FieldStatus.GUELTIG),
                 process_owner_role=("R-02", FieldStatus.GUELTIG))
@@ -205,6 +229,17 @@ def test_identitaet_kommt_allein_aus_der_tp_id():
     assert inhalt.process_id == "KP-01"                       # Praefix schlaegt Interview
     assert inhalt.profil["befunde"]["kp_tp_diskrepanz"] == {
         "interview_kp": "KP-02", "abgeleiteter_kp": "KP-01"}
+
+
+def test_ohne_protokollieren_keine_kp_warnung(caplog):
+    st = _state(focus_step=("KP-01.TP-1", FieldStatus.GUELTIG),
+                process_id=("KP-02", FieldStatus.GUELTIG))
+    with caplog.at_level("WARNING"):
+        inhalt = baue_profilinhalt(st, PAKET, kp_bekannt=lambda kp: True,
+                                   bekannte_systeme=frozenset(),
+                                   bc0_eigner=lambda kp: None, protokollieren=False)
+    assert "kp_tp_diskrepanz" in inhalt.profil["befunde"]
+    assert not [s for s in caplog.messages if "kp_tp_diskrepanz" in s]
 
 
 def test_ohne_diskrepanz_kein_befund():
@@ -492,6 +527,19 @@ def test_entfernte_kennung_landet_im_log(caplog):
     assert len(treffer) == 1, caplog.messages
     assert "S-99" in treffer[0] and "focus_step_systems" in treffer[0]
     assert "s1" in treffer[0]
+
+
+def test_ohne_protokollieren_keine_snn_zeile(caplog):
+    # B7 Teil 2: der State behaelt die Kennung, jeder Turn sweept neu — gemeldet wird
+    # nur im Abschluss-Turn. Bereinigt wird trotzdem in jedem.
+    st = _state(focus_step=("KP-01.TP-1", FieldStatus.GUELTIG),
+                focus_step_systems=("SAP (S-99)", FieldStatus.GUELTIG))
+    with caplog.at_level("WARNING"):
+        inhalt = baue_profilinhalt(st, SYS_PAKET, kp_bekannt=lambda kp: False,
+                                   bekannte_systeme=BEKANNT,
+                                   bc0_eigner=lambda kp: None, protokollieren=False)
+    assert "S-99" not in json.dumps(inhalt.profil)
+    assert not [s for s in caplog.messages if "snn_entfernt" in s]
 
 
 def test_beim_aufraeumen_neu_entstandene_kennung_wird_auch_entfernt():

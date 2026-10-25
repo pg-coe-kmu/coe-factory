@@ -1,14 +1,18 @@
 import json
+import logging
 import os
 
+import anthropic
+import httpx
 import pytest
 
 from bc1_core.gespraech import TurnKontext
 from bc1_core.package import TOY_PROZESS
+from bc1_core.protokoll import aktuelle_korrelation
 from bc1_core.store import InMemoryStateStore
 from bc1_core.core import process_turn
 from bc1_core.types import SessionState
-from bc1_service.claude_llm import ClaudeLLM
+from bc1_service.claude_llm import ClaudeLLM, _wiederholung_protokollieren
 from bc1_service.prompts import SYSTEM_GESPRAECH
 
 MANDANT = "11111111-1111-1111-1111-111111111111"
@@ -155,3 +159,45 @@ def test_echt_api_stichprobe_extraktion():
     )
     felder = {k.field_name for k in kandidaten}
     assert "prozess_name" in felder
+
+
+# B7 Teil 2: echter SDK-Client ohne Netz — die Middleware läuft im Wiederholungskreis
+# des SDK einmal je Versuch und sieht dort die Korrelation des aufrufenden Turns.
+def test_wiederholung_wird_mit_versuch_und_korrelation_protokolliert(caplog):
+    caplog.set_level(logging.INFO, logger="bc1.ki")
+    anfragen = []
+
+    def antwort(anfrage: httpx.Request) -> httpx.Response:
+        anfragen.append(anfrage)
+        if len(anfragen) == 1:
+            return httpx.Response(529, headers={"retry-after-ms": "1"}, json={
+                "type": "error", "error": {"type": "overloaded_error", "message": "x"}})
+        return httpx.Response(200, json={
+            "id": "msg_1", "type": "message", "role": "assistant", "model": "m",
+            "content": [{"type": "text", "text": "ok"}], "stop_reason": "end_turn",
+            "stop_sequence": None, "usage": {"input_tokens": 1, "output_tokens": 1}})
+
+    token = aktuelle_korrelation.set("k-1")
+    try:
+        with httpx.Client(transport=httpx.MockTransport(antwort)) as http:
+            client = anthropic.Anthropic(api_key="test", base_url="http://anthropic.test",
+                                         http_client=http, max_retries=1,
+                                         middleware=[_wiederholung_protokollieren])
+            client.messages.create(model="m", max_tokens=10,
+                                   messages=[{"role": "user", "content": "hallo"}])
+    finally:
+        aktuelle_korrelation.reset(token)
+    zeilen = [r for r in caplog.records if r.name == "bc1.ki"]
+    assert [r.getMessage() for r in zeilen] == [
+        "ki_wiederholung korrelation=k-1 anbieter=claude versuch=2"]
+    assert zeilen[0].levelno == logging.WARNING
+    assert len(anfragen) == 2
+
+
+def test_standard_client_meldet_wiederholungen(monkeypatch):
+    aufrufe = []
+    monkeypatch.setattr("bc1_service.claude_llm.anthropic.Anthropic",
+                        lambda **kwargs: aufrufe.append(kwargs))
+    ClaudeLLM()
+    assert aufrufe == [{"timeout": 30.0, "max_retries": 1,
+                        "middleware": [_wiederholung_protokollieren]}]

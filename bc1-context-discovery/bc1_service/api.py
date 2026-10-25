@@ -29,11 +29,12 @@ from bc1_core.core import (AnfrageKonfliktError, MandantKonfliktError,
                            pruefe_mandant)
 from bc1_core.llm import LLMClient
 from bc1_core.package import UseCasePackage
+from bc1_core.protokoll import aktuelle_korrelation
 from bc1_core.store import KorrupterStateError, StaleStateError, StateStore
 from bc1_service.bc0_meldungen import Bc0MeldungFehler
 from bc1_service.profil_writer import ProfilWriteError, ProfilWriter
 
-log = logging.getLogger(__name__)
+log = logging.getLogger("bc1.api")
 # P5 (#271): Betriebsprotokoll des Dienstes, eine Zeile je /turn.
 dienst_log = logging.getLogger("bc1.dienst")
 
@@ -71,6 +72,9 @@ FEHLER_TEXTE = {
     "sitzung_beschaedigt": (                                  # P4 (#270)
         "Diese Sitzung kann nicht fortgesetzt werden. Bitte starten Sie ein neues "
         "Interview."),
+    "interner_fehler": (                                      # B7 Teil 2
+        "Da ist auf unserer Seite etwas schiefgegangen. Bitte senden Sie Ihre "
+        "Nachricht in einem Moment noch einmal."),
 }
 
 
@@ -184,6 +188,9 @@ def create_app(
         # P5 (#271): genau eine Zeile je /turn, auch auf den Fehlerpfaden — nur IDs,
         # Status, Zahlen; nie Nachricht, payload, chat_text oder Frage.
         korrelation = _korrelation(request.headers.get("X-Correlation-ID"))
+        # B7 Teil 2: Kern und Adapter lesen sie von hier. Kein reset noetig — anyio
+        # fuehrt den synchronen Endpunkt in einer eigenen Kopie des Kontexts aus.
+        aktuelle_korrelation.set(korrelation)
         beginn = time.perf_counter()
         http, status = 500, "-"
         try:
@@ -192,9 +199,20 @@ def create_app(
             response.headers["X-Correlation-ID"] = korrelation
             return antwort
         except HTTPException as fehler:
-            http = fehler.status_code
+            # B7 Teil 2 (E11): detail ist hier immer ein fester Schluessel (FEHLER_TEXTE).
+            # Nie Werte in ein detail schreiben — es steht roh in dieser Zeile.
+            http, status = fehler.status_code, fehler.detail
             fehler.headers = {**(fehler.headers or {}), "X-Correlation-ID": korrelation}
             raise
+        except Exception as fehler:
+            # B7 Teil 2: selbst beantworten. Starlettes ServerErrorMiddleware wirft jede
+            # Ausnahme nach dem 500 erneut, und uvicorn schreibt dann den Traceback.
+            # Nur die Klasse, nie Text oder exc_info: beides kann Inhalte tragen.
+            log.error("unerwartete_ausnahme korrelation=%s klasse=%s", korrelation,
+                      type(fehler).__name__)
+            status = "interner_fehler"
+            raise HTTPException(status_code=500, detail="interner_fehler",
+                                headers={"X-Correlation-ID": korrelation}) from None
         finally:
             dienst_log.log(
                 logging.ERROR if http >= 500 else logging.INFO,

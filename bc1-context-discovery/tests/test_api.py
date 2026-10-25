@@ -645,11 +645,11 @@ def test_ohne_writer_wird_nichts_eingefroren_und_nichts_nachgezogen():
 
 
 def _api_log(caplog):
-    return [r for r in caplog.records if r.name == "bc1_service.api"]
+    return [r for r in caplog.records if r.name == "bc1.api"]
 
 
 def test_ohne_melder_kein_aufruf_und_keine_logzeile(caplog):
-    with caplog.at_level(logging.INFO, logger="bc1_service.api"):
+    with caplog.at_level(logging.INFO, logger="bc1.api"):
         antwort = _bis_fertig(_gate_client(None))
     assert antwort.json()["status"] == "fertig"
     assert _api_log(caplog) == []
@@ -657,7 +657,7 @@ def test_ohne_melder_kein_aufruf_und_keine_logzeile(caplog):
 
 def test_gescheitertes_gate_laesst_die_antwort_unberuehrt_und_warnt(caplog):
     melder = _GateMelder(Bc0MeldungFehler("BC0 antwortet auf 'Gate nachziehen' mit 500: x"))
-    with caplog.at_level(logging.WARNING, logger="bc1_service.api"):
+    with caplog.at_level(logging.WARNING, logger="bc1.api"):
         antwort = _bis_fertig(_gate_client(melder))
     assert antwort.status_code == 200 and antwort.json()["status"] == "fertig"
     assert [r.getMessage() for r in _api_log(caplog)] == [MELDUNG_GATE_FEHLGESCHLAGEN.format(
@@ -667,7 +667,7 @@ def test_gescheitertes_gate_laesst_die_antwort_unberuehrt_und_warnt(caplog):
 
 def test_unerwartete_ausnahme_im_hintergrund_nennt_nur_die_klasse(caplog):
     melder = _GateMelder(AttributeError("interna mit geheimnis"))
-    with caplog.at_level(logging.WARNING, logger="bc1_service.api"):
+    with caplog.at_level(logging.WARNING, logger="bc1.api"):
         antwort = _bis_fertig(_gate_client(melder))
     assert antwort.status_code == 200
     eintraege = _api_log(caplog)
@@ -685,7 +685,7 @@ def test_replay_des_abschlusses_zieht_erneut_nach():
 
 
 def test_nachgezogenes_gate_wird_mit_den_gesetzten_anfragen_geloggt(caplog):
-    with caplog.at_level(logging.INFO, logger="bc1_service.api"):
+    with caplog.at_level(logging.INFO, logger="bc1.api"):
         _bis_fertig(_gate_client(_GateMelder()))
     assert [r.getMessage() for r in _api_log(caplog)] == [
         f"Gate bei BC0 nachgezogen (Anfrage {ANFRAGE}): auf am_gate gesetzt: {ANFRAGE}"]
@@ -696,7 +696,7 @@ def test_nachgezogenes_gate_ohne_gesetzte_anfrage_sagt_keine(caplog):
         def ziehe_gate_nach(self, anfrage_id):
             return []
 
-    with caplog.at_level(logging.INFO, logger="bc1_service.api"):
+    with caplog.at_level(logging.INFO, logger="bc1.api"):
         _bis_fertig(_gate_client(_NichtsZuTun()))
     assert [r.getMessage() for r in _api_log(caplog)] == [
         f"Gate bei BC0 nachgezogen (Anfrage {ANFRAGE}): auf am_gate gesetzt: keine"]
@@ -810,7 +810,7 @@ def test_beschaedigte_sitzung_wird_ohne_zeileninhalt_als_fehler_geloggt(caplog):
     # kann bei ValueError Werte aus der Zeile tragen.
     client = TestClient(create_app(_BeschaedigterStore(), _fake_llm(), TOY_PROZESS,
                                    company_id=MANDANT))
-    with caplog.at_level(logging.ERROR, logger="bc1_service.api"):
+    with caplog.at_level(logging.ERROR, logger="bc1.api"):
         _turn(client, "m1", "hallo")
     eintraege = _api_log(caplog)
     assert [(r.levelno, r.getMessage()) for r in eintraege] == [
