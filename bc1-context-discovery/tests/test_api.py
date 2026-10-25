@@ -782,9 +782,10 @@ def test_fehlertexte_tragen_keine_schluessel_und_keine_interna():
 
 
 def test_503_text_verspricht_nicht_dass_neusenden_alles_rettet():
-    # Neusenden im Chat traegt eine neue message_id (n8n: exec-<id>); beim
-    # Abschluss-Turn kommt dann 409 session_abgeschlossen und das Profil fehlt
-    # weiter (Review P3, nachgemessen). Der Text sagt nur, was in beiden Faellen gilt.
+    # Neusenden im Chat traegt eine neue message_id (n8n: exec-<id>). Seit Paket (4)
+    # holt das Gate einen offenen eigenen Entwurf nach; bei dauerhafter Ursache kommt
+    # wieder der 503, ohne eigenen Entwurf 409 abschluss_ausstehend. Der Text sagt
+    # nur, was in allen Faellen gilt (Review P3).
     assert FEHLER_TEXTE["profil_write_fehlgeschlagen"] == (
         "Ihre Nachricht ist angekommen, aber das Profil konnte gerade nicht "
         "gespeichert werden. Bitte senden Sie Ihre letzte Nachricht in einem "

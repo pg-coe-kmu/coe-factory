@@ -78,6 +78,12 @@ def darf_recovery_replay(state: SessionState, package: UseCasePackage,
             and _ctx(state.schema_version).startswith("ctx-")
             and _ctx(package.schema_version).startswith("ctx-"))
 
+def paket_passt(state: SessionState, package: UseCasePackage) -> bool:
+    """Laeuft die Session mit dem Paket des Dienstes? Paket-Schutz des Kerns und
+    Terminal-Gate der API (Paket (4)) pruefen damit dieselbe Regel."""
+    return (state.schema_version == package.schema_version
+            and state.paket_name in (None, package.name))
+
 def profil_payload(state: SessionState, conf: ConfidenceResult,
                    package: UseCasePackage) -> dict:
     # Über die Paketfelder iterieren, nicht über state.values: Gate 0 sieht
@@ -113,8 +119,7 @@ def process_turn(store: StateStore, llm: LLMClient, package: UseCasePackage,
         if anfrage_id is not None:
             pruefe_anfrage(state, anfrage_id)      # vor dem Paket-Guard
 
-    if (state.schema_version != package.schema_version
-            or state.paket_name not in (None, package.name)):
+    if not paket_passt(state, package):
         if not darf_recovery_replay(state, package, message_id,
                                     mitgesendete_version):
             raise PaketKonfliktError(
@@ -144,8 +149,10 @@ def process_turn(store: StateStore, llm: LLMClient, package: UseCasePackage,
         message = state.raw_log[-1][1]
     elif ist_terminal(state):
         # Nach der Gate-0-Übergabe gibt es keinen Übergang zurück (Spec B3).
-        # Neue Nachrichten erhalten idempotent das Abschlussergebnis;
-        # aktives Zurückweisen ist Sache der Transportschicht (P2).
+        # Neue Nachrichten erhalten idempotent das Abschlussergebnis — ohne zu
+        # speichern; aktives Zurückweisen ist Sache der Transportschicht (P2).
+        # Sie lässt seit Paket (4) genau einen Fall durch: das Nachholen eines
+        # offenen Abschlusses (eigener Entwurf offen, api.py Terminal-Gate).
         return state.antworten[state.raw_log[-1][0]]
     else:
         # PII-Filter VOR dem ersten Speichern (B2): ab hier existiert kein

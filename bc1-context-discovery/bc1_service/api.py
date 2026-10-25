@@ -9,6 +9,9 @@ Zurückweisen neuer Nachrichten an Sessions in einem Endzustand (fertig oder
 abgebrochen ohne Identität — Gate 0).
 Seit B4 stößt der Dienst nach einem eingefrorenen Profil BC0s 'Gate nachziehen' an —
 nach der Antwort, im Hintergrund.
+Seit Paket (4) (design/Spec-Abschluss-nachholen.md) holt das Terminal-Gate einen offenen
+Abschluss nach, wenn der eigene Entwurf der fertigen Session noch offen ist; steht das Profil
+sonst aus, antwortet es 409 abschluss_ausstehend statt session_abgeschlossen.
 """
 from __future__ import annotations
 
@@ -25,8 +28,8 @@ from pydantic import BaseModel, Field
 
 from bc1_core.core import (AnfrageKonfliktError, MandantKonfliktError,
                            PaketKonfliktError, darf_recovery_replay,
-                           ist_terminal, process_turn, pruefe_anfrage,
-                           pruefe_mandant)
+                           ist_terminal, paket_passt, process_turn,
+                           pruefe_anfrage, pruefe_mandant)
 from bc1_core.llm import LLMClient
 from bc1_core.package import UseCasePackage
 from bc1_core.protokoll import aktuelle_korrelation
@@ -50,6 +53,9 @@ FEHLER_TEXTE = {
     "session_abgeschlossen": (
         "Dieses Interview ist bereits abgeschlossen. Für einen weiteren "
         "Prozess-Schritt starten Sie bitte ein neues Interview."),
+    "abschluss_ausstehend": (                                 # Paket (4), H
+        "Ihr Interview ist abgeschlossen, das Ergebnis konnte aber noch nicht "
+        "gespeichert werden. Bitte wenden Sie sich an Ihre Ansprechperson."),
     "paket_konflikt": (
         "Die Grundlagen dieses Interviews haben sich geändert (zum Beispiel neue "
         "Teilprozesse beim Mandanten). Bitte starten Sie ein neues Interview."),
@@ -248,12 +254,30 @@ def create_app(
                 raise HTTPException(status_code=409,
                                     detail="schema_version_passt_nicht")
 
-            if (state is not None and ist_terminal(state)
-                    and req.message_id not in state.processed_message_ids):
-                # Nur WIRKLICH neue Nachrichten werden abgewiesen. Bereits
+            nachholen = (state is not None and ist_terminal(state)
+                         and req.message_id not in state.processed_message_ids)
+            if nachholen:
+                # Nur WIRKLICH neue Nachrichten werden hier entschieden. Bereits
                 # bekannte (auch unbeantwortete) gehen an den Kern — er ist die
                 # eine Stelle, die Idempotenz und Crash-Resume entscheidet.
-                raise HTTPException(status_code=409, detail="session_abgeschlossen")
+                # Paket (4): Eine fertige Session mit offenem eigenen Entwurf geht
+                # zum Nachholen weiter (der Kern liefert die gespeicherte Antwort,
+                # speichert nichts); steht das Profil sonst aus, ehrlicher 409.
+                try:
+                    abschluss = (writer.abschluss_offen(state)
+                                 if writer is not None and state.status == "fertig"
+                                 else None)
+                except ProfilWriteError:
+                    raise HTTPException(status_code=503,
+                                        detail="profil_write_fehlgeschlagen")
+                if abschluss == "nachholbar" and not paket_passt(state, package):
+                    abschluss = "ausstehend"
+                if abschluss == "ausstehend":
+                    log.warning("abschluss_ausstehend session=%s message=%s abschluss=%s",
+                                req.session_id, req.message_id, state.raw_log[-1][0])
+                    raise HTTPException(status_code=409, detail="abschluss_ausstehend")
+                if abschluss != "nachholbar":
+                    raise HTTPException(status_code=409, detail="session_abgeschlossen")
 
             try:
                 antwort = process_turn(store, llm, package, req.session_id,
@@ -294,6 +318,9 @@ def create_app(
                     # kompletten Reconcile erneut und antwortet erst nach Erfolg.
                     raise HTTPException(status_code=503,
                                         detail="profil_write_fehlgeschlagen")
+                if nachholen:
+                    log.info("abschluss_nachgeholt session=%s message=%s",
+                             req.session_id, req.message_id)
                 if db_profil is not None:
                     antwort["payload"].update(
                         {k: db_profil[k] for k in OVERLAY_SCHLUESSEL})

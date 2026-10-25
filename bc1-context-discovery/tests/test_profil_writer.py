@@ -612,3 +612,58 @@ def test_replay_nach_committetem_freeze_ist_ein_no_op_erfolg(pool):
     payload = writer.reconcile(_state(), FERTIG)          # Antwort war verloren
     assert payload is not None                            # Erfolg ohne UPDATE
     assert _zeilen() == [("KP-01.TP-1", 1, "fertig")]
+
+
+# --- Paket (4): Abschluss nachholen (Spec-Abschluss-nachholen.md, Abschnitt 4) ---
+
+def test_abschluss_offen_eigener_entwurf_auf_eigenem_schritt_ist_nachholbar(pool):
+    writer = ProfilWriter(pool, MANDANT_A, PAKET)
+    writer.reconcile(_state(), FRAGE)
+    assert writer.abschluss_offen(_state()) == "nachholbar"
+
+
+def test_abschluss_offen_nach_dem_einfrieren_ist_none(pool):
+    writer = ProfilWriter(pool, MANDANT_A, PAKET)
+    writer.reconcile(_state(), FERTIG)
+    assert writer.abschluss_offen(_state()) is None
+
+
+def test_abschluss_offen_ohne_bindung_ist_ausstehend(pool):
+    # Fremder Entwurf hat blockiert, oder der Betrieb hat den eigenen geloescht
+    # (die Bindung haengt per CASCADE am Profil): beides nicht nachholbar.
+    assert ProfilWriter(pool, MANDANT_A, PAKET).abschluss_offen(_state()) == "ausstehend"
+
+
+def test_abschluss_offen_mit_entwurf_auf_anderem_schritt_ist_ausstehend(pool):
+    # Umbinden gescheitert: Der Entwurf liegt noch auf dem alten Schritt. Nachholen
+    # hiesse umbinden — und koennte ein juengeres Profil ueberholen (Spec, N1).
+    writer = ProfilWriter(pool, MANDANT_A, PAKET)
+    writer.reconcile(_state(tp="KP-01.TP-1"), FRAGE)
+    assert writer.abschluss_offen(_state(tp="KP-01.TP-2")) == "ausstehend"
+
+
+def test_abschluss_offen_ohne_identitaetsfeld_im_paket_ist_none_ohne_db():
+    # Ohne Identitaet gibt es kein Profil, also nichts nachzuholen. Der nie
+    # geoeffnete Pool belegt: Es wird gar nicht erst gelesen.
+    ohne = UseCasePackage(name="toy_prozess", schema_version="0.1",
+                          fields=(FieldSpec("prozess_name", "Wie heisst er?"),))
+    writer = ProfilWriter(ConnectionPool(DSN, open=False), MANDANT_A, ohne)
+    assert writer.abschluss_offen(_state()) is None
+
+
+def test_abschluss_offen_meldet_lesefehler_als_profil_write_error():
+    # Das Gate uebersetzt ProfilWriteError in 503; ein roher Fehler wuerde 500,
+    # und ein 409 verschwiege den offenen Abschluss (Spec, Abschnitt 4).
+    writer = ProfilWriter(ConnectionPool(DSN, open=False), MANDANT_A, PAKET)
+    with pytest.raises(ProfilWriteError):
+        writer.abschluss_offen(_state())
+
+
+def test_lesefehler_im_abschlussstand_wird_geloggt(caplog):
+    writer = ProfilWriter(ConnectionPool(DSN, open=False), MANDANT_A, PAKET)
+    with caplog.at_level("ERROR", logger="bc1.writer"):
+        with pytest.raises(ProfilWriteError):
+            writer.abschluss_offen(_state())
+    zeilen = [r for r in caplog.records if r.name == "bc1.writer"]
+    assert len(zeilen) == 1 and zeilen[0].levelname == "ERROR"
+    assert zeilen[0].getMessage().startswith("abschlussstand_unlesbar session=s1 grund=")

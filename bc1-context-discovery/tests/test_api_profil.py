@@ -905,3 +905,217 @@ def test_eingefrorenes_profil_zieht_das_gate_fuer_die_eigene_anfrage_nach(umgebu
         writer=ProfilWriter(pool, MANDANT_A, paket), melder=melder))
     _turn(client, "m1", "alles")
     assert melder.anfragen == [ANFRAGE_A]
+
+
+# --- Paket (4): Abschluss nachholen (B2 eng + H, design/Spec-Abschluss-nachholen.md) ---
+# Gegen den echten Writer: ein Fake hinter der API waere fuer den tdd-guard nicht
+# treibbar (die API faengt jede Ausnahme), und echtes Verhalten ist ohnehin der
+# bessere Beleg (Ledger, Ruling Task 3).
+
+ABSCHLUSS_AUSSTEHEND_TEXT = (
+    "Ihr Interview ist abgeschlossen, das Ergebnis konnte aber noch nicht "
+    "gespeichert werden. Bitte wenden Sie sich an Ihre Ansprechperson.")
+
+
+def _fremder_entwurf():
+    with verbindung(DSN) as conn:
+        conn.execute(
+            "INSERT INTO bc1.prozessprofil (company_id, focus_step_id, "
+            "profil_version, process_id, status, erhebung_id, paket_version, profil) "
+            "VALUES (%s, 'KP-01.TP-1', 1, 'KP-01', 'in_erhebung', 'E-2026-02', "
+            "'1.1+ctx-0000000000000000', '{}')", (MANDANT_A,))
+        conn.commit()
+
+
+def test_fremder_entwurf_gibt_beim_neusenden_abschluss_ausstehend(umgebung):
+    client = _client(umgebung)
+    _fremder_entwurf()
+    assert _turn(client, "m1", "alles").status_code == 503
+    antwort = _turn(client, "m2", "nochmal")
+    assert antwort.status_code == 409
+    assert antwort.json() == {"detail": "abschluss_ausstehend",
+                              "chat_text": ABSCHLUSS_AUSSTEHEND_TEXT}
+    with verbindung(DSN) as conn:                     # nichts angelegt, nichts umgebunden
+        assert conn.execute("SELECT focus_step_id, profil_version, status "
+                            "FROM bc1.prozessprofil").fetchall() == [
+            ("KP-01.TP-1", 1, "in_erhebung")]
+
+
+def test_abgebrochene_sitzung_fragt_den_writer_nicht():
+    # Ein Writer auf nie geoeffnetem Pool: Wird er gefragt, gibt es PoolClosed und
+    # damit nie 409. Abgebrochen ohne Identitaet hat kein Profil — nichts steht aus.
+    ident = UseCasePackage(
+        name="ident_test", schema_version="1.1+ctx-aaaaaaaaaaaaaaaa", max_rounds=2,
+        fields=(FieldSpec("tp_id", "Welcher Schritt?",
+                          validator=lambda v: v == "KP-01.TP-1",
+                          identitaetskritisch=True),))
+    client = TestClient(create_app(
+        InMemoryStateStore(), FakeLLM(), ident, company_id=MANDANT_A,
+        writer=ProfilWriter(ConnectionPool(DSN, open=False), MANDANT_A, ident)))
+    _turn(client, "m1", "a")
+    assert _turn(client, "m2", "b").json()["status"] == "abgebrochen_ohne_identitaet"
+    antwort = _turn(client, "m3", "noch etwas")
+    assert antwort.status_code == 409
+    assert antwort.json()["detail"] == "session_abgeschlossen"
+
+
+def _profilstatus():
+    with verbindung(DSN) as conn:
+        return conn.execute("SELECT status FROM bc1.prozessprofil").fetchall()
+
+
+def test_kurze_stoerung_wird_beim_neusenden_nachgeholt(umgebung):
+    # Die Stoerung kommt NACH dem UPDATE (_EinmalGestoerterWriter): der Rueckroll
+    # wird gemessen, nicht nur ein Fehler vor dem Schreiben.
+    pool, paket = umgebung
+    store, melder = InMemoryStateStore(), _GateZaehler()
+    client = TestClient(create_app(
+        store, _llm(ohne=("pii_involved",)), paket, company_id=MANDANT_A,
+        anfrage_id=ANFRAGE_A, writer=_EinmalGestoerterWriter(pool, MANDANT_A, paket),
+        melder=melder))
+    assert _turn(client, "m1", "alles").json()["status"] == "frage"
+    assert _turn(client, "m2", "rest").status_code == 503
+    assert _profilstatus() == [("in_erhebung",)] and melder.aufrufe == 0
+    log_vorher = len(store.load("s1").raw_log)
+
+    antwort = _turn(client, "m3", "nochmal")                 # neue Kennung
+    assert antwort.status_code == 200
+    assert antwort.json()["status"] == "fertig"
+    payload = antwort.json()["payload"]
+    assert antwort.json()["chat_text"].startswith(payload["abschluss_text"])
+    with verbindung(DSN) as conn:
+        db_profil = conn.execute("SELECT profil FROM bc1.prozessprofil").fetchone()[0]
+    assert payload["befunde"] == db_profil["befunde"] != {}  # Overlay aus der DB
+    assert _profilstatus() == [("fertig",)] and melder.aufrufe == 1
+    gespeichert = store.load("s1")                           # neue Nachricht nie gespeichert
+    assert len(gespeichert.raw_log) == log_vorher
+    assert "m3" not in gespeichert.processed_message_ids
+
+    assert _turn(client, "m3", "nochmal").json()["detail"] == "session_abgeschlossen"
+    assert _turn(client, "m4", "danke").json()["detail"] == "session_abgeschlossen"
+    assert _profilstatus() == [("fertig",)] and melder.aufrufe == 1
+
+
+def _stilllegen(tp="KP-01.TP-1"):
+    with verbindung(DSN, None) as conn:                     # BC0-Tabelle: nicht als bc1_role
+        conn.execute("UPDATE ref_teilprozesse SET aktiv = false "
+                     " WHERE company_id = %s AND sub_process_id = %s", (MANDANT_A, tp))
+        conn.commit()
+
+
+def test_nachholbar_aber_paket_geaendert_gibt_abschluss_ausstehend(umgebung):
+    # Neustart mit anderem ctx-Hash zwischen Abschluss und Neusenden: Der Kern
+    # wuerde paket_konflikt melden. Das Gate prueft dieselbe Regel vorher (paket_passt).
+    pool, paket = umgebung
+    store = InMemoryStateStore()
+    client = TestClient(create_app(
+        store, _llm(ohne=("pii_involved",)), paket, company_id=MANDANT_A,
+        anfrage_id=ANFRAGE_A, writer=ProfilWriter(pool, MANDANT_A, paket)))
+    _turn(client, "m1", "alles")                             # eigener Entwurf steht
+    _stilllegen()
+    assert _turn(client, "m2", "rest").status_code == 503    # Abschluss scheitert
+
+    neues_paket = baue_discovery_paket(kontext=dataclasses.replace(
+        KONTEXT, teilprozesse=KONTEXT.teilprozesse + (("KP-02.TP-1", "Bestellen A"),)))
+    assert neues_paket.schema_version != paket.schema_version
+    client_neu = TestClient(create_app(
+        store, _llm(), neues_paket, company_id=MANDANT_A, anfrage_id=ANFRAGE_A,
+        writer=ProfilWriter(pool, MANDANT_A, neues_paket)))
+    antwort = _turn(client_neu, "m3", "nochmal")
+    assert antwort.status_code == 409
+    assert antwort.json()["detail"] == "abschluss_ausstehend"
+
+
+def test_lesefehler_im_gate_gibt_503(umgebung):
+    # Kann der Abschlussstand nicht gelesen werden, ist offen, ob das Profil fehlt:
+    # 503 wie beim Schreiben — ein 409 verschwiege es, ein 500 waere kein Konflikt.
+    _, paket = umgebung
+    client = TestClient(create_app(
+        InMemoryStateStore(), _llm(), paket, company_id=MANDANT_A, anfrage_id=ANFRAGE_A,
+        writer=ProfilWriter(ConnectionPool(DSN, open=False), MANDANT_A, paket)))
+    assert _turn(client, "m1", "alles").status_code == 503
+    antwort = _turn(client, "m2", "nochmal")
+    assert antwort.status_code == 503
+    assert antwort.json()["detail"] == "profil_write_fehlgeschlagen"
+
+
+class _EinmalGestoerterWriter(ProfilWriter):
+    """Erstes Einfrieren scheitert NACH dem UPDATE (kurze Stoerung), danach normal."""
+    gestoert = False
+
+    def _einfrieren(self, conn, bindung, inhalt):
+        profil = super()._einfrieren(conn, bindung, inhalt)
+        if not self.gestoert:
+            self.gestoert = True
+            raise RuntimeError("kurze Stoerung")
+        return profil
+
+
+def test_nachgeholter_abschluss_wird_protokolliert(umgebung, caplog):
+    pool, paket = umgebung
+    client = TestClient(create_app(
+        InMemoryStateStore(), _llm(ohne=("pii_involved",)), paket, company_id=MANDANT_A,
+        anfrage_id=ANFRAGE_A, writer=_EinmalGestoerterWriter(pool, MANDANT_A, paket)))
+    _turn(client, "m1", "alles")
+    _turn(client, "m2", "rest")                               # 503
+    with caplog.at_level("INFO", logger="bc1.api"):
+        assert _turn(client, "m3", "nochmal").status_code == 200
+    zeilen = [r.getMessage() for r in caplog.records
+              if r.name == "bc1.api" and r.getMessage().startswith("abschluss_")]
+    assert zeilen == ["abschluss_nachgeholt session=s1 message=m3"]
+
+
+def test_abschluss_ausstehend_protokolliert_keinen_text(umgebung, caplog):
+    # Der Betrieb braucht das Signal und die Kennung des Abschluss-Turns, um von
+    # Hand nachzuholen — den Text der Nachricht nie (B7).
+    client = _client(umgebung)
+    _fremder_entwurf()
+    _turn(client, "m1", "alles")                              # 503
+    with caplog.at_level("INFO"):
+        _turn(client, "m2", "Nordlicht-4711 bitte nochmal")
+    warnungen = [r for r in caplog.records
+                 if r.name == "bc1.api" and r.levelname == "WARNING"]
+    assert [r.getMessage() for r in warnungen] == [
+        "abschluss_ausstehend session=s1 message=m2 abschluss=m1"]
+    assert any("http=409 status=abschluss_ausstehend" in r.getMessage()
+               for r in caplog.records if r.name == "bc1.dienst")
+    assert all("Nordlicht" not in r.getMessage() for r in caplog.records)
+
+
+def test_stillgelegter_teilprozess_bleibt_bei_503_ohne_neuen_entwurf(umgebung):
+    # Dauerhafte Ursache bei offenem eigenen Entwurf: Nachholen scheitert jedes Mal
+    # gleich (503-Schleife), ohne etwas anzulegen oder die Sitzung zu veraendern.
+    pool, paket = umgebung
+    store = InMemoryStateStore()
+    client = TestClient(create_app(
+        store, _llm(ohne=("pii_involved",)), paket, company_id=MANDANT_A,
+        anfrage_id=ANFRAGE_A, writer=ProfilWriter(pool, MANDANT_A, paket)))
+    _turn(client, "m1", "alles")
+    _stilllegen()
+    assert _turn(client, "m2", "rest").status_code == 503
+    log_vorher = len(store.load("s1").raw_log)
+    assert _turn(client, "m3", "nochmal").status_code == 503
+    gespeichert = store.load("s1")
+    assert len(gespeichert.raw_log) == log_vorher
+    assert "m3" not in gespeichert.processed_message_ids
+    with verbindung(DSN) as conn:
+        assert conn.execute("SELECT focus_step_id, profil_version, status "
+                            "FROM bc1.prozessprofil").fetchall() == [
+            ("KP-01.TP-1", 1, "in_erhebung")]
+
+
+def test_fremde_anfrage_fragt_den_writer_nicht(umgebung):
+    # Anfrage-Schutz vor dem Gate: Ein Dienst fuer eine andere Anfrage darf den
+    # Abschlussstand gar nicht erst lesen (Writer auf nie geoeffnetem Pool: 503).
+    _, paket = umgebung
+    store = InMemoryStateStore()
+    client = TestClient(create_app(
+        store, _llm(), paket, company_id=MANDANT_A, anfrage_id=ANFRAGE_A,
+        writer=ProfilWriter(ConnectionPool(DSN, open=False), MANDANT_A, paket)))
+    assert _turn(client, "m1", "alles").status_code == 503     # fertig, Profil fehlt
+    fremd = TestClient(create_app(
+        store, _llm(), paket, company_id=MANDANT_A, anfrage_id="A-2026-99",
+        writer=ProfilWriter(ConnectionPool(DSN, open=False), MANDANT_A, paket)))
+    antwort = _turn(fremd, "m2", "nochmal")
+    assert antwort.status_code == 409
+    assert antwort.json()["detail"] == "anfrage_konflikt"
