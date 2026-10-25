@@ -2,7 +2,7 @@
 
 > Stand 25.10.2026, Fassung 1. Go der BC1-Projektleitung am 25.10. („Go Paket 5").
 > Quelle: Abschlussplan „Neu 24.10. — aus B8" (1) und (2); „Neu 25.10. — aus B7 Teil 2" (3) als Option.
-> **Gebaut 25.10.** auf Zweig `bc1-test-aufraeumen`, ohne Abweichung vom Plan: Der Guard ließ den ersten Edit (Fixture und Test 1) als Refactoring bei Grün durch, der Ausweichweg war nicht nötig. Alle drei Gegenproben verhielten sich wie erwartet, G2 auch mit dem Zusatz. Testnamen vorher und nachher gleich (913), Suite mit DB 909/4.
+> **Gebaut 25.10.** auf Zweig `bc1-test-aufraeumen`, ohne Abweichung vom Plan: Der Guard ließ den ersten Edit (Fixture und Test 1) als Refactoring bei Grün durch, der Ausweichweg war nicht nötig. Alle drei Gegenproben verhielten sich wie erwartet, G2 auch mit dem Zusatz. Testnamen vorher und nachher gleich (913), Suite mit DB 909/4. Außerhalb des Plans steht im Doku-Commit ein Prüfbefund zum Nebenbefund Konvertierungs-Widerspruch (Abschlussplan „Neu 25.10. — aus der Prüfung von Paket (4)"); die Entscheidung dazu bleibt offen. Gesamtprüfung: 0 Critical, 0 Important, 3 Minor. Eingearbeitet: Einmal-Vertrag für `main_laden()` (Zusicherung, Gegenprobe in einer Kopie), Zahl der Melder-Tests korrigiert, dieser Hinweis ergänzt.
 > Größe XS, nur Testcode, eine Datei. Zweitmeinung: eine unabhängige Prüfung nach dem Bau (Plan und Diff zusammen). Mehr ist nicht nötig, weil kein Produktionscode und kein Vertrag berührt wird.
 
 ## Big Picture
@@ -13,7 +13,7 @@ Vier Tests in `tests/test_api_profil.py` prüfen, wie `bc1_service/main.py` den 
 
 **Was sich ändert:** Alle vier Tests laufen mit dem strengen Ersatz. Würde `main.py` ein viertes Positionsargument übergeben, schlügen damit alle vier fehl, nicht nur einer. Das ist gewollt: Die Regel aus B8 gilt dann überall.
 
-**Was sich nicht ändert:** Produktionscode, Anzahl und Namen der Tests (Suite mit DB 909/4), die fünf Melder-Tests mit ihrem eigenen Helfer `_main_mit_melder`.
+**Was sich nicht ändert:** Produktionscode, Anzahl und Namen der Tests (Suite mit DB 909/4), die acht Melder-Tests mit ihrem eigenen Helfer `_main_mit_melder`.
 
 ## Entscheidungen
 
@@ -22,7 +22,7 @@ Vier Tests in `tests/test_api_profil.py` prüfen, wie `bc1_service/main.py` den 
 | E1 | Fixture als **Fabrik**: `main_laden()` importiert erst beim Aufruf und gibt `(main, gesehen)` zurück | Test 4 muss `BC1_SNAPSHOT_PFAD` **vor** dem Import setzen. Eine Fixture, die selbst importiert, liefe vor dem Testkörper. |
 | E2 | Fixture direkt **über dem ersten Test** der Gruppe, nicht oben bei `umgebung` | So steht es in der Datei schon bei `_StartMelder` und `_main_mit_melder`: Helfer stehen bei ihren Tests. Außerdem kann der erste Umbau so in einem zusammenhängenden Edit geschehen. |
 | E3 | Ein **strenger** Ersatz `_stub_create_app(store, llm, package, **kw)` für alle vier | Ein nachsichtiger Ersatz kann einen Verdrahtungsfehler verdecken. `lifespan` landet benannt in `kw`, also in `gesehen["lifespan"]`. |
-| E4 | **Vorschlag, Entscheidung bei der Planabnahme:** Die fünf Melder-Tests (ca. Z. 581–738) bleiben, wie sie sind | Sie haben schon einen gemeinsamen Helfer. Wiederholt wird nur das dreizeilige Aufräumen. Sie umzubauen hieße fünf weitere Umbauten unter dem Guard für wenig Gewinn. **Ziel:** `_main_mit_melder` auf das Aufräumen von `main_laden` stützen, sobald ein weiterer Melder-Test dazukommt (neuer Kleinpunkt im Abschlussplan). |
+| E4 | **Vorschlag, Entscheidung bei der Planabnahme:** Die acht Melder-Tests (ca. Z. 581–738) bleiben, wie sie sind | Sie haben schon einen gemeinsamen Helfer. Wiederholt wird nur das dreizeilige Aufräumen, und zwar in vier von ihnen. Sie umzubauen hieße vier weitere Umbauten unter dem Guard für wenig Gewinn. *(Zahlen nach der Gesamtprüfung korrigiert; die Entscheidung ändert sich dadurch nicht.)* **Ziel:** `_main_mit_melder` auf das Aufräumen von `main_laden` stützen, sobald ein weiterer Melder-Test dazukommt (neuer Kleinpunkt im Abschlussplan). |
 | E5 | **Vorschlag, Entscheidung bei der Planabnahme:** Die eigene Protokollzeile für einen Startabbruch (B7 Teil 2, A2) ist **nicht** Teil dieses Pakets | Sie wäre Produktionscode. Heute gibt es keinen Leser, den der Traceback stört, also gilt YAGNI. **Neues Ziel:** B3 Teil 2, sobald Startabbrüche im Server-Log gelesen werden müssen. Das Ziel im Abschlussplan wird umgeschrieben. |
 
 ## Global Constraints
