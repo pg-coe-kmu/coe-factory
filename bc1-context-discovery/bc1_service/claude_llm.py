@@ -8,6 +8,7 @@ fehler_fortsetzbar-Vertrag. Structured Outputs garantieren valides JSON.
 from __future__ import annotations
 
 import json
+import logging
 import os
 
 import anthropic
@@ -15,6 +16,7 @@ import anthropic
 from bc1_core.gespraech import TurnKontext
 from bc1_core.llm import ExtractionCandidate
 from bc1_core.package import UseCasePackage
+from bc1_core.protokoll import aktuelle_korrelation
 from bc1_core.types import SessionState
 from bc1_service.prompts import (
     EXTRAKTIONS_SCHEMA,
@@ -25,10 +27,22 @@ from bc1_service.prompts import (
 
 STANDARD_MODELL = "claude-opus-5"
 
+log = logging.getLogger("bc1.ki")
+
+
+def _wiederholung_protokollieren(anfrage, weiter):
+    # B7 Teil 2: SDK-Middleware (anthropic._middleware) — laeuft im Wiederholungskreis
+    # des SDK einmal je Versuch, im aufrufenden Thread; der erste Versuch hat 0.
+    if anfrage.retries_taken:
+        log.warning("ki_wiederholung korrelation=%s anbieter=claude versuch=%d",
+                    aktuelle_korrelation.get(), anfrage.retries_taken + 1)
+    return weiter(anfrage)
+
 
 class ClaudeLLM:
     def __init__(self, client=None, modell: str | None = None) -> None:
-        self._client = client or anthropic.Anthropic(timeout=30.0, max_retries=1)
+        self._client = client or anthropic.Anthropic(
+            timeout=30.0, max_retries=1, middleware=[_wiederholung_protokollieren])
         self._modell = modell or os.environ.get("BC1_CLAUDE_MODELL", STANDARD_MODELL)
 
     def extract(
