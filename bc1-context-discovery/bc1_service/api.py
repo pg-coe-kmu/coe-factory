@@ -199,6 +199,8 @@ def create_app(
             response.headers["X-Correlation-ID"] = korrelation
             return antwort
         except HTTPException as fehler:
+            # B7 Teil 2 (E11): detail ist hier immer ein fester Schluessel (FEHLER_TEXTE).
+            # Nie Werte in ein detail schreiben — es steht roh in dieser Zeile.
             http, status = fehler.status_code, fehler.detail
             fehler.headers = {**(fehler.headers or {}), "X-Correlation-ID": korrelation}
             raise

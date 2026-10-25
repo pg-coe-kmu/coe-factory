@@ -1,6 +1,7 @@
 """B7 Teil 2 (#266): Betriebsprotokoll des Kerns — nur Kennungen, Feldnamen, Klassen, Zahlen."""
 import logging
 import re
+import time
 
 import pytest
 
@@ -31,6 +32,22 @@ def test_ki_aufrufe_werden_mit_dauer_protokolliert(caplog):
     assert all(treffer), [r.getMessage() for r in zeilen]
     assert [t["art"] for t in treffer] == ["extraktion", "antwort"]
     assert all(r.levelno == logging.INFO for r in zeilen)
+
+
+class _LangsameExtraktion(FakeLLM):
+    def extract(self, message, package, state):
+        time.sleep(0.02)
+        return super().extract(message, package, state)
+
+
+def test_ki_dauer_misst_den_aufruf(caplog):
+    # Gesamtprüfung M2: die Zeile muss die echte Dauer tragen, nicht nur eine Zahl.
+    caplog.set_level(logging.INFO, logger="bc1.kern")
+    process_turn(InMemoryStateStore(), _LangsameExtraktion(), TOY_PROZESS, "s1", "m1",
+                 "hallo", company_id=MANDANT)
+    extraktion = KI_ZEILE.match(_kern(caplog)[0].getMessage())
+    assert extraktion["art"] == "extraktion"
+    assert int(re.search(r"dauer_ms=(\d+)", extraktion.string)[1]) >= 20
 
 
 GEHEIM = "Geheimwort Nordlicht 4711"

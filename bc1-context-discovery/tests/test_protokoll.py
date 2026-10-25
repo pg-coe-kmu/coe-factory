@@ -7,8 +7,9 @@ from fastapi.testclient import TestClient
 
 from bc1_core.llm import ExtractionCandidate, FakeLLM
 from bc1_core.package import TOY_PROZESS
-from bc1_core.store import InMemoryStateStore, KorrupterStateError
+from bc1_core.store import InMemoryStateStore, KorrupterStateError, StaleStateError
 from bc1_service.api import FEHLER_TEXTE, _protokollwert, create_app
+from bc1_service.profil_writer import ProfilWriteError
 
 MANDANT = "11111111-1111-1111-1111-111111111111"
 GEHEIM = "Geheimwort Nordlicht 4711"
@@ -221,6 +222,32 @@ def test_abgewiesener_turn_nennt_den_grund_im_status(caplog):
     _turn(client, "m4", "noch etwas")
     treffer = ZEILE.match(_zeilen(caplog)[0].getMessage())
     assert treffer["http"] == "409" and treffer["status"] == "session_abgeschlossen"
+
+
+class _KonfliktStore(InMemoryStateStore):
+    def save(self, state):
+        raise StaleStateError("verlorener Schreibwettlauf")
+
+
+class _ScheiternderWriter:
+    def reconcile(self, stand, antwort):
+        raise ProfilWriteError("Abschluss nicht gespeichert")
+
+
+# Gesamtprüfung M1: der Grund je Fehlerart — gerade der Store-Konflikt war der Anlass
+# für E11 (sonst nicht von anderen 409 zu unterscheiden).
+@pytest.mark.parametrize("store, writer, http, status", [
+    (_KonfliktStore(), None, "409", "gleichzeitige_anfrage"),
+    (_BeschaedigterStore(), None, "500", "sitzung_beschaedigt"),
+    (InMemoryStateStore(), _ScheiternderWriter(), "503", "profil_write_fehlgeschlagen"),
+])
+def test_turn_zeile_nennt_den_grund_je_fehlerart(caplog, store, writer, http, status):
+    caplog.set_level(logging.INFO, logger="bc1.dienst")
+    client = TestClient(create_app(store, _llm(), TOY_PROZESS, company_id=MANDANT,
+                                   writer=writer), raise_server_exceptions=False)
+    _turn(client, "m1", GEHEIM)
+    treffer = ZEILE.match(_zeilen(caplog)[0].getMessage())
+    assert (treffer["http"], treffer["status"]) == (http, status)
 
 
 def test_unerwartete_ausnahme_steht_als_interner_fehler_in_der_turn_zeile(caplog):

@@ -110,8 +110,10 @@ neuen Versuch noch einmal da. Eine *unerwartete* Ausnahme in `/turn` beantwortet
 **Nie im Protokoll:** Nachrichtentext, extrahierte Werte, Profildaten, Fragen, Chat-Texte, Ausnahmetexte
 und Tracebacks — nur IDs, Feldnamen, Status, Klassennamen und Zahlen. Einzige Ausnahme: Der Profil-Writer
 nennt bei Datenbankfehlern Klasse und erste Meldungszeile (Tabelle, Constraint), nie die DETAIL-Zeile.
-Seine Befund-Warnungen (`kp_tp_diskrepanz`, `eigner_rolle_abweichung`, `snn_entfernt`) kommen einmal im
-Abschluss-Turn; die Befunde selbst stehen im Profil. Alle eigenen Logger hängen unter `bc1` (`bc1.dienst`,
+Seine Befund-Warnungen (`kp_tp_diskrepanz`, `eigner_rolle_abweichung`, `snn_entfernt`) kommen nur im
+Abschluss-Turn (ein Replay oder der erneute Versuch nach einem 503 meldet erneut). Die Befunde selbst
+stehen im Profil; die entfernten Systemkennungen stehen bewusst nur in der Zeile `snn_entfernt` (und
+weiter im Sitzungszustand, den der Sweep nicht ändert). Alle eigenen Logger hängen unter `bc1` (`bc1.dienst`,
 `bc1.api`, `bc1.kern`, `bc1.ki`, `bc1.writer`, `bc1.bc0`). Das Protokoll geht auf die Standardausgabe des
 Prozesses; im Container `docker logs <container>`.
 

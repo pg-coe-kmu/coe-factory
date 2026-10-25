@@ -6,7 +6,7 @@
 > **Geprüft:** unabhängiger Prüfer (25.10.), „bereit mit Korrekturen", 0 Critical, 4 Important, 9 Minor. Alle Behauptungen zu SDK, Starlette, anyio und psycopg hat er an der Quelle bestätigt und gemessen. Alles eingearbeitet (Abschnitt „Befundverbleib").
 > **Bestätigt 25.10.** durch die BC1-Projektleitung: A1–A3 wie empfohlen, inklusive E11 („Bau los, TDD-Guard nie umgehen.").
 > Ausführung: Claude selbst im Hauptstrang, `*.py` nur per Edit/Write; danach eine unabhängige Gesamtprüfung.
-> **Gebaut 25.10.** auf Zweig `bc1-b7-teil-2`, alle Tasks unter dem tdd-guard, jeder Test war im eigenen Zyklus rot (keine Gegenprobe nötig). Suite: mit DB 863/4, ohne DB 594/273.
+> **Gebaut 25.10.** auf Zweig `bc1-b7-teil-2`, alle Tasks unter dem tdd-guard, jeder Test war im eigenen Zyklus rot. **Gesamtprüfung 25.10.:** „merge-fähig", 0 Critical, 0 Important, 5 Minor (33 Mutanten, 30 rot). M1/M2 mit zwei neuen Tests geschlossen (grün bei Ankunft, Gegenprobe im Scratchpad-Kopie-Verfahren: alle vier Mutationen rot), M3/M5 Kommentar bzw. README, M4 mit Ziel zurückgestellt (Abschnitt „Befundverbleib"). Suite: mit DB 867/4, ohne DB 598/273.
 
 ## Big Picture
 
@@ -187,6 +187,7 @@ Dateien: `bc1_service/bc0_meldungen.py`; Test `tests/test_bc0_meldungen.py`.
 | Korrelation in Writer-, Gate- und Prosazeilen (A3) | B3 Teil 2, sobald mehr als ein Worker läuft |
 | `bc1` auf INFO, `anthropic`/`httpx` höchstens INFO | B3 Teil 2 (fremde Logging-Konfiguration entsteht erst auf dem Server) |
 | Eigene Startabbruch-Zeile (A2), falls doch gewünscht | mit der Fixture-Schuld „Neu 24.10. — aus B8" (1), Paket (5) Test-Aufräumen |
+| Ort einer unerwarteten Ausnahme (`ort=<datei>:<zeile>` aus dem innersten Frame, ohne Quelltext und Werte) — heute nur `klasse=` (Gesamtprüfung M4) | Live-Bewertung im echten Chat (Paket 6) bzw. B3 Teil 2: sobald ein 500 im Betrieb nicht zu lokalisieren ist |
 
 ## Befundverbleib (Prüfung 25.10.)
 
@@ -205,3 +206,13 @@ Dateien: `bc1_service/bc0_meldungen.py`; Test `tests/test_bc0_meldungen.py`.
 | M7 T3.2 sicherte nicht ab, dass gültige Werte keine Zeile erzeugen | Minor | eingearbeitet (vollständige Liste) |
 | M8 Zeilen entstehen je Verarbeitungsversuch | Minor | eingearbeitet (Zeilentabelle, README) |
 | M9 Wortlaut E7 („in jedem Turn") und E3 („wie alle Abhängigkeiten") | Minor | eingearbeitet |
+
+**Gesamtprüfung (25.10., „merge-fähig", 0 Critical, 0 Important, 5 Minor):**
+
+| Befund | Schwere | Verbleib |
+|---|---|---|
+| M1 Grund in der Turn-Zeile nur für 409 `session_abgeschlossen` getestet; Mutanten „Grund nur bei 409" überlebten | Minor | eingearbeitet: `test_turn_zeile_nennt_den_grund_je_fehlerart` (409 `gleichzeitige_anfrage`, 500 `sitzung_beschaedigt`, 503 `profil_write_fehlgeschlagen`); Gegenprobe: jeder Fall wird von seiner Mutation rot. T5.3 bleibt (doppelt mit dem umbenannten P5-Test, harmlos) |
+| M2 `dauer_ms` nicht auf echte Messung geprüft | Minor | eingearbeitet: `test_ki_dauer_misst_den_aufruf` (20 ms); Gegenprobe „Dauer fest 0" rot |
+| M3 `status=fehler.detail` unmaskiert | Minor | bewusst so gelassen: alle 13 `HTTPException`-Stellen haben feste Schlüssel aus `FEHLER_TEXTE` (vom Prüfer gelesen); Kommentar an der Stelle hält die Regel fest |
+| M4 unerwartete Ausnahme ohne Ort | Minor | **zurückgestellt mit Ziel** (Abschnitt „Zurückgestellt") |
+| M5 „einmal im Abschluss-Turn" und „Befunde stehen im Profil" ungenau | Minor | eingearbeitet: Kommentar im Writer, README (Replay/Retry melden erneut; Kennungen nur im Log und im Sitzungszustand) |

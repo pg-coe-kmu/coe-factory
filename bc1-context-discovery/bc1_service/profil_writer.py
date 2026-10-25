@@ -390,8 +390,9 @@ class ProfilWriter:
                     bc0_lesepfade.system_ids(conn, self._company_id)),
                 bc0_eigner=lambda kp: bc0_lesepfade.eigner_rollen(
                     conn, self._company_id, [kp]).get(kp),
-                # Befunde stehen in jedem geschriebenen Profil, gemeldet werden sie
-                # einmal: im Abschluss-Turn (B7 Teil 2, C1a (4e)).
+                # Befunde stehen in jedem geschriebenen Profil, gemeldet werden sie nur
+                # im Abschluss-Turn (B7 Teil 2, C1a (4e)); ein Replay oder der erneute
+                # Versuch nach einem 503 meldet erneut.
                 protokollieren=antwort["status"] == "fertig")
             if inhalt is None:
                 # Keine gueltige Identitaet in diesem Turn. Der Draft bleibt
