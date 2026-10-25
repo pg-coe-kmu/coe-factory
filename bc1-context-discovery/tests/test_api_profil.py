@@ -455,6 +455,9 @@ def main_laden(umgebung, monkeypatch):
     geladen: list = []
 
     def _laden():
+        # Genau ein Aufruf je Test: beim zweiten merkte sich monkeypatch das erste
+        # Modul und stellte es beim Rueckbau mit geschlossenen Pools wieder her.
+        assert not geladen, "main_laden() nur einmal je Test aufrufen"
         monkeypatch.delitem(sys.modules, "bc1_service.main", raising=False)
         geladen.append(importlib.import_module("bc1_service.main"))
         return geladen[-1], gesehen
