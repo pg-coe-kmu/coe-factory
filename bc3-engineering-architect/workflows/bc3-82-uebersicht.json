@@ -5,7 +5,6 @@
     {
       "id": "9e375350-3b99-4b50-84a3-9beacd2258db",
       "name": "Seite aufgerufen",
-      "webhookId": null,
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
@@ -45,7 +44,6 @@
     {
       "id": "aaae8a83-f4fd-4e85-be0c-ead73dfe0670",
       "name": "Jetzt prüfen gedrückt",
-      "webhookId": null,
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
@@ -70,7 +68,6 @@
       "name": "BC3-01 aufrufen",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
-      "onError": "continueRegularOutput",
       "position": [
         448,
         96
@@ -137,7 +134,8 @@
         "options": {
           "waitForSubWorkflow": true
         }
-      }
+      },
+      "onError": "continueRegularOutput"
     },
     {
       "id": "addc4198-1399-4e35-905f-eeb8d5b1e400",
@@ -199,8 +197,6 @@
       "name": "Läufe holen",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "executeOnce": true,
-      "alwaysOutputData": true,
       "position": [
         896,
         192
@@ -214,15 +210,15 @@
         "postgres": {
           "name": "Postgres BC3"
         }
-      }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
     },
     {
       "id": "8a79d1ea-96a8-42f8-9fae-f1694fa10bed",
       "name": "Entscheidungen holen",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "executeOnce": true,
-      "alwaysOutputData": true,
       "position": [
         1120,
         192
@@ -236,15 +232,15 @@
         "postgres": {
           "name": "Postgres BC3"
         }
-      }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
     },
     {
       "id": "7f0000c8-b628-4d88-be29-95a831ddca2d",
       "name": "Fehler holen",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "executeOnce": true,
-      "alwaysOutputData": true,
       "position": [
         1344,
         192
@@ -258,15 +254,15 @@
         "postgres": {
           "name": "Postgres BC3"
         }
-      }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
     },
     {
       "id": "2ab97d76-851d-4f84-ae5f-c84082acaf15",
       "name": "Gate-2-Links holen",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "executeOnce": true,
-      "alwaysOutputData": true,
       "position": [
         1568,
         192
@@ -280,7 +276,9 @@
         "postgres": {
           "name": "Postgres BC3"
         }
-      }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
     },
     {
       "id": "4044d5e1-d25c-42c3-a7c8-cc202ce926ce",
@@ -356,7 +354,6 @@
     {
       "id": "786aa876-72c5-40c8-a813-9e87e67351d3",
       "name": "Seite aufgerufen (Legal)",
-      "webhookId": null,
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
@@ -381,7 +378,6 @@
     {
       "id": "14846cc2-9b1d-4a4c-a371-6610a7d82ad3",
       "name": "Jetzt prüfen gedrückt (Legal)",
-      "webhookId": null,
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
@@ -406,9 +402,6 @@
       "name": "Prüfstand holen",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
-      "executeOnce": true,
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput",
       "position": [
         1680,
         400
@@ -422,7 +415,10 @@
         "postgres": {
           "name": "Postgres BC3"
         }
-      }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true,
+      "executeOnce": true
     },
     {
       "id": "bfd95908-7577-46f9-bf20-70f60245f036",
@@ -534,6 +530,17 @@
         ]
       ]
     },
+    "Seite bauen": {
+      "main": [
+        [
+          {
+            "node": "Link zur Live-Demo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Seite aufgerufen (Legal)": {
       "main": [
         [
@@ -572,17 +579,6 @@
         [
           {
             "node": "Seite bauen",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Seite bauen": {
-      "main": [
-        [
-          {
-            "node": "Link zur Live-Demo",
             "type": "main",
             "index": 0
           }
