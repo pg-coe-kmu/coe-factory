@@ -204,8 +204,9 @@ def baue_profilinhalt(state: SessionState, package: UseCasePackage, *,
         try:
             spalten[spalte] = konverter(wert, feld)
         except ProfilWriteError:
-            # Der Fehler wird spaeter als generischer 503 ausgeliefert — ohne diesen
-            # Eintrag waere nicht feststellbar, welche Sitzung an welchem Feld haengt.
+            # Im Abschluss-Turn wird der Fehler ein generischer 503, davor wird er
+            # uebersprungen — ohne diesen Eintrag waere nicht feststellbar, welche
+            # Sitzung an welchem Feld haengt.
             # Der Rohwert bleibt bewusst draussen: er ist Nutzertext.
             log.error("profil_konvertierung_widerspruch session=%s feld=%s ziel=%s",
                       state.session_id, feld, ziel)
@@ -361,6 +362,9 @@ class ProfilWriter:
                 # Heute nur der Konvertierungs-Widerspruch (Feld und Ziel stehen schon in
                 # der ERROR-Zeile des Baus). Als Grund nur die Klasse: die Meldung traegt
                 # den Rohwert, also Nutzertext. Wie unten: der Frage-Turn blockiert nicht.
+                # Kaeme eine weitere Quelle dazu, liefe sie hier ebenfalls nur mit dem
+                # Klassennamen durch — sie braucht dann vor ihrem raise eine eigene
+                # Protokollzeile ohne Nutzertext.
                 log.warning("profil_write_uebersprungen session=%s grund=ProfilWriteError",
                             state.session_id)
                 return None
@@ -412,8 +416,7 @@ class ProfilWriter:
         with self._pool.connection() as conn:          # eine Transaktion
             bindung = self._bindung(conn, state.session_id)
             # Der Abbruch braucht den Profilinhalt nicht — und er wird VOR dem Bau
-            # behandelt: sonst reisst jeder Fehler beim Bau das Aufraeumen mit, und
-            # ein ProfilWriteError von dort wuerde den Abbruch zum 503 machen. Fuer
+            # behandelt: sonst reisst jeder Fehler beim Bau das Aufraeumen mit. Fuer
             # abgebrochen_ohne_identitaet gilt die Postcondition ausdruecklich nicht.
             if antwort["status"] == "abgebrochen_ohne_identitaet":
                 if bindung is not None:

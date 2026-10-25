@@ -198,7 +198,7 @@ def test_konvertierungswiderspruch_im_abschluss_bleibt_ein_503_ohne_rohwert(pool
     writer = ProfilWriter(pool, MANDANT_A, KONV_PAKET)
     writer.reconcile(_state(), FRAGE)
     zustand = _state(frequency_per_year=("dreimal jaehrlich", FieldStatus.GUELTIG))
-    with caplog.at_level("ERROR"), pytest.raises(ProfilWriteError):
+    with caplog.at_level("DEBUG"), pytest.raises(ProfilWriteError):
         writer.reconcile(zustand, FERTIG)
     assert "dreimal jaehrlich" not in caplog.text
     assert _zeilen() == [("KP-01.TP-1", 1, "in_erhebung")]
