@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from bc1_core.llm import ExtractionCandidate, FakeLLM
 from bc1_core.package import TOY_PROZESS
 from bc1_core.store import InMemoryStateStore, KorrupterStateError
-from bc1_service.api import create_app
+from bc1_service.api import _protokollwert, create_app
 
 MANDANT = "11111111-1111-1111-1111-111111111111"
 GEHEIM = "Geheimwort Nordlicht 4711"
@@ -147,8 +147,12 @@ def test_unerwartete_ausnahme_gibt_eine_error_zeile_ohne_inhalt(caplog):
 def test_fremd_gewaehlte_ids_koennen_keine_felder_faelschen(caplog):
     caplog.set_level(logging.INFO, logger="bc1.dienst")
     _turn(_client(), "m1 http=200", GEHEIM, session="x status=fertig\nturn")
-    zeile = _zeilen(caplog)[0].getMessage()
-    treffer = ZEILE.match(zeile)
-    assert treffer, zeile
-    assert treffer["session"] == "x?status?fertig?turn"
-    assert treffer["message"] == "m1?http?200"
+    # Seit der Härtung (25.10.) scheitert so eine Anfrage am Kennungsmuster (422,
+    # test_api) und erzeugt gar keine Dienstzeile mehr.
+    assert _zeilen(caplog) == []
+
+
+# Die Maskierung bleibt als Verteidigung in der Tiefe, falls das Kennungsmuster je fällt;
+# über /turn ist sie seit der Härtung nicht mehr zu erreichen, deshalb direkt geprüft.
+def test_protokollwert_maskiert_fremde_zeichen():
+    assert _protokollwert("x status=fertig\nturn") == "x?status?fertig?turn"

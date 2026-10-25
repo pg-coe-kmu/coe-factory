@@ -3,6 +3,7 @@ import threading
 from contextlib import asynccontextmanager
 from dataclasses import replace
 
+import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
@@ -250,6 +251,27 @@ def test_nebenlaeufige_turns_derselben_session_serialisiert():
 # sie dürfen gar nicht erst in den Kern laufen.
 def test_leere_message_id_wird_abgewiesen():
     assert _turn(_client(), "", "Hallo").status_code == 422
+
+
+# Die Sitzungskennung kommt vom Browser (n8n-Chat, localStorage) und landet roh in
+# Protokollzeilen: ein Zeilenumbruch fälschte eine zweite Zeile, `|` den Writer-Schlüssel.
+@pytest.mark.parametrize("session, mid", [
+    ("s1\n", "m1"),                       # Python-re ließe das durch, pydantic-core nicht
+    ("s 1", "m1"),
+    ("s1|x", "m1"),
+    ("x" * 65, "m1"),
+    ("s1", "m1\nturn korrelation=x"),
+])
+def test_kennung_ausserhalb_des_musters_wird_abgewiesen(session, mid):
+    assert _turn(_client(), mid, "Hallo", session=session).status_code == 422
+
+
+# Gegenstück: genau das, was n8n schickt (sessionId = uuid v4 aus @n8n/chat,
+# message_id = exec-<Ausführung>), muss durch — sonst wäre das Muster zu streng.
+def test_uuid_und_exec_kennung_werden_angenommen():
+    antwort = _turn(_client(), "exec-4711", "Hallo",
+                    session="3f2b8c1e-9a4d-4e6f-8b7a-1c2d3e4f5a6b")
+    assert antwort.status_code == 200
 
 
 # Die Produktions-Verdrahtung braucht einen Aufhaenger fuers Herunterfahren

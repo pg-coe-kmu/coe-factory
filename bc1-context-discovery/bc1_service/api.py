@@ -113,10 +113,16 @@ MELDUNG_GATE_FEHLGESCHLAGEN = (
     "BC0 von Hand nachziehen (POST /api/companies/{company_id}/anfragen/gate_nachziehen).")
 
 
+# Härtung (25.10.): Die Kennungen wählt der Aufrufer (n8n: UUID aus dem localStorage des
+# Browsers, `exec-<Nummer>`) und sie stehen roh in Protokollzeilen und im Writer-Schlüssel
+# (`session|schritt`). 64 Zeichen wie die Maskierung der Dienstzeile (`_protokollwert`).
+KENNUNG_MUSTER = r"^[A-Za-z0-9_-]{1,64}$"
+
+
 class TurnRequest(BaseModel):
     # Leere IDs sind keine gültigen Schlüssel (Session-Bindung, Idempotenz).
-    session_id: str = Field(min_length=1)
-    message_id: str = Field(min_length=1)
+    session_id: str = Field(pattern=KENNUNG_MUSTER)
+    message_id: str = Field(pattern=KENNUNG_MUSTER)
     message: str
     schema_version: str | None = None
 
