@@ -94,8 +94,8 @@ Auf derselben Ausgabe stehen auch andere Logger: `httpx` je ausgehender Anfrage 
 Status — kein Inhalt), die Dienst-Schicht selbst (Gate bei BC0, beschädigte Sitzung), der Profil-Writer
 und die BC0-Meldungen. Anfragen, die schon an
 der Body-Prüfung scheitern (422), erscheinen nur im Zugriffslog von uvicorn. Dazu gehören seit der
-Härtung (25.10.) Sitzungs- und Nachrichtenkennungen außerhalb von `A–Z a–z 0–9 _ -` oder länger als
-64 Zeichen — sie stehen sonst roh im Protokoll (n8n schickt eine UUID und `exec-<Nummer>`, beide passen). **Bekannte Lücke:** eine
+Härtung (25.10.) Sitzungs- und Nachrichtenkennungen, die nicht zu `[A-Za-z0-9_-]{1,64}` passen —
+Sitzungskennungen stünden sonst roh im Protokoll. n8n schickt eine UUID und `exec-<Nummer>`, beide passen. **Bekannte Lücke:** eine
 *unerwartete* Ausnahme protokolliert uvicorn mit Traceback („Exception in ASGI application“, stderr) —
 der Ausnahmetext kann Inhalte tragen.
 

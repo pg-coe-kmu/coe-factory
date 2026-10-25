@@ -114,8 +114,9 @@ MELDUNG_GATE_FEHLGESCHLAGEN = (
 
 
 # Härtung (25.10.): Die Kennungen wählt der Aufrufer (n8n: UUID aus dem localStorage des
-# Browsers, `exec-<Nummer>`) und sie stehen roh in Protokollzeilen und im Writer-Schlüssel
-# (`session|schritt`). 64 Zeichen wie die Maskierung der Dienstzeile (`_protokollwert`).
+# Browsers, `exec-<Nummer>`). Die session_id steht roh in Zeilen von Writer und Dienstschicht;
+# ein Zeilenumbruch fälschte dort eine zweite Zeile. 64 Zeichen wie die Maskierung der
+# Dienstzeile (`_protokollwert`), damit alle Zeilen dieselbe Kennung zeigen.
 KENNUNG_MUSTER = r"^[A-Za-z0-9_-]{1,64}$"
 
 

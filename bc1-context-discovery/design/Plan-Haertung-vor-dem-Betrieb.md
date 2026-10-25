@@ -4,6 +4,7 @@
 > Quellen: Abschlussplan „Neu 23.10." (3), (6), (7) und „Neu 08.10. — aus B4" (3).
 > Klein (S): drei Stellen, je ein TDD-Zyklus. Spec und Plan stehen deshalb in einem Dokument.
 > **Geprüft:** unabhängiger Prüfer (25.10.), „bereit mit Korrekturen", 0 Critical, 1 Important, 8 Minor. Alles eingearbeitet; ein Minor ist mit Ziel zurückgestellt (Abschnitt „Befundverbleib").
+> **Gebaut 25.10.** auf Zweig `bc1-haertung-vor-betrieb`, alle Tasks unter dem tdd-guard. Gesamtprüfung: „merge-fähig", 0 Critical, 0 Important, 9 Minor. Eingearbeitet: Kommentare und README-Wortlaut (m1, m2), Test für genau 64 Zeichen mit Gegenprobe (m4), Verweis (m8), Go-Zeile im Abschlussplan (m7). Begründet weggelassen: T5 auf alle Stufen (m3; der geänderte Aufruf protokolliert nur auf ERROR, der Guard ließe es nur als fast doppelten Test zu) und 422 im angepassten P5-Test (m5; T1 prüft die 422, siehe M3). Mit Ziel im Abschlussplan („Neu 23.10." (6)): kaputte Adresse ohne `@` (m6) → B7 Teil 2; wachsende Sitzungs-Wörterbücher → B3 Teil 2. Commit-Titel ohne Umlaute (m9): der Squash-Titel trägt sie. Suite: mit DB 837/4, ohne DB 571/270.
 
 ## Big Picture
 
@@ -13,7 +14,7 @@ Bevor der Dienst irgendwo außerhalb des eigenen Rechners erreichbar ist, schlie
 2. **Passwort in der Adresse:** Steht in `BC1_BC0_URL` ein `user:passwort@`, landet es in jeder Protokollzeile von `httpx` und in der Meldung „nicht erreichbar". **Neu:** Der Dienst startet mit so einer Adresse nicht und sagt warum, ohne die Adresse zu wiederholen.
 3. **Datenbank-Details im Protokoll:** Scheitert das Aufräumen eines Entwurfs, protokolliert der Writer die ganze Ausnahme (`%r`). Postgres hängt eine DETAIL-Zeile mit einem Ausschnitt der Zeile an, und dort steht Profiltext. **Neu:** Es werden nur Fehlerklasse und erste Zeile protokolliert, wie an der Nachbarstelle schon heute (`_fehlergrund`).
 
-**Wen es betrifft:** niemanden im Normalbetrieb. n8n schickt eine UUID als Sitzungskennung und `exec-<Nummer>` als Nachrichtenkennung; beide passen. Vertrag, Datenbank und BC0 bleiben unberührt. Die Form der n8n-Kennung ist **recherchiert** (Quelltext `@n8n/chat`: `uuid` v4), **nicht gemessen**; die Live-Prüfung erfolgt beim Durchstich (#206). Gespeicherte Sitzungen mit abweichender Kennung gibt es live nicht: `bc1.sessions` war bei der Messung am 25.10. leer (M1).
+**Wen es betrifft:** niemanden im Normalbetrieb. n8n schickt eine UUID als Sitzungskennung und `exec-<Nummer>` als Nachrichtenkennung; beide passen. Vertrag, Datenbank und BC0 bleiben unberührt. Die Form der n8n-Kennung ist **recherchiert** (Quelltext `@n8n/chat`: `uuid` v4), **nicht gemessen**; die Live-Prüfung erfolgt beim Durchstich (#206). Gespeicherte Sitzungen mit abweichender Kennung gibt es live nicht: `bc1.sessions` war bei der Messung am 25.10. leer (Messpunkt M1 der Messung vor dem Live-Lauf).
 
 **Nicht in diesem Paket (bleibt, wo es im Abschlussplan steht):**
 - Die `bc1*`-Logger ausdrücklich auf INFO setzen. Das schützt vor einer fremden Logging-Konfiguration, und die entsteht erst auf dem Server → **B3 Teil 2**.
