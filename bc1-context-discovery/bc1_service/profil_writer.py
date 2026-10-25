@@ -13,6 +13,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
+from typing import Literal
 
 from bc1_core.confidence import confidence_check
 from bc1_core.core import profil_payload
@@ -377,6 +378,35 @@ class ProfilWriter:
                         state.session_id, _fehlergrund(fehler))
             return None
 
+    def abschluss_offen(self, state: SessionState
+                        ) -> Literal["nachholbar", "ausstehend"] | None:
+        """Steht der Abschluss einer fertigen Sitzung noch aus? (Paket (4), nur lesend)
+
+        None: nichts offen (kein Profil vorgesehen oder schon eingefroren).
+        "nachholbar": eigener Entwurf in_erhebung auf dem Fokus-Schritt der Sitzung —
+        das Gate darf den Abgleich nachholen; der Entwurf haelt den Schritt, also kann
+        dabei kein juengeres Profil ueberholt werden. "ausstehend": alles andere
+        (keine Bindung, Entwurf auf anderem Schritt) — nur der Betrieb holt nach.
+        Ein Lesefehler wird ProfilWriteError: das Gate antwortet 503, nie 409.
+        """
+        if not self._schreibt:
+            return None
+        try:
+            with self._pool.connection() as conn:
+                bindung = self._bindung(conn, state.session_id)
+        except Exception as fehler:                        # noqa: BLE001
+            log.error("abschlussstand_unlesbar session=%s grund=%s",
+                      state.session_id, _fehlergrund(fehler))
+            raise ProfilWriteError(
+                f"Abschlussstand nicht lesbar: {_fehlergrund(fehler)}") from fehler
+        if bindung is None:
+            return "ausstehend"
+        if bindung.status == "fertig":
+            return None
+        if bindung.focus_step_id != _gueltiger_wert(state, "focus_step"):
+            return "ausstehend"
+        return "nachholbar"
+
     # ---- innerhalb EINER Transaktion ------------------------------------
     def _abgleich(self, state: SessionState, antwort: dict) -> dict | None:
         with self._pool.connection() as conn:          # eine Transaktion
@@ -441,34 +471,6 @@ class ProfilWriter:
             "AND focus_step_id = %s AND profil_version = %s",
             (self._company_id, bindung.focus_step_id,
              bindung.profil_version)).fetchone()[0]
-
-    def abschluss_offen(self, state: SessionState) -> str | None:
-        """Steht der Abschluss einer fertigen Sitzung noch aus? (Paket (4), nur lesend)
-
-        None: nichts offen (kein Profil vorgesehen oder schon eingefroren).
-        "nachholbar": eigener Entwurf in_erhebung auf dem Fokus-Schritt der Sitzung —
-        das Gate darf den Abgleich nachholen; der Entwurf haelt den Schritt, also kann
-        dabei kein juengeres Profil ueberholt werden. "ausstehend": alles andere
-        (keine Bindung, Entwurf auf anderem Schritt) — nur der Betrieb holt nach.
-        Ein Lesefehler wird ProfilWriteError: das Gate antwortet 503, nie 409.
-        """
-        if not self._schreibt:
-            return None
-        try:
-            with self._pool.connection() as conn:
-                bindung = self._bindung(conn, state.session_id)
-        except Exception as fehler:                        # noqa: BLE001
-            log.error("abschlussstand_unlesbar session=%s grund=%s",
-                      state.session_id, _fehlergrund(fehler))
-            raise ProfilWriteError(
-                f"Abschlussstand nicht lesbar: {_fehlergrund(fehler)}") from fehler
-        if bindung is None:
-            return "ausstehend"
-        if bindung.status == "fertig":
-            return None
-        if bindung.focus_step_id != _gueltiger_wert(state, "focus_step"):
-            return "ausstehend"
-        return "nachholbar"
 
     def _bindung(self, conn, session_id: str) -> Bindung | None:
         zeile = conn.execute(
