@@ -188,7 +188,8 @@ als gültig, passt aber nicht in seine Spalte. Ihn nennt die ERROR-Zeile
 `profil_konvertierung_widerspruch session=… feld=… ziel=…`. Sie steht schon in den Turns
 davor, die das Interview seit dem 25.10. nicht mehr blockieren (WARNING
 `profil_write_uebersprungen … grund=ProfilWriteError`). Nach dem Code-Fix holt die nächste
-Nachricht den Abschluss nach.
+Nachricht den Abschluss nach, wenn ein eigener Entwurf offen ist. Sonst kommt 409
+`abschluss_ausstehend`, und nachgeholt wird von Hand wie unten.
 
 **Im Chat: Neusenden nach einem 503 im Abschluss-Turn** (seit Paket (4),
 `../../design/Spec-Abschluss-nachholen.md`). Die n8n-Hülle schickt beim Neusenden eine neue

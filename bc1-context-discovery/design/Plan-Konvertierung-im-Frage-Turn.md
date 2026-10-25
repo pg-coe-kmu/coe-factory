@@ -15,7 +15,9 @@ Gibt ein Interview einen Zahlwert, den die Prüfung als gültig ansieht, der Kon
 
 **Was sich nicht ändert:** Abschluss-Turn (503, keine Antwort ausgeliefert), Nachholen, Abbruch-Pfad, Datenbank, Vertrag, Paketfassung, n8n.
 
-**Grenze (bleibt):** Scheitert die Konvertierung schon, bevor es einen Entwurf gibt (Werte, die vor dem Fokus-Schritt gefragt werden), entsteht keiner. Am Ende kommt dann 409 `abschluss_ausstehend`, und der Betrieb holt per Replay nach.
+**Grenzen (bleiben, keine Regression; in der Gesamtprüfung gemessen):**
+- **(a) Kein Entwurf.** Scheitert die Konvertierung schon, bevor es einen Entwurf gibt (Werte, die vor dem Fokus-Schritt gefragt werden), entsteht keiner. Der Abschluss-Turn gibt zuerst einen 503, eine neue Nachricht danach 409 `abschluss_ausstehend`. Nach dem Code-Fix holt der Betrieb per Replay derselben `message_id` nach; dabei wird der Entwurf angelegt und eingefroren.
+- **(b) Fokuswechsel bei bestehendem Widerspruch.** Der Bau scheitert vor dem Umbinden, der Entwurf bleibt auf dem alten Schritt und belegt ihn. Am Ende meldet `abschluss_offen` „ausstehend“ (409), auch nach dem Code-Fix. Nachgeholt wird dann von Hand.
 
 ## Entscheidungen
 
