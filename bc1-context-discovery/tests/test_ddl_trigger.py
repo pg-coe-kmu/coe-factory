@@ -291,7 +291,9 @@ def test_kaskade_scheitert_laut_ohne_select_von_bc1_role_auf_companies(db):
         conn.execute("UPDATE bc1.prozessprofil SET status = 'fertig'")
         conn.commit()
     with verbindung(db, None) as conn:
-        conn.execute("REVOKE SELECT ON companies FROM bc_leser")    # der gekappte Weg
+        # Der gekappte Weg: seit BC0 v3.9 traegt bc1_role ein direktes Recht zusaetzlich
+        # zu bc_leser — beide muessen weg, sonst prueft der Test nichts.
+        conn.execute("REVOKE SELECT ON companies FROM bc_leser, bc1_role")
         conn.commit()
         assert conn.execute(
             "SELECT has_table_privilege('bc1_role', 'companies', 'SELECT')"

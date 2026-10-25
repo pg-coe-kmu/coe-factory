@@ -16,10 +16,19 @@ pytestmark = pytest.mark.skipif(not DSN, reason="BC1_TEST_DB_DSN nicht gesetzt")
 
 
 def _stilllegen(tabelle: str, schluessel: str, wert: str) -> None:
-    """Wie BC0 es tut (v2.2): aktiv = false, nichts loeschen. Als Superuser."""
+    """Wie BC0 es tut (v2.2): aktiv = false, nichts loeschen. Als Superuser.
+
+    Einen Kernprozess legt BC0 seit v3.8 nicht mehr still (Trigger). Den Zustand gibt es
+    nur noch per INSERT ... aktiv = false; BC1s Zusatzschutz "aktiver Elternprozess" bleibt,
+    bis BC0 das bestaetigt (Plan-Geruest-BC0-v3.19, E2). Deshalb hier sichtbar abgeschaltet.
+    """
     with verbindung(DSN, None) as conn:
+        if tabelle == "ref_prozesse":
+            conn.execute("ALTER TABLE ref_prozesse DISABLE TRIGGER kernprozess_bleibt_aktiv")
         conn.execute(f"UPDATE {tabelle} SET aktiv = false "
                      f" WHERE company_id = %s AND {schluessel} = %s", (MANDANT_A, wert))
+        if tabelle == "ref_prozesse":
+            conn.execute("ALTER TABLE ref_prozesse ENABLE TRIGGER kernprozess_bleibt_aktiv")
         conn.commit()
 
 
