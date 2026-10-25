@@ -125,7 +125,8 @@ def _payload_wert(profil: dict, feld: str) -> str | None:
 def baue_profilinhalt(state: SessionState, package: UseCasePackage, *,
                       kp_bekannt: Callable[[str], bool],
                       bekannte_systeme: frozenset[str],
-                      bc0_eigner: Callable[[str], str | None]) -> Profilinhalt | None:
+                      bc0_eigner: Callable[[str], str | None],
+                      protokollieren: bool = True) -> Profilinhalt | None:
     """Payload bauen, bereinigen, DANN ableiten — in dieser Reihenfolge.
 
     Invariante (Entscheidung Richard 02.09., Option a): **Spalten werden nie aus
@@ -149,7 +150,7 @@ def baue_profilinhalt(state: SessionState, package: UseCasePackage, *,
     # BC0-Auflage 1.4 ("beim Schreiben pruefen") — und ab hier gilt: alles, was
     # abgeleitet wird, kommt aus dem bereinigten Payload.
     wende_sweep_an(profil, package, bekannte_systeme=bekannte_systeme,
-                   session_id=state.session_id)
+                   session_id=state.session_id, protokollieren=protokollieren)
 
     focus_step_id = _payload_wert(profil, "focus_step")
     if focus_step_id is None:
@@ -172,21 +173,24 @@ def baue_profilinhalt(state: SessionState, package: UseCasePackage, *,
         # Stabiler Befund-Vertrag fuers Gate (R4-C1) — plus strukturiertes Log.
         profil["befunde"]["kp_tp_diskrepanz"] = {
             "interview_kp": interview_kp, "abgeleiteter_kp": process_id}
-        log.warning("kp_tp_diskrepanz session=%s interview_kp=%s abgeleitet=%s",
-                    state.session_id, interview_kp, process_id)
+        if protokollieren:
+            log.warning("kp_tp_diskrepanz session=%s interview_kp=%s abgeleitet=%s",
+                        state.session_id, interview_kp, process_id)
 
     # Eigner-Rolle: BC0 wird beim Schreiben gelesen (wie kp_existiert); wechselt der
     # Eigner mitten im Interview, zaehlt der neue Stand (Spec §1/§4). Nur die IDs
     # wandern in Befund und Log, nie Nutzertext.
     interview_rolle = _payload_wert(profil, "process_owner_role")
-    bc0_rolle = bc0_eigner(process_id)
+    # Ohne gueltiges B3 gibt es nichts zu vergleichen — kein BC0-Lesezugriff (C1a (4e)).
+    bc0_rolle = bc0_eigner(process_id) if interview_rolle is not None else None
     if (interview_rolle is not None and bc0_rolle is not None
             and interview_rolle != bc0_rolle):
         profil["befunde"]["eigner_rolle_abweichung"] = {
             "process_id": process_id, "interview_rolle": interview_rolle,
             "bc0_rolle": bc0_rolle}
-        log.warning("eigner_rolle_abweichung session=%s kp=%s interview=%s bc0=%s",
-                    state.session_id, process_id, interview_rolle, bc0_rolle)
+        if protokollieren:
+            log.warning("eigner_rolle_abweichung session=%s kp=%s interview=%s bc0=%s",
+                        state.session_id, process_id, interview_rolle, bc0_rolle)
 
     spalten: dict[str, object] = {}
     for spalte, feld, konverter, ziel in (
@@ -241,7 +245,8 @@ def _zaehler_neu(profil: dict, package: UseCasePackage) -> None:
 
 
 def wende_sweep_an(profil: dict, package: UseCasePackage, *,
-                   bekannte_systeme: frozenset[str], session_id: str) -> dict:
+                   bekannte_systeme: frozenset[str], session_id: str,
+                   protokollieren: bool = True) -> dict:
     """Entfernt vor dem Schreiben JEDE nicht zum Mandanten gehoerende S-NN-Kennung.
 
     Erfuellt BC0-Auflage 1.4 woertlich ("beim Schreiben pruefen"). Der Validator
@@ -297,8 +302,9 @@ def wende_sweep_an(profil: dict, package: UseCasePackage, *,
             continue
 
         # Rohe IDs NUR ins Log (R11-I1), nie zurueck ins Profil.
-        log.warning("snn_entfernt session=%s feld=%s ids=%s",
-                    session_id, spec.name, sorted(set(entfernt)))
+        if protokollieren:
+            log.warning("snn_entfernt session=%s feld=%s ids=%s",
+                        session_id, spec.name, sorted(set(entfernt)))
 
         if not war_gueltig:
             continue                                    # still bereinigt, kein Befund
@@ -353,8 +359,11 @@ class ProfilWriter:
             raise
         except Exception as fehler:                        # noqa: BLE001
             if antwort["status"] == "fertig":
+                # B7 Teil 2: sonst nennt beim 503 nichts den Grund (Gegenstueck unten).
+                log.error("profil_write_fehlgeschlagen session=%s grund=%s",
+                          state.session_id, _fehlergrund(fehler))
                 raise ProfilWriteError(
-                    f"Profil-Write im Terminal-Turn fehlgeschlagen: {fehler}"
+                    f"Profil-Write im Terminal-Turn fehlgeschlagen: {_fehlergrund(fehler)}"
                 ) from fehler
             # Nicht-terminale Turns blockieren nicht — der naechste reconcilet.
             log.warning("profil_write_uebersprungen session=%s grund=%s",
@@ -380,7 +389,10 @@ class ProfilWriter:
                 bekannte_systeme=frozenset(
                     bc0_lesepfade.system_ids(conn, self._company_id)),
                 bc0_eigner=lambda kp: bc0_lesepfade.eigner_rollen(
-                    conn, self._company_id, [kp]).get(kp))
+                    conn, self._company_id, [kp]).get(kp),
+                # Befunde stehen in jedem geschriebenen Profil, gemeldet werden sie
+                # einmal: im Abschluss-Turn (B7 Teil 2, C1a (4e)).
+                protokollieren=antwort["status"] == "fertig")
             if inhalt is None:
                 # Keine gueltige Identitaet in diesem Turn. Der Draft bleibt
                 # stehen: eine Klaerung kann den alten Wert bestaetigen (R6-C1).

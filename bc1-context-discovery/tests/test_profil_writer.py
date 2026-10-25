@@ -108,6 +108,16 @@ def test_befund_nimmt_den_bc0_stand_beim_schreiben(pool):
         ("R-01",)]
 
 
+def test_befund_warnung_nur_im_abschluss_turn(pool, caplog):
+    # B7 Teil 2 / C1a (4e): der Reconcile laeuft in jedem Turn; gemeldet wird einmal.
+    writer = ProfilWriter(pool, MANDANT_A, EIGNER_PAKET)
+    zustand = _state(process_owner_role=("R-01", FieldStatus.GUELTIG))
+    with caplog.at_level("WARNING"):
+        for antwort in (FRAGE, FRAGE, FERTIG):
+            writer.reconcile(zustand, antwort)
+    assert len([s for s in caplog.messages if "eigner_rolle_abweichung" in s]) == 1
+
+
 def test_geloeschte_rolle_bricht_erst_den_abschluss(pool, caplog):
     # BC0 loescht die gewaehlte Rolle vor dem ersten Schreiben (Kaskade im Geruest
     # raeumt ref_personen/prozess_personen mit). Der FK auf mandant_rollen schlaegt zu:
@@ -124,6 +134,37 @@ def test_geloeschte_rolle_bricht_erst_den_abschluss(pool, caplog):
     with pytest.raises(ProfilWriteError):
         writer.reconcile(zustand, FERTIG)
     assert _zeilen() == []
+
+
+def _ohne_rolle_r01() -> None:
+    with verbindung(DSN, None) as conn:
+        conn.execute("DELETE FROM mandant_rollen WHERE company_id = %s "
+                     "AND rolle_id = 'R-01'", (MANDANT_A,))
+        conn.commit()
+
+
+def test_profil_write_fehler_nennt_nur_die_erste_zeile(pool):
+    # B7 Teil 2 (Haertung M8): Postgres haengt eine DETAIL-Zeile an; dort kann
+    # Profiltext stehen. Wie im Log: nur Klasse und erste Meldungszeile.
+    _ohne_rolle_r01()
+    writer = ProfilWriter(pool, MANDANT_A, EIGNER_PAKET)
+    with pytest.raises(ProfilWriteError) as fehler:
+        writer.reconcile(_state(process_owner_role=("R-01", FieldStatus.GUELTIG)), FERTIG)
+    assert "\n" not in str(fehler.value) and "DETAIL" not in str(fehler.value)
+
+
+def test_abschlussfehler_wird_ohne_detail_protokolliert(pool, caplog):
+    # Gegenstueck zu profil_write_uebersprungen: sonst stuende beim 503 im Abschluss
+    # nirgends, woran das Speichern scheiterte.
+    _ohne_rolle_r01()
+    writer = ProfilWriter(pool, MANDANT_A, EIGNER_PAKET)
+    with caplog.at_level("ERROR"), pytest.raises(ProfilWriteError):
+        writer.reconcile(_state(process_owner_role=("R-01", FieldStatus.GUELTIG)), FERTIG)
+    eintraege = [s for s in caplog.messages if s.startswith("profil_write_fehlgeschlagen ")]
+    assert len(eintraege) == 1, caplog.messages
+    assert eintraege[0].startswith(
+        "profil_write_fehlgeschlagen session=s1 grund=ForeignKeyViolation: ")
+    assert "DETAIL" not in eintraege[0]
 
 
 def test_erster_turn_legt_draft_und_bindung_an(pool):
