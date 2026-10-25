@@ -351,11 +351,13 @@ Personen-IDs `P-01`/`P-02` sind je Mandant; spätere Ergänzungen (Task 5) nehme
   | Regel 4 entfernt | `…falsch_zugeordnete…` |
   | Gate nicht für erledigte | `…holt_gescheitertes_gate_nach` |
 - [x] **Step 3: Zweitmeinung** auf den ganzen Zweig, nur lesend (unabhängiges Review und Codex). Befunde nach Schwere einordnen.
-- [ ] **Step 4: Befund an die BC1-Projektleitung.** Push und PR erst nach OK. Merge erst nach Zustimmung von BC2 (Task 8 Step 6).
-- [ ] **Step 5: Unmittelbar vor dem Deployment**, nach dem Merge und vor dem Neustart des Dienstes mit 1.2: nur lesend als `bc1_role` messen, Ziel `bc1.sessions` = 0 und `in_erhebung` = 0.
+- [x] **Step 4: Befund an die BC1-Projektleitung.** Push und PR erst nach OK. Merge erst nach Zustimmung von BC2 (Task 8 Step 6). *(24.10.: PR #341 nach OK gemergt; BC2 hat nicht geantwortet, Zustimmung angenommen, siehe Spec-Nachtrag.)*
+- [x] **Step 5: Unmittelbar vor dem Deployment**, nach dem Merge und vor dem Neustart des Dienstes mit 1.2: nur lesend als `bc1_role` messen, Ziel `bc1.sessions` = 0 und `in_erhebung` = 0.
   - Gibt es Offenes, gilt das Spec-Verfahren: unter 1.1 abschließen oder nach K5 verwerfen, erst dann umstellen.
   - Die Messung aus dem PR ersetzt diese nicht.
-- [ ] **Step 6: Live-Lauf Version 3**, erst wenn BC0 die Anfragen bereitgestellt hat (neue Anfrage für KP-05.TP-1, die anderen auf `zugeordnet`). Die BC1-Projektleitung stößt ihn an. Danach Termin und Ergebnis in #286 und #195.
+  - *25.10.: gemessen vor dem Live-Lauf. Keine offene Sitzung, kein Entwurf `in_erhebung`, kein ausstehender Abschluss, Leserechte vollständig, `R-05` aktiv. Der Dienst ist damit noch nicht neu gestartet; vor dem Neustart wird erneut gemessen (Abschlussplan, Zeile B8).*
+- [x] **Step 6: Live-Lauf Version 3**, erst wenn BC0 die Anfragen bereitgestellt hat (neue Anfrage für KP-05.TP-1, die anderen auf `zugeordnet`). Die BC1-Projektleitung stößt ihn an. Danach Termin und Ergebnis in #286 und #195.
+  - *25.10.: bestanden.* Mit OK von BC0 hat BC1 A-2026-01 und A-2026-03 auf `zugeordnet` gesetzt und für KP-05.TP-1 die Anfrage A-2026-05 angelegt. Ergebnis: drei Profile Version 3 `fertig`, Vollständigkeit 1.0, Eigner `R-05`, keine Befunde, kein offener Entwurf; BC0 hat alle drei Anfragen auf `am_gate` gezogen. Ein zweiter Lauf hat nichts doppelt geschrieben („bereits geschrieben“). Gemeldet in #286, #195 und #206.
 
 ---
 
