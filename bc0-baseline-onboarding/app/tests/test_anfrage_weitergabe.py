@@ -32,6 +32,16 @@ from bc0_auth import Rolle  # noqa: E402
 PW = "weitergabe-admin-passwort"
 
 
+def _tps_benennen(cid):
+    """v3.20: Seit v3.19b nimmt eine Anfrage nur benannte Teilprozesse. Die
+    Vorbelegung beim Anlegen ("Teilprozess N") gilt als unbenannt — benennen."""
+    c = anwendung.db()
+    c.execute("UPDATE ref_teilprozesse SET sub_process_name='Schritt '||sub_process_id "
+              "WHERE company_id=?", (cid,))
+    c.commit()
+    c.close()
+
+
 @pytest.fixture(scope="module")
 def client():
     anwendung.AUTH.benutzer_anlegen("weitergabe@bc0.test", "Weitergabe-Admin", PW, Rolle.ADMIN)
@@ -42,8 +52,10 @@ def client():
 
 @pytest.fixture(scope="module")
 def mandant(client) -> str:
-    return str(client.post("/api/companies",
+    cid = str(client.post("/api/companies",
                            json={"name": "Weitergabe GmbH", "kps": [0, 1, 2]}).json()["id"])
+    _tps_benennen(cid)
+    return cid
 
 
 def _anfrage(client, mandant, **felder) -> str:
