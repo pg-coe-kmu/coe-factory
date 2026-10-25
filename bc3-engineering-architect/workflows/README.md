@@ -1,6 +1,6 @@
 # BC3 – n8n-Workflows des Slicers
 
-Stand 23.10.2026: veröffentlichte Fassung aus n8n, bereinigt exportiert. Ablauf eines Laufs: [../ablauf-slicer.md](../ablauf-slicer.md).
+Stand 25.10.2026 (BC3-10, BC3-80, BC3-91: Kennungen der Kette nach BC0 v3.18), sonst 23.10.2026: veröffentlichte Fassung aus n8n, bereinigt exportiert. Ablauf eines Laufs: [../ablauf-slicer.md](../ablauf-slicer.md).
 
 ## Was bereinigt ist
 
