@@ -72,6 +72,9 @@ FEHLER_TEXTE = {
     "sitzung_beschaedigt": (                                  # P4 (#270)
         "Diese Sitzung kann nicht fortgesetzt werden. Bitte starten Sie ein neues "
         "Interview."),
+    "interner_fehler": (                                      # B7 Teil 2
+        "Da ist auf unserer Seite etwas schiefgegangen. Bitte senden Sie Ihre "
+        "Nachricht in einem Moment noch einmal."),
 }
 
 
@@ -196,9 +199,18 @@ def create_app(
             response.headers["X-Correlation-ID"] = korrelation
             return antwort
         except HTTPException as fehler:
-            http = fehler.status_code
+            http, status = fehler.status_code, fehler.detail
             fehler.headers = {**(fehler.headers or {}), "X-Correlation-ID": korrelation}
             raise
+        except Exception as fehler:
+            # B7 Teil 2: selbst beantworten. Starlettes ServerErrorMiddleware wirft jede
+            # Ausnahme nach dem 500 erneut, und uvicorn schreibt dann den Traceback.
+            # Nur die Klasse, nie Text oder exc_info: beides kann Inhalte tragen.
+            log.error("unerwartete_ausnahme korrelation=%s klasse=%s", korrelation,
+                      type(fehler).__name__)
+            status = "interner_fehler"
+            raise HTTPException(status_code=500, detail="interner_fehler",
+                                headers={"X-Correlation-ID": korrelation}) from None
         finally:
             dienst_log.log(
                 logging.ERROR if http >= 500 else logging.INFO,

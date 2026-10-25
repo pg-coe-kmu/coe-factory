@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from bc1_core.llm import ExtractionCandidate, FakeLLM
 from bc1_core.package import TOY_PROZESS
 from bc1_core.store import InMemoryStateStore, KorrupterStateError
-from bc1_service.api import _protokollwert, create_app
+from bc1_service.api import FEHLER_TEXTE, _protokollwert, create_app
 
 MANDANT = "11111111-1111-1111-1111-111111111111"
 GEHEIM = "Geheimwort Nordlicht 4711"
@@ -63,7 +63,7 @@ def test_protokoll_enthaelt_weder_nachricht_noch_wert_noch_frage(caplog):
         assert verboten not in protokoll
 
 
-def test_409_schreibt_eine_zeile_mit_strich_als_status(caplog):
+def test_409_schreibt_eine_zeile_mit_dem_grund_als_status(caplog):
     client = _client()
     _turn(client, "m1", GEHEIM)
     _turn(client, "m2", "Ausgelöst durch einen Antrag")
@@ -74,7 +74,7 @@ def test_409_schreibt_eine_zeile_mit_strich_als_status(caplog):
     zeilen = _zeilen(caplog)
     assert len(zeilen) == 1
     treffer = ZEILE.match(zeilen[0].getMessage())
-    assert treffer["http"] == "409" and treffer["status"] == "-"
+    assert treffer["http"] == "409" and treffer["status"] == "session_abgeschlossen"
     assert treffer["message"] == "m4"
 
 
@@ -182,3 +182,49 @@ def test_korrelation_erreicht_den_kern(caplog, llm_faellt_aus):
     zeilen = [r.getMessage() for r in caplog.records if r.name == "bc1.kern"]
     assert len(zeilen) >= 2, zeilen
     assert all("korrelation=k-4711" in zeile for zeile in zeilen), zeilen
+
+
+# Starlettes ServerErrorMiddleware wirft jede Ausnahme nach dem 500 erneut, uvicorn
+# schreibt dann den Traceback — dessen Text kann Inhalte tragen. raise_server_exceptions
+# bleibt deshalb hier an: nichts darf bis zum Server durchdringen.
+def test_unerwartete_ausnahme_erreicht_den_server_nicht():
+    client = TestClient(create_app(_ExplodierenderStore(), _llm(), TOY_PROZESS,
+                                   company_id=MANDANT))
+    antwort = _turn(client, "m1", GEHEIM)
+    assert antwort.status_code == 500
+    assert antwort.json() == {"detail": "interner_fehler",
+                              "chat_text": FEHLER_TEXTE["interner_fehler"]}
+    assert antwort.headers["X-Correlation-ID"]
+
+
+def test_unerwartete_ausnahme_wird_mit_klasse_protokolliert(caplog):
+    caplog.set_level(logging.INFO, logger="bc1.api")
+    client = TestClient(create_app(_ExplodierenderStore(), _llm(), TOY_PROZESS,
+                                   company_id=MANDANT))
+    antwort = _turn(client, "m1", GEHEIM)
+    eintraege = [r for r in caplog.records if r.name == "bc1.api"]
+    assert [r.getMessage() for r in eintraege] == [
+        f"unerwartete_ausnahme korrelation={antwort.headers['X-Correlation-ID']} "
+        "klasse=RuntimeError"]
+    assert eintraege[0].levelno == logging.ERROR
+    assert eintraege[0].exc_info is None
+
+
+# B7 Teil 2 (E11): ohne den Grund waere ein verlorener Schreibwettlauf nicht von einer
+# abgeschlossenen Sitzung oder einem fremden Mandanten zu unterscheiden.
+def test_abgewiesener_turn_nennt_den_grund_im_status(caplog):
+    client = _client()
+    _turn(client, "m1", GEHEIM)
+    _turn(client, "m2", "Ausgelöst durch einen Antrag")
+    _turn(client, "m3", "Etwa 100 mal pro Jahr")
+    caplog.set_level(logging.INFO, logger="bc1.dienst")
+    _turn(client, "m4", "noch etwas")
+    treffer = ZEILE.match(_zeilen(caplog)[0].getMessage())
+    assert treffer["http"] == "409" and treffer["status"] == "session_abgeschlossen"
+
+
+def test_unerwartete_ausnahme_steht_als_interner_fehler_in_der_turn_zeile(caplog):
+    caplog.set_level(logging.INFO, logger="bc1.dienst")
+    _turn(_client(store=_ExplodierenderStore()), "m1", GEHEIM)
+    treffer = ZEILE.match(_zeilen(caplog)[0].getMessage())
+    assert treffer["http"] == "500" and treffer["status"] == "interner_fehler"
