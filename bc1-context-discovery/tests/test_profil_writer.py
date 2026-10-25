@@ -192,6 +192,19 @@ def test_konvertierungswiderspruch_im_frage_turn_blockiert_nicht(pool, caplog):
     assert _zeilen() == [("KP-01.TP-1", 1, "in_erhebung")]
 
 
+def test_konvertierungswiderspruch_im_abschluss_bleibt_ein_503_ohne_rohwert(pool, caplog):
+    # Gegenstueck: ein Profil mit Widerspruch wird nie eingefroren. Nach dem Fix des
+    # Codes holt die naechste Nachricht den Abschluss nach (Paket (4)).
+    writer = ProfilWriter(pool, MANDANT_A, KONV_PAKET)
+    writer.reconcile(_state(), FRAGE)
+    zustand = _state(frequency_per_year=("dreimal jaehrlich", FieldStatus.GUELTIG))
+    with caplog.at_level("ERROR"), pytest.raises(ProfilWriteError):
+        writer.reconcile(zustand, FERTIG)
+    assert "dreimal jaehrlich" not in caplog.text
+    assert _zeilen() == [("KP-01.TP-1", 1, "in_erhebung")]
+    assert writer.abschluss_offen(zustand) == "nachholbar"
+
+
 def test_erster_turn_legt_draft_und_bindung_an(pool):
     ProfilWriter(pool, MANDANT_A, PAKET).reconcile(_state(), FRAGE)
     assert _zeilen() == [("KP-01.TP-1", 1, "in_erhebung")]
