@@ -2,7 +2,7 @@
 
 > Stand 25.10.2026, Fassung 1. Go der BC1-Projektleitung am 25.10. („Go für Paket (3) ANZAHL: erst Plan, dann bauen, TDD-Guard nie umgehen.").
 > Quelle: Abschlussplan „Neu 24.10. — aus C1a" (4b), entschieden 25.10. von der BC1-Projektleitung: **zulassen**. Ändert die Spec C1a, Abschnitt 3.
-> **Gebaut 25.10.** auf Zweig `bc1-anzahl-naeherung`: T1 und T2 waren im eigenen Zyklus rot; T3 kam grün an, die Gegenprobe im Scratchpad-Kopie-Verfahren macht jeden seiner fünf Fälle rot (`[.!?]?` → `3?`; `[.!,]*` → `3..`, `3,`, `3 Fälle.!`; `\s*` statt `\s+` nach dem Näherungswort → `ca3`). Suite mit DB 882/4.
+> **Gebaut 25.10.** auf Zweig `bc1-anzahl-naeherung`: T1 und T2 waren im eigenen Zyklus rot; T3 kam grün an, die Gegenprobe im Scratchpad-Kopie-Verfahren macht jeden seiner fünf Fälle rot (`[.!?]?` → `3?`; `[.!,]*` → `3..`, `3,`, `3 Fälle.!`; `\s*` statt `\s+` nach dem Näherungswort → `ca3`). Unabhängige Prüfung: „merge-fähig", 5 Minor, eingearbeitet bzw. einer mit Ziel zurückgestellt (Abschnitt „Befundverbleib"). Suite mit DB 888/4, ohne DB 619/273.
 > Größe XS: eine Zeile Regex, drei Tests. Spec und Plan stehen deshalb in einem Dokument. Zweitmeinung: eine unabhängige Prüfung nach dem Bau (Plan und Code zusammen), weil die Änderung klein ist, der Wert aber in die Vertragsspalte `executions_per_run` geht.
 
 ## Big Picture
@@ -23,6 +23,7 @@ Auf die Frage D4 („Wie viele Fälle je Durchlauf?") antworten Menschen oft mit
 
 **Was sich nicht ändert:**
 - Der gespeicherte Wert hat dieselbe Form wie bisher (`3`, `2.5`).
+- Die Paketfassung (`paket_version`) bleibt 1.2. Jede bisher gültige Antwort ergibt denselben Wert, nur bisherige Nachfragen werden gültig. Der Prüfer hat das mit einem Zufallstest über 300.000 Eingaben gemessen.
 - Der Vertrag BC1→BC2 nennt nur Beispiele (`etwa 3`, `3 Fälle` → `3`), die weiter stimmen. Er bleibt unverändert.
 - Andere Feldtypen sind nicht betroffen.
 
@@ -42,7 +43,7 @@ Auf die Frage D4 („Wie viele Fälle je Durchlauf?") antworten Menschen oft mit
 
 ## Review Focus
 
-1. **Dezimalpunkt gegen Satzzeichen:** Bei `2.5` muss der Punkt Teil der Zahl bleiben, bei `3.` ist er das Satzzeichen. Der Token-Parser verlangt nach `.` eine Ziffer. Deshalb ist `3.` Zahl plus Zeichen und `2.5` eine Zahl. Abgedeckt durch die Bestandstests (`2,5`, `1.000`) und T2.
+1. **Dezimalpunkt gegen Satzzeichen:** Bei `2.5` muss der Punkt Teil der Zahl bleiben, bei `3.` ist er das Satzzeichen. Der Token-Parser verlangt nach `.` eine Ziffer. Deshalb ist `3.` Zahl plus Zeichen und `2.5` eine Zahl. Abgedeckt durch T2 (`1.000.`, `2,5.`) und, nach der Prüfung, durch `test_anzahl_dezimalpunkt_bleibt_teil_der_zahl` (`2.5`, `2.5.`).
 2. **Bestandstests bleiben grün:** Alle bisher gültigen und ungültigen Fälle in `test_feldtypen.py`.
 
 ## Tasks
@@ -70,3 +71,18 @@ Dateien: `bc1_core/feldtypen.py`, `tests/test_feldtypen.py`.
 - [ ] Abschlussplan: „Neu 24.10. — aus C1a" (4b) erledigt, „Nächstes Go" auf (4).
 - [ ] Volle Suite mit und ohne DB. Unabhängige Prüfung von Plan und Code (Auftrag: jeder pytest-Aufruf mit `-p no:tdd-guard -p no:cacheprovider`); danach ein regulärer Lauf.
 - [ ] Commit `docs(bc1): ANZAHL — Spec C1a und Abschlussplan`.
+
+## Befundverbleib (Prüfung 25.10., „merge-fähig", 0 Critical, 0 Important, 5 Minor)
+
+Der Prüfer hat gemessen:
+- Zufallstest über 300.000 Eingaben aus Bausteinen und 100.000 Unicode-Zeichenketten: keine Ausnahme, und kein bisher gültiger Wert ändert sich.
+- Die Laufzeit bleibt linear.
+- Der Vertrag BC1→BC2 bleibt unverändert, seine Beispiele bleiben wahr.
+
+| Befund | Schwere | Verbleib |
+|---|---|---|
+| M1 Leerzeichen vor dem Satzzeichen (`3 .`) war nicht entschieden und ungetestet | Minor | entschieden: bleibt ungültig (kleinere Lösung); Spec-Satz und Test `test_anzahl_leerzeichen_vor_satzzeichen_und_doppelter_punkt_bleiben_ungueltig`; Gegenprobe `\s*[.!]?` macht drei Fälle rot |
+| M2 `2.5`/`2.5.` und `ca.. 3` ungetestet, Review Focus 1 überzeichnet | Minor | eingearbeitet: `test_anzahl_dezimalpunkt_bleibt_teil_der_zahl`, `ca.. 3` im Test zu M1; Gegenproben (`ca\.{0,2}`, nur ganze Zahlen) rot; Review Focus berichtigt |
+| M3 Paketfassung bleibt 1.2, unbegründet | Minor | eingearbeitet: Satz in Spec und Plan |
+| M4 Abschlussplan (4b) las sich noch offen | Minor | eingearbeitet: Zielsatz durchgestrichen |
+| M5 `_ZAHL_TOKEN`: `\d` (Unicode) gegen `[1-9]` (ASCII), vorbestehend | Minor | **zurückgestellt mit Ziel** im Abschlussplan (4b): beim nächsten Anfassen von `_ZAHL_TOKEN` auf `[0-9]` |

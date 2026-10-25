@@ -102,7 +102,7 @@ Allgemein, deshalb im Kern. Er nutzt den vorhandenen Token-Parser und die Format
 
 Beiden Formen darf ein **Näherungswort** vorangehen: `etwa`, `ca.` (seit 25.10. auch `ca` ohne Punkt), `circa`, `ungefähr` (auch `ungefaehr`), `rund`, `im Schnitt`, `durchschnittlich`. Sonst wäre die häufige Antwort „etwa 3" ungültig und das Interview müsste nachfragen. (Der vorhandene Zahlparser nimmt solche Wörter nur zusammen mit einer Periode an, nicht allein; die Erweiterung ist neu.)
 
-Seit 25.10. darf beiden Formen am Ende **genau ein** Satzzeichen `.` oder `!` folgen („3 Fälle."). Ein `?` drückt Zweifel aus und bleibt ungültig, damit das Interview nachfragt. Mehrere Zeichen oder ein Komma bleiben ebenfalls ungültig.
+Seit 25.10. darf beiden Formen am Ende **genau ein** Satzzeichen `.` oder `!` folgen, direkt am letzten Wort oder an der Zahl („3 Fälle."). Ein `?` drückt Zweifel aus und bleibt ungültig, damit das Interview nachfragt. Ebenfalls ungültig bleiben: mehrere Zeichen, ein Komma und ein Leerzeichen vor dem Satzzeichen („3 ."). Die Paketfassung bleibt 1.2, denn jede bisher gültige Antwort ergibt denselben Wert; nur Antworten, die bisher eine Nachfrage auslösten, werden gültig.
 
 Alles andere bleibt unverändert und ist damit ungültig.
 
@@ -111,7 +111,7 @@ Alles andere bleibt unverändert und ist damit ungültig.
 | `0`, `1`, `3`, `2,5`, `1.000` | gültig: `0`, `1`, `3`, `2.5`, `1000`. Durchschnitt erlaubt, der Vertrag nennt `number ≥ 0`. *(Entscheidung des Verfassers)* |
 | `3 Fälle`, `3 Vorgänge pro Durchlauf`, `etwa 3`, `ca. 3 Fälle`, `im Schnitt 2,5` | gültig, `3` bzw. `2.5` |
 | seit 25.10.: `ca 3`, `ca 3 Fälle`, `3 Fälle.`, `3.`, `etwa 3.`, `3 Fälle!`, `2,5.` | gültig, `3` bzw. `2.5` |
-| seit 25.10. ausdrücklich: `3?`, `3..`, `3,`, `3 Fälle.!`, `ca3` | ungültig, Nachfrage |
+| seit 25.10. ausdrücklich: `3?`, `3..`, `3,`, `3 Fälle.!`, `ca3`, `3 .`, `ca.. 3` | ungültig, Nachfrage |
 | `5 pro Woche`, `15 im Monat`, `5/Monat`, `5 täglich`, `3 %`, `3 Stunden` | ungültig, Nachfrage |
 | `-1`, leer, zwei Zahlen, Überlauf (nicht endlich) | ungültig |
 

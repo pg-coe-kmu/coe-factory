@@ -393,3 +393,18 @@ def test_anzahl_mit_satzzeichen_am_ende(eingabe, erwartet):
 @pytest.mark.parametrize("eingabe", ["3?", "3..", "3,", "3 Fälle.!", "ca3"])
 def test_anzahl_bleibt_bei_zweifel_und_mehreren_zeichen_ungueltig(eingabe):
     assert ANZAHL.validator(ANZAHL.normalisiere(eingabe)) is False
+
+
+# Pruefung (4b): das Satzzeichen steht direkt am Wort oder an der Zahl — mit Leerzeichen
+# davor bleibt es eine Nachfrage; „ca" nimmt hoechstens einen Punkt.
+@pytest.mark.parametrize("eingabe", ["3 .", "3 Fälle .", "3 !", "ca.. 3"])
+def test_anzahl_leerzeichen_vor_satzzeichen_und_doppelter_punkt_bleiben_ungueltig(eingabe):
+    assert ANZAHL.validator(ANZAHL.normalisiere(eingabe)) is False
+
+
+# Pruefung (4b): der Dezimalpunkt bleibt Teil der Zahl, erst ein Punkt ohne Ziffer
+# dahinter ist das Satzzeichen.
+@pytest.mark.parametrize("eingabe", ["2.5", "2.5."])
+def test_anzahl_dezimalpunkt_bleibt_teil_der_zahl(eingabe):
+    assert ANZAHL.normalisiere(eingabe) == "2.5"
+    assert ANZAHL.validator(ANZAHL.normalisiere(eingabe)) is True
