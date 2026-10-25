@@ -1,6 +1,6 @@
 # BC3 – n8n-Workflows des Slicers
 
-Stand 25.10.2026 (BC3-10, BC3-80, BC3-91: Kennungen der Kette nach BC0 v3.18), sonst 23.10.2026: veröffentlichte Fassung aus n8n, bereinigt exportiert. Ablauf eines Laufs: [../ablauf-slicer.md](../ablauf-slicer.md).
+Stand 25.10.2026 (BC3-10, BC3-80, BC3-91: Kennungen der Kette nach BC0 v3.18; BC3-82 mit Link zur Live-Demo; BC3-90 Live-Demo neu), sonst 23.10.2026: veröffentlichte Fassung aus n8n, bereinigt exportiert. Ablauf eines Laufs: [../ablauf-slicer.md](../ablauf-slicer.md).
 
 ## Was bereinigt ist
 
@@ -26,6 +26,7 @@ Stand 25.10.2026 (BC3-10, BC3-80, BC3-91: Kennungen der Kette nach BC0 v3.18), s
 | BC3-80 | [bc3-80-gate-2-freigabe.json](bc3-80-gate-2-freigabe.json) | Setzt die Entscheidung an Gate 2 um (Pull Request, Team-Datenbank) | `btNCECvEp5neQ2h4` |
 | BC3-81 | [bc3-81-gate-2-seite.json](bc3-81-gate-2-seite.json) | Gate-2-Seite zum Entscheiden (Webhook) | `eKr8CANKYO4OyM27` |
 | BC3-82 | [bc3-82-uebersicht.json](bc3-82-uebersicht.json) | Übersicht über Läufe, Fehler und Lieferungen (Webhook mit Passwort) | `1I8HbQb1g6SCRipA` |
+| BC3-90 | [bc3-90-live-demo.json](bc3-90-live-demo.json) | Live-Demo für Präsentationen: Seite mit Passwort, startet einen Testlauf (simuliertes UC1, Modus `test`) und zeigt ihn Schritt für Schritt bis zur Entscheidung an Gate 2 | `zfr6vFzjCTWSs3rQ` |
 | BC3-91 | [bc3-91-laufprotokoll.json](bc3-91-laufprotokoll.json) | Schreibt den Stand eines Laufs in `laeufe` | `lJEmDjgpCHVBybUO` |
 | BC3-99 | [bc3-99-fehlerprotokoll.json](bc3-99-fehlerprotokoll.json) | Error Workflow aller BC3-Workflows, schreibt in `fehler` | `D03E5Rn1DDKDZGbL` |
 
@@ -35,14 +36,14 @@ In n8n vor dem Import anlegen, Werte nicht ins Repo.
 
 | Name im Export | Art | Genutzt in |
 |---|---|---|
-| Postgres BC3 | Postgres (Supabase `bc3-slicer`) | BC3-00, 01, 80, 81, 82, 91, 99 |
+| Postgres BC3 | Postgres (Supabase `bc3-slicer`) | BC3-00, 01, 80, 81, 82, 90, 91, 99 |
 | Postgres Team-Datenbank | Postgres (Team-Datenbank, Schema `bc3`) | BC3-80 |
 | GitHub coe-factory | GitHub API, nur dieses Repo | BC3-80 |
 | PG n8n uni | Mistral Cloud | BC3-15 |
 | Mistral PG (OpenAI-Schnittstelle) | OpenAI API mit Mistral-Adresse | BC3-20, 30 |
 | PG | Telegram API (Bot) | BC3-00 |
 | vs drive | Google Drive OAuth2 | BC3-70 |
-| BC3 Übersicht Betrieb, BC3 Übersicht Legal | Basic Auth, je eine Adresse | BC3-82 |
+| BC3 Übersicht Betrieb, BC3 Übersicht Legal | Basic Auth, je eine Adresse | BC3-82, BC3-90 (nur Betrieb) |
 
 ## Platzhalter
 
@@ -52,8 +53,9 @@ In n8n vor dem Import anlegen, Werte nicht ins Repo.
 | `__PFAD_GATE2__` | BC3-81 Webhooks, BC3-00, BC3-82 | Pfad der Gate-2-Seite |
 | `__PFAD_UEBERSICHT__`, `__PFAD_UEBERSICHT_LEGAL__` | BC3-82 Webhooks, Code und Notiz | Pfade der Übersicht |
 | `__TELEGRAM_CHAT_ID__` | BC3-00 „Lauf einstellen“ | Chat für die Gate-2-Nachricht |
-| `__DRIVE_ORDNER_VORSCHAU__` | BC3-00 „Lauf einstellen“ | Drive-Ordner `_vorschau` |
+| `__DRIVE_ORDNER_VORSCHAU__` | BC3-00 „Lauf einstellen“, BC3-90 Seite | Drive-Ordner `_vorschau` |
+| `__PFAD_LIVE__`, `__PFAD_LIVE_START__`, `__PFAD_LIVE_STAND__` | BC3-90 Webhooks und Seite, BC3-82 „Link zur Live-Demo“ | Pfade der Live-Demo: Seite (mit Passwort), Start und Stand (prüfen einen Schlüssel, den die Seite beim Ausliefern bekommt) |
 
 ## Import
 
-Reihenfolge: BC3-99, 91, 11, dann 10, 15, 20, 30, 40, 50, 70, 80, danach 00, 01, 81, 82. Danach in jedem Workflow den Error Workflow (BC3-99) und an jedem Baustein *Execute Workflow* den aufgerufenen Workflow neu wählen (die IDs oben helfen bei der Zuordnung).
+Reihenfolge: BC3-99, 91, 11, dann 10, 15, 20, 30, 40, 50, 70, 80, danach 00, 01, 81, 82, 90. Danach in jedem Workflow den Error Workflow (BC3-99) und an jedem Baustein *Execute Workflow* den aufgerufenen Workflow neu wählen (die IDs oben helfen bei der Zuordnung).
