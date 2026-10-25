@@ -429,137 +429,85 @@ def test_fremde_anfrage_beim_nachladen_wird_abgewiesen_statt_geschrieben(umgebun
                             ).fetchone()[0] == 0
 
 
-def test_main_verdrahtet_den_profil_writer(umgebung, monkeypatch):
+@pytest.fixture
+def main_laden(umgebung, monkeypatch):
+    # Laedt bc1_service.main frisch hinter einem strengen create_app-Double (B8:
+    # store, llm, package positional, alles Weitere benannt) und raeumt danach auf,
+    # auch wenn der Test scheitert. Fabrik statt Import in der Fixture: ein Test
+    # kann vor dem Laden noch die Umgebung aendern.
+    import importlib
+    import sys
+
+    from bc1_service import api as api_modul
+
+    gesehen: dict = {}
+
+    def _stub_create_app(store, llm, package, **kw):
+        gesehen.update(kw, package=package)
+        return "app"
+
+    monkeypatch.setattr(api_modul, "create_app", _stub_create_app)
+    monkeypatch.setenv("BC1_DB_DSN", DSN)
+    monkeypatch.setenv("BC1_COMPANY_ID", MANDANT_A)
+    monkeypatch.setenv("BC1_ANFRAGE_ID", ANFRAGE_A)
+    monkeypatch.setenv("BC1_LLM", "ollama")     # kein API-Key noetig
+    monkeypatch.setenv("BC1_BC0_MELDUNGEN", "aus")
+    geladen: list = []
+
+    def _laden():
+        # Genau ein Aufruf je Test: beim zweiten merkte sich monkeypatch das erste
+        # Modul und stellte es beim Rueckbau mit geschlossenen Pools wieder her.
+        assert not geladen, "main_laden() nur einmal je Test aufrufen"
+        monkeypatch.delitem(sys.modules, "bc1_service.main", raising=False)
+        geladen.append(importlib.import_module("bc1_service.main"))
+        return geladen[-1], gesehen
+
+    yield _laden
+    for main in geladen:
+        main._store.close()
+        main._profil_pool.close()
+    sys.modules.pop("bc1_service.main", None)
+
+
+def test_main_verdrahtet_den_profil_writer(main_laden):
     # Ohne diesen Test bliebe die Produktions-Verdrahtung ungeschuetzt: faellt
     # das writer-Argument in main.py weg, bleibt die ganze Suite gruen — und der
     # Dienst schriebe im Betrieb kein einziges Profil (Lehre aus dem T14-Review).
-    import importlib
-    import sys
-
-    from bc1_service import api as api_modul
-
-    gesehen: dict = {}
-
-    def _stub_create_app(store, llm, package, snapshot=None, lifespan=None, **kw):
-        gesehen.update(kw, package=package)
-        return "app"
-
-    monkeypatch.setattr(api_modul, "create_app", _stub_create_app)
-    monkeypatch.setenv("BC1_DB_DSN", DSN)
-    monkeypatch.setenv("BC1_COMPANY_ID", MANDANT_A)
-    monkeypatch.setenv("BC1_ANFRAGE_ID", ANFRAGE_A)
-    monkeypatch.setenv("BC1_LLM", "ollama")     # kein API-Key noetig
-    monkeypatch.setenv("BC1_BC0_MELDUNGEN", "aus")
-    monkeypatch.delitem(sys.modules, "bc1_service.main", raising=False)
-    main = importlib.import_module("bc1_service.main")
-    try:
-        assert gesehen["company_id"] == MANDANT_A
-        assert gesehen["anfrage_id"] == ANFRAGE_A
-        assert isinstance(gesehen["writer"], ProfilWriter)
-        # Dasselbe Paket-Objekt fuer Kern und Writer: zwei getrennte Bauten
-        # koennten auseinanderlaufen (Reihenfolge der BC0-Mengen).
-        assert gesehen["writer"]._package is gesehen["package"]
-        # B4: BC1_BC0_MELDUNGEN=aus -> kein Melder (die Uebergabe an create_app prueft Task 5).
-        assert main._melder is None
-        assert gesehen["melder"] is None
-    finally:
-        main._store.close()
-        main._profil_pool.close()
-        sys.modules.pop("bc1_service.main", None)
+    main, gesehen = main_laden()
+    assert gesehen["company_id"] == MANDANT_A
+    assert gesehen["anfrage_id"] == ANFRAGE_A
+    assert isinstance(gesehen["writer"], ProfilWriter)
+    # Dasselbe Paket-Objekt fuer Kern und Writer: zwei getrennte Bauten
+    # koennten auseinanderlaufen (Reihenfolge der BC0-Mengen).
+    assert gesehen["writer"]._package is gesehen["package"]
+    # B4: BC1_BC0_MELDUNGEN=aus -> kein Melder (die Uebergabe an create_app prueft Task 5).
+    assert main._melder is None
+    assert gesehen["melder"] is None
 
 
-def test_main_baut_b4_aus_den_kernprozessen_des_mandanten(umgebung, monkeypatch):
-    import importlib
-    import sys
-
-    from bc1_service import api as api_modul
-
-    gesehen: dict = {}
-
-    def _stub_create_app(store, llm, package, lifespan=None, **kw):
-        gesehen.update(kw, package=package)
-        return "app"
-
-    monkeypatch.setattr(api_modul, "create_app", _stub_create_app)
-    monkeypatch.setenv("BC1_DB_DSN", DSN)
-    monkeypatch.setenv("BC1_COMPANY_ID", MANDANT_A)
-    monkeypatch.setenv("BC1_ANFRAGE_ID", ANFRAGE_A)
-    monkeypatch.setenv("BC1_LLM", "ollama")     # kein API-Key noetig
-    monkeypatch.setenv("BC1_BC0_MELDUNGEN", "aus")
-    monkeypatch.delitem(sys.modules, "bc1_service.main", raising=False)
-    main = importlib.import_module("bc1_service.main")
-    try:
-        paket = gesehen["package"]
-        b4 = paket.field("process_id").typ
-        assert b4.validator("KP-02") is True and b4.validator("KP-03") is False
-        e5 = paket.field("focus_step").typ          # E5 bleibt auf ANFRAGE_A begrenzt
-        assert e5.validator("KP-01.TP-1") is True and e5.validator("KP-02.TP-1") is False
-    finally:
-        main._store.close()
-        main._profil_pool.close()
-        sys.modules.pop("bc1_service.main", None)
+def test_main_baut_b4_aus_den_kernprozessen_des_mandanten(main_laden):
+    _, gesehen = main_laden()
+    paket = gesehen["package"]
+    b4 = paket.field("process_id").typ
+    assert b4.validator("KP-02") is True and b4.validator("KP-03") is False
+    e5 = paket.field("focus_step").typ          # E5 bleibt auf ANFRAGE_A begrenzt
+    assert e5.validator("KP-01.TP-1") is True and e5.validator("KP-02.TP-1") is False
 
 
-def test_main_uebergibt_create_app_keine_weiteren_positionsargumente(umgebung, monkeypatch):
+def test_main_uebergibt_create_app_keine_weiteren_positionsargumente(main_laden):
     # Strenges Double (B8): store, llm, package sind die einzigen Positionsargumente;
-    # alles Weitere (lifespan, company_id, ...) geht benannt. Das tolerante Double
-    # der Geschwistertests verschluckt ein ueberzaehliges viertes Argument.
-    import importlib
-    import sys
-
-    from bc1_service import api as api_modul
-
-    gesehen: dict = {}
-
-    def _stub_create_app(store, llm, package, *, lifespan=None, **kw):
-        gesehen.update(kw, lifespan=lifespan)
-        return "app"
-
-    monkeypatch.setattr(api_modul, "create_app", _stub_create_app)
-    monkeypatch.setenv("BC1_DB_DSN", DSN)
-    monkeypatch.setenv("BC1_COMPANY_ID", MANDANT_A)
-    monkeypatch.setenv("BC1_ANFRAGE_ID", ANFRAGE_A)
-    monkeypatch.setenv("BC1_LLM", "ollama")     # kein API-Key noetig
-    monkeypatch.setenv("BC1_BC0_MELDUNGEN", "aus")
-    monkeypatch.delitem(sys.modules, "bc1_service.main", raising=False)
-    main = importlib.import_module("bc1_service.main")
-    try:
-        assert gesehen["lifespan"] is not None
-    finally:
-        main._store.close()
-        main._profil_pool.close()
-        sys.modules.pop("bc1_service.main", None)
+    # alles Weitere (lifespan, company_id, ...) geht benannt. Das Double der
+    # Fixture main_laden ist streng; dieser Test haelt die Regel ausdruecklich fest.
+    _, gesehen = main_laden()
+    assert gesehen["lifespan"] is not None
 
 
-def test_main_startet_trotz_alter_snapshot_variable(umgebung, monkeypatch):
+def test_main_startet_trotz_alter_snapshot_variable(main_laden, monkeypatch):
     # B8: BC1_SNAPSHOT_PFAD ist abgeloest; eine uebrig gebliebene Variable in
     # einer alten Umgebung darf den Start weder brechen noch etwas laden.
-    import importlib
-    import sys
-
-    from bc1_service import api as api_modul
-
-    gesehen: dict = {}
-
-    def _stub_create_app(store, llm, package, *, lifespan=None, **kw):
-        gesehen.update(kw, lifespan=lifespan)
-        return "app"
-
-    monkeypatch.setattr(api_modul, "create_app", _stub_create_app)
     monkeypatch.setenv("BC1_SNAPSHOT_PFAD", "/gibt/es/nicht.json")
-    monkeypatch.setenv("BC1_DB_DSN", DSN)
-    monkeypatch.setenv("BC1_COMPANY_ID", MANDANT_A)
-    monkeypatch.setenv("BC1_ANFRAGE_ID", ANFRAGE_A)
-    monkeypatch.setenv("BC1_LLM", "ollama")     # kein API-Key noetig
-    monkeypatch.setenv("BC1_BC0_MELDUNGEN", "aus")
-    monkeypatch.delitem(sys.modules, "bc1_service.main", raising=False)
-    main = importlib.import_module("bc1_service.main")
-    try:
-        assert gesehen["lifespan"] is not None
-    finally:
-        main._store.close()
-        main._profil_pool.close()
-        sys.modules.pop("bc1_service.main", None)
+    _, gesehen = main_laden()
+    assert gesehen["lifespan"] is not None
 
 
 class _StartMelder:
