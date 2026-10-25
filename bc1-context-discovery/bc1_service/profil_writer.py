@@ -356,6 +356,13 @@ class ProfilWriter:
         try:
             return self._abgleich(state, antwort)
         except ProfilWriteError:
+            if antwort["status"] != "fertig":
+                # Heute nur der Konvertierungs-Widerspruch (Feld und Ziel stehen schon in
+                # der ERROR-Zeile des Baus). Als Grund nur die Klasse: die Meldung traegt
+                # den Rohwert, also Nutzertext. Wie unten: der Frage-Turn blockiert nicht.
+                log.warning("profil_write_uebersprungen session=%s grund=ProfilWriteError",
+                            state.session_id)
+                return None
             raise
         except Exception as fehler:                        # noqa: BLE001
             if antwort["status"] == "fertig":

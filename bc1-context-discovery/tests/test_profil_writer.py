@@ -167,6 +167,31 @@ def test_abschlussfehler_wird_ohne_detail_protokolliert(pool, caplog):
     assert "DETAIL" not in eintraege[0]
 
 
+# PAKET plus eine Zahlenspalte ohne Feldtyp: so entsteht der Widerspruch
+# Validator<->Spaltentyp, den das Discovery-Paket per Feldtyp ausschliesst.
+KONV_PAKET = UseCasePackage(
+    name="discovery", schema_version=PAKET.schema_version,
+    fields=PAKET.fields + (
+        FieldSpec("frequency_per_year", "Wie oft im Jahr?", required=False),
+    ),
+)
+
+
+def test_konvertierungswiderspruch_im_frage_turn_blockiert_nicht(pool, caplog):
+    # Entscheidung 25.10., Variante (a): mitten im Interview protokollieren statt
+    # 503 — sonst zaehlt jedes Neusenden als Antwort auf eine nie gezeigte Frage.
+    # Der Rohwert ist Nutzertext und gehoert nicht ins Protokoll.
+    writer = ProfilWriter(pool, MANDANT_A, KONV_PAKET)
+    writer.reconcile(_state(), FRAGE)
+    with caplog.at_level("WARNING"):
+        assert writer.reconcile(_state(frequency_per_year=(
+            "dreimal jaehrlich", FieldStatus.GUELTIG)), FRAGE) is None
+    assert "profil_konvertierung_widerspruch" in caplog.text
+    assert "profil_write_uebersprungen" in caplog.text
+    assert "dreimal jaehrlich" not in caplog.text
+    assert _zeilen() == [("KP-01.TP-1", 1, "in_erhebung")]
+
+
 def test_erster_turn_legt_draft_und_bindung_an(pool):
     ProfilWriter(pool, MANDANT_A, PAKET).reconcile(_state(), FRAGE)
     assert _zeilen() == [("KP-01.TP-1", 1, "in_erhebung")]
