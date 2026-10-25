@@ -78,6 +78,12 @@ def darf_recovery_replay(state: SessionState, package: UseCasePackage,
             and _ctx(state.schema_version).startswith("ctx-")
             and _ctx(package.schema_version).startswith("ctx-"))
 
+def paket_passt(state: SessionState, package: UseCasePackage) -> bool:
+    """Laeuft die Session mit dem Paket des Dienstes? Paket-Schutz des Kerns und
+    Terminal-Gate der API (Paket (4)) pruefen damit dieselbe Regel."""
+    return (state.schema_version == package.schema_version
+            and state.paket_name in (None, package.name))
+
 def profil_payload(state: SessionState, conf: ConfidenceResult,
                    package: UseCasePackage) -> dict:
     # Über die Paketfelder iterieren, nicht über state.values: Gate 0 sieht
@@ -113,8 +119,7 @@ def process_turn(store: StateStore, llm: LLMClient, package: UseCasePackage,
         if anfrage_id is not None:
             pruefe_anfrage(state, anfrage_id)      # vor dem Paket-Guard
 
-    if (state.schema_version != package.schema_version
-            or state.paket_name not in (None, package.name)):
+    if not paket_passt(state, package):
         if not darf_recovery_replay(state, package, message_id,
                                     mitgesendete_version):
             raise PaketKonfliktError(

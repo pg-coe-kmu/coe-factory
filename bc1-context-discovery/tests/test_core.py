@@ -591,6 +591,22 @@ def test_darf_recovery_replay_direkt():
     assert darf_recovery_replay(state, anderes_ctx, "m2", None) is False
 
 
+# Paket (4): Gate und Kern muessen dieselbe Paket-Pruefung nutzen — sonst holte das
+# Gate einen Abschluss nach, den der Kern dann mit paket_konflikt abweist.
+@pytest.mark.parametrize("schema_version, paket_name, erwartet", [
+    ("0.1", "toy_prozess", True),
+    ("0.1", None, True),               # Alt-Sessions ohne Paketnamen (wie im Kern)
+    ("0.2", "toy_prozess", False),
+    ("0.2", None, False),
+    ("0.1", "anderes", False),
+])
+def test_paket_passt(schema_version, paket_name, erwartet):
+    from bc1_core.core import paket_passt
+
+    state = SessionState("s1", schema_version, paket_name=paket_name)
+    assert paket_passt(state, TOY_PROZESS) is erwartet
+
+
 # Terminal-Gate (Spec B3) gilt fuer BEIDE Terminalzustaende, nicht nur FERTIG:
 # eine neue, nie gesehene Nachricht darf eine abgebrochene Session nicht
 # wieder oeffnen.
