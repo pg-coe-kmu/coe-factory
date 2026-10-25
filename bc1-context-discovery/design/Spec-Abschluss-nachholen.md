@@ -1,8 +1,8 @@
 # Entscheidungsvorlage — Abschluss nachholen (Paket (4))
 
-> **Status:** Entwurf zur Entscheidung (25.10.2026), unabhängig geprüft (Bau-Sicht und Gegenprüfung,
-> zwei Runden, Befunde eingearbeitet). **Kein Code.** Gebaut wird erst nach dem Go der
-> BC1-Projektleitung, dann mit Plan und TDD.
+> **Status:** **Entschieden 25.10.2026 (BC1-Projektleitung): B2 in enger Form plus H** — enge Form,
+> Wortlaut wie vorgeschlagen, Regel R4-I1 wird ersetzt. Unabhängig geprüft (Bau-Sicht und
+> Gegenprüfung, drei Runden, Befunde eingearbeitet). Gebaut wird nach eigenem Plan mit TDD.
 > **Bezug:** Abschlussplan „Neu 23.10.“ (2) und C4 „Outbox/Reconciler“; `bc1_service/n8n/SMOKE.md`,
 > Abschnitt „Betrieb: wenn das Schreiben des Profils klemmt“; Spec DB-Profil-Fundament, Regel R4-I1.
 
@@ -99,7 +99,10 @@ Gewinn ist, dass die Person nicht mehr belogen wird (H). B2 kommt für die kurze
 Betrieb mit einer entfernten Datenbank zu erwarten, bisher aber nicht gemessen sind. Wer nur das
 Nötigste will, wählt **H allein**; wer gar nichts bauen will, **A**.
 
-### Zu entscheiden (BC1-Projektleitung)
+### Entscheidungen (BC1-Projektleitung, 25.10.2026)
+
+*Alle vier wie empfohlen entschieden: B2 eng + H, enge Form, Wortlaut wie vorgeschlagen, R4-I1 wird
+ersetzt. Die Punkte bleiben zur Nachvollziehbarkeit stehen.*
 
 1. **Welche Option?** Empfehlung **B2 eng + H**. Alternativen: **H allein** (ehrlich, ohne
    Selbstheilung) oder **A**.
