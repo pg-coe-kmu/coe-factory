@@ -134,18 +134,18 @@ def test_email_wird_beschnitten():
 ANFRAGE = "A-2026-01"
 
 
-def _eigene(caplog, logger="bc1_service.bc0_meldungen"):
+def _eigene(caplog, logger="bc1.bc0"):
     return [r.getMessage() for r in caplog.records if r.name == logger]
 
 
 def test_baue_melder_beim_aus_liefert_none_und_warnt(caplog):
-    with caplog.at_level(logging.WARNING, logger="bc1_service.bc0_meldungen"):
+    with caplog.at_level(logging.WARNING, logger="bc1.bc0"):
         assert baue_melder({"BC1_BC0_MELDUNGEN": "aus"}, MANDANT) is None
     assert _eigene(caplog) == [MELDUNG_AUS]
 
 
 def test_baue_melder_mit_zugang_liefert_einen_melder_ohne_warnung(caplog):
-    with caplog.at_level(logging.WARNING, logger="bc1_service.bc0_meldungen"):
+    with caplog.at_level(logging.WARNING, logger="bc1.bc0"):
         assert isinstance(baue_melder(VOLL, MANDANT), Bc0Melder)
     assert _eigene(caplog) == []
 

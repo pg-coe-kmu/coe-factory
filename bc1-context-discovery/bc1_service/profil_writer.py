@@ -25,7 +25,7 @@ from psycopg.types.json import Jsonb
 from bc1_service import bc0_lesepfade
 from bc1_service.paket_feldtypen import entferne_snn, snn_tokens
 
-log = logging.getLogger(__name__)
+log = logging.getLogger("bc1.writer")
 
 KP_MUSTER = re.compile(r"^KP-[0-9]{2}$")
 

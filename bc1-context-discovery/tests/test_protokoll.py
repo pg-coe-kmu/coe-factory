@@ -156,3 +156,10 @@ def test_fremd_gewaehlte_ids_koennen_keine_felder_faelschen(caplog):
 # über /turn ist sie seit der Härtung nicht mehr zu erreichen, deshalb direkt geprüft.
 def test_protokollwert_maskiert_fremde_zeichen():
     assert _protokollwert("x status=fertig\nturn") == "x?status?fertig?turn"
+
+
+# B7 Teil 2 (#266): ein Logger-Baum — der Betrieb stellt nur `bc1` ein, nicht zwei Bäume.
+def test_alle_bc1_logger_haengen_am_baum_bc1():
+    from bc1_service import api, bc0_meldungen, profil_writer
+    assert (api.log.name, bc0_meldungen.log.name, profil_writer.log.name) == (
+        "bc1.api", "bc1.bc0", "bc1.writer")

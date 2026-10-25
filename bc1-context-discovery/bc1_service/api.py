@@ -33,7 +33,7 @@ from bc1_core.store import KorrupterStateError, StaleStateError, StateStore
 from bc1_service.bc0_meldungen import Bc0MeldungFehler
 from bc1_service.profil_writer import ProfilWriteError, ProfilWriter
 
-log = logging.getLogger(__name__)
+log = logging.getLogger("bc1.api")
 # P5 (#271): Betriebsprotokoll des Dienstes, eine Zeile je /turn.
 dienst_log = logging.getLogger("bc1.dienst")
 

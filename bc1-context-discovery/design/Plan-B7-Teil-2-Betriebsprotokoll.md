@@ -4,7 +4,7 @@
 > Quellen: Sammel-Issue #266 (Teil 2, Definition of Done), Design-Spec B7 „Observability (minimal)", Abschlussplan Zeile B7 und die Rückstellungen mit Ziel B7 Teil 2 („Neu 23.10." (6), „Neu 24.10. — aus C1a" (4e), Befund M8 aus `Plan-Haertung-vor-dem-Betrieb.md`).
 > Größe M: acht Tasks, je ein bis vier TDD-Zyklen. Spec und Plan stehen in einem Dokument, wie beim Härtungspaket.
 > **Geprüft:** unabhängiger Prüfer (25.10.), „bereit mit Korrekturen", 0 Critical, 4 Important, 9 Minor. Alle Behauptungen zu SDK, Starlette, anyio und psycopg hat er an der Quelle bestätigt und gemessen. Alles eingearbeitet (Abschnitt „Befundverbleib").
-> **Offen vor dem Bau:** Bestätigung von A1–A3 durch die BC1-Projektleitung.
+> **Bestätigt 25.10.** durch die BC1-Projektleitung: A1–A3 wie empfohlen, inklusive E11 („Bau los, TDD-Guard nie umgehen.").
 > Ausführung: Claude selbst im Hauptstrang, `*.py` nur per Edit/Write; danach eine unabhängige Gesamtprüfung.
 
 ## Big Picture

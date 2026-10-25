@@ -21,7 +21,7 @@ import httpx
 
 from bc1_service.start import lies_company_id
 
-log = logging.getLogger(__name__)
+log = logging.getLogger("bc1.bc0")
 
 ZEITLIMIT_SEKUNDEN = 10
 
