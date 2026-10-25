@@ -1,6 +1,7 @@
 # Spec C1a — Eigner-Rolle, D4 als Anzahl, E2 „je Schrittlauf", Testprofile Version 3
 
 > Stand 24.10.2026, Entwurf 3, an den Bau angeglichen 24.10.2026. Alle Entscheidungen aus Abschnitt 9 sind getroffen (BC1-Projektleitung, 24.10.).
+> - **Änderung 25.10. (Abschnitt 3, entschieden von der BC1-Projektleitung, Abschlussplan „Neu 24.10. — aus C1a" (4b)):** `ANZAHL` nimmt „ca" auch ohne Punkt und am Ende genau ein „." oder „!" an. Plan: `design/Plan-ANZAHL-ca-und-Satzzeichen.md`.
 > - **Angleich an den Bau (24.10.):** Zwei Abweichungen des Plans sind von der BC1-Projektleitung bestätigt und hier eingearbeitet: der Writer liest den BC0-Eigner beim Schreiben (Abschnitte 1 und 4), und `ANZAHL` akzeptiert ein vorangestelltes Näherungswort (Abschnitt 3).
 > - **Entscheidung der BC1-Projektleitung (24.10.):** Die Eigner-Spalte kommt in C1a. BC2 ist vorher um die Korrektur des README-Satzes gebeten worden (#286, Kommentar vom 24.10.).
 > - **Nachtrag 24.10. abends (ändert 9.1 und 9.5):** BC2 hat in #286 nicht geantwortet, BC0 hat die Lesart aus 9.1 nicht bestätigt. Die BC1-Projektleitung hat entschieden, von Zustimmung auszugehen: Der Vertrag ist als Fassung 1.4 mitgeändert, gemergt wird ohne Warten. Widerspricht BC2 oder BC0, zieht BC1 nach. Beide sind informiert (#286, #206).
@@ -99,7 +100,9 @@ Allgemein, deshalb im Kern. Er nutzt den vorhandenen Token-Parser und die Format
 - eine Zahl allein
 - eine Zahl, gefolgt von höchstens **einem Zählwort** aus einer festen Liste (Fall, Fälle, Vorgang, Vorgänge, Stück), optional ergänzt um „je Durchlauf" oder „pro Durchlauf"
 
-Beiden Formen darf ein **Näherungswort** vorangehen: `etwa`, `ca.`, `circa`, `ungefähr` (auch `ungefaehr`), `rund`, `im Schnitt`, `durchschnittlich`. Sonst wäre die häufige Antwort „etwa 3" ungültig und das Interview müsste nachfragen. (Der vorhandene Zahlparser nimmt solche Wörter nur zusammen mit einer Periode an, nicht allein; die Erweiterung ist neu.)
+Beiden Formen darf ein **Näherungswort** vorangehen: `etwa`, `ca.` (seit 25.10. auch `ca` ohne Punkt), `circa`, `ungefähr` (auch `ungefaehr`), `rund`, `im Schnitt`, `durchschnittlich`. Sonst wäre die häufige Antwort „etwa 3" ungültig und das Interview müsste nachfragen. (Der vorhandene Zahlparser nimmt solche Wörter nur zusammen mit einer Periode an, nicht allein; die Erweiterung ist neu.)
+
+Seit 25.10. darf beiden Formen am Ende **genau ein** Satzzeichen `.` oder `!` folgen („3 Fälle."). Ein `?` drückt Zweifel aus und bleibt ungültig, damit das Interview nachfragt. Mehrere Zeichen oder ein Komma bleiben ebenfalls ungültig.
 
 Alles andere bleibt unverändert und ist damit ungültig.
 
@@ -107,6 +110,8 @@ Alles andere bleibt unverändert und ist damit ungültig.
 |---|---|
 | `0`, `1`, `3`, `2,5`, `1.000` | gültig: `0`, `1`, `3`, `2.5`, `1000`. Durchschnitt erlaubt, der Vertrag nennt `number ≥ 0`. *(Entscheidung des Verfassers)* |
 | `3 Fälle`, `3 Vorgänge pro Durchlauf`, `etwa 3`, `ca. 3 Fälle`, `im Schnitt 2,5` | gültig, `3` bzw. `2.5` |
+| seit 25.10.: `ca 3`, `ca 3 Fälle`, `3 Fälle.`, `3.`, `etwa 3.`, `3 Fälle!`, `2,5.` | gültig, `3` bzw. `2.5` |
+| seit 25.10. ausdrücklich: `3?`, `3..`, `3,`, `3 Fälle.!`, `ca3` | ungültig, Nachfrage |
 | `5 pro Woche`, `15 im Monat`, `5/Monat`, `5 täglich`, `3 %`, `3 Stunden` | ungültig, Nachfrage |
 | `-1`, leer, zwei Zahlen, Überlauf (nicht endlich) | ungültig |
 

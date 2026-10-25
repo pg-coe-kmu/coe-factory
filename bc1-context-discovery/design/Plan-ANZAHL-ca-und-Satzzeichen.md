@@ -2,6 +2,7 @@
 
 > Stand 25.10.2026, Fassung 1. Go der BC1-Projektleitung am 25.10. („Go für Paket (3) ANZAHL: erst Plan, dann bauen, TDD-Guard nie umgehen.").
 > Quelle: Abschlussplan „Neu 24.10. — aus C1a" (4b), entschieden 25.10. von der BC1-Projektleitung: **zulassen**. Ändert die Spec C1a, Abschnitt 3.
+> **Gebaut 25.10.** auf Zweig `bc1-anzahl-naeherung`: T1 und T2 waren im eigenen Zyklus rot; T3 kam grün an, die Gegenprobe im Scratchpad-Kopie-Verfahren macht jeden seiner fünf Fälle rot (`[.!?]?` → `3?`; `[.!,]*` → `3..`, `3,`, `3 Fälle.!`; `\s*` statt `\s+` nach dem Näherungswort → `ca3`). Suite mit DB 882/4.
 > Größe XS: eine Zeile Regex, drei Tests. Spec und Plan stehen deshalb in einem Dokument. Zweitmeinung: eine unabhängige Prüfung nach dem Bau (Plan und Code zusammen), weil die Änderung klein ist, der Wert aber in die Vertragsspalte `executions_per_run` geht.
 
 ## Big Picture
