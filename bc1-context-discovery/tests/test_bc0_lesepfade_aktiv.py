@@ -81,7 +81,8 @@ def test_stillgelegter_kernprozess_fehlt_in_der_kernprozessliste():
 def test_teilprozesse_eines_stillgelegten_kernprozesses_sind_nicht_interviewbar():
     # BC0s Sichten pruefen nur tp.aktiv (v3.4) — ein stillgelegter Kernprozess mit
     # aktiven Kindern bliebe interviewbar. BC1 verlangt zusaetzlich den aktiven
-    # Elternprozess (Codex-Review 22.09., Important 2); ob BC0 kaskadiert, ist erfragt.
+    # Elternprozess (Codex-Review 22.09., Important 2). Seit v3.8 entsteht der Zustand
+    # nur noch per INSERT ... aktiv = false; ob BC0 auch das ausschliesst, ist erfragt.
     frische_db(DSN)
     _stilllegen("ref_prozesse", "process_id", "KP-02")   # KP-02.TP-1 bleibt aktiv
     with verbindung(DSN) as conn:

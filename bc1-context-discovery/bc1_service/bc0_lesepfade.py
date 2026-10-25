@@ -28,8 +28,9 @@ def mandant_existiert(conn, company_id: str) -> bool:
 
 # BC0s Sichten pruefen nur den Teilprozess (tp.aktiv, v3.4). Ein stillgelegter
 # Kernprozess mit aktiven Kindern bliebe sonst interviewbar — BC1 verlangt zusaetzlich
-# den aktiven Elternprozess (v_prozesse_lesen filtert p.aktiv). Ob BC0 die Stilllegung
-# selbst kaskadiert, ist erfragt (22.09.); bis dahin ist die strengere Lesart die sichere.
+# den aktiven Elternprozess (v_prozesse_lesen filtert p.aktiv). Seit BC0 v3.8 wird ein
+# Kernprozess nicht mehr per UPDATE stillgelegt; ob auch INSERT ... aktiv = false
+# ausgeschlossen ist, ist erfragt (25.10.) — bis dahin ist die strengere Lesart die sichere.
 _AKTIVER_KERNPROZESS = (
     " JOIN v_prozesse_lesen p ON p.company_id = t.company_id "
     "                        AND p.process_id = t.process_id")

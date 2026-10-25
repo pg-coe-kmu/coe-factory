@@ -2,6 +2,15 @@
 
 > Stand 25.10.2026, Fassung 1. Go der BC1-Projektleitung am 25.10. für die Reihenfolge; dies ist Schritt 2: der Abgleich mit BC0s PR #354 und, falls nötig, das Nachziehen der Test-Nachbildung.
 > Grundlage: `design/Auswirkungspruefung-BC0-v3.8-v3.20.1.md` (unabhängige Prüfung, die Kernaussage zur neuen Abhängigkeit von BC1 am Code nachgeprüft).
+> **Gebaut 25.10.** auf Zweig `bc1-geruest-nachziehen`, ohne Abweichung von E1–E4.
+> - Mit dem nachgezogenen Gerüst waren genau die fünf vorhergesagten Tests rot.
+> - Danach Schritt für Schritt grün; dazu kam ein neuer Test `test_bc1_role_liest_companies_direkt`. Suite mit DB 912/4.
+> - Die Gegenproben lieferten die Fehlschläge vor den Fixes:
+>   - drei Stilllegungs-Tests am v3.8-Trigger,
+>   - der Kaskaden-Test an seiner eigenen Wache `has_table_privilege … is False`.
+> - Der Trigger `anfrage_prozesse_benannt` weist „Teilprozess 9“ als direkten Bezug ab (Probe im Test-Container).
+> - Ein erster Lauf scheiterte massenhaft. Ursache war ein parallel laufender Prüf-Agent auf derselben Test-DB, nicht das Gerüst.
+>
 > Größe S: Gerüst-SQL, fünf Bestandstests, ein Handbuch-Abschnitt, Doku. Kein Produktionscode außer einem Kommentar.
 
 ## Big Picture
