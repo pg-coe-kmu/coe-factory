@@ -41,6 +41,9 @@ MELDUNG_KEIN_HTTPS = (
 MELDUNG_URL_MIT_ZUGANGSDATEN = (
     "BC1_BC0_URL enthält ein @ — dort gehören keine Zugangsdaten hin. Das Passwort "
     "gehört nach BC1_BC0_KONTO_PASSWORT; in der Adresse stünde es in jeder Protokollzeile.")
+MELDUNG_URL_UNLESBAR = (
+    "BC1_BC0_URL ist keine lesbare Adresse (Rechnername oder Port). Die Adresse wird hier "
+    "bewusst nicht wiederholt — sie könnte Zugangsdaten enthalten.")
 MELDUNG_AUS = (
     "Meldungen an BC0 sind ausgeschaltet (BC1_BC0_MELDUNGEN=aus) — 'im_interview' und "
     "das Gate setzt BC0 von Hand.")
@@ -96,7 +99,14 @@ def lies_bc0_zugang(umgebung: Mapping[str, str]) -> Bc0Zugang | None:
     # entginge einer Prüfung nur auf den Rechnerteil. BC0 braucht in der Adresse kein @.
     if "@" in url_roh:
         raise RuntimeError(MELDUNG_URL_MIT_ZUGANGSDATEN)
-    teile = urlsplit(url_roh)
+    # B7 Teil 2: ebenfalls vor der https-Meldung. urlsplit (z. B. Vollbreite-＠) und
+    # .port (z. B. https://host:geheim) werfen ValueError mit Teilen der Adresse im Text;
+    # verkettet stuende er im Traceback des Starts, deshalb `from None`.
+    try:
+        teile = urlsplit(url_roh)
+        teile.port
+    except ValueError:
+        raise RuntimeError(MELDUNG_URL_UNLESBAR) from None
     sicher = teile.scheme == "https" or (
         teile.scheme == "http" and teile.hostname in _ERLAUBTE_HTTP_HOSTS)
     if not (sicher and teile.hostname):
