@@ -120,12 +120,13 @@ def _normalisiere_minuten(wert: str) -> str:
 
 # Reine Anzahl ohne Periode (z. B. Faelle je Durchlauf): ein einziges Muster per
 # fullmatch — jede Periode ("pro Woche", "im Monat"), Einheit oder zweite Zahl
-# bleibt damit unpassend und faellt in der Validierung durch.
+# bleibt damit unpassend und faellt in der Validierung durch. Seit 25.10. (C1a (4b)):
+# „ca" auch ohne Punkt, am Ende hoechstens ein „." oder „!" — „?" bleibt eine Nachfrage.
 _ANZAHL_MUSTER = re.compile(
     rf"\s*(?:(?:etwa|ca\.?|circa|ungefähr|ungefaehr|rund|im schnitt|durchschnittlich)\s+)?"
     rf"({_ZAHL_TOKEN})"
     rf"(?:\s+(?:fall|fälle|faelle|vorgang|vorgänge|vorgaenge|stück|stueck))?"
-    rf"(?:\s+(?:je|pro)\s+durchlauf)?\s*", re.IGNORECASE)
+    rf"(?:\s+(?:je|pro)\s+durchlauf)?[.!]?\s*", re.IGNORECASE)
 
 
 def _normalisiere_anzahl(wert: str) -> str:

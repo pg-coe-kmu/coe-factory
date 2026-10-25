@@ -371,3 +371,25 @@ def test_anzahl_ungueltig(eingabe):
 def test_anzahl_ca_ohne_punkt(eingabe):
     assert ANZAHL.normalisiere(eingabe) == "3"
     assert ANZAHL.validator(ANZAHL.normalisiere(eingabe)) is True
+
+
+# Ebenso (4b): genau ein Satzzeichen „." oder „!" am Ende; der Dezimalpunkt bleibt Zahl.
+@pytest.mark.parametrize("eingabe, erwartet", [
+    ("3 Fälle.", "3"),
+    ("3.", "3"),
+    ("etwa 3.", "3"),
+    ("3 Fälle!", "3"),
+    ("ca 3 Fälle je Durchlauf.", "3"),
+    ("1.000.", "1000"),
+    ("2,5.", "2.5"),
+])
+def test_anzahl_mit_satzzeichen_am_ende(eingabe, erwartet):
+    assert ANZAHL.normalisiere(eingabe) == erwartet
+    assert ANZAHL.validator(ANZAHL.normalisiere(eingabe)) is True
+
+
+# Grenze von (4b): ein Fragezeichen drueckt Zweifel aus (Nachfrage ist richtig), mehr als
+# ein Zeichen oder ein Komma bleibt unklar, ebenso „ca" ohne Leerzeichen.
+@pytest.mark.parametrize("eingabe", ["3?", "3..", "3,", "3 Fälle.!", "ca3"])
+def test_anzahl_bleibt_bei_zweifel_und_mehreren_zeichen_ungueltig(eingabe):
+    assert ANZAHL.validator(ANZAHL.normalisiere(eingabe)) is False
