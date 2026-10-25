@@ -445,8 +445,8 @@ class ProfilWriter:
             # Ehrlich (Spec K0): die Antwort geht trotzdem raus — die Session ist
             # fachlich zu Ende. Zurueck bleibt ein verwaister Draft; er ist fuer
             # BC0 nicht gate-relevant, belegt aber den UNIQUE-Slot (Betriebsweg K5).
-            log.error("draft_aufraeumen_fehlgeschlagen session=%s schritt=%s grund=%r",
-                      session_id, bindung.focus_step_id, fehler)
+            log.error("draft_aufraeumen_fehlgeschlagen session=%s schritt=%s grund=%s",
+                      session_id, bindung.focus_step_id, _fehlergrund(fehler))
 
     def _draft_anlegen(self, conn, state, inhalt) -> Bindung | None:
         try:

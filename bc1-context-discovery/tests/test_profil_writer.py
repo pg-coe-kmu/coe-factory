@@ -534,6 +534,26 @@ def test_fehlgeschlagenes_aufraeumen_am_draft_liefert_trotzdem_aus(pool, caplog)
     assert _zeilen() == [("KP-01.TP-1", 1, "in_erhebung")]      # Draft bleibt
 
 
+def test_fehlgeschlagenes_aufraeumen_protokolliert_keine_detailzeile(pool, caplog):
+    # Härtung (25.10.): Postgres hängt an Fehler eine DETAIL-Zeile mit einem Ausschnitt
+    # der Zeile — bei uns Profiltext. Ins Protokoll gehören nur Klasse und erste Zeile.
+    writer = ProfilWriter(pool, MANDANT_A, PAKET)
+    writer.reconcile(_state(), FRAGE)
+    with verbindung(DSN, None) as conn:
+        conn.execute(
+            "CREATE FUNCTION bc1.tf_blockiere() RETURNS trigger LANGUAGE plpgsql "
+            "AS $fn$ BEGIN RAISE EXCEPTION 'Aufraeumen blockiert' "
+            "USING DETAIL = 'PROFILTEXT_DARF_NICHT_INS_LOG'; END $fn$")
+        conn.execute("CREATE TRIGGER tr_blockiere BEFORE DELETE ON bc1.prozessprofil "
+                     "FOR EACH ROW EXECUTE FUNCTION bc1.tf_blockiere()")
+        conn.commit()
+    with caplog.at_level("ERROR"):
+        assert writer.reconcile(_state(), ABBRUCH) is None
+    assert "draft_aufraeumen_fehlgeschlagen" in caplog.text
+    assert "Aufraeumen blockiert" in caplog.text
+    assert "PROFILTEXT_DARF_NICHT_INS_LOG" not in caplog.text
+
+
 def test_fehlgeschlagenes_aufraeumen_bei_eingefrorener_zeile(pool, caplog):
     # Realistische Simulation: die gebundene Zeile ist inzwischen eingefroren —
     # der Freeze-Trigger weist das DELETE ab (K5-Fall, verwaister Draft bleibt).
