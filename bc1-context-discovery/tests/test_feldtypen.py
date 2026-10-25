@@ -364,3 +364,10 @@ def test_anzahl_gueltig(eingabe, erwartet):
 ])
 def test_anzahl_ungueltig(eingabe):
     assert ANZAHL.validator(ANZAHL.normalisiere(eingabe)) is False
+
+
+# Abschlussplan „Neu 24.10. — aus C1a" (4b), entschieden 25.10.: „ca" auch ohne Punkt.
+@pytest.mark.parametrize("eingabe", ["ca 3", "ca 3 Fälle", "CA 3"])
+def test_anzahl_ca_ohne_punkt(eingabe):
+    assert ANZAHL.normalisiere(eingabe) == "3"
+    assert ANZAHL.validator(ANZAHL.normalisiere(eingabe)) is True

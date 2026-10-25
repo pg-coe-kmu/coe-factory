@@ -122,7 +122,7 @@ def _normalisiere_minuten(wert: str) -> str:
 # fullmatch — jede Periode ("pro Woche", "im Monat"), Einheit oder zweite Zahl
 # bleibt damit unpassend und faellt in der Validierung durch.
 _ANZAHL_MUSTER = re.compile(
-    rf"\s*(?:(?:etwa|ca\.|circa|ungefähr|ungefaehr|rund|im schnitt|durchschnittlich)\s+)?"
+    rf"\s*(?:(?:etwa|ca\.?|circa|ungefähr|ungefaehr|rund|im schnitt|durchschnittlich)\s+)?"
     rf"({_ZAHL_TOKEN})"
     rf"(?:\s+(?:fall|fälle|faelle|vorgang|vorgänge|vorgaenge|stück|stueck))?"
     rf"(?:\s+(?:je|pro)\s+durchlauf)?\s*", re.IGNORECASE)
