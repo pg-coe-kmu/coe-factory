@@ -1,9 +1,12 @@
 from __future__ import annotations
+import logging
 from bc1_core.types import Candidate, FieldStatus, FieldValue, SessionState
 from bc1_core.package import UseCasePackage, FieldSpec
 from bc1_core.llm import LLMClient
 from bc1_core.pii import ersetze_pii
-from bc1_core.protokoll import ki_aufruf
+from bc1_core.protokoll import aktuelle_korrelation, ki_aufruf
+
+log = logging.getLogger("bc1.kern")
 
 def status_fuer(spec: FieldSpec, value: str) -> FieldStatus:
     # Policy: ein werfender Validator macht den Wert UNGUELTIG, bricht aber
@@ -68,3 +71,9 @@ def extract_and_merge(state: SessionState, message: str, message_id: str,
         else:
             _merke_kandidat(fv, wert, message_id)
             fv.status = FieldStatus.UNKLAR
+        # B7 Teil 2: nur der Feldname, nie der Wert. Bewusst hier und nicht in
+        # status_fuer — den ruft auch der Sweep des Writers auf.
+        status = state.values[cand.field_name].status
+        if status in (FieldStatus.UNGUELTIG, FieldStatus.UNKLAR):
+            log.info("validierung korrelation=%s feld=%s ergebnis=%s",
+                     aktuelle_korrelation.get(), spec.name, status.value)

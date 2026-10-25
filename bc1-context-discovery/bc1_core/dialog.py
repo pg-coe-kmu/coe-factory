@@ -1,8 +1,12 @@
 from __future__ import annotations
+import logging
 from dataclasses import dataclass
 from bc1_core.types import Ergebnis, FieldStatus, FieldValue, SessionState
 from bc1_core.package import UseCasePackage
 from bc1_core.confidence import ConfidenceResult
+from bc1_core.protokoll import aktuelle_korrelation
+
+log = logging.getLogger("bc1.kern")
 
 MAX_ATTEMPTS_PER_FIELD = 2
 MAX_ROUNDS = 20
@@ -46,6 +50,8 @@ def decide_next(state: SessionState, package: UseCasePackage,
         if fv is not None and fv.attempts >= MAX_ATTEMPTS_PER_FIELD:
             fv.status = FieldStatus.UNGELOEST
             fv.grund = GRUND_NACHFRAGE_LIMIT
+            log.info("feld_ungeloest korrelation=%s feld=%s grund=%s",
+                     aktuelle_korrelation.get(), name, GRUND_NACHFRAGE_LIMIT)
 
     offen = [n for n in conf.offene_pflichtfelder
              if state.values.get(n) is None
@@ -70,6 +76,8 @@ def decide_next(state: SessionState, package: UseCasePackage,
                 state.values[name] = fv
             fv.status = FieldStatus.UNGELOEST
             fv.grund = GRUND_RUNDEN_LIMIT
+            log.info("feld_ungeloest korrelation=%s feld=%s grund=%s",
+                     aktuelle_korrelation.get(), name, GRUND_RUNDEN_LIMIT)
         return Decision(Ergebnis.FERTIG)
 
     if not offen:
