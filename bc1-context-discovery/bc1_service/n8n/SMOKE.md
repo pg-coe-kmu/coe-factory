@@ -198,7 +198,9 @@ liegt meist ein fremder Draft auf demselben Fokus-Schritt — dann das Rezept un
   `abschluss_ausstehend` mit dem Text „… das Ergebnis konnte aber noch nicht gespeichert werden …“.
   Nachgeholt wird **von Hand**: Ursache beheben, dann per curl an `/turn` mit der `message_id` aus
   `abschluss=` der Zeile `abschluss_ausstehend` (bei geändertem Paket zusätzlich mit der alten
-  `schema_version` der Sitzung).
+  `schema_version` der Sitzung). Ein Client, der selbst die alte `schema_version` mitsendet,
+  bekommt nach einem Paketwechsel stattdessen 409 `schema_version_passt_nicht` (der n8n-Chat sendet
+  keine).
 - Profil schon eingefroren: 409 `session_abgeschlossen` wie bisher.
 
 **Grenzen:** (a) Löscht der Betrieb den eigenen Entwurf genau zwischen Prüfung und Abgleich

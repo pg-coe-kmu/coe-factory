@@ -2,6 +2,7 @@
 
 > Stand 25.10.2026, Fassung 1. Go der BC1-Projektleitung am 25.10. („Go Paket 5").
 > Quelle: Abschlussplan „Neu 24.10. — aus B8" (1) und (2); „Neu 25.10. — aus B7 Teil 2" (3) als Option.
+> **Gebaut 25.10.** auf Zweig `bc1-test-aufraeumen`, ohne Abweichung vom Plan: Der Guard ließ den ersten Edit (Fixture und Test 1) als Refactoring bei Grün durch, der Ausweichweg war nicht nötig. Alle drei Gegenproben verhielten sich wie erwartet, G2 auch mit dem Zusatz. Testnamen vorher und nachher gleich (913), Suite mit DB 909/4.
 > Größe XS, nur Testcode, eine Datei. Zweitmeinung: eine unabhängige Prüfung nach dem Bau (Plan und Diff zusammen). Mehr ist nicht nötig, weil kein Produktionscode und kein Vertrag berührt wird.
 
 ## Big Picture
