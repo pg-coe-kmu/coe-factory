@@ -323,4 +323,5 @@ DB-Profil-Fundament R4-I1 (lokal) · Abschlussplan „Neu 23.10.“ (2) und C4.
 - **Nebenbefund der Prüfung (vorbestehend, nicht Teil dieses Pakets):** Ein Konvertierungs-Widerspruch
   (`profil_writer.py:203–211`) wirft `ProfilWriteError` auch in Turns mitten im Interview, und `reconcile`
   reicht ihn unabhängig vom Status weiter (`:356–359`) → 503 mitten im Interview, entgegen dem Kommentar
-  `:368`. Ziel: beim Bau dieses Pakets klären (gleiche Datei), sonst C4.
+  `:368`. Ziel: beim Bau dieses Pakets klären (gleiche Datei), sonst C4. *Entschieden 25.10.
+  (BC1-Projektleitung): Variante (a) mit Auflage, gebaut nach `design/Plan-Konvertierung-im-Frage-Turn.md`.*

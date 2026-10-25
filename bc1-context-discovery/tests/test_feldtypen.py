@@ -181,7 +181,8 @@ def test_zahl_und_minuten_lehnen_reine_riesenzahl_ohne_periode_ab():
     # Muster, und inf >= 0 ist wahr: der Wert gilt als gueltig, wird vom
     # Normalisierer (zu Recht, Total-Vertrag) unveraendert durchgereicht, und
     # Decimal() scheitert am stehengebliebenen Komma. Folge im Betrieb:
-    # ProfilWriteError -> 503 in JEDEM Turn, die Sitzung haengt dauerhaft.
+    # ProfilWriteError -> 503 im Abschluss-Turn; die Frage-Turns davor uebergehen
+    # ihn seit 25.10. (Plan Konvertierung im Frage-Turn), das Profil bleibt offen.
     ueberlauf = "9" * 309 + ",25"
     assert ZAHL.validator(ueberlauf) is False
     assert MINUTEN.validator(ueberlauf) is False

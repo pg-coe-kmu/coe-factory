@@ -182,7 +182,13 @@ Antwort als eine, die nicht in der Datenbank steht". Der Interview-Zustand ist h
 
 **Richtiger Umgang:** dieselbe `message_id` erneut senden. Der Dienst fährt den kompletten
 Abgleich noch einmal und antwortet erst, wenn geschrieben ist. Kommt der 503 wiederholt,
-liegt meist ein fremder Draft auf demselben Fokus-Schritt — dann das Rezept unten.
+liegt meist ein fremder Draft auf demselben Fokus-Schritt — dann das Rezept unten. Seltener
+ist es ein Konvertierungs-Widerspruch, also ein Code-Fehler: Ein Zahlwert gilt im Interview
+als gültig, passt aber nicht in seine Spalte. Ihn nennt die ERROR-Zeile
+`profil_konvertierung_widerspruch session=… feld=… ziel=…`. Sie steht schon in den Turns
+davor, die das Interview seit dem 25.10. nicht mehr blockieren (WARNING
+`profil_write_uebersprungen … grund=ProfilWriteError`). Nach dem Code-Fix holt die nächste
+Nachricht den Abschluss nach.
 
 **Im Chat: Neusenden nach einem 503 im Abschluss-Turn** (seit Paket (4),
 `../../design/Spec-Abschluss-nachholen.md`). Die n8n-Hülle schickt beim Neusenden eine neue
