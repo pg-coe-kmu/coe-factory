@@ -6,6 +6,7 @@
 > **Geprüft:** unabhängiger Prüfer (25.10.), „bereit mit Korrekturen", 0 Critical, 4 Important, 9 Minor. Alle Behauptungen zu SDK, Starlette, anyio und psycopg hat er an der Quelle bestätigt und gemessen. Alles eingearbeitet (Abschnitt „Befundverbleib").
 > **Bestätigt 25.10.** durch die BC1-Projektleitung: A1–A3 wie empfohlen, inklusive E11 („Bau los, TDD-Guard nie umgehen.").
 > Ausführung: Claude selbst im Hauptstrang, `*.py` nur per Edit/Write; danach eine unabhängige Gesamtprüfung.
+> **Gebaut 25.10.** auf Zweig `bc1-b7-teil-2`, alle Tasks unter dem tdd-guard, jeder Test war im eigenen Zyklus rot (keine Gegenprobe nötig). Suite: mit DB 863/4, ohne DB 594/273.
 
 ## Big Picture
 

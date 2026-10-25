@@ -82,22 +82,52 @@ Der Dienst schreibt je `/turn` genau eine Zeile über den Logger `bc1.dienst` �
 (Level INFO, bei HTTP 5xx — 503 und 500 — ERROR), dazu beim Start `dienst gestartet paket=… schema_version=… mandant=…`:
 
 ```
-turn korrelation=<id> session=<session_id> message=<message_id> http=<200|409|503|500> status=<frage|fertig|abgebrochen_ohne_identitaet|fehler_fortsetzbar|-> dauer_ms=<int>
+turn korrelation=<id> session=<session_id> message=<message_id> http=<200|409|503|500> status=<…> dauer_ms=<int>
 ```
 
-Die Correlation-ID kommt aus dem Header `X-Correlation-ID` (z. B. von n8n) oder wird erzeugt und als
-`X-Correlation-ID` zurückgegeben. **Nie in dieser Zeile:** Nachrichtentext, extrahierte Werte, Profildaten,
-Fragen oder Chat-Texte — nur IDs, Status und Zahlen. Das Protokoll geht auf die Standardausgabe des
-Prozesses; im Container `docker logs <container>`. Kern, KI-Adapter und Store loggen in Teil 2 (B7).
+`status` ist bei HTTP 200 der fachliche Status (`frage`, `fertig`, `abgebrochen_ohne_identitaet`,
+`fehler_fortsetzbar`), bei einer abgewiesenen Anfrage der Fehlerschlüssel aus `detail` (z. B.
+`session_abgeschlossen`, `gleichzeitige_anfrage`, `profil_write_fehlgeschlagen`, `sitzung_beschaedigt`,
+`interner_fehler`). Die Correlation-ID kommt aus dem Header `X-Correlation-ID` (z. B. von n8n) oder wird
+erzeugt und als `X-Correlation-ID` zurückgegeben. Seit B7 Teil 2 steht sie auch in den Zeilen, die Kern
+und KI-Adapter während des Turns schreiben:
 
-Auf derselben Ausgabe stehen auch andere Logger: `httpx` je ausgehender Anfrage (Methode, Adresse,
-Status — kein Inhalt), die Dienst-Schicht selbst (Gate bei BC0, beschädigte Sitzung), der Profil-Writer
-und die BC0-Meldungen. Anfragen, die schon an
-der Body-Prüfung scheitern (422), erscheinen nur im Zugriffslog von uvicorn. Dazu gehören seit der
-Härtung (25.10.) Sitzungs- und Nachrichtenkennungen, die nicht zu `[A-Za-z0-9_-]{1,64}` passen —
-Sitzungskennungen stünden sonst roh im Protokoll. n8n schickt eine UUID und `exec-<Nummer>`, beide passen. **Bekannte Lücke:** eine
-*unerwartete* Ausnahme protokolliert uvicorn mit Traceback („Exception in ASGI application“, stderr) —
-der Ausnahmetext kann Inhalte tragen.
+| Logger | Zeile | Stufe |
+|---|---|---|
+| `bc1.kern` | `ki_aufruf korrelation=<id> art=<extraktion\|antwort> ergebnis=<ok\|fehler> dauer_ms=<int>` | INFO, bei `fehler` WARNING |
+| `bc1.kern` | `verarbeitung_fehlgeschlagen korrelation=<id> klasse=<Ausnahmeklasse>` | WARNING |
+| `bc1.kern` | `validierung korrelation=<id> feld=<Feldname> ergebnis=<ungueltig\|unklar>` | INFO |
+| `bc1.kern` | `feld_ungeloest korrelation=<id> feld=<Feldname> grund=<nachfrage_limit_erreicht\|runden_limit_erreicht>` | INFO |
+| `bc1.ki` | `ki_wiederholung korrelation=<id> anbieter=claude versuch=<n>` (nur Claude; Gemini und Ollama wiederholen nicht) | WARNING |
+| `bc1.api` | `unerwartete_ausnahme korrelation=<id> klasse=<Ausnahmeklasse>` | ERROR |
+| `bc1.writer` | `profil_write_fehlgeschlagen session=<id> grund=<Klasse: erste Meldungszeile>` | ERROR |
+
+Außerhalb eines Turns (CLI, Testprofil-Werkzeug) steht `korrelation=-`. Die Kern-Zeilen entstehen je
+Verarbeitungsversuch: Scheitert die KI und schickt der Client die Nachricht erneut, stehen sie für den
+neuen Versuch noch einmal da. Eine *unerwartete* Ausnahme in `/turn` beantwortet der Dienst selbst mit
+500 `interner_fehler` und einem festen Chat-Text; sie erreicht uvicorn nicht, es entsteht kein Traceback.
+
+**Nie im Protokoll:** Nachrichtentext, extrahierte Werte, Profildaten, Fragen, Chat-Texte, Ausnahmetexte
+und Tracebacks — nur IDs, Feldnamen, Status, Klassennamen und Zahlen. Einzige Ausnahme: Der Profil-Writer
+nennt bei Datenbankfehlern Klasse und erste Meldungszeile (Tabelle, Constraint), nie die DETAIL-Zeile.
+Seine Befund-Warnungen (`kp_tp_diskrepanz`, `eigner_rolle_abweichung`, `snn_entfernt`) kommen einmal im
+Abschluss-Turn; die Befunde selbst stehen im Profil. Alle eigenen Logger hängen unter `bc1` (`bc1.dienst`,
+`bc1.api`, `bc1.kern`, `bc1.ki`, `bc1.writer`, `bc1.bc0`). Das Protokoll geht auf die Standardausgabe des
+Prozesses; im Container `docker logs <container>`.
+
+Bewusst ohne eigene Zeilen (Entscheidung 25.10., `design/Plan-B7-Teil-2-Betriebsprotokoll.md`, A1–A3): der
+Datenbank-Store — seine Fehler erscheinen als Grund in der Turn-Zeile, als `sitzung_beschaedigt` oder als
+`unerwartete_ausnahme`; ein Startabbruch — er erscheint als Python-Traceback mit der festen Startmeldung,
+beim Start gibt es noch keine Gesprächsinhalte. Writer- und Gate-Zeilen nennen die Sitzung bzw. die
+Anfrage statt der Correlation-ID; mit nur einem Prozess ist der Turn darüber eindeutig.
+
+Auf derselben Ausgabe stehen auch fremde Logger: `httpx` je ausgehender Anfrage (Methode, Adresse,
+Status — kein Inhalt) und das Anthropic-SDK (`anthropic._base_client`, auf INFO „Retrying request …").
+**Achtung:** Auf DEBUG protokolliert das Anthropic-SDK die Anfrage samt Nachrichten — „nie Inhalte" gilt
+ab INFO, und der Dienst läuft auf INFO. Anfragen, die schon an der Body-Prüfung scheitern (422),
+erscheinen nur im Zugriffslog von uvicorn. Dazu gehören seit der Härtung (25.10.) Sitzungs- und
+Nachrichtenkennungen, die nicht zu `[A-Za-z0-9_-]{1,64}` passen — Sitzungskennungen stünden sonst roh im
+Protokoll. n8n schickt eine UUID und `exec-<Nummer>`, beide passen.
 
 ## Setup und Start
 
