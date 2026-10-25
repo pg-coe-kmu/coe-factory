@@ -20,7 +20,8 @@ class SessionStatus(str, Enum):
 
 
 # Zustaende, aus denen es keinen Weg zurueck gibt. Replay-Weiche (core) und
-# Terminal-Gate (api) pruefen BEIDE, nie nur FERTIG.
+# Terminal-Gate (api) pruefen BEIDE, nie nur FERTIG. Nachgeholt wird nur bei
+# FERTIG (Paket (4): ein offener Abschluss) — ein Abbruch hat kein Profil.
 TERMINALE_STATUS = (SessionStatus.FERTIG, SessionStatus.ABGEBROCHEN_OHNE_IDENTITAET)
 
 

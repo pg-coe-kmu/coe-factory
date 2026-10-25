@@ -149,8 +149,10 @@ def process_turn(store: StateStore, llm: LLMClient, package: UseCasePackage,
         message = state.raw_log[-1][1]
     elif ist_terminal(state):
         # Nach der Gate-0-Übergabe gibt es keinen Übergang zurück (Spec B3).
-        # Neue Nachrichten erhalten idempotent das Abschlussergebnis;
-        # aktives Zurückweisen ist Sache der Transportschicht (P2).
+        # Neue Nachrichten erhalten idempotent das Abschlussergebnis — ohne zu
+        # speichern; aktives Zurückweisen ist Sache der Transportschicht (P2).
+        # Sie lässt seit Paket (4) genau einen Fall durch: das Nachholen eines
+        # offenen Abschlusses (eigener Entwurf offen, api.py Terminal-Gate).
         return state.antworten[state.raw_log[-1][0]]
     else:
         # PII-Filter VOR dem ersten Speichern (B2): ab hier existiert kein

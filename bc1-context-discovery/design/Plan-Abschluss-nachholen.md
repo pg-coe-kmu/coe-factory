@@ -2,6 +2,16 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Bauvermerk 25.10.2026 (nativ, Session 25):** Task 1 und 2 wie geplant. **Task 3 abweichend:** Der
+> tdd-guard wies den Writer-Fake `_OffenerWriter` hinter der API zweimal ab (die API fängt jede Ausnahme,
+> der Guard sieht nur `assert 500 == 200`; neue Lesson im Skill `tdd-guard`). Das Gate ist deshalb gegen
+> den **echten Writer und die Test-DB** getestet (`tests/test_api_profil.py`); „Writer nicht gefragt“ und
+> Lesefehler belegt ein Writer auf nie geöffnetem Pool. Die DB-Tests aus Task 4 sind dabei als Treiber
+> entstanden (Task 4 darin aufgegangen); Protokoll-Assertions per `caplog` dort statt in
+> `test_protokoll.py`. Statusprüfung im Gate als `state.status == "fertig"` (Guard, Datei-Idiom). Zwei
+> Tests grün bei Ankunft, per Gegenprobe im Scratchpad-Kopie-Verfahren belegt. Nebenbefund gemessen
+> (Abschlussplan). Alle Abweichungen mit Ruling im Ledger.
+>
 > Stand 25.10.2026, Fassung 2. Entscheidung der BC1-Projektleitung am 25.10.: B2 in enger Form plus H,
 > Wortlaut wie vorgeschlagen, R4-I1 wird ersetzt; „danach Plan“. Fassung 2 nach unabhängiger Prüfung
 > des Plans (0 Critical, 3 Important, 12 Minor — alle eingearbeitet).

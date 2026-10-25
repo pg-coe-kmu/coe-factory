@@ -184,11 +184,29 @@ Antwort als eine, die nicht in der Datenbank steht". Der Interview-Zustand ist h
 Abgleich noch einmal und antwortet erst, wenn geschrieben ist. Kommt der 503 wiederholt,
 liegt meist ein fremder Draft auf demselben Fokus-Schritt — dann das Rezept unten.
 
-**Im Chat reicht Neusenden nicht immer:** Die n8n-Hülle schickt beim Neusenden eine neue
-`message_id` (`exec-<id>`). Mitten im Interview läuft es damit weiter; beim **Abschluss-Turn**
-antwortet der Dienst dann mit 409 `session_abgeschlossen`, und das Profil bleibt ungeschrieben,
-bis jemand mit **derselben** `message_id` per curl an `/turn` nachholt — sie steht in der
-Protokollzeile `turn … message=<id> http=503` (README „Betriebsprotokoll“).
+**Im Chat: Neusenden nach einem 503 im Abschluss-Turn** (seit Paket (4),
+`../../design/Spec-Abschluss-nachholen.md`). Die n8n-Hülle schickt beim Neusenden eine neue
+`message_id` (`exec-<id>`). Mitten im Interview läuft es damit einfach weiter. Ist die Sitzung schon
+`fertig`, prüft der Dienst ihren Abschluss:
+
+- **Eigener Entwurf noch offen, auf dem eigenen Fokus-Schritt, Paket unverändert** (z. B. kurze
+  Störung beim Einfrieren, oder die Ursache ist inzwischen behoben): Der Dienst holt das Einfrieren
+  nach und liefert die Zusammenfassung aus (Protokoll `abschluss_nachgeholt`). Besteht die Ursache
+  noch (z. B. Teilprozess stillgelegt), kommt wieder der 503.
+- **Sonst steht das Profil aus** — kein eigener Entwurf (ein fremder hat blockiert, oder er wurde
+  gelöscht), Entwurf auf einem anderen Schritt, oder Paket seit dem Abschluss geändert: 409
+  `abschluss_ausstehend` mit dem Text „… das Ergebnis konnte aber noch nicht gespeichert werden …“.
+  Nachgeholt wird **von Hand**: Ursache beheben, dann per curl an `/turn` mit der `message_id` aus
+  `abschluss=` der Zeile `abschluss_ausstehend` (bei geändertem Paket zusätzlich mit der alten
+  `schema_version` der Sitzung).
+- Profil schon eingefroren: 409 `session_abgeschlossen` wie bisher.
+
+**Grenzen:** (a) Löscht der Betrieb den eigenen Entwurf genau zwischen Prüfung und Abgleich
+(Millisekunden), legt der Abgleich ihn neu an. (b) Eine Nachricht nach einem erfolgreichen Abschluss
+liest jetzt die Datenbank; scheitert das Lesen, kommt 503 („… konnte gerade nicht gespeichert
+werden …“), obwohl das Profil steht — die Zeile `abschlussstand_unlesbar` im Protokoll zeigt es.
+(c) Geht die Person nach dem 503 weg, holt niemand nach; vor jedem Neustart zeigt die Messung M3
+solche Sitzungen.
 
 ### K5: verwaister oder fremder `in_erhebung`-Draft
 
@@ -216,6 +234,12 @@ DELETE FROM bc1.prozessprofil
 
 Danach gleicht die aktive Sitzung beim nächsten Turn von selbst wieder ab — es ist kein
 Neustart und kein Eingriff in die Sitzung nötig.
+
+Für eine schon **fertige** Sitzung gilt das nicht: Sie hat keinen eigenen Entwurf, beim Neusenden
+sieht die Person `abschluss_ausstehend`, und der Betrieb holt per curl nach (Abschnitt oben). Auch
+den **eigenen** Entwurf einer fertigen Sitzung holt der Dienst nach dem Löschen nicht mehr von
+selbst nach — so kommt ein bewusst verworfenes Interview nicht zurück, und ein spätes Nachholen kann
+kein jüngeres Profil überholen.
 
 > Einspielen der Tabellen, Rechte-Ist-Stand und Sollsignatur: siehe
 > [`../db/EINSPIELEN.md`](../db/EINSPIELEN.md).

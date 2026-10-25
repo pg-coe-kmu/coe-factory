@@ -2,7 +2,10 @@
 
 > **Status:** **Entschieden 25.10.2026 (BC1-Projektleitung): B2 in enger Form plus H** — enge Form,
 > Wortlaut wie vorgeschlagen, Regel R4-I1 wird ersetzt. Unabhängig geprüft (Bau-Sicht und
-> Gegenprüfung, drei Runden, Befunde eingearbeitet). Gebaut wird nach eigenem Plan mit TDD.
+> Gegenprüfung, drei Runden, Befunde eingearbeitet). **Gebaut 25.10.** nach
+> `design/Plan-Abschluss-nachholen.md` (Zweig `bc1-abschluss-nachholen`); die Regeltabelle in
+> Abschnitt 4 gilt wie beschrieben. Abweichung beim Testen: Das Gate ist gegen den echten Writer und
+> die Test-DB getestet statt mit einem Writer-Fake (Plan, Bauvermerk).
 > **Bezug:** Abschlussplan „Neu 23.10.“ (2) und C4 „Outbox/Reconciler“; `bc1_service/n8n/SMOKE.md`,
 > Abschnitt „Betrieb: wenn das Schreiben des Profils klemmt“; Spec DB-Profil-Fundament, Regel R4-I1.
 

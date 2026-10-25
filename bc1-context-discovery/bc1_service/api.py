@@ -9,6 +9,9 @@ Zurückweisen neuer Nachrichten an Sessions in einem Endzustand (fertig oder
 abgebrochen ohne Identität — Gate 0).
 Seit B4 stößt der Dienst nach einem eingefrorenen Profil BC0s 'Gate nachziehen' an —
 nach der Antwort, im Hintergrund.
+Seit Paket (4) (design/Spec-Abschluss-nachholen.md) holt das Terminal-Gate einen offenen
+Abschluss nach, wenn der eigene Entwurf der fertigen Session noch offen ist; steht das Profil
+sonst aus, antwortet es 409 abschluss_ausstehend statt session_abgeschlossen.
 """
 from __future__ import annotations
 
@@ -254,9 +257,12 @@ def create_app(
             nachholen = (state is not None and ist_terminal(state)
                          and req.message_id not in state.processed_message_ids)
             if nachholen:
-                # Nur WIRKLICH neue Nachrichten werden abgewiesen. Bereits
+                # Nur WIRKLICH neue Nachrichten werden hier entschieden. Bereits
                 # bekannte (auch unbeantwortete) gehen an den Kern — er ist die
                 # eine Stelle, die Idempotenz und Crash-Resume entscheidet.
+                # Paket (4): Eine fertige Session mit offenem eigenen Entwurf geht
+                # zum Nachholen weiter (der Kern liefert die gespeicherte Antwort,
+                # speichert nichts); steht das Profil sonst aus, ehrlicher 409.
                 try:
                     abschluss = (writer.abschluss_offen(state)
                                  if writer is not None and state.status == "fertig"

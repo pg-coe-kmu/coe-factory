@@ -87,8 +87,8 @@ turn korrelation=<id> session=<session_id> message=<message_id> http=<200|409|50
 
 `status` ist bei HTTP 200 der fachliche Status (`frage`, `fertig`, `abgebrochen_ohne_identitaet`,
 `fehler_fortsetzbar`), bei einer abgewiesenen Anfrage der Fehlerschlüssel aus `detail` (z. B.
-`session_abgeschlossen`, `gleichzeitige_anfrage`, `profil_write_fehlgeschlagen`, `sitzung_beschaedigt`,
-`interner_fehler`). Die Correlation-ID kommt aus dem Header `X-Correlation-ID` (z. B. von n8n) oder wird
+`session_abgeschlossen`, `abschluss_ausstehend`, `gleichzeitige_anfrage`, `profil_write_fehlgeschlagen`,
+`sitzung_beschaedigt`, `interner_fehler`). Die Correlation-ID kommt aus dem Header `X-Correlation-ID` (z. B. von n8n) oder wird
 erzeugt und als `X-Correlation-ID` zurückgegeben. Seit B7 Teil 2 steht sie auch in den Zeilen, die Kern
 und KI-Adapter während des Turns schreiben:
 
@@ -101,6 +101,9 @@ und KI-Adapter während des Turns schreiben:
 | `bc1.ki` | `ki_wiederholung korrelation=<id> anbieter=claude versuch=<n>` (nur Claude; Gemini und Ollama wiederholen nicht) | WARNING |
 | `bc1.api` | `unerwartete_ausnahme korrelation=<id> klasse=<Ausnahmeklasse>` | ERROR |
 | `bc1.writer` | `profil_write_fehlgeschlagen session=<id> grund=<Klasse: erste Meldungszeile>` | ERROR |
+| `bc1.writer` | `abschlussstand_unlesbar session=<id> grund=<Klasse: erste Meldungszeile>` (Gate antwortet 503) | ERROR |
+| `bc1.api` | `abschluss_nachgeholt session=<id> message=<neue message_id>` — eine neue Nachricht hat einen offenen Abschluss eingefroren (Paket (4)) | INFO |
+| `bc1.api` | `abschluss_ausstehend session=<id> message=<neue message_id> abschluss=<message_id des Abschluss-Turns>` — Profil fehlt, nicht automatisch nachholbar; Nachholen von Hand mit der Kennung aus `abschluss=` (`n8n/SMOKE.md`) | WARNING |
 
 Außerhalb eines Turns (CLI, Testprofil-Werkzeug) steht `korrelation=-`. Die Kern-Zeilen entstehen je
 Verarbeitungsversuch: Scheitert die KI und schickt der Client die Nachricht erneut, stehen sie für den
