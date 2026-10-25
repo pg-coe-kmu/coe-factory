@@ -1,14 +1,18 @@
 from __future__ import annotations
+import logging
 from bc1_core.types import (Ergebnis, FieldStatus, FieldValue, SessionState,
                             SessionStatus, TERMINALE_STATUS)
 from bc1_core.package import UseCasePackage
 from bc1_core.store import StateStore
 from bc1_core.llm import LLMClient
 from bc1_core.pii import ersetze_pii
+from bc1_core.protokoll import aktuelle_korrelation, ki_aufruf
 from bc1_core.extractor import extract_and_merge
 from bc1_core.confidence import confidence_check, ConfidenceResult
 from bc1_core.dialog import GRUND_IDENTITAET_UNGEKLAERT, decide_next
 from bc1_core.gespraech import baue_turn_kontext, werte_schnappschuss
+
+log = logging.getLogger("bc1.kern")
 
 class PaketKonfliktError(ValueError):
     """Session ist an ein anderes Paket / eine andere schema_version gebunden."""
@@ -174,8 +178,13 @@ def process_turn(store: StateStore, llm: LLMClient, package: UseCasePackage,
                                         decision.ergebnis is Ergebnis.FERTIG)
             # Auch die Anbieter-Antwort wird gefiltert (B2): sie wird gespeichert
             # und ausgeliefert, und der Anbieter kann Klartext halluzinieren.
-            antwortetext = ersetze_pii(llm.antworte(kontext))
-    except Exception:
+            with ki_aufruf("antwort"):
+                text = llm.antworte(kontext)
+            antwortetext = ersetze_pii(text)
+    except Exception as fehler:
+        # B7 Teil 2: nur die Klasse — der Ausnahmetext kann Inhalte tragen.
+        log.warning("verarbeitung_fehlgeschlagen korrelation=%s klasse=%s",
+                    aktuelle_korrelation.get(), type(fehler).__name__)
         # LLM-Aussetzer (Spec B4): fortsetzbar melden. NUR der FEHLER-Marker
         # wird persistiert — auf dem letzten dauerhaften Stand, nicht auf dem
         # halb verarbeiteten Turn (sonst verbrauchte der Ausfall unsichtbar

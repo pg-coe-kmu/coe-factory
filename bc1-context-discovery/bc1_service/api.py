@@ -29,6 +29,7 @@ from bc1_core.core import (AnfrageKonfliktError, MandantKonfliktError,
                            pruefe_mandant)
 from bc1_core.llm import LLMClient
 from bc1_core.package import UseCasePackage
+from bc1_core.protokoll import aktuelle_korrelation
 from bc1_core.store import KorrupterStateError, StaleStateError, StateStore
 from bc1_service.bc0_meldungen import Bc0MeldungFehler
 from bc1_service.profil_writer import ProfilWriteError, ProfilWriter
@@ -184,6 +185,9 @@ def create_app(
         # P5 (#271): genau eine Zeile je /turn, auch auf den Fehlerpfaden — nur IDs,
         # Status, Zahlen; nie Nachricht, payload, chat_text oder Frage.
         korrelation = _korrelation(request.headers.get("X-Correlation-ID"))
+        # B7 Teil 2: Kern und Adapter lesen sie von hier. Kein reset noetig — anyio
+        # fuehrt den synchronen Endpunkt in einer eigenen Kopie des Kontexts aus.
+        aktuelle_korrelation.set(korrelation)
         beginn = time.perf_counter()
         http, status = 500, "-"
         try:

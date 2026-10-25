@@ -3,6 +3,7 @@ from bc1_core.types import Candidate, FieldStatus, FieldValue, SessionState
 from bc1_core.package import UseCasePackage, FieldSpec
 from bc1_core.llm import LLMClient
 from bc1_core.pii import ersetze_pii
+from bc1_core.protokoll import ki_aufruf
 
 def status_fuer(spec: FieldSpec, value: str) -> FieldStatus:
     # Policy: ein werfender Validator macht den Wert UNGUELTIG, bricht aber
@@ -22,7 +23,9 @@ def _merke_kandidat(fv: FieldValue, wert: str, quelle: str) -> None:
 
 def extract_and_merge(state: SessionState, message: str, message_id: str,
                       package: UseCasePackage, llm: LLMClient) -> None:
-    for cand in llm.extract(message, package, state):
+    with ki_aufruf("extraktion"):
+        kandidaten = llm.extract(message, package, state)
+    for cand in kandidaten:
         spec = package.field(cand.field_name)
         if spec is None:
             continue

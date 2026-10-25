@@ -2,6 +2,7 @@
 import logging
 import re
 
+import pytest
 from fastapi.testclient import TestClient
 
 from bc1_core.llm import ExtractionCandidate, FakeLLM
@@ -163,3 +164,21 @@ def test_alle_bc1_logger_haengen_am_baum_bc1():
     from bc1_service import api, bc0_meldungen, profil_writer
     assert (api.log.name, bc0_meldungen.log.name, profil_writer.log.name) == (
         "bc1.api", "bc1.bc0", "bc1.writer")
+
+
+class _AntwortFaelltAus(FakeLLM):
+    def antworte(self, kontext):
+        raise RuntimeError("Ausfall")
+
+
+# Jede Kernzeile eines Turns trägt dessen Kennung — auch auf dem Fehlerpfad.
+@pytest.mark.parametrize("llm_faellt_aus", [False, True])
+def test_korrelation_erreicht_den_kern(caplog, llm_faellt_aus):
+    caplog.set_level(logging.INFO, logger="bc1.kern")
+    llm = _AntwortFaelltAus() if llm_faellt_aus else _llm()
+    client = TestClient(create_app(InMemoryStateStore(), llm, TOY_PROZESS,
+                                   company_id=MANDANT))
+    _turn(client, "m1", GEHEIM, headers={"X-Correlation-ID": "k-4711"})
+    zeilen = [r.getMessage() for r in caplog.records if r.name == "bc1.kern"]
+    assert len(zeilen) >= 2, zeilen
+    assert all("korrelation=k-4711" in zeile for zeile in zeilen), zeilen
