@@ -103,7 +103,7 @@ Voraussetzungen: Python 3.11+, [`uv`](https://docs.astral.sh/uv/), Docker (für 
 
 ```bash
 uv sync                                                            # .venv anlegen
-docker run -d --rm --name bc1-test-pg -e POSTGRES_PASSWORD=test -p 55432:5432 postgres:17
+docker run -d --rm --name bc1-test-pg -e POSTGRES_PASSWORD=test -p 127.0.0.1:55432:5432 postgres:17
 BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" .venv/bin/pytest -q -W error
 ```
 
@@ -125,14 +125,18 @@ export BC1_LLM=ollama                      # lokal, ohne API-Key
 
 ```bash
 docker build -t bc1 bc1-context-discovery
-docker run --rm -p 8000:8000 \
+docker run --rm -p 127.0.0.1:8000:8000 \
   -e BC1_DB_DSN="postgresql://…" -e BC1_COMPANY_ID="<uuid des Mandanten>" \
   -e BC1_ANFRAGE_ID="A-2026-03" -e BC1_LLM=claude -e ANTHROPIC_API_KEY \
   -e BC1_BC0_MELDUNGEN=aus \
   bc1
 ```
 
-`BC1_BC0_MELDUNGEN=aus` nur für einen lokalen Versuch ohne BC0 — im Betrieb stattdessen die drei BC0-Variablen wie oben. Ein Snapshot wird gemountet, nie ins Image kopiert (`-v /pfad/snapshot.json:/daten/snapshot.json:ro -e BC1_SNAPSHOT_PFAD=/daten/snapshot.json`). Eine Datenbank auf dem eigenen Rechner erreicht der Container unter `host.docker.internal` statt `localhost`.
+`BC1_BC0_MELDUNGEN=aus` nur für einen lokalen Versuch ohne BC0 — im Betrieb stattdessen die drei BC0-Variablen wie oben. Eine Datenbank auf dem eigenen Rechner erreicht der Container unter `host.docker.internal` statt `localhost`.
+
+**Betriebsvoraussetzung (Pflicht):** Der Dienst hat keine Zugangsprüfung. Offen sind alle seine Endpunkte (`/turn`, `/gesundheit`, dazu FastAPIs `/docs`, `/redoc` und `/openapi.json`) und der n8n-Chat: Sein Chat-Trigger ist öffentlich, ohne Anmeldung, und reicht jede Nachricht an `/turn` weiter — wer den n8n-Port erreicht, kann Interviews führen. Beides darf nur auf dem eigenen Rechner oder im internen Docker-Netz erreichbar sein, bis es eine Zugangsprüfung gibt — darum `-p 127.0.0.1:8000:8000` hier und `-p 127.0.0.1:5678:5678` für n8n in [`SMOKE.md`](bc1_service/n8n/SMOKE.md).
+
+**Messergebnis (24.10.2026, macOS, Docker Engine in colima):** Mit `-p 127.0.0.1:8000:8000` antwortet `/gesundheit` vom eigenen Rechner mit `200 ok`, und aus dem n8n-Image (ohne `--add-host`) antwortet `http://host.docker.internal:8000/gesundheit` ebenfalls mit `ok`; `/prozesse` liefert `404`. Ein an `127.0.0.1` veröffentlichter Test-Postgres ist aus einem Container über `host.docker.internal` erreichbar. **Nicht gemessen:** dass der Dienst aus dem lokalen Netz unerreichbar ist (die Aussage stützt sich auf Dockers dokumentiertes Verhalten), und Linux mit Docker Engine — dort gibt es `host.docker.internal` nur mit `--add-host=host.docker.internal:host-gateway`, es zeigt auf die Bridge-Adresse, und ein an `127.0.0.1` veröffentlichter Port ist von dort vermutlich nicht erreichbar. In so einer Umgebung gilt der Weg über ein gemeinsames Docker-Netz ohne veröffentlichten Port.
 
 **Was der Dienst bei BC0 tut (seit B4):** Beim Start prüft er immer den Zugang (Anmeldung + eigenes Konto, ändert nichts) und bricht bei einem Mangel ab — auch bei einer Anfrage, die schon auf `im_interview` steht. Danach zieht er das Gate für die eigene Anfrage nach, noch bevor er aus der Datenbank liest (holt einen früher gescheiterten Gate-Aufruf nach; steht die Anfrage danach schon auf `am_gate`, endet der Start mit „steht auf 'am_gate'“). Dann meldet er der Anfrage `im_interview` — nur aus `zugeordnet`, ein Neustart überschreibt BC0s Stand also nicht. Nach jedem Abschluss eines Interviews zieht er das Gate bei BC0 nach, im Hintergrund; die Chat-Antwort hängt nicht davon ab. Alle Gate-Aufrufe tragen `?anfrage_id=` — BC0 prüft seit v3.13 nur diese Anfrage. Scheitert das, steht eine WARNING mit Handlungsanweisung im Log (die Anfrage bei BC0 von Hand nachziehen) — das Profil ist dann trotzdem gespeichert. Alles läuft über ein BC0-Anwendungskonto mit Schreibrecht (Rolle `benutzer` oder `admin`), das den Mandanten sieht (zugewiesen; `admin` sieht alle); das Passwort steht nur in der Umgebung, in keiner Meldung und in keinem Log. Ob das Konto bereit ist, zeigt die Live-Probe — sie ändert bei BC0 nichts (Anmeldung, dann nur Lesen des eigenen Kontos) und braucht `BC1_COMPANY_ID` und die drei BC0-Variablen, keine Datenbank:
 

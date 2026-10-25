@@ -93,6 +93,16 @@ def test_rollen_mandantengetrennt():
             ("R-01", "Sachbearbeitung"), ("R-02", "Einkauf B"), ("R-04", "Nur bei B")]
 
 
+def test_kernprozesse_liefern_nur_den_eigenen_mandanten():
+    # Gleiche IDs, andere Namen: ein fehlender company_id-Filter faellt sofort auf.
+    # KP-03 hat bei B keinen Teilprozess und gehoert trotzdem in die Auswahl (Spec 9.2).
+    with verbindung(DSN) as conn:
+        assert bc0_lesepfade.kernprozesse(conn, MANDANT_A) == [
+            ("KP-01", "Auftrag A"), ("KP-02", "Einkauf A")]
+        assert bc0_lesepfade.kernprozesse(conn, MANDANT_B) == [
+            ("KP-01", "Auftrag B"), ("KP-02", "Einkauf B"), ("KP-03", "Nur bei B")]
+
+
 def test_eigner_rollen_je_prozess():
     with verbindung(DSN) as conn:
         assert bc0_lesepfade.eigner_rollen(conn, MANDANT_A, ["KP-01", "KP-02"]) == {

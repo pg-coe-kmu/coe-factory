@@ -111,7 +111,8 @@ def lade_kontext(conn, company_id: str, anfrage_id: str) -> Bc0Kontext:
         anfrage_id=anfrage_id,
         rollen=tuple(rollen),
         eigner=tuple(sorted(bc0_lesepfade.eigner_rollen(
-            conn, company_id, sorted({tp.split(".")[0] for tp in soll})).items())))
+            conn, company_id, sorted({tp.split(".")[0] for tp in soll})).items())),
+        prozesse=tuple(bc0_lesepfade.kernprozesse(conn, company_id)))
 
 
 def pruefe_bc0_vor_dem_start(melder, anfrage_id: str) -> None:

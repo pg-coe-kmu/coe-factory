@@ -9,13 +9,13 @@ dev = [
     "httpx",
     "httpx2",
     "tdd-guard-pytest>=0.1.2",
+    "jsonschema",
 ]
 service = [
     "fastapi",
     "uvicorn[standard]",
     "psycopg[binary,pool]",
     "anthropic",
-    "jsonschema",
     "httpx",
     "google-genai",
     "ollama",

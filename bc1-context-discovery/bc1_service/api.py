@@ -125,7 +125,6 @@ def create_app(
     store: StateStore,
     llm: LLMClient,
     package: UseCasePackage,
-    snapshot=None,
     lifespan=None,
     *,
     company_id: str,
@@ -171,12 +170,6 @@ def create_app(
             "paket": package.name,
             "schema_version": package.schema_version,
         }
-
-    @app.get("/prozesse")
-    def prozesse() -> dict:
-        if snapshot is None:
-            raise HTTPException(status_code=404, detail="kein_snapshot_konfiguriert")
-        return {"prozesse": snapshot.prozess_liste()}
 
     @app.post("/turn")
     def turn(req: TurnRequest, hintergrund: BackgroundTasks, request: Request,

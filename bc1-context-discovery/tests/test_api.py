@@ -3,6 +3,7 @@ import threading
 from contextlib import asynccontextmanager
 from dataclasses import replace
 
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from bc1_core.llm import ExtractionCandidate, FakeLLM
@@ -12,6 +13,7 @@ from bc1_core.types import SessionState, SessionStatus
 from bc1_service.api import (ABBRUCH_TEXT, FEHLER_TEXTE, MELDUNG_GATE_FEHLGESCHLAGEN,
                              OVERLAY_SCHLUESSEL, _sweep_hinweise, create_app)
 from bc1_service.bc0_meldungen import Bc0MeldungFehler
+from bc1_service.discovery_paket import Bc0Kontext, baue_discovery_paket
 from bc1_service.profil_writer import ProfilWriteError
 
 MANDANT = "11111111-1111-1111-1111-111111111111"
@@ -102,6 +104,22 @@ def test_schema_version_mismatch_gibt_409():
     assert antwort.json()["detail"] == "schema_version_passt_nicht"
 
 
+def test_turn_mit_paket_anderer_kernprozess_liste_gibt_409():
+    kontext = Bc0Kontext(
+        company_id=MANDANT,
+        teilprozesse=(("KP-01.TP-1", "Erfassen"),),
+        system_ids=("S-01",),
+        prozesse=(("KP-01", "Auftrag"), ("KP-02", "Einkauf")))
+    paket = baue_discovery_paket(kontext=kontext)
+    anderes = baue_discovery_paket(
+        kontext=replace(kontext, prozesse=(("KP-01", "Auftrag"),)))
+    client = TestClient(create_app(InMemoryStateStore(), FakeLLM(), paket,
+                                   company_id=MANDANT))
+    antwort = _turn(client, "m1", "egal", schema_version=anderes.schema_version)
+    assert antwort.status_code == 409
+    assert antwort.json()["detail"] == "schema_version_passt_nicht"
+
+
 def test_fertige_session_weist_neue_nachricht_aktiv_ab():
     client = _client()
     _turn(client, "m1", "Der Prozess heißt Urlaubsantrag")
@@ -135,8 +153,12 @@ def test_paket_guard_gibt_409_mit_stabilem_detail():
     assert antwort.json()["detail"] == "paket_konflikt"
 
 
-def test_prozesse_ohne_snapshot_404():
-    assert _client().get("/prozesse").status_code == 404
+def test_prozesse_gibt_es_nicht_mehr():
+    client = _client()
+    assert "/prozesse" not in client.app.openapi()["paths"]
+    antwort = client.get("/prozesse")
+    assert antwort.status_code == 404
+    assert antwort.json() == {"detail": "Not Found"}
 
 
 class _StaleBeimErstenSave(InMemoryStateStore):
@@ -714,10 +736,16 @@ def test_profil_write_fehlgeschlagen_traegt_chat_text():
             503, "profil_write_fehlgeschlagen")
 
 
-def test_kein_snapshot_bleibt_ohne_chat_text():
-    antwort = _client().get("/prozesse")
-    assert antwort.status_code == 404
-    assert antwort.json() == {"detail": "kein_snapshot_konfiguriert"}
+def test_unbekannter_fehlerschluessel_geht_ohne_chat_text_durch():
+    app = create_app(InMemoryStateStore(), _fake_llm(), TOY_PROZESS, company_id=MANDANT)
+
+    @app.get("/test-unbekannt")
+    def _wirft():
+        raise HTTPException(status_code=418, detail="unbekannter_schluessel")
+
+    antwort = TestClient(app).get("/test-unbekannt")
+    assert antwort.status_code == 418
+    assert antwort.json() == {"detail": "unbekannter_schluessel"}
 
 
 def test_fehlertexte_tragen_keine_schluessel_und_keine_interna():

@@ -15,9 +15,11 @@ def test_toy_bleibt_schaltbar():
     assert waehle_paket({"BC1_PAKET": "toy"}) is TOY_PROZESS
 
 
-def test_prozessliste_wird_an_die_fabrik_durchgereicht():
-    paket = waehle_paket({}, [("KP-01", "Angebotserstellung")])
-    assert paket.field("process_id").typ.validator("KP-01") is True
+def test_paketwahl_nimmt_keine_prozessliste_mehr():
+    # match: sonst waere der Test auch gruen, wenn erst der innere Aufruf in
+    # waehle_paket scheitert.
+    with pytest.raises(TypeError, match=r"waehle_paket\(\) takes 1 positional"):
+        waehle_paket({}, [("KP-01", "Angebotserstellung")])
 
 
 def test_unbekannter_wert_wirft_lesbar():

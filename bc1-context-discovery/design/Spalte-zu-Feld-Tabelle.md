@@ -1,6 +1,6 @@
 # Spalte-zu-Feld-Tabelle — was BC1 fragt und was daraus wird
 
-> **Erzeugt** am 08.09.2026 aus dem Code, seitdem von Hand angeglichen, zuletzt am 24.10.2026 an C1a (Paket `discovery`, Basis-Schema `1.2`, Writer `bc1_service/profil_writer.py`). Der Generator ist nicht nachgezogen; bei Abweichungen gilt der Code (`bc1_service/discovery_paket.py`).
+> **Erzeugt** am 08.09.2026 aus dem Code, seitdem von Hand angeglichen, zuletzt am 24.10.2026 an C1a und B8 angeglichen (Paket `discovery`, Basis-Schema `1.2`, Writer `bc1_service/profil_writer.py`). Der Generator ist nicht nachgezogen; bei Abweichungen gilt der Code (`bc1_service/discovery_paket.py`).
 >
 > Erledigt zugleich BC0s ADR-005 §8 Punkt 96 (jeder Kontext meldet seine Herkunftsspalten) und ist der Eingang fuer den Vertrag `contracts/bc1-to-bc2/prozessprofil.schema.json`.
 
@@ -55,7 +55,7 @@ Das Interview stellt **43 Fragen**: **26 Pflichtfragen** (M) — ohne sie wird d
 | B1 | `process_name` | M | freitext | — | Um welchen Prozess geht es — wie würden Sie ihn nennen? |
 | B2 | `process_category` | E | auswahl | — | Ist das eher steuerung, kerngeschaeft oder unterstuetzung? |
 | B3 | `process_owner_role` | M | auswahl | `process_owner_rolle_id` | Welche Rolle ist für diesen Prozess verantwortlich? Bitte nennen Sie die Rolle (Auswahl aus den aktiven Rollen des Mandanten, R-NN; mit Vorschlag aus BC0, wenn eindeutig). |
-| B4 | `process_id` | M | freitext | — | Zu welchem Ihrer Kernprozesse gehört das? |
+| B4 | `process_id` | M | auswahl (aus den aktiven Kernprozessen des Mandanten, `KP-NN`, Stand beim Dienststart; ohne Kontext Freitext) | — | Zu welchem Ihrer Kernprozesse gehört das? |
 | B5 | `process_steps` | M | liste | — | Welche Einzelschritte hat der Prozess, von Anfang bis Ende? |
 | C1 | `trigger_text` | M | freitext | — | Was löst den Prozess aus? |
 | C2 | `input_text` | M | freitext | — | Welche Eingangsdaten oder Dokumente brauchen Sie zum Start? |

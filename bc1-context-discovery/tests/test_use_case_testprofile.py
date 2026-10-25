@@ -7,6 +7,7 @@ from psycopg_pool import ConnectionPool
 from bc1_core.store import InMemoryStateStore
 from bc1_service.bc0_meldungen import Bc0MeldungFehler
 from bc1_service.discovery_paket import Bc0Kontext, baue_discovery_paket
+from bc1_service.paket_wahl import waehle_paket
 from bc1_service.profil_writer import ProfilWriteError, ProfilWriter
 from bc1_service.start import lade_kontext
 from bc1_service.use_case_testprofile import (FAELLE, KENNZEICHEN, Vorpruefung,
@@ -29,6 +30,19 @@ def _antworten():
     return [(fall, fuehre_interview(InMemoryStateStore(), paket, fall, company_id=MANDANT_A,
                                     anfrage_id=ANFRAGEN[fall.fokus_tp]))
             for fall in FAELLE]
+
+
+KONTEXT_KP = dataclasses.replace(KONTEXT, prozesse=(("KP-05", "Wissen"), ("KP-06", "Personal")))
+
+
+def test_jeder_fall_endet_mit_kernprozess_auswahl_fertig_und_b4_gueltig():
+    paket = baue_discovery_paket(kontext=KONTEXT_KP)
+    for fall in FAELLE:
+        antwort = fuehre_interview(InMemoryStateStore(), paket, fall, company_id=MANDANT_A,
+                                   anfrage_id=ANFRAGEN[fall.fokus_tp])
+        assert antwort["status"] == "fertig", fall.session_id
+        assert antwort["payload"]["vollstaendigkeit"] == 1.0, fall.session_id
+        assert antwort["payload"]["felder"]["process_id"]["status"] == "gueltig", fall.session_id
 
 
 def test_jeder_fall_endet_fertig_und_vollstaendig():
@@ -532,3 +546,19 @@ def test_main_echt_meldet_fehler_wenn_ein_fall_nicht_fertig_wird(pool, monkeypat
     assert capsys.readouterr().out.count("FEHLER") == 1
     assert _zeilen("SELECT count(*) FROM bc1.prozessprofil "
                    "WHERE status = 'fertig'") == [(0,)]
+
+
+def test_werkzeug_schreibt_mit_derselben_paketkennung_wie_der_dienst(pool):
+    schreibe_testprofile(pool, MANDANT_A, ANFRAGEN)
+    for fall in FAELLE:
+        with pool.connection() as conn:
+            kontext = lade_kontext(conn, MANDANT_A, ANFRAGEN[fall.fokus_tp])
+        assert kontext.prozesse                               # Liste kommt aus der DB
+        dienst = waehle_paket({}, kontext=kontext)            # Weg des Dienstes
+        with verbindung(DSN) as conn:
+            zeile = conn.execute(
+                "SELECT paket_version, profil->'felder'->'process_id'->>'status', "
+                "       profil->'befunde' ? 'kp_tp_diskrepanz' "
+                "  FROM bc1.prozessprofil WHERE focus_step_id = %s",
+                (fall.fokus_tp,)).fetchall()
+        assert zeile == [(dienst.schema_version, "gueltig", False)]

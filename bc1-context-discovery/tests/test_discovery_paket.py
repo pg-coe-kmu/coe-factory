@@ -4,10 +4,10 @@ from dataclasses import replace
 
 import pytest
 
-from bc1_core.core import PaketKonfliktError, process_turn
+from bc1_core.core import PaketKonfliktError, darf_recovery_replay, process_turn
 from bc1_core.llm import ExtractionCandidate, FakeLLM
 from bc1_core.store import InMemoryStateStore
-from bc1_core.types import FieldStatus
+from bc1_core.types import FieldStatus, SessionState, SessionStatus
 from bc1_service.discovery_paket import (
     MAX_ROUNDS_DISCOVERY,
     SCHEMA_VERSION,
@@ -62,83 +62,15 @@ def test_paket_metadaten():
     assert paket.name == "discovery"
     assert paket.schema_version == SCHEMA_VERSION == "1.0"
     assert paket.max_rounds == MAX_ROUNDS_DISCOVERY == 60
-    # Ohne Snapshot (None oder leere Liste) bleibt die Version unverändert —
-    # der Fingerprint kommt erst mit echten Prozessen ins Spiel.
-    assert baue_discovery_paket([]).schema_version == "1.0"
 
 
-def test_b4_mit_snapshot_wird_auswahl_ueber_die_ids():
-    paket = baue_discovery_paket([("KP-01", "Angebotserstellung"), ("KP-02", "Onboarding")])
-    spec = paket.field("process_id")
-    assert spec.typ.validator("KP-01") is True
-    assert spec.typ.validator("KP-99") is False
-    assert spec.typ.normalisiere("kp-02") == "KP-02"
-    assert "KP-01 = Angebotserstellung" in spec.question
+def test_fabrik_nimmt_keine_prozessliste_mehr():
+    with pytest.raises(TypeError, match=r"baue_discovery_paket\(\) takes 0 positional"):
+        baue_discovery_paket([("KP-01", "X")])
 
 
-def test_b4_ohne_snapshot_ist_freitext():
-    spec = baue_discovery_paket(None).field("process_id")
-    assert spec.typ.validator("irgendein Prozess") is True
-
-
-def test_b4_snapshot_fingerprint_in_schema_version():
-    # Codex-Repro: B4-Optionen kommen aus dem mutierbaren BC0-Snapshot, die
-    # Paket-Identität (schema_version) muss den Snapshot-Inhalt spiegeln,
-    # sonst validiert eine fortgesetzte Session gegen einen anderen
-    # Options-Satz als den, mit dem sie gestartet wurde.
-    mit_kp01 = baue_discovery_paket([("KP-01", "X")])
-    assert mit_kp01.schema_version.startswith("1.0+kp-")
-    # Verifikations-Critical (Codex-Residuum, Fix-Welle 5): 8 Hex-Zeichen
-    # (32 Bit) sind kollisionsanfällig — Codex hat real zwei unterschiedliche
-    # Prozess-IDs mit identischem 8-Hex-Fingerprint gefunden (siehe unten),
-    # der Paket-Guard griff dann NICHT. Fix: 16 Hex-Zeichen (64 Bit).
-    assert len(mit_kp01.schema_version.split("+kp-", 1)[1]) == 16
-
-    gleich = baue_discovery_paket([("KP-01", "X")])
-    assert gleich.schema_version == mit_kp01.schema_version
-
-    anders = baue_discovery_paket([("KP-02", "Y")])
-    assert anders.schema_version != mit_kp01.schema_version
-
-    # Codex-Kollisions-Repro: unter dem alten 8-Hex-Fingerprint lieferten
-    # diese beiden unterschiedlichen Prozess-IDs denselben Wert (1.0+kp-
-    # a1036665) — eine mit KP-60702 gestartete Session hätte unbemerkt mit
-    # KP-71431 fortgesetzt werden können. Mit 16 Hex müssen sie sich
-    # unterscheiden.
-    kollision_a = baue_discovery_paket([("KP-60702", "X")])
-    kollision_b = baue_discovery_paket([("KP-71431", "X")])
-    assert kollision_a.schema_version != kollision_b.schema_version
-
-
-def test_b4_fingerprint_haengt_nur_von_den_prozess_ids_ab():
-    # Verifikations-Minor: der Kommentar in baue_discovery_paket() sagt
-    # "paketrelevant ist der Options-INHALT (welche IDs gültig sind)" — die
-    # Implementierung hashte aber sorted(prozesse), also (ID, Name)-Paare.
-    # Damit invalidierte eine reine Prozess-UMBENENNUNG im Snapshot (gleiche
-    # IDs, andere Namen) laufende Sessions, obwohl der Validator nur von den
-    # IDs abhängt. Fix: nur die sortierten IDs fließen in den Fingerprint.
-    mit_namen_a = baue_discovery_paket([("KP-01", "Angebotserstellung")])
-    mit_namen_b = baue_discovery_paket([("KP-01", "Angebotserledigung")])
-    assert mit_namen_a.schema_version == mit_namen_b.schema_version
-
-
-def test_b4_snapshot_wechsel_wird_vom_bestehenden_paket_guard_abgelehnt():
-    # End-to-End: der Fingerprint allein bewirkt nichts — erst zusammen mit
-    # dem bestehenden Paket-Guard (core.py, PaketKonfliktError) greift er:
-    # eine Session, die mit Snapshot A gestartet wurde, darf nicht mit
-    # Snapshot B fortgesetzt werden (Codex-Repro).
-    paket_a = baue_discovery_paket([("KP-01", "X")])
-    paket_b = baue_discovery_paket([("KP-02", "Y")])
-    store = InMemoryStateStore()
-    process_turn(store, FakeLLM(), paket_a, "s1", "m1", "hallo", company_id=MANDANT)
-    with pytest.raises(PaketKonfliktError):
-        process_turn(store, FakeLLM(), paket_b, "s1", "m2", "hallo", company_id=MANDANT)
-
-
-def test_b4_leere_snapshot_liste_ist_ebenfalls_freitext():
-    # Leere Liste fällt über Truthiness auf FREITEXT zurück wie None (Gesamt-
-    # Review F5) — bisher nur implizit korrekt, hier als Vertrag gepinnt.
-    spec = baue_discovery_paket([]).field("process_id")
+def test_b4_ohne_kontext_ist_freitext():
+    spec = baue_discovery_paket().field("process_id")
     assert spec.typ.validator("irgendein Prozess") is True
 
 
@@ -216,8 +148,79 @@ KONTEXT = Bc0Kontext(
     system_ids=("S-01", "S-02"))
 
 
+KONTEXT_KP = replace(KONTEXT, prozesse=(("KP-01", "Auftrag"), ("KP-02", "Einkauf")))
+
+
 def _feld(paket, name):
     return paket.field(name)
+
+
+def test_b4_im_kontext_ist_auswahl_der_kernprozesse():
+    spec = _feld(baue_discovery_paket(kontext=KONTEXT_KP), "process_id")
+    assert spec.typ.validator("KP-02") is True
+    assert spec.typ.validator("KP-03") is False
+    assert spec.typ.normalisiere("kp-02") == "KP-02"
+    assert "KP-01 = Auftrag" in spec.question
+
+
+def test_b4_im_kontext_ohne_kernprozesse_bleibt_freitext():
+    assert _feld(baue_discovery_paket(kontext=KONTEXT), "process_id").typ.name == "freitext"
+
+
+def test_kennung_mit_kernprozessen_wie_bisher_mit_datei():
+    # Gleiche KP-IDs ergeben dieselbe Kennung wie frueher der Snapshot-Weg (Spec 2).
+    kontext = replace(KONTEXT, prozesse=(("KP-01", "Auftrag"),))
+    assert baue_discovery_paket(kontext=kontext).schema_version == "1.2+ctx-9e81785de2c8b1d8"
+
+
+def test_kennung_ohne_kernprozesse_bleibt_wie_bisher():
+    assert baue_discovery_paket(kontext=KONTEXT).schema_version == "1.2+ctx-0a6cdaacdfde28de"
+
+
+def test_kennung_aendert_sich_wenn_ein_kernprozess_dazukommt():
+    mit_einem = replace(KONTEXT, prozesse=(("KP-01", "Auftrag"),))
+    assert (baue_discovery_paket(kontext=KONTEXT_KP).schema_version
+            != baue_discovery_paket(kontext=mit_einem).schema_version)
+
+
+def test_kennung_bleibt_bei_umbenennung_eines_kernprozesses():
+    umbenannt = replace(KONTEXT, prozesse=(("KP-01", "Auftragsabwicklung"),))
+    mit_alt = replace(KONTEXT, prozesse=(("KP-01", "Auftrag"),))
+    assert (baue_discovery_paket(kontext=umbenannt).schema_version
+            == baue_discovery_paket(kontext=mit_alt).schema_version)
+
+
+def test_kennung_bleibt_bei_anderer_reihenfolge_der_kernprozesse():
+    umgekehrt = replace(KONTEXT, prozesse=KONTEXT_KP.prozesse[::-1])
+    assert (baue_discovery_paket(kontext=umgekehrt).schema_version
+            == baue_discovery_paket(kontext=KONTEXT_KP).schema_version)
+
+
+def test_kennung_mit_kernprozessen_hat_16_hex_zeichen():
+    version = baue_discovery_paket(kontext=KONTEXT_KP).schema_version
+    assert re.fullmatch(r"1\.2\+ctx-[0-9a-f]{16}", version)
+
+
+def test_offene_sitzung_mit_anderer_kernprozess_liste_wird_abgelehnt():
+    paket_a = baue_discovery_paket(kontext=KONTEXT_KP)
+    paket_b = baue_discovery_paket(kontext=replace(KONTEXT, prozesse=(("KP-01", "Auftrag"),)))
+    store = InMemoryStateStore()
+    process_turn(store, FakeLLM(), paket_a, "s1", "m1", "hallo", company_id=MANDANT)
+    with pytest.raises(PaketKonfliktError):
+        process_turn(store, FakeLLM(), paket_b, "s1", "m2", "hallo", company_id=MANDANT)
+
+
+def test_wiederholung_eines_abschluss_turns_passiert_eine_andere_kernprozess_liste():
+    # Recovery (core.darf_recovery_replay): fertige Sitzung, bekannte Nachrichten-ID,
+    # alte Versionsangabe — der geaenderte Fingerabdruck darf passieren (Spec 3).
+    paket_a = baue_discovery_paket(kontext=KONTEXT_KP)
+    paket_b = baue_discovery_paket(kontext=replace(KONTEXT, prozesse=(("KP-01", "Auftrag"),)))
+    state = SessionState("s1", paket_a.schema_version, paket_name="discovery",
+                         company_id=MANDANT, status=SessionStatus.FERTIG)
+    state.processed_message_ids.add("m9")
+    assert darf_recovery_replay(state, paket_b, "m9", paket_a.schema_version) is True
+    state.status = SessionStatus.AKTIV
+    assert darf_recovery_replay(state, paket_b, "m9", paket_a.schema_version) is False
 
 
 def test_mit_kontext_traegt_das_paket_den_ctx_fingerprint():
@@ -356,7 +359,8 @@ def test_fingerabdruck_reagiert_auf_die_anfrage():
 
 def test_kp_liste_bleibt_teil_der_paket_identitaet():
     ohne_kp = baue_discovery_paket(kontext=KONTEXT).schema_version
-    mit_kp = baue_discovery_paket([("KP-01", "Auftrag")], kontext=KONTEXT).schema_version
+    mit_kp = baue_discovery_paket(
+        kontext=replace(KONTEXT, prozesse=(("KP-01", "Auftrag"),))).schema_version
     assert ohne_kp != mit_kp
 
 

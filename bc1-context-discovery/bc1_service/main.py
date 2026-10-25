@@ -2,11 +2,14 @@
 
 Pflicht: BC1_DB_DSN, BC1_COMPANY_ID, BC1_ANFRAGE_ID — seit B4 außerdem BC1_BC0_URL,
 BC1_BC0_KONTO_EMAIL, BC1_BC0_KONTO_PASSWORT (oder bewusst BC1_BC0_MELDUNGEN=aus).
-Optional: BC1_SNAPSHOT_PFAD (BC0-Baseline), BC1_CLAUDE_MODELL,
+Optional: BC1_CLAUDE_MODELL,
 ANTHROPIC_API_KEY (liest das SDK selbst), BC1_LLM ("claude" | "ollama" | "gemini",
 Default claude — ollama = lokaler Test-/Dev-Ersatz ohne API-Key; gemini = Gemini API,
 braucht GEMINI_API_KEY), BC1_OLLAMA_MODELL, BC1_GEMINI_MODELL,
 BC1_PAKET ("discovery" | "toy", Default discovery).
+
+uvicorn ohne `--host` lauscht nur auf dem eigenen Rechner; so betreiben (oder im
+Container nur an 127.0.0.1 veröffentlichen), bis es eine Zugangsprüfung gibt.
 """
 from __future__ import annotations
 
@@ -23,7 +26,6 @@ from bc1_service.llm_wahl import waehle_llm
 from bc1_service.paket_wahl import waehle_paket
 from bc1_service.postgres_store import PostgresStateStore
 from bc1_service.profil_writer import ProfilWriter
-from bc1_service.snapshot import lade_snapshot
 from bc1_service.start import (lade_kontext, lies_anfrage_id, lies_company_id,
                                melde_interview_beginn, pruefe_bc0_vor_dem_start)
 
@@ -47,12 +49,6 @@ _anfrage_id = lies_anfrage_id(os.environ)
 # B4: vor den Pools — ein Konfigurationsfehler bricht ohne offene Verbindungen ab.
 _melder = bc0_meldungen.baue_melder(os.environ, _company_id)
 
-_snapshot_pfad = os.environ.get("BC1_SNAPSHOT_PFAD")
-_snapshot = lade_snapshot(_snapshot_pfad) if _snapshot_pfad else None
-_prozesse = (
-    [(p["process_id"], p["process_name"]) for p in _snapshot.prozess_liste()]
-    if _snapshot is not None else None
-)
 _store = PostgresStateStore(_dsn)
 
 # Zweiter, kleiner Pool fuer die Profil-Seite. Der Session-Store behaelt seinen
@@ -88,13 +84,12 @@ async def _lebenszyklus(app):
     _profil_pool.close()
 
 
-_paket = waehle_paket(os.environ, _prozesse, _kontext)
+_paket = waehle_paket(os.environ, kontext=_kontext)
 
 app = create_app(
     _store,
     waehle_llm(os.environ),
     _paket,
-    _snapshot,
     lifespan=_lebenszyklus,
     company_id=_company_id,
     anfrage_id=_anfrage_id,
