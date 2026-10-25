@@ -38,6 +38,9 @@ MELDUNG_SCHALTER_UNBEKANNT = (
 MELDUNG_KEIN_HTTPS = (
     "BC1_BC0_URL='{url}' ist keine https-Adresse. Das Passwort geht nur verschlüsselt "
     "über das Netz (Ausnahme: localhost).")
+MELDUNG_URL_MIT_ZUGANGSDATEN = (
+    "BC1_BC0_URL enthält ein @ — dort gehören keine Zugangsdaten hin. Das Passwort "
+    "gehört nach BC1_BC0_KONTO_PASSWORT; in der Adresse stünde es in jeder Protokollzeile.")
 MELDUNG_AUS = (
     "Meldungen an BC0 sind ausgeschaltet (BC1_BC0_MELDUNGEN=aus) — 'im_interview' und "
     "das Gate setzt BC0 von Hand.")
@@ -88,6 +91,11 @@ def lies_bc0_zugang(umgebung: Mapping[str, str]) -> Bc0Zugang | None:
     if fehlend:
         raise RuntimeError(MELDUNG_ZUGANG_UNVOLLSTAENDIG.format(namen=", ".join(fehlend)))
     url_roh = umgebung["BC1_BC0_URL"].strip()
+    # Vor jeder Meldung, die die Adresse wiederholt (https-Prüfung, „nicht erreichbar").
+    # Jedes @: urlsplit schneidet bei / ? # ab, ein Passwort mit diesen Zeichen
+    # entginge einer Prüfung nur auf den Rechnerteil. BC0 braucht in der Adresse kein @.
+    if "@" in url_roh:
+        raise RuntimeError(MELDUNG_URL_MIT_ZUGANGSDATEN)
     teile = urlsplit(url_roh)
     sicher = teile.scheme == "https" or (
         teile.scheme == "http" and teile.hostname in _ERLAUBTE_HTTP_HOSTS)

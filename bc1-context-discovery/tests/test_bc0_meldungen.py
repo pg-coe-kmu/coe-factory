@@ -22,6 +22,7 @@ from bc1_service.bc0_meldungen import (
     MELDUNG_NICHT_ERREICHBAR,
     MELDUNG_SCHALTER_UNBEKANNT,
     MELDUNG_SITZUNG_NICHT_ANGENOMMEN,
+    MELDUNG_URL_MIT_ZUGANGSDATEN,
     MELDUNG_ZUGANG_UNVOLLSTAENDIG,
     ZEITLIMIT_SEKUNDEN,
     Bc0MeldungFehler,
@@ -95,6 +96,24 @@ def test_unsichere_oder_unvollstaendige_adresse_bricht_ab(url):
     with pytest.raises(RuntimeError) as fehler:
         lies_bc0_zugang({**VOLL, "BC1_BC0_URL": url})
     assert str(fehler.value) == MELDUNG_KEIN_HTTPS.format(url=url)
+
+
+# Härtung (25.10.): Zugangsdaten in der Adresse stünden in jeder httpx-Protokollzeile und in
+# den Meldungen, die die Adresse wiederholen. Jedes @ zählt — ein Passwort mit / ? # oder ein
+# Tippfehler (https:///) entginge einer Prüfung nur auf den Rechnerteil.
+@pytest.mark.parametrize("url", [
+    "https://bc1:geheim@bc0.example.org",
+    "https://bc1@bc0.example.org",
+    "https://@bc0.example.org",
+    "http://bc1:geheim@localhost:8000",
+    "https://bc1:ge/heim@bc0.example.org",
+    "http://bc1:ge/heim@bc0.example.org",
+    "https:///bc1:geheim@bc0.example.org",
+])
+def test_adresse_mit_at_zeichen_bricht_ab_ohne_sie_zu_wiederholen(url):
+    with pytest.raises(RuntimeError) as fehler:
+        lies_bc0_zugang({**VOLL, "BC1_BC0_URL": url})
+    assert str(fehler.value) == MELDUNG_URL_MIT_ZUGANGSDATEN
 
 
 @pytest.mark.parametrize("url, erwartet", [

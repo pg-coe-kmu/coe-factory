@@ -93,7 +93,9 @@ Prozesses; im Container `docker logs <container>`. Kern, KI-Adapter und Store lo
 Auf derselben Ausgabe stehen auch andere Logger: `httpx` je ausgehender Anfrage (Methode, Adresse,
 Status — kein Inhalt), die Dienst-Schicht selbst (Gate bei BC0, beschädigte Sitzung), der Profil-Writer
 und die BC0-Meldungen. Anfragen, die schon an
-der Body-Prüfung scheitern (422), erscheinen nur im Zugriffslog von uvicorn. **Bekannte Lücke:** eine
+der Body-Prüfung scheitern (422), erscheinen nur im Zugriffslog von uvicorn. Dazu gehören seit der
+Härtung (25.10.) Sitzungs- und Nachrichtenkennungen, die nicht zu `[A-Za-z0-9_-]{1,64}` passen —
+Sitzungskennungen stünden sonst roh im Protokoll. n8n schickt eine UUID und `exec-<Nummer>`, beide passen. **Bekannte Lücke:** eine
 *unerwartete* Ausnahme protokolliert uvicorn mit Traceback („Exception in ASGI application“, stderr) —
 der Ausnahmetext kann Inhalte tragen.
 
@@ -107,7 +109,7 @@ docker run -d --rm --name bc1-test-pg -e POSTGRES_PASSWORD=test -p 127.0.0.1:554
 BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" .venv/bin/pytest -q -W error
 ```
 
-Dienst starten (Pflicht: `BC1_DB_DSN` als `bc1_role`, `BC1_COMPANY_ID`, `BC1_ANFRAGE_ID` — seit B5 die BC0-Anfrage, zu der interviewt wird, Form `A-JJJJ-NN`; seit B4 der BC0-Zugang (`BC1_BC0_URL`, `BC1_BC0_KONTO_EMAIL`, `BC1_BC0_KONTO_PASSWORT`) — lokal ohne echtes BC0 bewusst `BC1_BC0_MELDUNGEN=aus`; LLM-Wahl über `BC1_LLM` = `claude` | `ollama` | `gemini`, Key des Anbieters aus der Umgebung):
+Dienst starten (Pflicht: `BC1_DB_DSN` als `bc1_role`, `BC1_COMPANY_ID`, `BC1_ANFRAGE_ID` — seit B5 die BC0-Anfrage, zu der interviewt wird, Form `A-JJJJ-NN`; seit B4 der BC0-Zugang (`BC1_BC0_URL`, `BC1_BC0_KONTO_EMAIL`, `BC1_BC0_KONTO_PASSWORT`; die Adresse ohne `@` — Zugangsdaten in der Adresse lehnt der Start ab, sie stünden sonst in jeder Protokollzeile) — lokal ohne echtes BC0 bewusst `BC1_BC0_MELDUNGEN=aus`; LLM-Wahl über `BC1_LLM` = `claude` | `ollama` | `gemini`, Key des Anbieters aus der Umgebung):
 
 ```bash
 export BC1_DB_DSN="postgresql://…"        # Datenbank mit eingespielter DDL, siehe unten
