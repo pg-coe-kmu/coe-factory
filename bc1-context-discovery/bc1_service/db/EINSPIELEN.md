@@ -413,8 +413,11 @@ liest kein `pg_depend`.
   Tabelle da ist.
 - **Leserecht:** Die Sicht liest mit den Rechten ihres Eigentümers. Unser eigener Start (Anfrage
   → Teilprozesse) trägt deshalb nur, solange dieser Eigentümer `bc1.prozessprofil` lesen darf.
-  Heute geht das über unser `GRANT SELECT … TO bc_leser`; die Sollsignatur hält es fest.
+  Dafür gibt es heute zwei Wege. Der erste ist unser `GRANT SELECT … TO bc_leser`; die
+  Sollsignatur hält es fest. Der zweite ist die Mitgliedschaft in `bc1_role`, der die Tabelle
+  gehört: `postgres` ist laut Messung vom 03.09. Mitglied beider Rollen
+  (`prozessprofil.sql:103-104`). Wem die Sicht live gehört, ist als Frage an BC0 vorbereitet.
 
 Die Testnachbildung bildet die Abhängigkeit bewusst nicht ab: Im Gerüst entsteht die Sicht vor
 unserer DDL (Plan `design/Plan-Geruest-BC0-v3.19.md`, E1). Die Regeln sind mit BC0 abzustimmen;
-offen ist, ob die Bindung so gewollt ist (Abschlussplan, Fragen an BC0 vom 25.10.).
+offen ist, ob die Bindung so gewollt ist (Abschlussplan, vorbereitete Fragen an BC0 vom 25.10.).

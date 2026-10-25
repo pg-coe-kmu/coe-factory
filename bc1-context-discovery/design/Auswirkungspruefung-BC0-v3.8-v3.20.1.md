@@ -1,7 +1,7 @@
 # Auswirkungsprüfung BC0-Schema v3.8–v3.19c und Backend v3.20.1 auf BC1 — Gerüst und Sollsignatur (PR #354)
 
 > Geprüft am 25.10.2026 gegen den PR-Stand (Commit `39bf834`, Zweig `bc0-v3.15-v3.20.1`): alle
-> 13 SQL-Skripte und der `app.py`-Diff, statisch. Dazu Proben in einer Wegwerf-Datenbank (lokaler
+> 14 SQL-Skripte und der `app.py`-Diff, statisch. Dazu Proben in einer Wegwerf-Datenbank (lokaler
 > PostgreSQL-17-Container) mit einer Wegwerf-Kopie von BC1 — **nicht live, nichts im Repo
 > geändert**. Anlass: BC0 bittet um Gegenlesen gegen `tests/db/bc0_geruest.sql` und die
 > Sollsignatur. Ergänzt den Eintrag im Abschlussplan vom 25.10. („Lesepfade gegengelesen“): Die
@@ -85,7 +85,7 @@ oder aus unseren Constraints (`:362-376`), Rechte und Mitgliedschaften, keine Ab
 (`pg_depend`). Die Regel der BC0-Sicht hängt an der Sicht, nicht an unserer Tabelle. Im PR steht
 kein `GRANT`/`REVOKE`/`COMMENT`/`ALTER` auf `bc1.*`, kein `CREATE ROLE`, keine neue
 Mitgliedschaft (Suche nach `bc1.`, `bc1_role`, `GRANT`, `REVOKE`, `DEFAULT PRIVILEGES` über alle
-13 Skripte). Abschnitt 0 (`prozessprofil.sql:42-60`) findet alle Rechte weiter: v3.15 prüft die
+14 Skripte). Abschnitt 0 (`prozessprofil.sql:42-60`) findet alle Rechte weiter: v3.15 prüft die
 beiden Anfrage-Sichten selbst (`schema_v3.15…sql:69-73`); `REFERENCES` sind unverändert;
 `companies` ist jetzt zusätzlich direkt lesbar.
 
@@ -152,8 +152,6 @@ die Kopplung mit v3.16 (`schema_v3.16_freigabe_datenstand.sql:73-89`), live seit
 
 ### 4. Nur BC0 — zur Kenntnis
 
-- **CodeQL** meldet auf dem PR einen Befund in `app.py`. Er betrifft BC0s Backend, nicht BC1;
-  BC0 bewertet ihn selbst.
 - Das Backend liest `bc1.prozessprofil` und `bc1.profil_rollen` beim Spaltennamen
   (`app.py:4239-4290`, seit v3.20 auch `anfrage_id`). Unsere Spaltennamen bleiben also
   Vertrag, wie bisher.
@@ -177,7 +175,7 @@ die Kopplung mit v3.16 (`schema_v3.16_freigabe_datenstand.sql:73-89`), live seit
 
 ### 6. Messung und Grenzen
 
-**Selbst geprüft:** PR-Dateiliste und Inhalt aller 13 SQL-Skripte; Suche nach Sichten mit
+**Selbst geprüft:** PR-Dateiliste und Inhalt aller 14 SQL-Skripte; Suche nach Sichten mit
 `bc1.` auf `main` und im PR; BC1-Code und -Tests. Die Testsuite der Wegwerf-Kopie lief gegen
 eine Wegwerf-Datenbank: unverändert 909 bestanden / 4 übersprungen; mit den PR-Regeln im Gerüst
 (Funktion, Filterzeile, zwei Trigger, zwei Indizes, `GRANT companies`) 904 bestanden / 5 rot —

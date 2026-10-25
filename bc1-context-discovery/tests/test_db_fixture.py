@@ -69,8 +69,8 @@ def test_bc1_role_liest_bc0_objekte_nur_ueber_bc_leser():
         # (Dauerzusage fuer die Loeschkaskade) — eigener Test unten.
         for objekt in ("v_bewertung_aktuell", "mandant_systeme", "ref_teilprozesse",
                        "v_prozesse_lesen", "ref_erhebungen", "mandant_rollen"):
-            # Kein DIREKTES SELECT an bc1_role mehr. Achtung: companies,
-            # ref_teilprozesse und ref_erhebungen behalten ihr direktes REFERENCES
+            # Kein DIREKTES SELECT an bc1_role mehr. Achtung: ref_teilprozesse und
+            # ref_erhebungen behalten ihr direktes REFERENCES
             # (bc1_role=x in der ACL) — deshalb aclexplode nach Privileg, nicht
             # ein Substring-Test auf 'bc1_role=' (am Container 02.09. so gesehen).
             direkt = conn.execute(
@@ -99,6 +99,15 @@ def test_bc1_role_liest_companies_direkt():
             " WHERE c.oid = 'companies'::regclass AND a.grantee = 'bc1_role'::regrole "
             "   AND a.privilege_type = 'SELECT'").fetchone()[0]
     assert direkt == 1
+
+
+def test_bc_leser_liest_companies_weiterhin():
+    # v3.9 ergaenzt das direkte Recht, der Weg ueber die Gruppenrolle bleibt (Kontrolle 2
+    # in v3.9) — er fiel mit companies aus der Schleife oben heraus (Gesamtpruefung).
+    frische_db(DSN, mit_ddl=False)
+    with verbindung(DSN, None) as conn:
+        assert conn.execute(
+            "SELECT has_table_privilege('bc_leser', 'companies', 'SELECT')").fetchone()[0] is True
 
 
 def test_step_no_reicht_bis_neun_und_nicht_weiter():
