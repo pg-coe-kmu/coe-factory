@@ -1,3 +1,4 @@
+import psycopg
 import pytest
 
 from bc1_service import bc0_lesepfade
@@ -186,6 +187,38 @@ def test_kernprozess_bezug_loest_nur_aktive_teilprozesse_auf():
             "WHERE company_id = %s AND anfrage_id = %s ORDER BY 1",
             (MANDANT_A, ANFRAGE_A_KERNPROZESS)).fetchall()
     assert tps == [("KP-01.TP-1",), ("KP-01.TP-2",)]
+
+
+def test_kernprozess_bezug_laesst_unbenannte_teilprozesse_aus():
+    # BC0 v3.19b: "Teilprozess N" gehoert nicht zur SOLL-Liste. BC1 verlaesst sich darauf,
+    # seit die eigene Startpruefung entfallen ist (Entscheidung 25.10.).
+    frische_db(DSN)
+    with verbindung(DSN, None) as conn:
+        conn.execute("UPDATE ref_teilprozesse SET sub_process_name = 'Teilprozess 3' "
+                     "WHERE company_id = %s AND sub_process_id = 'KP-01.TP-3'", (MANDANT_A,))
+        conn.commit()
+    with verbindung(DSN) as conn:
+        tps = conn.execute(
+            "SELECT sub_process_id FROM v_anfrage_teilprozesse "
+            "WHERE company_id = %s AND anfrage_id = %s ORDER BY 1",
+            (MANDANT_A, ANFRAGE_A_KERNPROZESS)).fetchall()
+    assert tps == [("KP-01.TP-1",), ("KP-01.TP-2",)]
+
+
+def test_direkter_bezug_auf_unbenannten_teilprozess_wird_abgewiesen():
+    # BC0 v3.19b, Trigger anfrage_prozesse_benannt: so ein Teilprozess kann gar nicht in
+    # eine Anfrage — das Geruest muss das abbilden, sonst entstuenden Testdaten, die es
+    # bei BC0 nicht gibt.
+    frische_db(DSN)
+    with verbindung(DSN, None) as conn:
+        conn.execute("UPDATE ref_teilprozesse SET sub_process_name = 'Teilprozess 3' "
+                     "WHERE company_id = %s AND sub_process_id = 'KP-01.TP-3'", (MANDANT_A,))
+        conn.commit()
+        with pytest.raises(psycopg.errors.CheckViolation, match="noch nicht benannt"):
+            conn.execute(
+                "INSERT INTO anfrage_prozesse (company_id, anfrage_id, process_id, "
+                " sub_process_id, zuordnung_quelle) VALUES (%s, %s, 'KP-01', 'KP-01.TP-3', "
+                " 'anfrage')", (MANDANT_A, ANFRAGE_A))
 
 
 def test_geruest_liefert_eigner_je_mandant():
