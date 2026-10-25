@@ -965,22 +965,13 @@ def _profilstatus():
 
 
 def test_kurze_stoerung_wird_beim_neusenden_nachgeholt(umgebung):
+    # Die Stoerung kommt NACH dem UPDATE (_EinmalGestoerterWriter): der Rueckroll
+    # wird gemessen, nicht nur ein Fehler vor dem Schreiben.
     pool, paket = umgebung
-
-    class _EinmalGestoert(ProfilWriter):
-        gestoert = False
-
-        def _einfrieren(self, conn, bindung, inhalt):
-            profil = super()._einfrieren(conn, bindung, inhalt)
-            if not self.gestoert:          # NACH dem UPDATE: der Rueckroll wird gemessen
-                self.gestoert = True
-                raise RuntimeError("kurze Stoerung")
-            return profil
-
     store, melder = InMemoryStateStore(), _GateZaehler()
     client = TestClient(create_app(
         store, _llm(ohne=("pii_involved",)), paket, company_id=MANDANT_A,
-        anfrage_id=ANFRAGE_A, writer=_EinmalGestoert(pool, MANDANT_A, paket),
+        anfrage_id=ANFRAGE_A, writer=_EinmalGestoerterWriter(pool, MANDANT_A, paket),
         melder=melder))
     assert _turn(client, "m1", "alles").json()["status"] == "frage"
     assert _turn(client, "m2", "rest").status_code == 503
