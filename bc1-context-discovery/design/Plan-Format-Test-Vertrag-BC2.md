@@ -3,6 +3,7 @@
 > Stand 26.10.2026, Fassung 1. Go der BC1-Projektleitung am 26.10. („Schritt 4: Format-Test. Erst Plan, dann TDD, dann unabhängige Prüfung. Push nur nach OK“).
 > Quelle: Abschlussplan „Neu 25.10. — beim Abgleich von #48/#51 vor dem Schließen“.
 > Größe S: eine neue Testdatei mit zwei Tests, kein Produktionscode, dazu Doku. Zweitmeinung: eine unabhängige Prüfung nach dem Bau, mit eigener Datenbank.
+> **Gebaut 26.10.** auf Zweig `bc1-format-test`, ohne Abweichung von E1–E6. Beide Tests kamen grün an, je einzeln mit vollem Lauf (916/4, dann 917/4). Mutationsproben in einer Scratchpad-Kopie mit eigener DB: **M1** (ohne `p.paket_version` in `lesen.sql`) macht **beide** Tests rot — auch Fall 2 liest über die Datei; **M2** (`frequency_per_year` nicht nullbar) macht nur Fall 2 rot. Rückbau: wieder 2 grün. Eine eigene Planprüfung entfiel (zwei Tests, kein Produktionscode); die Gesamtprüfung bekommt Plan und Code zusammen.
 
 ## Big Picture
 

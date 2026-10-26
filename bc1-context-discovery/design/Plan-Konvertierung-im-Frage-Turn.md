@@ -2,7 +2,7 @@
 
 > Stand 25.10.2026, Fassung 1. Entscheidung der BC1-Projektleitung am 25.10.: Variante **(a) mit Auflage**; Go für die Reihenfolge am selben Tag (dieses Paket ist Schritt 3).
 > Quelle: Abschlussplan „Neu 25.10. — aus der Prüfung von Paket (4)“, mit Prüfbefund und Zweitmeinung. Dazu die Minor (1) und (2) aus der Gesamtprüfung von Paket (4), weil sie dieselbe Datei betreffen.
-> **Gebaut 25.10.** auf Zweig `bc1-konvertierung-frageturn` (umgesetzt auf `main` @ `796ac2c` nach dem Merge von #357). Abweichung beim Bau: Der Guard lehnte den ersten Edit im `except`-Zweig mit sachlich falscher Begründung ab. Mit einem Anker ab dem `try` ging derselbe Inhalt durch; die Lesson steht im Skill `tdd-guard`. T1 war rot, T2 kam grün an. Die Gegenprobe (Abschluss ebenfalls übersprungen) macht T2 und fünf bestehende Abschluss-Tests rot. Suite mit DB 911/4.
+> **Gebaut 25.10.** auf Zweig `bc1-konvertierung-frageturn` (umgesetzt auf `main` @ `796ac2c` nach dem Merge von #357). **Auf `main` seit 26.10.** (#358). Abweichung beim Bau: Der Guard lehnte den ersten Edit im `except`-Zweig mit sachlich falscher Begründung ab. Mit einem Anker ab dem `try` ging derselbe Inhalt durch; die Lesson steht im Skill `tdd-guard`. T1 war rot, T2 kam grün an. Die Gegenprobe (Abschluss ebenfalls übersprungen) macht T2 und fünf bestehende Abschluss-Tests rot. Suite mit DB 911/4.
 > Größe S: eine Stelle in `ProfilWriter.reconcile`, zwei neue Tests und Doku. Zweitmeinung: eine unabhängige Prüfung nach dem Bau.
 
 ## Big Picture

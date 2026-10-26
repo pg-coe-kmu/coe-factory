@@ -2,7 +2,7 @@
 
 > Stand 25.10.2026, Fassung 1. Go der BC1-Projektleitung am 25.10. für die Reihenfolge; dies ist Schritt 2: der Abgleich mit BC0s PR #354 und, falls nötig, das Nachziehen der Test-Nachbildung.
 > Grundlage: `design/Auswirkungspruefung-BC0-v3.8-v3.20.1.md` (unabhängige Prüfung, die Kernaussage zur neuen Abhängigkeit von BC1 am Code nachgeprüft).
-> **Gebaut 25.10.** auf Zweig `bc1-geruest-nachziehen`, ohne Abweichung von E1–E4.
+> **Gebaut 25.10.** auf Zweig `bc1-geruest-nachziehen`, ohne Abweichung von E1–E4. **Auf `main` seit 26.10.** (#359).
 > - Mit dem nachgezogenen Gerüst waren genau die fünf vorhergesagten Tests rot.
 > - Danach Schritt für Schritt grün; dazu kam ein neuer Test `test_bc1_role_liest_companies_direkt`. Suite mit DB 912/4.
 > - Die Gegenproben lieferten die Fehlschläge vor den Fixes:
