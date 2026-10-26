@@ -1,10 +1,14 @@
-"""Vertrag BC1 -> BC2: was der Writer einfriert, liest BC2 schemagerecht (#48/#51).
+"""Vertrag BC1 -> BC2: was der Writer einfriert, erfuellt ueber lesen.sql das Schema.
 
-Gelesen wird mit der Leseregel selbst (contracts/bc1-to-bc2/lesen.sql), nicht mit
-einer Kopie der Abfrage. Das JSON baut Postgres mit row_to_json: so ist das Beispiel
-im Vertrag entstanden (Export vom 12.09.2026), und so nennt es das Schema bei
-erstellt_am. Der Vertrag bindet Feldnamen, Einheiten und Nullbarkeit, nicht
-Postgres-Typen (README) -- eine eigene Python-Umwandlung waere erfunden.
+Die Zusage aus #48/#51. Gelesen wird mit der Leseregel selbst
+(contracts/bc1-to-bc2/lesen.sql), nicht mit einer Kopie der Abfrage. BC2s Leser
+nutzt heute eine eigene Teilkopie (bc2-strategic-advisor/app/erkennung/bestand.py,
+_SQL_BC1); ob sie mit lesen.sql gleich laeuft, prueft dieser Test nicht.
+
+Das JSON baut Postgres mit row_to_json: so ist das Beispiel im Vertrag entstanden
+(Export vom 12.09.2026), und so nennt es das Schema bei erstellt_am. Der Vertrag
+bindet Feldnamen, Einheiten und Nullbarkeit, nicht Postgres-Typen (README) -- eine
+eigene Python-Umwandlung waere erfunden.
 
 Geprueft wird wie in bc2-strategic-advisor/tools/validate.py: Draft 2020-12, ohne
 Formatpruefung.
