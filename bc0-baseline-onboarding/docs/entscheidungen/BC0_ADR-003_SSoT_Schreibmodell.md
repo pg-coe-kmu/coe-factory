@@ -119,7 +119,7 @@ Ob ein BC direkt gegen die Datenbank schreibt oder über eine eigene Schnittstel
 
 **Für BC1 konkret:** Das Ergebnis eines Interviews gehörte unter der BC0-ID in die gemeinsame Datenbank, nicht in einen Payload an eine Transportschicht. Die Zielstruktur gäbe BC0 vor. Der Interviewverlauf selbst (Sitzungen, Message-IDs, Wiederaufsetzen) bliebe BC1s Sache und gehörte in dessen eigenes Schema. Ein Vertrag `contracts/bc1-to-bc2/` *würde* damit gegenstandslos — beide läsen dieselben Daten.
 
-**Ein Konsument, der bei unbekannten Feldern abbricht, wäre mit diesem Modell unverträglich.** Additive Erweiterung heißt, dass Felder dazukommen. Lesende Komponenten müssten unbekannte Felder ignorieren statt zu scheitern (`additionalProperties` nicht auf `false`). Betrifft aktuell `bc1_service/snapshot_schema.json`.
+**Ein Konsument, der bei unbekannten Feldern abbricht, wäre mit diesem Modell unverträglich.** Additive Erweiterung heißt, dass Felder dazukommen. Lesende Komponenten müssten unbekannte Felder ignorieren statt zu scheitern (`additionalProperties` nicht auf `false`). Betrifft alle BCs, die BC0-Tabellen und -Sichten lesen. *(Geändert 25.10.2026: Hier stand als Beispiel `bc1_service/snapshot_schema.json`. BC1 hat die Datei mit B8 entfernt und liest seither direkt aus der Datenbank, #206. Die Regel selbst bleibt unverändert.)*
 
 ## Alternativen
 

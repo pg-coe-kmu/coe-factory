@@ -4188,8 +4188,59 @@ def _gate_letzter_stand(c, cid, sub_process_id=None):
     return ergebnis
 
 
-def _bc1_anreicherung(c, cid):
+_TP_PLATZHALTER = re.compile(r"^teilprozess\s+[0-9]+$", re.IGNORECASE)
+
+
+def _tp_unbenannt(name):
+    """v3.20: wie teilprozess_unbenannt() in der Datenbank (v3.17) — leer oder
+    "Teilprozess N" heisst: noch nicht benannt."""
+    n = (name or "").strip()
+    return not n or bool(_TP_PLATZHALTER.match(n))
+
+
+def _tp_benannt_pruefen(c, cid, sub_process_id):
+    """v3.20: Lesbare Meldung VOR dem Trigger anfrage_prozesse_benannt (v3.19b).
+    Ohne sie kaeme bei einem unbenannten Teilprozess ein 500er."""
+    if not sub_process_id:
+        return
+    r = c.execute("SELECT sub_process_name FROM ref_teilprozesse WHERE " + W_CO +
+                  " AND sub_process_id=?", (cid, sub_process_id)).fetchone()
+    if r is not None and _tp_unbenannt(r["sub_process_name"]):
+        raise HTTPException(400, 'Teilprozess %s ist noch nicht benannt ("%s"). Erst benennen, '
+                                 "dann der Anfrage zuordnen." % (sub_process_id, (r["sub_process_name"] or "").strip()))
+
+
+_ALLE_ANFRAGEN = object()   # v3.20: Kennzeichen "ohne Anfragefilter" (Gate-Liste, Portfolio)
+
+
+def _bc1_profil_waehlen(profile, anfrage_id=_ALLE_ANFRAGEN):
+    """v3.20: Welche fertige BC1-Fassung eines Teilprozesses gilt — je Anfrage.
+
+    ``profile`` sind die fertigen Fassungen EINES Teilprozesses, juengste zuerst.
+
+    * Ohne Anfragefilter (Gate-Liste, Portfolio-Weg): die juengste Fassung.
+    * Mit Anfrage: die juengste Fassung DIESER Anfrage (je Anfrage ein
+      Interview). Hat die Anfrage kein eigenes Profil (Altfall), zaehlt nur
+      eine Fassung ohne Anfrage — nie das Profil einer anderen Anfrage.
+      Deckungsgleich mit ``v_anfrage_teilprozesse`` (v3.16).
+    * ``anfrage_id=None`` (Freigabe ausdruecklich ohne Anfrage): wie ohne Filter.
+    """
+    if not profile:
+        return None
+    if anfrage_id is _ALLE_ANFRAGEN or not anfrage_id:
+        return profile[0]
+    eigene = [p for p in profile if p.get("anfrage_id") == anfrage_id]
+    if eigene:
+        return eigene[0]
+    ohne = [p for p in profile if not p.get("anfrage_id")]
+    return ohne[0] if ohne else None
+
+
+def _bc1_anreicherung(c, cid, anfrage_id=_ALLE_ANFRAGEN):
     """Die BC1-Anreicherung aller Teilprozesse eines Mandanten, je Teilprozess.
+
+    v3.20: Mit ``anfrage_id`` gilt die Fassung dieser Anfrage
+    (:func:`_bc1_profil_waehlen`), sonst die juengste je Teilprozess.
 
     ANGESCHLOSSEN AM 18.09.2026 (#P4). Bis dahin gab `_bc1_angaben()` fest
     ``None`` zurueck, mit der Begruendung, die Feldnamen seien nicht benannt.
@@ -4219,8 +4270,7 @@ def _bc1_anreicherung(c, cid):
         if not (da and da["ok"]):
             return {}
         zeilen = c.execute(
-            "SELECT DISTINCT ON (p.focus_step_id) "
-            "       p.focus_step_id, p.profil_version, p.erhebung_id, p.paket_version, "
+            "SELECT p.focus_step_id, p.profil_version, p.anfrage_id, p.erhebung_id, p.paket_version, "
             "       p.frequency_per_year, p.executions_per_run, "
             "       p.total_duration_minutes, p.focus_step_duration_minutes, "
             "       p.focus_step_duration_source, p.focus_step_duration_confidence_pct, "
@@ -4237,21 +4287,31 @@ def _bc1_anreicherung(c, cid):
         LOG.warning("BC1-Anreicherung nicht lesbar: %s", e)
         return {}
 
+    try:   # v3.20.1: abgeschaltete Pruefpunkte verlangen keine BC1-Angabe
+        aktive = {r["pruefpunkt"] for r in c.execute(
+            "SELECT pruefpunkt FROM ref_gate_pruefpunkte WHERE aktiv").fetchall()}
+    except Exception:                                        # noqa: BLE001
+        aktive = None
+    je_tp = {}
+    for r in zeilen:                      # juengste zuerst (ORDER BY ... DESC)
+        je_tp.setdefault(r["focus_step_id"], []).append(dict(r))
     ergebnis = {}
-    for r in zeilen:
-        z = dict(r)
+    for tp, profile in je_tp.items():
+        z = _bc1_profil_waehlen(profile, anfrage_id)
+        if z is None:
+            continue
         for schluessel in ("frequency_per_year", "executions_per_run",
                            "total_duration_minutes", "focus_step_duration_minutes"):
             if z.get(schluessel) is not None:
                 z[schluessel] = float(z[schluessel])
         z["rollen_anzahl"] = int(z.get("rollen_anzahl") or 0)
-        z["fehlend"] = _bc1_fehlende_angaben(z)
+        z["fehlend"] = _bc1_fehlende_angaben(z, aktive)
         z["vollstaendig"] = not z["fehlend"]
         ergebnis[z["focus_step_id"]] = z
     return ergebnis
 
 
-def _bc1_fehlende_angaben(z):
+def _bc1_fehlende_angaben(z, aktive_punkte=None):
     """Welche der vier BC1-Angaben in dieser Profilzeile leer sind.
 
     Eigene Funktion, damit die Regel ohne Datenbank pruefbar ist — und damit
@@ -4259,9 +4319,17 @@ def _bc1_fehlende_angaben(z):
     nur, wenn es Eintraege in ``bc1.profil_rollen`` gibt: Der Pruefpunkt
     verlangt Paare (rolle_id, zeitanteil). Eine Namensliste im Profiltext
     ist keine.
+
+    v3.20.1: ``aktive_punkte`` (Menge der aktiven Pruefpunkte aus
+    ref_gate_pruefpunkte) — eine Angabe, deren Pruefpunkt abgeschaltet ist,
+    fehlt nicht. Anlass: "Rollen mit Zeitanteil" ist seit 25.10.2026 aus
+    (BC2 rechnet mit Mischsatz, #172; BC1 erhebt keine Rollen). ``None``:
+    alle vier zaehlen (Verhalten wie bisher).
     """
     fehlend = []
-    for wortlaut, _punkt, spalte in BC1_FELD_ZU_PRUEFPUNKT:
+    for wortlaut, punkt, spalte in BC1_FELD_ZU_PRUEFPUNKT:
+        if aktive_punkte is not None and punkt not in aktive_punkte:
+            continue
         if spalte is None:
             if not z.get("rollen_anzahl"):
                 fehlend.append(wortlaut)
@@ -4304,8 +4372,15 @@ def _gate_am_zug(zeile, bc1):
     BC1-Punkte auf `entfaellt` setzen. Der Zustand steuert allein die
     Einsortierung in der Liste.
     """
-    if zeile["stand"] in GATE_EREIGNISSE:
+    veraltet = zeile.get("freigabe_veraltet")
+    if zeile["stand"] in GATE_EREIGNISSE and not veraltet:
         return "entschieden", "Entschieden: " + zeile["stand"]
+    if veraltet:
+        # v3.17 (25.10.2026): Die Freigabe beruht auf einem Stand, den es so nicht
+        # mehr gibt. Sie bleibt im Verlauf stehen, zaehlt aber nicht mehr — der
+        # Teilprozess wird wie ein unentschiedener eingeordnet.
+        art, grund = _gate_am_zug(dict(zeile, stand=None, freigabe_veraltet=None), bc1)
+        return art, "Freigabe veraltet (" + veraltet + ") — neu entscheiden. " + grund
     luecken = _gate_luecken(zeile)
     if luecken:
         return "bc0_pflege", ", ".join(t for _art, t in luecken)
@@ -4357,7 +4432,41 @@ def _gate_hindernisse(zeilen):
                                        key=lambda s: (s[0], GATE_HINDERNIS_ARTEN.index(s[1])))]
 
 
-def _gate_bogen(c, cid, sub_process_id=None):
+def _gate_datenstand(c, cid):
+    """v3.17: je Teilprozess, ob sich die BC0-Daten seit der aktuellen Freigabe
+    geaendert haben (Sicht v_freigabe_datenstand). Nur PostgreSQL; fehlt die Sicht
+    (vor v3.17) oder SQLite, leeres Ergebnis — dann gilt der alte Stand."""
+    if not PG:
+        return {}
+    try:
+        if not c.execute("SELECT to_regclass('v_freigabe_datenstand') IS NOT NULL AS ok").fetchone()["ok"]:
+            return {}
+        return {r["sub_process_id"]: (r["geaenderte_tabellen"] or "BC0-Daten")
+                for r in c.execute("SELECT sub_process_id, geaenderte_tabellen FROM v_freigabe_datenstand "
+                                   "WHERE company_id::text=? AND veraltet", (cid,)).fetchall()}
+    except Exception:  # noqa: BLE001 - ein fehlender Abgleich darf das Gate nicht verhindern
+        return {}
+
+
+def _gate_veraltet_grund(stand, bc1, datenstand_tabellen):
+    """Warum eine Freigabe nicht mehr gilt — oder None. Zwei Gruende:
+    BC0-Daten seither geaendert (v3.17) oder ein neueres fertiges BC1-Profil als das,
+    auf dem die Freigabe beruht (v3.16; je Anfrage ein Interview)."""
+    if not stand or stand.get("stand") != "freigegeben":
+        return None
+    gruende = []
+    if datenstand_tabellen:
+        gruende.append("BC0-Daten seither geaendert: " + datenstand_tabellen)
+    if bc1 and bc1.get("profil_version") is not None:
+        if str(bc1["profil_version"]) != str(stand.get("bc1_profil_stand") or ""):
+            gruende.append("anderes BC1-Profil (Fassung %s), Freigabe beruht auf %s"
+                           % (bc1["profil_version"],
+                              ("Fassung " + str(stand["bc1_profil_stand"])) if stand.get("bc1_profil_stand")
+                              else "keiner Fassung"))
+    return "; ".join(gruende) or None
+
+
+def _gate_bogen(c, cid, sub_process_id=None, anfrage_id=_ALLE_ANFRAGEN):
     """Vorbelegung des Bogens je Teilprozess: Vorbedingungen, Reifegrad, Stand."""
     eigner, ansprechpartner = _gate_beteiligungen(c, cid)
     reifegrade = _gate_reifegrade(c, cid)
@@ -4365,7 +4474,8 @@ def _gate_bogen(c, cid, sub_process_id=None):
     staende = _gate_letzter_stand(c, cid, sub_process_id)
     # v3.3: Einmal je Mandant, nicht einmal je Teilprozess. Bei fuenfzig
     # Teilprozessen waeren das sonst fuenfzig Abfragen fuer eine Liste.
-    bc1_alle = _bc1_anreicherung(c, cid)
+    bc1_alle = _bc1_anreicherung(c, cid, anfrage_id)   # v3.20: je Anfrage
+    datenstand = _gate_datenstand(c, cid)   # v3.17
     ausgabe = []
     for t in _gate_teilprozesse(c, cid, sub_process_id):
         items, mittel = reifegrade.get(t["sub_process_id"], (0, None))
@@ -4392,6 +4502,8 @@ def _gate_bogen(c, cid, sub_process_id=None):
             "hinweis_an_bc2": stand["hinweis_an_bc2"] if stand else None,
         }
         zeile["bc1"] = bc1_alle.get(t["sub_process_id"])
+        zeile["freigabe_veraltet"] = _gate_veraltet_grund(stand, zeile["bc1"],
+                                                          datenstand.get(t["sub_process_id"]))
         zeile["am_zug"], zeile["am_zug_grund"] = _gate_am_zug(zeile, zeile["bc1"])
         ausgabe.append(zeile)
     return ausgabe
@@ -4459,7 +4571,8 @@ def gate_liste(cid: str, benutzer: Benutzer = Depends(admin)):
 
 
 @app.get("/api/companies/{cid}/gate/{sub_process_id}")
-def gate_bogen(cid: str, sub_process_id: str, benutzer: Benutzer = Depends(admin)):
+def gate_bogen(cid: str, sub_process_id: str, anfrage_id: str | None = None,
+               benutzer: Benutzer = Depends(admin)):
     """Ein Freigabebogen: Vorbedingungen, Prozesskette, Pruefpunkte, letzter Stand.
 
     Die Prozesskette wird angezeigt, nicht erfasst — sie steht bereits in
@@ -4470,10 +4583,17 @@ def gate_bogen(cid: str, sub_process_id: str, benutzer: Benutzer = Depends(admin
     c = db()
     try:
         _gate_mandant(c, cid)
-        zeilen = _gate_bogen(c, cid, sub_process_id)
+        # v3.20: Die BC1-Angaben gehoeren zur Anfrage, fuer die entschieden wird.
+        # Ohne Angabe: die Anfrage der letzten Entscheidung (so steht sie in der Auswahl).
+        if anfrage_id is None:
+            vorher = _gate_letzter_stand(c, cid, sub_process_id).get(sub_process_id)
+            anfrage_id = (vorher or {}).get("anfrage_id") or ""
+        anfrage_id = (anfrage_id or "").strip()
+        zeilen = _gate_bogen(c, cid, sub_process_id, anfrage_id or None)
         if not zeilen:
             raise HTTPException(404, "Teilprozess unbekannt.")
         bogen = zeilen[0]
+        bogen["anfrage_gewaehlt"] = anfrage_id or None
         pid = bogen["process_id"]
         liefert_an = [r["nach_process_id"] for r in c.execute(
             "SELECT DISTINCT nach_process_id FROM prozess_schnittstellen WHERE " + W_CO +
@@ -4535,7 +4655,11 @@ async def gate_entscheiden(cid: str, sub_process_id: str, req: Request,
     c = db()
     try:
         _gate_mandant(c, cid)
-        zeilen = _gate_bogen(c, cid, sub_process_id)
+        anfrage_id = (b.get("anfrage_id") or "").strip() or None
+        if anfrage_id and not c.execute("SELECT 1 AS da FROM ref_anfragen WHERE " + W_CO +
+                                        " AND anfrage_id=?", (cid, anfrage_id)).fetchone():
+            raise HTTPException(400, "Unbekannte Anfrage: %s" % anfrage_id)
+        zeilen = _gate_bogen(c, cid, sub_process_id, anfrage_id)   # v3.20: Profil dieser Anfrage
         if not zeilen:
             raise HTTPException(404, "Teilprozess unbekannt.")
         bogen = zeilen[0]
@@ -4582,11 +4706,6 @@ async def gate_entscheiden(cid: str, sub_process_id: str, req: Request,
                                              "bei einer Freigabe eine Guete "
                                              "(belegt/geschaetzt/geraten/entfaellt)." % name)
 
-        anfrage_id = (b.get("anfrage_id") or "").strip() or None
-        if anfrage_id and not c.execute("SELECT 1 AS da FROM ref_anfragen WHERE " + W_CO +
-                                        " AND anfrage_id=?", (cid, anfrage_id)).fetchone():
-            raise HTTPException(400, "Unbekannte Anfrage: %s" % anfrage_id)
-
         erhebung_id = _erhebung_massgeblich(c, cid)
         # v3.3.2: Die BC1-Fassung wird MITGESCHRIEBEN, aus demselben Grund, aus dem
         # die Erhebung als Wert kopiert wird: Schreibt BC1 danach eine neue Fassung,
@@ -4594,7 +4713,9 @@ async def gate_entscheiden(cid: str, sub_process_id: str, req: Request,
         # stand hier immer NULL — `bc1_profil_stand` gab es seit v2.2 im Schema und
         # keine Zeile Code setzte ihn. Aufgefallen an der ersten echten Freigabe
         # (KP-05.TP-1, 18.09.2026): Das Paket waere ohne BC1-Stand an BC2 gegangen.
-        bc1_zeile = _bc1_anreicherung(c, cid).get(sub_process_id)
+        # v3.20: die Fassung der GEWAEHLTEN Anfrage, nicht die juengste des Teilprozesses
+        # (Rueckfrage BC1 25.10., Sammelpunkt 12.10.). Dieselbe Zeile wie im Bogen.
+        bc1_zeile = bogen.get("bc1")
         bc1_stand = None
         if bc1_zeile and bc1_zeile.get("profil_version") is not None:
             bc1_stand = str(bc1_zeile["profil_version"])
@@ -5092,6 +5213,7 @@ def _bezuege_schreiben(c, cid, anfrage_id, bezuege):
         if sid and not c.execute("SELECT 1 AS da FROM ref_teilprozesse WHERE " + W_CO +
                                  " AND sub_process_id=? AND process_id=?", (cid, sid, pid)).fetchone():
             raise HTTPException(400, "%s gehoert nicht zu %s." % (sid, pid))
+        _tp_benannt_pruefen(c, cid, sid)                     # v3.20
         if (pid, sid) in gesehen:
             raise HTTPException(400, "Bezug doppelt: %s %s" % (pid, sid or ""))
         gesehen.add((pid, sid))
@@ -5145,6 +5267,253 @@ def anfragen(cid: str, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
                                    {"person_id": None, "herkunft": "unbekannt",
                                     "name": None, "funktion": None})
     return {"anfragen": zeilen}
+
+
+# ---------------- 22.10.2026: Verlauf je Anfrage ueber alle BCs (nur lesend) ----------------
+# Jede BC schreibt nur in ihre eigenen Tabellen (ADR-003, Rechte v2.4/v3.10/v3.15). Das
+# "Wer" ergibt sich deshalb aus der Tabelle; ausgewaehlt wird ueber die Reproduzierbarkeits-
+# IDs: Mandant + Teilprozesse der Anfrage, dazu Anfrage-ID und Paket-ID, wo vorhanden.
+# BC3/BC4 fuehren (Stand 22.10.) weder paket_id noch anfrage_id -> Zuordnung ueber Teilprozess,
+# in der Antwort als zuordnung='teilprozess' gekennzeichnet. Jeder Block liest mit eigener
+# Verbindung; fehlt einer Tabelle oder Recht, steht das in `hinweise`, der Rest kommt trotzdem.
+_VERLAUF_STUFEN = ["BC0", "BC1", "Freigabe", "BC2", "BC3", "BC4"]
+
+
+def _verlauf_block(hinweise, name, fn):
+    c = db()
+    try:
+        return fn(c)
+    except Exception as e:  # noqa: BLE001 - ein fehlender Block darf den Verlauf nicht verhindern
+        # v3.20.2 (CodeQL #14, PR #354): Fehlertext und Ausnahmeklasse gehen NICHT an den
+        # Aufrufer — sie koennen Tabellen-, Spalten- oder Verbindungsdetails tragen. Der volle
+        # Grund steht im Server-Protokoll, die Antwort nennt nur eine Kennung zum Nachschlagen.
+        kennung = uuid.uuid4().hex[:8]
+        LOG.warning("Verlauf-Block %s nicht lesbar [%s]: %s", name, kennung, e)
+        hinweise.append(f"{name}: nicht lesbar (Server-Protokoll, Kennung {kennung})")
+        return None
+    finally:
+        try:
+            c.close()
+        except Exception:  # noqa: BLE001
+            pass
+
+
+@app.get("/api/companies/{cid}/anfragen/{anfrage_id}/verlauf")
+def anfrage_verlauf(cid: str, anfrage_id: str, benutzer: Benutzer = Depends(admin)):
+    """Verlauf einer Anfrage: Schrittleiste BC0 -> BC1 -> Freigabe -> BC2 -> BC3 -> BC4
+    und die Liste, wer was wann in die Datenbank geschrieben hat. Schreibt nichts."""
+    pruefe_mandant(benutzer, cid)
+    _nur_pg("Der Verlauf")
+    if not re.fullmatch(r"A-\d{4}-\d{2}", anfrage_id or ""):
+        raise HTTPException(400, "anfrage_id hat nicht die Form A-JJJJ-NN")
+    hinweise, ev = [], []
+
+    def e(am, stufe, wer, was, tabelle, ids, zuordnung="id"):
+        if am:
+            ev.append({"am": am, "stufe": stufe, "wer": wer, "was": was, "tabelle": tabelle,
+                       "ids": {k: v for k, v in ids.items() if v}, "zuordnung": zuordnung})
+
+    # --- BC0: Anfrage und ihre Teilprozesse ---
+    def _anfrage(c):
+        _gate_mandant(c, cid)
+        a = c.execute("SELECT anfrage_id, originaltext, eingang_am::text AS eingang_am, "
+                      "angelegt_am::text AS angelegt_am, eingang_weg, steller_id, status, "
+                      "status_seit::text AS status_seit, process_id, sub_process_id "
+                      "FROM ref_anfragen WHERE company_id::text=? AND anfrage_id=?",
+                      (cid, anfrage_id)).fetchone()
+        if not a:
+            return None
+        a = dict(a)
+        tps = {a["sub_process_id"]} if a["sub_process_id"] else set()
+        kps = {a["process_id"]} if a["process_id"] else set()
+        for r in c.execute("SELECT process_id, sub_process_id FROM anfrage_prozesse "
+                           "WHERE company_id::text=? AND anfrage_id=?", (cid, anfrage_id)).fetchall():
+            if r["sub_process_id"]:
+                tps.add(r["sub_process_id"])
+            if r["process_id"]:
+                kps.add(r["process_id"])
+        kps |= {t.split(".")[0] for t in tps}
+        a["teilprozesse"] = sorted(tps); a["prozesse"] = sorted(kps)
+        return a
+    a = _verlauf_block(hinweise, "Anfrage", _anfrage)
+    if a is None:
+        raise HTTPException(404, f"Anfrage {anfrage_id} nicht gefunden")
+    tps, kps = a["teilprozesse"], a["prozesse"]
+    basis = {"company_id": cid, "anfrage_id": anfrage_id}
+
+    def _namen(c):
+        m = {}
+        for r in c.execute("SELECT to_jsonb(b) AS j FROM app_benutzer b").fetchall():
+            j = r["j"] or {}
+            bid = j.get("benutzer_id") or j.get("id")
+            voll = " ".join(x for x in (j.get("vorname"), j.get("nachname")) if x)
+            if bid:
+                m[str(bid)] = j.get("name") or j.get("anzeigename") or voll or j.get("email") or str(bid)
+        return m
+    namen = _verlauf_block(hinweise, "Benutzernamen", _namen) or {}
+
+    def wer0(uid):
+        return "BC0 · " + (namen.get(str(uid), str(uid)) if uid else "App")
+
+    e(a["angelegt_am"] or a["eingang_am"], "BC0", "BC0 · " + (a["steller_id"] or "Eingang"),
+      f"Anfrage eingegangen ({a['eingang_weg'] or '—'})", "ref_anfragen", basis)
+
+    def _audit(c):
+        for r in c.execute(
+                "SELECT at::text AS at, entity, action, actor::text AS actor, "
+                "coalesce(neu, payload) AS neu, alt FROM audit_log "
+                "WHERE company_id::text=? AND entity IN ('ref_anfragen','anfrage_prozesse') "
+                "AND coalesce(neu, payload, alt)->>'anfrage_id'=? ORDER BY at", (cid, anfrage_id)).fetchall():
+            neu, alt = r["neu"] or {}, r["alt"] or {}
+            if r["entity"] == "ref_anfragen" and r["action"] == "UPDATE":
+                diff = [k for k in ("status", "process_id", "sub_process_id") if neu.get(k) != alt.get(k)]
+                was = "Anfrage geändert: " + (", ".join(f"{k} → {neu.get(k)}" for k in diff) or "Angaben")
+            elif r["entity"] == "anfrage_prozesse":
+                was = f"Prozessbezug {r['action'].lower()}: {neu.get('sub_process_id') or alt.get('sub_process_id') or neu.get('process_id')}"
+            else:
+                was = f"{r['entity']} {r['action']}"
+            if (r["entity"] == "ref_anfragen" and r["action"] == "INSERT") or r["action"].upper() not in ("INSERT", "UPDATE", "DELETE"):
+                continue
+            e(r["at"], "BC0", wer0(r["actor"]), was, r["entity"], basis)
+    _verlauf_block(hinweise, "audit_log", _audit)
+
+    # --- BC1: Prozessprofile ---
+    def _bc1(c):
+        n = 0
+        for r in c.execute(
+                "SELECT focus_step_id, process_id, profil_version, status, anfrage_id, "
+                "erstellt_am::text AS erstellt_am, aktualisiert_am::text AS aktualisiert_am "
+                "FROM bc1.prozessprofil WHERE company_id::text=? AND (anfrage_id=? "
+                "OR focus_step_id = ANY(?) OR (focus_step_id IS NULL AND process_id = ANY(?))) "
+                "ORDER BY erstellt_am", (cid, anfrage_id, tps, kps)).fetchall():
+            n += 1
+            z = "id" if r["anfrage_id"] == anfrage_id else "teilprozess"
+            ids = {"company_id": cid, "anfrage_id": r["anfrage_id"], "process_id": r["process_id"],
+                   "sub_process_id": r["focus_step_id"]}
+            e(r["erstellt_am"], "BC1", "BC1", f"Prozessprofil v{r['profil_version']} angelegt ({r['status']})",
+              "bc1.prozessprofil", ids, z)
+            if r["aktualisiert_am"] and r["aktualisiert_am"][:16] != (r["erstellt_am"] or "")[:16]:
+                e(r["aktualisiert_am"], "BC1", "BC1", f"Prozessprofil v{r['profil_version']} aktualisiert ({r['status']})",
+                  "bc1.prozessprofil", ids, z)
+        return n
+    n_bc1 = _verlauf_block(hinweise, "BC1", _bc1) or 0
+
+    # --- Freigabe: Gate-Ereignisse, Pakete, Zustellung ---
+    pakete = []
+    def _gate(c):
+        for r in c.execute(
+                "SELECT am::text AS am, ereignis, objekt_typ, objekt_id, benutzer_id::text AS benutzer_id, "
+                "grund, paket_id::text AS paket_id, anfrage_id FROM gate_ereignisse "
+                "WHERE company_id::text=? AND (anfrage_id=? OR objekt_id = ANY(?)) ORDER BY am",
+                (cid, anfrage_id, tps)).fetchall():
+            e(r["am"], "Freigabe", wer0(r["benutzer_id"]),
+              f"Gate 0: {r['ereignis']} {r['objekt_id'] or ''}".strip() + (f" – {r['grund']}" if r["grund"] else ""),
+              "gate_ereignisse", {**basis, "paket_id": r["paket_id"], "sub_process_id": r["objekt_id"]},
+              "id" if r["anfrage_id"] == anfrage_id else "teilprozess")
+        for r in c.execute(
+                "SELECT p.paket_id::text AS paket_id, p.uebergeben_am::text AS am, p.uebergeben_von::text AS von, "
+                "array_agg(DISTINCT i.sub_process_id) AS tps FROM gate_pakete p "
+                "JOIN gate_paket_inhalt i ON i.company_id=p.company_id AND i.paket_id=p.paket_id "
+                "WHERE p.company_id::text=? AND i.anfrage_id=? GROUP BY 1,2,3 ORDER BY 2",
+                (cid, anfrage_id)).fetchall():
+            pakete.append(r["paket_id"])
+            e(r["am"], "Freigabe", wer0(r["von"]), "Paket an BC2 übergeben: " + ", ".join(r["tps"] or []),
+              "gate_pakete", {**basis, "paket_id": r["paket_id"]})
+        if pakete:
+            for r in c.execute(
+                    "SELECT paket_id::text AS paket_id, gesendet_am::text AS am, ziel_bc, versuch, ergebnis, http_code "
+                    "FROM bc_zustellungen WHERE company_id::text=? AND paket_id::text = ANY(?) ORDER BY gesendet_am",
+                    (cid, pakete)).fetchall():
+                e(r["am"], "Freigabe", "BC0 · Zustellung",
+                  f"Zustellung an {r['ziel_bc']} (Versuch {r['versuch']}): {r['ergebnis']}" + (f" HTTP {r['http_code']}" if r["http_code"] else ""),
+                  "bc_zustellungen", {**basis, "paket_id": r["paket_id"]})
+    _verlauf_block(hinweise, "Freigabe", _gate)
+
+    # --- BC2 ---
+    prio = []
+    def _bc2(c):
+        if not pakete:
+            return
+        for r in c.execute("SELECT paket_id, angenommen_am::text AS am, quelle, status FROM bc2.eingang "
+                           "WHERE paket_id = ANY(?)", (pakete,)).fetchall():
+            e(r["am"], "BC2", "BC2", f"Paket angenommen ({r['quelle']}, {r['status']})", "bc2.eingang",
+              {**basis, "paket_id": r["paket_id"]})
+        for r in c.execute("SELECT priorisierung_id::text AS pid, paket_id, fassung, zustand, "
+                           "begonnen_am::text AS b, gerechnet_am::text AS g, abgeschlossen_am::text AS a, fehler "
+                           "FROM bc2.lauf WHERE paket_id = ANY(?) ORDER BY begonnen_am", (pakete,)).fetchall():
+            prio.append(r["pid"])
+            ids = {**basis, "paket_id": r["paket_id"], "priorisierung_id": r["pid"]}
+            e(r["b"], "BC2", "BC2", f"Analyselauf f{r['fassung']} begonnen", "bc2.lauf", ids)
+            e(r["g"], "BC2", "BC2", f"Analyselauf f{r['fassung']} gerechnet ({r['zustand']})", "bc2.lauf", ids)
+            e(r["a"], "BC2", "BC2", f"Analyselauf f{r['fassung']} abgeschlossen", "bc2.lauf", ids)
+            if r["fehler"]:
+                e(r["b"], "BC2", "BC2", f"Fehler: {r['fehler'][:120]}", "bc2.lauf", ids)
+        if prio:
+            for r in c.execute("SELECT g.priorisierung_id::text AS pid, l.paket_id, to_jsonb(g)->>'status' AS status, "
+                               "(to_jsonb(g)->>'entschieden_am')::timestamptz::text AS am FROM bc2.gate1 g JOIN bc2.lauf l USING (priorisierung_id) "
+                               "WHERE g.priorisierung_id::text = ANY(?)", (prio,)).fetchall():
+                e(r["am"], "BC2", "BC2", f"Gate 1: {r['status']}", "bc2.gate1",
+                  {**basis, "paket_id": r["paket_id"], "priorisierung_id": r["pid"]})
+    _verlauf_block(hinweise, "BC2", _bc2)
+
+    # --- BC3 (v3.18: ueber paket_id/anfrage_id, sobald BC3 sie fuehrt; sonst Teilprozess) ---
+    # Die Spalten liest to_jsonb: vor der Erweiterung durch BC3 gibt es sie nicht.
+    def _bc3(c):
+        for r in c.execute("SELECT lieferung_id, process_id, sub_process_id, use_case, erstellt_am::text AS am, "
+                           "gate2_status, gate2_von, gate2_am::text AS g2, "
+                           "to_jsonb(l)->>'anfrage_id' AS anfrage_id, to_jsonb(l)->>'paket_id' AS paket_id "
+                           "FROM bc3.lieferungen l WHERE company_id::text=? AND (sub_process_id = ANY(?) "
+                           "OR to_jsonb(l)->>'anfrage_id' = ? OR to_jsonb(l)->>'paket_id' = ANY(?)) "
+                           "ORDER BY erstellt_am", (cid, tps, anfrage_id, pakete)).fetchall():
+            z = "id" if (r["anfrage_id"] == anfrage_id or (r["paket_id"] and r["paket_id"] in pakete)) else "teilprozess"
+            ids = {"company_id": cid, "anfrage_id": r["anfrage_id"], "paket_id": r["paket_id"],
+                   "process_id": r["process_id"], "sub_process_id": r["sub_process_id"],
+                   "lieferung_id": r["lieferung_id"]}
+            e(r["am"], "BC3", "BC3", f"Lieferung {r['use_case'] or ''}".strip(), "bc3.lieferungen", ids, z)
+            e(r["g2"], "BC3", "BC3 · " + (r["gate2_von"] or "Gate 2"), f"Gate 2: {r['gate2_status']}", "bc3.lieferungen", ids, z)
+    _verlauf_block(hinweise, "BC3", _bc3)
+
+    # --- BC4 (ki_laufdaten; v3.18: ueber paket_id/anfrage_id, sonst Teilprozess; je Tag verdichtet) ---
+    def _bc4(c):
+        for r in c.execute("SELECT min(zeitpunkt)::text AS am, sub_process_id, process_id, "
+                           "to_jsonb(k)->>'anfrage_id' AS anfrage_id, to_jsonb(k)->>'paket_id' AS paket_id, "
+                           "count(*) AS n, sum(coalesce(input_tokens,0)+coalesce(output_tokens,0)) AS tok, "
+                           "sum(coalesce(kosten_eur,0)) AS eur "
+                           "FROM ki_laufdaten k WHERE company_id::text=? AND (sub_process_id = ANY(?) "
+                           "OR to_jsonb(k)->>'anfrage_id' = ? OR to_jsonb(k)->>'paket_id' = ANY(?)) "
+                           "GROUP BY zeitpunkt::date, sub_process_id, process_id, 4, 5 ORDER BY 1",
+                           (cid, tps, anfrage_id, pakete)).fetchall():
+            z = "id" if (r["anfrage_id"] == anfrage_id or (r["paket_id"] and r["paket_id"] in pakete)) else "teilprozess"
+            e(r["am"], "BC4", "BC4", f"{r['n']} KI-Läufe, {int(r['tok'] or 0)} Tokens, {float(r['eur'] or 0):.2f} €",
+              "ki_laufdaten", {"company_id": cid, "anfrage_id": r["anfrage_id"], "paket_id": r["paket_id"],
+                               "process_id": r["process_id"], "sub_process_id": r["sub_process_id"]}, z)
+    _verlauf_block(hinweise, "BC4", _bc4)
+
+    # 25.10.2026: Was nur ueber den Teilprozess zugeordnet ist und VOR dem Eingang der
+    # Anfrage geschah, gehoert zur Vorgeschichte des Teilprozesses, nicht zur Anfrage.
+    beginn = a["angelegt_am"] or a["eingang_am"] or ""
+    vorher = [x for x in ev if x["zuordnung"] == "teilprozess" and x["am"] < beginn]
+    if vorher:
+        ev = [x for x in ev if x not in vorher]
+        hinweise.append(f"{len(vorher)} ältere Einträge zum Teilprozess (vor Eingang der Anfrage) ausgeblendet")
+    ev.sort(key=lambda x: x["am"])
+    stufen = []
+    for s in _VERLAUF_STUFEN:
+        eig = [x for x in ev if x["stufe"] == s]
+        if s == "Freigabe":
+            fertig = bool(pakete)
+        elif s == "BC2":
+            fertig = any(x["tabelle"] == "bc2.lauf" for x in eig)
+        elif s in ("BC3", "BC4"):
+            # v3.18: erledigt nur, was ueber paket_id/anfrage_id zu DIESER Anfrage gehoert
+            fertig = any(x["zuordnung"] == "id" for x in eig)
+        else:
+            fertig = bool(eig)
+        stufen.append({"stufe": s, "erledigt": fertig, "seit": eig[0]["am"] if eig else None,
+                       "zuletzt": eig[-1]["am"] if eig else None, "eintraege": len(eig)})
+    aktuell = next((x["stufe"] for x in stufen if not x["erledigt"]), None)
+    return {"anfrage": {k: a[k] for k in ("anfrage_id", "originaltext", "status", "eingang_am", "teilprozesse", "prozesse")},
+            "pakete": pakete, "stufen": stufen, "aktuell": aktuell, "ereignisse": ev, "hinweise": hinweise}
 
 
 @app.post("/api/companies/{cid}/anfragen")
@@ -5211,6 +5580,7 @@ async def anfrage_anlegen(cid: str, req: Request, benutzer: Benutzer = Depends(s
                     " AND sub_process_id=? AND process_id=?",
                     (cid, sub_process_id, process_id)).fetchone():
                 raise HTTPException(400, "%s gehoert nicht zu %s." % (sub_process_id, process_id))
+            _tp_benannt_pruefen(c, cid, sub_process_id)      # v3.20
             # Herkunft ist Pflicht, sobald ein Bezug da ist (ADR-005, und
             # ck_anfrage_bezug_paarweise setzt es durch). Wer ueber die
             # Maske kommt, hat ihn selbst gewaehlt: 'anfrage'.
@@ -5663,6 +6033,7 @@ async def anfrage_zuordnen(cid: str, anfrage_id: str, req: Request,
                 " AND sub_process_id=? AND process_id=?",
                 (cid, sub_process_id, process_id)).fetchone():
             raise HTTPException(400, "%s gehoert nicht zu %s." % (sub_process_id, process_id))
+        _tp_benannt_pruefen(c, cid, sub_process_id)          # v3.20
 
         c.execute("UPDATE ref_anfragen SET process_id=?,sub_process_id=?,zuordnung_quelle=? "
                   "WHERE " + W_CO + " AND anfrage_id=?",
