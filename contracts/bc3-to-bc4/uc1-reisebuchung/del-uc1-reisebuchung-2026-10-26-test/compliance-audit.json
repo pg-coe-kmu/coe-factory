@@ -1,0 +1,140 @@
+{
+  "lieferung_id": "del-uc1-reisebuchung-2026-10-26-test",
+  "schema_version": "3.5",
+  "projekt_kurzname": "uc1-reisebuchung",
+  "erzeugt_am": "2026-10-26T21:00:00Z",
+  "konzept_ref": {
+    "konzept_id": "1d00902e-a6dc-53a1-aed4-0221e07563a1",
+    "schema_version": "3.1",
+    "source_file": "konzept_KP-06.json",
+    "kp_id": "KP-06",
+    "teilprozess_ids": [
+      "KP-06.TP-2"
+    ],
+    "value_quelle": "annahme"
+  },
+  "prozess_kurzbeschreibung": "Reisende Personen schicken Freitext-Anfragen zu Suche, Reservierung, Buchungsprüfung und Stornierung; ein LLM erkennt die Absicht und die Reisedaten, die Reise-API liefert Optionen, Reservierungen und Buchungsstände. Grundlage: Zakarias Prototyp V3 (22.10.2026) und BC3s simuliertes UC1-Konzept.",
+  "vorpruefung": {
+    "ampel": "yellow",
+    "ai_act_klasse": "limited",
+    "anhang_iii_kategorie": null,
+    "dsgvo_rechtsgrundlage": [
+      "Artikel 6 Absatz 1 Buchstabe b DSGVO (Vertragsdurchführung)"
+    ],
+    "betroffene_datenarten": [
+      "Name (Stufe normal)",
+      "E-Mail-Adresse (Stufe gering)",
+      "Reisedaten: Ziel, Zeitraum, Personenzahl, Budget (Stufe normal)"
+    ],
+    "begruendung_ampel": "Ein LLM verarbeitet Freitext der reisenden Person und erzeugt Antworten, deshalb 'limited' mit Transparenzhinweis nach Artikel 50. Kein Hochrisiko nach Anhang III: es wird nicht über Personen entschieden, reserviert und storniert wird nur auf ausdrücklichen Wunsch der reisenden Person. Ampel 'yellow', weil der Prototyp Freitext ungefiltert an OpenAI gibt und ein AVV fehlt. Die Einstufung minimal oder limited für UC1 ist im Team noch offen (BC3, of-18)."
+  },
+  "pflichten": [
+    {
+      "id": "p1",
+      "tag": "[DSGVO Art. 6 Abs. 1 lit. b]",
+      "text": "Rechtsgrundlage für die Verarbeitung der Reisedaten festhalten (Durchführung der Reisebuchung für die reisende Person).",
+      "massnahme": "dokumentieren",
+      "datenkategorie": "normal",
+      "stelle": "Gesamter Prozess",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p2",
+      "tag": "[DSGVO Art. 25]",
+      "text": "Namen, E-Mail-Adressen und Telefonnummern im Freitext vor jedem LLM-Aufruf durch temporäre Kennungen ersetzen (ADR-004).",
+      "massnahme": "pseudonymisieren",
+      "datenkategorie": "normal",
+      "stelle": "Kontext erkennen und Reisedaten extrahieren (LLM-Aufrufe)",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3",
+      "abgedeckt_durch": [
+        "st-dbb8-51df-8132-a203e70d6f6d-5"
+      ]
+    },
+    {
+      "id": "p3",
+      "tag": "[AI-Act Art. 50 Abs. 1]",
+      "text": "Hinweis in automatisch erzeugten Antworten, dass sie mit KI-Unterstützung erstellt wurden.",
+      "massnahme": "hinweis_geben",
+      "datenkategorie": "gering",
+      "stelle": "Antwort mit Angeboten",
+      "adressat": "bc4",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": [
+        "st-a03c-5dd2-bae8-89e3f98fea30-4"
+      ]
+    },
+    {
+      "id": "p4",
+      "tag": "[DSGVO Art. 28]",
+      "text": "Auftragsverarbeitungsvertrag mit dem LLM-Anbieter (im Prototyp OpenAI) und dem Betreiber der Reise-API, oder Wechsel auf ein Modell in der EU (Mistral).",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "normal",
+      "stelle": "LLM-Aufrufe und Reise-API",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p5",
+      "tag": "[DSGVO Art. 5 Abs. 1 lit. e]",
+      "text": "Aufbewahrungsfrist für gespeicherte Angebote (Angebotstabelle) festlegen und abgelaufene Angebote löschen.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "normal",
+      "stelle": "Angebote speichern",
+      "adressat": "plattform",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    }
+  ],
+  "pflichten_nach_adressat": {
+    "bc4": [
+      "p2",
+      "p3"
+    ],
+    "organisation": [
+      "p1",
+      "p4"
+    ],
+    "plattform": [
+      "p5"
+    ],
+    "ohne_angabe": []
+  },
+  "nicht_an_bc4": [],
+  "plattform_standards": [
+    "Zugangsdaten für LLM und Reise-API nur als Credential, nicht im Workflow",
+    "Zugriff auf die Angebotstabelle auf den Prozess beschränken"
+  ],
+  "zuordnung": [
+    {
+      "epic_id": "ep-dbb8-51df-8132-a203e70d6f6d",
+      "use_case_id_ref": "b81aa34c-093b-5853-841c-afc38eb10c27",
+      "titel": "Reiseanfrage verstehen: Absicht erkennen, Reisedaten extrahieren, Eingaben prüfen"
+    },
+    {
+      "epic_id": "ep-a03c-5dd2-bae8-89e3f98fea30",
+      "use_case_id_ref": "b81aa34c-093b-5853-841c-afc38eb10c27",
+      "titel": "Reiseangebote suchen, gegen das Budget prüfen und speichern"
+    },
+    {
+      "epic_id": "ep-7203-5ca7-87e9-469048f67ae2",
+      "use_case_id_ref": "2eadddb0-7fef-5af9-9e3f-9c37491f3273",
+      "titel": "Angebot reservieren, Buchung prüfen und stornieren"
+    },
+    {
+      "story_id": "st-dbb8-51df-8132-a203e70d6f6d-5",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p2"
+      ]
+    }
+  ]
+}
