@@ -1,3 +1,4 @@
+import psycopg
 import pytest
 
 from bc1_service import bc0_lesepfade
@@ -64,10 +65,12 @@ def test_bc1_role_liest_bc0_objekte_nur_ueber_bc_leser():
     with verbindung(DSN, None) as conn:
         assert conn.execute(
             "SELECT pg_has_role('bc1_role', 'bc_leser', 'USAGE')").fetchone()[0] is True
+        # companies fehlt hier bewusst: seit BC0 v3.9 liest bc1_role sie DIREKT
+        # (Dauerzusage fuer die Loeschkaskade) — eigener Test unten.
         for objekt in ("v_bewertung_aktuell", "mandant_systeme", "ref_teilprozesse",
-                       "companies", "v_prozesse_lesen", "ref_erhebungen", "mandant_rollen"):
-            # Kein DIREKTES SELECT an bc1_role mehr. Achtung: companies,
-            # ref_teilprozesse und ref_erhebungen behalten ihr direktes REFERENCES
+                       "v_prozesse_lesen", "ref_erhebungen", "mandant_rollen"):
+            # Kein DIREKTES SELECT an bc1_role mehr. Achtung: ref_teilprozesse und
+            # ref_erhebungen behalten ihr direktes REFERENCES
             # (bc1_role=x in der ACL) — deshalb aclexplode nach Privileg, nicht
             # ein Substring-Test auf 'bc1_role=' (am Container 02.09. so gesehen).
             direkt = conn.execute(
@@ -83,6 +86,28 @@ def test_bc1_role_liest_bc0_objekte_nur_ueber_bc_leser():
             assert conn.execute(
                 "SELECT has_table_privilege('bc_leser', %s, 'SELECT')",
                 (objekt,)).fetchone()[0] is True, f"{objekt}: Lesepfad ist nicht bc_leser"
+
+
+def test_bc1_role_liest_companies_direkt():
+    # BC0 v3.9 (23.09.2026): ausdrueckliches SELECT auf companies fuer bc1_role, die
+    # Dauerzusage fuer unsere Loeschkaskade (der Freeze-Trigger liest companies mit den
+    # Rechten von bc1_role) — unabhaengig von der Mitgliedschaft in bc_leser.
+    frische_db(DSN, mit_ddl=False)
+    with verbindung(DSN, None) as conn:
+        direkt = conn.execute(
+            "SELECT count(*) FROM pg_class c, aclexplode(c.relacl) a "
+            " WHERE c.oid = 'companies'::regclass AND a.grantee = 'bc1_role'::regrole "
+            "   AND a.privilege_type = 'SELECT'").fetchone()[0]
+    assert direkt == 1
+
+
+def test_bc_leser_liest_companies_weiterhin():
+    # v3.9 ergaenzt das direkte Recht, der Weg ueber die Gruppenrolle bleibt (Kontrolle 2
+    # in v3.9) — er fiel mit companies aus der Schleife oben heraus (Gesamtpruefung).
+    frische_db(DSN, mit_ddl=False)
+    with verbindung(DSN, None) as conn:
+        assert conn.execute(
+            "SELECT has_table_privilege('bc_leser', 'companies', 'SELECT')").fetchone()[0] is True
 
 
 def test_step_no_reicht_bis_neun_und_nicht_weiter():
@@ -171,6 +196,38 @@ def test_kernprozess_bezug_loest_nur_aktive_teilprozesse_auf():
             "WHERE company_id = %s AND anfrage_id = %s ORDER BY 1",
             (MANDANT_A, ANFRAGE_A_KERNPROZESS)).fetchall()
     assert tps == [("KP-01.TP-1",), ("KP-01.TP-2",)]
+
+
+def test_kernprozess_bezug_laesst_unbenannte_teilprozesse_aus():
+    # BC0 v3.19b: "Teilprozess N" gehoert nicht zur SOLL-Liste. BC1 verlaesst sich darauf,
+    # seit die eigene Startpruefung entfallen ist (Entscheidung 25.10.).
+    frische_db(DSN)
+    with verbindung(DSN, None) as conn:
+        conn.execute("UPDATE ref_teilprozesse SET sub_process_name = 'Teilprozess 3' "
+                     "WHERE company_id = %s AND sub_process_id = 'KP-01.TP-3'", (MANDANT_A,))
+        conn.commit()
+    with verbindung(DSN) as conn:
+        tps = conn.execute(
+            "SELECT sub_process_id FROM v_anfrage_teilprozesse "
+            "WHERE company_id = %s AND anfrage_id = %s ORDER BY 1",
+            (MANDANT_A, ANFRAGE_A_KERNPROZESS)).fetchall()
+    assert tps == [("KP-01.TP-1",), ("KP-01.TP-2",)]
+
+
+def test_direkter_bezug_auf_unbenannten_teilprozess_wird_abgewiesen():
+    # BC0 v3.19b, Trigger anfrage_prozesse_benannt: so ein Teilprozess kann gar nicht in
+    # eine Anfrage — das Geruest muss das abbilden, sonst entstuenden Testdaten, die es
+    # bei BC0 nicht gibt.
+    frische_db(DSN)
+    with verbindung(DSN, None) as conn:
+        conn.execute("UPDATE ref_teilprozesse SET sub_process_name = 'Teilprozess 3' "
+                     "WHERE company_id = %s AND sub_process_id = 'KP-01.TP-3'", (MANDANT_A,))
+        conn.commit()
+        with pytest.raises(psycopg.errors.CheckViolation, match="noch nicht benannt"):
+            conn.execute(
+                "INSERT INTO anfrage_prozesse (company_id, anfrage_id, process_id, "
+                " sub_process_id, zuordnung_quelle) VALUES (%s, %s, 'KP-01', 'KP-01.TP-3', "
+                " 'anfrage')", (MANDANT_A, ANFRAGE_A))
 
 
 def test_geruest_liefert_eigner_je_mandant():

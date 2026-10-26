@@ -387,3 +387,37 @@ neuen `trigger_intern`-Zeilen stimmen mit der Sollsignatur überein, alle Trigge
 aktiv. Der nächste Lauf meldet für diesen Teil also `Fall 2`. Weicht er ab, zeigt die Zeile
 `trigger_intern|…|<Tabelle>|<Funktion>|D`, welcher Trigger auf welcher Tabelle deaktiviert
 wurde. In diesem Fall gilt: nicht neu erzeugen, sondern mit BC0 klären.
+
+## 14. BC0-Sicht hängt an `bc1.prozessprofil` (seit BC0 v3.16, 25.10.2026)
+
+Seit v3.16 liest BC0s Sicht `v_anfrage_teilprozesse` direkt aus `bc1.prozessprofil`.
+PostgreSQL bindet sie damit an fünf unserer Spalten: `company_id`, `focus_step_id`,
+`profil_version`, `anfrage_id` und `status`. Das ist gemessen in einer Wegwerf-Datenbank
+mit der Sicht aus v3.19b; Einzelheiten stehen in `design/Auswirkungspruefung-BC0-v3.8-v3.20.1.md`.
+Für die heutige DDL ist das folgenlos: `prozessprofil.sql` bleibt beim erneuten Einspielen
+`Fall 2`, und b5/d3 fügen nur hinzu. Die Sollsignatur sieht die Abhängigkeit nicht, sie
+liest kein `pg_depend`.
+
+**Regeln für künftige Migrationen:**
+
+- **Nie `CASCADE`** auf `bc1.prozessprofil` oder das Schema `bc1`. `DROP … CASCADE` läuft
+  durch und löscht BC0s Sicht still mit; es gibt nur eine NOTICE, keinen Fehler. Live hängen
+  daran BC0s Übergabe-Sicht und das Gate-Nachziehen, das unser eigener Start aufruft.
+- **Typ ändern oder Spalte entfernen** bei diesen fünf Spalten, sowie die Tabelle neu
+  aufbauen, geht nur zusammen mit BC0: BC0 nimmt die Sicht kurz heraus und legt sie danach
+  neu an. Ohne Absprache scheitert der Schritt ohnehin („column used by a view or rule“).
+- **Spalten umbenennen** läuft, weil die Sicht der Umbenennung folgt. BC0s Backend liest die
+  Spalten aber beim Namen. Unsere Spaltennamen bleiben also Vertrag, wie bisher.
+- **Reihenfolge in einer frischen Umgebung:** BC0 bis v3.15, dann BC1-DDL (`prozessprofil.sql`
+  mit b5/d3, `sessions.sql`), dann BC0 ab v3.16. Die Sicht prüft nicht vorher, ob unsere
+  Tabelle da ist.
+- **Leserecht:** Die Sicht liest mit den Rechten ihres Eigentümers. Unser eigener Start (Anfrage
+  → Teilprozesse) trägt deshalb nur, solange dieser Eigentümer `bc1.prozessprofil` lesen darf.
+  Dafür gibt es heute zwei Wege. Der erste ist unser `GRANT SELECT … TO bc_leser`; die
+  Sollsignatur hält es fest. Der zweite ist die Mitgliedschaft in `bc1_role`, der die Tabelle
+  gehört: `postgres` ist laut Messung vom 03.09. Mitglied beider Rollen
+  (`prozessprofil.sql:103-104`). Wem die Sicht live gehört, ist als Frage an BC0 vorbereitet.
+
+Die Testnachbildung bildet die Abhängigkeit bewusst nicht ab: Im Gerüst entsteht die Sicht vor
+unserer DDL (Plan `design/Plan-Geruest-BC0-v3.19.md`, E1). Die Regeln sind mit BC0 abzustimmen;
+offen ist, ob die Bindung so gewollt ist (Abschlussplan, vorbereitete Fragen an BC0 vom 25.10.).

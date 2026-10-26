@@ -1,6 +1,9 @@
 -- BC0-Gerüst für BC1-Tests. Abgeleitet aus schema_v1.1 / v1.2 / v1.3 (Teile A, B, C),
 -- nachgezogen auf v2.2 (aktiv), v2.8 (Nacherhebung) und v3.4 (aktiv-Sichten, owner_rolle_id,
--- eindeutiger Eigner) — Auswirkungsprüfung v3.2–v3.6, 22.09.2026.
+-- eindeutiger Eigner) — Auswirkungsprüfung v3.2–v3.6, 22.09.2026 — sowie auf v3.8
+-- (Kernprozess nicht stilllegbar), v3.9 (companies direkt für bc1_role), v3.17 (eindeutige
+-- Namen, teilprozess_unbenannt) und v3.19b (benannte Teilprozesse in Anfragen) —
+-- Auswirkungsprüfung v3.8–v3.20.1, 25.10.2026 (BC0-PR #354).
 -- Wird als postgres (Superuser) eingespielt.
 --
 -- Anspruch, präzise (Codex R4-C3): Enthalten sind nur die Objekte, die BC1
@@ -71,6 +74,36 @@ CREATE TABLE ref_teilprozesse (
         REFERENCES ref_prozesse(company_id, process_id) ON DELETE CASCADE,
     UNIQUE (company_id, process_id, step_no)
 );
+
+-- v3.17 Z. 54-57, wortgleich: Platzhalter "Teilprozess N" und leere Namen gelten als unbenannt.
+CREATE OR REPLACE FUNCTION teilprozess_unbenannt(p_name TEXT) RETURNS BOOLEAN AS $fn$
+  SELECT p_name IS NULL OR btrim(p_name) = ''
+         OR btrim(p_name) ~* '^teilprozess[[:space:]]+[0-9]+$';
+$fn$ LANGUAGE sql IMMUTABLE;
+
+-- v3.17 Z. 215-224, wortgleich (ohne die COMMENTs): Namen je Mandant eindeutig.
+CREATE UNIQUE INDEX IF NOT EXISTS ux_teilprozess_name_je_mandant
+  ON ref_teilprozesse (company_id, lower(btrim(sub_process_name)))
+  WHERE aktiv AND NOT teilprozess_unbenannt(sub_process_name);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_prozess_name_je_mandant
+  ON ref_prozesse (company_id, lower(btrim(process_name)))
+  WHERE aktiv AND process_name IS NOT NULL AND btrim(process_name) <> '';
+
+-- v3.8 Z. 30-45: Ein Kernprozess wird nicht per UPDATE stillgelegt, nur seine Teilprozesse.
+-- Pruefung, Trigger und Fehlercode wortgleich; der Meldungstext ist gekuerzt.
+CREATE OR REPLACE FUNCTION trg_kernprozess_bleibt_aktiv() RETURNS TRIGGER AS $fn$
+BEGIN
+  IF NEW.aktiv = false THEN
+    RAISE EXCEPTION
+      'Kernprozess % kann nicht stillgelegt werden - nur seine Teilprozesse.', NEW.process_id
+      USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END;
+$fn$ LANGUAGE plpgsql;
+
+CREATE TRIGGER kernprozess_bleibt_aktiv BEFORE UPDATE OF aktiv ON ref_prozesse
+  FOR EACH ROW EXECUTE FUNCTION trg_kernprozess_bleibt_aktiv();
 
 CREATE TABLE mandant_rollen (
     company_id  uuid NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
@@ -269,6 +302,28 @@ CREATE TABLE anfrage_prozesse (
   CONSTRAINT ck_ap_tp_gehoert_kp CHECK (sub_process_id IS NULL OR sub_process_id LIKE process_id || '.%')
 );
 
+-- v3.19b Z. 34-53, wortgleich: Ein direkter Bezug auf einen unbenannten Teilprozess wird
+-- abgewiesen. Ein Bezug auf den ganzen Kernprozess nicht — dann filtert die Sicht unten.
+CREATE OR REPLACE FUNCTION trg_anfrage_prozesse_benannt() RETURNS TRIGGER AS $fn$
+DECLARE v_name TEXT;
+BEGIN
+  IF NEW.sub_process_id IS NOT NULL THEN
+    SELECT sub_process_name INTO v_name FROM ref_teilprozesse
+     WHERE company_id = NEW.company_id AND sub_process_id = NEW.sub_process_id;
+    IF teilprozess_unbenannt(v_name) THEN
+      RAISE EXCEPTION 'Teilprozess % ist noch nicht benannt ("%"). Erst benennen, dann der Anfrage zuordnen.',
+                      NEW.sub_process_id, coalesce(v_name, '')
+        USING ERRCODE = 'check_violation';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$fn$ LANGUAGE plpgsql;
+
+CREATE TRIGGER anfrage_prozesse_benannt
+  BEFORE INSERT OR UPDATE OF process_id, sub_process_id ON anfrage_prozesse
+  FOR EACH ROW EXECUTE FUNCTION trg_anfrage_prozesse_benannt();
+
 -- Stummel: v_anfrage_teilprozesse liest Freigabe und Paketinhalt. Im Gerüst leer —
 -- BC1 nutzt freigegeben/im_paket nicht; die Typen folgen v1.4/v2.6.
 CREATE TABLE gate_paket_inhalt (
@@ -295,7 +350,10 @@ SELECT company_id,
        status
   FROM ref_anfragen;
 
--- v2.7 Z. 129-154, wortgleich
+-- Die Herleitung der Zeilen (bezuege und WHERE/ORDER BY) ist wortgleich v3.19b Z. 126-136
+-- und 180-182. Der Freigabe-Teil ist ein Ausschnitt aus v2.7: BC1 liest nur sub_process_id.
+-- Die Spalten aus v3.16 und deren Bezug auf bc1.prozessprofil fehlen bewusst — im Gerüst
+-- entstuende die Sicht vor BC1s DDL (Plan-Geruest-BC0-v3.19, E1; Regel in EINSPIELEN.md).
 CREATE OR REPLACE VIEW v_anfrage_teilprozesse AS
 WITH bezuege AS (
   SELECT p.company_id, p.anfrage_id, p.process_id, p.rolle, p.zuordnung_quelle,
@@ -305,6 +363,7 @@ WITH bezuege AS (
     LEFT JOIN ref_teilprozesse t
       ON p.sub_process_id IS NULL
      AND t.company_id = p.company_id AND t.process_id = p.process_id AND t.aktiv
+     AND NOT teilprozess_unbenannt(t.sub_process_name)          -- v3.19b
 )
 SELECT DISTINCT ON (b.company_id, b.anfrage_id, b.sub_process_id)
        b.company_id, b.anfrage_id, b.process_id, b.sub_process_id, b.rolle,
@@ -349,6 +408,9 @@ GRANT SELECT ON v_bewertung_aktuell, mandant_systeme, ref_teilprozesse, companie
 GRANT SELECT ON v_teilprozesse_lesen, v_systeme_lesen TO bc_leser;   -- v3.4 Z. 163
 GRANT SELECT ON v_anfrage_prozessbezug TO bc_leser;                     -- v2.3 Z. 153
 GRANT SELECT ON v_anfrage_teilprozesse TO bc_leser;                     -- v2.7 Z. 323
+-- v3.9 Z. 39: companies zusaetzlich DIREKT fuer bc1_role — BC0s Dauerzusage fuer unsere
+-- Loeschkaskade (der Freeze-Trigger liest companies mit den Rechten von bc1_role).
+GRANT SELECT ON companies TO bc1_role;
 -- mandant_rollen: SELECT fuer bc_leser live gemessen 12.09.2026 (A5) — Eingang fuer C1a
 -- (Owner-Auswahl statt Freitext).
 

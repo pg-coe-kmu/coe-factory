@@ -16,10 +16,19 @@ pytestmark = pytest.mark.skipif(not DSN, reason="BC1_TEST_DB_DSN nicht gesetzt")
 
 
 def _stilllegen(tabelle: str, schluessel: str, wert: str) -> None:
-    """Wie BC0 es tut (v2.2): aktiv = false, nichts loeschen. Als Superuser."""
+    """Wie BC0 es tut (v2.2): aktiv = false, nichts loeschen. Als Superuser.
+
+    Einen Kernprozess legt BC0 seit v3.8 nicht mehr still (Trigger). Den Zustand gibt es
+    nur noch per INSERT ... aktiv = false; BC1s Zusatzschutz "aktiver Elternprozess" bleibt,
+    bis BC0 das bestaetigt (Plan-Geruest-BC0-v3.19, E2). Deshalb hier sichtbar abgeschaltet.
+    """
     with verbindung(DSN, None) as conn:
+        if tabelle == "ref_prozesse":
+            conn.execute("ALTER TABLE ref_prozesse DISABLE TRIGGER kernprozess_bleibt_aktiv")
         conn.execute(f"UPDATE {tabelle} SET aktiv = false "
                      f" WHERE company_id = %s AND {schluessel} = %s", (MANDANT_A, wert))
+        if tabelle == "ref_prozesse":
+            conn.execute("ALTER TABLE ref_prozesse ENABLE TRIGGER kernprozess_bleibt_aktiv")
         conn.commit()
 
 
@@ -72,7 +81,9 @@ def test_stillgelegter_kernprozess_fehlt_in_der_kernprozessliste():
 def test_teilprozesse_eines_stillgelegten_kernprozesses_sind_nicht_interviewbar():
     # BC0s Sichten pruefen nur tp.aktiv (v3.4) — ein stillgelegter Kernprozess mit
     # aktiven Kindern bliebe interviewbar. BC1 verlangt zusaetzlich den aktiven
-    # Elternprozess (Codex-Review 22.09., Important 2); ob BC0 kaskadiert, ist erfragt.
+    # Elternprozess (Codex-Review 22.09., Important 2). Seit v3.8 entsteht der Zustand
+    # nur noch per INSERT ... aktiv = false; ob BC0 auch das ausschliesst, ist als Frage
+    # an BC0 vorbereitet (25.10.).
     frische_db(DSN)
     _stilllegen("ref_prozesse", "process_id", "KP-02")   # KP-02.TP-1 bleibt aktiv
     with verbindung(DSN) as conn:
