@@ -53,8 +53,7 @@
             }
           ],
           "abhaengigkeiten": [
-            "st-dbb8-51df-8132-a203e70d6f6d-1",
-            "st-dbb8-51df-8132-a203e70d6f6d-5"
+            "st-dbb8-51df-8132-a203e70d6f6d-1"
           ]
         },
         {
@@ -72,8 +71,7 @@
             }
           ],
           "abhaengigkeiten": [
-            "st-dbb8-51df-8132-a203e70d6f6d-2",
-            "st-dbb8-51df-8132-a203e70d6f6d-5"
+            "st-dbb8-51df-8132-a203e70d6f6d-2"
           ]
         },
         {
@@ -92,20 +90,6 @@
           ],
           "abhaengigkeiten": [
             "st-dbb8-51df-8132-a203e70d6f6d-3"
-          ]
-        },
-        {
-          "story_id": "st-dbb8-51df-8132-a203e70d6f6d-5",
-          "titel": "Personenbezogene Angaben vor dem LLM-Aufruf ersetzen",
-          "beschreibung": "Als Datenschutzverantwortliche möchte ich, dass Namen, E-Mail-Adressen und Telefonnummern im Freitext vor jedem LLM-Aufruf durch temporäre Kennungen ersetzt und erst danach wieder aufgelöst werden (ADR-004). Ergänzung von BC3, im Prototyp noch nicht umgesetzt.",
-          "akzeptanzkriterien": [
-            {
-              "text": "Given eine Anfrage mit Name und E-Mail-Adresse, When das LLM aufgerufen wird, Then enthält der Prompt nur temporäre Kennungen und keine Klardaten.",
-              "messverfahren": "Protokoll der LLM-Aufrufe für 20 Testanfragen: Sichtprüfung auf Klardaten."
-            }
-          ],
-          "abhaengigkeiten": [
-            "st-dbb8-51df-8132-a203e70d6f6d-1"
           ]
         }
       ],
@@ -130,10 +114,6 @@
             {
               "text": "Given eine gültige Anfrage mit Flug und Hotel, When gesucht wird, Then werden /search/flights und /search/hotels aufgerufen und /search/cars nicht.",
               "messverfahren": "Ausführungsprotokoll des Testlaufs: aufgerufene Endpunkte je Anfrage."
-            },
-            {
-              "text": "Given die Reise-API antwortet nicht, When gesucht wird, Then endet der Vorgang mit einer verständlichen Fehlermeldung statt mit leeren Angeboten.",
-              "messverfahren": "offen: kein Messverfahren im Prototyp"
             }
           ],
           "abhaengigkeiten": [
@@ -183,10 +163,6 @@
           "akzeptanzkriterien": [
             {
               "text": "Given erstellte Angebote, When geantwortet wird, Then lautet der Status OFFERS_CREATED und jedes Angebot nennt offerId, Gesamtpreis, Währung und die gewählten Leistungen.",
-              "messverfahren": "offen: kein Messverfahren im Prototyp"
-            },
-            {
-              "text": "Given eine automatisch erzeugte Antwort, When sie zurückgegeben wird, Then weist sie darauf hin, dass sie mit KI-Unterstützung erstellt wurde.",
               "messverfahren": "offen: kein Messverfahren im Prototyp"
             }
           ],

@@ -14,7 +14,7 @@ flowchart LR
     wh["Webhook (Freitext)"]
   end
   subgraph Verarbeitung
-    e1["E1 Anfrage verstehen<br/>5 Stories"]
+    e1["E1 Anfrage verstehen<br/>4 Stories"]
     e2["E2 Angebote<br/>4 Stories"]
     e3["E3 Reservieren, prüfen, stornieren<br/>4 Stories"]
   end
@@ -56,10 +56,9 @@ flowchart LR
 | Story | Titel | Akzeptanzkriterien | hängt ab von |
 |---|---|---|---|
 | E1-1 | Freitext-Anfrage über einen Webhook entgegennehmen | 1 | – |
-| E1-2 | Absicht der Anfrage erkennen und Kennungen herauslesen | 3 | E1-1, E1-5 |
-| E1-3 | Reisedaten aus dem Freitext extrahieren | 2 | E1-2, E1-5 |
+| E1-2 | Absicht der Anfrage erkennen und Kennungen herauslesen | 3 | E1-1 |
+| E1-3 | Reisedaten aus dem Freitext extrahieren | 2 | E1-2 |
 | E1-4 | Eingaben prüfen und bei Lücken eine Rückfrage zurückgeben | 2 | E1-3 |
-| E1-5 | Personenbezogene Angaben vor dem LLM-Aufruf ersetzen | 1 | E1-1 |
 
 ### E2: Reiseangebote suchen, gegen das Budget prüfen und speichern
 
@@ -69,10 +68,10 @@ flowchart LR
 
 | Story | Titel | Akzeptanzkriterien | hängt ab von |
 |---|---|---|---|
-| E2-1 | Flüge, Hotels und Mietwagen parallel suchen | 2 | E1-4 |
+| E2-1 | Flüge, Hotels und Mietwagen parallel suchen | 1 | E1-4 |
 | E2-2 | Bis zu drei Angebote zusammenstellen und gegen das Budget prüfen | 3 | E2-1 |
 | E2-3 | Angebote speichern, damit sie später reserviert werden können | 1 | E2-2 |
-| E2-4 | Angebote als Antwort an die reisende Person zurückgeben | 2 | E2-2, E2-3 |
+| E2-4 | Angebote als Antwort an die reisende Person zurückgeben | 1 | E2-2, E2-3 |
 
 ### E3: Angebot reservieren, Buchung prüfen und stornieren
 
@@ -87,10 +86,12 @@ flowchart LR
 | E3-3 | Status einer Buchung prüfen | 3 | E1-2 |
 | E3-4 | Buchung stornieren | 3 | E1-2 |
 
-## Abweichungen vom Prototyp
+## Hinweise von BC3 (keine Stories)
 
-- **E1-5 Pseudonymisierung** ist eine Ergänzung von BC3 (DSGVO Art. 25, ADR-004), der Prototyp gibt den Freitext ungefiltert an OpenAI.
-- **E2-4 KI-Hinweis** in der Antwort (AI-Act Art. 50) fehlt im Prototyp.
+Die Stories beschreiben nur, was der Workflow tut. Zwei Pflichten aus der Compliance-Prüfung fehlen im Workflow und stehen deshalb nur in `compliance-audit.json`:
+
+- **p2 Pseudonymisierung** (DSGVO Art. 25, ADR-004): der Workflow gibt den Freitext ungefiltert an OpenAI.
+- **p3 KI-Hinweis** in der Antwort (AI-Act Art. 50).
 
 ## Offene Punkte
 
@@ -102,4 +103,4 @@ flowchart LR
 
 ---
 
-3 Epics · 13 Stories · 4 Komponenten
+3 Epics · 12 Stories · 4 Komponenten

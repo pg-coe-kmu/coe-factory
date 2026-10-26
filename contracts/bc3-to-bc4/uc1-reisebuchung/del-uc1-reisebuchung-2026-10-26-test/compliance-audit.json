@@ -49,11 +49,9 @@
       "datenkategorie": "normal",
       "stelle": "Kontext erkennen und Reisedaten extrahieren (LLM-Aufrufe)",
       "adressat": "bc4",
-      "wird_zu_story": true,
+      "wird_zu_story": false,
       "owner": "BC3",
-      "abgedeckt_durch": [
-        "st-dbb8-51df-8132-a203e70d6f6d-5"
-      ]
+      "abgedeckt_durch": []
     },
     {
       "id": "p3",
@@ -65,9 +63,7 @@
       "adressat": "bc4",
       "wird_zu_story": false,
       "owner": "BC3",
-      "abgedeckt_durch": [
-        "st-a03c-5dd2-bae8-89e3f98fea30-4"
-      ]
+      "abgedeckt_durch": []
     },
     {
       "id": "p4",
@@ -128,13 +124,6 @@
       "epic_id": "ep-7203-5ca7-87e9-469048f67ae2",
       "use_case_id_ref": "2eadddb0-7fef-5af9-9e3f-9c37491f3273",
       "titel": "Angebot reservieren, Buchung prüfen und stornieren"
-    },
-    {
-      "story_id": "st-dbb8-51df-8132-a203e70d6f6d-5",
-      "herkunft": "compliance",
-      "pflicht_ids": [
-        "p2"
-      ]
     }
   ]
 }
