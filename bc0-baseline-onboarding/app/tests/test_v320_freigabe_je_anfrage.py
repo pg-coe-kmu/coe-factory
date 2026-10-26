@@ -164,3 +164,20 @@ def test_wortlaut_anderes_profil():
     g = A._gate_veraltet_grund({"stand": "freigegeben", "bc1_profil_stand": "3"},
                                {"profil_version": 2}, None)
     assert g.startswith("anderes BC1-Profil (Fassung 2)")
+
+
+# --- v3.20.2: Verlauf gibt keinen Fehlertext heraus (CodeQL #14) ---------------
+
+def test_verlauf_block_ohne_fehlertext(caplog):
+    hinweise = []
+
+    def kaputt(c):
+        raise RuntimeError('relation "bc3.geheim" does not exist\nDETAIL: passwort=xyz')
+    with caplog.at_level("WARNING"):
+        assert A._verlauf_block(hinweise, "BC3", kaputt) is None
+    assert len(hinweise) == 1
+    h = hinweise[0]
+    assert h.startswith("BC3: nicht lesbar (Server-Protokoll, Kennung ")
+    assert "geheim" not in h and "RuntimeError" not in h and "passwort" not in h
+    kennung = h.rsplit(" ", 1)[1].rstrip(")")
+    assert kennung in caplog.text and "bc3.geheim" in caplog.text

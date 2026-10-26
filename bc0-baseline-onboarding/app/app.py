@@ -5284,7 +5284,12 @@ def _verlauf_block(hinweise, name, fn):
     try:
         return fn(c)
     except Exception as e:  # noqa: BLE001 - ein fehlender Block darf den Verlauf nicht verhindern
-        hinweise.append(f"{name}: nicht lesbar ({type(e).__name__}: {str(e).splitlines()[0][:160]})")
+        # v3.20.2 (CodeQL #14, PR #354): Fehlertext und Ausnahmeklasse gehen NICHT an den
+        # Aufrufer — sie koennen Tabellen-, Spalten- oder Verbindungsdetails tragen. Der volle
+        # Grund steht im Server-Protokoll, die Antwort nennt nur eine Kennung zum Nachschlagen.
+        kennung = uuid.uuid4().hex[:8]
+        LOG.warning("Verlauf-Block %s nicht lesbar [%s]: %s", name, kennung, e)
+        hinweise.append(f"{name}: nicht lesbar (Server-Protokoll, Kennung {kennung})")
         return None
     finally:
         try:
