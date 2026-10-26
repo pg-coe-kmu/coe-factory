@@ -17,6 +17,10 @@ import pytest
 from jsonschema import Draft202012Validator
 from psycopg_pool import ConnectionPool
 
+from bc1_core.types import FieldStatus, FieldValue, SessionState
+from bc1_service.discovery_paket import baue_discovery_paket
+from bc1_service.profil_writer import ProfilWriter
+from bc1_service.start import lade_kontext
 from bc1_service.use_case_testprofile import schreibe_testprofile
 from tests.db_fixture import DSN, MANDANT_A, frische_db, verbindung
 from tests.test_use_case_testprofile import ANFRAGEN, _noro_geruest
@@ -69,3 +73,28 @@ def test_testprofile_erfuellen_das_schema_ueber_die_leseregel(pool):
     for o in objekte:
         assert o["rollen"] == []
         assert _fehler(o) == []
+
+
+RECHENGROESSEN = ("frequency_per_year", "executions_per_run",
+                  "total_duration_minutes", "focus_step_duration_minutes")
+
+
+def test_fertiges_profil_mit_ungeloesten_rechengroessen_erfuellt_das_schema(pool):
+    # README "Was BC1 zusagt": nach zwei Nachfragen wird das Profil trotzdem fertig,
+    # die Spalten sind NULL. Der Stand wird gebaut wie in den Writer-Tests -- den
+    # Dialog bis zum Limit zu treiben, pruefte den Dialog, nicht das Format.
+    anfrage = ANFRAGEN["KP-06.TP-2"]
+    with pool.connection() as conn:
+        paket = baue_discovery_paket(kontext=lade_kontext(conn, MANDANT_A, anfrage))
+    state = SessionState("s-ungeloest", paket.schema_version, paket_name=paket.name,
+                         company_id=MANDANT_A, anfrage_id=anfrage)
+    state.values["focus_step"] = FieldValue("KP-06.TP-2", FieldStatus.GUELTIG, "m1")
+    for feld in RECHENGROESSEN:
+        state.values[feld] = FieldValue(None, FieldStatus.UNGELOEST, "m1",
+                                        grund="nachfrage_limit_erreicht")
+    ProfilWriter(pool, MANDANT_A, paket).reconcile(state, {"status": "fertig", "payload": {}})
+
+    [o] = _projektionen(pool, ["KP-06.TP-2"])
+    assert all(o[feld] is None for feld in RECHENGROESSEN)
+    assert set(o["profil"]["ungeloeste_felder"]) == set(RECHENGROESSEN)
+    assert _fehler(o) == []
