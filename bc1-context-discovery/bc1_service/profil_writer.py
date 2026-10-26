@@ -13,6 +13,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
+from typing import Literal
 
 from bc1_core.confidence import confidence_check
 from bc1_core.core import profil_payload
@@ -203,8 +204,9 @@ def baue_profilinhalt(state: SessionState, package: UseCasePackage, *,
         try:
             spalten[spalte] = konverter(wert, feld)
         except ProfilWriteError:
-            # Der Fehler wird spaeter als generischer 503 ausgeliefert — ohne diesen
-            # Eintrag waere nicht feststellbar, welche Sitzung an welchem Feld haengt.
+            # Im Abschluss-Turn wird der Fehler ein generischer 503, davor wird er
+            # uebersprungen — ohne diesen Eintrag waere nicht feststellbar, welche
+            # Sitzung an welchem Feld haengt.
             # Der Rohwert bleibt bewusst draussen: er ist Nutzertext.
             log.error("profil_konvertierung_widerspruch session=%s feld=%s ziel=%s",
                       state.session_id, feld, ziel)
@@ -356,6 +358,16 @@ class ProfilWriter:
         try:
             return self._abgleich(state, antwort)
         except ProfilWriteError:
+            if antwort["status"] != "fertig":
+                # Heute nur der Konvertierungs-Widerspruch (Feld und Ziel stehen schon in
+                # der ERROR-Zeile des Baus). Als Grund nur die Klasse: die Meldung traegt
+                # den Rohwert, also Nutzertext. Wie unten: der Frage-Turn blockiert nicht.
+                # Kaeme eine weitere Quelle dazu, liefe sie hier ebenfalls nur mit dem
+                # Klassennamen durch — sie braucht dann vor ihrem raise eine eigene
+                # Protokollzeile ohne Nutzertext.
+                log.warning("profil_write_uebersprungen session=%s grund=ProfilWriteError",
+                            state.session_id)
+                return None
             raise
         except Exception as fehler:                        # noqa: BLE001
             if antwort["status"] == "fertig":
@@ -370,13 +382,41 @@ class ProfilWriter:
                         state.session_id, _fehlergrund(fehler))
             return None
 
+    def abschluss_offen(self, state: SessionState
+                        ) -> Literal["nachholbar", "ausstehend"] | None:
+        """Steht der Abschluss einer fertigen Sitzung noch aus? (Paket (4), nur lesend)
+
+        None: nichts offen (kein Profil vorgesehen oder schon eingefroren).
+        "nachholbar": eigener Entwurf in_erhebung auf dem Fokus-Schritt der Sitzung —
+        das Gate darf den Abgleich nachholen; der Entwurf haelt den Schritt, also kann
+        dabei kein juengeres Profil ueberholt werden. "ausstehend": alles andere
+        (keine Bindung, Entwurf auf anderem Schritt) — nur der Betrieb holt nach.
+        Ein Lesefehler wird ProfilWriteError: das Gate antwortet 503, nie 409.
+        """
+        if not self._schreibt:
+            return None
+        try:
+            with self._pool.connection() as conn:
+                bindung = self._bindung(conn, state.session_id)
+        except Exception as fehler:                        # noqa: BLE001
+            log.error("abschlussstand_unlesbar session=%s grund=%s",
+                      state.session_id, _fehlergrund(fehler))
+            raise ProfilWriteError(
+                f"Abschlussstand nicht lesbar: {_fehlergrund(fehler)}") from fehler
+        if bindung is None:
+            return "ausstehend"
+        if bindung.status == "fertig":
+            return None
+        if bindung.focus_step_id != _gueltiger_wert(state, "focus_step"):
+            return "ausstehend"
+        return "nachholbar"
+
     # ---- innerhalb EINER Transaktion ------------------------------------
     def _abgleich(self, state: SessionState, antwort: dict) -> dict | None:
         with self._pool.connection() as conn:          # eine Transaktion
             bindung = self._bindung(conn, state.session_id)
             # Der Abbruch braucht den Profilinhalt nicht — und er wird VOR dem Bau
-            # behandelt: sonst reisst jeder Fehler beim Bau das Aufraeumen mit, und
-            # ein ProfilWriteError von dort wuerde den Abbruch zum 503 machen. Fuer
+            # behandelt: sonst reisst jeder Fehler beim Bau das Aufraeumen mit. Fuer
             # abgebrochen_ohne_identitaet gilt die Postcondition ausdruecklich nicht.
             if antwort["status"] == "abgebrochen_ohne_identitaet":
                 if bindung is not None:
@@ -434,34 +474,6 @@ class ProfilWriter:
             "AND focus_step_id = %s AND profil_version = %s",
             (self._company_id, bindung.focus_step_id,
              bindung.profil_version)).fetchone()[0]
-
-    def abschluss_offen(self, state: SessionState) -> str | None:
-        """Steht der Abschluss einer fertigen Sitzung noch aus? (Paket (4), nur lesend)
-
-        None: nichts offen (kein Profil vorgesehen oder schon eingefroren).
-        "nachholbar": eigener Entwurf in_erhebung auf dem Fokus-Schritt der Sitzung —
-        das Gate darf den Abgleich nachholen; der Entwurf haelt den Schritt, also kann
-        dabei kein juengeres Profil ueberholt werden. "ausstehend": alles andere
-        (keine Bindung, Entwurf auf anderem Schritt) — nur der Betrieb holt nach.
-        Ein Lesefehler wird ProfilWriteError: das Gate antwortet 503, nie 409.
-        """
-        if not self._schreibt:
-            return None
-        try:
-            with self._pool.connection() as conn:
-                bindung = self._bindung(conn, state.session_id)
-        except Exception as fehler:                        # noqa: BLE001
-            log.error("abschlussstand_unlesbar session=%s grund=%s",
-                      state.session_id, _fehlergrund(fehler))
-            raise ProfilWriteError(
-                f"Abschlussstand nicht lesbar: {_fehlergrund(fehler)}") from fehler
-        if bindung is None:
-            return "ausstehend"
-        if bindung.status == "fertig":
-            return None
-        if bindung.focus_step_id != _gueltiger_wert(state, "focus_step"):
-            return "ausstehend"
-        return "nachholbar"
 
     def _bindung(self, conn, session_id: str) -> Bindung | None:
         zeile = conn.execute(

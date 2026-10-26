@@ -316,7 +316,7 @@ def test_unkonvertierbare_dezimalzahl_ist_ebenfalls_ein_harter_fehler():
 
 def test_konvertierungsfehler_wird_strukturiert_geloggt(caplog):
     # Der Plan verlangt "ProfilWriteError plus strukturiertes Log". Der Fehler wird
-    # spaeter als generischer 503 ausgeliefert — ohne serverseitigen Eintrag mit
+    # im Abschluss-Turn ein generischer 503 (davor uebersprungen) — ohne serverseitigen Eintrag mit
     # Session und Feld ist eine blockierte Sitzung nicht diagnostizierbar
     # (Review 02.09.). Der ROHWERT gehoert NICHT ins Log (Nutzertext).
     state = _state(focus_step=("KP-01.TP-1", FieldStatus.GUELTIG),
