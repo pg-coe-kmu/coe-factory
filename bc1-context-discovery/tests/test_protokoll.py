@@ -33,8 +33,10 @@ def _client(store=None) -> TestClient:
 
 
 def _turn(client, mid, text, session="s1", headers=None):
+    # Schritt 1: Anfrage und Mandant gehen immer mit (Pflichtfelder).
     return client.post("/turn", headers=headers or {}, json={
-        "session_id": session, "message_id": mid, "message": text})
+        "session_id": session, "message_id": mid, "message": text,
+        "anfrage_id": "A-2026-01", "company_id": MANDANT})
 
 
 def _zeilen(caplog) -> list:
@@ -77,6 +79,19 @@ def test_409_schreibt_eine_zeile_mit_dem_grund_als_status(caplog):
     treffer = ZEILE.match(zeilen[0].getMessage())
     assert treffer["http"] == "409" and treffer["status"] == "session_abgeschlossen"
     assert treffer["message"] == "m4"
+
+
+# Schritt 1: auch die abgewiesene fremde Anfrage hat genau ihre eine Turn-Zeile.
+def test_fremde_anfrage_schreibt_eine_zeile_mit_anfrage_passt_nicht(caplog):
+    client = TestClient(create_app(InMemoryStateStore(), _llm(), TOY_PROZESS,
+                                   company_id=MANDANT, anfrage_id="A-2026-02"),
+                        raise_server_exceptions=False)
+    caplog.set_level(logging.INFO, logger="bc1.dienst")
+    assert _turn(client, "m1", GEHEIM).status_code == 409
+    zeilen = _zeilen(caplog)
+    assert len(zeilen) == 1
+    treffer = ZEILE.match(zeilen[0].getMessage())
+    assert treffer["http"] == "409" and treffer["status"] == "anfrage_passt_nicht"
 
 
 def test_mitgeschickte_korrelation_steht_in_zeile_und_antwort(caplog):

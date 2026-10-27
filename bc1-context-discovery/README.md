@@ -144,12 +144,13 @@ docker run -d --rm --name bc1-test-pg -e POSTGRES_PASSWORD=test -p 127.0.0.1:554
 BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" .venv/bin/pytest -q -W error
 ```
 
-Dienst starten (Pflicht: `BC1_DB_DSN` als `bc1_role`, `BC1_COMPANY_ID`, `BC1_ANFRAGE_ID` — seit B5 die BC0-Anfrage, zu der interviewt wird, Form `A-JJJJ-NN`; seit B4 der BC0-Zugang (`BC1_BC0_URL`, `BC1_BC0_KONTO_EMAIL`, `BC1_BC0_KONTO_PASSWORT`; die Adresse ohne `@` — Zugangsdaten in der Adresse lehnt der Start ab, sie stünden sonst in jeder Protokollzeile) — lokal ohne echtes BC0 bewusst `BC1_BC0_MELDUNGEN=aus`; LLM-Wahl über `BC1_LLM` = `claude` | `ollama` | `gemini`, Key des Anbieters aus der Umgebung):
+Dienst starten (Pflicht: `BC1_DB_DSN` als `bc1_role`, `BC1_COMPANY_ID`, `BC1_ANFRAGE_ID` — seit B5 die BC0-Anfrage, zu der interviewt wird, Form `A-JJJJ-NN`; seit 27.10. `BC1_ZUGANG`, der Zugangsschlüssel, mindestens 32 Zeichen; seit B4 der BC0-Zugang (`BC1_BC0_URL`, `BC1_BC0_KONTO_EMAIL`, `BC1_BC0_KONTO_PASSWORT`; die Adresse ohne `@` — Zugangsdaten in der Adresse lehnt der Start ab, sie stünden sonst in jeder Protokollzeile) — lokal ohne echtes BC0 bewusst `BC1_BC0_MELDUNGEN=aus`; LLM-Wahl über `BC1_LLM` = `claude` | `ollama` | `gemini`, Key des Anbieters aus der Umgebung):
 
 ```bash
 export BC1_DB_DSN="postgresql://…"        # Datenbank mit eingespielter DDL, siehe unten
 export BC1_COMPANY_ID="<uuid des Mandanten>"
 export BC1_ANFRAGE_ID="A-2026-03"         # Pflicht seit B5; Beispielwert
+export BC1_ZUGANG="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"   # Pflicht seit 27.10.
 export BC1_BC0_MELDUNGEN=aus               # lokal ohne BC0; im Betrieb stattdessen:
 # export BC1_BC0_URL="https://bc0.perspektivwechsel.ai"
 # export BC1_BC0_KONTO_EMAIL="$BC0_APP_KONTO_EMAIL"      # aus der lokalen Zugangsdatei
@@ -164,14 +165,18 @@ export BC1_LLM=ollama                      # lokal, ohne API-Key
 docker build -t bc1 bc1-context-discovery
 docker run --rm -p 127.0.0.1:8000:8000 \
   -e BC1_DB_DSN="postgresql://…" -e BC1_COMPANY_ID="<uuid des Mandanten>" \
-  -e BC1_ANFRAGE_ID="A-2026-03" -e BC1_LLM=claude -e ANTHROPIC_API_KEY \
+  -e BC1_ANFRAGE_ID="A-2026-03" -e BC1_ZUGANG -e BC1_LLM=claude -e ANTHROPIC_API_KEY \
   -e BC1_BC0_MELDUNGEN=aus \
   bc1
 ```
 
 `BC1_BC0_MELDUNGEN=aus` nur für einen lokalen Versuch ohne BC0 — im Betrieb stattdessen die drei BC0-Variablen wie oben. Eine Datenbank auf dem eigenen Rechner erreicht der Container unter `host.docker.internal` statt `localhost`.
 
-**Betriebsvoraussetzung (Pflicht):** Der Dienst hat keine Zugangsprüfung. Offen sind alle seine Endpunkte (`/turn`, `/gesundheit`, dazu FastAPIs `/docs`, `/redoc` und `/openapi.json`) und der n8n-Chat: Sein Chat-Trigger ist öffentlich, ohne Anmeldung, und reicht jede Nachricht an `/turn` weiter — wer den n8n-Port erreicht, kann Interviews führen. Beides darf nur auf dem eigenen Rechner oder im internen Docker-Netz erreichbar sein, bis es eine Zugangsprüfung gibt — darum `-p 127.0.0.1:8000:8000` hier und `-p 127.0.0.1:5678:5678` für n8n in [`SMOKE.md`](bc1_service/n8n/SMOKE.md).
+**Zugang und Aufruf (seit 27.10., Plan [`design/Plan-Zugang-und-Anfragepruefung.md`](design/Plan-Zugang-und-Anfragepruefung.md)):**
+- Jeder Endpunkt (`/turn`, `/gesundheit`, `/docs`, `/redoc`, `/openapi.json`) verlangt den Header `X-BC1-Zugang` mit dem Wert aus `BC1_ZUGANG`. Fehlt er oder stimmt er nicht, antwortet der Dienst mit 401 ohne Inhalt und schreibt eine WARNING `zugang_verweigert pfad=… grund=fehlt|falsch`, nie den gesendeten Wert. Im Betrieb ruft nur BC0s Backend den Dienst auf.
+- `/turn` verlangt neben `session_id`, `message_id` und `message` auch `anfrage_id` (Form `A-JJJJ-NN`) und `company_id` (UUID); fehlt eines oder hat es die falsche Form, kommt 422. Passen sie nicht zu `BC1_ANFRAGE_ID` bzw. `BC1_COMPANY_ID`, antwortet der Dienst mit 409 `anfrage_passt_nicht` und lesbarem `chat_text`. Er schreibt dann nichts und ruft keine KI auf.
+
+**Betriebsvoraussetzung (Pflicht):** Der Dienst gehört trotzdem nur ins interne Docker-Netz oder auf den eigenen Rechner — darum `-p 127.0.0.1:8000:8000` hier. Der n8n-Chat hat weiterhin keine Anmeldung: Sein Chat-Trigger ist öffentlich und reicht jede Nachricht mit dem eingetragenen Schlüssel an `/turn` weiter, also nur lokal betreiben (`-p 127.0.0.1:5678:5678`, [`SMOKE.md`](bc1_service/n8n/SMOKE.md)).
 
 **Messergebnis (24.10.2026, macOS, Docker Engine in colima):** Mit `-p 127.0.0.1:8000:8000` antwortet `/gesundheit` vom eigenen Rechner mit `200 ok`, und aus dem n8n-Image (ohne `--add-host`) antwortet `http://host.docker.internal:8000/gesundheit` ebenfalls mit `ok`; `/prozesse` liefert `404`. Ein an `127.0.0.1` veröffentlichter Test-Postgres ist aus einem Container über `host.docker.internal` erreichbar. **Nicht gemessen:** dass der Dienst aus dem lokalen Netz unerreichbar ist (die Aussage stützt sich auf Dockers dokumentiertes Verhalten), und Linux mit Docker Engine — dort gibt es `host.docker.internal` nur mit `--add-host=host.docker.internal:host-gateway`, es zeigt auf die Bridge-Adresse, und ein an `127.0.0.1` veröffentlichter Port ist von dort vermutlich nicht erreichbar. In so einer Umgebung gilt der Weg über ein gemeinsames Docker-Netz ohne veröffentlichten Port.
 

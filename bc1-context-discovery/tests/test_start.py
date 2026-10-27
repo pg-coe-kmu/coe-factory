@@ -12,6 +12,7 @@ from bc1_service.start import (
     lade_kontext,
     lies_anfrage_id,
     lies_company_id,
+    lies_zugang,
     melde_interview_beginn,
     pruefe_bc0_vor_dem_start,
 )
@@ -44,6 +45,25 @@ def test_anfrage_id_in_falscher_form_ist_ein_startfehler(roh):
 
 def test_anfrage_id_wird_von_raendern_befreit():
     assert lies_anfrage_id({"BC1_ANFRAGE_ID": "  A-2026-03 "}) == "A-2026-03"
+
+
+def test_fehlender_zugangsschluessel_ist_ein_startfehler():
+    with pytest.raises(RuntimeError) as fehler:
+        lies_zugang({})
+    assert "BC1_ZUGANG" in str(fehler.value)
+
+
+def test_zu_kurzer_zugangsschluessel_ist_ein_startfehler_ohne_den_wert():
+    kurz = "geheim-aber-zu-kurz-31-zeichen!"          # 31 Zeichen
+    with pytest.raises(RuntimeError) as fehler:
+        lies_zugang({"BC1_ZUGANG": kurz})
+    assert "32" in str(fehler.value)
+    assert kurz not in str(fehler.value)             # der Wert steht in keiner Meldung
+
+
+def test_zugangsschluessel_wird_von_raendern_befreit():
+    schluessel = "x" * 32
+    assert lies_zugang({"BC1_ZUGANG": f"  {schluessel}\n"}) == schluessel
 
 
 def test_wortlaut_der_anfrage_meldungen_ist_festgenagelt():

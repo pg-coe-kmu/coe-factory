@@ -22,6 +22,7 @@ from bc1_service.discovery_paket import Bc0Kontext
 
 INTERVIEWBARE_STATUS = ("zugeordnet", "im_interview")   # = anfrage_am_gate_nachziehen()
 _ANFRAGE_MUSTER = re.compile(r"A-[0-9]{4}-[0-9]{2}")   # BC0 ck auf ref_anfragen (v1.4)
+ZUGANG_MINDESTLAENGE = 32       # secrets.token_urlsafe(32) liefert 43 Zeichen
 
 # Wortlaut von BC0 (Antwort 10, 02.09.) — nicht umformulieren, er ist mit BC0 abgestimmt.
 MELDUNG_KEINE_TEILPROZESSE = (
@@ -72,6 +73,21 @@ def lies_anfrage_id(umgebung: Mapping[str, str]) -> str:
             'von BC0. Beispiel: export BC1_ANFRAGE_ID="A-2026-03"')
     if not _ANFRAGE_MUSTER.fullmatch(roh):
         raise RuntimeError(f"BC1_ANFRAGE_ID='{roh}' hat nicht die Form A-JJJJ-NN.")
+    return roh
+
+
+def lies_zugang(umgebung: Mapping[str, str]) -> str:
+    roh = umgebung.get("BC1_ZUGANG", "").strip()
+    if not roh:
+        raise RuntimeError(
+            "BC1_ZUGANG ist nicht gesetzt — ohne Zugangsschlüssel startet der Dienst "
+            "nicht. Beispiel: "
+            'export BC1_ZUGANG="$(python3 -c "import secrets; print(secrets.token_urlsafe(32))")"')
+    if len(roh) < ZUGANG_MINDESTLAENGE:
+        # Nur die Länge nennen, nie den Wert: die Meldung landet im Startprotokoll.
+        raise RuntimeError(
+            f"BC1_ZUGANG ist zu kurz ({len(roh)} Zeichen) — mindestens "
+            f"{ZUGANG_MINDESTLAENGE} Zeichen.")
     return roh
 
 
