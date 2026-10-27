@@ -492,6 +492,24 @@ def test_main_verdrahtet_den_profil_writer(main_laden):
     assert gesehen["melder"] is None
 
 
+def test_main_setzt_die_logger_stufen_auch_unter_fremder_konfiguration(main_laden):
+    # B3 Teil 2: Auf dem Server richtet womöglich ein anderer das Logging ein. Die
+    # Turn-Zeilen (bc1.*) dürfen dann nicht verschwinden, und kein SDK darf auf DEBUG
+    # schreiben — das Anthropic-SDK protokolliert dort die Anfrage samt Nachrichten.
+    import logging
+    sdks = ("anthropic", "google_genai", "google.genai", "httpx", "httpcore")
+    wurzel = logging.getLogger()
+    vorher = wurzel.level
+    wurzel.setLevel(logging.DEBUG)                 # fremde Konfiguration: alles auf DEBUG
+    try:
+        main_laden()
+        assert logging.getLogger("bc1").level == logging.INFO
+        for name in sdks:
+            assert logging.getLogger(name).getEffectiveLevel() == logging.INFO, name
+    finally:
+        wurzel.setLevel(vorher)
+
+
 def test_main_baut_b4_aus_den_kernprozessen_des_mandanten(main_laden):
     _, gesehen = main_laden()
     paket = gesehen["package"]

@@ -18,6 +18,7 @@
 - `design/` — Design-Spec (das *Warum*) + Implementierungsplan (die *Anleitung pro Arbeitspaket*, inkl. Code/Tests)
 - `bc1_core/` — Code-Kern: Dialog, Extraktion, Confidence, PII-Filter, Store-Vertrag
 - `bc1_service/` — Dienst-Schicht: FastAPI, Postgres-Store, BC0-Lesepfade, LLM-Adapter; darin `db/` (Einspiel-Dateien) und `n8n/` (Chat-Hülle)
+- `betrieb/` — Betrieb auf BC0s Server: Anleitung, Compose-Eintrag, `.env`-Vorlage, Prüfung vor dem Start
 - `tests/` — Tests (`pytest`), Datenbank-Tests nur mit `BC1_TEST_DB_DSN`
 
 ## Wie man hier mitarbeitet
@@ -181,6 +182,8 @@ docker run --rm -p 127.0.0.1:8000:8000 \
 - `/turn` verlangt neben `session_id`, `message_id` und `message` auch `anfrage_id` (Form `A-JJJJ-NN`) und `company_id` (UUID); fehlt eines oder hat es die falsche Form, kommt 422. Passen sie nicht zu `BC1_ANFRAGE_ID` bzw. `BC1_COMPANY_ID`, antwortet der Dienst mit 409 `anfrage_passt_nicht` und lesbarem `chat_text`. Er schreibt dann nichts und ruft keine KI auf.
 
 **Betriebsvoraussetzung (Pflicht):** Der Dienst gehört trotzdem nur ins interne Docker-Netz oder auf den eigenen Rechner — darum `-p 127.0.0.1:8000:8000` hier. Der n8n-Chat hat weiterhin keine Anmeldung: Sein Chat-Trigger ist öffentlich und reicht jede Nachricht mit dem eingetragenen Schlüssel an `/turn` weiter, also nur lokal betreiben (`-p 127.0.0.1:5678:5678`, [`SMOKE.md`](bc1_service/n8n/SMOKE.md)).
+
+**Betrieb auf BC0s Server** (Compose-Eintrag, `.env`-Vorlage, Ablauf je Testlauf, Prüfung vor dem Start, Fehlerbilder): [`betrieb/BETRIEB.md`](betrieb/BETRIEB.md).
 
 **Messergebnis (24.10.2026, vor dem Zugangsschlüssel; macOS, Docker Engine in colima):** Mit `-p 127.0.0.1:8000:8000` antwortet `/gesundheit` vom eigenen Rechner mit `200 ok`, und aus dem n8n-Image (ohne `--add-host`) antwortet `http://host.docker.internal:8000/gesundheit` ebenfalls mit `ok`; `/prozesse` liefert `404`. Ein an `127.0.0.1` veröffentlichter Test-Postgres ist aus einem Container über `host.docker.internal` erreichbar. **Nicht gemessen:** dass der Dienst aus dem lokalen Netz unerreichbar ist (die Aussage stützt sich auf Dockers dokumentiertes Verhalten), und Linux mit Docker Engine — dort gibt es `host.docker.internal` nur mit `--add-host=host.docker.internal:host-gateway`, es zeigt auf die Bridge-Adresse, und ein an `127.0.0.1` veröffentlichter Port ist von dort vermutlich nicht erreichbar. In so einer Umgebung gilt der Weg über ein gemeinsames Docker-Netz ohne veröffentlichten Port.
 
