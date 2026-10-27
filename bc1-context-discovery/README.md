@@ -79,7 +79,11 @@ uv run python -m bc1_service.use_case_testprofile --company-id <uuid> \
 ## Betriebsprotokoll
 
 Der Dienst schreibt je `/turn` genau eine Zeile über den Logger `bc1.dienst` — auch bei 409/503/500
-(Level INFO, bei HTTP 5xx — 503 und 500 — ERROR), dazu beim Start `dienst gestartet paket=… schema_version=… mandant=…`:
+(Level INFO, bei HTTP 5xx — 503 und 500 — ERROR), dazu beim Start `dienst gestartet paket=… schema_version=… mandant=…`.
+Ausnahmen: Einen Aufruf ohne gültigen Zugangsschlüssel (401) weist schon die Middleware ab; dafür steht
+über `bc1.api` die WARNING `zugang_verweigert pfad=<Pfad, maskiert> grund=<fehlt|falsch>`, nie der gesendete
+Wert. Eine 422 (Form der Felder) erreicht den Endpunkt nicht und bleibt ohne Zeile; ihre Antwort nennt nur
+Ort und Art des Fehlers, nie die Eingabe.
 
 ```
 turn korrelation=<id> session=<session_id> message=<message_id> http=<200|409|503|500> status=<…> dauer_ms=<int>
@@ -88,7 +92,7 @@ turn korrelation=<id> session=<session_id> message=<message_id> http=<200|409|50
 `status` ist bei HTTP 200 der fachliche Status (`frage`, `fertig`, `abgebrochen_ohne_identitaet`,
 `fehler_fortsetzbar`), bei einer abgewiesenen Anfrage der Fehlerschlüssel aus `detail` (z. B.
 `session_abgeschlossen`, `abschluss_ausstehend`, `gleichzeitige_anfrage`, `profil_write_fehlgeschlagen`,
-`sitzung_beschaedigt`, `interner_fehler`). Die Correlation-ID kommt aus dem Header `X-Correlation-ID` (z. B. von n8n) oder wird
+`sitzung_beschaedigt`, `interner_fehler`, seit 27.10. `anfrage_passt_nicht`). Die Correlation-ID kommt aus dem Header `X-Correlation-ID` (z. B. von n8n) oder wird
 erzeugt und als `X-Correlation-ID` zurückgegeben. Seit B7 Teil 2 steht sie auch in den Zeilen, die Kern
 und KI-Adapter während des Turns schreiben:
 
@@ -144,12 +148,13 @@ docker run -d --rm --name bc1-test-pg -e POSTGRES_PASSWORD=test -p 127.0.0.1:554
 BC1_TEST_DB_DSN="postgresql://postgres:test@localhost:55432/postgres" .venv/bin/pytest -q -W error
 ```
 
-Dienst starten (Pflicht: `BC1_DB_DSN` als `bc1_role`, `BC1_COMPANY_ID`, `BC1_ANFRAGE_ID` — seit B5 die BC0-Anfrage, zu der interviewt wird, Form `A-JJJJ-NN`; seit B4 der BC0-Zugang (`BC1_BC0_URL`, `BC1_BC0_KONTO_EMAIL`, `BC1_BC0_KONTO_PASSWORT`; die Adresse ohne `@` — Zugangsdaten in der Adresse lehnt der Start ab, sie stünden sonst in jeder Protokollzeile) — lokal ohne echtes BC0 bewusst `BC1_BC0_MELDUNGEN=aus`; LLM-Wahl über `BC1_LLM` = `claude` | `ollama` | `gemini`, Key des Anbieters aus der Umgebung):
+Dienst starten (Pflicht: `BC1_DB_DSN` als `bc1_role`, `BC1_COMPANY_ID`, `BC1_ANFRAGE_ID` — seit B5 die BC0-Anfrage, zu der interviewt wird, Form `A-JJJJ-NN`; seit 27.10. `BC1_ZUGANG`, der Zugangsschlüssel, mindestens 32 Zeichen; seit B4 der BC0-Zugang (`BC1_BC0_URL`, `BC1_BC0_KONTO_EMAIL`, `BC1_BC0_KONTO_PASSWORT`; die Adresse ohne `@` — Zugangsdaten in der Adresse lehnt der Start ab, sie stünden sonst in jeder Protokollzeile) — lokal ohne echtes BC0 bewusst `BC1_BC0_MELDUNGEN=aus`; LLM-Wahl über `BC1_LLM` = `claude` | `ollama` | `gemini`, Key des Anbieters aus der Umgebung):
 
 ```bash
 export BC1_DB_DSN="postgresql://…"        # Datenbank mit eingespielter DDL, siehe unten
 export BC1_COMPANY_ID="<uuid des Mandanten>"
 export BC1_ANFRAGE_ID="A-2026-03"         # Pflicht seit B5; Beispielwert
+export BC1_ZUGANG="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"   # Pflicht seit 27.10.
 export BC1_BC0_MELDUNGEN=aus               # lokal ohne BC0; im Betrieb stattdessen:
 # export BC1_BC0_URL="https://bc0.perspektivwechsel.ai"
 # export BC1_BC0_KONTO_EMAIL="$BC0_APP_KONTO_EMAIL"      # aus der lokalen Zugangsdatei
@@ -164,16 +169,20 @@ export BC1_LLM=ollama                      # lokal, ohne API-Key
 docker build -t bc1 bc1-context-discovery
 docker run --rm -p 127.0.0.1:8000:8000 \
   -e BC1_DB_DSN="postgresql://…" -e BC1_COMPANY_ID="<uuid des Mandanten>" \
-  -e BC1_ANFRAGE_ID="A-2026-03" -e BC1_LLM=claude -e ANTHROPIC_API_KEY \
+  -e BC1_ANFRAGE_ID="A-2026-03" -e BC1_ZUGANG -e BC1_LLM=claude -e ANTHROPIC_API_KEY \
   -e BC1_BC0_MELDUNGEN=aus \
   bc1
 ```
 
 `BC1_BC0_MELDUNGEN=aus` nur für einen lokalen Versuch ohne BC0 — im Betrieb stattdessen die drei BC0-Variablen wie oben. Eine Datenbank auf dem eigenen Rechner erreicht der Container unter `host.docker.internal` statt `localhost`.
 
-**Betriebsvoraussetzung (Pflicht):** Der Dienst hat keine Zugangsprüfung. Offen sind alle seine Endpunkte (`/turn`, `/gesundheit`, dazu FastAPIs `/docs`, `/redoc` und `/openapi.json`) und der n8n-Chat: Sein Chat-Trigger ist öffentlich, ohne Anmeldung, und reicht jede Nachricht an `/turn` weiter — wer den n8n-Port erreicht, kann Interviews führen. Beides darf nur auf dem eigenen Rechner oder im internen Docker-Netz erreichbar sein, bis es eine Zugangsprüfung gibt — darum `-p 127.0.0.1:8000:8000` hier und `-p 127.0.0.1:5678:5678` für n8n in [`SMOKE.md`](bc1_service/n8n/SMOKE.md).
+**Zugang und Aufruf (seit 27.10., Plan [`design/Plan-Zugang-und-Anfragepruefung.md`](design/Plan-Zugang-und-Anfragepruefung.md)):**
+- Jeder Endpunkt (`/turn`, `/gesundheit`, `/docs`, `/redoc`, `/openapi.json`) verlangt den Header `X-BC1-Zugang` mit dem Wert aus `BC1_ZUGANG`. Fehlt er oder stimmt er nicht, antwortet der Dienst mit 401 ohne Inhalt und schreibt eine WARNING `zugang_verweigert pfad=… grund=fehlt|falsch`, nie den gesendeten Wert. Im Betrieb ruft nur BC0s Backend den Dienst auf.
+- `/turn` verlangt neben `session_id`, `message_id` und `message` auch `anfrage_id` (Form `A-JJJJ-NN`) und `company_id` (UUID); fehlt eines oder hat es die falsche Form, kommt 422. Passen sie nicht zu `BC1_ANFRAGE_ID` bzw. `BC1_COMPANY_ID`, antwortet der Dienst mit 409 `anfrage_passt_nicht` und lesbarem `chat_text`. Er schreibt dann nichts und ruft keine KI auf.
 
-**Messergebnis (24.10.2026, macOS, Docker Engine in colima):** Mit `-p 127.0.0.1:8000:8000` antwortet `/gesundheit` vom eigenen Rechner mit `200 ok`, und aus dem n8n-Image (ohne `--add-host`) antwortet `http://host.docker.internal:8000/gesundheit` ebenfalls mit `ok`; `/prozesse` liefert `404`. Ein an `127.0.0.1` veröffentlichter Test-Postgres ist aus einem Container über `host.docker.internal` erreichbar. **Nicht gemessen:** dass der Dienst aus dem lokalen Netz unerreichbar ist (die Aussage stützt sich auf Dockers dokumentiertes Verhalten), und Linux mit Docker Engine — dort gibt es `host.docker.internal` nur mit `--add-host=host.docker.internal:host-gateway`, es zeigt auf die Bridge-Adresse, und ein an `127.0.0.1` veröffentlichter Port ist von dort vermutlich nicht erreichbar. In so einer Umgebung gilt der Weg über ein gemeinsames Docker-Netz ohne veröffentlichten Port.
+**Betriebsvoraussetzung (Pflicht):** Der Dienst gehört trotzdem nur ins interne Docker-Netz oder auf den eigenen Rechner — darum `-p 127.0.0.1:8000:8000` hier. Der n8n-Chat hat weiterhin keine Anmeldung: Sein Chat-Trigger ist öffentlich und reicht jede Nachricht mit dem eingetragenen Schlüssel an `/turn` weiter, also nur lokal betreiben (`-p 127.0.0.1:5678:5678`, [`SMOKE.md`](bc1_service/n8n/SMOKE.md)).
+
+**Messergebnis (24.10.2026, vor dem Zugangsschlüssel; macOS, Docker Engine in colima):** Mit `-p 127.0.0.1:8000:8000` antwortet `/gesundheit` vom eigenen Rechner mit `200 ok`, und aus dem n8n-Image (ohne `--add-host`) antwortet `http://host.docker.internal:8000/gesundheit` ebenfalls mit `ok`; `/prozesse` liefert `404`. Ein an `127.0.0.1` veröffentlichter Test-Postgres ist aus einem Container über `host.docker.internal` erreichbar. **Nicht gemessen:** dass der Dienst aus dem lokalen Netz unerreichbar ist (die Aussage stützt sich auf Dockers dokumentiertes Verhalten), und Linux mit Docker Engine — dort gibt es `host.docker.internal` nur mit `--add-host=host.docker.internal:host-gateway`, es zeigt auf die Bridge-Adresse, und ein an `127.0.0.1` veröffentlichter Port ist von dort vermutlich nicht erreichbar. In so einer Umgebung gilt der Weg über ein gemeinsames Docker-Netz ohne veröffentlichten Port.
 
 **Was der Dienst bei BC0 tut (seit B4):** Beim Start prüft er immer den Zugang (Anmeldung + eigenes Konto, ändert nichts) und bricht bei einem Mangel ab — auch bei einer Anfrage, die schon auf `im_interview` steht. Danach zieht er das Gate für die eigene Anfrage nach, noch bevor er aus der Datenbank liest (holt einen früher gescheiterten Gate-Aufruf nach; steht die Anfrage danach schon auf `am_gate`, endet der Start mit „steht auf 'am_gate'“). Dann meldet er der Anfrage `im_interview` — nur aus `zugeordnet`, ein Neustart überschreibt BC0s Stand also nicht. Nach jedem Abschluss eines Interviews zieht er das Gate bei BC0 nach, im Hintergrund; die Chat-Antwort hängt nicht davon ab. Alle Gate-Aufrufe tragen `?anfrage_id=` — BC0 prüft seit v3.13 nur diese Anfrage. Scheitert das, steht eine WARNING mit Handlungsanweisung im Log (die Anfrage bei BC0 von Hand nachziehen) — das Profil ist dann trotzdem gespeichert. Alles läuft über ein BC0-Anwendungskonto mit Schreibrecht (Rolle `benutzer` oder `admin`), das den Mandanten sieht (zugewiesen; `admin` sieht alle); das Passwort steht nur in der Umgebung, in keiner Meldung und in keinem Log. Ob das Konto bereit ist, zeigt die Live-Probe — sie ändert bei BC0 nichts (Anmeldung, dann nur Lesen des eigenen Kontos) und braucht `BC1_COMPANY_ID` und die drei BC0-Variablen, keine Datenbank:
 

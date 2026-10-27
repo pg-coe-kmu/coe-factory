@@ -20,6 +20,8 @@ from tests.db_fixture import ANFRAGE_A, DSN, MANDANT_A, MANDANT_B, frische_db, v
 
 pytestmark = pytest.mark.skipif(not DSN, reason="BC1_TEST_DB_DSN nicht gesetzt")
 
+ZUGANG = "z" * 43                     # Länge wie secrets.token_urlsafe(32)
+
 KONTEXT = Bc0Kontext(
     company_id=MANDANT_A,
     teilprozesse=(("KP-01.TP-1", "Erfassen"), ("KP-01.TP-2", "Pruefen")),
@@ -83,8 +85,10 @@ def _client(umgebung, ohne=(), abweichend=None):
 
 
 def _turn(client, mid, text, session="s1", **extra):
+    # Schritt 1: Anfrage und Mandant gehen immer mit (Pflichtfelder).
     return client.post("/turn", json={"session_id": session, "message_id": mid,
-                                      "message": text, **extra})
+                                      "message": text, "anfrage_id": ANFRAGE_A,
+                                      "company_id": MANDANT_A, **extra})
 
 
 def test_durchstich_schreibt_genau_eine_eingefrorene_zeile(umgebung):
@@ -452,6 +456,7 @@ def main_laden(umgebung, monkeypatch):
     monkeypatch.setenv("BC1_ANFRAGE_ID", ANFRAGE_A)
     monkeypatch.setenv("BC1_LLM", "ollama")     # kein API-Key noetig
     monkeypatch.setenv("BC1_BC0_MELDUNGEN", "aus")
+    monkeypatch.setenv("BC1_ZUGANG", ZUGANG)
     geladen: list = []
 
     def _laden():
@@ -476,6 +481,8 @@ def test_main_verdrahtet_den_profil_writer(main_laden):
     main, gesehen = main_laden()
     assert gesehen["company_id"] == MANDANT_A
     assert gesehen["anfrage_id"] == ANFRAGE_A
+    # Schritt 1 (27.10.): ohne diese Zeile liefe der Dienst im Betrieb ohne Zugangsprüfung.
+    assert gesehen["zugang"] == ZUGANG
     assert isinstance(gesehen["writer"], ProfilWriter)
     # Dasselbe Paket-Objekt fuer Kern und Writer: zwei getrennte Bauten
     # koennten auseinanderlaufen (Reihenfolge der BC0-Mengen).
@@ -543,6 +550,7 @@ def _main_mit_melder(monkeypatch, anfrage_id, melder, gesehen=None):
     monkeypatch.setenv("BC1_DB_DSN", DSN)
     monkeypatch.setenv("BC1_COMPANY_ID", MANDANT_A)
     monkeypatch.setenv("BC1_ANFRAGE_ID", anfrage_id)
+    monkeypatch.setenv("BC1_ZUGANG", ZUGANG)
     monkeypatch.setenv("BC1_LLM", "ollama")
     monkeypatch.delitem(sys.modules, "bc1_service.main", raising=False)
     return importlib.import_module("bc1_service.main")
@@ -1064,6 +1072,6 @@ def test_fremde_anfrage_fragt_den_writer_nicht(umgebung):
     fremd = TestClient(create_app(
         store, _llm(), paket, company_id=MANDANT_A, anfrage_id="A-2026-99",
         writer=ProfilWriter(ConnectionPool(DSN, open=False), MANDANT_A, paket)))
-    antwort = _turn(fremd, "m2", "nochmal")
+    antwort = _turn(fremd, "m2", "nochmal", anfrage_id="A-2026-99")
     assert antwort.status_code == 409
     assert antwort.json()["detail"] == "anfrage_konflikt"

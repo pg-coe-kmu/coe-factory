@@ -14,6 +14,8 @@ export BC1_COMPANY_ID="11111111-1111-1111-1111-111111111111"              # Pfli
 export BC1_ANFRAGE_ID="A-2026-03"                                         # Pflicht seit B5 (Form A-JJJJ-NN)
                        # ^ die BC0-Anfrage, zu der interviewt wird; Beispielwert, in der
                        #   Supabase die echte Nummer einer Anfrage im Stand zugeordnet/im_interview
+export BC1_ZUGANG="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"   # Pflicht seit 27.10.
+                       # ^ denselben Wert im n8n-Knoten „HTTP Request“ als Header X-BC1-Zugang eintragen
 export BC1_BC0_MELDUNGEN=aus                                              # BC0-Zugang Pflicht seit B4; Test-Container hat kein BC0 → bewusst aus
                        # ^ im Betrieb stattdessen diese drei (Werte aus der lokalen Zugangsdatei, nie committen):
 # export BC1_BC0_URL="https://bc0.perspektivwechsel.ai"
@@ -134,6 +136,7 @@ app = create_app(
     TOY_PROZESS,
     company_id=os.environ["BC1_COMPANY_ID"],   # Pflicht-Argument seit Task 10
     anfrage_id=os.environ["BC1_ANFRAGE_ID"],   # seit B5; der Guard prüft sie je Turn
+    zugang=os.environ["BC1_ZUGANG"],           # seit 27.10.; Header X-BC1-Zugang
 )
 ```
 
@@ -163,7 +166,7 @@ Besitzer-Angaben) sind bewusst entfernt; n8n vergibt sie beim Import neu.
 | Node | Einstellungen |
 |---|---|
 | Chat Trigger | Make Chat Publicly Available ✓ · Mode: Hosted Chat · Auth: None · Response Mode: **When Last Node Finishes** |
-| HTTP Request | POST `http://host.docker.internal:8000/turn` (n8n läuft im Container → nicht `localhost`) · Body (JSON, Fields): `session_id` = `{{ $json.sessionId }}` · `message_id` = `exec-{{ $execution.id }}` (stabil bei Retries innerhalb einer Execution → Idempotenz) · `message` = `{{ $json.chatInput }}` · Options → Response → **Never Error** ✓ (409 erscheint als Text statt Workflow-Fehler) |
+| HTTP Request | POST `http://host.docker.internal:8000/turn` (n8n läuft im Container → nicht `localhost`) · Body (JSON, Fields): `session_id` = `{{ $json.sessionId }}` · `message_id` = `exec-{{ $execution.id }}` (stabil bei Retries innerhalb einer Execution → Idempotenz) · `message` = `{{ $json.chatInput }}` · seit 27.10. außerdem `anfrage_id` und `company_id` (feste Werte = `BC1_ANFRAGE_ID` bzw. `BC1_COMPANY_ID` des Dienstes; in der Datei stehen die Beispielwerte von oben, bei anderer Anfrage anpassen) · Header `X-BC1-Zugang` = Wert aus `BC1_ZUGANG` (Platzhalter in der Datei ersetzen; ohne ihn 401) · Options → Response → **Never Error** ✓ (409 erscheint als Text statt Workflow-Fehler) |
 | Edit Fields (Set) | `output` (String) = `{{ $json.chat_text ?? $json.detail }}` |
 
 Dann **Publish**; Chat-URL steht im Chat-Trigger-Node.
@@ -203,7 +206,8 @@ Nachricht den Abschluss nach, wenn ein eigener Entwurf offen ist. Sonst kommt 40
 - **Sonst steht das Profil aus** — kein eigener Entwurf (ein fremder hat blockiert, oder er wurde
   gelöscht), Entwurf auf einem anderen Schritt, oder Paket seit dem Abschluss geändert: 409
   `abschluss_ausstehend` mit dem Text „… das Ergebnis konnte aber noch nicht gespeichert werden …“.
-  Nachgeholt wird **von Hand**: Ursache beheben, dann per curl an `/turn` mit der `message_id` aus
+  Nachgeholt wird **von Hand**: Ursache beheben, dann per curl an `/turn` (seit 27.10. mit Header
+  `X-BC1-Zugang` sowie `anfrage_id` und `company_id` im Body) mit der `message_id` aus
   `abschluss=` der Zeile `abschluss_ausstehend` (bei geändertem Paket zusätzlich mit der alten
   `schema_version` der Sitzung). Ein Client, der selbst die alte `schema_version` mitsendet,
   bekommt nach einem Paketwechsel stattdessen 409 `schema_version_passt_nicht` (der n8n-Chat sendet

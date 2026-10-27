@@ -15,6 +15,7 @@ sonst aus, antwortet es 409 abschluss_ausstehend statt session_abgeschlossen.
 """
 from __future__ import annotations
 
+import hmac
 import logging
 import re
 import threading
@@ -23,6 +24,7 @@ import uuid
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request, Response
 from fastapi.exception_handlers import http_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -68,6 +70,9 @@ FEHLER_TEXTE = {
     "anfrage_konflikt": (
         "Diese Sitzung gehört zu einer anderen Anfrage und kann hier nicht "
         "fortgesetzt werden. Bitte starten Sie ein neues Interview."),
+    "anfrage_passt_nicht": (                                  # Schritt 1 (27.10.)
+        "Das Gespräch zu dieser Anfrage ist gerade nicht freigeschaltet. Bitte "
+        "wenden Sie sich an Ihre Ansprechperson."),
     "gleichzeitige_anfrage": (
         "Ihre Nachricht wurde gleichzeitig mit einer anderen verarbeitet. "
         "Bitte senden Sie sie noch einmal."),
@@ -129,12 +134,19 @@ MELDUNG_GATE_FEHLGESCHLAGEN = (
 # Dienstzeile (`_protokollwert`), damit alle Zeilen dieselbe Kennung zeigen.
 KENNUNG_MUSTER = r"^[A-Za-z0-9_-]{1,64}$"
 
+# Schritt 1 (27.10.): den Schlüssel kennt nur BC0s Backend (Brief an BC0 vom 27.10.).
+ZUGANG_HEADER = "X-BC1-Zugang"
+
 
 class TurnRequest(BaseModel):
     # Leere IDs sind keine gültigen Schlüssel (Session-Bindung, Idempotenz).
     session_id: str = Field(pattern=KENNUNG_MUSTER)
     message_id: str = Field(pattern=KENNUNG_MUSTER)
     message: str
+    # Schritt 1 (Plan Z8): Pflicht — BC0s Backend setzt beide, nie der Browser.
+    anfrage_id: str = Field(pattern=r"^A-[0-9]{4}-[0-9]{2}$")       # wie BC1_ANFRAGE_ID
+    company_id: str = Field(
+        pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
     schema_version: str | None = None
 
 
@@ -150,11 +162,32 @@ def create_app(
     writer: ProfilWriter | None = None,
     # B4: None beim bewussten 'aus' (BC1_BC0_MELDUNGEN) und in Tests.
     melder=None,
+    # Schritt 1: None nur in Tests; main.py setzt immer (BC1_ZUGANG Pflicht).
+    zugang: str | None = None,
 ) -> FastAPI:
     # lifespan: Aufhaenger fuers Hoch-/Herunterfahren (main.py schliesst dort
     # den Store). Die Factory kennt den Inhalt nicht — nur den Durchreicher.
     app = FastAPI(title="BC1 Context Discovery", version="0.2.0",
                   lifespan=lifespan)
+
+    if zugang is not None:
+        # Schritt 1 (Plan Z2/Z3): vor JEDEM Endpunkt, auch /docs und /openapi.json —
+        # erreichen soll den Dienst nur BC0s Backend. 401 ohne Inhalt verrät nichts.
+        @app.middleware("http")
+        async def _zugangspruefung(request: Request, call_next):
+            gegeben = request.headers.get(ZUGANG_HEADER)
+            # Zeitkonstant vergleichen (Plan Z4); Bytes, weil compare_digest bei str
+            # nur ASCII annimmt und ein fremdes Zeichen sonst eine Ausnahme wäre.
+            if gegeben is None or not hmac.compare_digest(gegeben.encode(),
+                                                           zugang.encode()):
+                # Plan Z7: eine Fehlkonfiguration bei BC0 soll im Log auffallen. Nie der
+                # gesendete Wert; der Pfad kommt vom Aufrufer und wird maskiert wie
+                # in _protokollwert, nur mit '/'.
+                log.warning("zugang_verweigert pfad=%s grund=%s",
+                            re.sub(r"[^A-Za-z0-9._:/-]", "?", request.url.path[:64]),
+                            "fehlt" if gegeben is None else "falsch")
+                return Response(status_code=401)
+            return await call_next(request)
 
     @app.exception_handler(HTTPException)
     async def _mit_chat_text(request, fehler: HTTPException):
@@ -166,6 +199,13 @@ def create_app(
         return JSONResponse(status_code=fehler.status_code,
                             content={"detail": fehler.detail, "chat_text": text},
                             headers=fehler.headers)
+
+    @app.exception_handler(RequestValidationError)
+    async def _422_ohne_eingabe(request, fehler: RequestValidationError):
+        # FastAPIs Standard spiegelt die Eingabe samt Nachrichtentext zurück („input“);
+        # BC0 vermerkt 422 im eigenen Log, vorbei am PII-Filter des Kerns. Nur Ort und Art.
+        return JSONResponse(status_code=422, content={"detail": [
+            {"loc": list(f["loc"]), "type": f["type"]} for f in fehler.errors()]})
 
     # Ein Lock je Session: /turn liest den State (Gate) und lässt ihn vom Kern
     # fortschreiben — zwei gleichzeitige Turns derselben Session würden sonst
@@ -228,6 +268,11 @@ def create_app(
                 round((time.perf_counter() - beginn) * 1000))
 
     def _turn_kern(req: TurnRequest, hintergrund: BackgroundTasks) -> dict:
+        # Schritt 1 (Plan Z9): vor Lock und Laden — bei falscher Anfrage wird nichts
+        # geschrieben und die KI nicht gefragt.
+        if (req.company_id.lower() != company_id.lower()      # Plan Z11
+                or (anfrage_id is not None and req.anfrage_id != anfrage_id)):
+            raise HTTPException(status_code=409, detail="anfrage_passt_nicht")
         with _session_lock(req.session_id):
             state = _lade(store, req.session_id)
             if state is not None:
@@ -407,5 +452,5 @@ def _chat_text(antwort: dict) -> str:
                  or "Danke! Das Interview ist abgeschlossen.")
                 + _sweep_hinweise(p)
                 + _fortschrittszeile(p))
-    return ("Da ist gerade etwas schiefgegangen — "
-            "bitte schick deine Nachricht einfach noch einmal.")
+    return ("Da ist gerade etwas schiefgegangen. "
+            "Bitte senden Sie Ihre Nachricht noch einmal.")

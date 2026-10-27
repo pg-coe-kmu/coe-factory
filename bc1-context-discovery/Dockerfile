@@ -26,9 +26,10 @@ USER bc1
 
 EXPOSE 8000
 
-# Datenbank, LLM-Key und BC0-Zugang kommen zur Laufzeit aus der Umgebung (-e).
-# Den Port nur an 127.0.0.1 veröffentlichen (README), solange der Dienst keine
-# Zugangsprüfung hat.
+# Datenbank, LLM-Key, BC0-Zugang und Zugangsschlüssel (BC1_ZUGANG) kommen zur
+# Laufzeit aus der Umgebung (-e). Den Port nur an 127.0.0.1 bzw. im internen
+# Docker-Netz veröffentlichen (README): der Schlüssel soll nur BC0s Backend
+# durchlassen, er ersetzt die Netztrennung nicht.
 #
 # Bewusst OHNE --proxy-headers --forwarded-allow-ips "*" (anders als BC0/BC2): das
 # ist nur vertretbar, wenn der Port ausschliesslich hinter einem Reverse Proxy im

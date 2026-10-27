@@ -1,6 +1,7 @@
 """Produktions-Verdrahtung: uvicorn bc1_service.main:app
 
-Pflicht: BC1_DB_DSN, BC1_COMPANY_ID, BC1_ANFRAGE_ID — seit B4 außerdem BC1_BC0_URL,
+Pflicht: BC1_DB_DSN, BC1_COMPANY_ID, BC1_ANFRAGE_ID, seit 27.10. BC1_ZUGANG (Zugangsschlüssel,
+mindestens 32 Zeichen; Header X-BC1-Zugang) — seit B4 außerdem BC1_BC0_URL,
 BC1_BC0_KONTO_EMAIL, BC1_BC0_KONTO_PASSWORT (oder bewusst BC1_BC0_MELDUNGEN=aus).
 Optional: BC1_CLAUDE_MODELL,
 ANTHROPIC_API_KEY (liest das SDK selbst), BC1_LLM ("claude" | "ollama" | "gemini",
@@ -9,7 +10,8 @@ braucht GEMINI_API_KEY), BC1_OLLAMA_MODELL, BC1_GEMINI_MODELL,
 BC1_PAKET ("discovery" | "toy", Default discovery).
 
 uvicorn ohne `--host` lauscht nur auf dem eigenen Rechner; so betreiben (oder im
-Container nur an 127.0.0.1 veröffentlichen), bis es eine Zugangsprüfung gibt.
+Container nur an 127.0.0.1 bzw. nur im internen Docker-Netz veröffentlichen). Der
+Zugangsschlüssel ersetzt das nicht: Er soll nur BC0s Backend durchlassen.
 """
 from __future__ import annotations
 
@@ -27,7 +29,8 @@ from bc1_service.paket_wahl import waehle_paket
 from bc1_service.postgres_store import PostgresStateStore
 from bc1_service.profil_writer import ProfilWriter
 from bc1_service.start import (lade_kontext, lies_anfrage_id, lies_company_id,
-                               melde_interview_beginn, pruefe_bc0_vor_dem_start)
+                               lies_zugang, melde_interview_beginn,
+                               pruefe_bc0_vor_dem_start)
 
 # P5 (#271): Betriebsprotokoll auf die Standardausgabe — nur, wenn noch niemand das
 # Logging eingerichtet hat (Tests konfigurieren selbst; uvicorn nur seine eigenen Logger).
@@ -45,6 +48,7 @@ if not _dsn:
 
 _company_id = lies_company_id(os.environ)
 _anfrage_id = lies_anfrage_id(os.environ)
+_zugang = lies_zugang(os.environ)
 
 # B4: vor den Pools — ein Konfigurationsfehler bricht ohne offene Verbindungen ab.
 _melder = bc0_meldungen.baue_melder(os.environ, _company_id)
@@ -93,6 +97,7 @@ app = create_app(
     lifespan=_lebenszyklus,
     company_id=_company_id,
     anfrage_id=_anfrage_id,
+    zugang=_zugang,
     writer=ProfilWriter(_profil_pool, _company_id, _paket),
     melder=_melder,
 )

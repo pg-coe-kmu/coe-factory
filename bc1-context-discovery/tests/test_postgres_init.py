@@ -153,9 +153,26 @@ def test_main_ohne_bc0_zugang_meldet_die_fehlenden_variablen(monkeypatch):
     monkeypatch.setenv("BC1_DB_DSN", "postgresql://egal/egal")
     monkeypatch.setenv("BC1_COMPANY_ID", "11111111-1111-1111-1111-111111111111")
     monkeypatch.setenv("BC1_ANFRAGE_ID", "A-2026-01")
+    monkeypatch.setenv("BC1_ZUGANG", "z" * 43)
     for name in ("BC1_BC0_MELDUNGEN", "BC1_BC0_URL", "BC1_BC0_KONTO_EMAIL",
                  "BC1_BC0_KONTO_PASSWORT"):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.delitem(sys.modules, "bc1_service.main", raising=False)
     with pytest.raises(RuntimeError, match="BC0-Zugang unvollständig"):
+        importlib.import_module("bc1_service.main")
+
+
+# Schritt 1 (27.10.): ohne Zugangsschlüssel startet der Dienst nicht — vor jeder
+# Datenbankverbindung (die DSN hier ist absichtlich unerreichbar).
+def test_main_ohne_zugangsschluessel_startet_nicht(monkeypatch):
+    import importlib
+    import sys
+
+    monkeypatch.setenv("BC1_DB_DSN", "postgresql://egal/egal")
+    monkeypatch.setenv("BC1_COMPANY_ID", "11111111-1111-1111-1111-111111111111")
+    monkeypatch.setenv("BC1_ANFRAGE_ID", "A-2026-01")
+    monkeypatch.setenv("BC1_BC0_MELDUNGEN", "aus")
+    monkeypatch.delenv("BC1_ZUGANG", raising=False)
+    monkeypatch.delitem(sys.modules, "bc1_service.main", raising=False)
+    with pytest.raises(RuntimeError, match="BC1_ZUGANG ist nicht gesetzt"):
         importlib.import_module("bc1_service.main")

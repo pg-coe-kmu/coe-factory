@@ -19,6 +19,7 @@ from bc1_service.profil_writer import ProfilWriteError
 
 MANDANT = "11111111-1111-1111-1111-111111111111"
 MANDANT_B = "22222222-2222-2222-2222-222222222222"
+ANFRAGE = "A-2026-01"
 
 IDENT_PAKET = UseCasePackage(
     name="ident_test", schema_version="1.1+ctx-aaaaaaaaaaaaaaaa", max_rounds=2,
@@ -54,8 +55,11 @@ def _client(llm=None, store=None) -> TestClient:
 
 
 def _turn(client, mid, text, session="s1", **extra):
+    # Schritt 1: Anfrage und Mandant gehen immer mit (Pflichtfelder); Tests gegen einen
+    # Dienst mit anderer Anfrage überschreiben sie über extra.
     return client.post("/turn", json={
-        "session_id": session, "message_id": mid, "message": text, **extra
+        "session_id": session, "message_id": mid, "message": text,
+        "anfrage_id": ANFRAGE, "company_id": MANDANT, **extra
     })
 
 
@@ -141,6 +145,14 @@ def test_llm_ausfall_gibt_vertragsantwort_mit_status_200():
     assert antwort.status_code == 200
     assert antwort.json()["status"] == "fehler_fortsetzbar"
     assert antwort.json()["chat_text"]  # Nutzer bekommt eine Chat-Erklärung
+
+
+# Schritt 1: BC0s Anfrage-App siezt — dieser Text war der letzte feste mit „du“.
+def test_text_bei_fortsetzbarem_fehler_siezt():
+    antwort = _turn(_client(llm=ExplodierendesLLM()), "m1", "Hallo")
+    assert antwort.json()["chat_text"] == (
+        "Da ist gerade etwas schiefgegangen. Bitte senden Sie Ihre Nachricht "
+        "noch einmal.")
 
 
 def test_paket_guard_gibt_409_mit_stabilem_detail():
@@ -231,6 +243,7 @@ def test_nebenlaeufige_turns_derselben_session_serialisiert():
         try:
             ergebnisse[mid] = TestClient(app).post("/turn", json={
                 "session_id": "s1", "message_id": mid, "message": "hallo",
+                "anfrage_id": ANFRAGE, "company_id": MANDANT,
             }).status_code
         except Exception as fehler:   # ohne Lock: StaleStateError aus dem Kern
             ergebnisse[mid] = repr(fehler)
@@ -277,6 +290,88 @@ def test_uuid_und_exec_kennung_werden_angenommen():
 # Die Grenze ist 64 (wie die Maskierung der Dienstzeile) — 65 weist der Test oben ab.
 def test_kennung_mit_64_zeichen_wird_angenommen():
     assert _turn(_client(), "m1", "Hallo", session="x" * 64).status_code == 200
+
+
+# Schritt 1 (Plan Z8): Anfrage und Mandant sind Pflicht — eine vergessene Angabe soll
+# bei BC0 sofort auffallen, statt still zur eingestellten Anfrage zu interviewen.
+@pytest.mark.parametrize("feld", ["anfrage_id", "company_id"])
+def test_aufruf_ohne_anfrage_oder_mandant_wird_abgewiesen(feld):
+    koerper = {"session_id": "s1", "message_id": "m1", "message": "Hallo",
+               "anfrage_id": ANFRAGE, "company_id": MANDANT}
+    del koerper[feld]
+    assert _client().post("/turn", json=koerper).status_code == 422
+
+
+# Eine 422 darf den Nachrichtentext nicht zurückspiegeln: BC0 vermerkt 422 im eigenen
+# Log, und der PII-Filter greift erst im Kern (Prüfung Schritt 1, 27.10.).
+def test_422_spiegelt_den_nachrichtentext_nicht_zurueck():
+    antwort = _client().post("/turn", json={
+        "session_id": "s1", "message_id": "m1", "message": "GEHEIMER TEXT",
+        "company_id": MANDANT})
+    assert antwort.status_code == 422
+    assert "GEHEIMER TEXT" not in antwort.text
+    assert antwort.json()["detail"][0]["loc"] == ["body", "anfrage_id"]
+
+
+@pytest.mark.parametrize("feld, wert", [
+    ("anfrage_id", "A-2026-1"),
+    ("anfrage_id", "A-2026-01\n"),
+    ("anfrage_id", "a-2026-01"),
+    ("company_id", "1111"),
+    ("company_id", MANDANT + "x"),
+])
+def test_anfrage_oder_mandant_in_falscher_form_wird_abgewiesen(feld, wert):
+    assert _turn(_client(), "m1", "Hallo", **{feld: wert}).status_code == 422
+
+
+# Schritt 1 (Plan Z9): BC0 fragt eine andere Anfrage an, als dieser Dienst bedient —
+# ablehnen, bevor irgendetwas geschrieben oder die KI gefragt wird.
+def test_fremde_anfrage_im_aufruf_bekommt_409_ohne_schreiben_und_ohne_ki():
+    store = InMemoryStateStore()
+    client = TestClient(create_app(store, ExplodierendesLLM(), TOY_PROZESS,
+                                   company_id=MANDANT, anfrage_id=ANFRAGE))
+    antwort = _turn(client, "m1", "Hallo", anfrage_id="A-2026-02")
+    assert antwort.status_code == 409
+    assert antwort.json() == {"detail": "anfrage_passt_nicht",
+                              "chat_text": FEHLER_TEXTE["anfrage_passt_nicht"]}
+    assert store.load("s1") is None
+
+
+# Anfrage-IDs gibt es je Mandant (A-2026-01 bei A und bei B): der Mandant zählt mit,
+# auch wenn der Dienst ohne Anfrage verdrahtet ist (Plan Z10).
+@pytest.mark.parametrize("anfrage_am_dienst", [ANFRAGE, None])
+def test_fremder_mandant_im_aufruf_bekommt_409(anfrage_am_dienst):
+    store = InMemoryStateStore()
+    client = TestClient(create_app(store, ExplodierendesLLM(), TOY_PROZESS,
+                                   company_id=MANDANT, anfrage_id=anfrage_am_dienst))
+    antwort = _turn(client, "m1", "Hallo", company_id=MANDANT_B)
+    assert antwort.status_code == 409
+    assert antwort.json()["detail"] == "anfrage_passt_nicht"
+    assert store.load("s1") is None
+
+
+# Plan Z9: die Prüfung steht VOR dem Laden der Sitzung. Stünde sie dahinter, griffe
+# bei einer Sitzung der fremden Anfrage zuerst der Sitzungs-Guard (anfrage_konflikt).
+def test_anfrage_pruefung_kommt_vor_dem_laden_der_sitzung():
+    store = InMemoryStateStore()
+    store.save(SessionState("s1", TOY_PROZESS.schema_version, paket_name=TOY_PROZESS.name,
+                            company_id=MANDANT, anfrage_id="A-2026-02"))
+    client = TestClient(create_app(store, _fake_llm(), TOY_PROZESS,
+                                   company_id=MANDANT, anfrage_id=ANFRAGE))
+    antwort = _turn(client, "m1", "Hallo", anfrage_id="A-2026-02")
+    assert antwort.status_code == 409
+    assert antwort.json()["detail"] == "anfrage_passt_nicht"
+
+
+# Plan Z11: dieselbe UUID in Großbuchstaben ist derselbe Mandant (lies_company_id
+# normalisiert ebenso auf Kleinschreibung).
+def test_mandant_in_grossbuchstaben_ist_derselbe_mandant():
+    mandant = "aaaaaaaa-1111-1111-1111-111111111111"
+    client = TestClient(create_app(InMemoryStateStore(), _fake_llm(), TOY_PROZESS,
+                                   company_id=mandant, anfrage_id=ANFRAGE))
+    antwort = _turn(client, "m1", "Der Prozess heißt Urlaubsantrag",
+                    company_id=mandant.upper())
+    assert antwort.status_code == 200
 
 
 # Die Produktions-Verdrahtung braucht einen Aufhaenger fuers Herunterfahren
@@ -416,9 +511,6 @@ def test_alt_session_ohne_company_id_bekommt_409():
     assert _turn(client, "m1", "hallo").status_code == 409
 
 
-ANFRAGE = "A-2026-01"
-
-
 def test_fremde_anfrage_bekommt_409_anfrage_konflikt():
     store = InMemoryStateStore()
     alt = TestClient(create_app(store, _fake_llm(), TOY_PROZESS,
@@ -426,7 +518,7 @@ def test_fremde_anfrage_bekommt_409_anfrage_konflikt():
     assert _turn(alt, "m1", "Der Prozess heißt Urlaubsantrag").status_code == 200
     neu = TestClient(create_app(store, _fake_llm(), TOY_PROZESS,
                                 company_id=MANDANT, anfrage_id="A-2026-02"))
-    antwort = _turn(neu, "m2", "Ausgelöst durch einen Antrag")
+    antwort = _turn(neu, "m2", "Ausgelöst durch einen Antrag", anfrage_id="A-2026-02")
     assert antwort.status_code == 409
     assert antwort.json()["detail"] == "anfrage_konflikt"
 
@@ -493,7 +585,8 @@ def test_recovery_replay_wechselt_nie_die_anfrage():
     neues_paket = replace(IDENT_PAKET, schema_version="1.1+ctx-bbbbbbbbbbbbbbbb")
     neu = TestClient(create_app(store, llm, neues_paket, company_id=MANDANT,
                                 anfrage_id="A-2026-02"))
-    antwort = _turn(neu, "m2", "b", schema_version="1.1+ctx-aaaaaaaaaaaaaaaa")
+    antwort = _turn(neu, "m2", "b", schema_version="1.1+ctx-aaaaaaaaaaaaaaaa",
+                    anfrage_id="A-2026-02")
     assert antwort.status_code == 409
     assert antwort.json()["detail"] == "anfrage_konflikt"
 
@@ -613,7 +706,8 @@ def test_gate_wird_erst_nach_der_antwort_angestossen():
     _turn(client, "m1", "Der Prozess heißt Urlaubsantrag")
     _turn(client, "m2", "Ausgelöst durch einen Antrag")
     rumpf = json.dumps({"session_id": "s1", "message_id": "m3",
-                        "message": "Etwa 100 mal pro Jahr"}).encode()
+                        "message": "Etwa 100 mal pro Jahr",
+                        "anfrage_id": ANFRAGE, "company_id": MANDANT}).encode()
     scope = {"type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1",
              "method": "POST", "path": "/turn", "raw_path": b"/turn",
              "query_string": b"", "root_path": "", "scheme": "http",
@@ -743,7 +837,8 @@ def test_anfrage_konflikt_traegt_chat_text():
     _turn(alt, "m1", "Der Prozess heißt Urlaubsantrag")
     neu = TestClient(create_app(store, _fake_llm(), TOY_PROZESS,
                                 company_id=MANDANT, anfrage_id="A-2026-02"))
-    _fehler(_turn(neu, "m2", "Ausgelöst durch einen Antrag"), 409, "anfrage_konflikt")
+    _fehler(_turn(neu, "m2", "Ausgelöst durch einen Antrag", anfrage_id="A-2026-02"),
+            409, "anfrage_konflikt")
 
 
 def test_gleichzeitige_anfrage_traegt_chat_text():
