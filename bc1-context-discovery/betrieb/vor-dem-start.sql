@@ -49,9 +49,17 @@ SELECT t AS fehlendes_select_recht
        ]) AS t
  WHERE NOT has_table_privilege(current_user, t, 'SELECT');
 
-\echo '=== M5  Die Anfrage für diesen Lauf (erwartet: Status zugeordnet, mindestens ein Teilprozess) ==='
+\echo '=== M5  Die Anfrage für diesen Lauf (erwartet: zugeordnet — beim Update einer laufenden Anfrage auch im_interview —, mindestens ein Teilprozess) ==='
 SELECT b.anfrage_id, b.status,
        (SELECT count(*) FROM v_anfrage_teilprozesse t
          WHERE t.company_id = b.company_id AND t.anfrage_id = b.anfrage_id) AS teilprozesse
   FROM v_anfrage_prozessbezug b
  WHERE b.company_id = :'mandant' AND b.anfrage_id = :'anfrage';
+
+\echo '=== M6  Hat ein Teilprozess der Anfrage schon ein BC1-Profil? (erwartet bei einer neuen Testanfrage: 0 Zeilen — sonst ließe ein zweites Profil BC0s Freigabe veralten) ==='
+SELECT p.focus_step_id, p.profil_version, p.status, p.anfrage_id
+  FROM bc1.prozessprofil p
+  JOIN v_anfrage_teilprozesse t
+    ON t.company_id = p.company_id AND t.sub_process_id = p.focus_step_id
+ WHERE t.company_id = :'mandant' AND t.anfrage_id = :'anfrage'
+ ORDER BY p.focus_step_id, p.profil_version;
