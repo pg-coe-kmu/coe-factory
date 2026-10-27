@@ -37,6 +37,15 @@ from bc1_service.start import (lade_kontext, lies_anfrage_id, lies_company_id,
 if not logging.getLogger().handlers:
     logging.basicConfig(level=logging.INFO, stream=sys.stdout,
                         format="%(asctime)s %(levelname)s %(name)s %(message)s")
+# B3 Teil 2: Auf dem Server richtet womöglich ein anderer das Logging ein (oder setzt
+# ANTHROPIC_LOG=debug — das SDK wird über llm_wahl auch bei Gemini geladen). Die Zeilen
+# von bc1.* bleiben auf INFO, solange kein fremder Handler sie filtert, und kein SDK
+# schreibt auf DEBUG — das Anthropic-SDK protokolliert dort die Anfrage samt
+# Nachrichten (gemessen 25.10.).
+logging.getLogger("bc1").setLevel(logging.INFO)
+for _name in ("anthropic", "google_genai", "google.genai", "httpx", "httpcore"):
+    if logging.getLogger(_name).getEffectiveLevel() < logging.INFO:
+        logging.getLogger(_name).setLevel(logging.INFO)
 
 _dsn = os.environ.get("BC1_DB_DSN")
 if not _dsn:

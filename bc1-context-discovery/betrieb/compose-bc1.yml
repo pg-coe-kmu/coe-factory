@@ -1,0 +1,27 @@
+# BC1 als Dienst in BC0s docker-compose.yml (Anleitung: betrieb/BETRIEB.md).
+# Den Block unter `services:` in BC0s Datei übernehmen; bei `app` die drei Werte ergänzen.
+# Werte stehen nie hier: Zugangsschlüssel und Mandant in BC0s .env, der Rest in .env.bc1.
+# BC1-Befehle immer mit --no-deps, damit sie BC0s Container nie mitstarten oder neu erzeugen.
+
+services:
+  bc1:
+    # Eigener Checkout auf einem festen Tag — BC0s übliches `up -d --build` baut dann
+    # immer denselben Stand. Pfad an den Server anpassen (absolute Pfade meldet Compose
+    # als nicht portabel; hier gewollt).
+    build: /opt/bc1/coe-factory/bc1-context-discovery
+    # Bis „Anfrage je Gespräch“ bricht der Start regulär ab, wenn die eingestellte Anfrage
+    # schon am Gate steht; unless-stopped liefe dann endlos im Kreis. Nach einem
+    # Neustart des Servers deshalb einmal `docker compose up -d --no-deps bc1`.
+    restart: "on-failure:3"
+    env_file: .env.bc1
+    environment:                          # dieselben Werte wie bei app, aus BC0s .env
+      - BC1_ZUGANG=${BC1_ZUGANG}
+      - BC1_COMPANY_ID=${BC1_COMPANY_ID}
+    expose:
+      - "8000"                            # kein ports: — nur im Compose-Netz erreichbar
+
+  # app:                                # BC0s Dienst — nur diese drei Zeilen ergänzen
+  #   environment:
+  #     - BC1_URL=http://bc1:8000
+  #     - BC1_ZUGANG=${BC1_ZUGANG}
+  #     - BC1_COMPANY_ID=${BC1_COMPANY_ID}

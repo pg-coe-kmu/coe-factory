@@ -176,3 +176,27 @@ def test_main_ohne_zugangsschluessel_startet_nicht(monkeypatch):
     monkeypatch.delitem(sys.modules, "bc1_service.main", raising=False)
     with pytest.raises(RuntimeError, match="BC1_ZUGANG ist nicht gesetzt"):
         importlib.import_module("bc1_service.main")
+
+
+# B3 Teil 2: Auf dem Server richtet womöglich ein anderer das Logging ein. Die Turn-Zeilen
+# (bc1.*) dürfen dann nicht verschwinden, und kein SDK darf auf DEBUG schreiben — das
+# Anthropic-SDK protokolliert dort die Anfrage samt Nachrichten. main.py setzt die Stufen
+# vor jeder Prüfung; der Start bricht hier gleich danach ab (keine DSN), ganz ohne DB.
+def test_main_setzt_die_logger_stufen_auch_unter_fremder_konfiguration(monkeypatch):
+    import importlib
+    import logging
+    import sys
+
+    monkeypatch.delenv("BC1_DB_DSN", raising=False)
+    monkeypatch.delitem(sys.modules, "bc1_service.main", raising=False)
+    wurzel = logging.getLogger()
+    vorher = wurzel.level
+    wurzel.setLevel(logging.DEBUG)                 # fremde Konfiguration: alles auf DEBUG
+    try:
+        with pytest.raises(RuntimeError, match="BC1_DB_DSN"):
+            importlib.import_module("bc1_service.main")
+        assert logging.getLogger("bc1").level == logging.INFO
+        for name in ("anthropic", "google_genai", "google.genai", "httpx", "httpcore"):
+            assert logging.getLogger(name).getEffectiveLevel() == logging.INFO, name
+    finally:
+        wurzel.setLevel(vorher)
