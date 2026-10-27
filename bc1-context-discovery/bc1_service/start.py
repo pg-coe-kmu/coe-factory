@@ -88,6 +88,11 @@ def lies_zugang(umgebung: Mapping[str, str]) -> str:
         raise RuntimeError(
             f"BC1_ZUGANG ist zu kurz ({len(roh)} Zeichen) — mindestens "
             f"{ZUGANG_MINDESTLAENGE} Zeichen.")
+    if not re.fullmatch(r"[\x21-\x7e]+", roh):
+        # Header kommen als latin-1 an; ein Zeichen außerhalb von ASCII passte je nach
+        # Client nie. token_urlsafe liefert nur [A-Za-z0-9_-].
+        raise RuntimeError(
+            "BC1_ZUGANG darf nur druckbare ASCII-Zeichen ohne Leerzeichen enthalten.")
     return roh
 
 

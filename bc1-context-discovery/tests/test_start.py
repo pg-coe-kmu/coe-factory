@@ -61,6 +61,15 @@ def test_zu_kurzer_zugangsschluessel_ist_ein_startfehler_ohne_den_wert():
     assert kurz not in str(fehler.value)             # der Wert steht in keiner Meldung
 
 
+def test_zugangsschluessel_mit_fremden_zeichen_ist_ein_startfehler_ohne_den_wert():
+    # Header kommen als latin-1 an: ein Schlüssel mit ä passte je nach Client nie.
+    fremd = "schlüssel-" + "x" * 30
+    with pytest.raises(RuntimeError) as fehler:
+        lies_zugang({"BC1_ZUGANG": fremd})
+    assert "ASCII" in str(fehler.value)
+    assert fremd not in str(fehler.value)
+
+
 def test_zugangsschluessel_wird_von_raendern_befreit():
     schluessel = "x" * 32
     assert lies_zugang({"BC1_ZUGANG": f"  {schluessel}\n"}) == schluessel

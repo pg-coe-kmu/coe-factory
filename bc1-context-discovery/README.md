@@ -79,7 +79,11 @@ uv run python -m bc1_service.use_case_testprofile --company-id <uuid> \
 ## Betriebsprotokoll
 
 Der Dienst schreibt je `/turn` genau eine Zeile über den Logger `bc1.dienst` — auch bei 409/503/500
-(Level INFO, bei HTTP 5xx — 503 und 500 — ERROR), dazu beim Start `dienst gestartet paket=… schema_version=… mandant=…`:
+(Level INFO, bei HTTP 5xx — 503 und 500 — ERROR), dazu beim Start `dienst gestartet paket=… schema_version=… mandant=…`.
+Ausnahmen: Einen Aufruf ohne gültigen Zugangsschlüssel (401) weist schon die Middleware ab; dafür steht
+über `bc1.api` die WARNING `zugang_verweigert pfad=<Pfad, maskiert> grund=<fehlt|falsch>`, nie der gesendete
+Wert. Eine 422 (Form der Felder) erreicht den Endpunkt nicht und bleibt ohne Zeile; ihre Antwort nennt nur
+Ort und Art des Fehlers, nie die Eingabe.
 
 ```
 turn korrelation=<id> session=<session_id> message=<message_id> http=<200|409|503|500> status=<…> dauer_ms=<int>
@@ -88,7 +92,7 @@ turn korrelation=<id> session=<session_id> message=<message_id> http=<200|409|50
 `status` ist bei HTTP 200 der fachliche Status (`frage`, `fertig`, `abgebrochen_ohne_identitaet`,
 `fehler_fortsetzbar`), bei einer abgewiesenen Anfrage der Fehlerschlüssel aus `detail` (z. B.
 `session_abgeschlossen`, `abschluss_ausstehend`, `gleichzeitige_anfrage`, `profil_write_fehlgeschlagen`,
-`sitzung_beschaedigt`, `interner_fehler`). Die Correlation-ID kommt aus dem Header `X-Correlation-ID` (z. B. von n8n) oder wird
+`sitzung_beschaedigt`, `interner_fehler`, seit 27.10. `anfrage_passt_nicht`). Die Correlation-ID kommt aus dem Header `X-Correlation-ID` (z. B. von n8n) oder wird
 erzeugt und als `X-Correlation-ID` zurückgegeben. Seit B7 Teil 2 steht sie auch in den Zeilen, die Kern
 und KI-Adapter während des Turns schreiben:
 
@@ -178,7 +182,7 @@ docker run --rm -p 127.0.0.1:8000:8000 \
 
 **Betriebsvoraussetzung (Pflicht):** Der Dienst gehört trotzdem nur ins interne Docker-Netz oder auf den eigenen Rechner — darum `-p 127.0.0.1:8000:8000` hier. Der n8n-Chat hat weiterhin keine Anmeldung: Sein Chat-Trigger ist öffentlich und reicht jede Nachricht mit dem eingetragenen Schlüssel an `/turn` weiter, also nur lokal betreiben (`-p 127.0.0.1:5678:5678`, [`SMOKE.md`](bc1_service/n8n/SMOKE.md)).
 
-**Messergebnis (24.10.2026, macOS, Docker Engine in colima):** Mit `-p 127.0.0.1:8000:8000` antwortet `/gesundheit` vom eigenen Rechner mit `200 ok`, und aus dem n8n-Image (ohne `--add-host`) antwortet `http://host.docker.internal:8000/gesundheit` ebenfalls mit `ok`; `/prozesse` liefert `404`. Ein an `127.0.0.1` veröffentlichter Test-Postgres ist aus einem Container über `host.docker.internal` erreichbar. **Nicht gemessen:** dass der Dienst aus dem lokalen Netz unerreichbar ist (die Aussage stützt sich auf Dockers dokumentiertes Verhalten), und Linux mit Docker Engine — dort gibt es `host.docker.internal` nur mit `--add-host=host.docker.internal:host-gateway`, es zeigt auf die Bridge-Adresse, und ein an `127.0.0.1` veröffentlichter Port ist von dort vermutlich nicht erreichbar. In so einer Umgebung gilt der Weg über ein gemeinsames Docker-Netz ohne veröffentlichten Port.
+**Messergebnis (24.10.2026, vor dem Zugangsschlüssel; macOS, Docker Engine in colima):** Mit `-p 127.0.0.1:8000:8000` antwortet `/gesundheit` vom eigenen Rechner mit `200 ok`, und aus dem n8n-Image (ohne `--add-host`) antwortet `http://host.docker.internal:8000/gesundheit` ebenfalls mit `ok`; `/prozesse` liefert `404`. Ein an `127.0.0.1` veröffentlichter Test-Postgres ist aus einem Container über `host.docker.internal` erreichbar. **Nicht gemessen:** dass der Dienst aus dem lokalen Netz unerreichbar ist (die Aussage stützt sich auf Dockers dokumentiertes Verhalten), und Linux mit Docker Engine — dort gibt es `host.docker.internal` nur mit `--add-host=host.docker.internal:host-gateway`, es zeigt auf die Bridge-Adresse, und ein an `127.0.0.1` veröffentlichter Port ist von dort vermutlich nicht erreichbar. In so einer Umgebung gilt der Weg über ein gemeinsames Docker-Netz ohne veröffentlichten Port.
 
 **Was der Dienst bei BC0 tut (seit B4):** Beim Start prüft er immer den Zugang (Anmeldung + eigenes Konto, ändert nichts) und bricht bei einem Mangel ab — auch bei einer Anfrage, die schon auf `im_interview` steht. Danach zieht er das Gate für die eigene Anfrage nach, noch bevor er aus der Datenbank liest (holt einen früher gescheiterten Gate-Aufruf nach; steht die Anfrage danach schon auf `am_gate`, endet der Start mit „steht auf 'am_gate'“). Dann meldet er der Anfrage `im_interview` — nur aus `zugeordnet`, ein Neustart überschreibt BC0s Stand also nicht. Nach jedem Abschluss eines Interviews zieht er das Gate bei BC0 nach, im Hintergrund; die Chat-Antwort hängt nicht davon ab. Alle Gate-Aufrufe tragen `?anfrage_id=` — BC0 prüft seit v3.13 nur diese Anfrage. Scheitert das, steht eine WARNING mit Handlungsanweisung im Log (die Anfrage bei BC0 von Hand nachziehen) — das Profil ist dann trotzdem gespeichert. Alles läuft über ein BC0-Anwendungskonto mit Schreibrecht (Rolle `benutzer` oder `admin`), das den Mandanten sieht (zugewiesen; `admin` sieht alle); das Passwort steht nur in der Umgebung, in keiner Meldung und in keinem Log. Ob das Konto bereit ist, zeigt die Live-Probe — sie ändert bei BC0 nichts (Anmeldung, dann nur Lesen des eigenen Kontos) und braucht `BC1_COMPANY_ID` und die drei BC0-Variablen, keine Datenbank:
 

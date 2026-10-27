@@ -24,6 +24,7 @@ import uuid
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request, Response
 from fastapi.exception_handlers import http_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -198,6 +199,13 @@ def create_app(
         return JSONResponse(status_code=fehler.status_code,
                             content={"detail": fehler.detail, "chat_text": text},
                             headers=fehler.headers)
+
+    @app.exception_handler(RequestValidationError)
+    async def _422_ohne_eingabe(request, fehler: RequestValidationError):
+        # FastAPIs Standard spiegelt die Eingabe samt Nachrichtentext zurück („input“);
+        # BC0 vermerkt 422 im eigenen Log, vorbei am PII-Filter des Kerns. Nur Ort und Art.
+        return JSONResponse(status_code=422, content={"detail": [
+            {"loc": list(f["loc"]), "type": f["type"]} for f in fehler.errors()]})
 
     # Ein Lock je Session: /turn liest den State (Gate) und lässt ihn vom Kern
     # fortschreiben — zwei gleichzeitige Turns derselben Session würden sonst

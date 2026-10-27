@@ -67,6 +67,24 @@ Bindung „Anfrage gehört Person“ (vor echten Nutzern, mit BC0).
    - `bc1-chat-workflow.json`: Header mit Platzhalter, die zwei Felder mit Platzhaltern.
 8. **Suite mit Test-DB**, dann unabhängige Prüfung, Befunde nach Schwere einarbeiten.
 
+### Unabhängige Prüfung (27.10.) — wie eingearbeitet
+
+0 Critical, 0 Important, 8 Minor; Urteil „merge-fähig“. Mutationsproben: 9 von 12 Mutanten
+waren gefangen. Die drei überlebenden haben jetzt je einen Test, und jeder davon ist per
+Mutation belegt.
+- (1) Ein Satz im Brief an BC0 zum Fehlen von `BC1_ZUGANG` war falsch → im Brief berichtigt (BC1 startet dann nicht).
+- (2) Kein Test hielt „Prüfung vor dem Laden“ fest → Test mit gespeicherter Sitzung einer fremden Anfrage.
+- (3) Nicht-ASCII im Header und Pfad-Maskierung ohne Test → je ein Test.
+- (4) `BC1_ZUGANG` nahm Nicht-ASCII an → Startabbruch, nur druckbares ASCII.
+- (5) Eine 422 spiegelte die Eingabe samt Nachrichtentext zurück → eigener Handler, nur Ort und Art.
+- (6) und (7) README, Dockerfile, SMOKE und ein Testkommentar → nachgezogen.
+- (8) zurückgestellt, siehe unten.
+
+### Zurückgestellt (mit Ziel)
+
+- **`request.url.path` statt `request.scope["path"]` in der Middleware:** Ein ungültiges UTF-8 im Query-String ergibt über rohes ASGI 500 statt 401. Über uvicorn mit httptools ist das nicht erreichbar (gemessen von der Prüfung); bei h11 ist es eine Einschätzung. Ziel: beim nächsten Anfassen der Middleware, mit einem Test über rohes ASGI.
+- **WebSocket-Routen** wären von der Middleware nicht erfasst; heute gibt es keine. Ziel: Wer eine WebSocket-Route anlegt, schützt sie mit.
+
 ### Folgen für Bestehendes
 
 - `anfrage_konflikt` und `mandant_konflikt` (Sitzung gehört woandershin) bleiben. Sie greifen, wenn Aufruf und Dienst zusammenpassen, die Sitzung aber zu einer anderen Anfrage oder einem anderen Mandanten gehört.

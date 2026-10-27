@@ -47,6 +47,13 @@ def test_falscher_schluessel_antwortet_401():
     assert antwort.content == b""
 
 
+def test_fremde_zeichen_im_schluessel_geben_401_statt_500():
+    # Starlette dekodiert Header als latin-1; compare_digest auf str nähme nur ASCII an
+    # und würfe sonst einen TypeError (= 500). Darum der Vergleich auf Bytes.
+    antwort = _client().get("/gesundheit", headers={"X-BC1-Zugang": b"\xe4" * 43})
+    assert antwort.status_code == 401
+
+
 def test_auch_die_doku_endpunkte_brauchen_den_schluessel():
     client = _client()
     for pfad in ("/docs", "/redoc", "/openapi.json"):
@@ -67,3 +74,12 @@ def test_abgewiesener_zugriff_steht_im_protokoll_ohne_den_gesendeten_wert(caplog
     assert zeilen == ["zugang_verweigert pfad=/gesundheit grund=falsch",
                       "zugang_verweigert pfad=/turn grund=fehlt"]
     assert all(falsch not in z and ZUGANG not in z for z in zeilen)
+
+
+def test_pfad_im_protokoll_kann_keine_zeile_faelschen(caplog):
+    # Den Pfad wählt der Aufrufer: ein Zeilenumbruch fälschte sonst eine zweite Zeile.
+    caplog.set_level(logging.WARNING, logger="bc1.api")
+    _client().get("/a%0Azugang_verweigert pfad=/x grund=fehlt")
+    zeilen = [r.getMessage() for r in caplog.records if r.name == "bc1.api"]
+    assert len(zeilen) == 1
+    assert "\n" not in zeilen[0] and " pfad=/x" not in zeilen[0]

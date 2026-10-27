@@ -136,6 +136,7 @@ app = create_app(
     TOY_PROZESS,
     company_id=os.environ["BC1_COMPANY_ID"],   # Pflicht-Argument seit Task 10
     anfrage_id=os.environ["BC1_ANFRAGE_ID"],   # seit B5; der Guard prüft sie je Turn
+    zugang=os.environ["BC1_ZUGANG"],           # seit 27.10.; Header X-BC1-Zugang
 )
 ```
 
@@ -165,7 +166,7 @@ Besitzer-Angaben) sind bewusst entfernt; n8n vergibt sie beim Import neu.
 | Node | Einstellungen |
 |---|---|
 | Chat Trigger | Make Chat Publicly Available ✓ · Mode: Hosted Chat · Auth: None · Response Mode: **When Last Node Finishes** |
-| HTTP Request | POST `http://host.docker.internal:8000/turn` (n8n läuft im Container → nicht `localhost`) · Body (JSON, Fields): `session_id` = `{{ $json.sessionId }}` · `message_id` = `exec-{{ $execution.id }}` (stabil bei Retries innerhalb einer Execution → Idempotenz) · `message` = `{{ $json.chatInput }}` · seit 27.10. außerdem `anfrage_id` und `company_id` (feste Werte = `BC1_ANFRAGE_ID` bzw. `BC1_COMPANY_ID` des Dienstes; in der Datei stehen Platzhalter) · Header `X-BC1-Zugang` = Wert aus `BC1_ZUGANG` (Platzhalter in der Datei ersetzen; ohne ihn 401) · Options → Response → **Never Error** ✓ (409 erscheint als Text statt Workflow-Fehler) |
+| HTTP Request | POST `http://host.docker.internal:8000/turn` (n8n läuft im Container → nicht `localhost`) · Body (JSON, Fields): `session_id` = `{{ $json.sessionId }}` · `message_id` = `exec-{{ $execution.id }}` (stabil bei Retries innerhalb einer Execution → Idempotenz) · `message` = `{{ $json.chatInput }}` · seit 27.10. außerdem `anfrage_id` und `company_id` (feste Werte = `BC1_ANFRAGE_ID` bzw. `BC1_COMPANY_ID` des Dienstes; in der Datei stehen die Beispielwerte von oben, bei anderer Anfrage anpassen) · Header `X-BC1-Zugang` = Wert aus `BC1_ZUGANG` (Platzhalter in der Datei ersetzen; ohne ihn 401) · Options → Response → **Never Error** ✓ (409 erscheint als Text statt Workflow-Fehler) |
 | Edit Fields (Set) | `output` (String) = `{{ $json.chat_text ?? $json.detail }}` |
 
 Dann **Publish**; Chat-URL steht im Chat-Trigger-Node.

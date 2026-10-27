@@ -147,7 +147,7 @@ def test_llm_ausfall_gibt_vertragsantwort_mit_status_200():
     assert antwort.json()["chat_text"]  # Nutzer bekommt eine Chat-Erklärung
 
 
-# Schritt 1 (E8): BC0s Anfrage-App siezt — dieser Text war der letzte feste mit „du“.
+# Schritt 1: BC0s Anfrage-App siezt — dieser Text war der letzte feste mit „du“.
 def test_text_bei_fortsetzbarem_fehler_siezt():
     antwort = _turn(_client(llm=ExplodierendesLLM()), "m1", "Hallo")
     assert antwort.json()["chat_text"] == (
@@ -302,6 +302,17 @@ def test_aufruf_ohne_anfrage_oder_mandant_wird_abgewiesen(feld):
     assert _client().post("/turn", json=koerper).status_code == 422
 
 
+# Eine 422 darf den Nachrichtentext nicht zurückspiegeln: BC0 vermerkt 422 im eigenen
+# Log, und der PII-Filter greift erst im Kern (Prüfung Schritt 1, 27.10.).
+def test_422_spiegelt_den_nachrichtentext_nicht_zurueck():
+    antwort = _client().post("/turn", json={
+        "session_id": "s1", "message_id": "m1", "message": "GEHEIMER TEXT",
+        "company_id": MANDANT})
+    assert antwort.status_code == 422
+    assert "GEHEIMER TEXT" not in antwort.text
+    assert antwort.json()["detail"][0]["loc"] == ["body", "anfrage_id"]
+
+
 @pytest.mark.parametrize("feld, wert", [
     ("anfrage_id", "A-2026-1"),
     ("anfrage_id", "A-2026-01\n"),
@@ -337,6 +348,19 @@ def test_fremder_mandant_im_aufruf_bekommt_409(anfrage_am_dienst):
     assert antwort.status_code == 409
     assert antwort.json()["detail"] == "anfrage_passt_nicht"
     assert store.load("s1") is None
+
+
+# Plan Z9: die Prüfung steht VOR dem Laden der Sitzung. Stünde sie dahinter, griffe
+# bei einer Sitzung der fremden Anfrage zuerst der Sitzungs-Guard (anfrage_konflikt).
+def test_anfrage_pruefung_kommt_vor_dem_laden_der_sitzung():
+    store = InMemoryStateStore()
+    store.save(SessionState("s1", TOY_PROZESS.schema_version, paket_name=TOY_PROZESS.name,
+                            company_id=MANDANT, anfrage_id="A-2026-02"))
+    client = TestClient(create_app(store, _fake_llm(), TOY_PROZESS,
+                                   company_id=MANDANT, anfrage_id=ANFRAGE))
+    antwort = _turn(client, "m1", "Hallo", anfrage_id="A-2026-02")
+    assert antwort.status_code == 409
+    assert antwort.json()["detail"] == "anfrage_passt_nicht"
 
 
 # Plan Z11: dieselbe UUID in Großbuchstaben ist derselbe Mandant (lies_company_id
