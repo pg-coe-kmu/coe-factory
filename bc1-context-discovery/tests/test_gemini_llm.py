@@ -59,10 +59,11 @@ def test_extract_reicht_prompts_schema_und_konfig_durch():
     ergebnis = GeminiLLM(client=stub).extract("Nachricht", PAKET, None)
     aufruf = stub.models.aufrufe[0]
     konfig = aufruf["config"]
-    # Default-Pin gemini-3.7-flash: gemini-2.5-flash liefert fuer Neukonten
+    # Default-Pin gemini-3.8-flash: gemini-2.5-flash liefert fuer Neukonten
     # 404 "no longer available to new users" (live verifiziert 23.08.);
-    # 3er-Familie => temperature entfaellt.
-    assert aufruf["model"] == "gemini-3.7-flash"
+    # gemini-3.7-flash leitet Google seit 3.8 dorthin um (Deprecations-Seite,
+    # 27.10.); 3er-Familie => temperature entfaellt.
+    assert aufruf["model"] == "gemini-3.8-flash"
     assert konfig.system_instruction == SYSTEM_EXTRAKTION
     assert konfig.response_mime_type == "application/json"
     assert konfig.response_json_schema is EXTRAKTIONS_SCHEMA

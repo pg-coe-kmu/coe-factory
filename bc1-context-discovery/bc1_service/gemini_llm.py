@@ -31,7 +31,7 @@ from bc1_service.prompts import (
 
 # gemini-2.5-flash ist fuer Neukonten gesperrt (404 "no longer available to
 # new users", live 23.08.2026) — Default daher aus der 3er-Generation.
-STANDARD_MODELL = "gemini-3.7-flash"
+STANDARD_MODELL = "gemini-3.8-flash"
 # FESTER Text ohne Interpolation — weder Key noch Environment einbetten
 # (Sentinel-Test pinnt das).
 KEY_FEHLT = (
