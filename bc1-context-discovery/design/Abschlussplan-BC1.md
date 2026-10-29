@@ -32,7 +32,7 @@ Weg in `bc1.prozessprofil`. Die DDL ist seit dem 08.09. in der Supabase, drei Us
 stehen in der Datenbank, BC2 liest sie über den Vertragsweg. Seit dem 22.09. zusätzlich:
 der Vertrag mit BC2 liegt in **Fassung 1.2** auf `main` (D3 gebunden; seit 09.10. **Fassung 1.3**, #284, D3 unter `required`), die Spalte
 `step_frequency_per_year` ist **live** (B6, PR #263), und BC1 liest BC0 nur noch über dessen
-`aktiv`-Sichten (A7, PR #264). Suite (Stand 29.10., Zweig `bc1-extraktion-gestellte-frage`): ohne Test-DB 844 passed, 297 skipped; mit Test-DB zuletzt 1124 passed, 4 skipped vor dem Nachtrag 2x.
+`aktiv`-Sichten (A7, PR #264). Suite (Stand 29.10., Zweig `bc1-extraktion-gestellte-frage`): ohne Test-DB 844 passed, 297 skipped; mit Test-DB 1137 passed, 4 skipped.
 
 **Was fehlt, ist nicht der Chatbot — es ist der Betrieb drumherum und die Anbindung an BC0s
 Anfrage.** Nichts davon ist neu: alles stand als Roadmap-Anker in den Einzelplänen. Hier
