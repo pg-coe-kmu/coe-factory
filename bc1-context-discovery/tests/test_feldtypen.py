@@ -409,3 +409,49 @@ def test_anzahl_leerzeichen_vor_satzzeichen_und_doppelter_punkt_bleiben_unguelti
 def test_anzahl_dezimalpunkt_bleibt_teil_der_zahl(eingabe):
     assert ANZAHL.normalisiere(eingabe) == "2.5"
     assert ANZAHL.validator(ANZAHL.normalisiere(eingabe)) is True
+
+
+# --- kurzform: Kurzantwort ohne KI (Task 1) -----------------------------------
+
+def test_freie_typen_haben_keine_kurzform():
+    assert FREITEXT.kurzform is None
+    assert LISTE.kurzform is None
+
+
+@pytest.mark.parametrize("eingabe, erwartet", [
+    ("Ja", "ja"), ("nein.", "nein"), ("JA!", "ja"),
+    ("Ja, aber selten", None), ("ja?", None), ("jein", None), ("", None),
+    ("ja..", None), ("ja,", None), ("Ja !", None),
+])
+def test_kurzform_ja_nein(eingabe, erwartet):
+    assert JA_NEIN.kurzform(eingabe) == erwartet
+
+
+@pytest.mark.parametrize("eingabe, erwartet", [
+    ("4", "4"), ("4.", "4"),
+    ("eher 4", None), ("etwa 4", None), ("4 von 5", None), ("6", None),
+    ("4?", None), ("4..", None),
+])
+def test_kurzform_skala(eingabe, erwartet):
+    assert SKALA_1_5.kurzform(eingabe) == erwartet
+
+
+@pytest.mark.parametrize("eingabe, erwartet", [
+    ("geschaetzt", "geschaetzt"), ("KP-01.TP-1", "KP-01.TP-1"),
+    ("kp-01.tp-1.", "KP-01.TP-1"),
+    ("KP-01.TP-1?", None), ("KP-01.TP-9", None), ("Erfassen", None),
+    ("geschätzt", None), ("geschaetzt..", None),
+])
+def test_kurzform_auswahl(eingabe, erwartet):
+    typ = AUSWAHL("geschaetzt", "KP-01.TP-1")
+    assert typ.kurzform(eingabe) == erwartet
+    assert AUSWAHL().kurzform("") is None
+    assert AUSWAHL().kurzform("x") is None
+
+
+@pytest.mark.parametrize("eingabe, erwartet", [
+    ("1", "1"), ("etwa 3 Fälle", "3"), ("ca 3.", "3"),
+    ("5 pro Woche", None), ("3?", None), ("ein Fall, manchmal 3", None),
+])
+def test_kurzform_anzahl(eingabe, erwartet):
+    assert ANZAHL.kurzform(eingabe) == erwartet

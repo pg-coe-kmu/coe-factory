@@ -18,6 +18,7 @@ class Feldtyp:
     name: str
     validator: Callable[[str], bool]
     normalisiere: Callable[[str], str]
+    kurzform: Callable[[str], str | None] | None = None
 
 
 # Deutsche Tausendergruppierung (z. B. "1.000", "12.345,5") VOR der einfachen
@@ -137,6 +138,11 @@ def _normalisiere_anzahl(wert: str) -> str:
     return _formatiere(zahl) if math.isfinite(zahl) else wert
 
 
+def _kurzform_anzahl(wert: str) -> str | None:
+    treffer = _ANZAHL_MUSTER.fullmatch(wert)
+    return treffer.group(1) if treffer else None
+
+
 def _entferne_rand(wert: str) -> str:
     return wert.strip().strip('.!?,;:„“”‘’"\' ').strip()
 
@@ -144,6 +150,11 @@ def _entferne_rand(wert: str) -> str:
 def _normalisiere_ja_nein(wert: str) -> str:
     kern = _entferne_rand(wert).lower()
     return kern if kern in ("ja", "nein") else wert
+
+
+def _kurzform_ja_nein(wert: str) -> str | None:
+    treffer = re.fullmatch(r"(ja|nein)[.!]?", wert.strip(), re.IGNORECASE)
+    return treffer.group(1).lower() if treffer else None
 
 
 def _normalisiere_prozent(wert: str) -> str:
@@ -174,6 +185,11 @@ def _ist_skala(wert: str) -> bool:
     return re.fullmatch(r"[1-5]", wert.strip()) is not None
 
 
+def _kurzform_skala(wert: str) -> str | None:
+    treffer = re.fullmatch(r"([1-5])[.!]?", wert.strip())
+    return treffer.group(1) if treffer else None
+
+
 def _ist_prozent(wert: str) -> bool:
     return _nur_zahl(wert) and 0 <= _zahl_aus_token(wert.strip()) <= 100
 
@@ -199,10 +215,13 @@ def _ist_nichtnegative_zahl(wert: str) -> bool:
 
 ZAHL = Feldtyp("zahl", _ist_nichtnegative_zahl, _normalisiere_zahl)
 MINUTEN = Feldtyp("minuten", _ist_nichtnegative_zahl, _normalisiere_minuten)
-ANZAHL = Feldtyp("anzahl", _ist_nichtnegative_zahl, _normalisiere_anzahl)
-SKALA_1_5 = Feldtyp("skala_1_5", _ist_skala, lambda w: w.strip())
+ANZAHL = Feldtyp("anzahl", _ist_nichtnegative_zahl, _normalisiere_anzahl,
+                 kurzform=_kurzform_anzahl)
+SKALA_1_5 = Feldtyp("skala_1_5", _ist_skala, lambda w: w.strip(),
+                    kurzform=_kurzform_skala)
 PROZENT_0_100 = Feldtyp("prozent_0_100", _ist_prozent, _normalisiere_prozent)
-JA_NEIN = Feldtyp("ja_nein", lambda w: w in ("ja", "nein"), _normalisiere_ja_nein)
+JA_NEIN = Feldtyp("ja_nein", lambda w: w in ("ja", "nein"), _normalisiere_ja_nein,
+                  kurzform=_kurzform_ja_nein)
 LISTE = Feldtyp("liste", lambda w: bool(w.strip()), _normalisiere_liste)
 FREITEXT = Feldtyp("freitext", lambda w: bool(w.strip()), lambda w: w)
 
@@ -216,8 +235,18 @@ def AUSWAHL(*optionen: str) -> Feldtyp:
                 return option
         return wert
 
+    def _kurzform(wert: str) -> str | None:
+        kern = wert.strip()
+        if kern[-1:] in (".", "!"):
+            kern = kern[:-1]
+        for option in optionen:
+            if kern.lower() == option.lower():
+                return option
+        return None
+
     return Feldtyp(
         name=f"auswahl({', '.join(optionen)})",
         validator=lambda w: w in optionen,
         normalisiere=_normalisiere,
+        kurzform=_kurzform,
     )
