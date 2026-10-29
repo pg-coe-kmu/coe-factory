@@ -2,7 +2,9 @@
 
 Test-Tickets für UC1 Reisebuchung (KP-06.TP-2) im Format der BC3-Lieferung an BC4 (Vertrag 3.5). **Von Hand erzeugt, ohne n8n-Slicer.**
 
-> **Ohne Gewähr.** Diese Tickets sind anhand von Zakarias Workflow erstellt, nicht auf dem normalen Weg. Normal schneidet BC3 die Tickets aus dem Konzept, das BC2 liefert (`contracts/bc2-to-bc3/lieferungen/`), mit Prüfung an Gate 2. Für UC1 gibt es noch kein Konzept von BC2. Es gibt deshalb keine Garantie, dass die Tickets vollständig sind oder dem entsprechen, was BC2 und der Slicer später liefern. Kommt ein UC1-Konzept von BC2, ersetzt die reguläre Lieferung diesen Ordner.
+Seit 29.10.2026 liegen die Dateien direkt hier statt im Unterordner `del-uc1-reisebuchung-2026-10-26-test/`, damit der BC4-Generator sie findet. Sie ersetzen die Lieferung `del-uc1-reisebuchung-2026-09-06-104439` (in der Git-Historie).
+
+> **Ohne Gewähr.** Diese Tickets sind anhand von Zakarias Workflow erstellt, nicht auf dem normalen Weg. Normal schneidet BC3 die Tickets aus dem Konzept, das BC2 liefert (`contracts/bc2-to-bc3/lieferungen/`), mit Prüfung an Gate 2. Für UC1 gibt es noch kein Konzept von BC2. Es gibt deshalb keine Garantie, dass die Tickets vollständig sind oder dem entsprechen, was BC2 und der Slicer später liefern. Kommt ein UC1-Konzept von BC2, ersetzt die reguläre Lieferung diese Dateien.
 
 - **Inhalt:** nur, was Zakarias Prototyp `UC1_PROTOTYPE_FULL_DATA_V3` (22.10.2026) tut: ein Eingang, vier Wege (Suche mit Angeboten, Reservierung, Buchung prüfen, Stornierung).
 - **Messverfahren** sind Vorschläge von BC3, der Workflow enthält keine. Wo keiner passt, steht „offen“.

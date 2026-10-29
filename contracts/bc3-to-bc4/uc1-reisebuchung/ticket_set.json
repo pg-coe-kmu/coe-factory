@@ -1,11 +1,11 @@
 {
-  "lieferung_id": "del-uc1-reisebuchung-2026-09-06-104439",
+  "lieferung_id": "del-uc1-reisebuchung-2026-10-26-test",
   "schema_version": "3.5",
   "projekt_kurzname": "uc1-reisebuchung",
   "konzept_ref": {
-    "konzept_id": "b1000000-0000-4000-8000-0000000000c1",
-    "schema_version": "2.1-bc3",
-    "source_file": "konzept_uc1_reisebuchung.json",
+    "konzept_id": "1d00902e-a6dc-53a1-aed4-0221e07563a1",
+    "schema_version": "3.1",
+    "source_file": "konzept_KP-06.json",
     "kp_id": "KP-06",
     "teilprozess_ids": [
       "KP-06.TP-2"
@@ -14,171 +14,83 @@
   },
   "epics": [
     {
-      "epic_id": "ep-7f86-9601-99bb-d235c7490f7d",
-      "titel": "Reiseanfrage automatisch erfassen und Verfügbarkeit prüfen",
-      "ziel": "Automatisierte Erfassung und Verfügbarkeitsprüfung von Reiseanfragen innerhalb von fünf Minuten, um manuelle Bearbeitung zu reduzieren und strukturierte Vorgänge zu erzeugen.",
+      "epic_id": "ep-dbb8-51df-8132-a203e70d6f6d",
+      "titel": "Reiseanfrage verstehen: Absicht erkennen, Reisedaten extrahieren, Eingaben prüfen",
+      "ziel": "Jede Freitext-Nachricht der reisenden Person landet über einen Eingang im richtigen Weg (Suche, Reservierung, Buchung prüfen, Stornierung); bei einer Suche liegen die Reisedaten strukturiert und geprüft vor, Lücken gehen als Rückfrage zurück.",
       "kategorien": [
-        "it:backend",
         "it:integration",
         "it:ai-pipeline"
       ],
       "stories": [
         {
-          "story_id": "st-7f86-9601-99bb-d235c7490f7d-1",
-          "titel": "Anfragen aus Mail und Web-Formular einheitlich erfassen",
-          "beschreibung": "Als Backoffice-Mitarbeiter möchte ich, dass Reiseanfragen aus E-Mails und Web-Formularen in einem einheitlichen Datensatz zusammengeführt werden, damit sie zentral verarbeitet werden können.",
+          "story_id": "st-dbb8-51df-8132-a203e70d6f6d-1",
+          "titel": "Freitext-Anfrage über einen Webhook entgegennehmen",
+          "beschreibung": "Als reisende Person möchte ich meine Anfrage als Freitext an einen Eingang schicken (POST, Feld text), egal ob ich suchen, reservieren, eine Buchung prüfen oder stornieren will, damit ich nur einen Kanal kennen muss. Jeder Eingang bekommt eine Vorgangs-ID im Format REISE-JJJJMMTT-HHMMSS.",
           "akzeptanzkriterien": [
             {
-              "text": "Given eine Reiseanfrage per Mail oder Web-Formular, When sie im System eingeht, Then wird sie in einen einheitlichen Datensatz mit Reiseziel, Hin- und Rückreisedatum, Anzahl Reisender und Budgetrahmen überführt.",
-              "messverfahren": "Manuelle Prüfung des erzeugten Datensatzes auf Vollständigkeit und Korrektheit der Felder."
-            },
-            {
-              "text": "Given eine Anfrage mit unvollständigen Pflichtfeldern, When sie verarbeitet wird, Then wird eine strukturierte Rückfrage an die anfragende Person gesendet und der Vorgang bleibt offen.",
-              "messverfahren": "Manuelle Prüfung der Rückfrage-E-Mail und des Vorgangsstatus."
-            },
-            {
-              "text": "Given eine Anfrage mit vollständigen Angaben, When die Extraktion läuft, Then ist sie in unter fünf Minuten abgeschlossen.",
-              "messverfahren": "Automatisierte Zeitmessung vom Eingang bis zur Fertigstellung des Datensatzes."
+              "text": "Given eine POST-Anfrage mit Feld text, When sie am Webhook eingeht, Then entsteht ein Vorgang mit Vorgangs-ID im Format REISE-JJJJMMTT-HHMMSS.",
+              "messverfahren": "Testlauf mit den vier Beispielanfragen aus dem Prototyp: Vorgangs-ID in jeder Antwort vorhanden und im Format geprüft."
             }
           ],
           "abhaengigkeiten": []
         },
         {
-          "story_id": "st-7f86-9601-99bb-d235c7490f7d-2",
-          "titel": "Projekt- oder Kostenstellenzuordnung prüfen",
-          "beschreibung": "Als System möchte ich sicherstellen, dass jede Reiseanfrage einem Projekt oder einer Kostenstelle zugeordnet ist, bevor die Verfügbarkeitsprüfung startet, um Budgetüberschreitungen zu vermeiden.",
+          "story_id": "st-dbb8-51df-8132-a203e70d6f6d-2",
+          "titel": "Absicht der Anfrage erkennen und Kennungen herauslesen",
+          "beschreibung": "Als Backoffice möchte ich, dass ein LLM jede Nachricht genau einem von vier Kontexten zuordnet (REQUEST, RESERVATION, CHECK, CANCELLATION) und dabei nur Angebots- oder Buchungsnummern herausliest, keine Reisedaten, damit jede Anfrage den richtigen Weg nimmt.",
           "akzeptanzkriterien": [
             {
-              "text": "Given eine Reiseanfrage ohne Projekt- oder Kostenstellenzuordnung, When die Prüfung startet, Then wird der Vorgang abgebrochen und eine Rückfrage an die anfragende Person gesendet.",
-              "messverfahren": "Manuelle Prüfung des Vorgangsstatus und der Rückfrage-E-Mail."
+              "text": "Given die Nachricht „Ich möchte das Angebot REISE-20261020-114216-OPT1 reservieren“, When sie klassifiziert wird, Then ist der Kontext RESERVATION und die Angebotsnummer REISE-20261020-114216-OPT1 erkannt.",
+              "messverfahren": "Testlauf mit je fünf Beispielsätzen pro Kontext aus dem Prompt des Prototyps: Anteil richtig zugeordneter Kontexte."
             },
             {
-              "text": "Given eine Reiseanfrage mit gültiger Projekt- oder Kostenstellenzuordnung, When die Prüfung startet, Then wird die Verfügbarkeitsprüfung durchgeführt.",
-              "messverfahren": "Manuelle Prüfung des Vorgangsstatus und der durchgeführten Verfügbarkeitsprüfung."
+              "text": "Given eine Nachricht ohne Bezug auf ein bestehendes Angebot oder eine Buchung, When sie klassifiziert wird, Then ist der Kontext REQUEST.",
+              "messverfahren": "Testlauf mit „Hallo, ich brauche Hilfe.“ und „Wir möchten nach Rom reisen.“: Kontext REQUEST."
+            },
+            {
+              "text": "Given „Bitte prüfe meine Buchung BOOK-XYZ.“, When sie klassifiziert wird, Then ist der Kontext CHECK und die Buchungsnummer BOOK-XYZ erkannt.",
+              "messverfahren": "offen: kein Messverfahren im Prototyp"
             }
           ],
           "abhaengigkeiten": [
-            "st-7f86-9601-99bb-d235c7490f7d-1"
+            "st-dbb8-51df-8132-a203e70d6f6d-1"
           ]
         },
         {
-          "story_id": "st-7f86-9601-99bb-d235c7490f7d-3",
-          "titel": "Verfügbarkeitsprüfung in Buchungsportalen durchführen",
-          "beschreibung": "Als Backoffice-Mitarbeiter möchte ich, dass die Verfügbarkeit von Flug, Hotel und Mietwagen automatisch geprüft wird, damit ich mindestens drei Optionen je Kategorie erhalte.",
+          "story_id": "st-dbb8-51df-8132-a203e70d6f6d-3",
+          "titel": "Reisedaten aus dem Freitext extrahieren",
+          "beschreibung": "Als Backoffice möchte ich, dass bei REQUEST ein LLM Reisebeginn und -ende (JJJJ-MM-TT, Jahr ohne Angabe aus dem heutigen Datum), Abflugort, Reiseziel, Personenzahl (ohne Angabe 1), Gesamtbudget als Zahl, Hotelwunsch mit Mindeststernen und Mietwagenwunsch extrahiert, ohne Daten zu erfinden.",
           "akzeptanzkriterien": [
             {
-              "text": "Given eine vollständige Reiseanfrage mit Projektzuordnung, When die Verfügbarkeitsprüfung läuft, Then werden mindestens drei Optionen je Kategorie (Flug, Hotel, Mietwagen) zurückgeliefert, sofern verfügbar.",
-              "messverfahren": "Manuelle Prüfung der zurückgelieferten Optionen in der Vorgangsablage."
+              "text": "Given „Ich möchte vom 10. bis 17. November von Frankfurt am Main nach Madrid. Wir sind zwei Personen. Für Flug, Hotel möchte ich insgesamt maximal 2000 € ausgeben. Das Hotel sollte mindestens 4 Sterne haben“, When die Daten extrahiert werden, Then gilt start 2026-11-10, end 2026-11-17, origin Frankfurt am Main, destination Madrid, people 2, budget 2000, hotel true, minStars 4.",
+              "messverfahren": "Vergleich der extrahierten Felder mit dem erwarteten JSON für die Beispielanfrage aus dem Prototyp."
             },
             {
-              "text": "Given eine Anfrage mit vollständigen Angaben, When die Verfügbarkeitsprüfung läuft, Then ist sie in unter fünf Minuten abgeschlossen.",
-              "messverfahren": "Automatisierte Zeitmessung vom Start der Prüfung bis zur Rückmeldung der Optionen."
+              "text": "Given eine Anfrage ohne Personenzahl und ohne Budget, When die Daten extrahiert werden, Then ist people 1 und budget null.",
+              "messverfahren": "offen: kein Messverfahren im Prototyp"
             }
           ],
           "abhaengigkeiten": [
-            "st-7f86-9601-99bb-d235c7490f7d-2"
+            "st-dbb8-51df-8132-a203e70d6f6d-2"
           ]
         },
         {
-          "story_id": "st-7f86-9601-99bb-d235c7490f7d-4",
-          "titel": "Budgetprüfung und Freigabeprozess umsetzen",
-          "beschreibung": "Als Teamleitung möchte ich, dass Anfragen über dem hinterlegten Budgetrahmen automatisch zur Freigabe vorgelegt werden, damit ich die Entscheidung treffen kann.",
+          "story_id": "st-dbb8-51df-8132-a203e70d6f6d-4",
+          "titel": "Eingaben prüfen und bei Lücken eine Rückfrage zurückgeben",
+          "beschreibung": "Als reisende Person möchte ich bei unvollständigen Angaben eine klare Antwort bekommen, was fehlt, statt einer leeren Suche. Geprüft werden Reisebeginn, Reiseziel, Personenzahl, Budget, Reisezeitraum (mindestens eine Nacht) und ein Reiseende, wenn Hotel oder Mietwagen gewünscht sind.",
           "akzeptanzkriterien": [
             {
-              "text": "Given eine Reiseanfrage über dem hinterlegten Budgetrahmen, When die Verfügbarkeitsprüfung abgeschlossen ist, Then wird sie der Teamleitung zur Freigabe vorgelegt und nicht weiterverarbeitet.",
-              "messverfahren": "Manuelle Prüfung des Vorgangsstatus und der Zuweisung an die Teamleitung."
+              "text": "Given eine Anfrage ohne Reiseziel, When die Eingaben geprüft werden, Then lautet die Antwort INVALID_REQUEST mit dem Fehler „Urlaubsort fehlt“ und einem Beispiel für eine vollständige Anfrage.",
+              "messverfahren": "Testlauf mit je einer Anfrage pro Fehlerfall: Status INVALID_REQUEST und passender Fehlertext in errors."
+            },
+            {
+              "text": "Given eine Anfrage mit Hotelwunsch, aber ohne Reiseende, When die Eingaben geprüft werden, Then enthält errors „Für Hotel- oder Mietwagensuche wird ein Reiseende benötigt“ und es wird nicht gesucht.",
+              "messverfahren": "offen: kein Messverfahren im Prototyp"
             }
           ],
           "abhaengigkeiten": [
-            "st-7f86-9601-99bb-d235c7490f7d-3"
+            "st-dbb8-51df-8132-a203e70d6f6d-3"
           ]
-        },
-        {
-          "story_id": "st-7f86-9601-99bb-d235c7490f7d-5",
-          "titel": "Konfidenzprüfung und manuelle Zuweisung bei niedriger Konfidenz",
-          "beschreibung": "Als Backoffice-Mitarbeiter möchte ich, dass Anfragen mit niedriger Extraktionskonfidenz automatisch einem Menschen zugewiesen werden, damit sie manuell geprüft werden können.",
-          "akzeptanzkriterien": [
-            {
-              "text": "Given eine Extraktion unterhalb der Konfidenzschwelle, When der Vorgang angelegt wird, Then wird er als prüfbedürftig markiert und einem Menschen zugewiesen.",
-              "messverfahren": "Manuelle Prüfung des Vorgangsstatus und der Zuweisung."
-            }
-          ],
-          "abhaengigkeiten": [
-            "st-7f86-9601-99bb-d235c7490f7d-1"
-          ]
-        },
-        {
-          "story_id": "st-7f86-9601-99bb-d235c7490f7d-6",
-          "titel": "Eingangsbestätigung und Rückfragen strukturiert versenden",
-          "beschreibung": "Als anfragende Person möchte ich unmittelbar nach Eingang meiner Reiseanfrage eine Bestätigung mit Vorgangsnummer und erkannten Eckdaten erhalten, damit ich Missverständnisse sofort klären kann.",
-          "akzeptanzkriterien": [
-            {
-              "text": "Given eine vollständige Reiseanfrage, When sie im System eingeht, Then erhält die anfragende Person binnen zwei Minuten eine Eingangsbestätigung mit Vorgangsnummer und erkannten Eckdaten.",
-              "messverfahren": "Manuelle Prüfung der versendeten E-Mail und des Zeitstempels."
-            },
-            {
-              "text": "Given eine unvollständige Reiseanfrage, When sie verarbeitet wird, Then erhält die anfragende Person eine strukturierte Rückfrage mit genauer Benennung der fehlenden Angaben.",
-              "messverfahren": "Manuelle Prüfung der Rückfrage-E-Mail auf Vollständigkeit der fehlenden Angaben."
-            },
-            {
-              "text": "Given eine Antwort auf eine Rückfrage, When sie im System eingeht, Then wird sie demselben Vorgang zugeordnet, ohne manuelle Zusammenführung.",
-              "messverfahren": "Manuelle Prüfung der Vorgangsablage auf korrekte Zuordnung der Antwort."
-            }
-          ],
-          "abhaengigkeiten": [
-            "st-7f86-9601-99bb-d235c7490f7d-1"
-          ]
-        },
-        {
-          "story_id": "st-7f86-9601-99bb-d235c7490f7d-7",
-          "titel": "Protokollierung aller Verarbeitungsschritte",
-          "beschreibung": "Als Backoffice-Mitarbeiter möchte ich, dass jeder Verarbeitungsschritt mit Zeitstempel, Vorgangs-ID und Teilprozess-ID protokolliert wird, damit die Nachvollziehbarkeit gewährleistet ist.",
-          "akzeptanzkriterien": [
-            {
-              "text": "Given ein abgeschlossener Vorgang, When das Protokoll gelesen wird, Then sind Vorgangs-ID, Teilprozess-ID und Zeitstempel je Schritt enthalten.",
-              "messverfahren": "Manuelle Prüfung des Protokolls auf Vollständigkeit der Metadaten."
-            }
-          ],
-          "abhaengigkeiten": [
-            "st-7f86-9601-99bb-d235c7490f7d-1",
-            "st-7f86-9601-99bb-d235c7490f7d-2",
-            "st-7f86-9601-99bb-d235c7490f7d-3",
-            "st-7f86-9601-99bb-d235c7490f7d-4",
-            "st-7f86-9601-99bb-d235c7490f7d-5",
-            "st-7f86-9601-99bb-d235c7490f7d-6"
-          ]
-        },
-        {
-          "story_id": "st-7f86-9601-99bb-d235c7490f7d-8",
-          "titel": "Transparenzhinweis in Eingangsbestätigung und Angebot",
-          "beschreibung": "Als anfragende Person möchte ich in der Eingangsbestätigung und im Angebot einen Hinweis auf die automatisierte Verarbeitung und mein Recht auf menschliche Entscheidung nach Artikel 14 der KI-Verordnung erhalten, damit ich meine Rechte wahrnehmen kann.",
-          "akzeptanzkriterien": [
-            {
-              "text": "Given eine Eingangsbestätigung oder ein Angebot, When sie versendet werden, Then enthalten sie einen Hinweis auf die automatisierte Verarbeitung und das Recht auf menschliche Entscheidung.",
-              "messverfahren": "Manuelle Prüfung der versendeten E-Mails auf Vorhandensein des Hinweises."
-            },
-            {
-              "text": "Given der Hinweis, When er gelesen wird, Then verweist er auf die Möglichkeit, eine menschliche Entscheidung zu verlangen.",
-              "messverfahren": "Manuelle Prüfung des Hinweises auf Verständlichkeit und Vollständigkeit."
-            }
-          ],
-          "abhaengigkeiten": []
-        },
-        {
-          "story_id": "st-7f86-9601-99bb-d235c7490f7d-9",
-          "titel": "DSGVO-Hinweis in Eingangsbestätigung",
-          "beschreibung": "Als anfragende Person möchte ich in der Eingangsbestätigung einen Hinweis auf die Verarbeitung meiner personenbezogenen Daten, den Zweck und mein Auskunftsrecht nach Artikel 15 DSGVO erhalten, damit ich informiert bin.",
-          "akzeptanzkriterien": [
-            {
-              "text": "Given eine Eingangsbestätigung, When sie versendet wird, Then enthält sie einen Hinweis auf die Verarbeitung der personenbezogenen Daten, den Zweck und das Auskunftsrecht.",
-              "messverfahren": "Manuelle Prüfung der versendeten E-Mail auf Vorhandensein des Hinweises."
-            },
-            {
-              "text": "Given der Hinweis, When er gelesen wird, Then verweist er auf die Kontaktdaten für Auskunftsersuchen.",
-              "messverfahren": "Manuelle Prüfung des Hinweises auf Verständlichkeit und Vollständigkeit."
-            }
-          ],
-          "abhaengigkeiten": []
         }
       ],
       "teilprozess_ids": [
@@ -186,131 +98,173 @@
       ]
     },
     {
-      "epic_id": "ep-9539-ba84-470c-dc60f3f7c980",
-      "titel": "Automatisierte Angebotserstellung und Buchungsauslösung nach Freigabe",
-      "ziel": "Angebote aus geprüften Optionen automatisiert erstellen, Freigabe einholen und Buchungen nach menschlicher Freigabe auslösen, inklusive Erinnerungs- und Sonderfallmanagement.",
+      "epic_id": "ep-a03c-5dd2-bae8-89e3f98fea30",
+      "titel": "Reiseangebote suchen, gegen das Budget prüfen und speichern",
+      "ziel": "Aus einer geprüften Anfrage entstehen über die Reise-API bis zu drei Angebote mit Gesamtpreis und Budgetstatus, die gespeichert und an die reisende Person zurückgegeben werden.",
       "kategorien": [
-        "it:backend",
-        "it:integration"
+        "it:integration",
+        "it:backend"
       ],
       "stories": [
         {
-          "story_id": "st-9539-ba84-470c-dc60f3f7c980-1",
-          "titel": "Angebot aus geprüften Optionen generieren",
-          "beschreibung": "Als Backoffice möchte ich, dass aus den geprüften Optionen eines Vorgangs automatisch ein Angebot mit drei vergleichbaren Varianten und Gesamtpreis erzeugt wird, damit der manuelle Aufwand entfällt.",
+          "story_id": "st-a03c-5dd2-bae8-89e3f98fea30-1",
+          "titel": "Flüge, Hotels und Mietwagen parallel suchen",
+          "beschreibung": "Als Backoffice möchte ich, dass bei gültigen Eingaben die Reise-API (travel-mock-api (bc04-travel-mock-api.onrender.com)) parallel abgefragt wird: /search/flights (origin, destination, departureDate, numberOfAdults), /search/hotels (destination, numberOfAdults) und /search/cars (location), jeweils nur für die gewünschten Leistungen.",
           "akzeptanzkriterien": [
             {
-              "text": "Given ein Vorgang mit geprüften Optionen, When das Angebot erzeugt wird, Then enthält es drei Varianten mit Einzelpreis, Rabatt, Gesamtsumme und offenem Betrag und liegt in der Vorgangsablage vor.",
-              "messverfahren": "Manuelle Prüfung des generierten Angebotsdokuments auf Vollständigkeit der Varianten und Preise."
-            },
-            {
-              "text": "Given ein Vorgang mit geprüften Optionen, When die Angebotserstellung läuft, Then ist sie in unter fünf Minuten abgeschlossen.",
-              "messverfahren": "Zeitmessung vom Auslösezeitpunkt bis zur Verfügbarkeit des Angebots in der Vorgangsablage."
-            }
-          ],
-          "abhaengigkeiten": []
-        },
-        {
-          "story_id": "st-9539-ba84-470c-dc60f3f7c980-2",
-          "titel": "Angebot mit Vorgangs-ID versenden und Antwort zuordnen",
-          "beschreibung": "Als reisende Person möchte ich ein Angebot mit eindeutiger Vorgangs-ID erhalten, damit meine Antwort automatisch dem richtigen Vorgang zugeordnet wird.",
-          "akzeptanzkriterien": [
-            {
-              "text": "Given ein fertiges Angebot, When es versendet wird, Then trägt die E-Mail die Vorgangs-ID im Betreff und im Dokument, sodass die Antwort automatisch zugeordnet werden kann.",
-              "messverfahren": "Prüfung der versendeten E-Mail auf Vorhandensein der Vorgangs-ID in Betreff und Dokument."
-            },
-            {
-              "text": "Given eine Antwort-E-Mail mit Vorgangs-ID, When sie eingeht, Then wird sie dem Vorgang zugeordnet und der Status auf 'freigabebereit' gesetzt.",
-              "messverfahren": "Manuelle Prüfung der Vorgangsstatusänderung nach E-Mail-Eingang."
+              "text": "Given eine gültige Anfrage mit Flug und Hotel, When gesucht wird, Then werden /search/flights und /search/hotels aufgerufen und /search/cars nicht.",
+              "messverfahren": "Ausführungsprotokoll des Testlaufs: aufgerufene Endpunkte je Anfrage."
             }
           ],
           "abhaengigkeiten": [
-            "st-9539-ba84-470c-dc60f3f7c980-1"
+            "st-dbb8-51df-8132-a203e70d6f6d-4"
           ]
         },
         {
-          "story_id": "st-9539-ba84-470c-dc60f3f7c980-3",
-          "titel": "Erneute Verfügbarkeitsprüfung bei abgelaufenen Optionen durchführen",
-          "beschreibung": "Als Backoffice möchte ich, dass bei abgelaufenen Optionen automatisch eine erneute Prüfung durchgeführt und ein aktualisiertes Angebot erzeugt wird, damit der Vorgang nicht scheitert.",
+          "story_id": "st-a03c-5dd2-bae8-89e3f98fea30-2",
+          "titel": "Bis zu drei Angebote zusammenstellen und gegen das Budget prüfen",
+          "beschreibung": "Als reisende Person möchte ich bis zu drei Angebote (OPT1 bis OPT3) mit Gesamtpreis in EUR bekommen, die günstigsten innerhalb des Budgets zuerst. Je Leistung zählen die drei günstigsten Treffer, Hotels nur ab Mindeststernen. Gesamtpreis = Flug × Personen × Strecken + Zimmerpreis × Nächte × Zimmer (Personen/2 aufgerundet) + Mietwagen je Tag × Nächte × Wagen (Personen/4 aufgerundet).",
           "akzeptanzkriterien": [
             {
-              "text": "Given eine abgelaufene Option im Vorgang, When eine Zusage eintrifft, Then wird die Verfügbarkeit erneut geprüft und ein aktualisiertes Angebot mit drei Varianten und Gesamtpreis erzeugt.",
-              "messverfahren": "Simulation einer abgelaufenen Option und Prüfung des generierten aktualisierten Angebots."
+              "text": "Given Treffer für Flug und Hotel und ein Budget von 2000 EUR, When die Angebote erstellt werden, Then gibt es höchstens drei Angebote mit offerId <Vorgangs-ID>-OPT1 bis -OPT3 und withinBudget je Angebot, sortiert nach Budget und Preis.",
+              "messverfahren": "Nachrechnen der Gesamtpreise für die Beispielanfrage aus dem Prototyp gegen die Rohdaten der Reise-API."
+            },
+            {
+              "text": "Given kein Angebot passt ins Budget, When die Angebote erstellt werden, Then werden die günstigsten Alternativen gezeigt und budgetNote nennt das Budget.",
+              "messverfahren": "offen: kein Messverfahren im Prototyp"
+            },
+            {
+              "text": "Given die Suche liefert keine Treffer, When die Angebote erstellt werden, Then lautet die Antwort NO_OFFER mit Begründung.",
+              "messverfahren": "offen: kein Messverfahren im Prototyp"
             }
           ],
           "abhaengigkeiten": [
-            "st-9539-ba84-470c-dc60f3f7c980-2"
+            "st-a03c-5dd2-bae8-89e3f98fea30-1"
           ]
         },
         {
-          "story_id": "st-9539-ba84-470c-dc60f3f7c980-4",
-          "titel": "Erinnerungen bei ausbleibender Antwort senden und Vorgang schließen",
-          "beschreibung": "Als Backoffice möchte ich, dass bei ausbleibender Antwort automatisch zwei Erinnerungen versendet und der Vorgang nach der zweiten Erinnerung mit Begründung geschlossen wird.",
+          "story_id": "st-a03c-5dd2-bae8-89e3f98fea30-3",
+          "titel": "Angebote speichern, damit sie später reserviert werden können",
+          "beschreibung": "Als Backoffice möchte ich jedes Angebot mit Angebots- und Vorgangs-ID, Preis, Budgetstatus, Reisedaten und den Kennungen von Flug, Hotel, Zimmer, Anbieter und Mietwagen in der Angebotstabelle (suggestions) ablegen, damit eine spätere Reservierung genau diese Daten nutzt.",
           "akzeptanzkriterien": [
             {
-              "text": "Given eine ausbleibende Antwort, When 48 Stunden vergangen sind, Then wird eine Erinnerung an die reisende Person versendet.",
-              "messverfahren": "Zeitgesteuerter Test: Prüfung des E-Mail-Versands nach 48 Stunden."
-            },
-            {
-              "text": "Given eine zweite ausbleibende Antwort, When weitere 48 Stunden vergangen sind, Then wird der Vorgang mit der Begründung 'Keine Rückmeldung' geschlossen.",
-              "messverfahren": "Zeitgesteuerter Test: Prüfung des Vorgangsstatus nach 96 Stunden."
+              "text": "Given drei erstellte Angebote, When sie gespeichert werden, Then stehen drei Zeilen mit offerId, requestId, totalPrice, withinBudget und den Leistungskennungen in der Angebotstabelle.",
+              "messverfahren": "Abfrage der Angebotstabelle nach der Vorgangs-ID des Testlaufs: Anzahl Zeilen und Pflichtfelder geprüft."
             }
           ],
           "abhaengigkeiten": [
-            "st-9539-ba84-470c-dc60f3f7c980-2"
+            "st-a03c-5dd2-bae8-89e3f98fea30-2"
           ]
         },
         {
-          "story_id": "st-9539-ba84-470c-dc60f3f7c980-5",
-          "titel": "Buchung nach menschlicher Freigabe auslösen",
-          "beschreibung": "Als Teamleitung möchte ich eine Buchung erst nach ausdrücklicher Freigabe auslösen, damit die Kontrolle über die Buchung erhalten bleibt.",
+          "story_id": "st-a03c-5dd2-bae8-89e3f98fea30-4",
+          "titel": "Angebote als Antwort an die reisende Person zurückgeben",
+          "beschreibung": "Als reisende Person möchte ich die Angebote mit Optionsnummer, Gesamtpreis und den wichtigsten Angaben zu Flug, Hotel und Mietwagen als Antwort bekommen, damit ich mich entscheiden und eine Option zum Reservieren nennen kann.",
           "akzeptanzkriterien": [
             {
-              "text": "Given ein Vorgang im Status 'freigabebereit', When eine Freigabe erteilt wird, Then wird die Buchung in der Reise-API ausgelöst und der Status auf 'gebucht' gesetzt.",
-              "messverfahren": "Manuelle Prüfung der Buchungsauslösung in der Reise-API nach Freigabe."
-            },
-            {
-              "text": "Given eine erteilte Freigabe, When die Buchung ausgelöst wird, Then stehen die Buchungsnummern binnen fünf Minuten in der Vorgangsablage.",
-              "messverfahren": "Zeitmessung vom Freigabezeitpunkt bis zur Verfügbarkeit der Buchungsnummern in der Vorgangsablage."
+              "text": "Given erstellte Angebote, When geantwortet wird, Then lautet der Status OFFERS_CREATED und jedes Angebot nennt offerId, Gesamtpreis, Währung und die gewählten Leistungen.",
+              "messverfahren": "offen: kein Messverfahren im Prototyp"
             }
           ],
           "abhaengigkeiten": [
-            "st-9539-ba84-470c-dc60f3f7c980-2"
+            "st-a03c-5dd2-bae8-89e3f98fea30-2",
+            "st-a03c-5dd2-bae8-89e3f98fea30-3"
           ]
-        },
+        }
+      ],
+      "teilprozess_ids": [
+        "KP-06.TP-2"
+      ]
+    },
+    {
+      "epic_id": "ep-7203-5ca7-87e9-469048f67ae2",
+      "titel": "Angebot reservieren, Buchung prüfen und stornieren",
+      "ziel": "Die reisende Person reserviert ein gespeichertes Angebot über die Reise-API, prüft den Status einer Buchung und storniert sie, jeweils mit eindeutiger Antwort und verständlichen Fehlern.",
+      "kategorien": [
+        "it:integration",
+        "it:backend"
+      ],
+      "stories": [
         {
-          "story_id": "st-9539-ba84-470c-dc60f3f7c980-6",
-          "titel": "Stornierung als Statuswechsel mit Protokolleintrag erfassen",
-          "beschreibung": "Als Backoffice möchte ich Stornierungen als Statuswechsel mit Protokolleintrag erfassen, damit der Vorgang nachvollziehbar bleibt.",
+          "story_id": "st-7203-5ca7-87e9-469048f67ae2-1",
+          "titel": "Gespeichertes Angebot zur Reservierung auswählen",
+          "beschreibung": "Als reisende Person möchte ich ein Angebot über seine Nummer (z. B. REISE-20261020-114216-OPT1) zum Reservieren wählen, und das System nimmt dafür die gespeicherten Daten aus der Angebotstabelle, keine festen Beispieldaten.",
           "akzeptanzkriterien": [
             {
-              "text": "Given eine Buchung im Status 'gebucht', When eine Stornierung erfasst wird, Then wechselt der Status auf 'storniert' und der Zeitstempel wird im Protokoll vermerkt.",
-              "messverfahren": "Manuelle Prüfung des Vorgangsstatus und Protokolleintrags nach Stornierung."
+              "text": "Given eine Angebotsnummer, die in der Angebotstabelle steht, When reserviert werden soll, Then wird genau dieses Angebot mit seinen Leistungskennungen ausgewählt.",
+              "messverfahren": "Testlauf: Angebot aus einem vorherigen Suchlauf reservieren, Kennungen im Reservierungsaufruf mit der Tabellenzeile verglichen."
+            },
+            {
+              "text": "Given eine unbekannte Angebotsnummer, When reserviert werden soll, Then lautet die Antwort OFFER_NOT_FOUND mit Hinweis an die reisende Person.",
+              "messverfahren": "offen: kein Messverfahren im Prototyp"
             }
           ],
           "abhaengigkeiten": [
-            "st-9539-ba84-470c-dc60f3f7c980-5"
+            "st-dbb8-51df-8132-a203e70d6f6d-2",
+            "st-a03c-5dd2-bae8-89e3f98fea30-3"
           ]
         },
         {
-          "story_id": "st-9539-ba84-470c-dc60f3f7c980-7",
-          "titel": "Menschliche Freigabe vor Buchungsauslösung mit Begründungsfeld",
-          "beschreibung": "Als Teamleitung möchte ich vor der Buchungsauslösung eine begründete Freigabe oder Ablehnung erteilen können, damit die Entscheidung nach Artikel 14 der KI-Verordnung nachvollziehbar ist. Das System muss die Freigabe mit Zeitstempel, Vorgangs-ID und Begründung protokollieren.",
+          "story_id": "st-7203-5ca7-87e9-469048f67ae2-2",
+          "titel": "Reservierung über die Reise-API anlegen",
+          "beschreibung": "Als reisende Person möchte ich, dass für das gewählte Angebot über POST /reservation/create eine Reservierung entsteht und ich Reservierungsnummer, Ablaufzeit (30 Minuten), Gesamtpreis und einen Hinweis zur Zahlung bekomme.",
           "akzeptanzkriterien": [
             {
-              "text": "Given ein Vorgang im Status 'freigabebereit', When die Teamleitung eine Freigabe oder Ablehnung mit Begründung eingibt, Then wird die Entscheidung protokolliert und der Status entsprechend gesetzt.",
-              "messverfahren": "Manuelle Prüfung des Protokolls auf Vorhandensein von Zeitstempel, Vorgangs-ID und Begründung."
+              "text": "Given ein ausgewähltes Angebot, When die Reservierung angelegt wird, Then lautet die Antwort RESERVATION_CREATED mit reservationNumber, expiresAt und totalPrice.",
+              "messverfahren": "Testlauf gegen die Reise-API: Antwortfelder geprüft, Ablaufzeit 30 Minuten nach Anlage."
             },
             {
-              "text": "Given eine Freigabe, When sie erteilt wird, Then wird die Buchung ausgelöst und der Status auf 'gebucht' gesetzt.",
-              "messverfahren": "Manuelle Prüfung der Buchungsauslösung in der Reise-API nach Freigabe."
-            },
-            {
-              "text": "Given eine Ablehnung, When sie erteilt wird, Then wird der Vorgang auf 'abgelehnt' gesetzt und eine Benachrichtigung an die reisende Person versendet.",
-              "messverfahren": "Manuelle Prüfung des Vorgangsstatus und der versendeten Benachrichtigung."
+              "text": "Given die Reise-API lehnt die Reservierung ab, When sie angelegt wird, Then lautet die Antwort RESERVATION_FAILED mit der Fehlermeldung der API.",
+              "messverfahren": "offen: kein Messverfahren im Prototyp"
             }
           ],
-          "abhaengigkeiten": []
+          "abhaengigkeiten": [
+            "st-7203-5ca7-87e9-469048f67ae2-1"
+          ]
+        },
+        {
+          "story_id": "st-7203-5ca7-87e9-469048f67ae2-3",
+          "titel": "Status einer Buchung prüfen",
+          "beschreibung": "Als reisende Person möchte ich zu einer Buchungsnummer erfahren, ob sie gültig, bezahlt, storniert und noch stornierbar ist (GET /booking/snapshot).",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine bestehende Buchungsnummer, When sie geprüft wird, Then lautet die Antwort BOOKING_FOUND mit Status und Angabe zur Stornierbarkeit.",
+              "messverfahren": "Testlauf mit einer Buchungsnummer aus der Reise-API: Antwortfelder gegen den Snapshot der API geprüft."
+            },
+            {
+              "text": "Given eine Nachricht ohne Buchungsnummer, When geprüft werden soll, Then lautet die Antwort BOOKING_NUMBER_MISSING.",
+              "messverfahren": "offen: kein Messverfahren im Prototyp"
+            },
+            {
+              "text": "Given eine unbekannte Buchungsnummer, When sie geprüft wird, Then lautet die Antwort BOOKING_NOT_FOUND.",
+              "messverfahren": "offen: kein Messverfahren im Prototyp"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-dbb8-51df-8132-a203e70d6f6d-2"
+          ]
+        },
+        {
+          "story_id": "st-7203-5ca7-87e9-469048f67ae2-4",
+          "titel": "Buchung stornieren",
+          "beschreibung": "Als reisende Person möchte ich eine Buchung über ihre Nummer stornieren (POST /booking/cancel) und eine eindeutige Bestätigung oder einen verständlichen Fehler bekommen.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine stornierbare Buchung, When sie storniert wird, Then lautet die Antwort CANCELLATION_SUCCESS mit Buchungsnummer und Stornostatus.",
+              "messverfahren": "Testlauf: Buchung stornieren, danach den Status mit GET /booking/snapshot prüfen (storniert, nicht mehr stornierbar)."
+            },
+            {
+              "text": "Given eine unbekannte Buchungsnummer, When storniert werden soll, Then lautet die Antwort BOOKING_NOT_FOUND mit dem Hinweis, Nummer oder E-Mail-Adresse zu nennen.",
+              "messverfahren": "offen: kein Messverfahren im Prototyp"
+            },
+            {
+              "text": "Given die API liefert keine eindeutige Bestätigung, When storniert wird, Then lautet die Antwort CANCELLATION_FAILED.",
+              "messverfahren": "offen: kein Messverfahren im Prototyp"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-dbb8-51df-8132-a203e70d6f6d-2"
+          ]
         }
       ],
       "teilprozess_ids": [
@@ -319,6 +273,6 @@
     }
   ],
   "gate2": {
-    "status": "approved"
+    "status": "pending"
   }
 }
