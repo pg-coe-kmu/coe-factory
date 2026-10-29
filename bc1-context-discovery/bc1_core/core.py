@@ -47,8 +47,10 @@ def pruefe_anfrage(state: SessionState, anfrage_id: str) -> None:
             f"der Dienst laeuft mit {anfrage_id}")
 
 def zuletzt_gefragt(state: SessionState) -> str | None:
-    """Feld der zuletzt beantworteten Frage oder None; unbeantwortete
-    Einträge im raw_log werden übersprungen."""
+    """Feld, nach dem BC1 in seiner jüngsten gespeicherten Antwort gefragt hat;
+    None ohne gespeicherte Antwort oder wenn diese keine Frage ist (z. B. fertig).
+    Unbeantwortete raw_log-Einträge (laufende Nachricht, fehler_fortsetzbar,
+    Absturz) werden übersprungen."""
     for mid, _ in reversed(state.raw_log):
         if mid in state.antworten:
             antwort = state.antworten[mid]

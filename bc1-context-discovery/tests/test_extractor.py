@@ -1,11 +1,11 @@
-from bc1_core.types import Candidate, FieldStatus, FieldValue, SessionState
-from bc1_core.package import TOY_PROZESS, FieldSpec, UseCasePackage
-from bc1_core.llm import FakeLLM, ExtractionCandidate
-from bc1_core.extractor import extract_and_merge
 import logging
 
 import pytest
 
+from bc1_core.types import Candidate, FieldStatus, FieldValue, SessionState
+from bc1_core.package import TOY_PROZESS, FieldSpec, UseCasePackage
+from bc1_core.llm import FakeLLM, ExtractionCandidate
+from bc1_core.extractor import extract_and_merge
 from bc1_core.feldtypen import AUSWAHL, MINUTEN, PROZENT_0_100, SKALA_1_5, ZAHL
 from bc1_service.discovery_paket import Bc0Kontext, baue_discovery_paket
 from bc1_service.paket_feldtypen import PROZENT_GANZ_0_100
@@ -205,9 +205,10 @@ def test_focus_step_kurzantwort():
     assert state.values["focus_step"].status is FieldStatus.GUELTIG
     assert ki.aufrufe == 0
     for text in ("KP-01.TP-9", "Erfassen", "KP-01.TP-1?"):
+        frische_ki = _ZaehlerKI()
         extract_and_merge(SessionState("s2", paket.schema_version), text,
-                          "m1", paket, ki, gefragt=gefragt)
-    assert ki.aufrufe == 3
+                          "m1", paket, frische_ki, gefragt=gefragt)
+        assert frische_ki.aufrufe == 1, text
 
 def test_new_value_is_stored_with_source_and_validated():
     st = SessionState("s1", "0.1")

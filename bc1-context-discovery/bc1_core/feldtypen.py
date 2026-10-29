@@ -4,6 +4,10 @@ Vertrag (Spec P3, BC2-relevant): normalisiere() ist TOTAL — wirft nie,
 Unparsebares kommt unverändert zurück und fällt dann in der Validierung
 durch (bestehende Nachfrage-Mechanik). Gespeichert wird der normalisierte
 Wert; Werte bleiben Strings (Wire-Format).
+
+Auch kurzform() ist TOTAL: wirft nie, liefert `str | None`. Den reinen Wert
+liefert sie nur, wenn die GANZE Nachricht die Kurzform ist, sonst `None`
+(Aufrufer ohne try/except).
 """
 from __future__ import annotations
 
@@ -119,13 +123,14 @@ def _normalisiere_minuten(wert: str) -> str:
     return wert
 
 
+# Näherungswörter, gemeinsam für ANZAHL und die Kurzformen.
+_NAEHERUNGSWOERTER = (
+    r"(?:etwa|ca\.?|circa|ungefähr|ungefaehr|rund|im schnitt|durchschnittlich)\s+"
+)
 # Reine Anzahl ohne Periode (z. B. Faelle je Durchlauf): ein einziges Muster per
 # fullmatch — jede Periode ("pro Woche", "im Monat"), Einheit oder zweite Zahl
 # bleibt damit unpassend und faellt in der Validierung durch. Seit 25.10. (C1a (4b)):
 # „ca" auch ohne Punkt, am Ende hoechstens ein „." oder „!" — „?" bleibt eine Nachfrage.
-_NAEHERUNGSWOERTER = (
-    r"(?:etwa|ca\.?|circa|ungefähr|ungefaehr|rund|im schnitt|durchschnittlich)\s+"
-)
 _ANZAHL_MUSTER = re.compile(
     rf"\s*(?:{_NAEHERUNGSWOERTER})?"
     rf"({_ZAHL_TOKEN})"

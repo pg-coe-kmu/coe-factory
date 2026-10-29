@@ -776,6 +776,17 @@ def test_zuletzt_gefragt_nach_frage():
     assert zuletzt_gefragt(state) == dritte["payload"]["feld"]
 
 
+def test_zuletzt_gefragt_nach_nachfrage_dasselbe_feld():
+    store = InMemoryStateStore()
+    llm = FakeLLM({"Freigabe": [ExtractionCandidate("name", "Freigabe")]})
+    erste = _turn(store, llm, KURZ_PAKET, "s1", "m1", "Freigabe")
+    assert erste["payload"]["feld"] == "note"
+    nachfrage = _turn(store, llm, KURZ_PAKET, "s1", "m2", "weiß nicht so recht")
+    assert nachfrage["status"] == "frage"
+    assert nachfrage["payload"]["feld"] == "note"
+    assert zuletzt_gefragt(store.load("s1")) == "note"
+
+
 def test_zuletzt_gefragt_ueberspringt_unbeantwortete():
     store = InMemoryStateStore()
     antwort = _turn(store, FakeLLM(), TOY_PROZESS, "s1", "m1", "a")
@@ -900,6 +911,26 @@ def test_fehler_bei_antwortformulierung_dann_kurzantwort():
     fv = store.load("s1").values["note"]
     assert fv.value == "4"
     assert fv.status is FieldStatus.GUELTIG
+
+
+def test_fehler_dann_kurzantwort_mit_neuer_message_id():
+    # Ein drittes Pflichtfeld hält die Sitzung offen — sonst fängt schon der
+    # Terminal-Zweig den späten Retry ab, nicht der Überholt-Zweig.
+    paket = replace(KURZ_PAKET, fields=KURZ_PAKET.fields
+                    + (FieldSpec("zusatz", "Was noch?"),))
+    store = InMemoryStateStore()
+    llm = FakeLLM({"Freigabe": [ExtractionCandidate("name", "Freigabe")]})
+    _turn(store, llm, paket, "s1", "m1", "Freigabe")
+    r2 = _turn(store, _WerfendesLLM(), paket, "s1", "m2", "4")
+    assert r2["status"] == "fehler_fortsetzbar"
+    r3 = _turn(store, FakeLLM(), paket, "s1", "m3", "5")        # neue message_id
+    assert r3["status"] == "frage"
+    fv = store.load("s1").values["note"]
+    assert fv.value == "5"
+    assert fv.status is FieldStatus.GUELTIG
+    spaet = _turn(store, FakeLLM(), paket, "s1", "m2", "4")     # später Retry
+    assert spaet == r3                       # Überholt-Antwort: letzte bekannte
+    assert store.load("s1").values["note"].value == "5"
 
 
 class _KeineKIErlaubt(FakeLLM):

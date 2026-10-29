@@ -4,7 +4,7 @@
 > - **Quellen:** gespeicherte Sitzung und Profil der Generalprobe (nur lesend gemessen), BC1-Log vom Server, Spec C1a Abschnitt „Grenzen“ (24.10.: „Extraktor kennt die zuletzt gestellte Frage nicht … vorbestehend“).
 > - **Geprüft:** Entwurf 1 von einem unabhängigen Claude-Prüfer (1 Critical, 3 Important, 11 Minor) und von Codex (0 Critical, 4 Important, 3 Minor); beide fanden denselben Kernfehler. Entwurf 2 von agy (1 Critical, 3 Important, 4 Minor; einige Code-Angaben in agys Bericht sind erfunden, die Befunde selbst sind am Code nachgeprüft). Entwurf 3 arbeitet alles ein (Abschnitt 8).
 > - **Status:** abgenommen von der BC1-Projektleitung am 29.10.2026, alle drei Entscheidungen in Abschnitt 7 wie empfohlen. Gebaut auf Zweig `bc1-extraktion-gestellte-frage`.
-> - **Nächster Schritt nach Abnahme:** Implementierungsplan, dann Bau mit Test zuerst.
+> - **Nächster Schritt:** Gebaut und gesamtgeprüft; Push/PR nach OK der BC1-Projektleitung, dann Ausrollen und zweite Generalprobe.
 
 ## Big Picture
 
@@ -75,7 +75,7 @@ Geprüft für alle Pfade von `process_turn` (beide Prüfer bestätigen):
 - Protokoll: neue Zeile `kurzantwort_direkt korrelation=… feld=…` auf `bc1.kern`, Stufe INFO, nur der Feldname, nie der Wert (B7 Teil 2). Auf solchen Turns fehlt die Zeile `ki_aufruf … art=extraktion`; das ist gewollt. Die Zeile kommt in die Tabelle „Betriebsprotokoll“ der README.
 - Die Regel arbeitet auf dem Text, den auch die KI bekäme: nach dem PII-Filter. Eine Telefonnummer ist dort schon `[Telefon A]` und keine Kurzform mehr.
 
-Einfacher als Entwurf 1: Die KI wird nicht erst gefragt und dann verworfen. Das spart einen Aufruf, und die Regel greift auch, wenn die KI gerade ausfällt.
+Einfacher als Entwurf 1: Die KI wird nicht erst gefragt und dann verworfen. Das spart den Extraktionsaufruf. Der Turn ruft weiterhin `llm.antworte` auf; scheitert die KI dort, wird der Stand verworfen und der Retry übernimmt die Kurzantwort ohne Extraktion.
 
 ### 3. Was als Kurzform gilt (`bc1_core/feldtypen.py`, `bc1_service/paket_feldtypen.py`)
 
@@ -95,7 +95,7 @@ Für alle Kurzformen gilt:
 | `JA_NEIN` | „ja“ oder „nein“, Groß/Klein egal | ja / nein | „Ja“, „nein.“ | „Ja, aber selten“, „ja?“ |
 | `SKALA_1_5` | eine Ziffer 1–5 | die Ziffer | „4“, „4.“ | „eher 4“, „4 von 5“ |
 | `PROZENT_0_100`, `PROZENT_GANZ_0_100` | wahlweise Näherungswort, Zahl, wahlweise „%“ oder „Prozent“ | die Zahl | „70“, „ca. 70 %“, „70 Prozent“, „70%“ | „70 bis 80“ |
-| `ANZAHL` | das bestehende vollständige Muster `_ANZAHL_MUSTER` | wie dessen Normalisierer | „1“, „etwa 3 Fälle“ | „5 pro Woche“ |
+| `ANZAHL` | das bestehende vollständige Muster `_ANZAHL_MUSTER` | das Zahl-Token (Normalisierung folgt) | „1“, „etwa 3 Fälle“ | „5 pro Woche“ |
 | `AUSWAHL(...)` | genau eine Option, Groß/Klein egal | die Option | „geschaetzt“, „KP-04.TP-4“ | „KP-04.TP-4?“, „Phasen-Abschluss“ |
 | `MINUTEN` | wahlweise Näherungswort, Zahl, **Pflicht-Einheit**: Minute(n), min, Min., Stunde(n), Std., h | Zahl mit Einheit | „3 Stunden“, „ca 90 Min.“, „45min“, „1,5h“ | „3“, „Der Prozess dauert 3 Stunden“, „nicht 3 Stunden“ |
 | `ZAHL` (Häufigkeit) | wahlweise Näherungswort, Zahl, wahlweise „mal“ (auch „2mal“, „2-mal“), dann „pro“, „im“ oder „je“ und Woche, Monat oder Jahr | Zahl mit Zeitraum | „2 pro Monat“, „2mal im Monat“ | „2“, „2 mal pro Monat, im Dezember mehr“ |
@@ -131,7 +131,7 @@ Deshalb jetzt: Fragetexte und Paketfassung bleiben gleich (Entscheidung 7.2). Ei
 ### 6. Roadmap (im Abschlussplan nachtragen, je mit Ziel und nächstem Schritt)
 
 - **Erledigt durch diese Spec:** Kurzantworten mit festem Typ (aus der Grenze in Spec C1a).
-- **KI kennt die gestellte Frage.** Ziel: auch Sätze mit unklarem Bezug („eher so drei Stunden“) und Kurzantworten auf Freitext- und Listenfelder landen im gefragten Feld. Nächster Schritt: nach der Vorführung an den Live-Gesprächen bewerten, ob es nötig ist. Offen dabei: ob ein „Ja“ einen in der Frage vorgeschlagenen Wert übernimmt (Abschlussplan (4)(g)).
+- **KI kennt die gestellte Frage.** Ziel: auch Sätze mit unklarem Bezug („eher so drei Stunden“) und Kurzantworten auf Freitext- und Listenfelder landen im gefragten Feld. Nächster Schritt: nach der Vorführung an den Live-Gesprächen bewerten, ob es nötig ist. Offen dabei: ob ein „Ja“ einen in der Frage vorgeschlagenen Wert übernimmt (Abschlussplan „Neu 24.10. — aus C1a“ (g)).
 - **Einheit in den Dauer-Fragen.** Ziel: nackte Zahlen auf Dauer-Fragen werden selten. Nächster Schritt: Fragetexte E1/E2 zusammen mit den Vertragstexten in #286 mit BC2 abstimmen.
 - **Anfragetext als Gesprächsbeginn.** Ziel: Was die Person in „Neue Anfrage“ schon beschrieben hat, muss sie im Gespräch nicht wiederholen. Nächster Schritt: mit BC0 klären, ob deren Weiterleitung den Originaltext als ersten Turn schicken kann.
 - **Klärungsfrage nennt die Kandidaten.** Ziel: Bei einem Widerspruch („40 oder 3 Stunden?“) sieht die Person beide Werte. Nächster Schritt: nach der Vorführung bewerten.
