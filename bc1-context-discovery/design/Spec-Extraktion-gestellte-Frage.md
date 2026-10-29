@@ -4,6 +4,7 @@
 > - **Quellen:** gespeicherte Sitzung und Profil der Generalprobe (nur lesend gemessen), BC1-Log vom Server, Spec C1a Abschnitt „Grenzen“ (24.10.: „Extraktor kennt die zuletzt gestellte Frage nicht … vorbestehend“).
 > - **Geprüft:** Entwurf 1 von einem unabhängigen Claude-Prüfer (1 Critical, 3 Important, 11 Minor) und von Codex (0 Critical, 4 Important, 3 Minor); beide fanden denselben Kernfehler. Entwurf 2 von agy (1 Critical, 3 Important, 4 Minor; einige Code-Angaben in agys Bericht sind erfunden, die Befunde selbst sind am Code nachgeprüft). Entwurf 3 arbeitet alles ein (Abschnitt 8).
 > - **Status:** abgenommen von der BC1-Projektleitung am 29.10.2026, alle drei Entscheidungen in Abschnitt 7 wie empfohlen. Gebaut auf Zweig `bc1-extraktion-gestellte-frage`.
+> - **Nachtrag 29.10.2026:** „x“ wie „mal“ (z. B. „2x pro Monat“), Entscheidung der BC1-Projektleitung nach der Gesamtprüfung.
 > - **Nächster Schritt:** Gebaut und gesamtgeprüft; Push/PR nach OK der BC1-Projektleitung, dann Ausrollen und zweite Generalprobe.
 
 ## Big Picture
@@ -98,7 +99,7 @@ Für alle Kurzformen gilt:
 | `ANZAHL` | das bestehende vollständige Muster `_ANZAHL_MUSTER` | das Zahl-Token (Normalisierung folgt) | „1“, „etwa 3 Fälle“ | „5 pro Woche“ |
 | `AUSWAHL(...)` | genau eine Option, Groß/Klein egal | die Option | „geschaetzt“, „KP-04.TP-4“ | „KP-04.TP-4?“, „Phasen-Abschluss“ |
 | `MINUTEN` | wahlweise Näherungswort, Zahl, **Pflicht-Einheit**: Minute(n), min, Min., Stunde(n), Std., h | Zahl mit Einheit | „3 Stunden“, „ca 90 Min.“, „45min“, „1,5h“ | „3“, „Der Prozess dauert 3 Stunden“, „nicht 3 Stunden“ |
-| `ZAHL` (Häufigkeit) | wahlweise Näherungswort, Zahl, wahlweise „mal“ (auch „2mal“, „2-mal“), dann „pro“, „im“ oder „je“ und Woche, Monat oder Jahr | Zahl mit Zeitraum | „2 pro Monat“, „2mal im Monat“ | „2“, „2 mal pro Monat, im Dezember mehr“ |
+| `ZAHL` (Häufigkeit) | wahlweise Näherungswort, Zahl, wahlweise „mal“ oder „x“ (auch „2mal“, „2-mal“, „2x“), dann „pro“, „im“ oder „je“ und Woche, Monat oder Jahr | Zahl mit Zeitraum | „2 pro Monat“, „2mal im Monat“, „2x pro Monat“ | „2“, „2 mal pro Monat, im Dezember mehr“ |
 | `FREITEXT`, `LISTE`, Systemtyp, alle übrigen | keine Kurzform | — | — | — |
 
 Eine Kurzform kann einen Wert liefern, den der Prüfer danach ablehnt, etwa „150 %“ oder bei ganzzahligen Prozent „70,5 %“. Das Feld wird dann wie heute `ungueltig`, und BC1 fragt nach; die KI wird auch dann nicht gefragt.

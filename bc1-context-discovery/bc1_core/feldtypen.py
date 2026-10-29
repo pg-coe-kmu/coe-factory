@@ -215,7 +215,7 @@ def _kurzform_minuten(wert: str) -> str | None:
 
 def _kurzform_haeufigkeit(wert: str) -> str | None:
     treffer = re.fullmatch(
-        rf"(?:{_NAEHERUNGSWOERTER})?({_ZAHL_TOKEN})(?:(?:\s*|-)mal)?"
+        rf"(?:{_NAEHERUNGSWOERTER})?({_ZAHL_TOKEN})(?:(?:\s*|-)(?:mal|x))?"
         r"\s+(?:pro|im|je)\s+(woche|monat|jahr)[.!]?",
         wert.strip(), re.IGNORECASE)
     return f"{treffer.group(1)} pro {treffer.group(2).capitalize()}" if treffer else None

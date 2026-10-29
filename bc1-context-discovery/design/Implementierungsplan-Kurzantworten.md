@@ -24,7 +24,7 @@
 - **Kurzform, allgemein:** fullmatch nach `strip()`; Groß/Klein egal; am Ende höchstens **ein** „.“ oder „!“, **direkt** angehängt (kein Leerraum davor; `"Ja !"`, `"ja.."`, `"ja,"` sind keine Kurzform); ein „?“ irgendwo → keine Kurzform. `_entferne_rand` NICHT verwenden (entfernt beliebig viele Zeichen).
 - **Näherungswörter** (eine gemeinsame Konstante, dieselbe Liste wie `_ANZAHL_MUSTER`): `etwa`, `ca.`, `ca`, `circa`, `ungefähr`, `ungefaehr`, `rund`, `im schnitt`, `durchschnittlich`; danach Leerraum.
 - **Einheiten MINUTEN:** `(minuten?|min|stunden?|std|h)` mit dem einen optionalen Schlusszeichen `[.!]?` direkt dahinter — so ist „Min.“/„Std.“ abgedeckt und „90 min..“, „2 Std.!“ sind keine Kurzform. Leerraum zwischen Zahl und Einheit optional. Reiner Wert: `"<Zahl> <Einheit>"` mit genau einem Leerzeichen, Einheit wie geschrieben ohne Punkt (z. B. `"90 Min"`, `"1,5 h"`, `"45 min"`).
-- **Zeiträume ZAHL:** optional `mal` (direkt, mit Leerraum oder Bindestrich: „2mal“, „2 mal“, „2-mal“), dann `pro` | `im` | `je`, dann `woche` | `monat` | `jahr`. Reiner Wert: `"<Zahl> pro <Woche|Monat|Jahr>"` (z. B. `"2 pro Jahr"`).
+- **Zeiträume ZAHL:** optional `mal` oder `x` (direkt, mit Leerraum oder Bindestrich: „2mal“, „2 mal“, „2-mal“), dann `pro` | `im` | `je`, dann `woche` | `monat` | `jahr`. Reiner Wert: `"<Zahl> pro <Woche|Monat|Jahr>"` (z. B. `"2 pro Jahr"`).
 - **Prozent:** Zahl, optional `%` (Leerraum optional) oder ` prozent` (mit Leerraum). Reiner Wert: das Zahl-Token.
 - **Erwartete Werte sind Strings** (`"180"`, nicht `180`).
 - **Testdaten generisch** (öffentliches Repo): Kontext lokal nach dem Muster von `KONTEXT` in `tests/test_discovery_paket.py` nachbauen (nicht importieren — `tests/` ist kein Paket), Teilprozess `"KP-01.TP-1"` „Erfassen“; keine Namen aus der Generalprobe.
@@ -33,7 +33,7 @@
 ## Bekannt und bewusst nicht geändert
 
 - Im kontextfreien Zweig (Fassung 1.0, nur Demo und Tests) ist D4 vom Typ `ZAHL`. „5 pro Woche“ auf die Fallzahl-Frage wird dort ohne KI 260 — genau wie heute über die KI. Mit BC0-Kontext ist D4 `ANZAHL`; dort bleibt „5 pro Woche“ ungültig.
-- „2x pro Monat“ ist keine Kurzform (nicht in der Spec) und geht an die KI. Hinweis für die Antwortliste der zweiten Generalprobe.
+- „2x pro Monat“ ist keine Kurzform (nicht in der Spec) und geht an die KI. Hinweis für die Antwortliste der zweiten Generalprobe. **Überholt (Nachtrag 29.10.):** „x“ ist jetzt wie „mal“ Kurzform.
 
 ## Prüfschwerpunkte (Review Focus)
 
@@ -154,4 +154,4 @@
 - Gesamtprüfung des Zweigs (unabhängiger Prüfer auf dem stärksten Modell, Codex, agy).
 - Push und PR nur nach OK der BC1-Projektleitung und Vertraulichkeits-Befund.
 - Tag, `bc1-update` auf dem Server mit Ansage an BC0, Messung vorher.
-- Neue Testanfrage an KP-02.TP-2 oder KP-03.TP-1, zweite Generalprobe; Antwortliste anpassen (Dauer und Häufigkeit mit Einheit, „pro“ statt „x“).
+- Neue Testanfrage an KP-02.TP-2 oder KP-03.TP-1, zweite Generalprobe; Antwortliste anpassen (Dauer und Häufigkeit mit Einheit; „2x pro Monat“ ist seit dem Nachtrag 29.10. Kurzform wie „mal“).

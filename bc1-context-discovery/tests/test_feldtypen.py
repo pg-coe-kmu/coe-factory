@@ -530,6 +530,24 @@ def test_kurzform_haeufigkeit(eingabe, rein, jahr):
         assert ZAHL.normalisiere(rein) == jahr
 
 
+@pytest.mark.parametrize("eingabe, rein, jahr", [
+    ("2x pro Monat", "2 pro Monat", "24"),
+    ("1x im Jahr", "1 pro Jahr", "1"),
+    ("2 x pro Woche", "2 pro Woche", "104"),
+    ("2X je Monat", "2 pro Monat", "24"),
+    ("etwa 3x im Monat", "3 pro Monat", "36"),
+    ("2x pro Monat.", "2 pro Monat", "24"),
+    ("2x", None, None), ("2x pro Tag", None, None),
+    ("2xx pro Monat", None, None), ("x pro Monat", None, None),
+    ("2x pro Monat?", None, None), ("2x pro Monat..", None, None),
+    ("0x10 pro Monat", None, None),
+])
+def test_kurzform_haeufigkeit_mit_x(eingabe, rein, jahr):
+    assert ZAHL.kurzform(eingabe) == rein
+    if rein is not None:
+        assert ZAHL.normalisiere(rein) == jahr
+
+
 @pytest.mark.parametrize("typ", [
     JA_NEIN, SKALA_1_5, AUSWAHL("a"), ANZAHL, PROZENT_0_100, MINUTEN, ZAHL,
 ])
