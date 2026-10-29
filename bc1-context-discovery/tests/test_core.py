@@ -9,8 +9,8 @@ from bc1_core.dialog import MAX_ROUNDS
 from bc1_core.store import InMemoryStateStore
 from bc1_core.llm import FakeLLM, ExtractionCandidate
 from bc1_core.core import (AnfrageKonfliktError, MandantKonfliktError,
-                           PaketKonfliktError, process_turn)
-from bc1_core.serialize import state_to_dict
+                           PaketKonfliktError, process_turn, zuletzt_gefragt)
+from bc1_core.serialize import state_from_dict, state_to_dict
 
 MANDANT = "11111111-1111-1111-1111-111111111111"
 
@@ -755,3 +755,62 @@ def test_anbieter_ausgaben_werden_ebenfalls_gefiltert():
         assert klartext not in gespeichert
         assert klartext not in json.dumps(r, ensure_ascii=False)
     assert "Frau [Person A] ([Telefon A])" in json.dumps(r, ensure_ascii=False)
+
+
+def test_zuletzt_gefragt_erster_turn_ist_none():
+    state = SessionState(session_id="s1", schema_version="0.1")
+    state.raw_log.append(("m1", "hallo"))
+    assert zuletzt_gefragt(state) is None
+
+
+def test_zuletzt_gefragt_nach_frage():
+    store = InMemoryStateStore()
+    llm = FakeLLM({"a": [ExtractionCandidate("prozess_name", "Freigabe")]})
+    erste = _turn(store, llm, TOY_PROZESS, "s1", "m1", "a")
+    _turn(store, llm, TOY_PROZESS, "s1", "m2", "b")
+    dritte = _turn(store, llm, TOY_PROZESS, "s1", "m3", "c")   # ohne Kandidaten
+    state = store.load("s1")
+    state.raw_log.append(("m4", "d"))                          # noch unbeantwortet
+    assert dritte["payload"]["feld"] != erste["payload"]["feld"]
+    assert zuletzt_gefragt(state) == dritte["payload"]["feld"]
+
+
+def test_zuletzt_gefragt_ueberspringt_unbeantwortete():
+    store = InMemoryStateStore()
+    antwort = _turn(store, FakeLLM(), TOY_PROZESS, "s1", "m1", "a")
+    state = store.load("s1")
+    state.raw_log.append(("m2", "b"))
+    state.raw_log.append(("m3", "c"))
+    assert zuletzt_gefragt(state) == antwort["payload"]["feld"]
+
+
+def test_zuletzt_gefragt_letzte_antwort_keine_frage():
+    store = InMemoryStateStore()
+    llm = FakeLLM({
+        "a": [ExtractionCandidate("prozess_name", "Freigabe"),
+              ExtractionCandidate("ausloeser", "Antrag geht ein"),
+              ExtractionCandidate("haeufigkeit", "100 mal")],
+    })
+    antwort = _turn(store, llm, TOY_PROZESS, "s1", "m1", "a")
+    assert antwort["status"] == "fertig"
+    assert zuletzt_gefragt(store.load("s1")) is None
+
+
+def test_zuletzt_gefragt_antwort_ohne_payload():
+    state = SessionState(session_id="s1", schema_version="0.1")
+    state.raw_log.append(("m1", "hallo"))
+    state.antworten["m1"] = {"status": "frage"}
+    assert zuletzt_gefragt(state) is None
+
+
+def test_zuletzt_gefragt_nach_json_rundreise():
+    store = InMemoryStateStore()
+    llm = FakeLLM({"a": [ExtractionCandidate("prozess_name", "Freigabe")]})
+    _turn(store, llm, TOY_PROZESS, "s1", "m1", "a")
+    _turn(store, llm, TOY_PROZESS, "s1", "m2", "b")
+    dritte = _turn(store, llm, TOY_PROZESS, "s1", "m3", "c")
+    daten = json.loads(json.dumps(state_to_dict(store.load("s1"))))
+    daten["antworten"] = dict(reversed(list(daten["antworten"].items())))
+    state = state_from_dict(daten)
+    state.raw_log.append(("m4", "d"))
+    assert zuletzt_gefragt(state) == dritte["payload"]["feld"]
