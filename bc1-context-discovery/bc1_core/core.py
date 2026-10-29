@@ -47,6 +47,8 @@ def pruefe_anfrage(state: SessionState, anfrage_id: str) -> None:
             f"der Dienst laeuft mit {anfrage_id}")
 
 def zuletzt_gefragt(state: SessionState) -> str | None:
+    """Feld der zuletzt beantworteten Frage oder None; unbeantwortete
+    Einträge im raw_log werden übersprungen."""
     for mid, _ in reversed(state.raw_log):
         if mid in state.antworten:
             antwort = state.antworten[mid]
@@ -177,7 +179,10 @@ def process_turn(store: StateStore, llm: LLMClient, package: UseCasePackage,
     state.rounds += 1
     try:
         vorher = werte_schnappschuss(state)
-        extract_and_merge(state, message, message_id, package, llm)
+        feld = zuletzt_gefragt(state)
+        gefragt = package.field(feld) if feld else None
+        extract_and_merge(state, message, message_id, package, llm,
+                          gefragt=gefragt)
         conf = confidence_check(state, package)
         decision = decide_next(state, package, conf)
         if decision.ergebnis is not Ergebnis.WEITER:

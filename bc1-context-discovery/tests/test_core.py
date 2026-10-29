@@ -3,7 +3,8 @@ from dataclasses import replace
 
 import pytest
 
-from bc1_core.types import SessionState, SessionStatus
+from bc1_core.feldtypen import ANZAHL, MINUTEN, SKALA_1_5
+from bc1_core.types import FieldStatus, SessionState, SessionStatus
 from bc1_core.package import TOY_PROZESS, FieldSpec, UseCasePackage
 from bc1_core.dialog import MAX_ROUNDS
 from bc1_core.store import InMemoryStateStore
@@ -814,3 +815,127 @@ def test_zuletzt_gefragt_nach_json_rundreise():
     state = state_from_dict(daten)
     state.raw_log.append(("m4", "d"))
     assert zuletzt_gefragt(state) == dritte["payload"]["feld"]
+
+
+KURZ_PAKET = UseCasePackage(
+    name="kurz", schema_version="0.1",
+    fields=(FieldSpec("name", "Wie heißt der Prozess?"),
+            FieldSpec("note", "Wie gut ist es (1-5)?", typ=SKALA_1_5)),
+)
+
+
+def test_turn_nutzt_zuletzt_gefragtes_feld():
+    store = InMemoryStateStore()
+    llm = FakeLLM({"Freigabe": [ExtractionCandidate("name", "Freigabe")]})
+    erste = _turn(store, llm, KURZ_PAKET, "s1", "m1", "Freigabe")
+    assert erste["payload"]["feld"] == "note"
+    _turn(store, llm, KURZ_PAKET, "s1", "m2", "4")      # FakeLLM ohne Kandidaten
+    fv = store.load("s1").values["note"]
+    assert fv.value == "4"
+    assert fv.status is FieldStatus.GUELTIG
+
+
+def test_schrittdauer_kurzantwort_laesst_gesamtdauer():
+    paket = UseCasePackage(
+        name="dauer", schema_version="0.1",
+        fields=(FieldSpec("gesamtdauer", "Wie lange dauert alles?",
+                          typ=MINUTEN),
+                FieldSpec("schrittdauer", "Wie lange dauert der Schritt?",
+                          typ=MINUTEN)),
+    )
+    store = InMemoryStateStore()
+    llm = FakeLLM({
+        "40 Stunden": [ExtractionCandidate("gesamtdauer", "40 Stunden")],
+        "3 Stunden": [ExtractionCandidate("gesamtdauer", "3 Stunden")],
+    })
+    erste = _turn(store, llm, paket, "s1", "m1", "40 Stunden")
+    assert erste["payload"]["feld"] == "schrittdauer"
+    _turn(store, llm, paket, "s1", "m2", "3 Stunden")   # KI irrt sich
+    werte = store.load("s1").values
+    assert werte["schrittdauer"].value == "180"
+    assert werte["gesamtdauer"].value == "2400"
+    assert werte["schrittdauer"].status is FieldStatus.GUELTIG
+    assert werte["gesamtdauer"].status is FieldStatus.GUELTIG
+
+
+def test_telefonnummer_auf_anzahl_frage_keine_kurzform():
+    paket = UseCasePackage(
+        name="anzahl", schema_version="0.1",
+        fields=(FieldSpec("name", "Wie heißt der Prozess?"),
+                FieldSpec("menge", "Wie viele?", typ=ANZAHL)),
+    )
+    store = InMemoryStateStore()
+    llm = FakeLLM({"Freigabe": [ExtractionCandidate("name", "Freigabe")]})
+    erste = _turn(store, llm, paket, "s1", "m1", "Freigabe")
+    assert erste["payload"]["feld"] == "menge"
+    _turn(store, llm, paket, "s1", "m2", "015112345678")
+    state = store.load("s1")
+    assert "menge" not in state.values or state.values["menge"].value is None
+    assert state.raw_log[-1] == ("m2", "[Telefon A]")
+
+
+def test_fortsetzen_nach_absturz_nutzt_geloggten_text():
+    store = CrashtBeimZweitenSave()
+    llm = FakeLLM({"Freigabe": [ExtractionCandidate("name", "Freigabe")]})
+    _turn(store, llm, KURZ_PAKET, "s1", "m1", "Freigabe")
+    store.scharf = True
+    with pytest.raises(RuntimeError):
+        _turn(store, llm, KURZ_PAKET, "s1", "m2", "4")
+    store.scharf = False
+    _turn(store, llm, KURZ_PAKET, "s1", "m2", "abweichender Retry-Body")
+    state = store.load("s1")
+    assert state.raw_log[-1] == ("m2", "4")
+    assert state.values["note"].value == "4"
+    assert state.values["note"].status is FieldStatus.GUELTIG
+
+
+def test_fehler_bei_antwortformulierung_dann_kurzantwort():
+    store = InMemoryStateStore()
+    llm = FakeLLM({"Freigabe": [ExtractionCandidate("name", "Freigabe")]})
+    _turn(store, llm, KURZ_PAKET, "s1", "m1", "Freigabe")
+    r = _turn(store, _WerfendesLLM(), KURZ_PAKET, "s1", "m2", "4")
+    assert r["status"] == "fehler_fortsetzbar"
+    assert store.load("s1").values["note"].value is None
+    _turn(store, FakeLLM(), KURZ_PAKET, "s1", "m2", "4")      # Retry
+    fv = store.load("s1").values["note"]
+    assert fv.value == "4"
+    assert fv.status is FieldStatus.GUELTIG
+
+
+class _KeineKIErlaubt(FakeLLM):
+    """Wirft in extract UND antworte: jeder KI-Aufruf lässt den Test scheitern."""
+    def extract(self, message, package, state):
+        raise RuntimeError("KI darf nicht gefragt werden")
+
+    def antworte(self, kontext):
+        raise RuntimeError("KI darf nicht gefragt werden")
+
+
+def test_replay_einer_kurzantwort_extrahiert_nicht_neu():
+    # Ein drittes Pflichtfeld hält die Sitzung nach der Kurzantwort offen —
+    # sonst fängt schon der Abschluss-Zweig den Replay ab.
+    paket = replace(KURZ_PAKET, fields=KURZ_PAKET.fields
+                    + (FieldSpec("zusatz", "Was noch?"),))
+    store = InMemoryStateStore()
+    llm = FakeLLM({"Freigabe": [ExtractionCandidate("name", "Freigabe")]})
+    _turn(store, llm, paket, "s1", "m1", "Freigabe")
+    erst = _turn(store, llm, paket, "s1", "m2", "4")
+    assert erst["status"] == "frage"
+    vorher = store.load("s1")
+    nochmal = _turn(store, _KeineKIErlaubt(), paket, "s1", "m2", "4")
+    assert nochmal == erst
+    nachher = store.load("s1")
+    assert nachher.rounds == vorher.rounds
+    assert state_to_dict(nachher)["values"] == state_to_dict(vorher)["values"]
+
+
+def test_nachricht_nach_abschluss_extrahiert_nicht():
+    store = InMemoryStateStore()
+    llm = FakeLLM({"Freigabe": [ExtractionCandidate("name", "Freigabe")]})
+    _turn(store, llm, KURZ_PAKET, "s1", "m1", "Freigabe")
+    fertig = _turn(store, llm, KURZ_PAKET, "s1", "m2", "4")
+    assert fertig["status"] == "fertig"
+    vorher = state_to_dict(store.load("s1"))["values"]
+    r = _turn(store, _KeineKIErlaubt(), KURZ_PAKET, "s1", "m3", "5")
+    assert r == fertig
+    assert state_to_dict(store.load("s1"))["values"] == vorher
