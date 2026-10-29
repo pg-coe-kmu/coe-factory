@@ -176,6 +176,44 @@ def test_auswahl_namen_mehrdeutig_oder_leer():
     assert AUSWAHL("A", "B").normalisiere("a.") == "A"
 
 
+def test_auswahl_optionen_mit_gleichem_schluessel_werden_nicht_uebersetzt():
+    # Zwei verschiedene Optionen, derselbe Vergleichsschluessel: mehrdeutig, also keine
+    # stille Wahl (heute gewinnt die spaetere) — die Eingabe bleibt, ungueltig -> Nachfrage.
+    typ = AUSWAHL("a_b", "a-b")
+    assert typ.normalisiere("a b") == "a b"
+    assert typ.kurzform("a b") is None
+    assert typ.validator("a b") is False
+    # die exakten Optionen bleiben gueltig
+    assert typ.normalisiere("a_b") == "a_b"
+    assert typ.normalisiere("a-b") == "a-b"
+
+
+def test_auswahl_name_darf_keinen_mehrdeutigen_options_schluessel_besetzen():
+    # Der Schluessel zweier Optionen bleibt ohne Uebersetzung — auch ein Name
+    # mit demselben Schluessel macht ihn nicht eindeutig.
+    typ = AUSWAHL("a_b", "a-b", namen={"a_b": "A B"})
+    assert typ.normalisiere("a b") == "a b"
+    assert typ.normalisiere("A B") == "A B"
+
+
+def test_auswahl_eingabe_mit_fragezeichen_loest_nie_auf_auch_nicht_ueber_einen_namen():
+    # Spec 3.1 gilt auch, wenn ein Name oder Synonym selbst ein „?“ traegt.
+    typ = AUSWAHL("a", "b", namen={"a": "Was?"}, synonyme={"b": ("Wie?",)})
+    for eingabe in ("Was?", "was?", "Wie?"):
+        assert typ.normalisiere(eingabe) == eingabe, eingabe
+        assert typ.kurzform(eingabe) is None, eingabe
+    assert typ.normalisiere("a") == "a"
+
+
+def test_auswahl_namen_und_synonyme_fremder_optionen_zaehlen_nicht():
+    # Ein Eintrag, dessen Schluessel keine der Optionen ist, kommt nicht in die Tabelle.
+    typ = AUSWAHL("a", "b", namen={"zzz": "Fremd"}, synonyme={"yyy": ("Anders",)})
+    assert typ.normalisiere("Fremd") == "Fremd"
+    assert typ.kurzform("Fremd") is None
+    assert typ.normalisiere("Anders") == "Anders"
+    assert typ.normalisiere("a") == "a"
+
+
 def test_auswahl_prueft_nur_optionen():
     # (Regression) Namen werden nur uebersetzt; gueltig bleiben allein die Kennungen.
     typ = AUSWAHL("R-01", namen={"R-01": "Geschäftsführung"})

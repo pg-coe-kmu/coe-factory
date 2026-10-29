@@ -294,7 +294,12 @@ def AUSWAHL(*optionen: str, namen: Mapping[str, str] | None = None,
     """Fabrik: Auswahl-Typ mit kanonischen Optionen (case-insensitiv)."""
     # Treffertabelle Schluessel -> Option: Optionen zuerst (die Kennung gewinnt),
     # dann die Namen.
-    treffer = {_schluessel(option): option for option in optionen}
+    optionen_je_schluessel: dict[str, set[str]] = {}
+    for option in optionen:
+        optionen_je_schluessel.setdefault(_schluessel(option), set()).add(option)
+    treffer = {schluessel: next(iter(moegliche))
+               for schluessel, moegliche in optionen_je_schluessel.items()
+               if len(moegliche) == 1}
     # Ein Schluessel, der zwei verschiedene Optionen traefe, und leere Namen
     # werden nicht uebersetzt.
     kandidaten: dict[str, set[str]] = {}
@@ -302,16 +307,20 @@ def AUSWAHL(*optionen: str, namen: Mapping[str, str] | None = None,
     for option, woerter in (synonyme or {}).items():
         benennungen += [(option, wort) for wort in woerter]
     for option, name in benennungen:
-        if _schluessel(name):
+        if option in optionen and _schluessel(name):
             kandidaten.setdefault(_schluessel(name), set()).add(option)
     for schluessel, moegliche in kandidaten.items():
-        if len(moegliche) == 1:
+        if len(moegliche) == 1 and len(optionen_je_schluessel.get(schluessel, ())) < 2:
             treffer.setdefault(schluessel, next(iter(moegliche)))
 
     def _normalisiere(wert: str) -> str:
+        if "?" in wert:
+            return wert
         return treffer.get(_schluessel(wert), wert)
 
     def _kurzform(wert: str) -> str | None:
+        if "?" in wert:
+            return None
         kern = wert.strip()
         if kern[-1:] in (".", "!"):
             kern = kern[:-1]
