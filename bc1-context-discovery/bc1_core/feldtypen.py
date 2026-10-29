@@ -200,6 +200,22 @@ def _kurzform_prozent(wert: str) -> str | None:
     return treffer.group(1) if treffer else None
 
 
+def _kurzform_minuten(wert: str) -> str | None:
+    treffer = re.fullmatch(
+        rf"(?:{_NAEHERUNGSWOERTER})?({_ZAHL_TOKEN})\s*"
+        r"(minuten?|min|stunden?|std|h)[.!]?",
+        wert.strip(), re.IGNORECASE)
+    return f"{treffer.group(1)} {treffer.group(2)}" if treffer else None
+
+
+def _kurzform_haeufigkeit(wert: str) -> str | None:
+    treffer = re.fullmatch(
+        rf"(?:{_NAEHERUNGSWOERTER})?({_ZAHL_TOKEN})(?:(?:\s*|-)mal)?"
+        r"\s+(?:pro|im|je)\s+(woche|monat|jahr)[.!]?",
+        wert.strip(), re.IGNORECASE)
+    return f"{treffer.group(1)} pro {treffer.group(2).capitalize()}" if treffer else None
+
+
 def _ist_prozent(wert: str) -> bool:
     return _nur_zahl(wert) and 0 <= _zahl_aus_token(wert.strip()) <= 100
 
@@ -223,8 +239,10 @@ def _ist_nichtnegative_zahl(wert: str) -> bool:
     return math.isfinite(zahl) and zahl >= 0
 
 
-ZAHL = Feldtyp("zahl", _ist_nichtnegative_zahl, _normalisiere_zahl)
-MINUTEN = Feldtyp("minuten", _ist_nichtnegative_zahl, _normalisiere_minuten)
+ZAHL = Feldtyp("zahl", _ist_nichtnegative_zahl, _normalisiere_zahl,
+               kurzform=_kurzform_haeufigkeit)
+MINUTEN = Feldtyp("minuten", _ist_nichtnegative_zahl, _normalisiere_minuten,
+                  kurzform=_kurzform_minuten)
 ANZAHL = Feldtyp("anzahl", _ist_nichtnegative_zahl, _normalisiere_anzahl,
                  kurzform=_kurzform_anzahl)
 SKALA_1_5 = Feldtyp("skala_1_5", _ist_skala, lambda w: w.strip(),

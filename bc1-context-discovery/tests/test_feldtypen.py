@@ -478,3 +478,64 @@ def test_anzahl_kennt_alle_naeherungswoerter(wort):
 ])
 def test_kurzform_prozent(eingabe, erwartet):
     assert PROZENT_0_100.kurzform(eingabe) == erwartet
+
+
+@pytest.mark.parametrize("eingabe, rein, minuten", [
+    ("3 Stunden", "3 Stunden", "180"), ("ca 90 Min.", "90 Min", "90"),
+    ("45min", "45 min", "45"), ("1,5h", "1,5 h", "90"),
+    ("40 Stunden", "40 Stunden", "2400"),
+    ("im Schnitt 2 Std.", "2 Std", "120"),
+    ("circa 3 Stunden", "3 Stunden", "180"),
+    ("ungefähr 3 Stunden", "3 Stunden", "180"),
+    ("ungefaehr 3 Stunden", "3 Stunden", "180"),
+    ("rund 3 Stunden", "3 Stunden", "180"),
+    ("durchschnittlich 3 Stunden", "3 Stunden", "180"),
+    ("etwa 3 Stunden", "3 Stunden", "180"),
+    ("3", None, None), ("40", None, None), ("90 min..", None, None),
+    ("2 Std.!", None, None),
+    ("Der Prozess dauert 3 Stunden.", None, None),
+    ("nicht 3 Stunden", None, None), ("3 Stunden?", None, None),
+    ("1 Stunde 30 Minuten", None, None),
+    ("3 Stunden, der Gesamtprozess dauert aber eine Woche", None, None),
+])
+def test_kurzform_minuten(eingabe, rein, minuten):
+    assert MINUTEN.kurzform(eingabe) == rein
+    if rein is not None:
+        assert MINUTEN.normalisiere(rein) == minuten
+
+
+@pytest.mark.parametrize("eingabe, rein, jahr", [
+    ("2 pro Monat", "2 pro Monat", "24"),
+    ("2 mal im Monat", "2 pro Monat", "24"),
+    ("2mal im Monat", "2 pro Monat", "24"),
+    ("2mal pro Woche", "2 pro Woche", "104"),
+    ("2-mal je Jahr", "2 pro Jahr", "2"),
+    ("etwa 4 pro Monat", "4 pro Monat", "48"),
+    ("ca. 4 pro Monat", "4 pro Monat", "48"),
+    ("ca 4 pro Monat", "4 pro Monat", "48"),
+    ("circa 4 pro Monat", "4 pro Monat", "48"),
+    ("ungefähr 4 pro Monat", "4 pro Monat", "48"),
+    ("ungefaehr 4 pro Monat", "4 pro Monat", "48"),
+    ("rund 4 pro Monat", "4 pro Monat", "48"),
+    ("im Schnitt 4 pro Monat", "4 pro Monat", "48"),
+    ("durchschnittlich 4 pro Monat", "4 pro Monat", "48"),
+    ("2", None, None), ("2 pro Tag", None, None),
+    ("2 mal pro Monat, im Dezember mehr", None, None),
+    ("Der Gesamtprozess läuft 2 mal pro Monat", None, None),
+    ("2 pro Monat?", None, None), ("2 pro Monat..", None, None),
+])
+def test_kurzform_haeufigkeit(eingabe, rein, jahr):
+    assert ZAHL.kurzform(eingabe) == rein
+    if rein is not None:
+        assert ZAHL.normalisiere(rein) == jahr
+
+
+@pytest.mark.parametrize("typ", [
+    JA_NEIN, SKALA_1_5, AUSWAHL("a"), ANZAHL, PROZENT_0_100, MINUTEN, ZAHL,
+])
+@pytest.mark.parametrize("eingabe", [
+    "", "\n", "9" * 400, "9" * 400 + " Stunden", "äöü?…", "1.000.000 pro Jahr",
+])
+def test_kurzformen_sind_total(typ, eingabe):
+    ergebnis = typ.kurzform(eingabe)
+    assert ergebnis is None or isinstance(ergebnis, str)
