@@ -455,3 +455,26 @@ def test_kurzform_auswahl(eingabe, erwartet):
 ])
 def test_kurzform_anzahl(eingabe, erwartet):
     assert ANZAHL.kurzform(eingabe) == erwartet
+
+
+@pytest.mark.parametrize("wort", [
+    "etwa", "ca.", "ca", "circa", "ungefähr", "ungefaehr", "rund",
+    "im Schnitt", "durchschnittlich",
+])
+def test_anzahl_kennt_alle_naeherungswoerter(wort):
+    assert ANZAHL.normalisiere(f"{wort} 3") == "3"
+    assert ANZAHL.kurzform(f"{wort} 3") == "3"
+
+
+@pytest.mark.parametrize("eingabe, erwartet", [
+    ("70", "70"), ("ca. 70 %", "70"), ("70%", "70"), ("70 Prozent", "70"),
+    ("70.", "70"), ("im Schnitt 70 %", "70"),
+    ("circa 70", "70"), ("ungefähr 70", "70"), ("ungefaehr 70", "70"),
+    ("rund 70", "70"), ("durchschnittlich 70", "70"), ("etwa 70", "70"),
+    ("ca 70", "70"),
+    ("150 %", "150"), ("70,5 %", "70,5"),
+    ("70 bis 80", None), ("70?", None), ("etwa 70 bis 80 %", None),
+    ("70 %..", None),
+])
+def test_kurzform_prozent(eingabe, erwartet):
+    assert PROZENT_0_100.kurzform(eingabe) == erwartet

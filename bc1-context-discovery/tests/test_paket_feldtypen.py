@@ -1,7 +1,16 @@
+from bc1_core.feldtypen import PROZENT_0_100
 from bc1_service.paket_feldtypen import (PROZENT_GANZ_0_100, baue_system_typ,
                                          entferne_snn, kanonisiere_snn, snn_tokens)
 
 BEKANNT = frozenset({"S-01", "S-02"})
+
+
+def test_prozent_ganz_teilt_die_kurzform():
+    assert PROZENT_GANZ_0_100.kurzform is PROZENT_0_100.kurzform
+
+
+def test_systemtyp_hat_keine_kurzform():
+    assert baue_system_typ(frozenset({"S-01"})).kurzform is None
 
 
 def test_erkennt_eingebettete_und_kleingeschriebene_ids():

@@ -123,8 +123,11 @@ def _normalisiere_minuten(wert: str) -> str:
 # fullmatch — jede Periode ("pro Woche", "im Monat"), Einheit oder zweite Zahl
 # bleibt damit unpassend und faellt in der Validierung durch. Seit 25.10. (C1a (4b)):
 # „ca" auch ohne Punkt, am Ende hoechstens ein „." oder „!" — „?" bleibt eine Nachfrage.
+_NAEHERUNGSWOERTER = (
+    r"(?:etwa|ca\.?|circa|ungefähr|ungefaehr|rund|im schnitt|durchschnittlich)\s+"
+)
 _ANZAHL_MUSTER = re.compile(
-    rf"\s*(?:(?:etwa|ca\.?|circa|ungefähr|ungefaehr|rund|im schnitt|durchschnittlich)\s+)?"
+    rf"\s*(?:{_NAEHERUNGSWOERTER})?"
     rf"({_ZAHL_TOKEN})"
     rf"(?:\s+(?:fall|fälle|faelle|vorgang|vorgänge|vorgaenge|stück|stueck))?"
     rf"(?:\s+(?:je|pro)\s+durchlauf)?[.!]?\s*", re.IGNORECASE)
@@ -190,6 +193,13 @@ def _kurzform_skala(wert: str) -> str | None:
     return treffer.group(1) if treffer else None
 
 
+def _kurzform_prozent(wert: str) -> str | None:
+    treffer = re.fullmatch(
+        rf"(?:{_NAEHERUNGSWOERTER})?({_ZAHL_TOKEN})(?:\s*%|\s+prozent)?[.!]?",
+        wert.strip(), re.IGNORECASE)
+    return treffer.group(1) if treffer else None
+
+
 def _ist_prozent(wert: str) -> bool:
     return _nur_zahl(wert) and 0 <= _zahl_aus_token(wert.strip()) <= 100
 
@@ -219,7 +229,8 @@ ANZAHL = Feldtyp("anzahl", _ist_nichtnegative_zahl, _normalisiere_anzahl,
                  kurzform=_kurzform_anzahl)
 SKALA_1_5 = Feldtyp("skala_1_5", _ist_skala, lambda w: w.strip(),
                     kurzform=_kurzform_skala)
-PROZENT_0_100 = Feldtyp("prozent_0_100", _ist_prozent, _normalisiere_prozent)
+PROZENT_0_100 = Feldtyp("prozent_0_100", _ist_prozent, _normalisiere_prozent,
+                        kurzform=_kurzform_prozent)
 JA_NEIN = Feldtyp("ja_nein", lambda w: w in ("ja", "nein"), _normalisiere_ja_nein,
                   kurzform=_kurzform_ja_nein)
 LISTE = Feldtyp("liste", lambda w: bool(w.strip()), _normalisiere_liste)
