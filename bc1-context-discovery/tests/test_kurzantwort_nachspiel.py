@@ -55,6 +55,69 @@ KURZ_TURNS = [
 ]
 
 
+class _ZaehlendesLLM(FakeLLM):
+    def __init__(self, extractions):
+        super().__init__(extractions)
+        self.nachrichten = []
+
+    def extract(self, message, package, state):
+        self.nachrichten.append(message)
+        return super().extract(message, package, state)
+
+
+def _bis_vor(gefragt, llm, store):
+    """Spielt Start und Kurzantworten, bis `gefragt` das gefragte Feld ist."""
+    paket = baue_discovery_paket(kontext=KONTEXT)
+    antwort = process_turn(store, llm, paket, "s1", "m-start", START,
+                           company_id=MANDANT)
+    for nr, (feld, text, _erwartet) in enumerate(KURZ_TURNS):
+        if feld == gefragt:
+            break
+        antwort = process_turn(store, llm, paket, "s1", f"m-{nr}", text,
+                               company_id=MANDANT)
+    assert antwort["payload"]["feld"] == gefragt
+    return paket
+
+
+def _skript(extra=()):
+    return {
+        START: [ExtractionCandidate(name, wert) for name, wert in START_FELDER.items()],
+        ROLLEN_TEXT: [ExtractionCandidate("focus_step_roles", "Leitung, Fachbereich")],
+        "S-01, S-02": [ExtractionCandidate("focus_step_systems", "S-01, S-02")],
+        **dict(extra),
+    }
+
+
+def test_nachspiel_generalprobe2_natuerlich():
+    # Spec 7.8: ein Teilprozessname auf die E5-Frage landet ohne KI als Kennung.
+    llm = _ZaehlendesLLM(_skript())
+    store = InMemoryStateStore()
+    paket = _bis_vor("focus_step", llm, store)
+    antwort = process_turn(store, llm, paket, "s1", "m-e5", "Erfassen",
+                           company_id=MANDANT)
+    assert "Erfassen" not in llm.nachrichten
+    assert store.load("s1").values["focus_step"].value == "KP-01.TP-1"
+    assert antwort["payload"]["feld"] == "focus_step_duration_minutes"
+
+    # F3 „Ja Systeme wechseln“: bringt die KI „ja“, gilt „ja“ ...
+    satz = "Ja Systeme wechseln"
+    llm = _ZaehlendesLLM(_skript({satz: [ExtractionCandidate("focus_step_media_break", "ja")]}))
+    store = InMemoryStateStore()
+    paket = _bis_vor("focus_step_media_break", llm, store)
+    process_turn(store, llm, paket, "s1", "m-f3", satz, company_id=MANDANT)
+    feld = store.load("s1").values["focus_step_media_break"]
+    assert (feld.status, feld.value) == (FieldStatus.GUELTIG, "ja")
+
+    # ... reicht sie den Satz woertlich durch, entsteht eine Nachfrage, kein Wert.
+    llm = _ZaehlendesLLM(_skript({satz: [ExtractionCandidate("focus_step_media_break", satz)]}))
+    store = InMemoryStateStore()
+    paket = _bis_vor("focus_step_media_break", llm, store)
+    antwort = process_turn(store, llm, paket, "s1", "m-f3", satz, company_id=MANDANT)
+    assert antwort["status"] == "frage"
+    assert antwort["payload"]["feld"] == "focus_step_media_break"
+    assert store.load("s1").values["focus_step_media_break"].status is FieldStatus.UNGUELTIG
+
+
 def test_nachspiel_kurzantworten_fuellen_alle_pflichtfelder():
     paket = baue_discovery_paket(kontext=KONTEXT)
     llm = FakeLLM({

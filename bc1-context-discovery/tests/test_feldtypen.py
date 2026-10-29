@@ -247,6 +247,43 @@ def test_mehr_zahlen_input_bleibt_unveraendert_und_ist_ungueltig():
     assert MINUTEN.normalisiere("1,5 h") == "90"
 
 
+def test_minuten_liest_keine_zahl_aus_saetzen():
+    # Spec 3.4: Saetze mit Zahl und Einheit bleiben unveraendert (ungueltig -> Nachfrage).
+    for satz in ("1 Stunde und zehn Minuten", "nicht 3 Stunden", "unter 1 Stunde",
+                 "mehr als 2 Stunden", "30 Minuten pro Lead", "so 45 Minuten",
+                 "meistens 20 Minuten", "2 Stunden bei uns"):
+        assert MINUTEN.normalisiere(satz) == satz, satz
+        assert MINUTEN.validator(satz) is False, satz
+
+
+def test_minuten_eindeutige_formen_bleiben():
+    # (Regression) Spec 3.4
+    for eingabe, erwartet in [
+        ("1,5h", "90"), ("45min", "45"), ("40", "40"), ("ca. 2 Std.", "120"),
+        ("3 Stunden", "180"), ("90 Minuten", "90"),
+    ]:
+        assert MINUTEN.normalisiere(eingabe) == erwartet, eingabe
+        assert MINUTEN.validator(MINUTEN.normalisiere(eingabe)) is True, eingabe
+
+
+def test_prozent_liest_keine_zahl_aus_saetzen():
+    # Spec 3.4
+    for satz in ("zu 70 Prozent sicher", "70 Prozent sicher", "ca. 70 % der Faelle",
+                 "so 70"):
+        assert PROZENT_0_100.normalisiere(satz) == satz, satz
+        assert PROZENT_0_100.validator(satz) is False, satz
+
+
+def test_prozent_eindeutige_formen_bleiben():
+    # (Regression) Spec 3.4
+    for eingabe, erwartet in [
+        ("70", "70"), ("70 %", "70"), ("70%", "70"), ("70 Prozent", "70"), ("70.", "70"),
+        ("ca. 70 %", "70"), ("1,5%", "1.5"),
+    ]:
+        assert PROZENT_0_100.normalisiere(eingabe) == erwartet, eingabe
+        assert PROZENT_0_100.validator(PROZENT_0_100.normalisiere(eingabe)) is True, eingabe
+
+
 def test_normalisierer_sind_total_und_werfen_nie():
     riesenzahl = "9" * 400
     for typ in (ZAHL, MINUTEN, SKALA_1_5, PROZENT_0_100, JA_NEIN, LISTE, FREITEXT):
@@ -778,6 +815,23 @@ def test_normalisierer_umfasst_kurzform(typ, eingabe):
     else:
         # z. B. „150 %“ -> „150“: der Pruefer lehnt ab, also bleibt auch der Rohtext ungueltig.
         assert not typ.validator(ergebnis), (eingabe, ergebnis)
+
+
+@pytest.mark.parametrize("typ", [ZAHL, MINUTEN, ANZAHL, PROZENT_0_100, SKALA_1_5])
+@pytest.mark.parametrize("eingabe", [
+    "", "\n", "9" * 400, "9" * 400 + " Stunden", "9" * 400 + " pro Jahr",
+    "9" * 400 + " %", "9" * 400 + " Minuten", "9" * 309 + ",25 pro Woche", "äöü?…", "1.000.000 pro Jahr",
+    "1.000.000 Minuten", "ä", "ä", "5 Stunden̈",
+])
+def test_strenge_normalisierer_sind_total(typ, eingabe):
+    # Spec 3.4: die geschlossenen Grammatiken werfen nie; Riesenzahlen (inf) und
+    # Ueberlauf nach der Multiplikation bleiben unveraendert und ungueltig.
+    ergebnis = typ.normalisiere(eingabe)
+    assert isinstance(ergebnis, str)
+    assert isinstance(typ.validator(ergebnis), bool)
+    if eingabe.startswith("9" * 400):
+        assert ergebnis == eingabe
+        assert typ.validator(ergebnis) is False
 
 
 def test_antwortform_ja_nein_skala_anzahl():

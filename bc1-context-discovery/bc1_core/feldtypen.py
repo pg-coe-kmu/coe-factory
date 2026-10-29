@@ -88,19 +88,19 @@ def _normalisiere_zahl(wert: str) -> str:
 
 
 def _normalisiere_minuten(wert: str) -> str:
+    # Spec 3.4: nur die GANZE Eingabe in der geschlossenen Grammatik; sonst unveraendert.
+    treffer = _MINUTEN_MUSTER.fullmatch(wert.strip())
+    if treffer:
+        zahl = _zahl_aus_token(treffer.group(1))
+        if treffer.group(2).lower().startswith("m"):
+            return _formatiere(zahl) if math.isfinite(zahl) else wert
+        produkt = zahl * 60
+        return _formatiere(produkt) if math.isfinite(produkt) else wert
+    # Nackte Zahl (Vertrag E1: „40“ = Minuten).
     zahl = _zahl_in(wert)
     if zahl is None:
         return wert
-    text = wert.lower()
-    # Codex Minor: Einheit direkt an die Zahl angehängt ("1,5h", "45min") hat
-    # keine \b-Wortgrenze zwischen Ziffer und Buchstabe — zusätzlich per
-    # Lookbehind auf eine direkt vorangehende Ziffer matchen.
-    if re.search(r"(?:\b|(?<=\d))(stunden?|std\.?|h)\b", text):
-        produkt = zahl * 60
-        return _formatiere(produkt) if math.isfinite(produkt) else wert
-    if re.search(r"(?:\b|(?<=\d))(minuten?|min\.?)\b", text) or _nur_zahl(wert):
-        return _formatiere(zahl)
-    return wert
+    return _formatiere(zahl) if _nur_zahl(wert) else wert
 
 
 # Näherungswörter, gemeinsam für ANZAHL und die Kurzformen.
@@ -113,6 +113,11 @@ _NAEHERUNGSWOERTER = (
 _HAEUFIGKEIT_MUSTER = re.compile(
     rf"(?:{_NAEHERUNGSWOERTER})?({_ZAHL_TOKEN})(?:(?:\s*|-)(?:mal|x))?"
     r"(?:\s+(?:pro|im|je|in\s+der|die|den|das)\s+|\s*/\s*)(woche|monat|jahr)[.!]?",
+    re.IGNORECASE)
+# Spec 3.4: EINE Grammatik fuer Dauer mit Einheit (ganze Eingabe, `fullmatch`), gemeinsam
+# fuer Kurzform und Normalisierer; die nackte Zahl (Vertrag E1) nimmt nur der Normalisierer.
+_MINUTEN_MUSTER = re.compile(
+    rf"(?:{_NAEHERUNGSWOERTER})?({_ZAHL_TOKEN})\s*(minuten?|min|stunden?|std|h)[.!]?",
     re.IGNORECASE)
 # Reine Anzahl ohne Periode (z. B. Faelle je Durchlauf): ein einziges Muster per
 # fullmatch — jede Periode ("pro Woche", "im Monat"), Einheit oder zweite Zahl
@@ -221,10 +226,7 @@ def _kurzform_prozent(wert: str) -> str | None:
 
 
 def _kurzform_minuten(wert: str) -> str | None:
-    treffer = re.fullmatch(
-        rf"(?:{_NAEHERUNGSWOERTER})?({_ZAHL_TOKEN})\s*"
-        r"(minuten?|min|stunden?|std|h)[.!]?",
-        wert.strip(), re.IGNORECASE)
+    treffer = _MINUTEN_MUSTER.fullmatch(wert.strip())
     return f"{treffer.group(1)} {treffer.group(2)}" if treffer else None
 
 
