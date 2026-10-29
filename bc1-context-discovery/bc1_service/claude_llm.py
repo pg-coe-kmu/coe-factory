@@ -22,6 +22,7 @@ from bc1_service.prompts import (
     EXTRAKTIONS_SCHEMA,
     SYSTEM_EXTRAKTION,
     SYSTEM_GESPRAECH,
+    extraktions_nutzer_prompt,
     gespraech_nutzer_prompt,
 )
 
@@ -48,7 +49,6 @@ class ClaudeLLM:
     def extract(
         self, message: str, package: UseCasePackage, state: SessionState
     ) -> list[ExtractionCandidate]:
-        felder = "\n".join(f"- {f.name}: {f.question}" for f in package.fields)
         antwort = self._client.messages.create(
             model=self._modell,
             max_tokens=4096,
@@ -61,11 +61,7 @@ class ClaudeLLM:
             },
             messages=[{
                 "role": "user",
-                "content": (
-                    f"Felder des Prozessprofils:\n{felder}\n\n"
-                    f"Interview-Nachricht:\n{message}\n\n"
-                    "Gib alle Feld-Wert-Paare zurück, die diese Nachricht belegt."
-                ),
+                "content": extraktions_nutzer_prompt(message, package, state),
             }],
         )
         daten = json.loads(self._text_inhalt(antwort))

@@ -26,6 +26,7 @@ from bc1_service.prompts import (
     EXTRAKTIONS_SCHEMA,
     SYSTEM_EXTRAKTION,
     SYSTEM_GESPRAECH,
+    extraktions_nutzer_prompt,
     gespraech_nutzer_prompt,
 )
 
@@ -84,14 +85,9 @@ class GeminiLLM:
     def extract(
         self, message: str, package: UseCasePackage, state: SessionState
     ) -> list[ExtractionCandidate]:
-        felder = "\n".join(f"- {f.name}: {f.question}" for f in package.fields)
         inhalt = self._generate(
             system=SYSTEM_EXTRAKTION,
-            nutzer=(
-                f"Felder des Prozessprofils:\n{felder}\n\n"
-                f"Interview-Nachricht:\n{message}\n\n"
-                "Gib alle Feld-Wert-Paare zurück, die diese Nachricht belegt."
-            ),
+            nutzer=extraktions_nutzer_prompt(message, package, state),
             json_schema=EXTRAKTIONS_SCHEMA,
         )
         daten = json.loads(inhalt)

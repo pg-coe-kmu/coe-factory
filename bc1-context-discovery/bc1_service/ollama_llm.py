@@ -22,6 +22,7 @@ from bc1_service.prompts import (
     EXTRAKTIONS_SCHEMA,
     SYSTEM_EXTRAKTION,
     SYSTEM_GESPRAECH,
+    extraktions_nutzer_prompt,
     gespraech_nutzer_prompt,
 )
 
@@ -38,17 +39,14 @@ class OllamaLLM:
     def extract(
         self, message: str, package: UseCasePackage, state: SessionState
     ) -> list[ExtractionCandidate]:
-        felder = "\n".join(f"- {f.name}: {f.question}" for f in package.fields)
         inhalt = self._chat(
             [
                 {"role": "system", "content": SYSTEM_EXTRAKTION},
                 {
                     "role": "user",
                     "content": (
-                        f"Felder des Prozessprofils:\n{felder}\n\n"
-                        f"Interview-Nachricht:\n{message}\n\n"
-                        "Gib alle Feld-Wert-Paare zurück, die diese Nachricht "
-                        "belegt — als JSON nach dem vorgegebenen Schema "
+                        extraktions_nutzer_prompt(message, package, state)
+                        + " Antworte als JSON nach dem vorgegebenen Schema "
                         "(extraktionen: Liste aus feld/wert)."
                     ),
                 },

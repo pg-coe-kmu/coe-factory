@@ -9,6 +9,7 @@ from bc1_core.gespraech import (
     baue_turn_kontext,
     werte_schnappschuss,
 )
+from bc1_core.feldtypen import JA_NEIN, LISTE
 from bc1_core.package import FieldSpec, UseCasePackage
 from bc1_core.types import Candidate, FieldStatus, FieldValue, SessionState
 
@@ -63,6 +64,28 @@ def test_nachfrage_flag_ab_zweitem_versuch():
     kontext2 = baue_turn_kontext("msg", {}, frisch, PAKET,
                                  confidence_check(frisch, PAKET), "menge", False)
     assert kontext2.ist_nachfrage is False
+
+
+def test_turn_kontext_antwortform_fuer_feste_typen():
+    paket = UseCasePackage(
+        name="form_test", schema_version="0.1",
+        fields=(FieldSpec("aktiv", "Ist es aktiv?", typ=JA_NEIN),))
+    state = _state()
+    kontext = baue_turn_kontext("msg", {}, state, paket,
+                                confidence_check(state, paket), "aktiv", False)
+    assert kontext.antwortform == "ja oder nein"
+
+
+def test_turn_kontext_antwortform_none_bei_freien_typen():
+    paket = UseCasePackage(
+        name="frei_test", schema_version="0.1",
+        fields=(FieldSpec("notiz", "Was noch?"),
+                FieldSpec("systeme", "Welche Systeme?", typ=LISTE)))
+    state = _state()
+    for feld in ("notiz", "systeme"):
+        kontext = baue_turn_kontext("msg", {}, state, paket,
+                                    confidence_check(state, paket), feld, False)
+        assert kontext.antwortform is None
 
 
 def test_abschluss_traegt_uebersicht_und_offene_fragen():
