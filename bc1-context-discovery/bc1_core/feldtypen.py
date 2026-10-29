@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import math
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable
 
 
@@ -23,6 +23,7 @@ class Feldtyp:
     validator: Callable[[str], bool]
     normalisiere: Callable[[str], str]
     kurzform: Callable[[str], str | None] | None = None
+    antwortform: str = field(kw_only=True)
 
 
 # Deutsche Tausendergruppierung (z. B. "1.000", "12.345,5") VOR der einfachen
@@ -245,19 +246,28 @@ def _ist_nichtnegative_zahl(wert: str) -> bool:
 
 
 ZAHL = Feldtyp("zahl", _ist_nichtnegative_zahl, _normalisiere_zahl,
-               kurzform=_kurzform_haeufigkeit)
+               kurzform=_kurzform_haeufigkeit,
+               antwortform="Zahl pro Woche, pro Monat oder pro Jahr, "
+                           "z. B. ‚2 pro Monat‘")
 MINUTEN = Feldtyp("minuten", _ist_nichtnegative_zahl, _normalisiere_minuten,
-                  kurzform=_kurzform_minuten)
+                  kurzform=_kurzform_minuten,
+                  antwortform="Dauer als Zahl mit ‚Minuten‘ oder ‚Stunden‘, "
+                              "z. B. ‚90 Minuten‘")
 ANZAHL = Feldtyp("anzahl", _ist_nichtnegative_zahl, _normalisiere_anzahl,
-                 kurzform=_kurzform_anzahl)
+                 kurzform=_kurzform_anzahl,
+                 antwortform="nur eine Zahl, ohne Einheit, z. B. ‚5‘")
 SKALA_1_5 = Feldtyp("skala_1_5", _ist_skala, lambda w: w.strip(),
-                    kurzform=_kurzform_skala)
+                    kurzform=_kurzform_skala,
+                    antwortform="eine Ziffer von 1 bis 5")
 PROZENT_0_100 = Feldtyp("prozent_0_100", _ist_prozent, _normalisiere_prozent,
-                        kurzform=_kurzform_prozent)
+                        kurzform=_kurzform_prozent,
+                        antwortform="Zahl von 0 bis 100")
 JA_NEIN = Feldtyp("ja_nein", lambda w: w in ("ja", "nein"), _normalisiere_ja_nein,
-                  kurzform=_kurzform_ja_nein)
-LISTE = Feldtyp("liste", lambda w: bool(w.strip()), _normalisiere_liste)
-FREITEXT = Feldtyp("freitext", lambda w: bool(w.strip()), lambda w: w)
+                  kurzform=_kurzform_ja_nein, antwortform="ja oder nein")
+LISTE = Feldtyp("liste", lambda w: bool(w.strip()), _normalisiere_liste,
+                antwortform="Liste, durch Kommas getrennt")
+FREITEXT = Feldtyp("freitext", lambda w: bool(w.strip()), lambda w: w,
+                   antwortform="Text")
 
 
 def AUSWAHL(*optionen: str) -> Feldtyp:
@@ -283,4 +293,5 @@ def AUSWAHL(*optionen: str) -> Feldtyp:
         validator=lambda w: w in optionen,
         normalisiere=_normalisiere,
         kurzform=_kurzform,
+        antwortform="genau eine von: " + ", ".join(optionen),
     )

@@ -70,6 +70,7 @@ PROZENT_GANZ_0_100 = Feldtyp(
     validator=_ist_ganzer_prozentwert,
     normalisiere=PROZENT_0_100.normalisiere,
     kurzform=PROZENT_0_100.kurzform,
+    antwortform="ganze Zahl von 0 bis 100",
 )
 
 
@@ -84,4 +85,8 @@ def baue_system_typ(bekannte_ids: frozenset[str]) -> Feldtyp:
         return (LISTE.validator(wert)
                 and all(token in bekannte_ids for token in snn_tokens(wert)))
 
-    return Feldtyp(name="systeme", validator=validator, normalisiere=normalisiere)
+    return Feldtyp(
+        name="systeme", validator=validator, normalisiere=normalisiere,
+        antwortform=("Liste der genannten Systeme, durch Kommas getrennt; "
+                     "Kennungen S-NN nur, wenn die Nachricht sie nennt"),
+    )

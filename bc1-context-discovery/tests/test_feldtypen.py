@@ -9,6 +9,7 @@ from bc1_core.feldtypen import (
     ANZAHL,
     AUSWAHL,
     FREITEXT,
+    Feldtyp,
     JA_NEIN,
     LISTE,
     MINUTEN,
@@ -16,6 +17,7 @@ from bc1_core.feldtypen import (
     SKALA_1_5,
     ZAHL,
 )
+from bc1_service.paket_feldtypen import PROZENT_GANZ_0_100
 
 
 # --- ZAHL: normalisiert auf pro Jahr -----------------------------------------
@@ -557,3 +559,35 @@ def test_kurzform_haeufigkeit_mit_x(eingabe, rein, jahr):
 def test_kurzformen_sind_total(typ, eingabe):
     ergebnis = typ.kurzform(eingabe)
     assert ergebnis is None or isinstance(ergebnis, str)
+
+
+def test_antwortform_ja_nein_skala_anzahl():
+    assert JA_NEIN.antwortform == "ja oder nein"
+    assert SKALA_1_5.antwortform == "eine Ziffer von 1 bis 5"
+    assert ANZAHL.antwortform == "nur eine Zahl, ohne Einheit, z. B. ‚5‘"
+
+
+def test_antwortform_zahl_minuten():
+    assert ZAHL.antwortform == (
+        "Zahl pro Woche, pro Monat oder pro Jahr, z. B. ‚2 pro Monat‘")
+    assert MINUTEN.antwortform == (
+        "Dauer als Zahl mit ‚Minuten‘ oder ‚Stunden‘, z. B. ‚90 Minuten‘")
+
+
+def test_antwortform_prozent():
+    assert PROZENT_0_100.antwortform == "Zahl von 0 bis 100"
+    assert PROZENT_GANZ_0_100.antwortform == "ganze Zahl von 0 bis 100"
+
+
+def test_antwortform_auswahl():
+    assert AUSWAHL("a", "b").antwortform == "genau eine von: a, b"
+
+
+def test_antwortform_freie_typen():
+    assert FREITEXT.antwortform == "Text"
+    assert LISTE.antwortform == "Liste, durch Kommas getrennt"
+
+
+def test_antwortform_ist_pflichtmerkmal():
+    with pytest.raises(TypeError):
+        Feldtyp("x", lambda w: True, lambda w: w)
