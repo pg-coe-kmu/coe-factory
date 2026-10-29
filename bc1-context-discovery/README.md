@@ -102,6 +102,7 @@ und KI-Adapter während des Turns schreiben:
 | `bc1.kern` | `ki_aufruf korrelation=<id> art=<extraktion\|antwort> ergebnis=<ok\|fehler> dauer_ms=<int>` | INFO, bei `fehler` WARNING |
 | `bc1.kern` | `verarbeitung_fehlgeschlagen korrelation=<id> klasse=<Ausnahmeklasse>` | WARNING |
 | `bc1.kern` | `validierung korrelation=<id> feld=<Feldname> ergebnis=<ungueltig\|unklar>` | INFO |
+| `bc1.kern` | `kurzantwort_direkt korrelation=<id> feld=<Feldname>` | INFO |
 | `bc1.kern` | `feld_ungeloest korrelation=<id> feld=<Feldname> grund=<nachfrage_limit_erreicht\|runden_limit_erreicht>` | INFO |
 | `bc1.ki` | `ki_wiederholung korrelation=<id> anbieter=claude versuch=<n>` (nur Claude; Gemini und Ollama wiederholen nicht) | WARNING |
 | `bc1.api` | `unerwartete_ausnahme korrelation=<id> klasse=<Ausnahmeklasse>` | ERROR |
@@ -110,6 +111,7 @@ und KI-Adapter während des Turns schreiben:
 | `bc1.api` | `abschluss_nachgeholt session=<id> message=<neue message_id>` — eine neue Nachricht hat einen offenen Abschluss eingefroren (Paket (4)) | INFO |
 | `bc1.api` | `abschluss_ausstehend session=<id> message=<neue message_id> abschluss=<message_id des Abschluss-Turns>` — Profil fehlt, nicht automatisch nachholbar; Nachholen von Hand mit der Kennung aus `abschluss=` (`n8n/SMOKE.md`) | WARNING |
 
+Die Zeile `kurzantwort_direkt` steht, wenn die Antwort nur aus einem Wert in der Form des zuletzt gefragten Felds besteht und BC1 ihn ohne KI übernimmt (nur der Feldname, nie der Wert); auf solchen Turns fehlt die Zeile `ki_aufruf … art=extraktion`.
 Außerhalb eines Turns (CLI, Testprofil-Werkzeug) steht `korrelation=-`. Die Kern-Zeilen entstehen je
 Verarbeitungsversuch: Scheitert die KI und schickt der Client die Nachricht erneut, stehen sie für den
 neuen Versuch noch einmal da. Eine *unerwartete* Ausnahme in `/turn` beantwortet der Dienst selbst mit

@@ -3,14 +3,15 @@ from dataclasses import replace
 
 import pytest
 
-from bc1_core.types import SessionState, SessionStatus
+from bc1_core.feldtypen import ANZAHL, MINUTEN, SKALA_1_5
+from bc1_core.types import FieldStatus, SessionState, SessionStatus
 from bc1_core.package import TOY_PROZESS, FieldSpec, UseCasePackage
 from bc1_core.dialog import MAX_ROUNDS
 from bc1_core.store import InMemoryStateStore
 from bc1_core.llm import FakeLLM, ExtractionCandidate
 from bc1_core.core import (AnfrageKonfliktError, MandantKonfliktError,
-                           PaketKonfliktError, process_turn)
-from bc1_core.serialize import state_to_dict
+                           PaketKonfliktError, process_turn, zuletzt_gefragt)
+from bc1_core.serialize import state_from_dict, state_to_dict
 
 MANDANT = "11111111-1111-1111-1111-111111111111"
 
@@ -755,3 +756,217 @@ def test_anbieter_ausgaben_werden_ebenfalls_gefiltert():
         assert klartext not in gespeichert
         assert klartext not in json.dumps(r, ensure_ascii=False)
     assert "Frau [Person A] ([Telefon A])" in json.dumps(r, ensure_ascii=False)
+
+
+def test_zuletzt_gefragt_erster_turn_ist_none():
+    state = SessionState(session_id="s1", schema_version="0.1")
+    state.raw_log.append(("m1", "hallo"))
+    assert zuletzt_gefragt(state) is None
+
+
+def test_zuletzt_gefragt_nach_frage():
+    store = InMemoryStateStore()
+    llm = FakeLLM({"a": [ExtractionCandidate("prozess_name", "Freigabe")]})
+    erste = _turn(store, llm, TOY_PROZESS, "s1", "m1", "a")
+    _turn(store, llm, TOY_PROZESS, "s1", "m2", "b")
+    dritte = _turn(store, llm, TOY_PROZESS, "s1", "m3", "c")   # ohne Kandidaten
+    state = store.load("s1")
+    state.raw_log.append(("m4", "d"))                          # noch unbeantwortet
+    assert dritte["payload"]["feld"] != erste["payload"]["feld"]
+    assert zuletzt_gefragt(state) == dritte["payload"]["feld"]
+
+
+def test_zuletzt_gefragt_nach_nachfrage_dasselbe_feld():
+    store = InMemoryStateStore()
+    llm = FakeLLM({"Freigabe": [ExtractionCandidate("name", "Freigabe")]})
+    erste = _turn(store, llm, KURZ_PAKET, "s1", "m1", "Freigabe")
+    assert erste["payload"]["feld"] == "note"
+    nachfrage = _turn(store, llm, KURZ_PAKET, "s1", "m2", "weiß nicht so recht")
+    assert nachfrage["status"] == "frage"
+    assert nachfrage["payload"]["feld"] == "note"
+    assert zuletzt_gefragt(store.load("s1")) == "note"
+
+
+def test_zuletzt_gefragt_ueberspringt_unbeantwortete():
+    store = InMemoryStateStore()
+    antwort = _turn(store, FakeLLM(), TOY_PROZESS, "s1", "m1", "a")
+    state = store.load("s1")
+    state.raw_log.append(("m2", "b"))
+    state.raw_log.append(("m3", "c"))
+    assert zuletzt_gefragt(state) == antwort["payload"]["feld"]
+
+
+def test_zuletzt_gefragt_letzte_antwort_keine_frage():
+    store = InMemoryStateStore()
+    llm = FakeLLM({
+        "a": [ExtractionCandidate("prozess_name", "Freigabe"),
+              ExtractionCandidate("ausloeser", "Antrag geht ein"),
+              ExtractionCandidate("haeufigkeit", "100 mal")],
+    })
+    antwort = _turn(store, llm, TOY_PROZESS, "s1", "m1", "a")
+    assert antwort["status"] == "fertig"
+    assert zuletzt_gefragt(store.load("s1")) is None
+
+
+def test_zuletzt_gefragt_antwort_ohne_payload():
+    state = SessionState(session_id="s1", schema_version="0.1")
+    state.raw_log.append(("m1", "hallo"))
+    state.antworten["m1"] = {"status": "frage"}
+    assert zuletzt_gefragt(state) is None
+
+
+def test_zuletzt_gefragt_nach_json_rundreise():
+    store = InMemoryStateStore()
+    llm = FakeLLM({"a": [ExtractionCandidate("prozess_name", "Freigabe")]})
+    _turn(store, llm, TOY_PROZESS, "s1", "m1", "a")
+    _turn(store, llm, TOY_PROZESS, "s1", "m2", "b")
+    dritte = _turn(store, llm, TOY_PROZESS, "s1", "m3", "c")
+    daten = json.loads(json.dumps(state_to_dict(store.load("s1"))))
+    daten["antworten"] = dict(reversed(list(daten["antworten"].items())))
+    state = state_from_dict(daten)
+    state.raw_log.append(("m4", "d"))
+    assert zuletzt_gefragt(state) == dritte["payload"]["feld"]
+
+
+KURZ_PAKET = UseCasePackage(
+    name="kurz", schema_version="0.1",
+    fields=(FieldSpec("name", "Wie heißt der Prozess?"),
+            FieldSpec("note", "Wie gut ist es (1-5)?", typ=SKALA_1_5)),
+)
+
+
+def test_turn_nutzt_zuletzt_gefragtes_feld():
+    store = InMemoryStateStore()
+    llm = FakeLLM({"Freigabe": [ExtractionCandidate("name", "Freigabe")]})
+    erste = _turn(store, llm, KURZ_PAKET, "s1", "m1", "Freigabe")
+    assert erste["payload"]["feld"] == "note"
+    _turn(store, llm, KURZ_PAKET, "s1", "m2", "4")      # FakeLLM ohne Kandidaten
+    fv = store.load("s1").values["note"]
+    assert fv.value == "4"
+    assert fv.status is FieldStatus.GUELTIG
+
+
+def test_schrittdauer_kurzantwort_laesst_gesamtdauer():
+    paket = UseCasePackage(
+        name="dauer", schema_version="0.1",
+        fields=(FieldSpec("gesamtdauer", "Wie lange dauert alles?",
+                          typ=MINUTEN),
+                FieldSpec("schrittdauer", "Wie lange dauert der Schritt?",
+                          typ=MINUTEN)),
+    )
+    store = InMemoryStateStore()
+    llm = FakeLLM({
+        "40 Stunden": [ExtractionCandidate("gesamtdauer", "40 Stunden")],
+        "3 Stunden": [ExtractionCandidate("gesamtdauer", "3 Stunden")],
+    })
+    erste = _turn(store, llm, paket, "s1", "m1", "40 Stunden")
+    assert erste["payload"]["feld"] == "schrittdauer"
+    _turn(store, llm, paket, "s1", "m2", "3 Stunden")   # KI irrt sich
+    werte = store.load("s1").values
+    assert werte["schrittdauer"].value == "180"
+    assert werte["gesamtdauer"].value == "2400"
+    assert werte["schrittdauer"].status is FieldStatus.GUELTIG
+    assert werte["gesamtdauer"].status is FieldStatus.GUELTIG
+
+
+def test_telefonnummer_auf_anzahl_frage_keine_kurzform():
+    paket = UseCasePackage(
+        name="anzahl", schema_version="0.1",
+        fields=(FieldSpec("name", "Wie heißt der Prozess?"),
+                FieldSpec("menge", "Wie viele?", typ=ANZAHL)),
+    )
+    store = InMemoryStateStore()
+    llm = FakeLLM({"Freigabe": [ExtractionCandidate("name", "Freigabe")]})
+    erste = _turn(store, llm, paket, "s1", "m1", "Freigabe")
+    assert erste["payload"]["feld"] == "menge"
+    _turn(store, llm, paket, "s1", "m2", "015112345678")
+    state = store.load("s1")
+    assert "menge" not in state.values or state.values["menge"].value is None
+    assert state.raw_log[-1] == ("m2", "[Telefon A]")
+
+
+def test_fortsetzen_nach_absturz_nutzt_geloggten_text():
+    store = CrashtBeimZweitenSave()
+    llm = FakeLLM({"Freigabe": [ExtractionCandidate("name", "Freigabe")]})
+    _turn(store, llm, KURZ_PAKET, "s1", "m1", "Freigabe")
+    store.scharf = True
+    with pytest.raises(RuntimeError):
+        _turn(store, llm, KURZ_PAKET, "s1", "m2", "4")
+    store.scharf = False
+    _turn(store, llm, KURZ_PAKET, "s1", "m2", "abweichender Retry-Body")
+    state = store.load("s1")
+    assert state.raw_log[-1] == ("m2", "4")
+    assert state.values["note"].value == "4"
+    assert state.values["note"].status is FieldStatus.GUELTIG
+
+
+def test_fehler_bei_antwortformulierung_dann_kurzantwort():
+    store = InMemoryStateStore()
+    llm = FakeLLM({"Freigabe": [ExtractionCandidate("name", "Freigabe")]})
+    _turn(store, llm, KURZ_PAKET, "s1", "m1", "Freigabe")
+    r = _turn(store, _WerfendesLLM(), KURZ_PAKET, "s1", "m2", "4")
+    assert r["status"] == "fehler_fortsetzbar"
+    assert store.load("s1").values["note"].value is None
+    _turn(store, FakeLLM(), KURZ_PAKET, "s1", "m2", "4")      # Retry
+    fv = store.load("s1").values["note"]
+    assert fv.value == "4"
+    assert fv.status is FieldStatus.GUELTIG
+
+
+def test_fehler_dann_kurzantwort_mit_neuer_message_id():
+    # Ein drittes Pflichtfeld hält die Sitzung offen — sonst fängt schon der
+    # Terminal-Zweig den späten Retry ab, nicht der Überholt-Zweig.
+    paket = replace(KURZ_PAKET, fields=KURZ_PAKET.fields
+                    + (FieldSpec("zusatz", "Was noch?"),))
+    store = InMemoryStateStore()
+    llm = FakeLLM({"Freigabe": [ExtractionCandidate("name", "Freigabe")]})
+    _turn(store, llm, paket, "s1", "m1", "Freigabe")
+    r2 = _turn(store, _WerfendesLLM(), paket, "s1", "m2", "4")
+    assert r2["status"] == "fehler_fortsetzbar"
+    r3 = _turn(store, FakeLLM(), paket, "s1", "m3", "5")        # neue message_id
+    assert r3["status"] == "frage"
+    fv = store.load("s1").values["note"]
+    assert fv.value == "5"
+    assert fv.status is FieldStatus.GUELTIG
+    spaet = _turn(store, FakeLLM(), paket, "s1", "m2", "4")     # später Retry
+    assert spaet == r3                       # Überholt-Antwort: letzte bekannte
+    assert store.load("s1").values["note"].value == "5"
+
+
+class _KeineKIErlaubt(FakeLLM):
+    """Wirft in extract UND antworte: jeder KI-Aufruf lässt den Test scheitern."""
+    def extract(self, message, package, state):
+        raise RuntimeError("KI darf nicht gefragt werden")
+
+    def antworte(self, kontext):
+        raise RuntimeError("KI darf nicht gefragt werden")
+
+
+def test_replay_einer_kurzantwort_extrahiert_nicht_neu():
+    # Ein drittes Pflichtfeld hält die Sitzung nach der Kurzantwort offen —
+    # sonst fängt schon der Abschluss-Zweig den Replay ab.
+    paket = replace(KURZ_PAKET, fields=KURZ_PAKET.fields
+                    + (FieldSpec("zusatz", "Was noch?"),))
+    store = InMemoryStateStore()
+    llm = FakeLLM({"Freigabe": [ExtractionCandidate("name", "Freigabe")]})
+    _turn(store, llm, paket, "s1", "m1", "Freigabe")
+    erst = _turn(store, llm, paket, "s1", "m2", "4")
+    assert erst["status"] == "frage"
+    vorher = store.load("s1")
+    nochmal = _turn(store, _KeineKIErlaubt(), paket, "s1", "m2", "4")
+    assert nochmal == erst
+    nachher = store.load("s1")
+    assert nachher.rounds == vorher.rounds
+    assert state_to_dict(nachher)["values"] == state_to_dict(vorher)["values"]
+
+
+def test_nachricht_nach_abschluss_extrahiert_nicht():
+    store = InMemoryStateStore()
+    llm = FakeLLM({"Freigabe": [ExtractionCandidate("name", "Freigabe")]})
+    _turn(store, llm, KURZ_PAKET, "s1", "m1", "Freigabe")
+    fertig = _turn(store, llm, KURZ_PAKET, "s1", "m2", "4")
+    assert fertig["status"] == "fertig"
+    vorher = state_to_dict(store.load("s1"))["values"]
+    r = _turn(store, _KeineKIErlaubt(), KURZ_PAKET, "s1", "m3", "5")
+    assert r == fertig
+    assert state_to_dict(store.load("s1"))["values"] == vorher

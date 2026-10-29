@@ -69,6 +69,7 @@ PROZENT_GANZ_0_100 = Feldtyp(
     name="prozent_ganz_0_100",
     validator=_ist_ganzer_prozentwert,
     normalisiere=PROZENT_0_100.normalisiere,
+    kurzform=PROZENT_0_100.kurzform,
 )
 
 

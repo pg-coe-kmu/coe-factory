@@ -2,7 +2,7 @@ from __future__ import annotations
 import logging
 from bc1_core.types import Candidate, FieldStatus, FieldValue, SessionState
 from bc1_core.package import UseCasePackage, FieldSpec
-from bc1_core.llm import LLMClient
+from bc1_core.llm import ExtractionCandidate, LLMClient
 from bc1_core.pii import ersetze_pii
 from bc1_core.protokoll import aktuelle_korrelation, ki_aufruf
 
@@ -25,9 +25,22 @@ def _merke_kandidat(fv: FieldValue, wert: str, quelle: str) -> None:
         fv.candidates.append(Candidate(wert, quelle))
 
 def extract_and_merge(state: SessionState, message: str, message_id: str,
-                      package: UseCasePackage, llm: LLMClient) -> None:
-    with ki_aufruf("extraktion"):
-        kandidaten = llm.extract(message, package, state)
+                      package: UseCasePackage, llm: LLMClient, *,
+                      gefragt: FieldSpec | None = None) -> None:
+    # Kurzantwort auf die gestellte Frage: der rohe Wert geht ohne KI in das
+    # gefragte Feld; Filter, Normalisierung und Zusammenführung laufen unten
+    # wie sonst. Ohne Kurzform (oder ohne Treffer) fragt der Extraktor die KI.
+    wert_roh = None
+    if gefragt is not None and gefragt.typ.kurzform is not None:
+        wert_roh = gefragt.typ.kurzform(message)
+    if wert_roh is not None:
+        # Nur der Feldname, nie der Wert (B7 Teil 2).
+        log.info("kurzantwort_direkt korrelation=%s feld=%s",
+                 aktuelle_korrelation.get(), gefragt.name)
+        kandidaten = [ExtractionCandidate(gefragt.name, wert_roh)]
+    else:
+        with ki_aufruf("extraktion"):
+            kandidaten = llm.extract(message, package, state)
     for cand in kandidaten:
         spec = package.field(cand.field_name)
         if spec is None:

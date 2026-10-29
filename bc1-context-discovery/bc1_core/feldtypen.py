@@ -4,6 +4,10 @@ Vertrag (Spec P3, BC2-relevant): normalisiere() ist TOTAL — wirft nie,
 Unparsebares kommt unverändert zurück und fällt dann in der Validierung
 durch (bestehende Nachfrage-Mechanik). Gespeichert wird der normalisierte
 Wert; Werte bleiben Strings (Wire-Format).
+
+Auch kurzform() ist TOTAL: wirft nie, liefert `str | None`. Den reinen Wert
+liefert sie nur, wenn die GANZE Nachricht die Kurzform ist, sonst `None`
+(Aufrufer ohne try/except).
 """
 from __future__ import annotations
 
@@ -18,6 +22,7 @@ class Feldtyp:
     name: str
     validator: Callable[[str], bool]
     normalisiere: Callable[[str], str]
+    kurzform: Callable[[str], str | None] | None = None
 
 
 # Deutsche Tausendergruppierung (z. B. "1.000", "12.345,5") VOR der einfachen
@@ -118,12 +123,16 @@ def _normalisiere_minuten(wert: str) -> str:
     return wert
 
 
+# Näherungswörter, gemeinsam für ANZAHL und die Kurzformen.
+_NAEHERUNGSWOERTER = (
+    r"(?:etwa|ca\.?|circa|ungefähr|ungefaehr|rund|im schnitt|durchschnittlich)\s+"
+)
 # Reine Anzahl ohne Periode (z. B. Faelle je Durchlauf): ein einziges Muster per
 # fullmatch — jede Periode ("pro Woche", "im Monat"), Einheit oder zweite Zahl
 # bleibt damit unpassend und faellt in der Validierung durch. Seit 25.10. (C1a (4b)):
 # „ca" auch ohne Punkt, am Ende hoechstens ein „." oder „!" — „?" bleibt eine Nachfrage.
 _ANZAHL_MUSTER = re.compile(
-    rf"\s*(?:(?:etwa|ca\.?|circa|ungefähr|ungefaehr|rund|im schnitt|durchschnittlich)\s+)?"
+    rf"\s*(?:{_NAEHERUNGSWOERTER})?"
     rf"({_ZAHL_TOKEN})"
     rf"(?:\s+(?:fall|fälle|faelle|vorgang|vorgänge|vorgaenge|stück|stueck))?"
     rf"(?:\s+(?:je|pro)\s+durchlauf)?[.!]?\s*", re.IGNORECASE)
@@ -137,6 +146,11 @@ def _normalisiere_anzahl(wert: str) -> str:
     return _formatiere(zahl) if math.isfinite(zahl) else wert
 
 
+def _kurzform_anzahl(wert: str) -> str | None:
+    treffer = _ANZAHL_MUSTER.fullmatch(wert)
+    return treffer.group(1) if treffer else None
+
+
 def _entferne_rand(wert: str) -> str:
     return wert.strip().strip('.!?,;:„“”‘’"\' ').strip()
 
@@ -144,6 +158,11 @@ def _entferne_rand(wert: str) -> str:
 def _normalisiere_ja_nein(wert: str) -> str:
     kern = _entferne_rand(wert).lower()
     return kern if kern in ("ja", "nein") else wert
+
+
+def _kurzform_ja_nein(wert: str) -> str | None:
+    treffer = re.fullmatch(r"(ja|nein)[.!]?", wert.strip(), re.IGNORECASE)
+    return treffer.group(1).lower() if treffer else None
 
 
 def _normalisiere_prozent(wert: str) -> str:
@@ -174,6 +193,34 @@ def _ist_skala(wert: str) -> bool:
     return re.fullmatch(r"[1-5]", wert.strip()) is not None
 
 
+def _kurzform_skala(wert: str) -> str | None:
+    treffer = re.fullmatch(r"([1-5])[.!]?", wert.strip())
+    return treffer.group(1) if treffer else None
+
+
+def _kurzform_prozent(wert: str) -> str | None:
+    treffer = re.fullmatch(
+        rf"(?:{_NAEHERUNGSWOERTER})?({_ZAHL_TOKEN})(?:\s*%|\s+prozent)?[.!]?",
+        wert.strip(), re.IGNORECASE)
+    return treffer.group(1) if treffer else None
+
+
+def _kurzform_minuten(wert: str) -> str | None:
+    treffer = re.fullmatch(
+        rf"(?:{_NAEHERUNGSWOERTER})?({_ZAHL_TOKEN})\s*"
+        r"(minuten?|min|stunden?|std|h)[.!]?",
+        wert.strip(), re.IGNORECASE)
+    return f"{treffer.group(1)} {treffer.group(2)}" if treffer else None
+
+
+def _kurzform_haeufigkeit(wert: str) -> str | None:
+    treffer = re.fullmatch(
+        rf"(?:{_NAEHERUNGSWOERTER})?({_ZAHL_TOKEN})(?:(?:\s*|-)(?:mal|x))?"
+        r"\s+(?:pro|im|je)\s+(woche|monat|jahr)[.!]?",
+        wert.strip(), re.IGNORECASE)
+    return f"{treffer.group(1)} pro {treffer.group(2).capitalize()}" if treffer else None
+
+
 def _ist_prozent(wert: str) -> bool:
     return _nur_zahl(wert) and 0 <= _zahl_aus_token(wert.strip()) <= 100
 
@@ -197,12 +244,18 @@ def _ist_nichtnegative_zahl(wert: str) -> bool:
     return math.isfinite(zahl) and zahl >= 0
 
 
-ZAHL = Feldtyp("zahl", _ist_nichtnegative_zahl, _normalisiere_zahl)
-MINUTEN = Feldtyp("minuten", _ist_nichtnegative_zahl, _normalisiere_minuten)
-ANZAHL = Feldtyp("anzahl", _ist_nichtnegative_zahl, _normalisiere_anzahl)
-SKALA_1_5 = Feldtyp("skala_1_5", _ist_skala, lambda w: w.strip())
-PROZENT_0_100 = Feldtyp("prozent_0_100", _ist_prozent, _normalisiere_prozent)
-JA_NEIN = Feldtyp("ja_nein", lambda w: w in ("ja", "nein"), _normalisiere_ja_nein)
+ZAHL = Feldtyp("zahl", _ist_nichtnegative_zahl, _normalisiere_zahl,
+               kurzform=_kurzform_haeufigkeit)
+MINUTEN = Feldtyp("minuten", _ist_nichtnegative_zahl, _normalisiere_minuten,
+                  kurzform=_kurzform_minuten)
+ANZAHL = Feldtyp("anzahl", _ist_nichtnegative_zahl, _normalisiere_anzahl,
+                 kurzform=_kurzform_anzahl)
+SKALA_1_5 = Feldtyp("skala_1_5", _ist_skala, lambda w: w.strip(),
+                    kurzform=_kurzform_skala)
+PROZENT_0_100 = Feldtyp("prozent_0_100", _ist_prozent, _normalisiere_prozent,
+                        kurzform=_kurzform_prozent)
+JA_NEIN = Feldtyp("ja_nein", lambda w: w in ("ja", "nein"), _normalisiere_ja_nein,
+                  kurzform=_kurzform_ja_nein)
 LISTE = Feldtyp("liste", lambda w: bool(w.strip()), _normalisiere_liste)
 FREITEXT = Feldtyp("freitext", lambda w: bool(w.strip()), lambda w: w)
 
@@ -216,8 +269,18 @@ def AUSWAHL(*optionen: str) -> Feldtyp:
                 return option
         return wert
 
+    def _kurzform(wert: str) -> str | None:
+        kern = wert.strip()
+        if kern[-1:] in (".", "!"):
+            kern = kern[:-1]
+        for option in optionen:
+            if kern.lower() == option.lower():
+                return option
+        return None
+
     return Feldtyp(
         name=f"auswahl({', '.join(optionen)})",
         validator=lambda w: w in optionen,
         normalisiere=_normalisiere,
+        kurzform=_kurzform,
     )

@@ -46,6 +46,19 @@ def pruefe_anfrage(state: SessionState, anfrage_id: str) -> None:
             f"Session {state.session_id} gehoert zu Anfrage {state.anfrage_id}, "
             f"der Dienst laeuft mit {anfrage_id}")
 
+def zuletzt_gefragt(state: SessionState) -> str | None:
+    """Feld, nach dem BC1 in seiner jüngsten gespeicherten Antwort gefragt hat;
+    None ohne gespeicherte Antwort oder wenn diese keine Frage ist (z. B. fertig).
+    Unbeantwortete raw_log-Einträge (laufende Nachricht, fehler_fortsetzbar,
+    Absturz) werden übersprungen."""
+    for mid, _ in reversed(state.raw_log):
+        if mid in state.antworten:
+            antwort = state.antworten[mid]
+            if antwort.get("status") != "frage":
+                return None
+            return (antwort.get("payload") or {}).get("feld")
+    return None
+
 def _basis(schema_version: str) -> str:
     return schema_version.split("+", 1)[0]
 
@@ -168,7 +181,10 @@ def process_turn(store: StateStore, llm: LLMClient, package: UseCasePackage,
     state.rounds += 1
     try:
         vorher = werte_schnappschuss(state)
-        extract_and_merge(state, message, message_id, package, llm)
+        feld = zuletzt_gefragt(state)
+        gefragt = package.field(feld) if feld else None
+        extract_and_merge(state, message, message_id, package, llm,
+                          gefragt=gefragt)
         conf = confidence_check(state, package)
         decision = decide_next(state, package, conf)
         if decision.ergebnis is not Ergebnis.WEITER:
