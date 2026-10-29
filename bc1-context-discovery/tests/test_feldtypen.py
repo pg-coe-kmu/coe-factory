@@ -418,6 +418,35 @@ def test_zahl_pro_prueft_jedes_vorkommen_inkl_interpunktion():
     assert ZAHL.validator("5 pro/Tag im Jahr") is False
 
 
+def test_zahl_liest_keine_zahl_aus_saetzen():
+    # Spec 3.4: nur die ganze Eingabe in der geschlossenen Grammatik zaehlt; ein Satz
+    # mit Zahl bleibt unveraendert (ungueltig -> Nachfrage), statt still falsch zu werden.
+    for satz in ("jeden 2. Monat", "20 Leads pro Woche", "jede Woche 2", "pro Monat 30",
+                 "so 30 im Monat", "etwa 20 Anfragen pro Monat"):
+        assert ZAHL.normalisiere(satz) == satz, satz
+        assert ZAHL.validator(satz) is False, satz
+
+
+def test_zahl_eindeutige_formen_bleiben():
+    # (Regression) Spec 3.4: was eindeutig und heute gueltig ist, bleibt gueltig.
+    for eingabe, erwartet in [
+        ("2x die Woche", "104"), ("2/Woche", "104"), ("2 mal in der Woche", "104"),
+        ("2 mal im Monat", "24"), ("300", "300"), ("300 im Jahr", "300"),
+        ("etwa 4 pro Monat.", "48"),
+    ]:
+        assert ZAHL.normalisiere(eingabe) == erwartet, eingabe
+        assert ZAHL.validator(ZAHL.normalisiere(eingabe)) is True, eingabe
+
+
+def test_zahl_bewusst_geaenderte_bestandsfaelle_sind_nun_ungueltig():
+    # Spec 3.4 (Bestandserwartungen bewusst umgekehrt): frueher "5 pro Woche pro Woche"
+    # -> 260 (dieselbe Periode zweimal) und "30 pro Monat [Person A]" -> 360 (Zahl gewinnt
+    # neben einem PII-Platzhalter). Die geschlossene Grammatik nimmt beides nicht an.
+    for eingabe in ("5 pro Woche pro Woche", "30 pro Monat [Person A]"):
+        assert ZAHL.normalisiere(eingabe) == eingabe, eingabe
+        assert ZAHL.validator(eingabe) is False, eingabe
+
+
 def test_zahl_zwei_verschiedene_perioden_werden_nicht_still_geraten():
     # Fix-Welle 6 (M2): der pro-Guard lässt "pro Woche" UND "pro Jahr" im
     # selben Text durch (beide sind je für sich bekannte Perioden) — bisher
@@ -432,9 +461,6 @@ def test_zahl_zwei_verschiedene_perioden_werden_nicht_still_geraten():
     # Regressionen: eindeutige Periode bleibt wie bisher funktionsfähig.
     assert ZAHL.normalisiere("50 pro Monat") == "600"
     assert ZAHL.normalisiere("300 im Jahr") == "300"
-    # Dieselbe Periode zweimal ist keine Mehrdeutigkeit (Policy: DISTINCT
-    # Perioden > 1 lehnt ab, Wiederholung derselben Periode nicht).
-    assert ZAHL.normalisiere("5 pro Woche pro Woche") == "260"
 
 
 # --- B2 PII-Filter: Platzhalter passieren die Normalisierer ------------------
@@ -444,8 +470,6 @@ def test_pii_platzhalter_passieren_text_und_listenfelder_unveraendert():
     assert LISTE.normalisiere("[Person A], [Person B]") == "[Person A], [Person B]"
     assert ZAHL.normalisiere("[Telefon A]") == "[Telefon A]"
     assert JA_NEIN.normalisiere("[Person A]") == "[Person A]"
-    # In Zahlenfeldern gewinnt die Zahl — gewollt (Konzept T3, Review M3).
-    assert ZAHL.normalisiere("30 pro Monat [Person A]") == "360"
 
 
 # --- ANZAHL: reine Anzahl, keine Periode -------------------------------------
@@ -665,6 +689,28 @@ def test_kurzform_haeufigkeit(eingabe, rein, jahr):
 def test_kurzform_haeufigkeit_mit_x(eingabe, rein, jahr):
     assert ZAHL.kurzform(eingabe) == rein
     if rein is not None:
+        assert ZAHL.normalisiere(rein) == jahr
+
+
+@pytest.mark.parametrize("eingabe, rein, jahr", [
+    ("2x die Woche", "2 pro Woche", "104"),
+    ("2/Woche", "2 pro Woche", "104"),
+    ("2 / Woche", "2 pro Woche", "104"),
+    ("2 mal in der Woche", "2 pro Woche", "104"),
+    ("2 mal im Monat", "2 pro Monat", "24"),
+    ("3 mal den Monat", "3 pro Monat", "36"),
+    ("300 im Jahr", "300 pro Jahr", "300"),
+    ("etwa 4 pro Monat.", "4 pro Monat", "48"),
+    ("2imMonat", None, None), ("2dieWoche", None, None),
+    ("2-3x pro Woche", None, None), ("2 pro/Woche", None, None),
+])
+def test_kurzform_haeufigkeit_erweiterte_verbindungen(eingabe, rein, jahr):
+    # Spec 3.4: Kurzform und Normalisierer teilen EINE Grammatik.
+    assert ZAHL.kurzform(eingabe) == rein
+    if rein is None:
+        assert ZAHL.normalisiere(eingabe) == eingabe
+    else:
+        assert ZAHL.normalisiere(eingabe) == jahr
         assert ZAHL.normalisiere(rein) == jahr
 
 

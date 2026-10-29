@@ -70,42 +70,20 @@ def _formatiere(zahl: float) -> str:
 
 
 _PERIODEN = {"woche": 52.0, "monat": 12.0, "jahr": 1.0}
-_PERIODE_MUSTER = re.compile(r"\b(woche|monat|jahr)\b")
-# Codex-Residuum (Fix-Welle 5): ".search()" auf "pro\s+(\w+)" prüfte bisher
-# nur das ERSTE "pro"-Vorkommen — ein zweites ("pro Woche und pro
-# Mitarbeiter") sowie Interpunktion direkt nach "pro" ohne \s+ ("pro/Tag")
-# rutschten am Muster vorbei durch. Fix: negativer Lookahead auf JEDES
-# "pro" im Text — matcht nur dann NICHT, wenn "pro" von \s+ und einer der
-# drei bekannten Perioden gefolgt wird; jede andere Fortsetzung (zweites
-# "pro", unbekanntes Wort, direkte Interpunktion) triggert die Ablehnung.
-_PRO_MUSTER = re.compile(r"\bpro\b(?!\s+(?:woche|monat|jahr)\b)")
 
 
 def _normalisiere_zahl(wert: str) -> str:
-    zahl = _zahl_in(wert)
-    if zahl is None:
-        return wert
-    text = wert.lower()
-    # Codex I4: "pro <Wort>" mit unbekanntem Wort (z. B. "pro Tag") ist eine
-    # explizit genannte, aber nicht unterstützte Periode — ablehnen, auch wenn
-    # zufällig woanders im Text ein bekanntes Periodenwort steht.
-    if _PRO_MUSTER.search(text):
-        return wert
-    perioden_treffer = set(_PERIODE_MUSTER.findall(text))
-    # Fix-Welle 6 (M2): ZWEI verschiedene Periodenwörter im selben Text (z. B.
-    # "pro Woche pro Monat") sind beide je für sich bekannt — der pro-Guard
-    # oben greift dann nicht. Bisher gewann stillschweigend die ERSTE per
-    # .search() gefundene Periode; das ist eine geratene statt eine
-    # nachgefragte Mehrdeutigkeit (gegen die Policy). set() statt Zählung,
-    # damit dieselbe Periode zweimal (keine Mehrdeutigkeit) weiter akzeptiert
-    # bleibt — nur > 1 DISTINCT Periode lehnt ab.
-    if len(perioden_treffer) > 1:
-        return wert
-    if perioden_treffer:
-        produkt = zahl * _PERIODEN[perioden_treffer.pop()]
+    # Spec 3.4: nur die GANZE Eingabe in der geschlossenen Grammatik; sonst unveraendert.
+    treffer = _HAEUFIGKEIT_MUSTER.fullmatch(wert.strip())
+    if treffer:
+        produkt = _zahl_aus_token(treffer.group(1)) * _PERIODEN[treffer.group(2).lower()]
         # Auch nach der Multiplikation total bleiben (Codex I3): Riesenzahlen
         # können hier erst zu inf überlaufen — dann unverändert zurück.
         return _formatiere(produkt) if math.isfinite(produkt) else wert
+    # Nackte Zahl (Vertrag D1: „300“ = pro Jahr).
+    zahl = _zahl_in(wert)
+    if zahl is None:
+        return wert
     return _formatiere(zahl) if _nur_zahl(wert) else wert
 
 
@@ -129,6 +107,13 @@ def _normalisiere_minuten(wert: str) -> str:
 _NAEHERUNGSWOERTER = (
     r"(?:etwa|ca\.?|circa|ungefähr|ungefaehr|rund|im schnitt|durchschnittlich)\s+"
 )
+# Spec 3.4: EINE Grammatik fuer Haeufigkeit mit Periode (ganze Eingabe, `fullmatch`);
+# Kurzform und Normalisierer teilen sie. Die nackte Zahl (Vertrag D1) nimmt nur der
+# Normalisierer zusaetzlich an. Wortverbindungen brauchen Leerraum davor und danach.
+_HAEUFIGKEIT_MUSTER = re.compile(
+    rf"(?:{_NAEHERUNGSWOERTER})?({_ZAHL_TOKEN})(?:(?:\s*|-)(?:mal|x))?"
+    r"(?:\s+(?:pro|im|je|in\s+der|die|den|das)\s+|\s*/\s*)(woche|monat|jahr)[.!]?",
+    re.IGNORECASE)
 # Reine Anzahl ohne Periode (z. B. Faelle je Durchlauf): ein einziges Muster per
 # fullmatch — jede Periode ("pro Woche", "im Monat"), Einheit oder zweite Zahl
 # bleibt damit unpassend und faellt in der Validierung durch. Seit 25.10. (C1a (4b)):
@@ -244,10 +229,7 @@ def _kurzform_minuten(wert: str) -> str | None:
 
 
 def _kurzform_haeufigkeit(wert: str) -> str | None:
-    treffer = re.fullmatch(
-        rf"(?:{_NAEHERUNGSWOERTER})?({_ZAHL_TOKEN})(?:(?:\s*|-)(?:mal|x))?"
-        r"\s+(?:pro|im|je)\s+(woche|monat|jahr)[.!]?",
-        wert.strip(), re.IGNORECASE)
+    treffer = _HAEUFIGKEIT_MUSTER.fullmatch(wert.strip())
     return f"{treffer.group(1)} pro {treffer.group(2).capitalize()}" if treffer else None
 
 
