@@ -163,18 +163,62 @@ def test_b4_im_kontext_ist_auswahl_der_kernprozesse():
     assert "KP-01 = Auftrag" in spec.question
 
 
+KONTEXT_NAMEN = replace(
+    KONTEXT_KP, rollen=(("R-01", "Geschäftsführung"), ("R-02", "Vertrieb & Innendienst")),
+    prozesse=(("KP-01", "Auftrag-Abwicklung"), ("KP-02", "Einkauf & Beschaffung")))
+
+
+def test_b3_b4_e5_loesen_namen_auf():
+    paket = baue_discovery_paket(kontext=KONTEXT_NAMEN)
+    assert paket.field("process_owner_role").typ.normalisiere("Vertrieb & Innendienst") == "R-02"
+    assert paket.field("process_id").typ.normalisiere("einkauf & beschaffung") == "KP-02"
+    assert paket.field("focus_step").typ.normalisiere("Erfassen") == "KP-01.TP-1"
+    assert paket.field("focus_step").typ.kurzform("Pruefen.") == "KP-01.TP-2"
+    # gueltig bleiben die Kennungen
+    assert paket.field("focus_step").typ.validator("Erfassen") is False
+
+
+def test_c3_a3_e3_synonyme():
+    # feste Auswahlfelder, auch ohne BC0-Kontext
+    paket = baue_discovery_paket()
+    for text in ("E-Mail", "Email", "email."):
+        assert paket.field("input_format").typ.normalisiere(text) == "mail", text
+    a3 = paket.field("scope_focus").typ
+    assert a3.normalisiere("den ganzen Prozess") == "ganzer_prozess"
+    assert a3.normalisiere("ein einzelner Schritt") == "einzelner_schritt"
+    assert a3.normalisiere("einzelner Schritt") == "einzelner_schritt"
+    e3 = paket.field("focus_step_duration_source").typ
+    assert e3.normalisiere("aus dem System") == "aus_system"
+    assert e3.normalisiere("aus System") == "aus_system"
+    assert e3.normalisiere("Geschätzt") == "geschaetzt"
+    assert paket.field("request_goal").typ.normalisiere("Zeit sparen") == "zeit_sparen"
+
+
+def test_antwortform_von_e5_nennt_namen():
+    paket = baue_discovery_paket(kontext=KONTEXT_NAMEN)
+    assert paket.field("focus_step").typ.antwortform == (
+        "genau eine von: KP-01.TP-1 (= Erfassen), KP-01.TP-2 (= Pruefen)")
+
+
+def test_e5_bleibt_identitaetskritisch():
+    # Namen aendern nichts an der Identitaetspruefung: mit Kontext kritisch, ohne nicht
+    assert baue_discovery_paket(kontext=KONTEXT_NAMEN).field("focus_step").identitaetskritisch is True
+    assert baue_discovery_paket().field("focus_step").identitaetskritisch is False
+
+
 def test_b4_im_kontext_ohne_kernprozesse_bleibt_freitext():
     assert _feld(baue_discovery_paket(kontext=KONTEXT), "process_id").typ.name == "freitext"
 
 
-def test_kennung_mit_kernprozessen_wie_bisher_mit_datei():
-    # Gleiche KP-IDs ergeben dieselbe Kennung wie frueher der Snapshot-Weg (Spec 2).
+def test_kennung_mit_kernprozessen_hat_festen_wert():
+    # Fester Wert mit Namen (Spec Antwortformen 3.3; vorher nur IDs: 9e81785de2c8b1d8).
     kontext = replace(KONTEXT, prozesse=(("KP-01", "Auftrag"),))
-    assert baue_discovery_paket(kontext=kontext).schema_version == "1.2+ctx-9e81785de2c8b1d8"
+    assert baue_discovery_paket(kontext=kontext).schema_version == "1.2+ctx-31e323f56aa45baf"
 
 
-def test_kennung_ohne_kernprozesse_bleibt_wie_bisher():
-    assert baue_discovery_paket(kontext=KONTEXT).schema_version == "1.2+ctx-0a6cdaacdfde28de"
+def test_kennung_ohne_kernprozesse_hat_festen_wert():
+    # vorher nur IDs: 0a6cdaacdfde28de
+    assert baue_discovery_paket(kontext=KONTEXT).schema_version == "1.2+ctx-bbb1226f7e370e95"
 
 
 def test_kennung_aendert_sich_wenn_ein_kernprozess_dazukommt():
@@ -183,11 +227,11 @@ def test_kennung_aendert_sich_wenn_ein_kernprozess_dazukommt():
             != baue_discovery_paket(kontext=mit_einem).schema_version)
 
 
-def test_kennung_bleibt_bei_umbenennung_eines_kernprozesses():
+def test_kennung_aendert_sich_bei_umbenennung_eines_kernprozesses():
     umbenannt = replace(KONTEXT, prozesse=(("KP-01", "Auftragsabwicklung"),))
     mit_alt = replace(KONTEXT, prozesse=(("KP-01", "Auftrag"),))
     assert (baue_discovery_paket(kontext=umbenannt).schema_version
-            == baue_discovery_paket(kontext=mit_alt).schema_version)
+            != baue_discovery_paket(kontext=mit_alt).schema_version)
 
 
 def test_kennung_bleibt_bei_anderer_reihenfolge_der_kernprozesse():
@@ -341,11 +385,22 @@ def test_fingerabdruck_aendert_sich_mit_den_rollen_ids():
             != baue_discovery_paket(kontext=b).schema_version)
 
 
-def test_fingerabdruck_unabhaengig_von_eigner_und_bezeichnung():
+def test_fingerabdruck_unabhaengig_vom_eigner():
     a = replace(KONTEXT, rollen=(("R-01", "Sachbearbeitung"),), eigner=(("KP-01", "R-01"),))
-    b = replace(KONTEXT, rollen=(("R-01", "Umbenannt"),), eigner=(("KP-01", None),))
+    b = replace(a, eigner=(("KP-01", None),))
     assert (baue_discovery_paket(kontext=a).schema_version
             == baue_discovery_paket(kontext=b).schema_version)
+
+
+def test_kennung_aendert_sich_bei_umbenennung_von_rolle_und_teilprozess():
+    # Namen wirken auf die Eingabe-Auslegung (Spec 3.3) und gehoeren in den Fingerabdruck
+    basis = replace(KONTEXT, rollen=(("R-01", "Sachbearbeitung"),))
+    umbenannte_rolle = replace(KONTEXT, rollen=(("R-01", "Umbenannt"),))
+    umbenannter_tp = replace(basis, teilprozesse=(("KP-01.TP-1", "Anders"),
+                                                  ("KP-01.TP-2", "Pruefen")))
+    version = baue_discovery_paket(kontext=basis).schema_version
+    assert baue_discovery_paket(kontext=umbenannte_rolle).schema_version != version
+    assert baue_discovery_paket(kontext=umbenannter_tp).schema_version != version
 
 
 def test_fingerabdruck_reagiert_auf_die_anfrage():

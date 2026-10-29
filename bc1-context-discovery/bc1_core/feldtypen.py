@@ -13,8 +13,9 @@ from __future__ import annotations
 
 import math
 import re
+import unicodedata
 from dataclasses import dataclass, field
-from typing import Callable
+from typing import Callable, Mapping, Sequence
 
 
 @dataclass(frozen=True)
@@ -153,7 +154,25 @@ def _kurzform_anzahl(wert: str) -> str | None:
 
 
 def _entferne_rand(wert: str) -> str:
-    return wert.strip().strip('.!?,;:„“”‘’"\' ').strip()
+    return wert.strip().strip('.!,;:„“”‘’"\' ').strip()
+
+
+_UMLAUTE = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue"})
+
+
+def _schluessel_ohne_rand(text: str) -> str:
+    klein = unicodedata.normalize("NFC", text).casefold().translate(_UMLAUTE)
+    return re.sub(r"[\s_-]+", " ", klein)
+
+
+def _schluessel(text: str) -> str:
+    """Vergleichsschluessel fuer Auswahl-Eingaben, Optionen, Namen, Synonyme (Spec 3.3).
+
+    NFC, casefold (ß -> ss), ä/ö/ü -> ae/oe/ue, „_“, „-“ und Leerraum zu EINEM
+    Leerzeichen, Raender wie `_entferne_rand` (also ohne „?“: ein Text mit „?“
+    trifft keine Option). Die Kurzform nutzt den Schluessel ohne Raender, weil sie
+    ihre engen Raender (hoechstens ein „.“/„!“) vorher selbst prueft."""
+    return _entferne_rand(_schluessel_ohne_rand(text))
 
 
 def _normalisiere_ja_nein(wert: str) -> str:
@@ -270,28 +289,40 @@ FREITEXT = Feldtyp("freitext", lambda w: bool(w.strip()), lambda w: w,
                    antwortform="Text")
 
 
-def AUSWAHL(*optionen: str) -> Feldtyp:
+def AUSWAHL(*optionen: str, namen: Mapping[str, str] | None = None,
+            synonyme: Mapping[str, Sequence[str]] | None = None) -> Feldtyp:
     """Fabrik: Auswahl-Typ mit kanonischen Optionen (case-insensitiv)."""
+    # Treffertabelle Schluessel -> Option: Optionen zuerst (die Kennung gewinnt),
+    # dann die Namen.
+    treffer = {_schluessel(option): option for option in optionen}
+    # Ein Schluessel, der zwei verschiedene Optionen traefe, und leere Namen
+    # werden nicht uebersetzt.
+    kandidaten: dict[str, set[str]] = {}
+    benennungen = list((namen or {}).items())
+    for option, woerter in (synonyme or {}).items():
+        benennungen += [(option, wort) for wort in woerter]
+    for option, name in benennungen:
+        if _schluessel(name):
+            kandidaten.setdefault(_schluessel(name), set()).add(option)
+    for schluessel, moegliche in kandidaten.items():
+        if len(moegliche) == 1:
+            treffer.setdefault(schluessel, next(iter(moegliche)))
+
     def _normalisiere(wert: str) -> str:
-        kern = _entferne_rand(wert).lower()
-        for option in optionen:
-            if kern == option.lower():
-                return option
-        return wert
+        return treffer.get(_schluessel(wert), wert)
 
     def _kurzform(wert: str) -> str | None:
         kern = wert.strip()
         if kern[-1:] in (".", "!"):
             kern = kern[:-1]
-        for option in optionen:
-            if kern.lower() == option.lower():
-                return option
-        return None
+        return treffer.get(_schluessel_ohne_rand(kern))
 
     return Feldtyp(
         name=f"auswahl({', '.join(optionen)})",
         validator=lambda w: w in optionen,
         normalisiere=_normalisiere,
         kurzform=_kurzform,
-        antwortform="genau eine von: " + ", ".join(optionen),
+        antwortform="genau eine von: " + ", ".join(
+            f"{option} (= {namen[option]})" if namen and namen.get(option) else option
+            for option in optionen),
     )

@@ -115,6 +115,86 @@ def test_ja_nein_und_auswahl_tolerieren_typografische_anfuehrungszeichen():
     assert JA_NEIN.normalisiere('‘Ja’') == "ja"
 
 
+def test_fragezeichen_legt_nichts_fest():
+    # Spec 3.1: ein „?“ ist keine Festlegung — Ja/Nein und Auswahl bleiben unveraendert
+    # (ungueltig -> Nachfrage). Heute werden „Ja?“ und „KP-03.TP-1?“ gueltig.
+    assert JA_NEIN.normalisiere("Ja?") == "Ja?"
+    assert JA_NEIN.validator("Ja?") is False
+    assert JA_NEIN.normalisiere("ja!?") == "ja!?"
+    auswahl = AUSWAHL("KP-03.TP-1")
+    assert auswahl.normalisiere("KP-03.TP-1?") == "KP-03.TP-1?"
+    assert auswahl.normalisiere("kp-03.tp-1!?") == "kp-03.tp-1!?"
+
+
+def test_auswahl_schluessel_vergleicht_einheitlich():
+    typ = AUSWAHL("zeit_sparen", "geschaetzt")
+    for eingabe in ("Zeit sparen", "zeit-sparen", "ZEIT_SPAREN.", "  zeit   sparen "):
+        assert typ.normalisiere(eingabe) == "zeit_sparen", eingabe
+    # ä als eigenes Zeichen (NFC) und als a + Combining Diaeresis (NFD)
+    for eingabe in ("geschätzt", "Geschätzt", "geschätzt"):
+        assert typ.normalisiere(eingabe) == "geschaetzt", eingabe
+    for eingabe in ("zeit sparen!?", "sparen"):
+        assert typ.normalisiere(eingabe) == eingabe, eingabe
+
+
+def test_auswahl_kurzform_zuerst_raender_dann_schluessel():
+    typ = AUSWAHL("geschaetzt", "zeit_sparen")
+    assert typ.kurzform("geschätzt") == "geschaetzt"
+    assert typ.kurzform("Zeit sparen") == "zeit_sparen"
+    assert typ.kurzform(" geschaetzt ") == "geschaetzt"
+    assert typ.kurzform("geschaetzt!") == "geschaetzt"
+    assert typ.kurzform("geschaetzt..") is None
+    assert typ.kurzform("geschaetzt?") is None
+    # Kennung und Name gleichlautend: die Kennung gewinnt
+    gleich = AUSWAHL("a", "b", namen={"a": "b"})
+    assert gleich.kurzform("b") == "b"
+
+
+def test_auswahl_namen_loesen_auf_die_kennung():
+    typ = AUSWAHL("R-01", "R-02", "R-03", "R-04", namen={
+        "R-01": "Geschäftsführung", "R-02": "Vertrieb & Innendienst",
+        "R-03": "Lager+Versand", "R-04": "Qualität-Prüfung"})
+    for eingabe, erwartet in [
+        ("Vertrieb & Innendienst", "R-02"), ("vertrieb & innendienst", "R-02"),
+        ("Lager+Versand", "R-03"), ("Geschäftsführung", "R-01"),
+        ("Geschaeftsfuehrung", "R-01"), ("Qualität Prüfung.", "R-04"),
+        ("r-01", "R-01"),
+    ]:
+        assert typ.normalisiere(eingabe) == erwartet, eingabe
+        assert typ.kurzform(eingabe) == erwartet, eingabe
+    assert typ.normalisiere("Vertrieb") == "Vertrieb"
+
+
+def test_auswahl_namen_mehrdeutig_oder_leer():
+    typ = AUSWAHL("A", "B", "C", namen={"A": "Gleich", "B": "gleich", "C": ""})
+    assert typ.normalisiere("Gleich") == "Gleich"        # trifft zwei Optionen: keine Uebersetzung
+    assert typ.kurzform("gleich") is None
+    assert typ.normalisiere("") == ""                    # leerer Name wird uebersprungen
+    assert typ.kurzform("") is None
+    assert typ.normalisiere("c") == "C"                  # Kennungen gehen weiter
+    # ohne namen verhaelt sich AUSWAHL wie bisher
+    assert AUSWAHL("A", "B").normalisiere("a.") == "A"
+
+
+def test_auswahl_prueft_nur_optionen():
+    # (Regression) Namen werden nur uebersetzt; gueltig bleiben allein die Kennungen.
+    typ = AUSWAHL("R-01", namen={"R-01": "Geschäftsführung"})
+    assert typ.validator("Geschäftsführung") is False
+    assert typ.validator("R-01") is True
+
+
+def test_auswahl_synonyme():
+    typ = AUSWAHL("mail", "pdf", synonyme={"mail": ("E-Mail", "Email")})
+    for eingabe in ("E-Mail", "email", "Email.", "e mail"):
+        assert typ.normalisiere(eingabe) == "mail", eingabe
+        assert typ.kurzform(eingabe) == "mail", eingabe
+    assert typ.normalisiere("E-Mail?") == "E-Mail?"
+    assert typ.validator("E-Mail") is False
+    # ein Synonym, das zwei Optionen traefe, wird verworfen
+    zwei = AUSWAHL("a", "b", synonyme={"a": ("x",), "b": ("X",)})
+    assert zwei.normalisiere("x") == "x"
+
+
 def test_mehr_zahlen_input_bleibt_unveraendert_und_ist_ungueltig():
     # Gesamt-Review I2: bei MEHR als einer Zahl im Text wird NICHT mehr
     # die erste Zahl still normalisiert — der Input bleibt unverändert und
@@ -442,7 +522,7 @@ def test_kurzform_skala(eingabe, erwartet):
     ("geschaetzt", "geschaetzt"), ("KP-01.TP-1", "KP-01.TP-1"),
     ("kp-01.tp-1.", "KP-01.TP-1"),
     ("KP-01.TP-1?", None), ("KP-01.TP-9", None), ("Erfassen", None),
-    ("geschätzt", None), ("geschaetzt..", None),
+    ("geschätzt", "geschaetzt"), ("geschaetzt..", None),
 ])
 def test_kurzform_auswahl(eingabe, erwartet):
     typ = AUSWAHL("geschaetzt", "KP-01.TP-1")
@@ -581,6 +661,12 @@ def test_antwortform_prozent():
 
 def test_antwortform_auswahl():
     assert AUSWAHL("a", "b").antwortform == "genau eine von: a, b"
+
+
+def test_antwortform_auswahl_nennt_namen():
+    typ = AUSWAHL("KP-01.TP-1", "KP-01.TP-2", namen={"KP-01.TP-1": "Anfrage erfassen"})
+    assert typ.antwortform == ("genau eine von: KP-01.TP-1 (= Anfrage erfassen), "
+                               "KP-01.TP-2")
 
 
 def test_antwortform_freie_typen():

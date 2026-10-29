@@ -1,0 +1,93 @@
+{
+  "kontext": {
+    "company_id": "11111111-1111-1111-1111-111111111111",
+    "rollen": [
+      ["R-01", "Geschäftsführung"],
+      ["R-02", "Vertrieb & Innendienst"],
+      ["R-03", "Lager+Versand"]
+    ],
+    "prozesse": [
+      ["KP-01", "Auftrag-Abwicklung"],
+      ["KP-02", "Einkauf & Beschaffung"]
+    ],
+    "teilprozesse": [
+      ["KP-01.TP-1", "Anfrage erfassen"],
+      ["KP-01.TP-2", "Angebot prüfen"],
+      ["KP-02.TP-1", "Lieferanten-Bewertung"]
+    ],
+    "system_ids": ["S-01", "S-02"],
+    "eigner": [["KP-01", "R-01"]]
+  },
+  "eintraege": [
+    {"feld": "request_goal", "antwort": "zeit_sparen", "fest": "zeit_sparen", "ki": "zeit_sparen", "vertrag": null},
+    {"feld": "request_goal", "antwort": "Zeit sparen", "fest": "zeit_sparen", "ki": "zeit_sparen", "vertrag": null},
+    {"feld": "request_goal", "antwort": "Fehler senken", "fest": "fehler_senken", "ki": "fehler_senken", "vertrag": null},
+    {"feld": "request_goal", "antwort": "weniger Fehler", "fest": "Nachfrage", "ki": "fehler_senken", "vertrag": null},
+    {"feld": "request_goal", "antwort": "Zeit sparen und Fehler senken", "fest": "Nachfrage", "ki": "Nachfrage", "vertrag": null},
+
+    {"feld": "scope_focus", "antwort": "ganzer Prozess", "fest": "ganzer_prozess", "ki": "ganzer_prozess", "vertrag": null},
+    {"feld": "scope_focus", "antwort": "den ganzen Prozess", "fest": "ganzer_prozess", "ki": "ganzer_prozess", "vertrag": null},
+    {"feld": "scope_focus", "antwort": "ein einzelner Schritt", "fest": "einzelner_schritt", "ki": "einzelner_schritt", "vertrag": null},
+    {"feld": "scope_focus", "antwort": "einzelner Schritt", "fest": "einzelner_schritt", "ki": "einzelner_schritt", "vertrag": null},
+    {"feld": "scope_focus", "antwort": "Beides", "fest": "Nachfrage", "ki": "Nachfrage", "vertrag": null},
+
+    {"feld": "process_owner_role", "antwort": "Geschäftsführung", "fest": "R-01", "ki": "R-01", "vertrag": null},
+    {"feld": "process_owner_role", "antwort": "geschaeftsfuehrung", "fest": "R-01", "ki": "R-01", "vertrag": null},
+    {"feld": "process_owner_role", "antwort": "Vertrieb & Innendienst", "fest": "R-02", "ki": "R-02", "vertrag": null},
+    {"feld": "process_owner_role", "antwort": "Lager+Versand", "fest": "R-03", "ki": "R-03", "vertrag": null},
+    {"feld": "process_owner_role", "antwort": "die Geschäftsführung", "fest": "Nachfrage", "ki": "R-01", "vertrag": null},
+    {"feld": "process_owner_role", "antwort": "Geschäftsführung (R-01)", "fest": "Nachfrage", "ki": "R-01", "vertrag": null},
+    {"feld": "process_owner_role", "antwort": "R-01 = Geschäftsführung", "fest": "Nachfrage", "ki": "R-01", "vertrag": null},
+    {"feld": "process_owner_role", "antwort": "R-02 = Geschäftsführung", "fest": "Nachfrage", "ki": "Nachfrage", "vertrag": null},
+    {"feld": "process_owner_role", "antwort": "Ja, stimmt", "fest": "Nachfrage", "ki": "R-01 oder Nachfrage", "vertrag": null},
+
+    {"feld": "process_id", "antwort": "Auftrag-Abwicklung", "fest": "KP-01", "ki": "KP-01", "vertrag": null},
+    {"feld": "process_id", "antwort": "Einkauf & Beschaffung", "fest": "KP-02", "ki": "KP-02", "vertrag": null},
+    {"feld": "process_id", "antwort": "Einkauf und Beschaffung", "fest": "Nachfrage", "ki": "KP-02", "vertrag": null},
+    {"feld": "process_id", "antwort": "KP-01 = Auftrag-Abwicklung", "fest": "Nachfrage", "ki": "KP-01", "vertrag": null},
+    {"feld": "process_id", "antwort": "Auftrag", "fest": "Nachfrage", "ki": "Nachfrage", "vertrag": null},
+
+    {"feld": "input_format", "antwort": "E-Mail", "fest": "mail", "ki": "mail", "vertrag": null},
+    {"feld": "input_format", "antwort": "Email", "fest": "mail", "ki": "mail", "vertrag": null},
+    {"feld": "input_format", "antwort": "per Mail", "fest": "Nachfrage", "ki": "mail", "vertrag": null},
+    {"feld": "input_format", "antwort": "PDF", "fest": "pdf", "ki": "pdf", "vertrag": null},
+    {"feld": "input_format", "antwort": "als PDF", "fest": "Nachfrage", "ki": "pdf", "vertrag": null},
+    {"feld": "input_format", "antwort": "PDF per Mail", "fest": "Nachfrage", "ki": "Nachfrage", "vertrag": null},
+
+    {"feld": "focus_step", "antwort": "KP-01.TP-1", "fest": "KP-01.TP-1", "ki": "KP-01.TP-1", "vertrag": null},
+    {"feld": "focus_step", "antwort": "Anfrage erfassen", "fest": "KP-01.TP-1", "ki": "KP-01.TP-1", "vertrag": null},
+    {"feld": "focus_step", "antwort": "Lieferanten-Bewertung", "fest": "KP-02.TP-1", "ki": "KP-02.TP-1", "vertrag": null},
+    {"feld": "focus_step", "antwort": "anfrage erfassen.", "fest": "KP-01.TP-1", "ki": "KP-01.TP-1", "vertrag": null},
+    {"feld": "focus_step", "antwort": "Anfrage erfassen?", "fest": "Nachfrage", "ki": "Nachfrage", "vertrag": null},
+    {"feld": "focus_step", "antwort": "KP-01.TP-9", "fest": "Nachfrage", "ki": "Nachfrage", "vertrag": null},
+    {"feld": "focus_step", "antwort": "erfassen", "fest": "Nachfrage", "ki": "Nachfrage", "vertrag": null},
+    {"feld": "focus_step", "antwort": "der zweite Schritt", "fest": "Nachfrage", "ki": "Nachfrage", "vertrag": null},
+    {"feld": "focus_step", "antwort": "die Prüfung", "fest": "Nachfrage", "ki": "Nachfrage", "vertrag": null},
+    {"feld": "focus_step", "antwort": "KP-01.TP-1 = Anfrage erfassen", "fest": "Nachfrage", "ki": "KP-01.TP-1", "vertrag": null},
+    {"feld": "focus_step", "antwort": "KP-01.TP-1 = Angebot prüfen", "fest": "Nachfrage", "ki": "Nachfrage", "vertrag": null},
+
+    {"feld": "focus_step_duration_source", "antwort": "gemessen", "fest": "gemessen", "ki": "gemessen", "vertrag": null},
+    {"feld": "focus_step_duration_source", "antwort": "geschätzt", "fest": "geschaetzt", "ki": "geschaetzt", "vertrag": null},
+    {"feld": "focus_step_duration_source", "antwort": "aus dem System", "fest": "aus_system", "ki": "aus_system", "vertrag": null},
+    {"feld": "focus_step_duration_source", "antwort": "aus System", "fest": "aus_system", "ki": "aus_system", "vertrag": null},
+    {"feld": "focus_step_duration_source", "antwort": "nur geschätzt", "fest": "Nachfrage", "ki": "geschaetzt oder Nachfrage", "vertrag": null},
+
+    {"feld": "focus_step_media_break", "antwort": "Ja", "fest": "ja", "ki": "ja", "vertrag": null},
+    {"feld": "focus_step_media_break", "antwort": "nein.", "fest": "nein", "ki": "nein", "vertrag": null},
+    {"feld": "focus_step_media_break", "antwort": "Ja?", "fest": "Nachfrage", "ki": "Nachfrage", "vertrag": null},
+    {"feld": "focus_step_media_break", "antwort": "Ja, eigentlich nicht", "fest": "Nachfrage", "ki": "Nachfrage", "vertrag": null},
+    {"feld": "focus_step_media_break", "antwort": "Ja, aber selten", "fest": "Nachfrage", "ki": "ja oder Nachfrage", "vertrag": null},
+    {"feld": "focus_step_media_break", "antwort": "Ja Systeme wechseln", "fest": "Nachfrage", "ki": "ja", "vertrag": null},
+    {"feld": "focus_step_media_break", "antwort": "nö", "fest": "Nachfrage", "ki": "nein", "vertrag": null},
+    {"feld": "focus_step_media_break", "antwort": "Zwischen Systemen wechseln", "fest": "Nachfrage", "ki": "ja oder Nachfrage", "vertrag": null},
+
+    {"feld": "pii_involved", "antwort": "Ja", "fest": "ja", "ki": "ja", "vertrag": null},
+    {"feld": "pii_involved", "antwort": "nein.", "fest": "nein", "ki": "nein", "vertrag": null},
+    {"feld": "pii_involved", "antwort": "Ja?", "fest": "Nachfrage", "ki": "Nachfrage", "vertrag": null},
+    {"feld": "pii_involved", "antwort": "Ja, eigentlich nicht", "fest": "Nachfrage", "ki": "Nachfrage", "vertrag": null},
+    {"feld": "pii_involved", "antwort": "nö", "fest": "Nachfrage", "ki": "nein", "vertrag": null},
+    {"feld": "pii_involved", "antwort": "Ja, Namen und Mailadressen", "fest": "Nachfrage", "ki": "ja oder Nachfrage", "vertrag": null},
+    {"feld": "pii_involved", "antwort": "Nein, nur Namen und Mailadressen", "fest": "Nachfrage", "ki": "Nachfrage", "vertrag": null},
+    {"feld": "pii_involved", "antwort": "Zwischen Systemen wechseln", "fest": "Nachfrage", "ki": "Nachfrage", "vertrag": null}
+  ]
+}

@@ -204,7 +204,13 @@ def test_focus_step_kurzantwort():
     assert state.values["focus_step"].value == "KP-01.TP-1"
     assert state.values["focus_step"].status is FieldStatus.GUELTIG
     assert ki.aufrufe == 0
-    for text in ("KP-01.TP-9", "Erfassen", "KP-01.TP-1?"):
+    # Teilprozessname loest die Kurzform direkt auf (Spec 3.3): kein KI-Aufruf
+    direkt_ki = _ZaehlerKI()
+    direkt_state = SessionState("s3", paket.schema_version)
+    extract_and_merge(direkt_state, "Erfassen", "m1", paket, direkt_ki, gefragt=gefragt)
+    assert direkt_state.values["focus_step"].value == "KP-01.TP-1"
+    assert direkt_ki.aufrufe == 0
+    for text in ("KP-01.TP-9", "KP-01.TP-1?"):
         frische_ki = _ZaehlerKI()
         extract_and_merge(SessionState("s2", paket.schema_version), text,
                           "m1", paket, frische_ki, gefragt=gefragt)
