@@ -1,11 +1,12 @@
 # Spec: Natürliche Antworten richtig erfassen — nichts erfinden, KI kennt Frage und Antwortform, zwei Prüfschichten
 
-> Stand 29.10.2026, **Entwurf 2**. Anlass: Generalprobe 2 auf BC0s Server (Testanfrage A-2026-08, KP-02.TP-2, 29.10.): 25 von 26 Pflichtfeldern.
+> Stand 29.10.2026, **Entwurf 3**. Anlass: Generalprobe 2 auf BC0s Server (Testanfrage A-2026-08, KP-02.TP-2, 29.10.): 25 von 26 Pflichtfeldern.
 > - **Quellen:** gespeicherte Sitzung und Profil (nur lesend gemessen), BC1-Log vom Server, Code auf `main` @ `4ead3de`, Proben an Kurzformen/Normalisierern/Prüfern.
 > - **Vorgänger:** `design/Spec-Extraktion-gestellte-Frage.md` (Kurzantworten, gemergt mit #367).
-> - **Geprüft:** Entwurf 1 von Codex (1 Critical, 8 Important, 2 Minor), agy (3 C, 6 I, 4 M) und einem unabhängigen Claude-Prüfer (1 C, 9 I, 6 M) — einhellig „so nicht bauen“. Entwurf 2 baut die Befunde ein (Abschnitt 10).
+> - **Geprüft:** Entwurf 1 von Codex (1 Critical, 8 Important, 2 Minor), agy (3 C, 6 I, 4 M) und einem unabhängigen Claude-Prüfer (1 C, 9 I, 6 M) — einhellig „so nicht bauen“ (Abschnitt 10). Entwurf 2 von agy (1 C, 5 I, 3 M) und einem Claude-Prüfer (0 C, 5 I, 11 M, „Bau freigeben mit fünf Auflagen“); Entwurf 3 baut beide ein (Abschnitt 13).
+> - **Abnahme:** Entwurf 2 mit allen Empfehlungen (Abschnitt 8) von der BC1-Projektleitung abgenommen; die Empfehlungen der Prüfer zu Entwurf 2 gelten als angenommen (Abschnitt 13).
 > - **Termin:** Vorführung Dienstag 03.11.2026. Plan und Rückfallebene in Abschnitt 9.
-> - **Nächster Schritt:** Zweitmeinungen zu Entwurf 2 (Codex, agy, Claude-Prüfer), dann Abnahme durch die BC1-Projektleitung.
+> - **Nächster Schritt:** Nachprüfung Entwurf 3, dann Implementierungsplan (mit Prüfung).
 
 ---
 
@@ -32,7 +33,7 @@
 
 **Erfolg (Abnahme).**
 1. Antwortkatalog (Schicht a) grün: jede Katalogantwort führt auf dem festen Weg zum erwarteten Wert **oder** ausdrücklich zu „Nachfrage erwartet“; **kein Eintrag erzeugt einen falschen gültigen Wert**.
-2. Prüfwerkzeug (Schicht b) gegen die echte KI, je Szenario zwei Läufe: keine Antwort mit falschem Wert, kein aufgegebenes Pflichtfeld, jede natürliche Antwort im ersten Versuch richtig außer „Nachfrage erwartet“, Nachfragetexte bestehen die Prüfregeln (Abschnitt 6).
+2. Prüfwerkzeug (Schicht b) gegen die echte KI — Szenarien 1, 3 und 4 je zwei Läufe, Szenario 2 als Variantenreihe mit mindestens drei Läufen: keine Antwort mit falschem Wert (auch kein anderer gültiger Wert als erwartet), kein aufgegebenes Pflichtfeld, jede natürliche Antwort im ersten Versuch richtig außer „Nachfrage erwartet“ und Grenzfällen, Nachfragetexte bestehen die Prüfregeln (Abschnitt 6).
 3. Generalprobe 3 über BC0s App mit natürlichen Antworten: 26/26, kein falscher Wert.
 
 ---
@@ -47,20 +48,27 @@
 |---|---|
 | JA_NEIN | „ja oder nein“ |
 | SKALA_1_5 | „eine Ziffer von 1 bis 5“ |
-| ANZAHL | „eine Zahl (Anzahl)“ |
+| ANZAHL | „nur eine Zahl, ohne Einheit, z. B. ‚5‘“ |
 | ZAHL (Häufigkeit) | „Zahl pro Woche, pro Monat oder pro Jahr, z. B. ‚2 pro Monat‘“ |
 | MINUTEN | „Dauer als Zahl mit ‚Minuten‘ oder ‚Stunden‘, z. B. ‚90 Minuten‘“ |
 | PROZENT_0_100 / PROZENT_GANZ_0_100 | „Zahl von 0 bis 100“ / „ganze Zahl von 0 bis 100“ |
 | AUSWAHL | „genau eine von: “ + Optionen, je mit Anzeigename, falls vorhanden („KP-02.TP-2 (= Lead qualifizieren)“) |
-| FREITEXT / LISTE / Systemtyp | „Text“ / „Liste, durch Kommas getrennt“ / „Liste; bekannte Systeme mit Kennung S-NN“ |
+| FREITEXT / LISTE / Systemtyp | „Text“ / „Liste, durch Kommas getrennt“ / „Liste der genannten Systeme, durch Kommas getrennt; Kennungen S-NN nur, wenn die Nachricht sie nennt“ |
 
 Die Antwortform ist reine Beschreibung; Prüfer und gespeicherte Werte ändern sich dadurch nicht.
+- **Pflichtmerkmal ohne Vorgabe** (`field(kw_only=True)`): kein Typ erbt still eine falsche Beschreibung; alle Konstruktoren in `feldtypen.py` und `paket_feldtypen.py` setzen es.
+- **Systemtyp:** Der Kontext kennt keine Systemnamen; eine Antwortform „bekannte Systeme mit Kennung“ würde erfundene, gültige S-NN-Kennungen einladen.
+- **Bekannte Grenze:** Im kontextfreien Zweig ist D4 ein ZAHL-Feld; die Antwortform passt dort nicht genau. Hingenommen, im Plan vermerkt.
 
 ### 2. Extraktion kennt Frage und Antwortform (`bc1_service/prompts.py`, drei Adapter)
 
 - **Ein gemeinsamer Helfer** `extraktions_nutzer_prompt(message, package, state)` in `prompts.py` (Muster: `gespraech_nutzer_prompt`, schon von allen Adaptern geteilt). Gemini-, Claude- und Ollama-Adapter rufen ihn statt der eigenen Zeile `"- {f.name}: {f.question}"`. **Kein Protokollwechsel:** `extract(message, package, state)` bekommt den Zustand schon; der Helfer bestimmt das gefragte Feld mit `zuletzt_gefragt(state)`.
 - **Inhalt:** (a) „Gerade gestellte Frage: <Feldname> — <Fragetext> (Antwortform: …)“, falls vorhanden; (b) die Feldliste mit je Fragetext und Antwortform; (c) die Nachricht.
-- **`SYSTEM_EXTRAKTION` neu, sinngemäß:** „Die Nachricht beantwortet in erster Linie die gerade gestellte Frage; andere Felder nur, wenn die Nachricht sie ausdrücklich belegt. Liefere jeden Wert **in der Antwortform des Felds**: bei Auswahl die Kennung (nicht den Namen), bei Ja/Nein ‚ja‘ oder ‚nein‘, Zahlen mit der genannten Einheit bzw. dem Zeitraum. Eindeutige Umformungen sind erwünscht (‚wöchentlich‘ → ‚1 pro Woche‘, ‚eine halbe Stunde‘ → ‚30 Minuten‘, ‚jeden 2. Monat‘ → ‚6 pro Jahr‘). **Lass ein Feld weg**, wenn die Angabe unsicher, eingeschränkt, widersprüchlich, eine Spanne, eine Gegenfrage oder nur mit einer Annahme umrechenbar ist (z. B. ‚vielleicht‘, ‚weiß nicht‘, ‚Ja, eigentlich nicht‘, ‚2–3 Stunden‘, ‚täglich‘, ‚2 Tage‘, ‚eher gut‘). Nichts erfinden.“ Der PII-Hinweis bleibt.
+- **`SYSTEM_EXTRAKTION` neu, sinngemäß:** „Die Nachricht beantwortet in erster Linie die gerade gestellte Frage; andere Felder nur, wenn die Nachricht sie ausdrücklich belegt. Liefere jeden Wert **in der Antwortform des Felds**: bei Auswahl die Kennung (nicht den Namen), bei Ja/Nein ‚ja‘ oder ‚nein‘, bei Häufigkeit und Dauer mit Zeitraum bzw. Einheit, bei Anzahl, Skala und Prozent nur die Zahl. **Freitext und Listen: wörtlich bzw. minimal normalisiert, Platzhalter unverändert.** Eindeutige Umformungen sind erwünscht (‚wöchentlich‘ → ‚1 pro Woche‘, ‚eine halbe Stunde‘ → ‚30 Minuten‘, ‚jeden 2. Monat‘ → ‚6 pro Jahr‘). **Ergänze nie eine Einheit oder einen Zeitraum, den die Nachricht nicht nennt.** **Felder mit Identitätsbezug nur, wenn die Nachricht die Kennung oder den Namen eindeutig nennt** — keine Teilnamen, Ordinalzahlen oder Umschreibungen. **Lass ein Feld weg**, wenn die Angabe unsicher, eingeschränkt, widersprüchlich, eine Spanne oder eine Gegenfrage ist, ein ‚?‘ enthält, sich auf eine andere Bezugsgröße bezieht als die Frage, mehrere Optionen nennt, wo eine verlangt ist, oder nur mit einer Annahme umrechenbar ist (z. B. ‚vielleicht‘, ‚weiß nicht‘, ‚Ja, eigentlich nicht‘, ‚KP-03.TP-1?‘, ‚2–3 Stunden‘, ‚täglich‘, ‚2 Tage‘, ‚30 Minuten pro Lead‘, ‚eher gut‘, ‚Ja‘ auf eine Skalenfrage). Nichts erfinden.“ Der PII-Hinweis bleibt.
+- **Warum Freitext wörtlich bleibt:** BC2 bindet Rollen, Systeme und offene Anmerkungen als Text (`contracts/bc1-to-bc2/README.md`); die Umformungsregel gilt nur für Felder mit festem Typ.
+- **Warum die Identitätsregel:** E5 legt fest, welcher Teilprozess beschrieben wird (`spec.identitaetskritisch`), und ist mit „fertig“ endgültig. Eine KI-Umformung von „die Qualifizierung“, „der zweite Schritt“ oder „Lead“ auf eine bestehende, aber falsche Kennung wäre gültig und falsch. Die Regel wird generisch über `spec.identitaetskritisch` in den Prompt geschrieben (nicht über Feldnamen). Eine feste Sperre im Code steht auf der Roadmap (Abschnitt 12).
+- **Nackte Zahl:** Die KI ergänzt nie Einheit oder Zeitraum; die Normalisierer behalten die heutige Vertragsbedeutung einer nackten Zahl (Abschnitt 3.4).
+- **Tests mit `state=None`:** Adapter-Tests, die heute `state=None` übergeben, werden auf einen echten `SessionState` umgestellt (bewusste Änderung, Abschnitt 7).
 - **Bewusst als Nachfrage** (nicht von der KI umzurechnen): „täglich/pro Tag“ (Arbeits- oder Kalendertage?), Dauern in Tagen/Wochen (Arbeits- oder Durchlaufzeit? Vertrag mit BC2: Jahresminuten = D1 × E1), Spannen, „teilweise/manchmal/eher ja“, qualitative Skalenwörter („eher gut“). Entscheidung 8.1.
 
 ### 3. Feste Regeln im Code
@@ -72,24 +80,37 @@ Die Antwortform ist reine Beschreibung; Prüfer und gespeicherte Werte ändern s
 **3.3 Auswahl: einheitlicher Vergleich, Namen, Synonyme.** `AUSWAHL(*optionen, namen=None, synonyme=None)`:
 - **Vergleichsschlüssel** für Eingabe, Optionen, Namen und Synonyme gleichermaßen: Unicode NFC, `casefold()`, ä/ö/ü/ß ↔ ae/oe/ue/ss, „_“, „-“ und Leerraum zu einem Leerzeichen, Ränder wie `_entferne_rand` (ohne „?“).
 - **Treffer:** Schlüssel gleich einer Option → Option; gleich dem Schlüssel **genau eines** Namens oder Synonyms → zugehörige Option. Mehrdeutige Schlüssel (zwei Optionen) und leere Namen werden nicht übersetzt; eine Kennung gewinnt vor einem gleichlautenden Namen.
-- **Normalisierer und Kurzform** nutzen denselben Abgleich (Kurzform weiter eng: ganze Nachricht, höchstens ein „.“/„!“ am Ende).
+- **Normalisierer und Kurzform** nutzen denselben Abgleich. Die Kurzform bleibt eng: zuerst die engen Ränder am Rohtext prüfen (ganze Nachricht, höchstens ein „.“/„!“ am Ende), erst dann den Schlüssel bilden — so bleibt etwa „geschaetzt..“ ohne Kurzform.
+- **Paarformen** („KP-02.TP-2 = Lead qualifizieren“, „Geschäftsführung (R-06)“, „die Geschäftsführung“) löst der feste Weg nicht; sie stehen im Katalog als „fest: Nachfrage, KI: Wert“. Feste Paarformen erst, wenn Schicht b eine Lücke zeigt.
 - **Prüfer unverändert** (gültig nur die Optionen); gespeichert wird immer die Kennung bzw. Option.
 - **Woher:** `discovery_paket.py` übergibt B3 `kontext.rollen`, B4 `kontext.prozesse`, E5 `kontext.teilprozesse` als Namen. Synonyme nur für feste Auswahlfelder und nur, wo der Schlüssel nicht reicht: C3 mail ← „E-Mail“, „Email“; A3 ganzer_prozess ← „den ganzen Prozess“, einzelner_schritt ← „ein einzelner Schritt“; E3 aus_system ← „aus dem System“. („Zeit sparen“, „einzelner Schritt“, „geschätzt“, „aus System“ löst schon der Schlüssel.)
 - **Paket-Fingerprint:** Namen wirken jetzt auf die Eingabe-Auslegung. Der Fingerprint (`_ctx_fingerprint`) nimmt deshalb auch die Namen auf; damit ändert sich die Kontext-Kennung in `schema_version` (Teil nach `+ctx-`), nicht die Paketfassung 1.2. Folge: Sitzungen, die vor dem Update begonnen wurden, laufen in den bestehenden Paket-Schutz — vor dem Update ohnehin per Messung ausgeschlossen. Entscheidung 8.4.
+  - **Dauerfolge:** Benennt BC0 einen Teilprozess, eine Rolle oder einen Kernprozess um und startet BC1 danach neu, laufen dort schon begonnene Sitzungen in 409 `paket_konflikt` — gewollt (Schutz vor veralteter Auslegung).
+  - Bestandstests mit festen Hashes (`test_discovery_paket.py`) und die zugehörigen Kommentare in `discovery_paket.py` werden bewusst angepasst.
 
-**3.4 Normalisierer lesen keine Zahlen mehr aus Sätzen.** Zahl-, Dauer-, Anzahl-, Prozent- und Skalen-Normalisierer nehmen nur noch die **ganze Eingabe** in den eindeutigen Formen an (dieselben Formen wie die Kurzformen aus #367, plus nackte Zahl, wo der Typ sie heute schon meint). Alles andere bleibt unverändert (ungültig → Nachfrage). Damit fallen weg: „jeden 2. Monat“ → 24, „1 Stunde und zehn Minuten“ → 60, „nicht 3 Stunden“ → 180, „30 Minuten pro Lead“ → 30.
+**3.4 Normalisierer lesen keine Zahlen mehr aus Sätzen — nur zusammen mit Abschnitt 2.** Zahl-, Dauer-, Anzahl-, Prozent- und Skalen-Normalisierer nehmen nur noch die **ganze Eingabe** in einer geschlossenen Grammatik an: die Kurzformen aus #367 (mit Näherungswort, Einheit bzw. Zeitraum, höchstens „.“/„!“ am Ende) plus nackte Zahl, wo der Typ sie heute schon meint (Vertrag: D1 „300“ = pro Jahr, E1 „40“ = Minuten). Alles andere bleibt unverändert (ungültig → Nachfrage).
+- **Häufigkeit, erweitert um heute gültige eindeutige Verbindungen:** `<Zahl> [x|mal] (pro|im|je|in der|die|den|das|/) (Woche|Monat|Jahr)` — also auch „2x die Woche“, „2/Woche“, „2 mal in der Woche“. Kurzform und Normalisierer gleich.
+- **Fallen bewusst weg (heute still falsch):** „jeden 2. Monat“ → 24, „1 Stunde und zehn Minuten“ → 60, „nicht 3 Stunden“ → 180, „unter 1 Stunde“ → 60, „mehr als 2 Stunden“ → 120, „30 Minuten pro Lead“ → 30.
+- **Werden auf dem festen Weg zur Nachfrage, die KI bringt sie in die Antwortform** (Katalog „fest: Nachfrage, KI: Wert“): „20 Leads pro Woche“, „etwa 20 Anfragen pro Monat“, „jede Woche 2“, „so 30 im Monat“, „pro Monat 30“, „so 45 Minuten“, „meistens 20 Minuten“, „2 Stunden bei uns“. Reicht die KI wörtlich durch, entsteht eine Nachfrage, kein falscher Wert. Bei einem schon gültigen Feld kann ein wörtlich durchgereichter Satz das Feld auf „unklar“ setzen; das löst sich durch Wiederholung und wird in Schicht b gemessen.
+- **3.4 nie ohne Abschnitt 2** (gleicher Merge, gleiches Update): ohne Fragebezug und Antwortform würden die strengen Normalisierer viele heute gültige Antworten zur Nachfrage machen.
 - **Invariante „Normalisierer ⊇ Kurzform“:** was die Kurzform annimmt, nimmt auch der Normalisierer an, mit demselben Ergebnis (heute verletzt: `SKALA_1_5.normalisiere("4.")` ungültig, Prozent „70 Prozent“ auf dem KI-Weg ungültig).
 - Totalität bleibt (wirft nie). Gespeicherte Form unverändert.
+- **Bewusst geänderte Bestandstests:** in `test_feldtypen.py` „5 pro Woche pro Woche“ (heute 260) und „30 pro Monat [Person A]“ (heute 360, damals als gewollt notiert) — beide künftig ungültig. BC2-Texte mit Satzbeispielen (`contracts/bc1-to-bc2/README.md` „90 Minuten pro Fall“, `prozessprofil.schema.json`) bleiben heute unverändert → Roadmap (Abschnitt 12).
 
 ### 4. Nachfrage mit Antwortform (`bc1_core/gespraech.py`, `bc1_service/prompts.py`)
 
-- `TurnKontext` erhält `antwortform: str | None` des gefragten Felds (aus `spec.typ.antwortform`).
+- `TurnKontext` erhält als letztes Feld `antwortform: str | None = None` des gefragten Felds: gesetzt aus `spec.typ.antwortform` nur für Felder mit festem Typ; bei Freitext und Liste `None` — dann bleibt der Nachfrage-Text ohne Antwortform-Satz (eine Bitte „als Text“ wäre nutzlos).
 - Nachfrage-Text an die Gesprächs-KI, sinngemäß: „Frage nach **demselben Gegenstand** wie die Kernfrage. Antwortform: <…>. **Bitte ausdrücklich um eine Antwort in dieser Form** (bei Ja/Nein: ‚mit Ja oder Nein‘). Ja und Nein bedeuten dasselbe wie in der Kernfrage (nicht umkehren, nicht verneinen). Bei einer Skala bleiben Richtung und Endpunkte. Nenne nur Optionen, die die Antwortform vorgibt — ein ‚oder‘ in einer Ja/Nein-Frage ist keine Auswahl.“ Die Regel „nenne in der Frage enthaltene Optionen vollständig“ wird dadurch ersetzt. Zweck erklären, Beispiel, „Feld darf offen bleiben“ bleiben.
 
 ### 5. Schicht a — Antwortkatalog als Test ohne KI
 
-- **Katalog** als Daten im Repo (eine Datei, von Test und Werkzeug gemeinsam genutzt): je Pflichtfeld mit festem Typ (A2, A3, B3, B4, C3, D1, D4, E1, E5, E2, E3, E4, F3, G1, G2, G4, G5, I1) natürliche Antworten mit Erwartung: **Wert** oder **„Nachfrage erwartet“**. Pflichtinhalt: die Beispiele aus den drei Prüfberichten (Tabellen „26 Felder × natürliche Antworten“), darunter die gefährlichen Fälle („jeden 2. Monat“, „nicht 3 Stunden“, „Ja, eigentlich nicht“, „Ja?“), Namen mit Bindestrich/„+“/„&“/Umlaut, Synonyme.
-- **Prüft zwei Wege:** (1) direkt: Kurzform → Normalisierer → Prüfer; (2) „KI reicht wörtlich durch“: Normalisierer → Prüfer auf dem Rohtext. Auf **keinem** Weg darf ein falscher gültiger Wert entstehen; „Nachfrage erwartet“ heißt: ungültig oder keine Kurzform.
+- **Katalog** als reine Daten im Repo (`tests/daten/antwortkatalog.json`, von Test und Werkzeug gemeinsam genutzt): je Pflichtfeld mit festem Typ (A2, A3, B3, B4, C3, D1, D4, E1, E5, E2, E3, E4, F3, G1, G2, G4, G5, I1) natürliche Antworten. Pflichtinhalt: die Beispiele aus den Prüfberichten (Tabellen „26 Felder × natürliche Antworten“), darunter die gefährlichen Fälle („jeden 2. Monat“, „nicht 3 Stunden“, „Ja, eigentlich nicht“, „Ja?“), Namen mit Bindestrich/„+“/„&“/Umlaut, Synonyme, Paarformen, die Satzformen aus 3.4. Nur generische Namen (Repo öffentlich).
+- **Eintrag:** `{feld, antwort, fest, ki, vertrag}`.
+  - `fest`: erwarteter Wert auf dem festen Weg oder „Nachfrage“.
+  - `ki`: erwarteter Wert mit KI (Schicht b), „Nachfrage“ oder **Grenzfall** „Wert X oder Nachfrage“.
+  - `vertrag`: der Wert ist die Vertragsbedeutung einer nackten Zahl (D1 „300“ = pro Jahr, E1 „40“ = Minuten).
+- **Grenzfälle und Skalenwörter:** „Ja, aber selten“, „Zwischen Systemen wechseln“ (F3) sind Grenzfälle. Skalen-Endpunkte, die die Frage selbst definiert („gar nicht“ = 1 bei G1, „immer gleich“ = 5 bei G2), gelten als Wert; andere qualitative Wörter, Mehrfachnennung bei Einzelauswahl und „Ja“ auf eine Skalenfrage → Nachfrage.
+- **Prüft zwei Wege:** (1) direkt: Kurzform → Normalisierer → Prüfer; (2) „KI reicht wörtlich durch“: Normalisierer → Prüfer auf dem Rohtext. **Kein Weg liefert einen anderen gültigen Wert als erwartet**; Weg 2 darf den `vertrag`-Wert liefern. „Nachfrage“ heißt: ungültig oder keine Kurzform.
 - Plus Eigenschaftstest „Normalisierer ⊇ Kurzform“ über alle Katalogeinträge.
 - Was nur die KI lösen kann („wöchentlich“, „eine halbe Stunde“), ist im Katalog für Schicht b markiert und in Schicht a als „auf festem Weg: Nachfrage“ geführt.
 
@@ -97,15 +118,15 @@ Die Antwortform ist reine Beschreibung; Prüfer und gespeicherte Werte ändern s
 
 - **Ort:** `bc1-context-discovery/werkzeuge/` (nicht im Image, nicht in der Suite, nicht in der CI). Architektur-Invariante „Tests gegen Fake-LLM, kein Netz in Tests“ unberührt: Das Werkzeug ist kein Test; es ruft nur `process_turn` (mit `InMemoryStateStore`, `baue_discovery_paket(kontext=…)`, KI-Adapter hinter dem LLM-Client) und befüllt nie selbst den Zustand. Seine eigene Ablauf- und Auswertelogik ist mit der Test-KI in der Suite getestet.
 - **Modell** wie auf dem Server (`gemini-3.8-flash`, Adapter über `BC1_LLM` wählbar), bezahlter Tarif (Projektleitung 29.10.).
-- **Testkontext:** generisch, aber realistisch (Namen mit Bindestrich, „+“, „&“, Umlaut; mehrere Teilprozesse; Rollen; Kernprozesse; Systeme).
-- **Szenarien, je unabhängig gestartet:**
+- **Testkontext:** generisch, aber realistisch (Namen mit Bindestrich, „+“, „&“, Umlaut; mehrere Teilprozesse; Rollen mit genau einem Eigner; Kernprozesse; Systeme).
+- **Szenarien, je unabhängig gestartet** (Bau- und Laufreihenfolge: zuerst 3 und 4, dann 1, dann 2):
   1. **Grundlauf** — kurze Startnachricht (nur A1/A2/A3/B1), sodass B3, B4, E5 und die übrigen Felder einzeln gefragt werden; Antworten mit Kennungen und Kurzformen.
-  2. **Natürlich** — dieselbe Struktur, Antworten aus dem Katalog in natürlicher Form (Namen, Umlaute, „wöchentlich“, „eine halbe Stunde“, „5 Leads“, „4 von 5“, „Ja, müssen wir“, „nö“ …).
-  3. **Nachfragen** — für je ein Ja/Nein-, Auswahl- und Skalenfeld zuerst eine unbrauchbare Antwort („Wie meinen Sie das?“), dann die richtige; der Nachfragetext wird geprüft: Ja/Nein nennt „Ja“ und „Nein“; Auswahl nennt alle Optionen; Skala nennt 1 und 5 und die Richtung der Kernfrage; ausgegeben zum Lesen.
-  4. **Nachfrage erwartet** — „täglich“, „2–3 Stunden“, „2 Tage“, „eher gut“, „Ja, keine Ahnung“, „Ja?“: erwartet ist eine Nachfrage, **kein** Wert.
+  2. **Natürlich, als Variantenreihe** — dieselbe Struktur, Antworten aus dem Katalog in natürlicher Form (Namen, Umlaute, „wöchentlich“, „eine halbe Stunde“, „5 Leads“, „4 von 5“, „Ja, müssen wir“, „nö“ …). Je Lauf erreicht pro Feld nur eine natürliche Antwort die KI (höchstens zwei Versuche je Feld); deshalb nimmt Lauf k je Feld die k-te Antwort, mindestens drei Läufe.
+  3. **Nachfragen** — für je ein Ja/Nein-, Auswahl- und Skalenfeld zuerst eine unbrauchbare Antwort („Wie meinen Sie das?“), dann die richtige; der Nachfragetext wird geprüft: Ja/Nein nennt „Ja“ und „Nein“; Auswahl nennt alle Optionen (Abgleich über den Vergleichsschlüssel aus 3.3); Skala nennt 1 und 5 und die Richtung der Kernfrage. Die Nachfragetexte stehen wörtlich im Bericht; der Ausführende bewertet sie schriftlich (Polarität, Richtung, Optionen) und markiert sie für die Projektleitung als offen.
+  4. **Nachfrage erwartet** — „täglich“, „2–3 Stunden“, „2 Tage“, „eher gut“, „Ja, keine Ahnung“, „Ja?“, dazu E5 mit Teilname, Ordinalzahl oder Umschreibung: erwartet ist eine Nachfrage, **kein** Wert; **danach eine gültige Zweitantwort**, damit kein Pflichtfeld aufgegeben wird (Ergebnis „✓ nach erwarteter Nachfrage“).
 - **Laufvertrag:** Schleife solange Status „frage“; Antwort je **gefragtem Feld** (`payload["feld"]`) aus dem Szenario; `fehler_fortsetzbar` → einmal dieselbe Nachricht wiederholen, dann Abbruch „technisch nicht abgeschlossen“ (kein Feldfehler); Höchstzahl an Turns; Aufrufzähler.
 - **Bericht je Feld:** gesendete Antworten, Zahl der Nachfragen, Endwert, erwartet, Ergebnis (✓ im 1. Versuch · ✓ nach erwarteter Nachfrage · ✗ falscher Wert/aufgegeben/unerwartete Nachfrage · „nicht geprüft“); Nachfragetexte; Modell, Code-Stand, Szenario. Ein Wert für ein **anderes** Feld, der sich durch die Antwort ändert, ist ✗.
-- **Umgang mit ✗:** nie den Katalog still anpassen. Entweder Code/Prompt ändern (mit Test) oder den Eintrag mit Begründung auf „Nachfrage erwartet“ setzen (Entscheidung der Projektleitung bei Bedeutungsfragen).
+- **Umgang mit ✗:** nie den Katalog still anpassen. Entweder Code/Prompt ändern (mit Test) oder den Eintrag mit Begründung auf „Nachfrage erwartet“ setzen (Entscheidung der Projektleitung bei Bedeutungsfragen). Ohne Projektleitung: Code/Prompt nur bei eindeutigem Fehler und mit Test ändern; Bedeutungsfragen als „offen für die Projektleitung“ in den Bericht.
 
 ### 7. Tests (Test zuerst, gegen die Test-KI)
 
@@ -118,7 +139,7 @@ Die Antwortform ist reine Beschreibung; Prüfer und gespeicherte Werte ändern s
 7. Katalogtest (Schicht a).
 8. Nachspiel Generalprobe 2 mit Test-KI: „Lead qualifizieren“ (Kurzform jetzt direkt) und „Ja Systeme wechseln“ (Test-KI liefert „ja“ wie mit dem neuen Prompt erwartet; liefert sie wörtlich, bleibt es ungültig → Nachfrage, kein falscher Wert).
 9. Werkzeug: Ablauf und Auswertung mit Test-KI (Feldzuordnung, Nachfrage-Szenario, „nicht geprüft“, Abbruch bei Fehler).
-10. Bestehende Tests, die sich bewusst ändern, im Plan ausweisen (u. a. `test_extractor.py` „Erfassen“ wird Kurzform; `test_feldtypen.py` „geschätzt“; Normalisierer-Tests mit Sätzen; `test_prompts.py` Optionen-Regel).
+10. Bestehende Tests, die sich bewusst ändern, im Plan einzeln ausweisen: `test_feldtypen.py` (Normalisierer-Sätze aus 3.4; Ränder „geschaetzt..“), `test_extractor.py` („Erfassen“ wird Kurzform), `test_discovery_paket.py` (feste Fingerprint-Hashes), `test_prompts.py` (Optionen-Regel; `TurnKontext`-Konstruktion), `test_gemini_llm.py` und `test_gemini_echt.py` (`state=None`). Unberührt bleiben die Testdaten-, Demo- und Nachspiel-Tests sowie der Test „Ja auf die Eigner-Frage bleibt ungültig“.
 
 ### 8. Entscheidungen für die BC1-Projektleitung
 
@@ -132,7 +153,15 @@ Die Antwortform ist reine Beschreibung; Prüfer und gespeicherte Werte ändern s
 
 ### 9. Plan bis Dienstag und Rückfallebene
 
-- **Do 29.10. abends:** Entwurf 2, Zweitmeinungen. **Fr 30.10.:** Abnahme der Spec, Implementierungsplan (geprüft), Bau Teil 1 (Abschnitte 1–4, Katalogtest). **Sa 31.10.:** Bau Teil 2 (Werkzeug), Gesamtprüfung, Werkzeug-Läufe gegen die echte KI, Nachbesserung. **So 01.11.:** PR, Merge nach OK, Tag, Update mit Ansage, Generalprobe 3. **Mo 02.11.:** Puffer, UC1-Testanfrage KP-06.TP-2 für die Vorführung.
+- **Bau-Reihenfolge mit Haltepunkten** (je Schritt ein Commit, Suite grün):
+  1. Abschnitt 1 (Antwortform).
+  2. 3.1 „?“ und 3.3 Schlüssel/Namen/Synonyme mit Fingerprint und den zugehörigen Katalogeinträgen → **Haltepunkt A**: rein fest, sicher und für sich wertvoll („Lead qualifizieren“, „Zeit sparen“, „geschätzt“, „E-Mail“ ohne KI).
+  3. Abschnitte 2 und 4 (Prompt mit Fragebezug, Identitätsregel, Nachfrage).
+  4. 3.4 strenge Normalisierer — erst nach Schritt 3 → **Haltepunkt B**: Code vollständig; nicht ausrollen ohne Schicht b; nie 3.4 ohne 2. Zweitmeinung über den Diff an dieser Stelle.
+  5. Katalogtest (Schicht a, Schema aus Abschnitt 5).
+  6. Werkzeug (Schicht b): zuerst Szenarien 3 und 4, dann 1, dann 2.
+  7. Läufe gegen die echte KI, Bericht, Gesamtprüfung.
+- **Zeitplan:** Do 29.10. Entwurf 3; Fr 30.10. Implementierungsplan (geprüft), Bau bis Haltepunkt A; Sa 31.10. bis Haltepunkt B, Katalogtest, Werkzeug; So 01.11. Läufe, Gesamtprüfung, PR, Merge, Tag, Update mit Ansage, Generalprobe 3; Mo 02.11. Puffer, UC1-Testanfrage KP-06.TP-2 für die Vorführung.
 - **Rückfallebene**, falls bis Montag 12 Uhr nicht alles abgenommen ist: Vorführung mit dem heutigen Stand (`bc1-kurzantworten-2026-10-29`) und einer Antwortliste mit Kennungen und kurzen Antworten — ehrlich angesagt als bekannte Grenze; das Paket folgt danach. Kein halbfertiger Stand auf dem Server.
 
 ### 10. Was aus der Prüfung von Entwurf 1 wurde
@@ -169,3 +198,27 @@ Die Antwortform ist reine Beschreibung; Prüfer und gespeicherte Werte ändern s
 - (6) Umlaut bei E3: erledigt (3.3).
 - (7) Ausrollen und zweite Generalprobe: erledigt (25/26). Neuer Punkt **Generalprobe 3** (Abschnitt 8.7).
 - Neu: **Prüfwerkzeug als fester Schritt** vor Generalprobe und Update (BETRIEB.md).
+- Neu: **Feste Sperre für E5 im Code** (KI-Wert nur, wenn Kennung oder Name im Schlüssel der Nachricht vorkommt). Ziel: vor Generalprobe 3; sofort bauen, falls Schicht b eine geratene E5-Kennung zeigt. Nächster Schritt: Schicht-b-Bericht Szenario 4 auswerten.
+- Neu: **Feste Regeln nachziehen** (Entscheidung 8.5) für Lücken, die Schicht b zeigt (z. B. Paarformen, Zahlwörter). Ziel: nach den ersten Läufen. Nächster Schritt: Lückenliste aus dem Bericht.
+- Neu: **BC2-Texte angleichen** — Satzbeispiele in `contracts/bc1-to-bc2/README.md` („90 Minuten pro Fall“) und `prozessprofil.schema.json` passen nicht mehr zur strengen Auslegung; dazu die Vertragsbedeutung der nackten Zahl. Ziel: mit BC2 klären (#286). Nächster Schritt: Kommentar in #286 nach dem Merge.
+- Neu: **Ollama-Kontextlänge prüfen** — der Extraktions-Prompt wächst (heute rund 4.600 Zeichen); `num_ctx` in der Primärdoku nachlesen. Kein Server-Pfad. Ziel: vor dem nächsten Ollama-Einsatz.
+
+### 13. Was aus der Prüfung von Entwurf 2 wurde
+
+| Befund (Prüfer) | Entwurf 3 |
+|---|---|
+| Antwortform/Prompt widerspricht Prüfer: „Zahlen mit Einheit“ macht „5 Leads“ ungültig (D4); Systemtyp lädt zu erfundenen S-NN ein (agy, Critical) | ANZAHL „nur eine Zahl, ohne Einheit“; Systemtyp „nur genannte Kennungen“ (1); Prompt „bei Anzahl, Skala, Prozent nur die Zahl“ (2) |
+| Strenge Normalisierer machen heute gültige Satzformen zur Nachfrage (agy, Claude) | heute gültige eindeutige Häufigkeitsformen in die Grammatik (3.4); übrige Satzformen „fest: Nachfrage, KI: Wert“; 3.4 nur zusammen mit 2 |
+| „wörtlich“ für Freitext/Listen muss bleiben (Claude) | Abschnitt 2 |
+| E5 identitätskritisch: KI-Umformung kann eine falsche, gültige Kennung liefern (Claude) | Identitätsregel im Prompt über `spec.identitaetskritisch` (2), Katalog und Szenario 4; feste Sperre → Roadmap (12) |
+| KI-Umformung umgeht „?“-Schutz und Bezugsgröße (agy) | Weglass-Liste: „?“, andere Bezugsgröße, Mehrfachnennung, „Ja“ auf Skala (2) |
+| Szenario 4 ohne gültige Zweitantwort widerspricht der Abnahme (agy) | Zweitantwort (6) |
+| Je Lauf erreicht pro Feld nur eine natürliche Antwort die KI (Claude) | Szenario 2 als Variantenreihe, ≥ 3 Läufe (6, Abnahme 2) |
+| Katalog-Schema unklar; nackte Zahl und Grenzfälle fehlen (Claude) | Schema `{feld, antwort, fest, ki, vertrag}`, Grenzfall-Klasse, Skalen-Endpunkte (5) |
+| Paarformen „KP-02.TP-2 = Lead qualifizieren“, „Geschäftsführung (R-06)“ (agy, Claude) | Katalog „fest: Nachfrage, KI: Wert“; feste Paarformen nur bei Lücke (3.3, 12) |
+| `antwortform` mit Vorgabe beschreibt Typen falsch; `TurnKontext`-Vorgabe; Bitte „als Text“ bei Freitext-Nachfrage (agy, Claude) | Pflichtmerkmal `kw_only` (1); `antwortform` letztes Feld, `None` bei freien Typen (4) |
+| Tests mit `state=None`, feste Fingerprint-Hashes brechen (agy, Claude) | als bewusste Änderungen ausgewiesen (2, 3.3, 7.10) |
+| Ränder der Kurzform widersprüchlich („geschaetzt..“) (Claude) | erst Ränder am Rohtext, dann Schlüssel (3.3) |
+| Fingerprint-Dauerfolge bei Umbenennung (Claude) | 3.3 |
+| Roadmap-Einträge fehlen (Claude) | Abschnitt 12 |
+| Reihenfolge und Haltepunkte fehlen (Claude) | Abschnitt 9 |
