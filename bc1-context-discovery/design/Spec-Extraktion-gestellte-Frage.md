@@ -3,7 +3,7 @@
 > Stand 29.10.2026, Entwurf 3. Anlass: Befund aus der Generalprobe auf BC0s Server (Testanfrage A-2026-07, 29.10.).
 > - **Quellen:** gespeicherte Sitzung und Profil der Generalprobe (nur lesend gemessen), BC1-Log vom Server, Spec C1a Abschnitt „Grenzen“ (24.10.: „Extraktor kennt die zuletzt gestellte Frage nicht … vorbestehend“).
 > - **Geprüft:** Entwurf 1 von einem unabhängigen Claude-Prüfer (1 Critical, 3 Important, 11 Minor) und von Codex (0 Critical, 4 Important, 3 Minor); beide fanden denselben Kernfehler. Entwurf 2 von agy (1 Critical, 3 Important, 4 Minor; einige Code-Angaben in agys Bericht sind erfunden, die Befunde selbst sind am Code nachgeprüft). Entwurf 3 arbeitet alles ein (Abschnitt 8).
-> - **Status:** abgenommen von der BC1-Projektleitung am 29.10.2026, alle drei Entscheidungen in Abschnitt 7 wie empfohlen.
+> - **Status:** abgenommen von der BC1-Projektleitung am 29.10.2026, alle drei Entscheidungen in Abschnitt 7 wie empfohlen. Gebaut auf Zweig `bc1-extraktion-gestellte-frage`.
 > - **Nächster Schritt nach Abnahme:** Implementierungsplan, dann Bau mit Test zuerst.
 
 ## Big Picture
