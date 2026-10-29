@@ -1,80 +1,68 @@
 {
   "projekt_kurzname": "uc1-reisebuchung",
-  "lieferung_id": "del-uc1-reisebuchung-2026-09-06-104439",
+  "lieferung_id": "del-uc1-reisebuchung-2026-10-26-test",
   "kp_id": "KP-06",
   "teilprozess_ids": [
     "KP-06.TP-2"
   ],
-  "erzeugt_am": "2026-09-06T10:44:39.928Z",
-  "erzeugt_von": "BC3-50 Bauplan erzeugen",
+  "erzeugt_am": "2026-10-26T21:00:00Z",
+  "erzeugt_von": "BC3 von Hand (Claude) aus Zakarias Prototyp V3, ohne Slicer",
   "komponenten": [
     {
-      "name": "Outlook-Postfach reisen@noroai",
-      "anbindung": "Email",
+      "name": "n8n-Webhook (POST, Feld text)",
+      "anbindung": "API",
       "rollen": [
-        "Quelle",
         "Quelle+Ziel"
       ],
       "verwendet_in": [
-        "Reiseanfrage automatisch erfassen und Verfügbarkeit prüfen",
-        "Angebot erstellen und Buchung nach Freigabe auslösen"
+        "Reiseanfrage verstehen: Absicht erkennen, Reisedaten extrahieren, Eingaben prüfen",
+        "Reiseangebote suchen, gegen das Budget prüfen und speichern",
+        "Angebot reservieren, Buchung prüfen und stornieren"
       ]
     },
     {
-      "name": "Web-Formular Reiseanfrage",
+      "name": "LLM (Prototyp: OpenAI, Empfehlung Konzept: Mistral Large)",
       "anbindung": "API",
       "rollen": [
-        "Quelle"
+        "Ziel"
       ],
       "verwendet_in": [
-        "Reiseanfrage automatisch erfassen und Verfügbarkeit prüfen"
+        "Reiseanfrage verstehen: Absicht erkennen, Reisedaten extrahieren, Eingaben prüfen"
       ]
     },
     {
       "name": "Reise-API (travel-mock-api)",
       "anbindung": "API",
       "rollen": [
-        "Quelle+Ziel",
-        "Ziel"
-      ],
-      "verwendet_in": [
-        "Reiseanfrage automatisch erfassen und Verfügbarkeit prüfen",
-        "Angebot erstellen und Buchung nach Freigabe auslösen"
-      ]
-    },
-    {
-      "name": "Vorgangsablage",
-      "anbindung": "DB",
-      "rollen": [
-        "Ziel",
         "Quelle+Ziel"
       ],
       "verwendet_in": [
-        "Reiseanfrage automatisch erfassen und Verfügbarkeit prüfen",
-        "Angebot erstellen und Buchung nach Freigabe auslösen"
+        "Reiseangebote suchen, gegen das Budget prüfen und speichern",
+        "Angebot reservieren, Buchung prüfen und stornieren"
+      ]
+    },
+    {
+      "name": "n8n Data Table suggestions (Angebotstabelle)",
+      "anbindung": "DB",
+      "rollen": [
+        "Quelle+Ziel"
+      ],
+      "verwendet_in": [
+        "Reiseangebote suchen, gegen das Budget prüfen und speichern",
+        "Angebot reservieren, Buchung prüfen und stornieren"
       ]
     }
   ],
   "datenfluesse": [
     {
-      "von": "Outlook-Postfach reisen@noroai",
-      "nach": "Prozess",
-      "art": "liest"
-    },
-    {
-      "von": "Outlook-Postfach reisen@noroai",
+      "von": "n8n-Webhook (POST, Feld text)",
       "nach": "Prozess",
       "art": "liest"
     },
     {
       "von": "Prozess",
-      "nach": "Outlook-Postfach reisen@noroai",
+      "nach": "LLM (Prototyp: OpenAI, Empfehlung Konzept: Mistral Large)",
       "art": "schreibt"
-    },
-    {
-      "von": "Web-Formular Reiseanfrage",
-      "nach": "Prozess",
-      "art": "liest"
     },
     {
       "von": "Reise-API (travel-mock-api)",
@@ -88,107 +76,57 @@
     },
     {
       "von": "Prozess",
-      "nach": "Reise-API (travel-mock-api)",
+      "nach": "n8n Data Table suggestions (Angebotstabelle)",
       "art": "schreibt"
     },
     {
-      "von": "Prozess",
-      "nach": "Vorgangsablage",
-      "art": "schreibt"
-    },
-    {
-      "von": "Vorgangsablage",
+      "von": "n8n Data Table suggestions (Angebotstabelle)",
       "nach": "Prozess",
       "art": "liest"
     },
     {
       "von": "Prozess",
-      "nach": "Vorgangsablage",
+      "nach": "n8n-Webhook (POST, Feld text)",
       "art": "schreibt"
     }
   ],
   "menschliche_entscheidungspunkte": [
-    {
-      "story_id": "st-7f86-9601-99bb-d235c7490f7d-2",
-      "epic_id": "ep-7f86-9601-99bb-d235c7490f7d",
-      "titel": "Projekt- oder Kostenstellenzuordnung prüfen"
-    },
-    {
-      "story_id": "st-7f86-9601-99bb-d235c7490f7d-3",
-      "epic_id": "ep-7f86-9601-99bb-d235c7490f7d",
-      "titel": "Verfügbarkeitsprüfung in Buchungsportalen durchführen"
-    },
-    {
-      "story_id": "st-7f86-9601-99bb-d235c7490f7d-4",
-      "epic_id": "ep-7f86-9601-99bb-d235c7490f7d",
-      "titel": "Budgetprüfung und Freigabeprozess umsetzen"
-    },
-    {
-      "story_id": "st-7f86-9601-99bb-d235c7490f7d-5",
-      "epic_id": "ep-7f86-9601-99bb-d235c7490f7d",
-      "titel": "Konfidenzprüfung und manuelle Zuweisung bei niedriger Konfidenz"
-    },
-    {
-      "story_id": "st-7f86-9601-99bb-d235c7490f7d-6",
-      "epic_id": "ep-7f86-9601-99bb-d235c7490f7d",
-      "titel": "Eingangsbestätigung und Rückfragen strukturiert versenden"
-    },
-    {
-      "story_id": "st-7f86-9601-99bb-d235c7490f7d-8",
-      "epic_id": "ep-7f86-9601-99bb-d235c7490f7d",
-      "titel": "Transparenzhinweis in Eingangsbestätigung und Angebot"
-    },
-    {
-      "story_id": "st-7f86-9601-99bb-d235c7490f7d-9",
-      "epic_id": "ep-7f86-9601-99bb-d235c7490f7d",
-      "titel": "DSGVO-Hinweis in Eingangsbestätigung"
-    },
-    {
-      "story_id": "st-9539-ba84-470c-dc60f3f7c980-1",
-      "epic_id": "ep-9539-ba84-470c-dc60f3f7c980",
-      "titel": "Angebot aus geprüften Optionen generieren"
-    },
-    {
-      "story_id": "st-9539-ba84-470c-dc60f3f7c980-3",
-      "epic_id": "ep-9539-ba84-470c-dc60f3f7c980",
-      "titel": "Erneute Verfügbarkeitsprüfung bei abgelaufenen Optionen durchführen"
-    },
-    {
-      "story_id": "st-9539-ba84-470c-dc60f3f7c980-5",
-      "epic_id": "ep-9539-ba84-470c-dc60f3f7c980",
-      "titel": "Buchung nach menschlicher Freigabe auslösen"
-    },
-    {
-      "story_id": "st-9539-ba84-470c-dc60f3f7c980-7",
-      "epic_id": "ep-9539-ba84-470c-dc60f3f7c980",
-      "titel": "Menschliche Freigabe vor Buchungsauslösung mit Begründungsfeld"
-    }
+    "Die reisende Person wählt ein Angebot und löst die Reservierung selbst aus",
+    "Die reisende Person löst eine Stornierung selbst aus"
   ],
   "tech_stack": [
-    "n8n",
-    "Mistral Large",
-    "PostgreSQL",
-    "travel-mock-api"
+    "n8n — ein Webhook als Eingang, Kontext-Router mit vier Wegen",
+    "LLM — Kontext erkennen und Reisedaten extrahieren (Prototyp: OpenAI; Konzept empfiehlt Mistral Large)",
+    "travel-mock-api — /search/flights, /search/hotels, /search/cars, POST /reservation/create, GET /booking/snapshot, POST /booking/cancel",
+    "n8n Data Table suggestions — gespeicherte Angebote für die Reservierung"
   ],
   "epics": [
     {
-      "epic_id": "ep-7f86-9601-99bb-d235c7490f7d",
-      "titel": "Reiseanfrage automatisch erfassen und Verfügbarkeit prüfen",
+      "epic_id": "ep-dbb8-51df-8132-a203e70d6f6d",
+      "titel": "Reiseanfrage verstehen: Absicht erkennen, Reisedaten extrahieren, Eingaben prüfen",
       "kategorien": [
-        "it:backend",
         "it:integration",
         "it:ai-pipeline"
       ],
-      "anzahl_stories": 9
+      "anzahl_stories": 4
     },
     {
-      "epic_id": "ep-9539-ba84-470c-dc60f3f7c980",
-      "titel": "Automatisierte Angebotserstellung und Buchungsauslösung nach Freigabe",
+      "epic_id": "ep-a03c-5dd2-bae8-89e3f98fea30",
+      "titel": "Reiseangebote suchen, gegen das Budget prüfen und speichern",
       "kategorien": [
-        "it:backend",
-        "it:integration"
+        "it:integration",
+        "it:backend"
       ],
-      "anzahl_stories": 7
+      "anzahl_stories": 4
+    },
+    {
+      "epic_id": "ep-7203-5ca7-87e9-469048f67ae2",
+      "titel": "Angebot reservieren, Buchung prüfen und stornieren",
+      "kategorien": [
+        "it:integration",
+        "it:backend"
+      ],
+      "anzahl_stories": 4
     }
   ]
 }
