@@ -679,6 +679,61 @@ def test_kurzformen_sind_total(typ, eingabe):
     assert ergebnis is None or isinstance(ergebnis, str)
 
 
+# Spec 3.4, Invariante „Normalisierer enthaelt Kurzform“: die Eingaben der Kurzform-Tests oben
+# (Rohtext, nicht die Zwischenform).
+_AUSWAHL_KURZFORM = AUSWAHL("geschaetzt", "KP-01.TP-1")
+_KURZFORM_EINGABEN = [
+    (JA_NEIN, e) for e in (
+        "Ja", "nein.", "JA!", "Ja, aber selten", "ja?", "jein", "", "ja..", "ja,", "Ja !")
+] + [
+    (SKALA_1_5, e) for e in ("4", "4.", "eher 4", "etwa 4", "4 von 5", "6", "4?", "4..")
+] + [
+    (_AUSWAHL_KURZFORM, e) for e in (
+        "geschaetzt", "KP-01.TP-1", "kp-01.tp-1.", "KP-01.TP-1?", "KP-01.TP-9",
+        "Erfassen", "geschätzt", "geschaetzt..")
+] + [
+    (ANZAHL, e) for e in (
+        "1", "etwa 3 Fälle", "ca 3.", "5 pro Woche", "3?", "ein Fall, manchmal 3")
+] + [
+    (PROZENT_0_100, e) for e in (
+        "70", "ca. 70 %", "70%", "70 Prozent", "70.", "im Schnitt 70 %", "circa 70",
+        "ungefähr 70", "ungefaehr 70", "rund 70", "durchschnittlich 70", "etwa 70", "ca 70",
+        "150 %", "70,5 %", "70 bis 80", "70?", "etwa 70 bis 80 %", "70 %..")
+] + [
+    (MINUTEN, e) for e in (
+        "3 Stunden", "ca 90 Min.", "45min", "1,5h", "40 Stunden", "im Schnitt 2 Std.",
+        "circa 3 Stunden", "ungefähr 3 Stunden", "ungefaehr 3 Stunden", "rund 3 Stunden",
+        "durchschnittlich 3 Stunden", "etwa 3 Stunden", "3", "40", "90 min..", "2 Std.!",
+        "Der Prozess dauert 3 Stunden.", "nicht 3 Stunden", "3 Stunden?",
+        "1 Stunde 30 Minuten", "3 Stunden, der Gesamtprozess dauert aber eine Woche")
+] + [
+    (ZAHL, e) for e in (
+        "2 pro Monat", "2 mal im Monat", "2mal im Monat", "2mal pro Woche", "2-mal je Jahr",
+        "etwa 4 pro Monat", "ca. 4 pro Monat", "ca 4 pro Monat", "circa 4 pro Monat",
+        "ungefähr 4 pro Monat", "ungefaehr 4 pro Monat", "rund 4 pro Monat",
+        "im Schnitt 4 pro Monat", "durchschnittlich 4 pro Monat", "2", "2 pro Tag",
+        "2 mal pro Monat, im Dezember mehr", "Der Gesamtprozess läuft 2 mal pro Monat",
+        "2 pro Monat?", "2 pro Monat..", "2x pro Monat", "1x im Jahr", "2 x pro Woche",
+        "2X je Monat", "etwa 3x im Monat", "2x pro Monat.", "2x", "2x pro Tag",
+        "2xx pro Monat", "x pro Monat", "2x pro Monat?", "2x pro Monat..", "0x10 pro Monat")
+]
+
+
+@pytest.mark.parametrize("typ, eingabe", _KURZFORM_EINGABEN)
+def test_normalisierer_umfasst_kurzform(typ, eingabe):
+    kurz = typ.kurzform(eingabe)
+    if kurz is None:
+        return
+    ergebnis = typ.normalisiere(eingabe)
+    zwischen = typ.normalisiere(kurz)
+    if typ.validator(zwischen):
+        assert typ.validator(ergebnis), (eingabe, ergebnis)
+        assert ergebnis == zwischen
+    else:
+        # z. B. „150 %“ -> „150“: der Pruefer lehnt ab, also bleibt auch der Rohtext ungueltig.
+        assert not typ.validator(ergebnis), (eingabe, ergebnis)
+
+
 def test_antwortform_ja_nein_skala_anzahl():
     assert JA_NEIN.antwortform == "ja oder nein"
     assert SKALA_1_5.antwortform == "eine Ziffer von 1 bis 5"

@@ -185,12 +185,16 @@ def _kurzform_ja_nein(wert: str) -> str | None:
     return treffer.group(1).lower() if treffer else None
 
 
+# Spec 3.4: EINE Grammatik fuer Kurzform und Normalisierer (ganze Eingabe, `fullmatch`).
+_PROZENT_MUSTER = re.compile(
+    rf"(?:{_NAEHERUNGSWOERTER})?({_ZAHL_TOKEN})(?:\s*%|\s+prozent)?[.!]?", re.IGNORECASE)
+
+
 def _normalisiere_prozent(wert: str) -> str:
-    kern = wert.strip()
-    if kern.endswith("%"):
-        kern = kern[:-1].strip()
-    if not _nur_zahl(kern):
+    treffer = _PROZENT_MUSTER.fullmatch(wert.strip())
+    if treffer is None:
         return wert
+    kern = treffer.group(1)
     # Verifikations-Critical: derselbe Token-Parser wie ZAHL/MINUTEN
     # (_zahl_aus_token) statt rohem float() — sonst liest float() bei
     # deutscher Tausendergruppierung mit Dezimalstelle ("1.234,5" →
@@ -213,15 +217,21 @@ def _ist_skala(wert: str) -> bool:
     return re.fullmatch(r"[1-5]", wert.strip()) is not None
 
 
+_SKALA_MUSTER = re.compile(r"([1-5])[.!]?")
+
+
+def _normalisiere_skala(wert: str) -> str:
+    treffer = _SKALA_MUSTER.fullmatch(wert.strip())
+    return treffer.group(1) if treffer else wert.strip()
+
+
 def _kurzform_skala(wert: str) -> str | None:
-    treffer = re.fullmatch(r"([1-5])[.!]?", wert.strip())
+    treffer = _SKALA_MUSTER.fullmatch(wert.strip())
     return treffer.group(1) if treffer else None
 
 
 def _kurzform_prozent(wert: str) -> str | None:
-    treffer = re.fullmatch(
-        rf"(?:{_NAEHERUNGSWOERTER})?({_ZAHL_TOKEN})(?:\s*%|\s+prozent)?[.!]?",
-        wert.strip(), re.IGNORECASE)
+    treffer = _PROZENT_MUSTER.fullmatch(wert.strip())
     return treffer.group(1) if treffer else None
 
 
@@ -275,7 +285,7 @@ MINUTEN = Feldtyp("minuten", _ist_nichtnegative_zahl, _normalisiere_minuten,
 ANZAHL = Feldtyp("anzahl", _ist_nichtnegative_zahl, _normalisiere_anzahl,
                  kurzform=_kurzform_anzahl,
                  antwortform="nur eine Zahl, ohne Einheit, z. B. ‚5‘")
-SKALA_1_5 = Feldtyp("skala_1_5", _ist_skala, lambda w: w.strip(),
+SKALA_1_5 = Feldtyp("skala_1_5", _ist_skala, _normalisiere_skala,
                     kurzform=_kurzform_skala,
                     antwortform="eine Ziffer von 1 bis 5")
 PROZENT_0_100 = Feldtyp("prozent_0_100", _ist_prozent, _normalisiere_prozent,
