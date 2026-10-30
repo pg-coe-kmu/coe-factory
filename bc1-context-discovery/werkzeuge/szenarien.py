@@ -124,5 +124,9 @@ def baue_szenario(katalog, nummer, lauf=1):
         # Startnachricht entsprechen (Soll ohne Versuche).
         erwartungen["request_goal"] = Erwartung("request_goal", [], soll="zeit_sparen")
         erwartungen["scope_focus"] = Erwartung("scope_focus", [], soll="ganzer_prozess")
+    # Fix-Welle 4 V4: auch freie Start- und Rueckfallfelder haben einen Soll-Text (der Text,
+    # den das Szenario sendet); Felder mit Katalogfall behalten ihre Erwartung.
+    for feld, text in FREIE_ANTWORTEN.items():
+        erwartungen.setdefault(feld, Erwartung(feld, [], soll=text, frei=True))
     return Szenario(start, list(erwartungen.values()), variante, rueckfall, pflicht,
                     start_felder)

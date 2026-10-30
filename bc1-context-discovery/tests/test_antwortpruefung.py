@@ -514,11 +514,12 @@ def test_szenario1_grundlauf_mit_test_ki_fertig():
     assert lauf.turns[-1].status == "fertig"
     assert (payload["pflicht_erfasst"], payload["pflicht_gesamt"]) == (26, 26)
     # A2 und A3 stehen im Start: nicht gefragt, aber mit Soll-Endwert (Zeilen „nicht geprüft“)
-    assert {r.ergebnis for r in ergebnisse if r.feld not in ("request_goal", "scope_focus")
-            } == {"ok_1"}
-    assert len(ergebnisse) == 18    # 18 Katalogfelder
-    assert {r.feld: r.endsoll for r in ergebnisse if r.ergebnis == "nicht_geprueft"} == {
-        "request_goal": "zeit_sparen", "scope_focus": "ganzer_prozess"}
+    nicht_geprueft = {r.feld: r.endsoll for r in ergebnisse if r.ergebnis == "nicht_geprueft"}
+    assert {r.ergebnis for r in ergebnisse if r.feld not in nicht_geprueft} == {"ok_1"}
+    assert len(ergebnisse) == 18 + len(FREIE_ANTWORTEN)    # Katalogfelder und freie Felder
+    # Ohne Katalogeintrag: A2/A3 und alle freien Felder mit ihrem Soll-Text
+    assert nicht_geprueft == {
+        "request_goal": "zeit_sparen", "scope_focus": "ganzer_prozess", **FREIE_ANTWORTEN}
 
 
 def test_abdeckung_jeder_ki_fall_genau_einmal():
@@ -738,6 +739,54 @@ def test_abnahme_nicht_erfuellt_wenn_die_ki_ein_startfeld_falsch_setzt():
     assert "Endwert weicht ab: request_goal (Lauf 1)" in text
 
 
+def test_abnahme_nicht_erfuellt_wenn_die_ki_den_freien_startwert_verfaelscht():
+    # Fix-Welle 4 V4: die Startnachricht nennt „Auftragsabwicklung“, die Test-KI liefert
+    # „Gehaltsabrechnung“. Freie Startfelder haben einen Soll-Text.
+    start = baue_szenario(KATALOG, 1).start
+    text = _abnahme(1, {(None, start): [
+        ExtractionCandidate("request_intent", FREIE_ANTWORTEN["request_intent"]),
+        ExtractionCandidate("process_name", "Gehaltsabrechnung"),
+        ExtractionCandidate("request_goal", "zeit_sparen"),
+        ExtractionCandidate("scope_focus", "ganzer_prozess")]})
+
+    assert "Abnahme NICHT erfüllt" in text
+    assert "Endwert weicht ab: process_name (Lauf 1)" in text
+
+
+def test_abnahme_freier_endwert_darf_den_soll_text_enthalten():
+    # Fix-Welle 4 V4: bei freien Feldern genügt, dass der Endwert den Soll-Text enthält
+    # (Vergleichsschlüssel: Groß-/Kleinschreibung und Satzzeichen am Rand zählen nicht).
+    start = baue_szenario(KATALOG, 1).start
+    text = _abnahme(1, {(None, start): [
+        ExtractionCandidate("request_intent", FREIE_ANTWORTEN["request_intent"]),
+        ExtractionCandidate("process_name", "Der Prozess AUFTRAGSABWICKLUNG."),
+        ExtractionCandidate("request_goal", "zeit_sparen"),
+        ExtractionCandidate("scope_focus", "ganzer_prozess")]})
+
+    assert "Abnahme erfüllt" in text
+
+
+def test_endpruefung_tabelle_zeigt_freien_endwert_mit_soll_text_als_erfuellt():
+    start = baue_szenario(KATALOG, 1).start
+    text = _abnahme(1, {(None, start): [
+        ExtractionCandidate("request_intent", FREIE_ANTWORTEN["request_intent"]),
+        ExtractionCandidate("process_name", "Der Prozess Auftragsabwicklung"),
+        ExtractionCandidate("request_goal", "zeit_sparen"),
+        ExtractionCandidate("scope_focus", "ganzer_prozess")]})
+
+    zeile = next(z for z in text.splitlines() if z.startswith("| 1 | process_name |"))
+    assert zeile.endswith("| ✓ |")
+
+
+def test_abnahme_nicht_erfuellt_wenn_die_ki_einen_freien_rueckfallwert_erfindet():
+    # Fix-Welle 4 V4: die Antwort auf input_text lautet anders, als die KI speichert.
+    text = _abnahme(1, {("input_text", FREIE_ANTWORTEN["input_text"]): [
+        ExtractionCandidate("input_text", "Ein erfundener Eingang.")]})
+
+    assert "Abnahme NICHT erfüllt" in text
+    assert "Endwert weicht ab: input_text (Lauf 1)" in text
+
+
 def test_bewertung_freie_antwort_setzt_ein_fremdes_feld_ist_nebenwirkung():
     # Probe A (Gesamtprüfung I1): die Freitext-Antwort auf process_steps setzt D4 = 4. D4 wird
     # nie gefragt („nicht geprüft“) — die Nebenwirkung steht als eigene ✗-Zeile. (D1 „1 pro
@@ -851,7 +900,8 @@ def test_bericht_endpruefung_lauf_ohne_status_fertig_ist_nicht_erfuellt():
     text = bericht(ergebnisse, modell="m", code_stand="c", szenario="s",
                    laeufe=[(1, gespielt)])
 
-    assert "Abnahme NICHT erfüllt: Lauf 1 nicht fertig." in text
+    # Nach dem Abbruch fehlen auch die noch nicht gefragten freien Felder (Endwert weicht ab).
+    assert "Abnahme NICHT erfüllt: Lauf 1 nicht fertig; " in text
     assert "- Lauf 1: Status frage, Pflichtfelder 7 von 26 — nicht fertig" in text
 
 
@@ -1040,7 +1090,7 @@ def test_bericht_fasst_das_ergebnis_vor_der_tabelle_zusammen():
     text = bericht(ergebnisse, modell="m", code_stand="c", szenario="s")
     luecken = bericht(mit_luecken, modell="m", code_stand="c", szenario="s")
 
-    assert "- Ergebnis: 16 von 16 geprüften Feldern bestanden, 2 nicht geprüft" in text
+    assert "- Ergebnis: 16 von 16 geprüften Feldern bestanden, 10 nicht geprüft" in text
     assert text.index("- Ergebnis:") < text.index("| Feld |")
     assert (f"- Ergebnis: {anzahl_ok} von {anzahl_ok} geprüften Feldern bestanden, "
             f"{anzahl_offen} nicht geprüft") in luecken

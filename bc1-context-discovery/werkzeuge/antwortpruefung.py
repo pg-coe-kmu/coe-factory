@@ -33,6 +33,7 @@ class Erwartung:
     # Soll-Endwert eines Felds ohne Versuche (Startfeld, Rueckfall-Antwort); mit Versuchen
     # ergibt er sich aus diesen.
     soll: str | None = None
+    frei: bool = False   # freies Feld: der Endwert muss den Soll-Text enthalten
 
 
 @dataclass
@@ -49,6 +50,15 @@ class FeldErgebnis:
     lauf: int = 1   # Nummer des Laufs im Szenario
     endstatus: str | None = None   # Status des Felds am Ende des Laufs
     endsoll: str | None = None   # erwarteter Endwert (Wert der letzten Erwartung)
+    frei: bool = False   # freies Feld: der Endwert muss den Soll-Text enthalten
+
+
+def _endpruefung_ok(r):
+    if r.frei and r.endsoll is not None and r.endwert is not None:
+        # Freie Felder: der Endwert enthaelt den Soll-Text (Vergleichsschluessel).
+        return (r.endstatus == "gueltig"
+                and vergleichsschluessel(r.endsoll) in vergleichsschluessel(r.endwert))
+    return (r.endwert, r.endstatus) == (r.endsoll, "gueltig")
 
 
 # Ergebnisse, die im Bericht als ✗ stehen.
@@ -151,6 +161,7 @@ def bewerte(lauf, erwartungen, paket=None, *, start_felder=()):
             ergebnis.endsoll = soll.removesuffix(" oder Nachfrage")
         else:
             ergebnis.endsoll = erwartung.soll
+            ergebnis.frei = erwartung.frei
         ergebnis.nachfragetexte = [t.antwort["payload"]["naechste_frage"] for t in turns
                                    if t.antwort["payload"].get("feld") == erwartung.feld]
         if paket is not None:
@@ -242,7 +253,7 @@ def bericht(ergebnisse, *, modell, code_stand, szenario, pflicht=(), laeufe=(),
                         if r.endsoll is not None
                         and r.ergebnis not in FEHLER
                         and (r.ergebnis != "nicht_geprueft" or not r.erwartet)
-                        and (r.endwert, r.endstatus) != (r.endsoll, "gueltig")]
+                        and not _endpruefung_ok(r)]
             for nummer, lauf in laeufe:
                 if lauf.turns and lauf.turns[-1].status == "fertig":
                     p = lauf.turns[-1].antwort["payload"]
@@ -268,7 +279,7 @@ def bericht(ergebnisse, *, modell, code_stand, szenario, pflicht=(), laeufe=(),
                    "|---|---|---|---|---|---|"]
         zeilen += [f"| {r.lauf} | {r.feld} | {r.endwert or '–'} | {r.endstatus or '–'} "
                    f"| {r.endsoll} | "
-                   f"{'✓' if (r.endwert, r.endstatus) == (r.endsoll, 'gueltig') else '✗'} |"
+                   f"{'✓' if _endpruefung_ok(r) else '✗'} |"
                    for r in ergebnisse if r.endsoll is not None]
     if pflicht:
         zeilen += ["", "## Abdeckung",
