@@ -57,8 +57,8 @@ PAKET = UseCasePackage(
         FieldSpec("e2", "Wie lange dauert der Schritt?", typ=MINUTEN),
     ))
 
-HALBE_STUNDE = {("e1", "eine halbe Stunde"): [ExtractionCandidate("e1", "30")],
-                ("e2", "eine halbe Stunde"): [ExtractionCandidate("e2", "30")]}
+HALBE_STUNDE = {("e1", "eine halbe Stunde"): [ExtractionCandidate("e1", "30 Minuten")],
+                ("e2", "eine halbe Stunde"): [ExtractionCandidate("e2", "30 Minuten")]}
 
 
 def test_ablauf_antwortet_je_gefragtem_feld():
@@ -116,8 +116,8 @@ def test_gleicher_antworttext_liefert_je_feld_seinen_wert():
         [Erwartung("e1", [("eine halbe Stunde", "30")]),
          Erwartung("e2", [("eine halbe Stunde", "90")])],
         {"e1": ["eine halbe Stunde"], "e2": ["eine halbe Stunde"]},
-        {("e1", "eine halbe Stunde"): [ExtractionCandidate("e1", "30")],
-         ("e2", "eine halbe Stunde"): [ExtractionCandidate("e2", "90")]})
+        {("e1", "eine halbe Stunde"): [ExtractionCandidate("e1", "30 Minuten")],
+         ("e2", "eine halbe Stunde"): [ExtractionCandidate("e2", "90 Minuten")]})
 
     assert [r.ergebnis for r in ergebnisse] == ["ok_1", "ok_1"]
 
@@ -161,8 +161,8 @@ def test_bewertung_falscher_wert():
         [Erwartung("e1", [("eine halbe Stunde", "30")]),
          Erwartung("e2", [("eine halbe Stunde", "30")])],
         {"e1": ["eine halbe Stunde"], "e2": ["eine halbe Stunde"]},
-        {("e1", "eine halbe Stunde"): [ExtractionCandidate("e1", "45")],
-         ("e2", "eine halbe Stunde"): [ExtractionCandidate("e2", "30")]})
+        {("e1", "eine halbe Stunde"): [ExtractionCandidate("e1", "45 Minuten")],
+         ("e2", "eine halbe Stunde"): [ExtractionCandidate("e2", "30 Minuten")]})
 
     assert [(r.feld, r.ergebnis) for r in ergebnisse] == [("e1", "falsch"), ("e2", "ok_1")]
 
@@ -209,8 +209,8 @@ def test_bewertung_x_oder_nachfrage_nimmt_beides_an_aber_keinen_anderen_wert():
                                   ("eine halbe Stunde", "30")])]
     antworten = {"e1": ["eine halbe Stunde", "eine halbe Stunde"],
                  "e2": ["eine halbe Stunde"]}
-    anderer_wert = {("e1", "eine halbe Stunde"): [ExtractionCandidate("e1", "45")],
-                    ("e2", "eine halbe Stunde"): [ExtractionCandidate("e2", "30")]}
+    anderer_wert = {("e1", "eine halbe Stunde"): [ExtractionCandidate("e1", "45 Minuten")],
+                    ("e2", "eine halbe Stunde"): [ExtractionCandidate("e2", "30 Minuten")]}
 
     wert = _bewerte(erwartung, antworten)
     nachfrage = _bewerte(erwartung, {"e1": ["unklar", "eine halbe Stunde"],
@@ -225,7 +225,7 @@ def test_bewertung_zweitantwort_mit_anderem_wert_ist_falsch():
     ergebnisse = _bewerte(
         [Erwartung("e1", [("unbrauchbar", "Nachfrage"), ("eine halbe Stunde", "30")])],
         {"e1": ["unbrauchbar", "eine Stunde"], "e2": ["eine halbe Stunde"]},
-        {("e1", "eine Stunde"): [ExtractionCandidate("e1", "60")],
+        {("e1", "eine Stunde"): [ExtractionCandidate("e1", "60 Minuten")],
          **HALBE_STUNDE})
 
     assert [(r.feld, r.ergebnis) for r in ergebnisse] == [("e1", "falsch")]
@@ -236,8 +236,8 @@ def test_bewertung_aenderung_eines_anderen_felds_ist_falsch():
     ergebnisse = _bewerte(
         [Erwartung("e1", [("eine halbe Stunde", "30")])],
         {"e1": ["eine halbe Stunde"]},
-        {("e1", "eine halbe Stunde"): [ExtractionCandidate("e1", "30"),
-                                       ExtractionCandidate("e2", "30")]})
+        {("e1", "eine halbe Stunde"): [ExtractionCandidate("e1", "30 Minuten"),
+                                       ExtractionCandidate("e2", "30 Minuten")]})
 
     assert [(r.feld, r.ergebnis) for r in ergebnisse] == [("e1", "falsch")]
 
@@ -246,8 +246,8 @@ def test_bewertung_benennt_das_fremde_feld_im_detail():
     ergebnisse = _bewerte(
         [Erwartung("e1", [("eine halbe Stunde", "30")])],
         {"e1": ["eine halbe Stunde"]},
-        {("e1", "eine halbe Stunde"): [ExtractionCandidate("e1", "30"),
-                                       ExtractionCandidate("e2", "30")]})
+        {("e1", "eine halbe Stunde"): [ExtractionCandidate("e1", "30 Minuten"),
+                                       ExtractionCandidate("e2", "30 Minuten")]})
 
     assert ergebnisse[0].detail == "Antwort änderte auch: e2"
 
@@ -351,10 +351,14 @@ def _test_ki(szenario):
         extraktionen[(feld, text)] = [ExtractionCandidate(feld, text)]
     # Die Test-KI loest die Faelle mit einem Wert in `ki` (Szenario 2); alle anderen
     # (Nachfrage, "X oder Nachfrage") laesst sie offen.
+    # Eine Zahl ohne Zeitraum bzw. Einheit verwirft der Extraktor (Spec 2, „Fester Schutz“):
+    # die Test-KI liefert Häufigkeit und Dauer deshalb mit Zeitraum bzw. Einheit.
+    zusatz = {"zahl": " pro Jahr", "minuten": " Minuten"}
     for eintrag in KATALOG["eintraege"]:
         if eintrag["fest"] == "Nachfrage" and not eintrag["ki"].endswith("Nachfrage"):
+            wert = eintrag["ki"] + zusatz.get(DISCOVERY.field(eintrag["feld"]).typ.name, "")
             extraktionen[(eintrag["feld"], eintrag["antwort"])] = [
-                ExtractionCandidate(eintrag["feld"], eintrag["ki"])]
+                ExtractionCandidate(eintrag["feld"], wert)]
     return FeldFakeLLM(extraktionen)
 
 
@@ -377,9 +381,16 @@ def test_szenario1_und_3_starten_mit_a1_a2_a3_und_b1():
 def test_szenario_antwortet_ohne_erwartung_mit_der_kuerzesten_festen_antwort():
     szenario = baue_szenario(KATALOG, 1)
 
-    assert szenario.antworten("frequency_per_year", 0) == "2/Woche"
     assert szenario.antworten("process_owner_role", 0) == "Lager+Versand"
     assert szenario.antworten("process_steps", 0) == FREIE_ANTWORTEN["process_steps"]
+
+
+def test_szenario_antwortet_bei_nackter_zahl_mit_der_nackten_zahl():
+    # Seit dem festen Schutz ist die nackte Zahl eine feste Antwort (D1: pro Jahr).
+    szenario = baue_szenario(KATALOG, 1)
+
+    assert szenario.antworten("frequency_per_year", 0) == "300"
+    assert szenario.antworten("total_duration_minutes", 0) == "40"
 
 
 def test_szenario1_grundlauf_mit_test_ki_fertig():
@@ -449,13 +460,20 @@ def test_szenario2_waehlt_die_k_te_variante():
     erster = baue_szenario(KATALOG, 2, 1)
     zweiter = baue_szenario(KATALOG, 2, 2)
 
-    assert erster.antworten("frequency_per_year", 0) == "300"
-    assert zweiter.antworten("frequency_per_year", 0) == "wöchentlich"
-    erwartung = next(e for e in zweiter.erwartungen if e.feld == "frequency_per_year")
-    assert erwartung.versuche == [("wöchentlich", "52")]
     # A2 und A3 werden einzeln gefragt: die Startnachricht nennt nur A1 und B1
     assert "zeit_sparen" not in erster.start
     assert FREIE_ANTWORTEN["process_name"] in erster.start
+
+
+def test_szenario2_d1_beginnt_mit_den_ki_faellen_ohne_nackte_zahl():
+    # „300“ ist kein KI-Fall mehr (fest gueltig): Lauf 1 und 2 spielen die Wochenformen.
+    erster = baue_szenario(KATALOG, 2, 1)
+    zweiter = baue_szenario(KATALOG, 2, 2)
+
+    assert erster.antworten("frequency_per_year", 0) == "wöchentlich"
+    assert zweiter.antworten("frequency_per_year", 0) == "einmal pro Woche"
+    erwartung = next(e for e in zweiter.erwartungen if e.feld == "frequency_per_year")
+    assert erwartung.versuche == [("einmal pro Woche", "52")]
 
 
 def test_szenario4_nachfrage_dann_zweitantwort():
@@ -571,10 +589,21 @@ def test_bericht_abdeckung_ein_nicht_gelaufener_pflichtfall_heisst_nicht_erfuell
                            modell="m", code_stand="c", szenario="s", pflicht=szenario.pflicht)
 
     assert "Abnahme erfüllt" in voll
-    assert "| frequency_per_year | 300 | 2 | 1 | gelaufen |" in voll
     assert "Abnahme NICHT erfüllt" in lueckenhaft
-    assert "| frequency_per_year | 300 | 2 | 1 | NICHT gelaufen |" in lueckenhaft
     assert "Abnahme NICHT erfüllt" in anderer_lauf
+
+
+def test_bericht_abdeckung_nennt_den_gespielten_fall_je_lauf():
+    szenario = baue_szenario(KATALOG, 2, 1)
+    _, ergebnisse = _spiele_szenario(2, 1)
+
+    voll = bericht(ergebnisse, modell="m", code_stand="c", szenario="s",
+                   pflicht=szenario.pflicht)
+    lueckenhaft = bericht([r for r in ergebnisse if r.feld != "frequency_per_year"],
+                          modell="m", code_stand="c", szenario="s", pflicht=szenario.pflicht)
+
+    assert "| frequency_per_year | wöchentlich | 2 | 1 | gelaufen |" in voll
+    assert "| frequency_per_year | wöchentlich | 2 | 1 | NICHT gelaufen |" in lueckenhaft
 
 
 def test_bericht_nennt_je_lauf_aufrufe_und_technischen_abbruch():
@@ -707,7 +736,16 @@ def test_bericht_teillauf_trifft_keine_abnahme_aussage():
     assert ("Teilergebnis: Abdeckung nur für Lauf 2 geprüft — "
             "Abnahme hier nicht beurteilbar") in text
     assert "Abnahme erfüllt" not in text and "Abnahme NICHT erfüllt" not in text
-    assert "| frequency_per_year | wöchentlich | 2 | 2 | gelaufen |" in text
+
+
+def test_bericht_teillauf_nennt_den_gespielten_fall_des_laufs():
+    szenario = baue_szenario(KATALOG, 2, 2)
+    _, ergebnisse = _spiele_szenario(2, 2)
+
+    text = bericht([replace(r, lauf=2) for r in ergebnisse], modell="m", code_stand="c",
+                   szenario="s", pflicht=szenario.pflicht, teillauf=2)
+
+    assert "| frequency_per_year | einmal pro Woche | 2 | 2 | gelaufen |" in text
 
 
 def test_szenario3_nachfrage_dann_richtige_antwort():

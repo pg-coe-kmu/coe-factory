@@ -144,8 +144,21 @@ def test_katalog_nackte_zahlen_nur_ueber_den_normalisierer():
         ("focus_step_duration_minutes", "40", "40")}
     for e in nackt:
         spec = PAKET.field(e["feld"])
-        assert e["fest"] == "Nachfrage" and weg_direkt(spec, e["antwort"]) == "Nachfrage"
         assert weg_woertlich(spec, e["antwort"]) == e["vertrag"]
+
+
+def test_katalog_nackte_zahl_gilt_fest_und_zusatzformen_bleiben_nachfrage():
+    # Spec 2 „Fester Schutz“: die Kurzform nimmt die nackte Zahl an (Vertragsbedeutung);
+    # „2x“, „2 mal“, „zweimal“, „2-mal“ (D1) und „ca. 40“ (E1) bleiben Nachfrage, auch mit KI.
+    nackt = [e for e in KATALOG["eintraege"] if e["vertrag"] is not None]
+    for e in nackt:
+        assert (e["fest"], e["ki"]) == (e["vertrag"], e["vertrag"])
+        assert weg_direkt(PAKET.field(e["feld"]), e["antwort"]) == e["vertrag"]
+    zusatz = {(e["feld"], e["antwort"]): e for e in KATALOG["eintraege"]}
+    for feld, antwort in [("frequency_per_year", a) for a in ("2x", "2 mal", "zweimal", "2-mal")] \
+            + [("total_duration_minutes", "ca. 40")]:
+        assert (zusatz[(feld, antwort)]["fest"], zusatz[(feld, antwort)]["ki"]) \
+            == ("Nachfrage", "Nachfrage"), antwort
 
 
 @pytest.mark.parametrize(

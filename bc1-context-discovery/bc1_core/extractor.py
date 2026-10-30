@@ -2,6 +2,7 @@ from __future__ import annotations
 import logging
 from bc1_core.types import Candidate, FieldStatus, FieldValue, SessionState
 from bc1_core.package import UseCasePackage, FieldSpec
+from bc1_core.feldtypen import ist_nackte_zahl
 from bc1_core.llm import ExtractionCandidate, LLMClient
 from bc1_core.pii import ersetze_pii
 from bc1_core.protokoll import aktuelle_korrelation, ki_aufruf
@@ -44,6 +45,11 @@ def extract_and_merge(state: SessionState, message: str, message_id: str,
     for cand in kandidaten:
         spec = package.field(cand.field_name)
         if spec is None:
+            continue
+        # Spec 2 „Fester Schutz“: eine KI-Zahl ohne Zeitraum bzw. Einheit gilt nicht
+        # (Nachfrage); die nackte Zahl gilt nur, wenn die Person sie selbst schreibt.
+        if (wert_roh is None and spec.typ.nackte_zahl_nur_von_person
+                and ist_nackte_zahl(cand.value)):
             continue
         # Normalisierung VOR dem Merge: Vergleiche, Klärung und Kandidaten
         # arbeiten auf dem normalisierten Wert; gespeichert wird er auch.

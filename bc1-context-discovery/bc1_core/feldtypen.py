@@ -29,6 +29,9 @@ class Feldtyp:
     optionen: tuple[str, ...] = field(default=(), kw_only=True)
     # (Option, Name)-Paare; als Tupel, damit Feldtyp hashbar bleibt.
     namen: tuple[tuple[str, str], ...] = field(default=(), kw_only=True)
+    # Nur ZAHL und MINUTEN setzen es: eine nackte Zahl gilt nur, wenn die Person sie selbst
+    # schreibt (Kurzform); als KI-Kandidat wird sie verworfen (Spec 2, „Fester Schutz“).
+    nackte_zahl_nur_von_person: bool = field(default=False, kw_only=True)
 
 
 # Deutsche Tausendergruppierung (z. B. "1.000", "12.345,5") VOR der einfachen
@@ -42,7 +45,6 @@ class Feldtyp:
 # nachfolgendes Komma-Dezimal ("1.234,5") bleibt davon unberührt (Komma ist
 # keine Ziffer).
 _ZAHL_TOKEN = r"-?[1-9]\d{0,2}(?:\.\d{3})+(?!\d)(?:,\d+)?|-?\d+(?:[.,]\d+)?"
-_ZAHL_MUSTER = re.compile(_ZAHL_TOKEN)
 _TAUSENDER_MUSTER = re.compile(r"^-?[1-9]\d{0,2}(?:\.\d{3})+(?!\d)(?:,\d+)?$")
 
 
@@ -52,21 +54,17 @@ def _zahl_aus_token(token: str) -> float:
     return float(token.replace(",", "."))
 
 
-def _zahl_in(text: str) -> float | None:
-    treffer = _ZAHL_MUSTER.findall(text)
-    # Mehr als eine Zahl im Text (z. B. "1 Stunde 30 Minuten", "30-45 Minuten")
-    # ist nicht eindeutig normalisierbar — dann NICHT weiterreichen, sondern
-    # unverändert zurück (Gesamt-Review I2: Nachfrage statt Rateversuch).
-    if len(treffer) != 1:
-        return None
-    zahl = _zahl_aus_token(treffer[0])
-    # Riesenzahlen (z. B. 400-stellig) werden zu inf — dann NICHT weiterreichen,
-    # sonst wirft _formatiere() bei int(inf) einen OverflowError (Total-Vertrag).
-    return zahl if math.isfinite(zahl) else None
-
-
 def _nur_zahl(text: str) -> bool:
     return re.fullmatch(rf"\s*(?:{_ZAHL_TOKEN})\s*", text) is not None
+
+
+# Die nackte Zahl bei Häufigkeit und Dauer (Vertrag D1/E1): ganze Eingabe genau eine Zahl,
+# höchstens „.“/„!“ am Ende. Kurzform und Normalisierer teilen sie.
+_NACKTE_ZAHL_MUSTER = re.compile(rf"({_ZAHL_TOKEN})[.!]?")
+
+
+def ist_nackte_zahl(text: str) -> bool:
+    return _NACKTE_ZAHL_MUSTER.fullmatch(text.strip()) is not None
 
 
 def _formatiere(zahl: float) -> str:
@@ -85,10 +83,11 @@ def _normalisiere_zahl(wert: str) -> str:
         # können hier erst zu inf überlaufen — dann unverändert zurück.
         return _formatiere(produkt) if math.isfinite(produkt) else wert
     # Nackte Zahl (Vertrag D1: „300“ = pro Jahr).
-    zahl = _zahl_in(wert)
-    if zahl is None:
+    nackt = _NACKTE_ZAHL_MUSTER.fullmatch(wert.strip())
+    if nackt is None:
         return wert
-    return _formatiere(zahl) if _nur_zahl(wert) else wert
+    zahl = _zahl_aus_token(nackt.group(1))
+    return _formatiere(zahl) if math.isfinite(zahl) else wert
 
 
 def _normalisiere_minuten(wert: str) -> str:
@@ -101,10 +100,11 @@ def _normalisiere_minuten(wert: str) -> str:
         produkt = zahl * 60
         return _formatiere(produkt) if math.isfinite(produkt) else wert
     # Nackte Zahl (Vertrag E1: „40“ = Minuten).
-    zahl = _zahl_in(wert)
-    if zahl is None:
+    nackt = _NACKTE_ZAHL_MUSTER.fullmatch(wert.strip())
+    if nackt is None:
         return wert
-    return _formatiere(zahl) if _nur_zahl(wert) else wert
+    zahl = _zahl_aus_token(nackt.group(1))
+    return _formatiere(zahl) if math.isfinite(zahl) else wert
 
 
 # Näherungswörter, gemeinsam für ANZAHL und die Kurzformen.
@@ -112,14 +112,14 @@ _NAEHERUNGSWOERTER = (
     r"(?:etwa|ca\.?|circa|ungefähr|ungefaehr|rund|im schnitt|durchschnittlich)\s+"
 )
 # Spec 3.4: EINE Grammatik fuer Haeufigkeit mit Periode (ganze Eingabe, `fullmatch`);
-# Kurzform und Normalisierer teilen sie. Die nackte Zahl (Vertrag D1) nimmt nur der
-# Normalisierer zusaetzlich an. Wortverbindungen brauchen Leerraum davor und danach.
+# Kurzform und Normalisierer teilen sie. Die nackte Zahl (Vertrag D1) nehmen beide
+# zusaetzlich an (_NACKTE_ZAHL_MUSTER). Wortverbindungen brauchen Leerraum davor und danach.
 _HAEUFIGKEIT_MUSTER = re.compile(
     rf"(?:{_NAEHERUNGSWOERTER})?({_ZAHL_TOKEN})(?:(?:\s*|-)(?:mal|x))?"
     r"(?:\s+(?:pro|im|je|in\s+der|die|den|das)\s+|\s*/\s*)(woche|monat|jahr)[.!]?",
     re.IGNORECASE)
 # Spec 3.4: EINE Grammatik fuer Dauer mit Einheit (ganze Eingabe, `fullmatch`), gemeinsam
-# fuer Kurzform und Normalisierer; die nackte Zahl (Vertrag E1) nimmt nur der Normalisierer.
+# fuer Kurzform und Normalisierer; die nackte Zahl (Vertrag E1) nehmen beide zusaetzlich an.
 _MINUTEN_MUSTER = re.compile(
     rf"(?:{_NAEHERUNGSWOERTER})?({_ZAHL_TOKEN})\s*(minuten?|min|stunden?|std|h)[.!]?",
     re.IGNORECASE)
@@ -235,12 +235,20 @@ def _kurzform_prozent(wert: str) -> str | None:
 
 def _kurzform_minuten(wert: str) -> str | None:
     treffer = _MINUTEN_MUSTER.fullmatch(wert.strip())
-    return f"{treffer.group(1)} {treffer.group(2)}" if treffer else None
+    if treffer:
+        return f"{treffer.group(1)} {treffer.group(2)}"
+    # Spec 2 „Fester Schutz“: schreibt die Person genau eine Zahl, gilt sie (Vertrag).
+    nackt = _NACKTE_ZAHL_MUSTER.fullmatch(wert.strip())
+    return nackt.group(1) if nackt else None
 
 
 def _kurzform_haeufigkeit(wert: str) -> str | None:
     treffer = _HAEUFIGKEIT_MUSTER.fullmatch(wert.strip())
-    return f"{treffer.group(1)} pro {treffer.group(2).capitalize()}" if treffer else None
+    if treffer:
+        return f"{treffer.group(1)} pro {treffer.group(2).capitalize()}"
+    # Spec 2 „Fester Schutz“: schreibt die Person genau eine Zahl, gilt sie (Vertrag).
+    nackt = _NACKTE_ZAHL_MUSTER.fullmatch(wert.strip())
+    return nackt.group(1) if nackt else None
 
 
 def _ist_prozent(wert: str) -> bool:
@@ -267,11 +275,11 @@ def _ist_nichtnegative_zahl(wert: str) -> bool:
 
 
 ZAHL = Feldtyp("zahl", _ist_nichtnegative_zahl, _normalisiere_zahl,
-               kurzform=_kurzform_haeufigkeit,
+               kurzform=_kurzform_haeufigkeit, nackte_zahl_nur_von_person=True,
                antwortform="Zahl pro Woche, pro Monat oder pro Jahr, "
                            "z. B. ‚2 pro Monat‘")
 MINUTEN = Feldtyp("minuten", _ist_nichtnegative_zahl, _normalisiere_minuten,
-                  kurzform=_kurzform_minuten,
+                  kurzform=_kurzform_minuten, nackte_zahl_nur_von_person=True,
                   antwortform="Dauer als Zahl mit ‚Minuten‘ oder ‚Stunden‘, "
                               "z. B. ‚90 Minuten‘")
 ANZAHL = Feldtyp("anzahl", _ist_nichtnegative_zahl, _normalisiere_anzahl,

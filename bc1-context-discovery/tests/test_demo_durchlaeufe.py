@@ -64,7 +64,7 @@ def test_demo_reisebuchung_bis_fertig_mit_normalisierung():
         "Geschäftsreisen", "Antrag, Genehmigung, Buchung, Abrechnung",
         "Mitarbeiter plant eine Dienstreise", "Reiseantrag mit Terminen",
         "mail", "gebuchte Reise mit Bestätigungen",
-        "30 pro Monat", "360", "3 Stunden",
+        "30 pro Monat", "360 pro Jahr", "3 Stunden",
         "Buchung", "90 Minuten", "geschaetzt", "60%",
         "Office Management, Mitarbeiter", "Mail, Buchungsportal, Excel",
         "Ja.", "2", "3", "2", "4", "ja"))
@@ -85,7 +85,7 @@ def test_demo_rag_wissensbasis_bis_fertig():
         "Wissensmanagement", "Anfrage sichten, Dokumente suchen, Antwort schreiben",
         "Anfrage eines Kollegen oder Kunden", "Anfragetext und Dokumentenablage",
         "digital", "beantwortete Anfrage mit Quellen",
-        "20 pro Woche", "1040", "45 Minuten",
+        "20 pro Woche", "1040 pro Jahr", "45 Minuten",
         "Dokumente suchen", "25 Minuten", "geschaetzt", "50%",
         "Fachexperten, Support", "Sharepoint, Mail, Wiki",
         "ja", "2", "2", "3", "3", "nein"))
@@ -101,7 +101,7 @@ def test_demo_consultant_placement_bis_fertig():
         "Anfrage erfassen, Profile suchen, Matching, Vorschlag versenden",
         "Kundenanfrage nach einem Consultant", "Anforderungsprofil des Kunden",
         "mail", "Personalvorschlag mit passenden Profilen",
-        "300 pro Jahr", "300", "2 Stunden",
+        "300 pro Jahr", "300 pro Jahr", "2 Stunden",
         "Profile suchen", "1 Stunden", "aus_system", "80 %",
         "Staffing, Vertrieb", "CRM, Skill-Datenbank, Excel",
         "NEIN!", "3", "4", "4", "3", "ja"))

@@ -118,18 +118,56 @@ def test_nachspiel_generalprobe2_natuerlich():
     assert store.load("s1").values["focus_step_media_break"].status is FieldStatus.UNGUELTIG
 
 
-def test_nachspiel_nackte_zahl_bei_d1_gilt_ohne_nachfrage():
-    # Vertrag: eine nackte Zahl bei D1 gilt als pro Jahr; die KI gibt sie
-    # unveraendert zurueck (SYSTEM_EXTRAKTION), der Normalisierer nimmt sie an.
-    llm = _ZaehlendesLLM(_skript({"300": [
-        ExtractionCandidate("frequency_per_year", "300")]}))
+def test_nachspiel_nackte_zahl_bei_d1_gilt_ohne_ki_als_pro_jahr():
+    # Vertrag D1: „300“ = pro Jahr; die Person schreibt genau diese Zahl, die Kurzform nimmt sie.
+    llm = _ZaehlendesLLM(_skript())
     store = InMemoryStateStore()
     paket = _bis_vor("frequency_per_year", llm, store)
-    antwort = process_turn(store, llm, paket, "s1", "m-d1", "300",
-                           company_id=MANDANT)
+    antwort = process_turn(store, llm, paket, "s1", "m-d1", "300", company_id=MANDANT)
     feld = store.load("s1").values["frequency_per_year"]
+    assert "300" not in llm.nachrichten
     assert (feld.status, feld.value) == (FieldStatus.GUELTIG, "300")
     assert antwort["payload"]["feld"] == "executions_per_run"
+
+
+def test_nachspiel_nackte_zahl_bei_e1_gilt_ohne_ki_als_minuten():
+    # Vertrag E1: „40“ = Minuten; die Person schreibt genau diese Zahl, die Kurzform nimmt sie.
+    llm = _ZaehlendesLLM(_skript())
+    store = InMemoryStateStore()
+    paket = _bis_vor("total_duration_minutes", llm, store)
+    antwort = process_turn(store, llm, paket, "s1", "m-e1", "40", company_id=MANDANT)
+    feld = store.load("s1").values["total_duration_minutes"]
+    assert "40" not in llm.nachrichten
+    assert (feld.status, feld.value) == (FieldStatus.GUELTIG, "40")
+    assert antwort["payload"]["feld"] == "focus_step"
+
+
+def test_nachspiel_zweix_bei_d1_mit_ki_zahl_ohne_zeitraum_gibt_nachfrage():
+    # Spec 2 „Fester Schutz“ (Sz4: „2x“ -> „2“ = 2 pro Jahr): ein KI-Kandidat, der nur eine
+    # Zahl ohne Zeitraum ist, wird verworfen — kein stiller Falsch-Wert, sondern Nachfrage.
+    llm = _ZaehlendesLLM(_skript({"2x": [ExtractionCandidate("frequency_per_year", "2")]}))
+    store = InMemoryStateStore()
+    paket = _bis_vor("frequency_per_year", llm, store)
+    antwort = process_turn(store, llm, paket, "s1", "m-d1", "2x", company_id=MANDANT)
+    feld = store.load("s1").values.get("frequency_per_year")
+    assert "2x" in llm.nachrichten
+    assert feld is None or feld.value is None
+    assert antwort["status"] == "frage"
+    assert antwort["payload"]["feld"] == "frequency_per_year"
+
+
+def test_nachspiel_ca_40_bei_e1_mit_ki_zahl_ohne_einheit_gibt_nachfrage():
+    # Dauer wie Häufigkeit: „ca. 40“ ist keine Kurzform, und die KI-Zahl „40“ ohne Einheit
+    # wird verworfen — Nachfrage statt stiller Minuten.
+    llm = _ZaehlendesLLM(_skript({"ca. 40": [ExtractionCandidate("total_duration_minutes", "40")]}))
+    store = InMemoryStateStore()
+    paket = _bis_vor("total_duration_minutes", llm, store)
+    antwort = process_turn(store, llm, paket, "s1", "m-e1", "ca. 40", company_id=MANDANT)
+    feld = store.load("s1").values.get("total_duration_minutes")
+    assert "ca. 40" in llm.nachrichten
+    assert feld is None or feld.value is None
+    assert antwort["status"] == "frage"
+    assert antwort["payload"]["feld"] == "total_duration_minutes"
 
 
 def test_nachspiel_kurzantworten_fuellen_alle_pflichtfelder():

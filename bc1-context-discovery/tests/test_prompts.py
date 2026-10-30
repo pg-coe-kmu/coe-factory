@@ -95,15 +95,16 @@ def test_system_extraktion_regeln():
     assert PII_HINWEIS in s
 
 
-def test_system_extraktion_nackte_zahl_unveraendert():
+def test_system_extraktion_haeufigkeit_und_dauer_nur_mit_zeitraum_bzw_einheit():
+    # Spec 2 „Fester Schutz“ (kehrt die Nackte-Zahl-Regel aus 95afbad um): Sz4 zeigte,
+    # dass die echte KI aus „2x“ die Zahl „2“ machte.
     s = SYSTEM_EXTRAKTION
-    assert "nackte Zahl" in s
-    assert "unverändert zurück" in s
-    assert "ihre Bedeutung legt der Vertrag fest" in s
-    # Die Häufigkeits-/Dauer-Regel verlangt keine ergänzte Einheit mehr.
-    assert "mit Zeitraum bzw. Einheit, bei Anzahl" not in s
-    # Die Weglass-Regel „nur mit einer Annahme umrechenbar“ erfasst sie nicht.
-    assert "eine nackte Zahl gehört nicht dazu" in s
+    assert ("bei Häufigkeit und Dauer nur mit dem Zeitraum bzw. der Einheit, "
+            "den die Nachricht nennt") in s
+    assert "nennt sie keinen (z. B. ‚300‘, ‚2x‘, ‚zweimal‘), lass das Feld weg" in s
+    assert "unverändert zurück" not in s
+    assert "legt der Vertrag fest" not in s
+    assert "eine nackte Zahl gehört nicht dazu" not in s
 
 
 def test_system_prompts_sind_die_bekannten_deutschen_prompts():

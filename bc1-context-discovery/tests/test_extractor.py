@@ -474,8 +474,8 @@ def test_unklar_wird_ueber_normalisierten_kandidaten_match_aufgeloest():
     )
     state = SessionState("s1", "0.1")
     llm = FakeLLM({
-        "a": [ExtractionCandidate("menge", "600")],
-        "b": [ExtractionCandidate("menge", "1200")],
+        "a": [ExtractionCandidate("menge", "600 pro Jahr")],
+        "b": [ExtractionCandidate("menge", "1200 pro Jahr")],
         "c": [ExtractionCandidate("menge", "100 pro Monat")],
     })
     extract_and_merge(state, "a", "m1", paket, llm)
@@ -498,7 +498,7 @@ def test_klaerung_erkennt_normalisierte_gleichheit():
     state = SessionState("s1", "0.1")
     llm = FakeLLM({
         "a": [ExtractionCandidate("menge", "50 pro Monat")],
-        "b": [ExtractionCandidate("menge", "600")],
+        "b": [ExtractionCandidate("menge", "600 pro Jahr")],
     })
     extract_and_merge(state, "a", "m1", paket, llm)
     extract_and_merge(state, "b", "m2", paket, llm)

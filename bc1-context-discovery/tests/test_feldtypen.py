@@ -16,6 +16,7 @@ from bc1_core.feldtypen import (
     PROZENT_0_100,
     SKALA_1_5,
     ZAHL,
+    ist_nackte_zahl,
     vergleichsschluessel,
 )
 from bc1_service.paket_feldtypen import PROZENT_GANZ_0_100
@@ -673,7 +674,7 @@ def test_kurzform_prozent(eingabe, erwartet):
     ("rund 3 Stunden", "3 Stunden", "180"),
     ("durchschnittlich 3 Stunden", "3 Stunden", "180"),
     ("etwa 3 Stunden", "3 Stunden", "180"),
-    ("3", None, None), ("40", None, None), ("90 min..", None, None),
+    ("90 min..", None, None),
     ("2 Std.!", None, None),
     ("Der Prozess dauert 3 Stunden.", None, None),
     ("nicht 3 Stunden", None, None), ("3 Stunden?", None, None),
@@ -701,7 +702,7 @@ def test_kurzform_minuten(eingabe, rein, minuten):
     ("rund 4 pro Monat", "4 pro Monat", "48"),
     ("im Schnitt 4 pro Monat", "4 pro Monat", "48"),
     ("durchschnittlich 4 pro Monat", "4 pro Monat", "48"),
-    ("2", None, None), ("2 pro Tag", None, None),
+    ("2 pro Tag", None, None),
     ("2 mal pro Monat, im Dezember mehr", None, None),
     ("Der Gesamtprozess läuft 2 mal pro Monat", None, None),
     ("2 pro Monat?", None, None), ("2 pro Monat..", None, None),
@@ -750,6 +751,50 @@ def test_kurzform_haeufigkeit_erweiterte_verbindungen(eingabe, rein, jahr):
     else:
         assert ZAHL.normalisiere(eingabe) == jahr
         assert ZAHL.normalisiere(rein) == jahr
+
+
+@pytest.mark.parametrize("typ, eingabe, rein, wert", [
+    # Spec 2 „Fester Schutz“: schreibt die Person genau eine Zahl, nimmt die Kurzform sie an.
+    (ZAHL, "300", "300", "300"), (ZAHL, "300.", "300", "300"),
+    (ZAHL, " 300! ", "300", "300"), (ZAHL, "1.000", "1.000", "1000"),
+    (MINUTEN, "40", "40", "40"), (MINUTEN, "40!", "40", "40"),
+    (MINUTEN, "1,5", "1,5", "1.5"),
+    # Alles mit Zusatz bleibt eine Nachfrage.
+    (ZAHL, "ca. 300", None, None), (MINUTEN, "ca. 40", None, None),
+    (ZAHL, "2x", None, None), (ZAHL, "zweimal", None, None), (ZAHL, "2 mal", None, None),
+    (ZAHL, "2-mal", None, None), (ZAHL, "300?", None, None), (MINUTEN, "40..", None, None),
+    (MINUTEN, "40 50", None, None), (ZAHL, "300 Stück", None, None),
+])
+def test_kurzform_nackte_zahl_bei_haeufigkeit_und_dauer(typ, eingabe, rein, wert):
+    assert typ.kurzform(eingabe) == rein
+    if rein is not None:
+        assert typ.normalisiere(rein) == wert
+
+
+@pytest.mark.parametrize("text, erwartet", [
+    ("2", True), ("300.", True), (" 40! ", True), ("1.000", True), ("1,5", True),
+    ("2 pro Jahr", False), ("2 Minuten", False), ("2x", False), ("ca. 40", False),
+    ("zweimal", False), ("", False), ("2 3", False), ("2?", False),
+])
+def test_ist_nackte_zahl(text, erwartet):
+    assert ist_nackte_zahl(text) is erwartet
+
+
+def test_nur_haeufigkeit_und_dauer_verwerfen_ki_zahlen_ohne_zeitraum():
+    # (Regression) Das Merkmal gilt generisch für den Typ, nie für Feldnamen; Anzahl, Prozent
+    # und Skala behalten die nackte Zahl auch vom KI-Weg.
+    typen = (ZAHL, MINUTEN, ANZAHL, PROZENT_0_100, SKALA_1_5, JA_NEIN, FREITEXT, LISTE,
+             AUSWAHL("a"))
+    assert {t.name for t in typen if t.nackte_zahl_nur_von_person} == {"zahl", "minuten"}
+
+
+@pytest.mark.parametrize("typ, eingabe, wert", [
+    # Normalisierer ⊇ Kurzform (Spec 3.4): auch mit „.“/„!“ am Ende der nackten Zahl.
+    (ZAHL, "300.", "300"), (ZAHL, "300!", "300"), (MINUTEN, "40.", "40"),
+    (MINUTEN, "1,5!", "1.5"), (ZAHL, "300..", "300.."), (MINUTEN, "40?", "40?"),
+])
+def test_normalisierer_nackte_zahl_mit_satzzeichen_am_ende(typ, eingabe, wert):
+    assert typ.normalisiere(eingabe) == wert
 
 
 @pytest.mark.parametrize("typ", [
