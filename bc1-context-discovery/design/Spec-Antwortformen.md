@@ -1,13 +1,13 @@
 # Spec: Natürliche Antworten richtig erfassen — nichts erfinden, KI kennt Frage und Antwortform, zwei Prüfschichten
 
-> Stand 29.10.2026, **Entwurf 3**. Anlass: Generalprobe 2 auf BC0s Server (Testanfrage A-2026-08, KP-02.TP-2, 29.10.): 25 von 26 Pflichtfeldern.
+> Stand 30.10.2026, **Entwurf 3, gebaut auf Zweig `bc1-antwortformen`** (nicht gemergt). Anlass: Generalprobe 2 auf BC0s Server (Testanfrage A-2026-08, KP-02.TP-2, 29.10.): 25 von 26 Pflichtfeldern.
 > - **Quellen:** gespeicherte Sitzung und Profil (nur lesend gemessen), BC1-Log vom Server, Code auf `main` @ `4ead3de`, Proben an Kurzformen/Normalisierern/Prüfern.
 > - **Vorgänger:** `design/Spec-Extraktion-gestellte-Frage.md` (Kurzantworten, gemergt mit #367).
 > - **Geprüft:** Entwurf 1 von Codex (1 Critical, 8 Important, 2 Minor), agy (3 C, 6 I, 4 M) und einem unabhängigen Claude-Prüfer (1 C, 9 I, 6 M) — einhellig „so nicht bauen“ (Abschnitt 10). Entwurf 2 von agy (1 C, 5 I, 3 M) und einem Claude-Prüfer (0 C, 5 I, 11 M, „Bau freigeben mit fünf Auflagen“); Entwurf 3 baut beide ein (Abschnitt 13).
 > - **Abnahme:** Entwurf 2 mit allen Empfehlungen (Abschnitt 8) von der BC1-Projektleitung abgenommen; die Empfehlungen der Prüfer zu Entwurf 2 gelten als angenommen (Abschnitt 13).
 > - **Termin:** Vorführung Dienstag 03.11.2026. Plan und Rückfallebene in Abschnitt 9.
 > - **Nachprüfung Entwurf 3** (agy): baufertig, 0 C, 1 I, 3 M — eingearbeitet (Identitätsbezug im Prompt markieren, Abschnitt 2; Systemtyp ohne Nachfrage-Antwortform, 4; Grammatik um „/“ und Form der Invariante, 3.4; Testliste, 7.10).
-> - **Nächster Schritt:** Implementierungsplan (mit Prüfung).
+> - **Nächster Schritt:** Läufe des Prüfwerkzeugs (Abschnitt 6), Gesamtprüfung, dann Merge.
 
 ---
 

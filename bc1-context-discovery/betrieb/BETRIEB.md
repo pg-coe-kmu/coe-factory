@@ -135,6 +135,18 @@ Alle Zeilen erklärt die README, Abschnitt „Betriebsprotokoll“.
 
 Läuft der Einbau nicht, zeigt man dieselbe Fachstrecke lokal: Dienst gegen Supabase mit der vorbereiteten Anfrage, Chat über n8n auf `localhost` (README und `SMOKE.md`). **Vorher `bc1` auf dem Server stoppen** (`docker compose stop bc1`): Zwei Dienste auf derselben Datenbank sind nicht vorgesehen.
 
+### 8. Prüfwerkzeug vor Generalprobe und vor jedem Update, das Dialog oder Extraktion berührt
+
+Fester Schritt, vom eigenen Rechner im Ordner `bc1-context-discovery/` (nicht auf dem Server, nicht im Image):
+
+```bash
+BC1_LLM=gemini GEMINI_API_KEY=… .venv/bin/python -m werkzeuge.pruefe_antworten --szenario <1|2|3|4> [--lauf K] --ausgabe <Datei außerhalb des Repos>
+```
+
+- **Schlüssel** nur aus der Umgebung der Sitzung, nie in Repo, Chat oder Log. **Berichte** nie ins Repo (die Ausgabedatei liegt außerhalb).
+- **Abnahme:** Spec `design/Spec-Antwortformen.md`, „Erfolg 2“ (Szenarien 1, 3, 4 je zwei Läufe, Szenario 2 mindestens drei Läufe; kein falscher Wert, kein aufgegebenes Pflichtfeld).
+- **Nach dem Update dieses Pakets ändert sich die Kontext-Kennung** (`+ctx-…` in `schema_version`), weil die Namen im Fingerabdruck stehen. Vorher messen (Abschnitt 3), dass keine Sitzung offen ist.
+
 ### Geprüft (27.10.2026, lokal mit colima)
 
 - **Image und Netz:** Image aus diesem Stand gebaut, im internen Docker-Netz ohne veröffentlichten Port gestartet, gegen die Test-DB.
