@@ -60,11 +60,15 @@ WERTE = {
 }
 
 
+# Die Nachricht nennt die Kennung des Fokusschritts (feste Sperre (a), Spec 2).
+ALLES = "alles, der Fokus ist KP-01.TP-1"
+
+
 def _llm(ohne=(), abweichend=None):
     werte = {**WERTE, **(abweichend or {})}
     erste = [ExtractionCandidate(n, w) for n, w in werte.items() if n not in ohne]
     zweite = [ExtractionCandidate(n, werte[n]) for n in ohne]
-    return FakeLLM({"alles": erste, "rest": zweite})
+    return FakeLLM({ALLES: erste, "rest": zweite})
 
 
 @pytest.fixture
@@ -92,7 +96,7 @@ def _turn(client, mid, text, session="s1", **extra):
 
 
 def test_durchstich_schreibt_genau_eine_eingefrorene_zeile(umgebung):
-    antwort = _turn(_client(umgebung), "m1", "alles")
+    antwort = _turn(_client(umgebung), "m1", ALLES)
     assert antwort.status_code == 200
     assert antwort.json()["status"] == "fertig"
     with verbindung(DSN) as conn:
@@ -117,7 +121,7 @@ def test_sweep_macht_das_feld_offen_und_der_payload_folgt_der_db(umgebung):
     # Alleinstehende Kennung: nach der Entfernung bleibt NICHTS uebrig.
     client = _client(umgebung, ohne=("pii_involved",),
                      abweichend={"focus_step_systems": "S-02"})
-    _turn(client, "m1", "alles")
+    _turn(client, "m1", ALLES)
     with verbindung(DSN, None) as conn:                 # System verschwindet
         conn.execute("DELETE FROM mandant_systeme WHERE company_id = %s "
                      "AND system_id = 'S-02'", (MANDANT_A,))
@@ -142,7 +146,7 @@ def test_befunde_und_zaehler_kommen_ebenfalls_aus_der_db(umgebung):
     # gerade offen gemacht hat — genau so gemessen (03.09.).
     client = _client(umgebung, ohne=("pii_involved",),
                      abweichend={"focus_step_systems": "S-02"})
-    _turn(client, "m1", "alles")
+    _turn(client, "m1", ALLES)
     with verbindung(DSN, None) as conn:
         conn.execute("DELETE FROM mandant_systeme WHERE company_id = %s "
                      "AND system_id = 'S-02'", (MANDANT_A,))
@@ -161,7 +165,7 @@ def test_befunde_und_zaehler_kommen_ebenfalls_aus_der_db(umgebung):
 def test_sweep_mit_tragendem_rest_meldet_den_anderen_hinweis(umgebung):
     client = _client(umgebung, ohne=("pii_involved",),
                      abweichend={"focus_step_systems": "SAP (S-02)"})
-    _turn(client, "m1", "alles")
+    _turn(client, "m1", ALLES)
     with verbindung(DSN, None) as conn:
         conn.execute("DELETE FROM mandant_systeme WHERE company_id = %s "
                      "AND system_id = 'S-02'", (MANDANT_A,))
@@ -181,7 +185,7 @@ def test_mehrere_befunde_liefern_beide_hinweise_je_einmal(umgebung):
         "focus_step_systems": "S-02",                       # -> ungeloest
         "process_steps": "Anfrage (S-02), Kalkulation",     # -> gueltig
         "trigger_text": "Kundenanfrage per Mail (S-02)"})   # -> gueltig
-    _turn(client, "m1", "alles")
+    _turn(client, "m1", ALLES)
     with verbindung(DSN, None) as conn:
         conn.execute("DELETE FROM mandant_systeme WHERE company_id = %s "
                      "AND system_id = 'S-02'", (MANDANT_A,))
@@ -202,7 +206,7 @@ def test_chat_text_setzt_sich_in_fester_reihenfolge_zusammen(umgebung):
         "focus_step_systems": "S-02",                       # F2 -> ungeloest
         "process_steps": "Anfrage (S-02), Kalkulation",     # B5 -> gueltig
         "trigger_text": "Kundenanfrage per Mail (S-02)"})   # C1 -> gueltig
-    _turn(client, "m1", "alles")
+    _turn(client, "m1", ALLES)
     with verbindung(DSN, None) as conn:
         conn.execute("DELETE FROM mandant_systeme WHERE company_id = %s "
                      "AND system_id = 'S-02'", (MANDANT_A,))
@@ -221,7 +225,7 @@ def test_chat_text_setzt_sich_in_fester_reihenfolge_zusammen(umgebung):
 def test_replay_der_abschlussnachricht_liefert_denselben_hinweis_genau_einmal(umgebung):
     client = _client(umgebung, ohne=("pii_involved",),
                      abweichend={"focus_step_systems": "SAP (S-02)"})
-    _turn(client, "m1", "alles")
+    _turn(client, "m1", ALLES)
     with verbindung(DSN, None) as conn:
         conn.execute("DELETE FROM mandant_systeme WHERE company_id = %s "
                      "AND system_id = 'S-02'", (MANDANT_A,))
@@ -234,9 +238,9 @@ def test_replay_der_abschlussnachricht_liefert_denselben_hinweis_genau_einmal(um
 
 def test_replay_einer_aelteren_frage_bleibt_historisch(umgebung):
     client = _client(umgebung, ohne=("pii_involved",))
-    frage = _turn(client, "m1", "alles").json()
+    frage = _turn(client, "m1", ALLES).json()
     _turn(client, "m2", "rest")
-    assert _turn(client, "m1", "alles").json() == frage      # kein Overlay
+    assert _turn(client, "m1", ALLES).json() == frage      # kein Overlay
 
 
 def test_unbekannte_kennung_ueberlebt_das_nachfrage_limit_nicht(umgebung):
@@ -244,7 +248,7 @@ def test_unbekannte_kennung_ueberlebt_das_nachfrage_limit_nicht(umgebung):
     # gespeicherten JSON, auch nicht unter den Kandidaten.
     pool, paket = umgebung
     llm = FakeLLM({
-        "alles": [ExtractionCandidate(n, w) for n, w in WERTE.items()
+        ALLES: [ExtractionCandidate(n, w) for n, w in WERTE.items()
                   if n != "focus_step_systems"],
         "systeme": [ExtractionCandidate("focus_step_systems", "Eigenbau (S-99)")],
         "nochmal": [ExtractionCandidate("focus_step_systems", "Eigenbau2 (S-99)")],
@@ -252,7 +256,7 @@ def test_unbekannte_kennung_ueberlebt_das_nachfrage_limit_nicht(umgebung):
     client = TestClient(create_app(InMemoryStateStore(), llm, paket,
                                    company_id=MANDANT_A,
                                    writer=ProfilWriter(pool, MANDANT_A, paket)))
-    _turn(client, "m1", "alles")
+    _turn(client, "m1", ALLES)
     _turn(client, "m2", "systeme")
     antwort = _turn(client, "m3", "nochmal").json()
     assert antwort["status"] == "fertig"
@@ -275,7 +279,7 @@ def test_sweep_hinweis_ueberlebt_den_neustart_unveraendert(umgebung):
             writer=ProfilWriter(pool, MANDANT_A, paket)))
 
     client = _app()
-    _turn(client, "m1", "alles")
+    _turn(client, "m1", ALLES)
     with verbindung(DSN, None) as conn:
         conn.execute("DELETE FROM mandant_systeme WHERE company_id = %s "
                      "AND system_id = 'S-02'", (MANDANT_A,))
@@ -300,7 +304,7 @@ def test_recovery_nach_neustart_mit_geaendertem_ctx_holt_den_write_nach(umgebung
         conn.commit()
     client = TestClient(create_app(store, _llm(), paket, company_id=MANDANT_A,
                                    writer=ProfilWriter(pool, MANDANT_A, paket)))
-    assert _turn(client, "m1", "alles").status_code == 503
+    assert _turn(client, "m1", ALLES).status_code == 503
     with verbindung(DSN) as conn:
         conn.execute("DELETE FROM bc1.prozessprofil WHERE status = 'in_erhebung'")
         conn.commit()
@@ -314,7 +318,7 @@ def test_recovery_nach_neustart_mit_geaendertem_ctx_holt_den_write_nach(umgebung
     client_neu = TestClient(create_app(
         store, _llm(), neues_paket, company_id=MANDANT_A,
         writer=ProfilWriter(pool, MANDANT_A, neues_paket)))
-    antwort = _turn(client_neu, "m1", "alles",
+    antwort = _turn(client_neu, "m1", ALLES,
                     schema_version=paket.schema_version)
     assert antwort.status_code == 200
     assert antwort.json()["status"] == "fertig"
@@ -340,7 +344,7 @@ def test_recovery_mit_inzwischen_stillgelegter_rolle(umgebung):
     client = TestClient(create_app(store, _llm(), paket, company_id=MANDANT_A,
                                    anfrage_id=ANFRAGE_A,
                                    writer=ProfilWriter(pool, MANDANT_A, paket)))
-    assert _turn(client, "m1", "alles").status_code == 503
+    assert _turn(client, "m1", ALLES).status_code == 503
     with verbindung(DSN, None) as conn:
         conn.execute("DELETE FROM bc1.prozessprofil WHERE status = 'in_erhebung'")
         conn.execute("UPDATE mandant_rollen SET aktiv = false "
@@ -353,7 +357,7 @@ def test_recovery_mit_inzwischen_stillgelegter_rolle(umgebung):
     client_neu = TestClient(create_app(
         store, _llm(), neues_paket, company_id=MANDANT_A, anfrage_id=ANFRAGE_A,
         writer=ProfilWriter(pool, MANDANT_A, neues_paket)))
-    antwort = _turn(client_neu, "m1", "alles", schema_version=paket.schema_version)
+    antwort = _turn(client_neu, "m1", ALLES, schema_version=paket.schema_version)
     assert antwort.status_code == 200
     assert antwort.json()["status"] == "fertig"
     with verbindung(DSN) as conn:
@@ -398,7 +402,7 @@ def test_fremder_mandant_beim_nachladen_wird_abgewiesen_statt_geschrieben(umgebu
     client = TestClient(create_app(
         _StoreMitFremdemNachladen(), _llm(), paket, company_id=MANDANT_A,
         writer=ProfilWriter(pool, MANDANT_A, paket)))
-    antwort = _turn(client, "m1", "alles")
+    antwort = _turn(client, "m1", ALLES)
     assert antwort.status_code == 409
     assert antwort.json()["detail"] == "mandant_konflikt"
     with verbindung(DSN) as conn:
@@ -425,7 +429,7 @@ def test_fremde_anfrage_beim_nachladen_wird_abgewiesen_statt_geschrieben(umgebun
         _StoreMitFremderAnfrageBeimNachladen(), _llm(), paket,
         company_id=MANDANT_A, anfrage_id=ANFRAGE_A,
         writer=ProfilWriter(pool, MANDANT_A, paket)))
-    antwort = _turn(client, "m1", "alles")
+    antwort = _turn(client, "m1", ALLES)
     assert antwort.status_code == 409
     assert antwort.json()["detail"] == "anfrage_konflikt"
     with verbindung(DSN) as conn:
@@ -708,14 +712,14 @@ def test_abbruch_mit_blockiertem_aufraeumen_liefert_trotzdem_200(umgebung, caplo
                           identitaetskritisch=True),
                 FieldSpec("dauer", "Wie lange dauert der Schritt?")))
     llm = FakeLLM({
-        "schritt": [ExtractionCandidate("focus_step", "KP-01.TP-1")],
+        "schritt KP-01.TP-1": [ExtractionCandidate("focus_step", "KP-01.TP-1")],
         # Zweitnennung eines ANDEREN gueltigen Schritts => Feld wird UNKLAR;
         # am Rundenlimit greift damit der Completion-Guard.
-        "wirr": [ExtractionCandidate("focus_step", "KP-01.TP-2")]})
+        "wirr KP-01.TP-2": [ExtractionCandidate("focus_step", "KP-01.TP-2")]})
     client = TestClient(create_app(InMemoryStateStore(), llm, knapp,
                                    company_id=MANDANT_A,
                                    writer=ProfilWriter(pool, MANDANT_A, knapp)))
-    erst = _turn(client, "m1", "schritt")
+    erst = _turn(client, "m1", "schritt KP-01.TP-1")
     assert erst.json()["status"] == "frage"             # Session laeuft weiter
     with verbindung(DSN) as conn:                        # Draft gebunden?
         assert conn.execute("SELECT status FROM bc1.prozessprofil").fetchall() == [
@@ -730,7 +734,7 @@ def test_abbruch_mit_blockiertem_aufraeumen_liefert_trotzdem_200(umgebung, caplo
                      "FOR EACH ROW EXECUTE FUNCTION bc1.tf_blockiere()")
         conn.commit()
     with caplog.at_level("ERROR"):
-        antwort = _turn(client, "m2", "wirr")           # macht das Feld unklar => Abbruch
+        antwort = _turn(client, "m2", "wirr KP-01.TP-2")           # macht das Feld unklar => Abbruch
     assert antwort.status_code == 200
     assert antwort.json()["status"] == "abgebrochen_ohne_identitaet"
     assert "draft_aufraeumen_fehlgeschlagen" in caplog.text
@@ -757,7 +761,7 @@ def test_der_sweep_hinweis_kostet_keinen_zweiten_llm_aufruf(umgebung):
     client = TestClient(create_app(InMemoryStateStore(), llm, paket,
                                    company_id=MANDANT_A,
                                    writer=ProfilWriter(pool, MANDANT_A, paket)))
-    _turn(client, "m1", "alles")
+    _turn(client, "m1", ALLES)
     with verbindung(DSN, None) as conn:
         conn.execute("DELETE FROM mandant_systeme WHERE company_id = %s "
                      "AND system_id = 'S-02'", (MANDANT_A,))
@@ -782,7 +786,7 @@ def test_llm_ausfall_bleibt_fortsetzbar_auch_mit_verdrahtetem_writer(umgebung):
     client = TestClient(create_app(InMemoryStateStore(), _KaputtesLLM(), paket,
                                    company_id=MANDANT_A,
                                    writer=ProfilWriter(pool, MANDANT_A, paket)))
-    antwort = _turn(client, "m1", "alles")
+    antwort = _turn(client, "m1", ALLES)
     assert antwort.status_code == 200
     assert antwort.json()["status"] == "fehler_fortsetzbar"
     with verbindung(DSN) as conn:
@@ -802,7 +806,7 @@ def test_503_traegt_den_stabilen_detail_string(umgebung):
             "VALUES (%s, 'KP-01.TP-1', 1, 'KP-01', 'in_erhebung', 'E-2026-02', "
             "'1.1+ctx-0000000000000000', '{}')", (MANDANT_A,))
         conn.commit()
-    antwort = _turn(client, "m1", "alles")
+    antwort = _turn(client, "m1", ALLES)
     assert antwort.status_code == 503
     assert antwort.json()["detail"] == "profil_write_fehlgeschlagen"
     assert antwort.json()["chat_text"] == FEHLER_TEXTE["profil_write_fehlgeschlagen"]
@@ -817,11 +821,11 @@ def test_write_fehler_erzeugt_503_und_der_replay_holt_ihn_nach(umgebung):
             "VALUES (%s, 'KP-01.TP-1', 1, 'KP-01', 'in_erhebung', 'E-2026-02', "
             "'1.1+ctx-0000000000000000', '{}')", (MANDANT_A,))
         conn.commit()
-    assert _turn(client, "m1", "alles").status_code == 503
+    assert _turn(client, "m1", ALLES).status_code == 503
     with verbindung(DSN) as conn:                            # Betriebsweg K5
         conn.execute("DELETE FROM bc1.prozessprofil WHERE status = 'in_erhebung'")
         conn.commit()
-    nachgeholt = _turn(client, "m1", "alles")                # derselbe message_id
+    nachgeholt = _turn(client, "m1", ALLES)                # derselbe message_id
     assert nachgeholt.status_code == 200
     assert nachgeholt.json()["status"] == "fertig"
     with verbindung(DSN) as conn:
@@ -846,7 +850,7 @@ def test_eingefrorenes_profil_stoesst_das_gate_einmal_an(umgebung):
     client = TestClient(create_app(
         InMemoryStateStore(), _llm(), paket, company_id=MANDANT_A, anfrage_id=ANFRAGE_A,
         writer=ProfilWriter(pool, MANDANT_A, paket), melder=melder))
-    antwort = _turn(client, "m1", "alles")
+    antwort = _turn(client, "m1", ALLES)
     assert antwort.json()["status"] == "fertig"
     assert melder.aufrufe == 1
     with verbindung(DSN) as conn:
@@ -859,7 +863,7 @@ def test_eingefrorenes_profil_zieht_das_gate_fuer_die_eigene_anfrage_nach(umgebu
     client = TestClient(create_app(
         InMemoryStateStore(), _llm(), paket, company_id=MANDANT_A, anfrage_id=ANFRAGE_A,
         writer=ProfilWriter(pool, MANDANT_A, paket), melder=melder))
-    _turn(client, "m1", "alles")
+    _turn(client, "m1", ALLES)
     assert melder.anfragen == [ANFRAGE_A]
 
 
@@ -886,7 +890,7 @@ def _fremder_entwurf():
 def test_fremder_entwurf_gibt_beim_neusenden_abschluss_ausstehend(umgebung):
     client = _client(umgebung)
     _fremder_entwurf()
-    assert _turn(client, "m1", "alles").status_code == 503
+    assert _turn(client, "m1", ALLES).status_code == 503
     antwort = _turn(client, "m2", "nochmal")
     assert antwort.status_code == 409
     assert antwort.json() == {"detail": "abschluss_ausstehend",
@@ -929,7 +933,7 @@ def test_kurze_stoerung_wird_beim_neusenden_nachgeholt(umgebung):
         store, _llm(ohne=("pii_involved",)), paket, company_id=MANDANT_A,
         anfrage_id=ANFRAGE_A, writer=_EinmalGestoerterWriter(pool, MANDANT_A, paket),
         melder=melder))
-    assert _turn(client, "m1", "alles").json()["status"] == "frage"
+    assert _turn(client, "m1", ALLES).json()["status"] == "frage"
     assert _turn(client, "m2", "rest").status_code == 503
     assert _profilstatus() == [("in_erhebung",)] and melder.aufrufe == 0
     log_vorher = len(store.load("s1").raw_log)
@@ -967,7 +971,7 @@ def test_nachholbar_aber_paket_geaendert_gibt_abschluss_ausstehend(umgebung):
     client = TestClient(create_app(
         store, _llm(ohne=("pii_involved",)), paket, company_id=MANDANT_A,
         anfrage_id=ANFRAGE_A, writer=ProfilWriter(pool, MANDANT_A, paket)))
-    _turn(client, "m1", "alles")                             # eigener Entwurf steht
+    _turn(client, "m1", ALLES)                             # eigener Entwurf steht
     _stilllegen()
     assert _turn(client, "m2", "rest").status_code == 503    # Abschluss scheitert
 
@@ -989,7 +993,7 @@ def test_lesefehler_im_gate_gibt_503(umgebung):
     client = TestClient(create_app(
         InMemoryStateStore(), _llm(), paket, company_id=MANDANT_A, anfrage_id=ANFRAGE_A,
         writer=ProfilWriter(ConnectionPool(DSN, open=False), MANDANT_A, paket)))
-    assert _turn(client, "m1", "alles").status_code == 503
+    assert _turn(client, "m1", ALLES).status_code == 503
     antwort = _turn(client, "m2", "nochmal")
     assert antwort.status_code == 503
     assert antwort.json()["detail"] == "profil_write_fehlgeschlagen"
@@ -1012,7 +1016,7 @@ def test_nachgeholter_abschluss_wird_protokolliert(umgebung, caplog):
     client = TestClient(create_app(
         InMemoryStateStore(), _llm(ohne=("pii_involved",)), paket, company_id=MANDANT_A,
         anfrage_id=ANFRAGE_A, writer=_EinmalGestoerterWriter(pool, MANDANT_A, paket)))
-    _turn(client, "m1", "alles")
+    _turn(client, "m1", ALLES)
     _turn(client, "m2", "rest")                               # 503
     with caplog.at_level("INFO", logger="bc1.api"):
         assert _turn(client, "m3", "nochmal").status_code == 200
@@ -1026,7 +1030,7 @@ def test_abschluss_ausstehend_protokolliert_keinen_text(umgebung, caplog):
     # Hand nachzuholen — den Text der Nachricht nie (B7).
     client = _client(umgebung)
     _fremder_entwurf()
-    _turn(client, "m1", "alles")                              # 503
+    _turn(client, "m1", ALLES)                              # 503
     with caplog.at_level("INFO"):
         _turn(client, "m2", "Nordlicht-4711 bitte nochmal")
     warnungen = [r for r in caplog.records
@@ -1046,7 +1050,7 @@ def test_stillgelegter_teilprozess_bleibt_bei_503_ohne_neuen_entwurf(umgebung):
     client = TestClient(create_app(
         store, _llm(ohne=("pii_involved",)), paket, company_id=MANDANT_A,
         anfrage_id=ANFRAGE_A, writer=ProfilWriter(pool, MANDANT_A, paket)))
-    _turn(client, "m1", "alles")
+    _turn(client, "m1", ALLES)
     _stilllegen()
     assert _turn(client, "m2", "rest").status_code == 503
     log_vorher = len(store.load("s1").raw_log)
@@ -1068,7 +1072,7 @@ def test_fremde_anfrage_fragt_den_writer_nicht(umgebung):
     client = TestClient(create_app(
         store, _llm(), paket, company_id=MANDANT_A, anfrage_id=ANFRAGE_A,
         writer=ProfilWriter(ConnectionPool(DSN, open=False), MANDANT_A, paket)))
-    assert _turn(client, "m1", "alles").status_code == 503     # fertig, Profil fehlt
+    assert _turn(client, "m1", ALLES).status_code == 503     # fertig, Profil fehlt
     fremd = TestClient(create_app(
         store, _llm(), paket, company_id=MANDANT_A, anfrage_id="A-2026-99",
         writer=ProfilWriter(ConnectionPool(DSN, open=False), MANDANT_A, paket)))

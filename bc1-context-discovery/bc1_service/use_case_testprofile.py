@@ -85,7 +85,7 @@ def _skript(*, intent, name, owner, prozess, schritte, trigger, eingang,
         ("Mengen und Dauer.", (
             ("frequency_per_year", frequenz), ("executions_per_run", faelle),
             ("total_duration_minutes", gesamtdauer))),
-        ("Der anstrengendste Schritt.", (
+        (f"Der anstrengendste Schritt ist {fokus}.", (
             ("focus_step", fokus), ("focus_step_duration_minutes", fokusdauer),
             ("focus_step_duration_source", quelle),
             ("focus_step_duration_confidence_pct", sicherheit))),

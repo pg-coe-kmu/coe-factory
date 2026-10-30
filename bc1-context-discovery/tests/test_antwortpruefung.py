@@ -647,8 +647,9 @@ def test_bewertung_freie_antwort_setzt_ein_fremdes_feld_ist_nebenwirkung():
     assert zeile.detail == "Antwort änderte auch: frequency_per_year"
 
 
-def test_bewertung_freie_antwort_setzt_e5_ueber_den_namen_ist_nebenwirkung():
-    # Probe A2: die Freitext-Antwort nennt „Angebot prüfen“ und setzt E5 auf KP-01.TP-2.
+def test_bewertung_freie_antwort_mit_mehreren_namen_setzt_e5_nicht():
+    # Probe A2 (Gesamtprüfung) ist seit der festen Sperre (a) keine Nebenwirkung mehr:
+    # die Antwort nennt mehrere Schritte, der KI-Wert für E5 wird verworfen.
     szenario, gespielt = _spiele_mit_zusatz(1, {
         ("process_steps", FREIE_ANTWORTEN["process_steps"]):
             [ExtractionCandidate("focus_step", "Angebot prüfen")]})
@@ -656,9 +657,7 @@ def test_bewertung_freie_antwort_setzt_e5_ueber_den_namen_ist_nebenwirkung():
     ergebnisse = bewerte(gespielt, szenario.erwartungen, DISCOVERY,
                          start_felder=szenario.start_felder)
 
-    zeile = next(r for r in ergebnisse if r.ergebnis == "nebenwirkung")
-    assert zeile.detail == "Antwort änderte auch: focus_step"
-    assert gespielt.turns[-1].werte["focus_step"] == ("KP-01.TP-2", "gueltig")
+    assert [r for r in ergebnisse if r.ergebnis == "nebenwirkung"] == []
 
 
 def test_bewertung_startnachricht_darf_nur_die_vorgesehenen_felder_setzen():
