@@ -28,6 +28,7 @@ class Szenario:
     variante: str | None = None
     rueckfall: dict = field(default_factory=dict)   # Feld -> Antwort, wenn nichts erwartet ist
     pflicht: list = field(default_factory=list)   # Faelle, die der Lauf spielen muss
+    start_felder: tuple = ()   # Felder, die die Startnachricht setzen darf
 
     def antworten(self, feld, versuch):
         for erwartung in self.erwartungen:
@@ -94,6 +95,7 @@ def baue_szenario(katalog, nummer, lauf=1):
     start = (f"{FREIE_ANTWORTEN['request_intent']} "
              f"Der Prozess heißt {FREIE_ANTWORTEN['process_name']}.")
     variante = None   # Paket der Katalog-Variante, etwa B3 ohne Eigner-Vorschlag
+    start_felder = ("request_intent", "process_name")   # A1 und B1 setzt jede Startnachricht
     if nummer in (2, 4):
         # Nur A1 und B1: A2 und A3 werden einzeln gefragt und sind damit KI-Faelle.
         # Felder ohne Fall in diesem Lauf: Rueckfall-Antwort, nicht geprueft.
@@ -109,4 +111,6 @@ def baue_szenario(katalog, nummer, lauf=1):
                 pflicht.append(fall)
     else:
         start += " Das Ziel ist zeit_sparen, es geht um den ganzer_prozess."
-    return Szenario(start, list(erwartungen.values()), variante, rueckfall, pflicht)
+        start_felder += ("request_goal", "scope_focus")
+    return Szenario(start, list(erwartungen.values()), variante, rueckfall, pflicht,
+                    start_felder)

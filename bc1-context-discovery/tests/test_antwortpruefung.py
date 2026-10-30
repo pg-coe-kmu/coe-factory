@@ -19,9 +19,9 @@ from bc1_core.llm import ExtractionCandidate
 from bc1_core.package import FieldSpec, UseCasePackage
 from bc1_core.store import InMemoryStateStore
 from werkzeuge.antwortpruefung import (
-    Erwartung, bericht, bewerte, pruefe_nachfragetext, spiele)
+    Erwartung, Lauf, Turn, bericht, bewerte, pruefe_nachfragetext, spiele)
 from werkzeuge.katalog import baue_paket, lade_katalog
-from werkzeuge.pruefe_antworten import main
+from werkzeuge.pruefe_antworten import ermittle_code_stand, main
 from werkzeuge.szenarien import FREIE_ANTWORTEN, abdeckung, anzahl_laeufe, baue_szenario
 
 KATALOG = lade_katalog(Path(__file__).parent / "daten" / "antwortkatalog.json")
@@ -98,7 +98,7 @@ def _bewerte(erwartungen, antworten_je_feld, extraktionen=None, paket=PAKET):
     folgen = {feld: iter(texte) for feld, texte in antworten_je_feld.items()}
     lauf = spiele(InMemoryStateStore(), llm, paket,
                   lambda feld, versuch: next(folgen[feld]), start="Start")
-    return bewerte(lauf, erwartungen)
+    return bewerte(lauf, erwartungen, start_felder=("a1",))
 
 
 def test_bewertung_ok_im_ersten_versuch():
@@ -242,6 +242,69 @@ def test_bewertung_aenderung_eines_anderen_felds_ist_falsch():
     assert [(r.feld, r.ergebnis) for r in ergebnisse] == [("e1", "falsch")]
 
 
+def test_bewertung_statuswechsel_bei_gleichem_wert_ist_eine_aenderung():
+    # Gesamtprüfung I1 (b): die Antwort auf e2 bringt für e1 einen anderen Wert; e1 behält
+    # seinen Wert, wird aber unklar (gültig -> unklar bei gleichem Wert).
+    ergebnisse = _bewerte(
+        [Erwartung("e1", [("eine halbe Stunde", "30")]),
+         Erwartung("e2", [("eine halbe Stunde", "30")])],
+        {"e1": ["eine halbe Stunde", "eine halbe Stunde"], "e2": ["eine halbe Stunde"]},
+        {("e1", "eine halbe Stunde"): [ExtractionCandidate("e1", "30 Minuten")],
+         ("e2", "eine halbe Stunde"): [ExtractionCandidate("e2", "30 Minuten"),
+                                       ExtractionCandidate("e1", "45 Minuten")]})
+
+    assert [(r.feld, r.ergebnis) for r in ergebnisse] == [("e1", "ok_1"), ("e2", "falsch")]
+    assert ergebnisse[1].detail == "Antwort änderte auch: e1"
+
+
+def test_bewertung_statuswechsel_nach_antwort_ohne_erwartung_ist_nebenwirkung():
+    # Wie oben, aber e2 hat keine Erwartung (Rückfall-Antwort): eigene ✗-Zeile.
+    ergebnisse = _bewerte(
+        [Erwartung("e1", [("eine halbe Stunde", "30")])],
+        {"e1": ["eine halbe Stunde", "eine halbe Stunde"], "e2": ["eine halbe Stunde"]},
+        {("e1", "eine halbe Stunde"): [ExtractionCandidate("e1", "30 Minuten")],
+         ("e2", "eine halbe Stunde"): [ExtractionCandidate("e2", "30 Minuten"),
+                                       ExtractionCandidate("e1", "45 Minuten")]})
+
+    assert [(r.feld, r.ergebnis) for r in ergebnisse] == [
+        ("e1", "ok_1"), ("Nebenwirkung: Antwort auf e2", "nebenwirkung")]
+
+
+def _handlauf(*stationen):
+    """Lauf aus (Status, gefragtes Feld, Stand der Felder, gesendete Nachricht)."""
+    payload = {"feld": None, "pflicht_erfasst": 1, "pflicht_gesamt": 1}
+    return Lauf(turns=[Turn(status, gefragt, werte, {"payload": payload}, nachricht)
+                       for status, gefragt, werte, nachricht in stationen],
+                aufrufe={"extract": 0, "antworte": 0})
+
+
+def test_bewertung_haelt_endwert_endstatus_und_soll_je_erwartung_fest():
+    # e1 war im 1. Versuch gültig; die zweite Frage an e1 macht es unklar. Das Ergebnis des
+    # Felds bleibt „im 1. Versuch“, die Endprüfung sieht Endwert, Endstatus und Soll.
+    lauf = _handlauf(("frage", None, {"a1": ("x", "gueltig")}, "Start"),
+                     ("frage", "e1", {"a1": ("x", "gueltig"), "e1": ("30", "gueltig")}, "a"),
+                     ("fertig", "e1", {"a1": ("x", "gueltig"), "e1": ("30", "unklar")}, "b"))
+
+    ergebnis = bewerte(lauf, [Erwartung("e1", [("eine halbe Stunde", "30")])],
+                       start_felder=("a1",))[0]
+
+    assert ergebnis.ergebnis == "ok_1"
+    assert (ergebnis.endwert, ergebnis.endstatus, ergebnis.endsoll) == ("30", "unklar", "30")
+
+
+def test_bericht_endpruefung_abweichender_endwert_ist_nicht_erfuellt_und_wird_gedruckt():
+    lauf = _handlauf(("frage", None, {"a1": ("x", "gueltig")}, "Start"),
+                     ("frage", "e1", {"a1": ("x", "gueltig"), "e1": ("30", "gueltig")}, "a"),
+                     ("fertig", "e1", {"a1": ("x", "gueltig"), "e1": ("30", "unklar")}, "b"))
+    ergebnisse = bewerte(lauf, [Erwartung("e1", [("eine halbe Stunde", "30")])],
+                         start_felder=("a1",))
+
+    text = bericht(ergebnisse, modell="m", code_stand="c", szenario="s", laeufe=[(1, lauf)])
+
+    assert "Abnahme NICHT erfüllt: Endwert weicht ab: e1 (Lauf 1)." in text
+    assert "| 1 | e1 | 30 | unklar | 30 | ✗ |" in text
+
+
 def test_bewertung_benennt_das_fremde_feld_im_detail():
     ergebnisse = _bewerte(
         [Erwartung("e1", [("eine halbe Stunde", "30")])],
@@ -286,7 +349,8 @@ def test_bewertung_technischer_abbruch_ist_kein_feldfehler():
                   start="Start")
 
     ergebnisse = bewerte(lauf, [Erwartung(
-        "e1", [("unbrauchbar", "Nachfrage"), ("eine halbe Stunde", "30")])])
+        "e1", [("unbrauchbar", "Nachfrage"), ("eine halbe Stunde", "30")])],
+        start_felder=("a1",))
 
     assert lauf.technisch_abgebrochen is True
     assert [(r.feld, r.ergebnis) for r in ergebnisse] == [("e1", "nicht_geprueft")]
@@ -367,7 +431,8 @@ def _spiele_szenario(nummer, lauf=1):
     gespielt = spiele(InMemoryStateStore(), _test_ki(szenario),
                       baue_paket(KATALOG["kontext"], szenario.variante),
                       szenario.antworten, start=szenario.start)
-    return gespielt, bewerte(gespielt, szenario.erwartungen)
+    return gespielt, bewerte(gespielt, szenario.erwartungen,
+                             start_felder=szenario.start_felder)
 
 
 def test_szenario1_und_3_starten_mit_a1_a2_a3_und_b1():
@@ -521,6 +586,175 @@ def test_szenario3_prueft_die_nachfragetexte_gegen_die_antwortform():
     assert ergebnisse["documentation_status"].verstoesse == []
 
 
+def _spiele_mit_zusatz(nummer, zusatz, lauf=1, ersetze=None):
+    """Spielt ein Szenario; die Test-KI haengt `zusatz` (Schluessel -> Kandidaten) an
+    bzw. ersetzt mit `ersetze` die Kandidaten eines Schluessels."""
+    szenario = baue_szenario(KATALOG, nummer, lauf)
+    llm = _test_ki(szenario)
+    for schluessel, kandidaten in zusatz.items():
+        llm.extraktionen.setdefault(schluessel, []).extend(kandidaten)
+    llm.extraktionen.update(ersetze or {})
+    gespielt = spiele(InMemoryStateStore(), llm,
+                      baue_paket(KATALOG["kontext"], szenario.variante),
+                      szenario.antworten, start=szenario.start)
+    return szenario, gespielt
+
+
+def test_bewertung_freie_antwort_setzt_ein_fremdes_feld_ist_nebenwirkung():
+    # Probe A (Gesamtprüfung I1): die Freitext-Antwort auf process_steps setzt D1 = 52. D1 wird
+    # nie gefragt („nicht geprüft“) — die Nebenwirkung steht als eigene ✗-Zeile.
+    szenario, gespielt = _spiele_mit_zusatz(3, {
+        ("process_steps", FREIE_ANTWORTEN["process_steps"]):
+            [ExtractionCandidate("frequency_per_year", "1 pro Woche")]})
+
+    ergebnisse = bewerte(gespielt, szenario.erwartungen, DISCOVERY,
+                         start_felder=szenario.start_felder)
+
+    zeile = next(r for r in ergebnisse if r.ergebnis == "nebenwirkung")
+    assert zeile.feld == "Nebenwirkung: Antwort auf process_steps"
+    assert zeile.detail == "Antwort änderte auch: frequency_per_year"
+
+
+def test_bewertung_freie_antwort_setzt_e5_ueber_den_namen_ist_nebenwirkung():
+    # Probe A2: die Freitext-Antwort nennt „Angebot prüfen“ und setzt E5 auf KP-01.TP-2.
+    szenario, gespielt = _spiele_mit_zusatz(1, {
+        ("process_steps", FREIE_ANTWORTEN["process_steps"]):
+            [ExtractionCandidate("focus_step", "Angebot prüfen")]})
+
+    ergebnisse = bewerte(gespielt, szenario.erwartungen, DISCOVERY,
+                         start_felder=szenario.start_felder)
+
+    zeile = next(r for r in ergebnisse if r.ergebnis == "nebenwirkung")
+    assert zeile.detail == "Antwort änderte auch: focus_step"
+    assert gespielt.turns[-1].werte["focus_step"] == ("KP-01.TP-2", "gueltig")
+
+
+def test_bewertung_startnachricht_darf_nur_die_vorgesehenen_felder_setzen():
+    # Sz1 sieht A1/A2/A3/B1 vor; setzt die Startnachricht zusätzlich E5-nahe Angaben wie
+    # process_steps, ist das eine ✗-Zeile (alles andere ist Nebenwirkung).
+    start = baue_szenario(KATALOG, 1).start
+    szenario, gespielt = _spiele_mit_zusatz(1, {
+        (None, start): [ExtractionCandidate("process_steps", "Anfrage erfassen")]})
+
+    ergebnisse = bewerte(gespielt, szenario.erwartungen, DISCOVERY,
+                         start_felder=szenario.start_felder)
+
+    zeile = next(r for r in ergebnisse if r.ergebnis == "nebenwirkung")
+    assert zeile.feld == "Nebenwirkung: Startnachricht"
+    assert zeile.detail == "Antwort änderte auch: process_steps"
+
+
+def test_bericht_zeigt_die_nebenwirkung_als_x_zeile_mit_ursache():
+    szenario, gespielt = _spiele_mit_zusatz(3, {
+        ("process_steps", FREIE_ANTWORTEN["process_steps"]):
+            [ExtractionCandidate("frequency_per_year", "1 pro Woche")]})
+    ergebnisse = bewerte(gespielt, szenario.erwartungen, DISCOVERY,
+                         start_felder=szenario.start_felder)
+
+    text = bericht(ergebnisse, modell="m", code_stand="c", szenario="s")
+
+    assert ("| Nebenwirkung: Antwort auf process_steps | "
+            f"{FREIE_ANTWORTEN['process_steps']} | 0 | – |  | "
+            "✗ Nebenwirkung (Antwort änderte auch: frequency_per_year) |") in text
+
+
+def test_bericht_abnahme_nicht_erfuellt_bei_einem_x_trotz_voller_abdeckung():
+    # Probe C (Gesamtprüfung I1): ein ✗ „falsch“ in Sz2, die Abdeckung ist voll.
+    szenario, gespielt = _spiele_mit_zusatz(2, {}, ersetze={
+        ("frequency_per_year", "wöchentlich"):
+            [ExtractionCandidate("frequency_per_year", "2 pro Woche")]})
+    ergebnisse = bewerte(gespielt, szenario.erwartungen, DISCOVERY,
+                         start_felder=szenario.start_felder)
+
+    text = bericht(ergebnisse, modell="m", code_stand="c", szenario="s",
+                   pflicht=szenario.pflicht)
+
+    assert "✗ falsch" in text
+    assert "Abnahme NICHT erfüllt: 1 Feld mit ✗." in text
+    assert "Abnahme erfüllt" not in text
+
+
+def test_bericht_probe_b_antwort_bringt_fremden_kandidaten_ist_nicht_erfuellt():
+    # Probe B (Gesamtprüfung I1): die F3-Antwort bringt zugleich einen B3-Kandidaten, B3 wird
+    # unklar. Früher: „✓ im 1. Versuch“ und „Abnahme erfüllt“.
+    szenario, gespielt = _spiele_mit_zusatz(2, {
+        ("focus_step_media_break", "Ja Systeme wechseln"):
+            [ExtractionCandidate("process_owner_role", "R-02")]})
+    ergebnisse = bewerte(gespielt, szenario.erwartungen, DISCOVERY,
+                         start_felder=szenario.start_felder)
+
+    text = bericht(ergebnisse, modell="m", code_stand="c", szenario="s",
+                   pflicht=szenario.pflicht, laeufe=[(1, gespielt)])
+
+    je_feld = {r.feld: r for r in ergebnisse}
+    assert je_feld["focus_step_media_break"].ergebnis == "falsch"
+    assert je_feld["focus_step_media_break"].detail == "Antwort änderte auch: process_owner_role"
+    assert "Abnahme NICHT erfüllt" in text
+    assert "Abnahme erfüllt" not in text
+
+
+def test_bericht_urteil_gilt_auch_ohne_pflichtfaelle_wenn_laeufe_bekannt_sind():
+    # Szenario 1 hat keine Pflichtfälle; die Abnahme gilt dort an ✗ und Endprüfung.
+    lauf, ergebnisse = _spiele_szenario(1)
+
+    text = bericht(ergebnisse, modell="m", code_stand="c", szenario="s", laeufe=[(1, lauf)])
+
+    assert "## Abnahme\nAbnahme erfüllt" in text
+    assert "## Abdeckung" not in text
+
+
+def test_bericht_endpruefung_lauf_ohne_status_fertig_ist_nicht_erfuellt():
+    szenario = baue_szenario(KATALOG, 1)
+    gespielt = spiele(InMemoryStateStore(), _test_ki(szenario), DISCOVERY, szenario.antworten,
+                      start=szenario.start, max_turns=4)
+    ergebnisse = bewerte(gespielt, szenario.erwartungen, DISCOVERY,
+                         start_felder=szenario.start_felder)
+
+    text = bericht(ergebnisse, modell="m", code_stand="c", szenario="s",
+                   laeufe=[(1, gespielt)])
+
+    assert "Abnahme NICHT erfüllt: Lauf 1 nicht fertig." in text
+    assert "- Lauf 1: Status frage, Pflichtfelder 7 von 26 — nicht fertig" in text
+
+
+def test_bericht_endpruefung_fertig_mit_aufgegebenem_pflichtfeld_ist_nicht_erfuellt():
+    # Status fertig, aber e1 wurde nach den Nachfragen aufgegeben (ungelöst): kein ✗ am Feld
+    # (Rückfall-Antwort ohne Erwartung), die Endprüfung muss es trotzdem melden.
+    llm = FeldFakeLLM({(None, "Start"): [ExtractionCandidate("a1", "Anfragen")],
+                       **HALBE_STUNDE})
+    gespielt = spiele(InMemoryStateStore(), llm, PAKET,
+                      lambda feld, versuch: "unbrauchbar" if feld == "e1"
+                      else "eine halbe Stunde", start="Start")
+    ergebnisse = bewerte(gespielt, [Erwartung("e1", [])], start_felder=("a1",))
+
+    text = bericht(ergebnisse, modell="m", code_stand="c", szenario="s",
+                   laeufe=[(1, gespielt)])
+
+    assert gespielt.turns[-1].status == "fertig"
+    assert "Abnahme NICHT erfüllt: Lauf 1 Pflichtfelder 2 von 3." in text
+    assert "- Lauf 1: Status fertig, Pflichtfelder 2 von 3 — Pflichtfelder fehlen" in text
+
+
+def test_code_stand_kennzeichnet_einen_unsauberen_arbeitsbaum(tmp_path):
+    def git(*argumente):
+        return subprocess.run(
+            ["git", "-c", "user.name=t", "-c", "user.email=t@example.org",
+             "-c", "commit.gpgsign=false", *argumente],
+            cwd=tmp_path, check=True, capture_output=True, text=True).stdout.strip()
+
+    git("init", "-q")
+    (tmp_path / "a.txt").write_text("a", encoding="utf-8")
+    git("add", "a.txt")
+    git("commit", "-qm", "x")
+    kurz = git("rev-parse", "--short", "HEAD")
+
+    sauber = ermittle_code_stand(tmp_path)
+    (tmp_path / "neu.txt").write_text("neu", encoding="utf-8")
+    unsauber = ermittle_code_stand(tmp_path)
+
+    assert (sauber, unsauber) == (kurz, kurz + "+dirty")
+
+
 def test_bericht_enthaelt_modell_code_stand_szenario():
     _, ergebnisse = _spiele_szenario(1)
 
@@ -554,7 +788,8 @@ def test_bericht_druckt_nachfragetexte_woertlich():
     lauf = spiele(InMemoryStateStore(), llm, DISCOVERY, szenario.antworten,
                   start=szenario.start)
 
-    text = bericht(bewerte(lauf, szenario.erwartungen, DISCOVERY),
+    text = bericht(bewerte(lauf, szenario.erwartungen, DISCOVERY,
+                           start_felder=szenario.start_felder),
                    modell="m", code_stand="c", szenario="s")
 
     assert "### focus_step_media_break" in text
@@ -651,6 +886,17 @@ def test_kommandozeile_schreibt_den_bericht_mit_test_ki(tmp_path):
     assert re.search(r"- Code-Stand: [0-9a-f]{7,}", text)
     assert "Szenario 3" in text
     assert "Abnahme erfüllt" in text
+
+
+def test_kommandozeile_druckt_den_code_stand_mit_dirty_kennung(tmp_path, monkeypatch):
+    monkeypatch.setattr("werkzeuge.pruefe_antworten.ermittle_code_stand",
+                        lambda verzeichnis: "abc1234+dirty")
+    ziel = tmp_path / "bericht.md"
+
+    main(["--szenario", "3", "--ausgabe", str(ziel)], umgebung={},
+         waehle=lambda umgebung: _test_ki(baue_szenario(KATALOG, 3)))
+
+    assert "- Code-Stand: abc1234+dirty" in ziel.read_text(encoding="utf-8")
 
 
 def test_kommandozeile_spielt_ohne_lauf_alle_laeufe_und_mit_lauf_nur_einen(tmp_path):

@@ -18,6 +18,15 @@ REPO = Path(__file__).resolve().parents[2]   # coe-factory
 KATALOG = Path(__file__).resolve().parents[1] / "tests" / "daten" / "antwortkatalog.json"
 
 
+def ermittle_code_stand(verzeichnis):
+    """Kurz-SHA von HEAD; mit "+dirty", wenn `verzeichnis` Aenderungen gegen HEAD hat."""
+    stand = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True,
+                           text=True, cwd=verzeichnis).stdout.strip()
+    offen = subprocess.run(["git", "status", "--porcelain", "--", "."], capture_output=True,
+                           text=True, cwd=verzeichnis).stdout.strip()
+    return stand + "+dirty" if stand and offen else stand
+
+
 def main(argv=None, umgebung=None, waehle=None):
     parser = argparse.ArgumentParser(prog="python -m werkzeuge.pruefe_antworten")
     parser.add_argument("--szenario", type=int, choices=(1, 2, 3, 4), required=True)
@@ -43,7 +52,8 @@ def main(argv=None, umgebung=None, waehle=None):
         lauf = spiele(InMemoryStateStore(), llm, paket, szenario.antworten,
                       start=szenario.start)
         ergebnisse += [replace(r, lauf=nummer)
-                       for r in bewerte(lauf, szenario.erwartungen, paket)]
+                       for r in bewerte(lauf, szenario.erwartungen, paket,
+                                        start_felder=szenario.start_felder)]
         laeufe.append((nummer, lauf))
         pflicht += szenario.pflicht
     modell = umgebung.get("BC1_LLM", "claude")
@@ -53,9 +63,8 @@ def main(argv=None, umgebung=None, waehle=None):
             # Nur hier laden: --help und die anderen Adapter brauchen die Gemini-Lib nie.
             from bc1_service.gemini_llm import STANDARD_MODELL
             modell = STANDARD_MODELL
-    stand = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True,
-                           text=True, cwd=Path(__file__).parent)
-    text = bericht(ergebnisse, modell=modell, code_stand=stand.stdout.strip() or "unbekannt",
+    stand = ermittle_code_stand(Path(__file__).parents[1])
+    text = bericht(ergebnisse, modell=modell, code_stand=stand or "unbekannt",
                    szenario=f"Szenario {args.szenario}", pflicht=pflicht, laeufe=laeufe,
                    teillauf=args.lauf if len(laeufe) < anzahl else None)
     args.ausgabe.write_text(text, encoding="utf-8")

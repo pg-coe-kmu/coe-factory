@@ -44,6 +44,12 @@ class FeldErgebnis:
     detail: str = ""
     verstoesse: list = field(default_factory=list)   # Nachfragetexte gegen die Antwortform
     lauf: int = 1   # Nummer des Laufs im Szenario
+    endstatus: str | None = None   # Status des Felds am Ende des Laufs
+    endsoll: str | None = None   # erwarteter Endwert (Wert der letzten Erwartung)
+
+
+# Ergebnisse, die im Bericht als ✗ stehen.
+FEHLER = ("falsch", "aufgegeben", "unerwartete_nachfrage", "nebenwirkung")
 
 
 def pruefe_nachfragetext(spec, text):
@@ -71,19 +77,25 @@ def pruefe_nachfragetext(spec, text):
     return verstoesse
 
 
+def _geaendert(turn, vorher, erlaubt=()):
+    """Felder ausser dem beantworteten, deren (Wert, Status) die Antwort geaendert hat."""
+    return sorted(name for name, stand in turn.werte.items()
+                  if name != turn.gefragt and name not in erlaubt
+                  and stand != vorher.get(name, (None, "fehlt")))
+
+
 def _geaenderte_fremdfelder(lauf, feld):
-    """Felder, deren Wert eine Antwort auf `feld` gesetzt oder geaendert hat (ohne `feld`)."""
+    """Felder, deren (Wert, Status) eine Antwort auf `feld` gesetzt oder geaendert hat (ohne `feld`)."""
     geaendert = set()
     for nummer, turn in enumerate(lauf.turns):
         if turn.gefragt != feld:
             continue
         vorher = lauf.turns[nummer - 1].werte
-        geaendert |= {name for name, (wert, _) in turn.werte.items()
-                      if name != feld and wert != vorher.get(name, (None, ""))[0]}
+        geaendert |= set(_geaendert(turn, vorher))
     return sorted(geaendert)
 
 
-def bewerte(lauf, erwartungen, paket=None):
+def bewerte(lauf, erwartungen, paket=None, *, start_felder=()):
     ergebnisse = []
     for erwartung in erwartungen:
         turns = [t for t in lauf.turns if t.gefragt == erwartung.feld]
@@ -124,14 +136,32 @@ def bewerte(lauf, erwartungen, paket=None):
         ergebnis.nachfragen = sum(1 for t in turns
                                   if t.antwort["payload"].get("feld") == erwartung.feld)
         if lauf.turns:
-            ergebnis.endwert = lauf.turns[-1].werte.get(erwartung.feld, (None, ""))[0]
+            ergebnis.endwert, ergebnis.endstatus = lauf.turns[-1].werte.get(
+                erwartung.feld, (None, "fehlt"))
         ergebnis.erwartet = [erwartet for _, erwartet in erwartung.versuche]
+        if erwartung.versuche:
+            ergebnis.endsoll = erwartung.versuche[-1][1].removesuffix(" oder Nachfrage")
         ergebnis.nachfragetexte = [t.antwort["payload"]["naechste_frage"] for t in turns
                                    if t.antwort["payload"].get("feld") == erwartung.feld]
         if paket is not None:
             ergebnis.verstoesse = [
                 verstoss for text in ergebnis.nachfragetexte
                 for verstoss in pruefe_nachfragetext(paket.field(erwartung.feld), text)]
+    # Antworten auf Felder ohne Erwartung (freie Felder, Rueckfall): Aenderungen anderer Felder
+    # stehen als eigene Zeile.
+    geprueft = {erwartung.feld for erwartung in erwartungen if erwartung.versuche}
+    for nummer, turn in enumerate(lauf.turns):
+        if turn.gefragt in geprueft:
+            continue
+        vorher = lauf.turns[nummer - 1].werte if nummer else {}
+        erlaubt = start_felder if nummer == 0 else ()
+        geaendert = _geaendert(turn, vorher, erlaubt)
+        if geaendert:
+            ergebnisse.append(FeldErgebnis(
+                "Nebenwirkung: " + ("Startnachricht" if nummer == 0
+                                    else f"Antwort auf {turn.gefragt}"), "nebenwirkung",
+                gesendet=[turn.nachricht],
+                detail="Antwort änderte auch: " + ", ".join(geaendert)))
     return ergebnisse
 
 
@@ -167,22 +197,61 @@ def bericht(ergebnisse, *, modell, code_stand, szenario, pflicht=(), laeufe=(),
                     "falsch": "✗ falsch",
                     "aufgegeben": "✗ aufgegeben",
                     "unerwartete_nachfrage": "✗ unerwartete Nachfrage",
+                    "nebenwirkung": "✗ Nebenwirkung",
                     "nicht_geprueft": "nicht geprüft"}[r.ergebnis]
+        if r.detail:
+            ergebnis += f" ({r.detail})"
         zeilen.append(f"| {r.feld} | {' / '.join(r.gesendet)} | {r.nachfragen} "
                       f"| {r.endwert or '–'} | {', '.join(r.erwartet)} | {ergebnis} |")
-    if pflicht:
+    if pflicht or laeufe:
         gelaufen = {(r.feld, r.lauf, r.gesendet[0]) for r in ergebnisse
                     if r.ergebnis != "nicht_geprueft"}
         fehlend = [f for f in pflicht if (f.feld, f.lauf, f.antwort) not in gelaufen]
         if teillauf is not None:
             urteil = (f"Teilergebnis: Abdeckung nur für Lauf {teillauf} geprüft — "
                       "Abnahme hier nicht beurteilbar")
-        elif fehlend:
-            urteil = "Abnahme NICHT erfüllt: mindestens ein Pflichtfall ist nicht gelaufen."
         else:
-            urteil = "Abnahme erfüllt: jeder Pflichtfall ist gelaufen."
-        zeilen += ["", "## Abdeckung", urteil,
-                   "", "| Feld | Antwort | Szenario | Lauf | Status |", "|---|---|---|---|---|"]
+            fehler = [r for r in ergebnisse if r.ergebnis in FEHLER]
+            gruende = []
+            if fehlend:
+                gruende.append("mindestens ein Pflichtfall ist nicht gelaufen")
+            if fehler:
+                gruende.append(f"{len(fehler)} Feld mit ✗")
+            gruende += [f"Lauf {nummer} nicht fertig" for nummer, lauf in laeufe
+                        if not lauf.turns or lauf.turns[-1].status != "fertig"]
+            # Felder mit ✗ stehen schon oben; ungefragte Felder gehören zum Lauf-Urteil.
+            gruende += [f"Endwert weicht ab: {r.feld} (Lauf {r.lauf})" for r in ergebnisse
+                        if r.endsoll is not None
+                        and r.ergebnis not in FEHLER + ("nicht_geprueft",)
+                        and (r.endwert, r.endstatus) != (r.endsoll, "gueltig")]
+            for nummer, lauf in laeufe:
+                if lauf.turns and lauf.turns[-1].status == "fertig":
+                    p = lauf.turns[-1].antwort["payload"]
+                    if p["pflicht_erfasst"] != p["pflicht_gesamt"]:
+                        gruende.append(f"Lauf {nummer} Pflichtfelder "
+                                       f"{p['pflicht_erfasst']} von {p['pflicht_gesamt']}")
+            urteil = ("Abnahme NICHT erfüllt: " + "; ".join(gruende) + "." if gruende
+                      else "Abnahme erfüllt: jeder Pflichtfall ist gelaufen, kein ✗, "
+                           "Endprüfung in allen Läufen grün.")
+        zeilen += ["", "## Abnahme", urteil, "", "Endprüfung je Lauf:"]
+        for nummer, lauf in laeufe:
+            letzter = lauf.turns[-1] if lauf.turns else None
+            payload = letzter.antwort["payload"] if letzter else {}
+            zeilen.append(
+                f"- Lauf {nummer}: Status {letzter.status if letzter else 'keiner'}, "
+                f"Pflichtfelder {payload.get('pflicht_erfasst')} von {payload.get('pflicht_gesamt')}"
+                + (" — nicht fertig" if not letzter or letzter.status != "fertig"
+                   else " — Pflichtfelder fehlen"
+                   if payload.get("pflicht_erfasst") != payload.get("pflicht_gesamt") else ""))
+        zeilen += ["", "| Lauf | Feld | Endwert | Endstatus | Soll | Endprüfung |",
+                   "|---|---|---|---|---|---|"]
+        zeilen += [f"| {r.lauf} | {r.feld} | {r.endwert or '–'} | {r.endstatus or '–'} "
+                   f"| {r.endsoll} | "
+                   f"{'✓' if (r.endwert, r.endstatus) == (r.endsoll, 'gueltig') else '✗'} |"
+                   for r in ergebnisse if r.endsoll is not None]
+    if pflicht:
+        zeilen += ["", "## Abdeckung",
+                   "| Feld | Antwort | Szenario | Lauf | Status |", "|---|---|---|---|---|"]
         zeilen += [f"| {f.feld} | {f.antwort} | {f.szenario} | {f.lauf} | "
                    f"{'NICHT gelaufen' if f in fehlend else 'gelaufen'} |" for f in pflicht]
     for r in ergebnisse:
