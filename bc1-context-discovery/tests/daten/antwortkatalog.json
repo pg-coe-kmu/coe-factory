@@ -104,8 +104,8 @@
     {"feld": "frequency_per_year", "antwort": "2x", "fest": "Nachfrage", "ki": "Nachfrage", "vertrag": null},
     {"feld": "frequency_per_year", "antwort": "pro Monat 30", "fest": "Nachfrage", "ki": "360", "vertrag": null},
     {"feld": "frequency_per_year", "antwort": "so 30 im Monat", "fest": "Nachfrage", "ki": "360", "vertrag": null},
-    {"feld": "frequency_per_year", "antwort": "20 Leads pro Woche", "fest": "Nachfrage", "ki": "1040", "vertrag": null},
-    {"feld": "frequency_per_year", "antwort": "etwa 20 Anfragen pro Monat", "fest": "Nachfrage", "ki": "240", "vertrag": null},
+    {"feld": "frequency_per_year", "antwort": "20 Leads pro Woche", "fest": "Nachfrage", "ki": "1040 oder Nachfrage", "vertrag": null},
+    {"feld": "frequency_per_year", "antwort": "etwa 20 Anfragen pro Monat", "fest": "Nachfrage", "ki": "240 oder Nachfrage", "vertrag": null},
     {"feld": "frequency_per_year", "antwort": "jede Woche 2", "fest": "Nachfrage", "ki": "104", "vertrag": null},
     {"feld": "frequency_per_year", "antwort": "2 mal in der Woche", "fest": "104", "ki": "104", "vertrag": null},
 
