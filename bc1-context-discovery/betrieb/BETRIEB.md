@@ -140,11 +140,11 @@ Läuft der Einbau nicht, zeigt man dieselbe Fachstrecke lokal: Dienst gegen Supa
 Fester Schritt, vom eigenen Rechner im Ordner `bc1-context-discovery/` (nicht auf dem Server, nicht im Image):
 
 ```bash
-BC1_LLM=gemini GEMINI_API_KEY=… .venv/bin/python -m werkzeuge.pruefe_antworten --szenario <1|2|3|4> [--lauf K] --ausgabe <Datei außerhalb des Repos>
+BC1_LLM=gemini .venv/bin/python -m werkzeuge.pruefe_antworten --szenario <1|2|3|4> [--lauf K] --ausgabe <Datei außerhalb des Repos>
 ```
 
-- **Schlüssel** nur aus der Umgebung der Sitzung, nie in Repo, Chat oder Log. **Berichte** nie ins Repo (die Ausgabedatei liegt außerhalb).
-- **Abnahme:** Spec `design/Spec-Antwortformen.md`, „Erfolg 2“ (Szenarien 1, 3, 4 je zwei Läufe, Szenario 2 mindestens drei Läufe; kein falscher Wert, kein aufgegebenes Pflichtfeld).
+- **Schlüssel:** `GEMINI_API_KEY` vorher in der Shell gesetzt (aus dem Schlüsselspeicher), nie in der Befehlszeile, im Chat, im Repo oder im Log. **Berichte** nie ins Repo (die Ausgabedatei liegt außerhalb).
+- **Abnahme:** Spec `design/Spec-Antwortformen.md`, „Erfolg 2“ (Szenarien 1, 3, 4 je zwei Läufe, Szenario 2 mindestens drei Läufe; kein falscher Wert, kein aufgegebenes Pflichtfeld). **Abgenommen ist nur, wenn der Bericht jedes Szenarios „Abnahme erfüllt“ sagt** (volle Abdeckung, kein ✗, Endprüfung in allen Läufen grün); „Abnahme NICHT erfüllt“ nennt den Grund. Steht beim Code-Stand „+dirty“, war der Arbeitsbaum nicht sauber: vor der Abnahme committen und neu laufen lassen.
 - **Nach dem Update dieses Pakets ändert sich die Kontext-Kennung** (`+ctx-…` in `schema_version`), weil die Namen im Fingerabdruck stehen. Vorher messen (Abschnitt 3), dass keine Sitzung offen ist.
 
 ### Geprüft (27.10.2026, lokal mit colima)
