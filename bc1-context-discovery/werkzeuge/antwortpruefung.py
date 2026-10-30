@@ -165,7 +165,7 @@ def bericht(ergebnisse, *, modell, code_stand, szenario, pflicht=(), laeufe=()):
                     "unerwartete_nachfrage": "✗ unerwartete Nachfrage",
                     "nicht_geprueft": "nicht geprüft"}[r.ergebnis]
         zeilen.append(f"| {r.feld} | {' / '.join(r.gesendet)} | {r.nachfragen} "
-                      f"| {r.endwert} | {', '.join(r.erwartet)} | {ergebnis} |")
+                      f"| {r.endwert or '–'} | {', '.join(r.erwartet)} | {ergebnis} |")
     if pflicht:
         gelaufen = {(r.feld, r.lauf, r.gesendet[0]) for r in ergebnisse
                     if r.ergebnis != "nicht_geprueft"}

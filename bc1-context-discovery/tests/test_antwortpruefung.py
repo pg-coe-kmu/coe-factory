@@ -3,9 +3,15 @@
 Die Test-KI kennt das gefragte Feld: Extraktion nach (zuletzt gefragtes Feld,
 Nachricht). `FakeLLM` indiziert nur nach dem Text und taugt hier nicht, weil
 dieselbe Antwort („eine halbe Stunde“) bei zwei Feldern zwei Felder trifft."""
+import os
+import re
+import subprocess
+import sys
 from collections import Counter
 from dataclasses import replace
 from pathlib import Path
+
+import pytest
 
 from bc1_core.core import zuletzt_gefragt
 from bc1_core.feldtypen import FREITEXT, MINUTEN
@@ -15,6 +21,7 @@ from bc1_core.store import InMemoryStateStore
 from werkzeuge.antwortpruefung import (
     Erwartung, bericht, bewerte, pruefe_nachfragetext, spiele)
 from werkzeuge.katalog import baue_paket, lade_katalog
+from werkzeuge.pruefe_antworten import main
 from werkzeuge.szenarien import FREIE_ANTWORTEN, abdeckung, anzahl_laeufe, baue_szenario
 
 KATALOG = lade_katalog(Path(__file__).parent / "daten" / "antwortkatalog.json")
@@ -583,6 +590,80 @@ def test_bericht_fasst_das_ergebnis_vor_der_tabelle_zusammen():
     assert text.index("- Ergebnis:") < text.index("| Feld |")
     assert (f"- Ergebnis: {anzahl_ok} von {anzahl_ok} geprüften Feldern bestanden, "
             f"{anzahl_offen} nicht geprüft") in luecken
+
+
+def test_kommandozeile_schreibt_den_bericht_mit_test_ki(tmp_path):
+    ziel = tmp_path / "bericht.md"
+
+    code = main(["--szenario", "3", "--ausgabe", str(ziel)],
+                umgebung={"BC1_LLM": "gemini", "BC1_GEMINI_MODELL": "modell-x"},
+                waehle=lambda umgebung: _test_ki(baue_szenario(KATALOG, 3)))
+
+    text = ziel.read_text(encoding="utf-8")
+    assert code == 0
+    assert "- Modell: modell-x" in text
+    assert re.search(r"- Code-Stand: [0-9a-f]{7,}", text)
+    assert "Szenario 3" in text
+    assert "Abnahme erfüllt" in text
+
+
+def test_kommandozeile_spielt_ohne_lauf_alle_laeufe_und_mit_lauf_nur_einen(tmp_path):
+    waehle = lambda umgebung: _test_ki(baue_szenario(KATALOG, 2))
+    alle, einer = tmp_path / "alle.md", tmp_path / "einer.md"
+
+    main(["--szenario", "2", "--ausgabe", str(alle)], umgebung={}, waehle=waehle)
+    main(["--szenario", "2", "--lauf", "2", "--ausgabe", str(einer)],
+         umgebung={}, waehle=waehle)
+
+    text_alle, text_einer = alle.read_text("utf-8"), einer.read_text("utf-8")
+    for nummer in range(1, anzahl_laeufe(KATALOG, 2) + 1):
+        assert f"- Lauf {nummer}: " in text_alle
+    assert "Abnahme erfüllt" in text_alle
+    assert "- Lauf 2: " in text_einer and "- Lauf 1: " not in text_einer
+
+
+def test_kommandozeile_legt_berichte_nie_im_repo_ab():
+    ziel = Path(__file__).parent / "darf-nicht-entstehen.md"
+    aufrufe = []
+
+    with pytest.raises(SystemExit) as ausgang:
+        main(["--szenario", "3", "--ausgabe", str(ziel)], umgebung={},
+             waehle=lambda umgebung: aufrufe.append(umgebung))
+
+    assert ausgang.value.code == 2
+    assert not ziel.exists()
+    assert aufrufe == []    # nicht einmal die KI wurde gewaehlt
+
+
+def test_kommandozeile_waehlt_die_ki_aus_der_umgebung(tmp_path, monkeypatch):
+    monkeypatch.setenv("BC1_LLM", "gibt-es-nicht")
+
+    with pytest.raises(RuntimeError, match="BC1_LLM='gibt-es-nicht'"):
+        main(["--szenario", "3", "--ausgabe", str(tmp_path / "bericht.md")])
+
+
+def test_modulaufruf_hilfe_braucht_keinen_schluessel():
+    umgebung = {schluessel: wert for schluessel, wert in os.environ.items()
+                if schluessel not in ("BC1_LLM", "GEMINI_API_KEY", "ANTHROPIC_API_KEY")}
+
+    ergebnis = subprocess.run(
+        [sys.executable, "-m", "werkzeuge.pruefe_antworten", "--help"],
+        cwd=Path(__file__).parents[1], env=umgebung, capture_output=True, text=True)
+
+    assert ergebnis.returncode == 0
+    assert "--szenario" in ergebnis.stdout and "--ausgabe" in ergebnis.stdout
+
+
+def test_bericht_zeigt_fehlende_werte_als_strich_statt_none():
+    # Kein einziger Turn: das Feld hat weder gesendete Antworten noch einen Endwert.
+    llm = FeldFakeLLM({}, fehler=[True, True])
+    lauf = spiele(InMemoryStateStore(), llm, PAKET, lambda feld, versuch: "", start="Start")
+    ergebnisse = bewerte(lauf, [Erwartung("e1", [("eine halbe Stunde", "30")])])
+
+    text = bericht(ergebnisse, modell="m", code_stand="c", szenario="s")
+
+    assert "| e1 |  | 0 | – |" in text
+    assert "None" not in text
 
 
 def test_szenario3_nachfrage_dann_richtige_antwort():
