@@ -88,12 +88,12 @@ PFLICHT = {
         "2 pro Monat", "2x die Woche", "2/Woche", "300", "wöchentlich", "einmal pro Woche",
         "jeden 2. Monat", "täglich", "2-3x pro Woche", "2x", "pro Monat 30",
         "so 30 im Monat", "20 Leads pro Woche", "etwa 20 Anfragen pro Monat",
-        "jede Woche 2", "2 mal in der Woche"],
+        "jede Woche 2", "2 mal in der Woche", "2 mal", "zweimal", "2-mal"],
     "executions_per_run": ["1", "ca. 3 Fälle", "5 Leads", "immer 1", "fünf", "5 bis 10",
                            "5 pro Woche"],
     "total_duration_minutes": DAUER_PFLICHT + [
         "30 Minuten pro Lead", "mehr als 2 Stunden", "meistens 20 Minuten",
-        "2 Stunden bei uns"],
+        "2 Stunden bei uns", "ca. 40"],
     "focus_step": [
         "KP-01.TP-1", "Anfrage erfassen", "Lieferanten-Bewertung", "anfrage erfassen.",
         "Anfrage erfassen?", "KP-01.TP-9", "erfassen", "der zweite Schritt", "die Prüfung",
@@ -105,14 +105,16 @@ PFLICHT = {
         "70", "ca. 70 %", "70 Prozent", "70,5 %", "zu 70 Prozent sicher", "ziemlich sicher"],
     "focus_step_media_break": [
         "Ja", "nein.", "Ja?", "Ja, eigentlich nicht", "Ja, aber selten", "Ja Systeme wechseln",
-        "nö", "Zwischen Systemen wechseln"],
+        "nö", "Zwischen Systemen wechseln", "Ja, müssen wir", "Ja, keine Ahnung",
+        "teilweise", "eher ja"],
     "documentation_status": SKALA_PFLICHT + ["gar nicht"],
     "standardization_level": SKALA_PFLICHT + ["immer gleich"],
     "data_availability_score": SKALA_PFLICHT,
     "stability_score": SKALA_PFLICHT,
     "pii_involved": [
         "Ja", "nein.", "Ja?", "Ja, eigentlich nicht", "nö", "Ja, Namen und Mailadressen",
-        "Nein, nur Namen und Mailadressen", "Zwischen Systemen wechseln"],
+        "Nein, nur Namen und Mailadressen", "Zwischen Systemen wechseln",
+        "Ja, keine Ahnung"],
 }
 
 
