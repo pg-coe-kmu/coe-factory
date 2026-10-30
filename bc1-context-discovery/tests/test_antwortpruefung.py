@@ -329,6 +329,19 @@ def test_bericht_endpruefung_abweichender_endwert_ist_nicht_erfuellt_und_wird_ge
     assert "| 1 | e1 | 30 | unklar | 30 | ✗ |" in text
 
 
+def test_bericht_rueckfallfeld_mit_falschem_endwert_ist_nicht_erfuellt():
+    # Gesamtprüfung Befund 3: ein Feld ohne Versuche (Rückfall-Antwort) behält sein Soll;
+    # „nicht geprüft“ heißt nicht „frei von Wertprüfung“.
+    lauf = _handlauf(("frage", None, {"a1": ("x", "gueltig")}, "Start"),
+                     ("fertig", "e1", {"a1": ("x", "gueltig"), "e1": ("45", "gueltig")}, "a"))
+    ergebnisse = bewerte(lauf, [Erwartung("e1", [], soll="30")], start_felder=("a1",))
+
+    text = bericht(ergebnisse, modell="m", code_stand="c", szenario="s", laeufe=[(1, lauf)])
+
+    assert ergebnisse[0].ergebnis == "nicht_geprueft"
+    assert "Abnahme NICHT erfüllt: Endwert weicht ab: e1 (Lauf 1)." in text
+
+
 def test_bewertung_benennt_das_fremde_feld_im_detail():
     ergebnisse = _bewerte(
         [Erwartung("e1", [("eine halbe Stunde", "30")])],
@@ -447,7 +460,11 @@ def _test_ki(szenario):
             wert = eintrag["ki"] + zusatz.get(DISCOVERY.field(eintrag["feld"]).typ.name, "")
             extraktionen[(eintrag["feld"], eintrag["antwort"])] = [
                 ExtractionCandidate(eintrag["feld"], wert)]
-    return FeldFakeLLM(extraktionen)
+    # Nachfragetexte, die die Antwortform nennen (sonst meldet die automatische Prüfung
+    # einen Verstoß und die Abnahme ist nicht erfüllt).
+    nachfragetexte = {DISCOVERY.field("focus_step_media_break").question:
+                      "Bitte antworten Sie mit Ja oder Nein."}
+    return FeldFakeLLM(extraktionen, nachfragetexte=nachfragetexte)
 
 
 def _spiele_szenario(nummer, lauf=1):
@@ -496,8 +513,12 @@ def test_szenario1_grundlauf_mit_test_ki_fertig():
     payload = lauf.turns[-1].antwort["payload"]
     assert lauf.turns[-1].status == "fertig"
     assert (payload["pflicht_erfasst"], payload["pflicht_gesamt"]) == (26, 26)
-    assert {r.ergebnis for r in ergebnisse} == {"ok_1"}
-    assert len(ergebnisse) == 18 - 2    # 18 Katalogfelder, A2 und A3 stehen im Start
+    # A2 und A3 stehen im Start: nicht gefragt, aber mit Soll-Endwert (Zeilen „nicht geprüft“)
+    assert {r.ergebnis for r in ergebnisse if r.feld not in ("request_goal", "scope_focus")
+            } == {"ok_1"}
+    assert len(ergebnisse) == 18    # 18 Katalogfelder
+    assert {r.feld: r.endsoll for r in ergebnisse if r.ergebnis == "nicht_geprueft"} == {
+        "request_goal": "zeit_sparen", "scope_focus": "ganzer_prozess"}
 
 
 def test_abdeckung_jeder_ki_fall_genau_einmal():
@@ -586,6 +607,19 @@ def test_szenario4_nachfrage_dann_zweitantwort():
         assert {r.ergebnis for r in ergebnisse} <= {"ok_nach_nachfrage", "nicht_geprueft"}
 
 
+def test_szenario2_und_4_fuehren_den_rueckfallwert_als_soll():
+    # Felder ohne Fall im Lauf: Rückfall-Antwort, nicht geprüft — aber mit Soll-Endwert.
+    for nummer in (2, 4):
+        szenario = baue_szenario(KATALOG, nummer, 2)
+        ohne_fall = [e for e in szenario.erwartungen if not e.versuche]
+
+        assert ohne_fall
+        assert all(e.soll is not None for e in ohne_fall)
+    ziel = next(e for e in baue_szenario(KATALOG, 2, 2).erwartungen
+                if e.feld == "request_goal")
+    assert (ziel.versuche, ziel.soll) == ([], "zeit_sparen")
+
+
 def test_szenario2_rueckfall_ist_nicht_geprueft():
     # request_goal hat nur einen Szenario-2-Fall: ab Lauf 2 nimmt der Lauf die kurze
     # feste Antwort als Rueckfall und meldet das Feld nicht geprueft (kein Feldfehler).
@@ -618,6 +652,34 @@ def test_szenario3_prueft_die_nachfragetexte_gegen_die_antwortform():
     assert ergebnisse["documentation_status"].verstoesse == []
 
 
+def test_abnahme_nicht_erfuellt_bei_nachfragetext_gegen_die_antwortform():
+    # Gesamtprüfung Befund 4: „Bitte antworten Sie mit Ja.“ verstößt (nennt Nein nicht);
+    # der automatische Verstoß verhindert die Abnahme, die menschliche Bewertung bleibt offen.
+    szenario = baue_szenario(KATALOG, 3)
+    llm = _test_ki(szenario)
+    llm.nachfragetexte = {
+        DISCOVERY.field("focus_step_media_break").question: "Bitte antworten Sie mit Ja."}
+    lauf = spiele(InMemoryStateStore(), llm, DISCOVERY, szenario.antworten,
+                  start=szenario.start)
+    ergebnisse = bewerte(lauf, szenario.erwartungen, DISCOVERY,
+                         start_felder=szenario.start_felder)
+
+    text = bericht(ergebnisse, modell="m", code_stand="c", szenario="s",
+                   pflicht=szenario.pflicht, laeufe=[(1, lauf)])
+
+    assert "Abnahme NICHT erfüllt: Nachfragetext verstößt gegen die Antwortform: " \
+           "focus_step_media_break (nennt Nein nicht)." in text
+    assert "offen für die Projektleitung" in text
+
+
+def test_abnahme_erfuellt_nennt_die_offene_menschliche_bewertung_der_nachfragetexte():
+    text = _abnahme(3)
+
+    assert "Abnahme erfüllt" in text
+    assert ("Polarität und Richtung der Nachfragetexte bewertet die Projektleitung"
+            ) in text.split("## Abnahme")[1].split("Endprüfung je Lauf")[0]
+
+
 def _spiele_mit_zusatz(nummer, zusatz, lauf=1, ersetze=None):
     """Spielt ein Szenario; die Test-KI haengt `zusatz` (Schluessel -> Kandidaten) an
     bzw. ersetzt mit `ersetze` die Kandidaten eines Schluessels."""
@@ -630,6 +692,29 @@ def _spiele_mit_zusatz(nummer, zusatz, lauf=1, ersetze=None):
                       baue_paket(KATALOG["kontext"], szenario.variante),
                       szenario.antworten, start=szenario.start)
     return szenario, gespielt
+
+
+def _abnahme(nummer, ersetze=None, lauf=1):
+    """Bericht samt Abnahme-Urteil für einen Lauf; `ersetze` tauscht Test-KI-Kandidaten."""
+    szenario, gespielt = _spiele_mit_zusatz(nummer, {}, lauf, ersetze)
+    ergebnisse = bewerte(gespielt, szenario.erwartungen, DISCOVERY,
+                         start_felder=szenario.start_felder)
+    return bericht(ergebnisse, modell="m", code_stand="c", szenario="s",
+                   pflicht=szenario.pflicht, laeufe=[(lauf, gespielt)])
+
+
+def test_abnahme_nicht_erfuellt_wenn_die_ki_ein_startfeld_falsch_setzt():
+    # Gesamtprüfung Befund 3: die Startnachricht nennt zeit_sparen, die Test-KI liefert
+    # fehler_senken. Startfelder sind nicht gefragt, haben aber einen Soll-Wert.
+    start = baue_szenario(KATALOG, 1).start
+    text = _abnahme(1, {(None, start): [
+        ExtractionCandidate("request_intent", FREIE_ANTWORTEN["request_intent"]),
+        ExtractionCandidate("process_name", FREIE_ANTWORTEN["process_name"]),
+        ExtractionCandidate("request_goal", "fehler_senken"),
+        ExtractionCandidate("scope_focus", "ganzer_prozess")]})
+
+    assert "Abnahme NICHT erfüllt" in text
+    assert "Endwert weicht ab: request_goal (Lauf 1)" in text
 
 
 def test_bewertung_freie_antwort_setzt_ein_fremdes_feld_ist_nebenwirkung():
@@ -934,7 +1019,7 @@ def test_bericht_fasst_das_ergebnis_vor_der_tabelle_zusammen():
     text = bericht(ergebnisse, modell="m", code_stand="c", szenario="s")
     luecken = bericht(mit_luecken, modell="m", code_stand="c", szenario="s")
 
-    assert "- Ergebnis: 16 von 16 geprüften Feldern bestanden, 0 nicht geprüft" in text
+    assert "- Ergebnis: 16 von 16 geprüften Feldern bestanden, 2 nicht geprüft" in text
     assert text.index("- Ergebnis:") < text.index("| Feld |")
     assert (f"- Ergebnis: {anzahl_ok} von {anzahl_ok} geprüften Feldern bestanden, "
             f"{anzahl_offen} nicht geprüft") in luecken
@@ -1070,7 +1155,7 @@ def test_szenario3_nachfrage_dann_richtige_antwort():
     nachgefragt = {r.feld for r in ergebnisse if r.ergebnis == "ok_nach_nachfrage"}
     assert nachgefragt == {"process_owner_role", "focus_step", "focus_step_media_break",
                            "documentation_status"}
-    assert {r.ergebnis for r in ergebnisse} == {"ok_1", "ok_nach_nachfrage"}
+    assert {r.ergebnis for r in ergebnisse} == {"ok_1", "ok_nach_nachfrage", "nicht_geprueft"}
 
 
 def test_ablauf_wiederholt_bei_fehler_fortsetzbar_einmal():

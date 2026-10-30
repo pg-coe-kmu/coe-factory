@@ -30,6 +30,9 @@ class Lauf:
 class Erwartung:
     feld: str
     versuche: list
+    # Soll-Endwert eines Felds ohne Versuche (Startfeld, Rueckfall-Antwort); mit Versuchen
+    # ergibt er sich aus diesen.
+    soll: str | None = None
 
 
 @dataclass
@@ -146,6 +149,8 @@ def bewerte(lauf, erwartungen, paket=None, *, start_felder=()):
                           and erwartung.versuche[0][1].endswith(" oder Nachfrage"))
             soll = erwartung.versuche[0 if angenommen else -1][1]
             ergebnis.endsoll = soll.removesuffix(" oder Nachfrage")
+        else:
+            ergebnis.endsoll = erwartung.soll
         ergebnis.nachfragetexte = [t.antwort["payload"]["naechste_frage"] for t in turns
                                    if t.antwort["payload"].get("feld") == erwartung.feld]
         if paket is not None:
@@ -224,12 +229,19 @@ def bericht(ergebnisse, *, modell, code_stand, szenario, pflicht=(), laeufe=(),
                 gruende.append("mindestens ein Pflichtfall ist nicht gelaufen")
             if fehler:
                 gruende.append(f"{len(fehler)} {'Feld' if len(fehler) == 1 else 'Felder'} mit ✗")
+            # Automatisch erkannte Nachfragetext-Verstösse; Polarität und Richtung bewertet
+            # weiter der Mensch (unten je Feld „offen für die Projektleitung“).
+            verstoss = [r for r in ergebnisse if r.verstoesse]
+            if verstoss:
+                gruende.append("Nachfragetext verstößt gegen die Antwortform: " + ", ".join(
+                    f"{r.feld} ({'; '.join(r.verstoesse)})" for r in verstoss))
             gruende += [f"Lauf {nummer} nicht fertig" for nummer, lauf in laeufe
                         if not lauf.turns or lauf.turns[-1].status != "fertig"]
             # Felder mit ✗ stehen schon oben; ungefragte Felder gehören zum Lauf-Urteil.
             gruende += [f"Endwert weicht ab: {r.feld} (Lauf {r.lauf})" for r in ergebnisse
                         if r.endsoll is not None
-                        and r.ergebnis not in FEHLER + ("nicht_geprueft",)
+                        and r.ergebnis not in FEHLER
+                        and (r.ergebnis != "nicht_geprueft" or not r.erwartet)
                         and (r.endwert, r.endstatus) != (r.endsoll, "gueltig")]
             for nummer, lauf in laeufe:
                 if lauf.turns and lauf.turns[-1].status == "fertig":
@@ -239,7 +251,9 @@ def bericht(ergebnisse, *, modell, code_stand, szenario, pflicht=(), laeufe=(),
                                        f"{p['pflicht_erfasst']} von {p['pflicht_gesamt']}")
             urteil = ("Abnahme NICHT erfüllt: " + "; ".join(gruende) + "." if gruende
                       else "Abnahme erfüllt: jeder Pflichtfall ist gelaufen, kein ✗, "
-                           "Endprüfung in allen Läufen grün.")
+                           "Endprüfung in allen Läufen grün (automatische Prüfung; "
+                           "Polarität und Richtung der Nachfragetexte bewertet die "
+                           "Projektleitung).")
         zeilen += ["", "## Abnahme", urteil, "", "Endprüfung je Lauf:"]
         for nummer, lauf in laeufe:
             letzter = lauf.turns[-1] if lauf.turns else None

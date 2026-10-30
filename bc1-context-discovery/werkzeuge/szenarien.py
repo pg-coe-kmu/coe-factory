@@ -99,7 +99,7 @@ def baue_szenario(katalog, nummer, lauf=1):
     if nummer in (2, 4):
         # Nur A1 und B1: A2 und A3 werden einzeln gefragt und sind damit KI-Faelle.
         # Felder ohne Fall in diesem Lauf: Rueckfall-Antwort, nicht geprueft.
-        erwartungen = {feld: Erwartung(feld, []) for feld in festwerte}
+        erwartungen = {feld: Erwartung(feld, [], soll=wert) for feld, wert in festwerte.items()}
         for fall in abdeckung(katalog):
             if fall.szenario == nummer and fall.lauf == lauf:
                 versuche = [(fall.antwort, fall.erwartet)]
@@ -112,5 +112,9 @@ def baue_szenario(katalog, nummer, lauf=1):
     else:
         start += " Das Ziel ist zeit_sparen, es geht um den ganzer_prozess."
         start_felder += ("request_goal", "scope_focus")
+        # Startfelder werden nie gefragt; ihr Endwert muss trotzdem dem Wert der
+        # Startnachricht entsprechen (Soll ohne Versuche).
+        erwartungen["request_goal"] = Erwartung("request_goal", [], soll="zeit_sparen")
+        erwartungen["scope_focus"] = Erwartung("scope_focus", [], soll="ganzer_prozess")
     return Szenario(start, list(erwartungen.values()), variante, rueckfall, pflicht,
                     start_felder)
