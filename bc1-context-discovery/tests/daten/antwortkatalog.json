@@ -45,7 +45,7 @@
     {"feld": "process_id", "antwort": "Einkauf & Beschaffung", "fest": "KP-02", "ki": "KP-02", "vertrag": null},
     {"feld": "process_id", "antwort": "Einkauf und Beschaffung", "fest": "Nachfrage", "ki": "KP-02", "vertrag": null},
     {"feld": "process_id", "antwort": "KP-01 = Auftrag-Abwicklung", "fest": "Nachfrage", "ki": "KP-01", "vertrag": null},
-    {"feld": "process_id", "antwort": "Auftrag", "fest": "Nachfrage", "ki": "Nachfrage", "vertrag": null},
+    {"feld": "process_id", "antwort": "Auftrag", "fest": "Nachfrage", "ki": "KP-01 oder Nachfrage", "vertrag": null},
 
     {"feld": "input_format", "antwort": "E-Mail", "fest": "mail", "ki": "mail", "vertrag": null},
     {"feld": "input_format", "antwort": "Email", "fest": "mail", "ki": "mail", "vertrag": null},
