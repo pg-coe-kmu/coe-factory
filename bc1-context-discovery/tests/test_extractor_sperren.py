@@ -185,6 +185,37 @@ def test_zeitraum_wochentlich_in_der_nachricht_erlaubt_den_ki_wert():
     assert state.values["wert"].value == "52"
 
 
+def test_einheit_wortteil_stundung_ist_keine_einheit():
+    # Fix-Welle 4 V3: „Stundung“ enthält „stund“, nennt aber keine Zeiteinheit.
+    state = _spiele(_paket_wert(MINUTEN),
+                    "Die Bearbeitung der Stundung dauert ca. 40",
+                    [ExtractionCandidate("wert", "40 Minuten")])
+    assert "wert" not in state.values
+
+
+def test_einheit_viertelstunde_in_der_nachricht_erlaubt_den_ki_wert():
+    state = _spiele(_paket_wert(MINUTEN), "eine Viertelstunde",
+                    [ExtractionCandidate("wert", "15 Minuten")])
+    assert state.values["wert"].value == "15"
+
+
+def test_zeitraum_wortteil_mittwoch_ist_kein_zeitraum():
+    # Fix-Welle 4 V3: „Mittwoch“ enthält „woch“, nennt aber keinen Zeitraum.
+    state = _spiele(_paket_wert(ZAHL), "2x am Mittwoch",
+                    [ExtractionCandidate("wert", "2 pro Jahr")])
+    assert "wert" not in state.values
+
+
+def test_einheit_kuerzel_direkt_an_der_zahl_erlaubt_den_ki_wert():
+    # (Regression) V3: „1,5h“ und „45min“ nennen die Einheit direkt an der Zahl.
+    state = _spiele(_paket_wert(MINUTEN), "1,5h",
+                    [ExtractionCandidate("wert", "90 Minuten")])
+    assert state.values["wert"].value == "90"
+    state = _spiele(_paket_wert(MINUTEN), "45min",
+                    [ExtractionCandidate("wert", "45 Minuten")])
+    assert state.values["wert"].value == "45"
+
+
 def test_identitaet_ordinalzahl_ohne_kennung_oder_namen_wird_verworfen():
     state = _spiele(_paket_identitaet(), "der zweite Schritt",
                     [ExtractionCandidate("teilprozess", "KP-01.TP-1")])

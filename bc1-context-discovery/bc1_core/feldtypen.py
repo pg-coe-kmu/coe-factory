@@ -70,19 +70,20 @@ def ist_nackte_zahl(text: str) -> bool:
     return _NACKTE_ZAHL_MUSTER.fullmatch(text.strip()) is not None
 
 
-# Spec 2 „Feste Sperren“ (b): Zeitraum-Wortstämme im Vergleichsschlüssel (ä -> ae), damit
-# auch „wöchentlich“ und „jährlich“ zählen.
-_ZEITRAUM_STAEMME = ("woch", "woech", "monat", "jahr", "jaehr")
+# Spec 2 „Feste Sperren“ (b): Zeitraum nur als GANZES Wort in zulässigen Formen (Vergleichs-
+# schlüssel, ä -> ae): „Mittwoch“ ist kein Zeitraum, „wöchentlich“ und „jährlich“ sind einer.
+_ZEITRAUM_MUSTER = re.compile(
+    r"(?<![a-z])(?:woche|wochen|woechentlich|monat|monate|monaten|monatlich"
+    r"|jahr|jahre|jahren|jaehrlich)(?![a-z])")
 
 
 def _nennt_zeitraum(text: str) -> bool:
-    schluessel = vergleichsschluessel(text)
-    return any(stamm in schluessel for stamm in _ZEITRAUM_STAEMME)
+    return _ZEITRAUM_MUSTER.search(vergleichsschluessel(text)) is not None
 
 
-# Spec 2 „Feste Sperren“ (b): „minut“ und „stund“ als Stamm („halbe Stunde“); die Kürzel
-# min, std und h nur als eigenes Wort bzw. direkt an einer Zahl („1,5h“).
-_ZEITEINHEIT_MUSTER = re.compile(r"minut|stund|(?<![a-z])(?:min|std|h)(?![a-z])")
+# Spec 2 „Feste Sperren“ (b): Einheit nur als GANZES Wort in zulässigen Formen („halbe
+# Stunde“; „Stundung“ zählt nicht); Kürzel min, std, h auch direkt an einer Zahl („1,5h“).
+_ZEITEINHEIT_MUSTER = re.compile(r"(?<![a-z])(?:minute|minuten|stunde|stunden|viertelstunde|min|std|h)(?![a-z])")
 
 
 def _nennt_zeiteinheit(text: str) -> bool:
