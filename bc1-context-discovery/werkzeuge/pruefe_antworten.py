@@ -20,10 +20,13 @@ KATALOG = Path(__file__).resolve().parents[1] / "tests" / "daten" / "antwortkata
 
 def ermittle_code_stand(verzeichnis):
     """Kurz-SHA von HEAD; mit "+dirty", wenn `verzeichnis` Aenderungen gegen HEAD hat."""
-    stand = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True,
-                           text=True, cwd=verzeichnis).stdout.strip()
-    offen = subprocess.run(["git", "status", "--porcelain", "--", "."], capture_output=True,
-                           text=True, cwd=verzeichnis).stdout.strip()
+    kopf = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True,
+                          text=True, cwd=verzeichnis)
+    arbeitsbaum = subprocess.run(["git", "status", "--porcelain", "--", "."],
+                                 capture_output=True, text=True, cwd=verzeichnis)
+    if kopf.returncode or arbeitsbaum.returncode:
+        return ""
+    stand, offen = kopf.stdout.strip(), arbeitsbaum.stdout.strip()
     return stand + "+dirty" if stand and offen else stand
 
 

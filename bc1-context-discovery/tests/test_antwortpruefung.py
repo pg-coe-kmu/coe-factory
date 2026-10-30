@@ -221,6 +221,30 @@ def test_bewertung_x_oder_nachfrage_nimmt_beides_an_aber_keinen_anderen_wert():
         "ok_1", "ok_nach_nachfrage", "falsch"]
 
 
+def test_endsoll_ist_x_wenn_der_grenzfall_als_x_angenommen_wurde():
+    # W1: keine Zweitantwort gesendet, also gilt als Soll X (nicht der Wert der Zweitantwort).
+    erwartung = [Erwartung("e1", [("eine halbe Stunde", "30 oder Nachfrage"),
+                                  ("eine Stunde", "60")])]
+
+    ergebnisse = _bewerte(erwartung, {"e1": ["eine halbe Stunde"],
+                                      "e2": ["eine halbe Stunde"]})
+
+    assert (ergebnisse[0].ergebnis, ergebnisse[0].endsoll) == ("ok_1", "30")
+
+
+def test_endsoll_ist_der_wert_der_zweitantwort_nach_einer_nachfrage():
+    # (Regression) Gegenstueck zu W1: nach der Nachfrage gilt die Zweitantwort.
+    erwartung = [Erwartung("e1", [("unklar", "30 oder Nachfrage"),
+                                  ("eine Stunde", "60")])]
+
+    ergebnisse = _bewerte(erwartung, {"e1": ["unklar", "eine Stunde"],
+                                      "e2": ["eine halbe Stunde"]},
+                          {("e1", "eine Stunde"): [ExtractionCandidate("e1", "60 Minuten")],
+                           **HALBE_STUNDE})
+
+    assert (ergebnisse[0].ergebnis, ergebnisse[0].endsoll) == ("ok_nach_nachfrage", "60")
+
+
 def test_bewertung_zweitantwort_mit_anderem_wert_ist_falsch():
     ergebnisse = _bewerte(
         [Erwartung("e1", [("unbrauchbar", "Nachfrage"), ("eine halbe Stunde", "30")])],
@@ -441,6 +465,14 @@ def test_szenario1_und_3_starten_mit_a1_a2_a3_und_b1():
         assert FREIE_ANTWORTEN["request_intent"] in start
         assert FREIE_ANTWORTEN["process_name"] in start
         assert "zeit_sparen" in start and "ganzer_prozess" in start
+
+
+def test_startnachricht_in_szenario_2_und_4_legt_weder_ziel_noch_umfang_nahe():
+    # W2: A1 allein; sonst leitet die echte KI zu Recht A2/A3 ab (Nebenwirkung).
+    for nummer in (2, 4):
+        start = baue_szenario(KATALOG, nummer).start.lower()
+        for wort in ("beschleunig", "spar", "fehler", "ganz", "prozess "):
+            assert wort not in start.replace("der prozess heißt", "")
 
 
 def test_szenario_antwortet_ohne_erwartung_mit_der_kuerzesten_festen_antwort():
@@ -753,6 +785,41 @@ def test_code_stand_kennzeichnet_einen_unsauberen_arbeitsbaum(tmp_path):
     unsauber = ermittle_code_stand(tmp_path)
 
     assert (sauber, unsauber) == (kurz, kurz + "+dirty")
+
+
+def test_code_stand_ist_leer_wenn_git_scheitert(monkeypatch):
+    # W3: Rückgabecode auswerten — ein fehlgeschlagenes `git status` darf nicht als
+    # sauberer Stand durchgehen.
+    def git_scheitert(argumente, **_):
+        return subprocess.CompletedProcess(argumente, 0 if "rev-parse" in argumente else 128,
+                                           stdout="abc1234\n" if "rev-parse" in argumente
+                                           else "", stderr="fatal")
+
+    monkeypatch.setattr(subprocess, "run", git_scheitert)
+
+    assert ermittle_code_stand(Path(".")) == ""
+
+
+def test_bericht_urteil_nennt_mehrere_felder_mit_x_im_plural():
+    lauf, ergebnisse = _spiele_szenario(1)
+    ergebnisse = [replace(r, ergebnis="falsch") if nummer < 2 else r
+                  for nummer, r in enumerate(ergebnisse)]
+
+    text = bericht(ergebnisse, modell="m", code_stand="c", szenario="s",
+                   laeufe=[(1, lauf)])
+
+    assert "2 Felder mit ✗" in text
+
+
+def test_bericht_mit_unbekanntem_code_stand_beurteilt_die_abnahme_nicht():
+    # W3: ohne Code-Stand ist ein „erfüllt“ nicht belegbar.
+    lauf, ergebnisse = _spiele_szenario(1)
+
+    text = bericht(ergebnisse, modell="m", code_stand="unbekannt", szenario="s",
+                   laeufe=[(1, lauf)])
+
+    assert "Abnahme nicht beurteilbar (Code-Stand unbekannt)" in text
+    assert "Abnahme erfüllt" not in text
 
 
 def test_bericht_enthaelt_modell_code_stand_szenario():

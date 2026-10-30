@@ -140,7 +140,12 @@ def bewerte(lauf, erwartungen, paket=None, *, start_felder=()):
                 erwartung.feld, (None, "fehlt"))
         ergebnis.erwartet = [erwartet for _, erwartet in erwartung.versuche]
         if erwartung.versuche:
-            ergebnis.endsoll = erwartung.versuche[-1][1].removesuffix(" oder Nachfrage")
+            # Soll aus dem Verlauf: wurde der Grenzfall im 1. Versuch als X angenommen,
+            # gab es keine Zweitantwort; nur nach einer Nachfrage gilt deren Wert.
+            angenommen = (turns and turns[0].werte[erwartung.feld][1] == "gueltig"
+                          and erwartung.versuche[0][1].endswith(" oder Nachfrage"))
+            soll = erwartung.versuche[0 if angenommen else -1][1]
+            ergebnis.endsoll = soll.removesuffix(" oder Nachfrage")
         ergebnis.nachfragetexte = [t.antwort["payload"]["naechste_frage"] for t in turns
                                    if t.antwort["payload"].get("feld") == erwartung.feld]
         if paket is not None:
@@ -210,13 +215,15 @@ def bericht(ergebnisse, *, modell, code_stand, szenario, pflicht=(), laeufe=(),
         if teillauf is not None:
             urteil = (f"Teilergebnis: Abdeckung nur für Lauf {teillauf} geprüft — "
                       "Abnahme hier nicht beurteilbar")
+        elif code_stand == "unbekannt":
+            urteil = "Abnahme nicht beurteilbar (Code-Stand unbekannt)"
         else:
             fehler = [r for r in ergebnisse if r.ergebnis in FEHLER]
             gruende = []
             if fehlend:
                 gruende.append("mindestens ein Pflichtfall ist nicht gelaufen")
             if fehler:
-                gruende.append(f"{len(fehler)} Feld mit ✗")
+                gruende.append(f"{len(fehler)} {'Feld' if len(fehler) == 1 else 'Felder'} mit ✗")
             gruende += [f"Lauf {nummer} nicht fertig" for nummer, lauf in laeufe
                         if not lauf.turns or lauf.turns[-1].status != "fertig"]
             # Felder mit ✗ stehen schon oben; ungefragte Felder gehören zum Lauf-Urteil.

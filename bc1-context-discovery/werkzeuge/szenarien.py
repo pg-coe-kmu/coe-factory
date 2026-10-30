@@ -10,7 +10,7 @@ from werkzeuge.antwortpruefung import Erwartung
 
 # Antworten fuer Felder ohne Katalogeintrag (freier Text, Liste, Systemkennung).
 FREIE_ANTWORTEN = {
-    "request_intent": "Wir möchten die Bearbeitung von Kundenanfragen beschleunigen.",
+    "request_intent": "Wir möchten unseren Ablauf für Kundenanfragen gemeinsam erfassen.",
     "process_name": "Auftragsabwicklung",
     "process_steps": "Anfrage erfassen, Angebot prüfen, Auftrag bestätigen",
     "trigger_text": "Eine neue Anfrage geht ein.",
