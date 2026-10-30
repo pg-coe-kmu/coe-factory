@@ -3,6 +3,8 @@
 Die Test-KI kennt das gefragte Feld: Extraktion nach (zuletzt gefragtes Feld,
 Nachricht). `FakeLLM` indiziert nur nach dem Text und taugt hier nicht, weil
 dieselbe Antwort („eine halbe Stunde“) bei zwei Feldern zwei Felder trifft."""
+from collections import Counter
+from dataclasses import replace
 from pathlib import Path
 
 from bc1_core.core import zuletzt_gefragt
@@ -10,8 +12,10 @@ from bc1_core.feldtypen import FREITEXT, MINUTEN
 from bc1_core.llm import ExtractionCandidate
 from bc1_core.package import FieldSpec, UseCasePackage
 from bc1_core.store import InMemoryStateStore
-from werkzeuge.antwortpruefung import Erwartung, bewerte, pruefe_nachfragetext, spiele
+from werkzeuge.antwortpruefung import (
+    Erwartung, bericht, bewerte, pruefe_nachfragetext, spiele)
 from werkzeuge.katalog import baue_paket, lade_katalog
+from werkzeuge.szenarien import FREIE_ANTWORTEN, abdeckung, anzahl_laeufe, baue_szenario
 
 KATALOG = lade_katalog(Path(__file__).parent / "daten" / "antwortkatalog.json")
 DISCOVERY = baue_paket(KATALOG["kontext"])
@@ -20,8 +24,9 @@ DISCOVERY = baue_paket(KATALOG["kontext"])
 class FeldFakeLLM:
     """Test-KI mit Feldbezug: Extraktion nach (zuletzt gefragtes Feld, Nachricht)."""
 
-    def __init__(self, extraktionen, fehler=()):
+    def __init__(self, extraktionen, fehler=(), nachfragetexte=None):
         self.extraktionen = extraktionen
+        self.nachfragetexte = nachfragetexte or {}   # Kernfrage -> Text der Nachfrage
         self.fehler = list(fehler)  # je `antworte`-Aufruf: True = die KI wirft
 
     def extract(self, message, package, state):
@@ -32,6 +37,8 @@ class FeldFakeLLM:
             raise RuntimeError("Aussetzer der Test-KI")
         if kontext.ist_abschluss:
             return "Fertig."
+        if kontext.ist_nachfrage:
+            return self.nachfragetexte.get(kontext.naechste_frage, kontext.naechste_frage)
         return kontext.naechste_frage
 
 
@@ -106,6 +113,39 @@ def test_gleicher_antworttext_liefert_je_feld_seinen_wert():
          ("e2", "eine halbe Stunde"): [ExtractionCandidate("e2", "90")]})
 
     assert [r.ergebnis for r in ergebnisse] == ["ok_1", "ok_1"]
+
+
+def test_bewertung_haelt_antworten_nachfragen_und_endwert_fest():
+    llm = FeldFakeLLM({(None, "Start"): [ExtractionCandidate("a1", "Anfragen")],
+                       **HALBE_STUNDE})
+    folgen = {"e1": iter(["unbrauchbar", "eine halbe Stunde"]),
+              "e2": iter(["eine halbe Stunde"])}
+    lauf = spiele(InMemoryStateStore(), llm, PAKET,
+                  lambda feld, versuch: next(folgen[feld]), start="Start")
+
+    ergebnis = bewerte(lauf, [Erwartung(
+        "e1", [("unbrauchbar", "Nachfrage"), ("eine halbe Stunde", "30")])])[0]
+
+    assert ergebnis.gesendet == ["unbrauchbar", "eine halbe Stunde"]
+    assert ergebnis.nachfragen == 1
+    assert ergebnis.endwert == "30"
+    assert ergebnis.erwartet == ["Nachfrage", "30"]
+
+
+def test_bewertung_haelt_nachfragetexte_woertlich_fest():
+    llm = FeldFakeLLM({(None, "Start"): [ExtractionCandidate("a1", "Anfragen")],
+                       **HALBE_STUNDE},
+                      nachfragetexte={"Wie lange dauert der Durchlauf?":
+                                      "Meinen Sie Minuten oder Stunden?"})
+    folgen = {"e1": iter(["unbrauchbar", "eine halbe Stunde"]),
+              "e2": iter(["eine halbe Stunde"])}
+    lauf = spiele(InMemoryStateStore(), llm, PAKET,
+                  lambda feld, versuch: next(folgen[feld]), start="Start")
+
+    ergebnis = bewerte(lauf, [Erwartung(
+        "e1", [("unbrauchbar", "Nachfrage"), ("eine halbe Stunde", "30")])])[0]
+
+    assert ergebnis.nachfragetexte == ["Meinen Sie Minuten oder Stunden?"]
 
 
 def test_bewertung_falscher_wert():
@@ -195,6 +235,16 @@ def test_bewertung_aenderung_eines_anderen_felds_ist_falsch():
     assert [(r.feld, r.ergebnis) for r in ergebnisse] == [("e1", "falsch")]
 
 
+def test_bewertung_benennt_das_fremde_feld_im_detail():
+    ergebnisse = _bewerte(
+        [Erwartung("e1", [("eine halbe Stunde", "30")])],
+        {"e1": ["eine halbe Stunde"]},
+        {("e1", "eine halbe Stunde"): [ExtractionCandidate("e1", "30"),
+                                       ExtractionCandidate("e2", "30")]})
+
+    assert ergebnisse[0].detail == "Antwort änderte auch: e2"
+
+
 def test_bewertung_nicht_geprueft():
     # a1 stand in der Startnachricht und wurde nie gefragt; e2 hat im Szenario keine
     # Katalogantwort (Rueckfall-Antwort, keine Erwartung).
@@ -206,6 +256,18 @@ def test_bewertung_nicht_geprueft():
 
     assert [(r.feld, r.ergebnis) for r in ergebnisse] == [
         ("a1", "nicht_geprueft"), ("e1", "ok_1"), ("e2", "nicht_geprueft")]
+
+
+def test_bewertung_ohne_einen_einzigen_turn_ist_nicht_geprueft():
+    llm = FeldFakeLLM({}, fehler=[True, True])
+    lauf = spiele(InMemoryStateStore(), llm, PAKET,
+                  lambda feld, versuch: "eine halbe Stunde", start="Start")
+
+    ergebnisse = bewerte(lauf, [Erwartung("e1", [("eine halbe Stunde", "30")])])
+
+    assert lauf.turns == []
+    assert [(r.feld, r.ergebnis, r.endwert) for r in ergebnisse] == [
+        ("e1", "nicht_geprueft", None)]
 
 
 def test_bewertung_technischer_abbruch_ist_kein_feldfehler():
@@ -251,6 +313,288 @@ def test_nachfragetext_skala_nennt_1_und_5():
     assert pruefe_nachfragetext(spec, "Bitte eine Zahl von 1 bis 4.") == ["nennt 5 nicht"]
     assert pruefe_nachfragetext(spec, "Bitte eine Zahl von 15 bis 50.") == [
         "nennt 1 nicht", "nennt 5 nicht"]
+
+
+def _test_ki(szenario):
+    """Test-KI fuer die Szenarien: liest nur die Startnachricht und die freien Antworten."""
+    start = [ExtractionCandidate("request_intent", FREIE_ANTWORTEN["request_intent"]),
+             ExtractionCandidate("process_name", FREIE_ANTWORTEN["process_name"])]
+    if "ganzer_prozess" in szenario.start:
+        start += [ExtractionCandidate("request_goal", "zeit_sparen"),
+                  ExtractionCandidate("scope_focus", "ganzer_prozess")]
+    extraktionen = {(None, szenario.start): start}
+    for feld, text in FREIE_ANTWORTEN.items():
+        extraktionen[(feld, text)] = [ExtractionCandidate(feld, text)]
+    # Die Test-KI loest die Faelle mit einem Wert in `ki` (Szenario 2); alle anderen
+    # (Nachfrage, "X oder Nachfrage") laesst sie offen.
+    for eintrag in KATALOG["eintraege"]:
+        if eintrag["fest"] == "Nachfrage" and not eintrag["ki"].endswith("Nachfrage"):
+            extraktionen[(eintrag["feld"], eintrag["antwort"])] = [
+                ExtractionCandidate(eintrag["feld"], eintrag["ki"])]
+    return FeldFakeLLM(extraktionen)
+
+
+def _spiele_szenario(nummer, lauf=1):
+    szenario = baue_szenario(KATALOG, nummer, lauf)
+    gespielt = spiele(InMemoryStateStore(), _test_ki(szenario),
+                      baue_paket(KATALOG["kontext"], szenario.variante),
+                      szenario.antworten, start=szenario.start)
+    return gespielt, bewerte(gespielt, szenario.erwartungen)
+
+
+def test_szenario1_und_3_starten_mit_a1_a2_a3_und_b1():
+    for nummer in (1, 3):
+        start = baue_szenario(KATALOG, nummer).start
+        assert FREIE_ANTWORTEN["request_intent"] in start
+        assert FREIE_ANTWORTEN["process_name"] in start
+        assert "zeit_sparen" in start and "ganzer_prozess" in start
+
+
+def test_szenario_antwortet_ohne_erwartung_mit_der_kuerzesten_festen_antwort():
+    szenario = baue_szenario(KATALOG, 1)
+
+    assert szenario.antworten("frequency_per_year", 0) == "2/Woche"
+    assert szenario.antworten("process_owner_role", 0) == "Lager+Versand"
+    assert szenario.antworten("process_steps", 0) == FREIE_ANTWORTEN["process_steps"]
+
+
+def test_szenario1_grundlauf_mit_test_ki_fertig():
+    lauf, ergebnisse = _spiele_szenario(1)
+
+    payload = lauf.turns[-1].antwort["payload"]
+    assert lauf.turns[-1].status == "fertig"
+    assert (payload["pflicht_erfasst"], payload["pflicht_gesamt"]) == (26, 26)
+    assert {r.ergebnis for r in ergebnisse} == {"ok_1"}
+    assert len(ergebnisse) == 18 - 2    # 18 Katalogfelder, A2 und A3 stehen im Start
+
+
+def test_abdeckung_jeder_ki_fall_genau_einmal():
+    # KI-Faelle = Katalogeintraege ohne Kurzform (fest = Nachfrage); Kurzformen umgehen die KI.
+    ki_faelle = sorted(((e["feld"], e["antwort"], e.get("variante"))
+                        for e in KATALOG["eintraege"] if e["fest"] == "Nachfrage"), key=str)
+    faelle = abdeckung(KATALOG)
+
+    assert sorted(((f.feld, f.antwort, f.variante) for f in faelle), key=str) == ki_faelle
+    # Je Lauf hoechstens ein Fall pro Feld
+    assert len({(f.szenario, f.lauf, f.feld) for f in faelle}) == len(faelle)
+    # ki = Wert -> Szenario 2; ki = Nachfrage oder "X oder Nachfrage" -> Szenario 4
+    ki_je_fall = {(e["feld"], e["antwort"], e.get("variante")): e["ki"]
+                  for e in KATALOG["eintraege"]}
+    for fall in faelle:
+        erwartet = 4 if ki_je_fall[(fall.feld, fall.antwort, fall.variante)].endswith(
+            "Nachfrage") else 2
+        assert fall.szenario == erwartet
+
+
+def test_anzahl_laeufe_ist_die_groesste_fallzahl_eines_felds():
+    for nummer in (2, 4):
+        je_feld = Counter(f.feld for f in abdeckung(KATALOG) if f.szenario == nummer)
+        assert anzahl_laeufe(KATALOG, nummer) == max(je_feld.values())
+    assert anzahl_laeufe(KATALOG, 1) == anzahl_laeufe(KATALOG, 3) == 1
+    # Szenario 2 hat mindestens drei Laeufe, auch bei kleinem Katalog
+    assert anzahl_laeufe({"eintraege": []}, 2) == 3
+
+
+def test_szenario_mit_variante_laeuft_im_paket_der_variante():
+    faelle = abdeckung(KATALOG)
+    mit_variante = [f for f in faelle if f.variante]
+    assert mit_variante    # Der Katalog hat den Eintrag "Ja, stimmt" ohne Eigner
+
+    for fall in mit_variante:
+        assert baue_szenario(KATALOG, fall.szenario, fall.lauf).variante == fall.variante
+    # Alle anderen Laeufe: Paket wie im Katalog-Kontext
+    for fall in faelle:
+        if not fall.variante and (fall.szenario, fall.lauf) not in {
+                (f.szenario, f.lauf) for f in mit_variante}:
+            assert baue_szenario(KATALOG, fall.szenario, fall.lauf).variante is None
+
+
+def test_szenario_nennt_seine_pflichtfaelle():
+    assert baue_szenario(KATALOG, 1).pflicht == []
+    assert baue_szenario(KATALOG, 2, 3).pflicht == [
+        f for f in abdeckung(KATALOG) if (f.szenario, f.lauf) == (2, 3)]
+    assert baue_szenario(KATALOG, 4, 2).pflicht == [
+        f for f in abdeckung(KATALOG) if (f.szenario, f.lauf) == (4, 2)]
+    sz3 = baue_szenario(KATALOG, 3).pflicht
+    assert {f.feld for f in sz3} == {"focus_step_media_break", "process_owner_role",
+                                     "focus_step", "documentation_status"}
+    assert {(f.antwort, f.szenario, f.lauf) for f in sz3} == {("Wie meinen Sie das?", 3, 1)}
+
+
+def test_szenario2_waehlt_die_k_te_variante():
+    erster = baue_szenario(KATALOG, 2, 1)
+    zweiter = baue_szenario(KATALOG, 2, 2)
+
+    assert erster.antworten("frequency_per_year", 0) == "300"
+    assert zweiter.antworten("frequency_per_year", 0) == "wöchentlich"
+    erwartung = next(e for e in zweiter.erwartungen if e.feld == "frequency_per_year")
+    assert erwartung.versuche == [("wöchentlich", "52")]
+    # A2 und A3 werden einzeln gefragt: die Startnachricht nennt nur A1 und B1
+    assert "zeit_sparen" not in erster.start
+    assert FREIE_ANTWORTEN["process_name"] in erster.start
+
+
+def test_szenario4_nachfrage_dann_zweitantwort():
+    # Die Test-KI liefert nichts: erwartet ist eine Nachfrage, danach eine gueltige
+    # Zweitantwort (kuerzeste feste Katalogantwort). Felder ohne Fall: nicht geprueft.
+    for nummer_lauf in range(1, anzahl_laeufe(KATALOG, 4) + 1):
+        lauf, ergebnisse = _spiele_szenario(4, nummer_lauf)
+
+        assert lauf.turns[-1].status == "fertig"
+        mit_fall = {f.feld for f in abdeckung(KATALOG)
+                    if f.szenario == 4 and f.lauf == nummer_lauf}
+        assert {r.feld for r in ergebnisse if r.ergebnis == "ok_nach_nachfrage"} == mit_fall
+        assert {r.ergebnis for r in ergebnisse} <= {"ok_nach_nachfrage", "nicht_geprueft"}
+
+
+def test_szenario2_rueckfall_ist_nicht_geprueft():
+    # request_goal hat nur einen Szenario-2-Fall: ab Lauf 2 nimmt der Lauf die kurze
+    # feste Antwort als Rueckfall und meldet das Feld nicht geprueft (kein Feldfehler).
+    for nummer_lauf in range(1, anzahl_laeufe(KATALOG, 2) + 1):
+        lauf, ergebnisse = _spiele_szenario(2, nummer_lauf)
+        je_feld = {r.feld: r.ergebnis for r in ergebnisse}
+
+        assert lauf.turns[-1].status == "fertig"
+        assert je_feld["request_goal"] == ("ok_1" if nummer_lauf == 1 else "nicht_geprueft")
+        assert "falsch" not in je_feld.values()
+        mit_fall = {f.feld for f in abdeckung(KATALOG)
+                    if f.szenario == 2 and f.lauf == nummer_lauf}
+        assert {feld for feld, e in je_feld.items() if e == "ok_1"} == mit_fall
+
+
+def test_szenario3_prueft_die_nachfragetexte_gegen_die_antwortform():
+    szenario = baue_szenario(KATALOG, 3)
+    llm = _test_ki(szenario)
+    # Die Test-KI nennt bei F3 nur "Ja", bei G1 beide Endpunkte
+    llm.nachfragetexte = {
+        DISCOVERY.field("focus_step_media_break").question: "Bitte antworten Sie mit Ja.",
+        DISCOVERY.field("documentation_status").question: "Bitte 1 bis 5 angeben."}
+    lauf = spiele(InMemoryStateStore(), llm, DISCOVERY, szenario.antworten,
+                  start=szenario.start)
+
+    ergebnisse = {r.feld: r for r in bewerte(lauf, szenario.erwartungen, DISCOVERY)}
+
+    assert ergebnisse["focus_step_media_break"].nachfragetexte == ["Bitte antworten Sie mit Ja."]
+    assert ergebnisse["focus_step_media_break"].verstoesse == ["nennt Nein nicht"]
+    assert ergebnisse["documentation_status"].verstoesse == []
+
+
+def test_bericht_enthaelt_modell_code_stand_szenario():
+    _, ergebnisse = _spiele_szenario(1)
+
+    text = bericht(ergebnisse, modell="gemini-test", code_stand="abc1234",
+                   szenario="Szenario 1, Grundlauf")
+
+    assert "gemini-test" in text
+    assert "abc1234" in text
+    assert "Szenario 1, Grundlauf" in text
+
+
+def test_bericht_zeigt_je_feld_antworten_nachfragen_endwert_erwartung_ergebnis():
+    _, ergebnisse = _spiele_szenario(3)
+
+    text = bericht(ergebnisse, modell="m", code_stand="c", szenario="s")
+
+    zeile = next(z for z in text.splitlines() if z.startswith("| focus_step_media_break "))
+    assert [spalte.strip() for spalte in zeile.strip("|").split("|")] == [
+        "focus_step_media_break", "Wie meinen Sie das? / Ja", "1", "ja",
+        "Nachfrage, ja", "✓ nach erwarteter Nachfrage"]
+    ersterversuch = next(z for z in text.splitlines() if z.startswith("| frequency_per_year "))
+    assert ersterversuch.endswith("| ✓ im 1. Versuch |")
+
+
+def test_bericht_druckt_nachfragetexte_woertlich():
+    szenario = baue_szenario(KATALOG, 3)
+    llm = _test_ki(szenario)
+    llm.nachfragetexte = {
+        DISCOVERY.field("focus_step_media_break").question: "Bitte antworten Sie mit Ja.",
+        DISCOVERY.field("documentation_status").question: "Bitte 1 (gar nicht) bis 5 angeben."}
+    lauf = spiele(InMemoryStateStore(), llm, DISCOVERY, szenario.antworten,
+                  start=szenario.start)
+
+    text = bericht(bewerte(lauf, szenario.erwartungen, DISCOVERY),
+                   modell="m", code_stand="c", szenario="s")
+
+    assert "### focus_step_media_break" in text
+    assert "> Bitte antworten Sie mit Ja." in text
+    assert "Automatische Prüfung: nennt Nein nicht" in text
+    assert "> Bitte 1 (gar nicht) bis 5 angeben." in text
+    assert "Automatische Prüfung: keine Verstöße" in text
+
+
+def test_bericht_markiert_offene_bewertung():
+    # Polaritaet, Richtung und Optionen eines Nachfragetexts prueft kein Programm.
+    _, mit_nachfragen = _spiele_szenario(3)
+    _, ohne_nachfragen = _spiele_szenario(1)
+
+    mit = bericht(mit_nachfragen, modell="m", code_stand="c", szenario="s")
+    ohne = bericht(ohne_nachfragen, modell="m", code_stand="c", szenario="s")
+
+    assert mit.count("Bewertung durch den Ausführenden (Polarität, Richtung, Optionen): "
+                     "offen für die Projektleitung") == 4
+    assert "offen für die Projektleitung" not in ohne
+
+
+def test_bericht_abdeckung_ein_nicht_gelaufener_pflichtfall_heisst_nicht_erfuellt():
+    szenario = baue_szenario(KATALOG, 2, 1)
+    _, ergebnisse = _spiele_szenario(2, 1)
+
+    voll = bericht(ergebnisse, modell="m", code_stand="c", szenario="s",
+                   pflicht=szenario.pflicht)
+    lueckenhaft = bericht([r for r in ergebnisse if r.feld != "frequency_per_year"],
+                          modell="m", code_stand="c", szenario="s", pflicht=szenario.pflicht)
+    anderer_lauf = bericht([replace(r, lauf=2) for r in ergebnisse],
+                           modell="m", code_stand="c", szenario="s", pflicht=szenario.pflicht)
+
+    assert "Abnahme erfüllt" in voll
+    assert "| frequency_per_year | 300 | 2 | 1 | gelaufen |" in voll
+    assert "Abnahme NICHT erfüllt" in lueckenhaft
+    assert "| frequency_per_year | 300 | 2 | 1 | NICHT gelaufen |" in lueckenhaft
+    assert "Abnahme NICHT erfüllt" in anderer_lauf
+
+
+def test_bericht_nennt_je_lauf_aufrufe_und_technischen_abbruch():
+    fertig, ergebnisse = _spiele_szenario(1)
+    llm = FeldFakeLLM({}, fehler=[True, True])
+    abgebrochen = spiele(InMemoryStateStore(), llm, PAKET,
+                         lambda feld, versuch: "", start="Start")
+
+    text = bericht(ergebnisse, modell="m", code_stand="c", szenario="s",
+                   laeufe=[(1, fertig), (2, abgebrochen)])
+
+    assert (f"- Lauf 1: {len(fertig.turns)} Turns, KI-Aufrufe: "
+            f"extract {fertig.aufrufe['extract']}, antworte {fertig.aufrufe['antworte']}, "
+            "Wiederholungen nach Fehler 0, abgeschlossen") in text
+    assert ("- Lauf 2: 0 Turns, KI-Aufrufe: extract 2, antworte 2, "
+            "Wiederholungen nach Fehler 1, technisch NICHT abgeschlossen "
+            "(kein Feldfehler)") in text
+
+
+def test_bericht_fasst_das_ergebnis_vor_der_tabelle_zusammen():
+    _, ergebnisse = _spiele_szenario(1)
+    _, mit_luecken = _spiele_szenario(2, 2)
+    anzahl_ok = sum(1 for r in mit_luecken if r.ergebnis == "ok_1")
+    anzahl_offen = sum(1 for r in mit_luecken if r.ergebnis == "nicht_geprueft")
+
+    text = bericht(ergebnisse, modell="m", code_stand="c", szenario="s")
+    luecken = bericht(mit_luecken, modell="m", code_stand="c", szenario="s")
+
+    assert "- Ergebnis: 16 von 16 geprüften Feldern bestanden, 0 nicht geprüft" in text
+    assert text.index("- Ergebnis:") < text.index("| Feld |")
+    assert (f"- Ergebnis: {anzahl_ok} von {anzahl_ok} geprüften Feldern bestanden, "
+            f"{anzahl_offen} nicht geprüft") in luecken
+
+
+def test_szenario3_nachfrage_dann_richtige_antwort():
+    # Je ein Ja/Nein-, zwei Auswahl- und ein Skalenfeld: erst "Wie meinen Sie das?",
+    # dann die richtige Antwort; alle uebrigen Felder gehen im ersten Versuch durch.
+    lauf, ergebnisse = _spiele_szenario(3)
+
+    assert lauf.turns[-1].status == "fertig"
+    nachgefragt = {r.feld for r in ergebnisse if r.ergebnis == "ok_nach_nachfrage"}
+    assert nachgefragt == {"process_owner_role", "focus_step", "focus_step_media_break",
+                           "documentation_status"}
+    assert {r.ergebnis for r in ergebnisse} == {"ok_1", "ok_nach_nachfrage"}
 
 
 def test_ablauf_wiederholt_bei_fehler_fortsetzbar_einmal():

@@ -14,6 +14,8 @@ class Turn:
     status: str
     gefragt: str | None = None   # Feld, auf dessen Frage die Nachricht antwortet
     werte: dict = field(default_factory=dict)   # Feld -> (Wert, Status) nach dem Turn
+    antwort: dict = field(default_factory=dict)   # Antwort von process_turn
+    nachricht: str = ""   # gesendete Nachricht dieses Turns
 
 
 @dataclass
@@ -34,6 +36,14 @@ class Erwartung:
 class FeldErgebnis:
     feld: str
     ergebnis: str
+    gesendet: list = field(default_factory=list)   # gesendete Antworten, der Reihe nach
+    nachfragen: int = 0   # wie oft nach dem Feld erneut gefragt wurde
+    endwert: str | None = None   # Wert des Felds am Ende des Laufs
+    erwartet: list = field(default_factory=list)   # erwartetes Ergebnis je Versuch
+    nachfragetexte: list = field(default_factory=list)   # Texte der Nachfragen, woertlich
+    detail: str = ""
+    verstoesse: list = field(default_factory=list)   # Nachfragetexte gegen die Antwortform
+    lauf: int = 1   # Nummer des Laufs im Szenario
 
 
 def pruefe_nachfragetext(spec, text):
@@ -58,19 +68,19 @@ def pruefe_nachfragetext(spec, text):
     return verstoesse
 
 
-def _fremdes_feld_geaendert(lauf, feld):
-    """Hat eine Antwort auf `feld` den Wert eines anderen Felds gesetzt oder geaendert?"""
+def _geaenderte_fremdfelder(lauf, feld):
+    """Felder, deren Wert eine Antwort auf `feld` gesetzt oder geaendert hat (ohne `feld`)."""
+    geaendert = set()
     for nummer, turn in enumerate(lauf.turns):
         if turn.gefragt != feld:
             continue
         vorher = lauf.turns[nummer - 1].werte
-        if any(wert != vorher.get(name, (None, ""))[0]
-               for name, (wert, _) in turn.werte.items() if name != feld):
-            return True
-    return False
+        geaendert |= {name for name, (wert, _) in turn.werte.items()
+                      if name != feld and wert != vorher.get(name, (None, ""))[0]}
+    return sorted(geaendert)
 
 
-def bewerte(lauf, erwartungen):
+def bewerte(lauf, erwartungen, paket=None):
     ergebnisse = []
     for erwartung in erwartungen:
         turns = [t for t in lauf.turns if t.gefragt == erwartung.feld]
@@ -78,8 +88,11 @@ def bewerte(lauf, erwartungen):
             ergebnisse.append(FeldErgebnis(erwartung.feld, "nicht_geprueft"))
             continue
         wert, status = turns[0].werte[erwartung.feld]
-        if _fremdes_feld_geaendert(lauf, erwartung.feld):
-            ergebnisse.append(FeldErgebnis(erwartung.feld, "falsch"))
+        geaendert = _geaenderte_fremdfelder(lauf, erwartung.feld)
+        if geaendert:
+            ergebnisse.append(FeldErgebnis(
+                erwartung.feld, "falsch",
+                detail="Antwort änderte auch: " + ", ".join(geaendert)))
             continue
         if status != "gueltig" and not erwartung.versuche[0][1].endswith("Nachfrage"):
             ergebnisse.append(FeldErgebnis(erwartung.feld, "unerwartete_nachfrage"))
@@ -102,7 +115,76 @@ def bewerte(lauf, erwartungen):
             continue
         gelungen = wert == erwartung.versuche[0][1].removesuffix(" oder Nachfrage")
         ergebnisse.append(FeldErgebnis(erwartung.feld, "ok_1" if gelungen else "falsch"))
+    for erwartung, ergebnis in zip(erwartungen, ergebnisse):
+        turns = [t for t in lauf.turns if t.gefragt == erwartung.feld]
+        ergebnis.gesendet = [t.nachricht for t in turns]
+        ergebnis.nachfragen = sum(1 for t in turns
+                                  if t.antwort["payload"].get("feld") == erwartung.feld)
+        if lauf.turns:
+            ergebnis.endwert = lauf.turns[-1].werte.get(erwartung.feld, (None, ""))[0]
+        ergebnis.erwartet = [erwartet for _, erwartet in erwartung.versuche]
+        ergebnis.nachfragetexte = [t.antwort["payload"]["naechste_frage"] for t in turns
+                                   if t.antwort["payload"].get("feld") == erwartung.feld]
+        if paket is not None:
+            ergebnis.verstoesse = [
+                verstoss for text in ergebnis.nachfragetexte
+                for verstoss in pruefe_nachfragetext(paket.field(erwartung.feld), text)]
     return ergebnisse
+
+
+def bericht(ergebnisse, *, modell, code_stand, szenario, pflicht=(), laeufe=()):
+    """Markdown-Bericht (Klartext zuerst, dann die Felder)."""
+    geprueft = [r for r in ergebnisse if r.ergebnis != "nicht_geprueft"]
+    bestanden = sum(1 for r in geprueft if r.ergebnis.startswith("ok"))
+    zeilen = [
+        f"# Prüfbericht Antwortformen — {szenario}",
+        "",
+        f"- Modell: {modell}",
+        f"- Code-Stand: {code_stand}",
+        f"- Szenario: {szenario}",
+        f"- Ergebnis: {bestanden} von {len(geprueft)} geprüften Feldern bestanden, "
+        f"{len(ergebnisse) - len(geprueft)} nicht geprüft",
+    ]
+    for nummer, lauf in laeufe:
+        zeilen.append(
+            f"- Lauf {nummer}: {len(lauf.turns)} Turns, KI-Aufrufe: "
+            f"extract {lauf.aufrufe['extract']}, antworte {lauf.aufrufe['antworte']}, "
+            f"Wiederholungen nach Fehler {lauf.wiederholungen}, "
+            + ("technisch NICHT abgeschlossen (kein Feldfehler)"
+               if lauf.technisch_abgebrochen else "abgeschlossen"))
+    zeilen += [
+        "",
+        "| Feld | Gesendete Antworten | Nachfragen | Endwert | Erwartet | Ergebnis |",
+        "|---|---|---|---|---|---|",
+    ]
+    for r in ergebnisse:
+        ergebnis = {"ok_1": "✓ im 1. Versuch",
+                    "ok_nach_nachfrage": "✓ nach erwarteter Nachfrage",
+                    "falsch": "✗ falsch",
+                    "aufgegeben": "✗ aufgegeben",
+                    "unerwartete_nachfrage": "✗ unerwartete Nachfrage",
+                    "nicht_geprueft": "nicht geprüft"}[r.ergebnis]
+        zeilen.append(f"| {r.feld} | {' / '.join(r.gesendet)} | {r.nachfragen} "
+                      f"| {r.endwert} | {', '.join(r.erwartet)} | {ergebnis} |")
+    if pflicht:
+        gelaufen = {(r.feld, r.lauf, r.gesendet[0]) for r in ergebnisse
+                    if r.ergebnis != "nicht_geprueft"}
+        fehlend = [f for f in pflicht if (f.feld, f.lauf, f.antwort) not in gelaufen]
+        zeilen += ["", "## Abdeckung",
+                   "Abnahme NICHT erfüllt: mindestens ein Pflichtfall ist nicht gelaufen."
+                   if fehlend else "Abnahme erfüllt: jeder Pflichtfall ist gelaufen.",
+                   "", "| Feld | Antwort | Szenario | Lauf | Status |", "|---|---|---|---|---|"]
+        zeilen += [f"| {f.feld} | {f.antwort} | {f.szenario} | {f.lauf} | "
+                   f"{'NICHT gelaufen' if f in fehlend else 'gelaufen'} |" for f in pflicht]
+    for r in ergebnisse:
+        if r.nachfragetexte:
+            zeilen += ["", f"### {r.feld}"]
+            zeilen += [f"> {text}" for text in r.nachfragetexte]
+            zeilen.append("Automatische Prüfung: "
+                          + ("; ".join(r.verstoesse) if r.verstoesse else "keine Verstöße"))
+            zeilen.append("Bewertung durch den Ausführenden (Polarität, Richtung, Optionen): "
+                          "offen für die Projektleitung")
+    return "\n".join(zeilen)
 
 
 class _ZaehlendeKI:
@@ -139,7 +221,7 @@ def spiele(store, llm, paket, antworten, *, start, max_turns=60):
                 break
         werte = {name: (fv.value, fv.status.value)
                  for name, fv in store.load("pruefung").values.items()}
-        lauf.turns.append(Turn(antwort["status"], davor, werte))
+        lauf.turns.append(Turn(antwort["status"], davor, werte, antwort, nachricht))
         if antwort["status"] != "frage":
             break
         feld = davor = antwort["payload"]["feld"]
