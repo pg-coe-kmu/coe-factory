@@ -753,28 +753,41 @@ def test_abnahme_nicht_erfuellt_wenn_die_ki_den_freien_startwert_verfaelscht():
     assert "Endwert weicht ab: process_name (Lauf 1)" in text
 
 
-def test_abnahme_freier_endwert_darf_den_soll_text_enthalten():
-    # Fix-Welle 4 V4: bei freien Feldern genügt, dass der Endwert den Soll-Text enthält
-    # (Vergleichsschlüssel: Groß-/Kleinschreibung und Satzzeichen am Rand zählen nicht).
+def test_abnahme_gekuerzter_freitext_aus_der_startnachricht_ist_erfuellt():
+    # Echte KI-Läufe kürzen Freitext minimal; „nichts erfinden“ heißt: der Endwert steht
+    # im gesendeten Text (Endwert ⊆ Quelle), nicht umgekehrt.
     start = baue_szenario(KATALOG, 1).start
     text = _abnahme(1, {(None, start): [
-        ExtractionCandidate("request_intent", FREIE_ANTWORTEN["request_intent"]),
-        ExtractionCandidate("process_name", "Der Prozess AUFTRAGSABWICKLUNG."),
+        ExtractionCandidate("request_intent", "Ablauf für Kundenanfragen gemeinsam erfassen"),
+        ExtractionCandidate("process_name", "Auftragsabwicklung"),
         ExtractionCandidate("request_goal", "zeit_sparen"),
         ExtractionCandidate("scope_focus", "ganzer_prozess")]})
 
-    assert "Abnahme erfüllt" in text
+    assert "Endwert weicht ab: request_intent" not in text
 
 
-def test_endpruefung_tabelle_zeigt_freien_endwert_mit_soll_text_als_erfuellt():
+def test_abnahme_nicht_erfuellt_bei_freitext_mit_zusaetzlichem_nicht_gesendetem_wort():
     start = baue_szenario(KATALOG, 1).start
     text = _abnahme(1, {(None, start): [
-        ExtractionCandidate("request_intent", FREIE_ANTWORTEN["request_intent"]),
-        ExtractionCandidate("process_name", "Der Prozess Auftragsabwicklung"),
+        ExtractionCandidate("request_intent", "Wir möchten unseren Ablauf sofort erfassen."),
+        ExtractionCandidate("process_name", "Auftragsabwicklung"),
         ExtractionCandidate("request_goal", "zeit_sparen"),
         ExtractionCandidate("scope_focus", "ganzer_prozess")]})
 
-    zeile = next(z for z in text.splitlines() if z.startswith("| 1 | process_name |"))
+    assert "Abnahme NICHT erfüllt" in text
+    assert "Endwert weicht ab: request_intent (Lauf 1)" in text
+
+
+def test_endpruefung_tabelle_zeigt_gekuerzten_freitext_als_erfuellt():
+    # Vergleichsschlüssel: Groß-/Kleinschreibung und Satzzeichen am Rand zählen nicht.
+    start = baue_szenario(KATALOG, 1).start
+    text = _abnahme(1, {(None, start): [
+        ExtractionCandidate("request_intent", "ABLAUF für Kundenanfragen gemeinsam erfassen."),
+        ExtractionCandidate("process_name", "Auftragsabwicklung"),
+        ExtractionCandidate("request_goal", "zeit_sparen"),
+        ExtractionCandidate("scope_focus", "ganzer_prozess")]})
+
+    zeile = next(z for z in text.splitlines() if z.startswith("| 1 | request_intent |"))
     assert zeile.endswith("| ✓ |")
 
 

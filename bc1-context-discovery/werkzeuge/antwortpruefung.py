@@ -55,9 +55,11 @@ class FeldErgebnis:
 
 def _endpruefung_ok(r):
     if r.frei and r.endsoll is not None and r.endwert is not None:
-        # Freie Felder: der Endwert enthaelt den Soll-Text (Vergleichsschluessel).
-        return (r.endstatus == "gueltig"
-                and vergleichsschluessel(r.endsoll) in vergleichsschluessel(r.endwert))
+        # Freie Felder: "nichts erfinden" — der Endwert steht im gesendeten Soll-Text
+        # (Vergleichsschluessel), darf also gekuerzt sein, aber nicht leer.
+        schluessel = vergleichsschluessel(r.endwert)
+        return (r.endstatus == "gueltig" and schluessel != ""
+                and schluessel in vergleichsschluessel(r.endsoll))
     return (r.endwert, r.endstatus) == (r.endsoll, "gueltig")
 
 
