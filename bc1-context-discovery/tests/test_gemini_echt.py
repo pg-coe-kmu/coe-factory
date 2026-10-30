@@ -12,6 +12,7 @@ import pytest
 
 from bc1_core.gespraech import Erfassung, TurnKontext
 from bc1_core.package import FieldSpec, UseCasePackage
+from bc1_core.types import SessionState
 from bc1_service.gemini_llm import GeminiLLM
 
 pytestmark = pytest.mark.skipif(
@@ -28,7 +29,7 @@ def test_extract_echt_mit_vollem_schema():
     # Beweist live: response_json_schema akzeptiert unser volles Schema
     # (inkl. additionalProperties) UND die Thinking-Konfig des Modells.
     kandidaten = GeminiLLM().extract(
-        "Der Prozess heißt Reisebuchung.", PAKET, None)
+        "Der Prozess heißt Reisebuchung.", PAKET, SessionState("s1", "0.1"))
     assert any(k.field_name == "prozess_name" and "Reisebuchung" in k.value
                for k in kandidaten)
 

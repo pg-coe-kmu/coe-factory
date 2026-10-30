@@ -1,7 +1,9 @@
 from __future__ import annotations
 import logging
+import re
 from bc1_core.types import Candidate, FieldStatus, FieldValue, SessionState
 from bc1_core.package import UseCasePackage, FieldSpec
+from bc1_core.feldtypen import Feldtyp, ist_nackte_zahl, vergleichsschluessel
 from bc1_core.llm import ExtractionCandidate, LLMClient
 from bc1_core.pii import ersetze_pii
 from bc1_core.protokoll import aktuelle_korrelation, ki_aufruf
@@ -18,6 +20,22 @@ def status_fuer(spec: FieldSpec, value: str) -> FieldStatus:
     except Exception:
         return FieldStatus.UNGUELTIG
     return FieldStatus.GUELTIG if gueltig else FieldStatus.UNGUELTIG
+
+def _nennt_nur_option(message: str, typ: Feldtyp, option: str) -> bool:
+    if "?" in message:
+        return False
+    schluessel = vergleichsschluessel(message)
+    # Fix-Welle 4 V1: Verneinung oder Unsicherheit ist keine Festlegung („weiß nicht“
+    # fängt „nicht“ ab: der Schlüssel schreibt ß als ss, das Wort „nicht“ bleibt).
+    if re.search(r"(?<!\w)(?:nicht|kein|keine|nein|vielleicht|eventuell|evtl|wahrscheinlich"
+                 r"|vermutlich|oder|sondern|unsicher)(?!\w)", schluessel):
+        return False
+    def nennt(opt: str) -> bool:
+        woerter = [opt, *(name for o, name in typ.namen if o == opt)]
+        # Fix-Welle 4 V2: ein Wort mit leerem Vergleichsschlüssel passt nie.
+        return any(re.search(rf"(?<!\w){re.escape(vergleichsschluessel(w))}(?!\w)", schluessel)
+                   for w in woerter if vergleichsschluessel(w))
+    return nennt(option) and not any(nennt(o) for o in typ.optionen if o != option)
 
 def _merke_kandidat(fv: FieldValue, wert: str, quelle: str) -> None:
     # Dedup nach Wert: die erste Quelle eines Werts bleibt maßgeblich.
@@ -41,15 +59,43 @@ def extract_and_merge(state: SessionState, message: str, message_id: str,
     else:
         with ki_aufruf("extraktion"):
             kandidaten = llm.extract(message, package, state)
+    # Spec 2 „Feste Sperren“ (c): Liefert die KI für das gefragte Feld keinen gültigen Wert,
+    # gelten ihre Kandidaten für andere Felder in diesem Turn nicht. Die Kandidaten des
+    # gefragten Felds kommen deshalb zuerst (stabil: die Reihenfolge je Feld bleibt).
+    gefragt_ok = False
+    if gefragt is not None and wert_roh is None:
+        kandidaten = sorted(kandidaten, key=lambda c: c.field_name != gefragt.name)
     for cand in kandidaten:
         spec = package.field(cand.field_name)
         if spec is None:
+            continue
+        # Spec 2 „Fester Schutz“: eine KI-Zahl ohne Zeitraum bzw. Einheit gilt nicht
+        # (Nachfrage); die nackte Zahl gilt nur, wenn die Person sie selbst schreibt.
+        if (wert_roh is None and spec.typ.nackte_zahl_nur_von_person
+                and ist_nackte_zahl(cand.value)):
+            continue
+        # Spec 2 „Feste Sperren“ (b): Zeitraum bzw. Einheit im KI-Wert nur, wenn die
+        # Nachricht sie selbst nennt („2x“ wird nie „2 pro Jahr“).
+        if (wert_roh is None and spec.typ.nennt_einheit is not None
+                and spec.typ.nennt_einheit(cand.value)
+                and not spec.typ.nennt_einheit(message)):
             continue
         # Normalisierung VOR dem Merge: Vergleiche, Klärung und Kandidaten
         # arbeiten auf dem normalisierten Wert; gespeichert wird er auch.
         # Davor der PII-Filter (B2): der Anbieter sah nur Platzhalter, kann aber
         # Klartext halluzinieren oder echoen — auch der darf nicht in den State.
         wert = spec.typ.normalisiere(ersetze_pii(cand.value))
+        # Spec 2 „Feste Sperren“ (a): ein KI-Wert für ein Identitätsfeld gilt nur, wenn
+        # die Nachricht die Option selbst nennt.
+        if (wert_roh is None and spec.identitaetskritisch
+                and wert in spec.typ.optionen
+                and not _nennt_nur_option(message, spec.typ, wert)):
+            continue
+        if gefragt is not None and wert_roh is None:
+            if spec is gefragt:
+                gefragt_ok = gefragt_ok or status_fuer(spec, wert) is FieldStatus.GUELTIG
+            elif not gefragt_ok:
+                continue
         fv = state.values.get(cand.field_name)
         if fv is None or fv.value is None:
             state.values[cand.field_name] = FieldValue(

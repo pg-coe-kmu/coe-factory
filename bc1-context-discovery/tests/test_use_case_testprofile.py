@@ -71,6 +71,24 @@ def test_kennzeichnung_steht_in_derselben_nachricht_wie_ein_pflichtfeld():
             f"{fall.session_id}: open_remarks ohne Pflichtfeld in derselben Nachricht")
 
 
+def test_fokusschritt_nachricht_nennt_die_kennung_des_fokus():
+    # Feste Sperre (a): der KI-Wert fuer focus_step gilt nur, wenn die Nachricht die
+    # Kennung nennt — das Skript spielt eine Person, die sie nennt.
+    for fall in FAELLE:
+        traeger = [text for text, felder in fall.nachrichten
+                   if any(name == "focus_step" for name, _ in felder)]
+        assert len(traeger) == 1, fall.session_id
+        assert fall.fokus_tp in traeger[0], fall.session_id
+
+
+def test_fokusschritt_nachricht_nennt_die_dauer_mit_einheit():
+    # Feste Sperre (b): ein KI-Wert mit Einheit gilt nur, wenn die Nachricht sie nennt.
+    for fall in FAELLE:
+        text, felder = next((t, f) for t, f in fall.nachrichten
+                            if any(name == "focus_step" for name, _ in f))
+        assert dict(felder)["focus_step_duration_minutes"] in text, fall.session_id
+
+
 def test_version_3_werte():
     assert "Version 3" in KENNZEICHEN
     for fall in FAELLE:

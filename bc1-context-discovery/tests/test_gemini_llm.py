@@ -6,8 +6,10 @@ import pytest
 from google.genai import errors, types
 
 from bc1_core.core import process_turn
+from bc1_core.feldtypen import JA_NEIN
 from bc1_core.package import FieldSpec, UseCasePackage
 from bc1_core.store import InMemoryStateStore
+from bc1_core.types import SessionState
 from bc1_service.gemini_llm import KEY_FEHLT, GeminiLLM
 from bc1_service.prompts import (
     EXTRAKTIONS_SCHEMA,
@@ -56,7 +58,8 @@ def _llm(antworten, modell=None):
 
 def test_extract_reicht_prompts_schema_und_konfig_durch():
     stub = _StubClient([_Antwort('{"extraktionen": [{"feld": "zweck", "wert": " X "}]}')])
-    ergebnis = GeminiLLM(client=stub).extract("Nachricht", PAKET, None)
+    ergebnis = GeminiLLM(client=stub).extract(
+        "Nachricht", PAKET, SessionState("s1", "0.1"))
     aufruf = stub.models.aufrufe[0]
     konfig = aufruf["config"]
     # Default-Pin gemini-3.8-flash: gemini-2.5-flash liefert fuer Neukonten
@@ -74,13 +77,27 @@ def test_extract_reicht_prompts_schema_und_konfig_durch():
     assert [(k.field_name, k.value) for k in ergebnis] == [("zweck", "X")]
 
 
+def test_gemini_extract_nutzt_den_helfer():
+    paket = UseCasePackage(
+        name="gemini_helfer", schema_version="0.1",
+        fields=(FieldSpec("aktiv", "Ist der Prozess aktiv?", typ=JA_NEIN),))
+    state = SessionState("s1", "0.1")
+    state.raw_log.append(("m1", "Start"))
+    state.antworten["m1"] = {"status": "frage", "payload": {"feld": "aktiv"}}
+    stub = _StubClient([_Antwort('{"extraktionen": []}')])
+    GeminiLLM(client=stub).extract("Ja", paket, state)
+    nutzer = stub.models.aufrufe[0]["contents"]
+    assert "Gerade gestellte Frage" in nutzer
+    assert "ja oder nein" in nutzer
+
+
 def test_extract_filtert_unbekannte_felder_und_leere_werte():
     stub = _StubClient([_Antwort(json.dumps({"extraktionen": [
         {"feld": "zweck", "wert": "A"},
         {"feld": "fremd", "wert": "B"},
         {"feld": "zweck", "wert": "   "},
     ]}))])
-    ergebnis = GeminiLLM(client=stub).extract("m", PAKET, None)
+    ergebnis = GeminiLLM(client=stub).extract("m", PAKET, SessionState("s1", "0.1"))
     assert [(k.field_name, k.value) for k in ergebnis] == [("zweck", "A")]
 
 
@@ -228,7 +245,7 @@ def test_andere_client_fehler_fliegen_unveraendert():
 def test_abgeschnitten_wirft():
     stub = _StubClient([_Antwort("halb", finish=types.FinishReason.MAX_TOKENS)])
     with pytest.raises(RuntimeError, match="abgeschnitten"):
-        GeminiLLM(client=stub).extract("m", PAKET, None)
+        GeminiLLM(client=stub).extract("m", PAKET, SessionState("s1", "0.1"))
 
 
 def test_safety_ende_wirft():
@@ -241,7 +258,7 @@ def test_safety_ende_wirft():
 def test_ohne_kandidaten_wirft():
     stub = _StubClient([_Antwort("x", kandidaten=False)])
     with pytest.raises(RuntimeError, match="ohne Kandidaten"):
-        GeminiLLM(client=stub).extract("m", PAKET, None)
+        GeminiLLM(client=stub).extract("m", PAKET, SessionState("s1", "0.1"))
 
 
 def test_prompt_sicherheitsblockade_wirft_eigenen_fehler():
@@ -252,7 +269,7 @@ def test_prompt_sicherheitsblockade_wirft_eigenen_fehler():
     )
     stub = _StubClient([antwort])
     with pytest.raises(RuntimeError, match="Prompt-Sicherheitsfilter"):
-        GeminiLLM(client=stub).extract("m", PAKET, None)
+        GeminiLLM(client=stub).extract("m", PAKET, SessionState("s1", "0.1"))
 
 
 def test_nur_whitespace_wirft():

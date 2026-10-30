@@ -51,33 +51,44 @@ class Bc0Kontext:
     # B5: die Anfrage, zu der interviewt wird. None nur in kontextfreien Tests —
     # main.py setzt sie immer (BC1_ANFRAGE_ID ist Pflicht).
     anfrage_id: str | None = None
-    # (Rollen-ID, Bezeichnung) — nur aktive Rollen des Mandanten. In den Fingerprint
-    # gehen nur die IDs ein.
+    # (Rollen-ID, Bezeichnung) — nur aktive Rollen des Mandanten. ID und Bezeichnung
+    # gehen in den Fingerprint ein.
     rollen: tuple[tuple[str, str], ...] = ()
     # (Kernprozess-ID, Rollen-ID oder None) — Kernprozesse der Anfrage-TPs, nach
     # Prozess-ID sortiert. None = keine Eigner-Rolle ableitbar. Nicht im Fingerprint.
     eigner: tuple[tuple[str, str | None], ...] = ()
     # (Kernprozess-ID, Name) — alle aktiven Kernprozesse des Mandanten beim Laden, nach
-    # Prozess-ID sortiert. Die IDs gehen in den Fingerabdruck ein, die Namen nicht.
+    # Prozess-ID sortiert. IDs und Namen gehen in den Fingerabdruck ein.
     prozesse: tuple[tuple[str, str], ...] = ()
 
 
-def _ctx_fingerprint(kontext: Bc0Kontext, kp_ids: list[str]) -> str:
+def _eigner_vorschlag(kontext: Bc0Kontext) -> list[str]:
+    """Rollen-ID, die der B3-Fragetext als Eigner-Vorschlag nennt (genau ein Kernprozess
+    mit aktiver Rolle), sonst leer."""
+    if len(kontext.eigner) == 1 and dict(kontext.rollen).get(kontext.eigner[0][1]) is not None:
+        return [kontext.eigner[0][1]]
+    return []
+
+
+def _ctx_fingerprint(kontext: Bc0Kontext) -> str:
     # Kanonisch, strukturiert, sortiert (Spec K2, R5-M7): gleiche Grundlagen =>
-    # gleicher Wert, unabhaengig von Query-Reihenfolge. Es fliessen nur die IDs
-    # ein, nicht die Anzeige-Namen — eine reine Umbenennung in BC0 aendert die
-    # Validator-Semantik nicht und soll die Paket-Identitaet nicht unnoetig
-    # churnen lassen.
+    # gleicher Wert, unabhaengig von Query-Reihenfolge. Rollen, Kernprozesse und
+    # Teilprozesse gehen als (ID, Name)-Paare ein: die Namen wirken auf die
+    # Auslegung der Eingabe (Spec Antwortformen 3.3), eine Umbenennung in BC0
+    # aendert also die Paket-Identitaet — gewollt. Vom Eigner geht nur der Vorschlag ein,
+    # den der B3-Fragetext nennt (Rollen-ID oder leer): er ist antwortrelevant, ein
+    # Eignerwechsel zwischen zwei Turns ist ein Paketkonflikt (Gesamtpruefung Befund 2).
     # Die Anfrage ist Teil der Paketidentitaet. Den Schutz gegen eine fremde Anfrage
     # traegt aber `pruefe_anfrage` (core) — der Recovery-Replay darf einen
     # abweichenden ctx-Hash passieren.
     roh = json.dumps(
         {"anfrage": kontext.anfrage_id,
          "company_id": kontext.company_id.lower(),
-         "kp": sorted(kp_ids),
-         "rollen": sorted(r for r, _ in kontext.rollen),
+         "eigner": _eigner_vorschlag(kontext),
+         "kp": sorted(kontext.prozesse),
+         "rollen": sorted(kontext.rollen),
          "snn": sorted(kontext.system_ids),
-         "tp": sorted(tp for tp, _ in kontext.teilprozesse)},
+         "tp": sorted(kontext.teilprozesse)},
         sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(roh.encode()).hexdigest()[:16]
 
@@ -91,7 +102,8 @@ def baue_discovery_paket(*, kontext: Bc0Kontext | None = None) -> UseCasePackage
     if kontext is not None:
         # B4 kommt im Kontext-Zweig aus den beim Start geladenen Kernprozessen.
         if kontext.prozesse:
-            b4_typ = AUSWAHL(*(pid for pid, _ in kontext.prozesse))
+            b4_typ = AUSWAHL(*(pid for pid, _ in kontext.prozesse),
+                             namen=dict(kontext.prozesse))
             b4_frage = ("Zu welchem Ihrer Kernprozesse gehört das? ("
                         + ", ".join(f"{pid} = {name}" for pid, name in kontext.prozesse)
                         + ")")
@@ -101,21 +113,19 @@ def baue_discovery_paket(*, kontext: Bc0Kontext | None = None) -> UseCasePackage
         # E5 wird zur geprüften Teilprozess-Auswahl; ohne BC0-Anbindung gibt es
         # keine Prozess-Identität, die man erzwingen könnte (identitaetskritisch
         # haengt deshalb bewusst am Kontext, nicht an einer Konstante).
-        e5_typ = AUSWAHL(*(tp for tp, _ in kontext.teilprozesse))
+        e5_typ = AUSWAHL(*(tp for tp, _ in kontext.teilprozesse),
+                         namen=dict(kontext.teilprozesse))
         e5_frage = ("Welcher Schritt kostet am meisten Zeit oder nervt am "
                     "meisten? ("
                     + ", ".join(f"{tp} = {name}" for tp, name in kontext.teilprozesse)
                     + ")")
-        b3_typ = AUSWAHL(*(rid for rid, _ in kontext.rollen))
+        b3_typ = AUSWAHL(*(rid for rid, _ in kontext.rollen), namen=dict(kontext.rollen))
         b3_frage = ("Welche Rolle ist für diesen Prozess verantwortlich? "
                     "Bitte nennen Sie die Rolle ("
                     + ", ".join(f"{rid} = {bez}" for rid, bez in kontext.rollen)
                     + ").")
-        if len(kontext.eigner) == 1:
-            rolle_id = kontext.eigner[0][1]
-            bezeichnung = dict(kontext.rollen).get(rolle_id)
-            if bezeichnung is not None:
-                b3_frage += f" Laut BC0 ist das {bezeichnung} ({rolle_id})."
+        for rolle_id in _eigner_vorschlag(kontext):
+            b3_frage += f" Laut BC0 ist das {dict(kontext.rollen)[rolle_id]} ({rolle_id})."
         f2_typ = baue_system_typ(frozenset(kontext.system_ids))
         # E4 ganzzahlig NUR im Kontext-Zweig (Codex R2-N-I4): geschrieben wird
         # ausschliesslich mit BC0-Kontext, und der Zweig traegt mit 1.1+ctx-
@@ -131,7 +141,7 @@ def baue_discovery_paket(*, kontext: Bc0Kontext | None = None) -> UseCasePackage
         # jeder dieser Grundlagen-Änderungen zwischen zwei Turns derselben
         # Session greift.
         schema_version = (f"{SCHEMA_VERSION_CTX}+ctx-"
-                          f"{_ctx_fingerprint(kontext, [pid for pid, _ in kontext.prozesse])}")
+                          f"{_ctx_fingerprint(kontext)}")
     else:
         e5_typ, f2_typ, e4_typ = FREITEXT, LISTE, PROZENT_0_100
         d4_typ = ZAHL
@@ -159,7 +169,9 @@ def baue_discovery_paket(*, kontext: Bc0Kontext | None = None) -> UseCasePackage
             FieldSpec("scope_focus",                                             # A3
                       "Geht es um einen ganzer_prozess oder einen "
                       "einzelner_schritt?",
-                      typ=AUSWAHL("ganzer_prozess", "einzelner_schritt")),
+                      typ=AUSWAHL("ganzer_prozess", "einzelner_schritt", synonyme={
+                          "ganzer_prozess": ("den ganzen Prozess",),
+                          "einzelner_schritt": ("ein einzelner Schritt",)})),
             FieldSpec("pain_level",                                              # A4 (E)
                       "Wie hoch ist der Leidensdruck heute (1–5)?",
                       required=False, typ=SKALA_1_5),
@@ -184,7 +196,8 @@ def baue_discovery_paket(*, kontext: Bc0Kontext | None = None) -> UseCasePackage
             FieldSpec("input_format",                                            # C3
                       "In welchem Format kommen die Eingangsdaten an — "
                       "digital, papier, pdf oder mail?",
-                      typ=AUSWAHL("digital", "papier", "pdf", "mail")),
+                      typ=AUSWAHL("digital", "papier", "pdf", "mail",
+                                  synonyme={"mail": ("E-Mail", "Email")})),
             FieldSpec("output_text",                                             # C4
                       "Was ist das Endergebnis bzw. der Output des Prozesses?"),
             FieldSpec("output_format",                                           # C5 (E)
@@ -215,7 +228,8 @@ def baue_discovery_paket(*, kontext: Bc0Kontext | None = None) -> UseCasePackage
             FieldSpec("focus_step_duration_source",                              # E3
                       "Ist diese Zeitangabe gemessen, geschaetzt oder "
                       "aus_system?",
-                      typ=AUSWAHL("gemessen", "geschaetzt", "aus_system")),
+                      typ=AUSWAHL("gemessen", "geschaetzt", "aus_system",
+                                  synonyme={"aus_system": ("aus dem System",)})),
             FieldSpec("focus_step_duration_confidence_pct",                      # E4
                       "Wie sicher ist diese Zeitangabe (0–100 %)?",
                       typ=e4_typ),

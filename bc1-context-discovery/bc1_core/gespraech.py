@@ -29,6 +29,7 @@ class TurnKontext:
     ist_abschluss: bool
     profil_uebersicht: tuple[Erfassung, ...] = ()
     offene_fragen: tuple[str, ...] = ()
+    antwortform: str | None = None      # nur bei festem Typ (mit Kurzform)
 
 
 def werte_schnappschuss(state: SessionState) -> dict[str, str]:
@@ -63,6 +64,9 @@ def baue_turn_kontext(nachricht: str, vorher: dict[str, str],
                            offene_fragen=offene)
 
     ziel = state.values.get(ziel_feld)
+    typ = package.field(ziel_feld).typ
     return TurnKontext(nachricht, neu, package.field(ziel_feld).question,
                        ist_nachfrage=ziel is not None and ziel.attempts > 1,
-                       ist_abschluss=False)
+                       ist_abschluss=False,
+                       antwortform=(typ.antwortform
+                                  if typ.kurzform is not None else None))

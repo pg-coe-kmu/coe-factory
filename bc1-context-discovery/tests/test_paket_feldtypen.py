@@ -9,6 +9,12 @@ def test_prozent_ganz_teilt_die_kurzform():
     assert PROZENT_GANZ_0_100.kurzform is PROZENT_0_100.kurzform
 
 
+def test_antwortform_systemtyp():
+    assert baue_system_typ(BEKANNT).antwortform == (
+        "Liste der genannten Systeme, durch Kommas getrennt; "
+        "Kennungen S-NN nur, wenn die Nachricht sie nennt")
+
+
 def test_systemtyp_hat_keine_kurzform():
     assert baue_system_typ(frozenset({"S-01"})).kurzform is None
 

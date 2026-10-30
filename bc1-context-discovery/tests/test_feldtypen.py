@@ -9,13 +9,17 @@ from bc1_core.feldtypen import (
     ANZAHL,
     AUSWAHL,
     FREITEXT,
+    Feldtyp,
     JA_NEIN,
     LISTE,
     MINUTEN,
     PROZENT_0_100,
     SKALA_1_5,
     ZAHL,
+    ist_nackte_zahl,
+    vergleichsschluessel,
 )
+from bc1_service.paket_feldtypen import PROZENT_GANZ_0_100
 
 
 # --- ZAHL: normalisiert auf pro Jahr -----------------------------------------
@@ -113,6 +117,124 @@ def test_ja_nein_und_auswahl_tolerieren_typografische_anfuehrungszeichen():
     assert JA_NEIN.normalisiere('‘Ja’') == "ja"
 
 
+def test_fragezeichen_legt_nichts_fest():
+    # Spec 3.1: ein „?“ ist keine Festlegung — Ja/Nein und Auswahl bleiben unveraendert
+    # (ungueltig -> Nachfrage). Heute werden „Ja?“ und „KP-03.TP-1?“ gueltig.
+    assert JA_NEIN.normalisiere("Ja?") == "Ja?"
+    assert JA_NEIN.validator("Ja?") is False
+    assert JA_NEIN.normalisiere("ja!?") == "ja!?"
+    auswahl = AUSWAHL("KP-03.TP-1")
+    assert auswahl.normalisiere("KP-03.TP-1?") == "KP-03.TP-1?"
+    assert auswahl.normalisiere("kp-03.tp-1!?") == "kp-03.tp-1!?"
+
+
+def test_auswahl_schluessel_vergleicht_einheitlich():
+    typ = AUSWAHL("zeit_sparen", "geschaetzt")
+    for eingabe in ("Zeit sparen", "zeit-sparen", "ZEIT_SPAREN.", "  zeit   sparen "):
+        assert typ.normalisiere(eingabe) == "zeit_sparen", eingabe
+    # ä als eigenes Zeichen (NFC) und als a + Combining Diaeresis (NFD)
+    for eingabe in ("geschätzt", "Geschätzt", "geschätzt"):
+        assert typ.normalisiere(eingabe) == "geschaetzt", eingabe
+    for eingabe in ("zeit sparen!?", "sparen"):
+        assert typ.normalisiere(eingabe) == eingabe, eingabe
+
+
+def test_auswahl_kurzform_zuerst_raender_dann_schluessel():
+    typ = AUSWAHL("geschaetzt", "zeit_sparen")
+    assert typ.kurzform("geschätzt") == "geschaetzt"
+    assert typ.kurzform("Zeit sparen") == "zeit_sparen"
+    assert typ.kurzform(" geschaetzt ") == "geschaetzt"
+    assert typ.kurzform("geschaetzt!") == "geschaetzt"
+    assert typ.kurzform("geschaetzt..") is None
+    assert typ.kurzform("geschaetzt?") is None
+    # Kennung und Name gleichlautend: die Kennung gewinnt
+    gleich = AUSWAHL("a", "b", namen={"a": "b"})
+    assert gleich.kurzform("b") == "b"
+
+
+def test_auswahl_namen_loesen_auf_die_kennung():
+    typ = AUSWAHL("R-01", "R-02", "R-03", "R-04", namen={
+        "R-01": "Geschäftsführung", "R-02": "Vertrieb & Innendienst",
+        "R-03": "Lager+Versand", "R-04": "Qualität-Prüfung"})
+    for eingabe, erwartet in [
+        ("Vertrieb & Innendienst", "R-02"), ("vertrieb & innendienst", "R-02"),
+        ("Lager+Versand", "R-03"), ("Geschäftsführung", "R-01"),
+        ("Geschaeftsfuehrung", "R-01"), ("Qualität Prüfung.", "R-04"),
+        ("r-01", "R-01"),
+    ]:
+        assert typ.normalisiere(eingabe) == erwartet, eingabe
+        assert typ.kurzform(eingabe) == erwartet, eingabe
+    assert typ.normalisiere("Vertrieb") == "Vertrieb"
+
+
+def test_auswahl_namen_mehrdeutig_oder_leer():
+    typ = AUSWAHL("A", "B", "C", namen={"A": "Gleich", "B": "gleich", "C": ""})
+    assert typ.normalisiere("Gleich") == "Gleich"        # trifft zwei Optionen: keine Uebersetzung
+    assert typ.kurzform("gleich") is None
+    assert typ.normalisiere("") == ""                    # leerer Name wird uebersprungen
+    assert typ.kurzform("") is None
+    assert typ.normalisiere("c") == "C"                  # Kennungen gehen weiter
+    # ohne namen verhaelt sich AUSWAHL wie bisher
+    assert AUSWAHL("A", "B").normalisiere("a.") == "A"
+
+
+def test_auswahl_optionen_mit_gleichem_schluessel_werden_nicht_uebersetzt():
+    # Zwei verschiedene Optionen, derselbe Vergleichsschluessel: mehrdeutig, also keine
+    # stille Wahl (heute gewinnt die spaetere) — die Eingabe bleibt, ungueltig -> Nachfrage.
+    typ = AUSWAHL("a_b", "a-b")
+    assert typ.normalisiere("a b") == "a b"
+    assert typ.kurzform("a b") is None
+    assert typ.validator("a b") is False
+    # die exakten Optionen bleiben gueltig
+    assert typ.normalisiere("a_b") == "a_b"
+    assert typ.normalisiere("a-b") == "a-b"
+
+
+def test_auswahl_name_darf_keinen_mehrdeutigen_options_schluessel_besetzen():
+    # Der Schluessel zweier Optionen bleibt ohne Uebersetzung — auch ein Name
+    # mit demselben Schluessel macht ihn nicht eindeutig.
+    typ = AUSWAHL("a_b", "a-b", namen={"a_b": "A B"})
+    assert typ.normalisiere("a b") == "a b"
+    assert typ.normalisiere("A B") == "A B"
+
+
+def test_auswahl_eingabe_mit_fragezeichen_loest_nie_auf_auch_nicht_ueber_einen_namen():
+    # Spec 3.1 gilt auch, wenn ein Name oder Synonym selbst ein „?“ traegt.
+    typ = AUSWAHL("a", "b", namen={"a": "Was?"}, synonyme={"b": ("Wie?",)})
+    for eingabe in ("Was?", "was?", "Wie?"):
+        assert typ.normalisiere(eingabe) == eingabe, eingabe
+        assert typ.kurzform(eingabe) is None, eingabe
+    assert typ.normalisiere("a") == "a"
+
+
+def test_auswahl_namen_und_synonyme_fremder_optionen_zaehlen_nicht():
+    # Ein Eintrag, dessen Schluessel keine der Optionen ist, kommt nicht in die Tabelle.
+    typ = AUSWAHL("a", "b", namen={"zzz": "Fremd"}, synonyme={"yyy": ("Anders",)})
+    assert typ.normalisiere("Fremd") == "Fremd"
+    assert typ.kurzform("Fremd") is None
+    assert typ.normalisiere("Anders") == "Anders"
+    assert typ.normalisiere("a") == "a"
+
+
+def test_auswahl_prueft_nur_optionen():
+    # (Regression) Namen werden nur uebersetzt; gueltig bleiben allein die Kennungen.
+    typ = AUSWAHL("R-01", namen={"R-01": "Geschäftsführung"})
+    assert typ.validator("Geschäftsführung") is False
+    assert typ.validator("R-01") is True
+
+
+def test_auswahl_synonyme():
+    typ = AUSWAHL("mail", "pdf", synonyme={"mail": ("E-Mail", "Email")})
+    for eingabe in ("E-Mail", "email", "Email.", "e mail"):
+        assert typ.normalisiere(eingabe) == "mail", eingabe
+        assert typ.kurzform(eingabe) == "mail", eingabe
+    assert typ.normalisiere("E-Mail?") == "E-Mail?"
+    assert typ.validator("E-Mail") is False
+    # ein Synonym, das zwei Optionen traefe, wird verworfen
+    zwei = AUSWAHL("a", "b", synonyme={"a": ("x",), "b": ("X",)})
+    assert zwei.normalisiere("x") == "x"
+
+
 def test_mehr_zahlen_input_bleibt_unveraendert_und_ist_ungueltig():
     # Gesamt-Review I2: bei MEHR als einer Zahl im Text wird NICHT mehr
     # die erste Zahl still normalisiert — der Input bleibt unverändert und
@@ -125,6 +247,43 @@ def test_mehr_zahlen_input_bleibt_unveraendert_und_ist_ungueltig():
     # Positiv-Fälle mit genau EINER Zahl bleiben unverändert funktionsfähig.
     assert ZAHL.normalisiere("50 pro Monat") == "600"
     assert MINUTEN.normalisiere("1,5 h") == "90"
+
+
+def test_minuten_liest_keine_zahl_aus_saetzen():
+    # Spec 3.4: Saetze mit Zahl und Einheit bleiben unveraendert (ungueltig -> Nachfrage).
+    for satz in ("1 Stunde und zehn Minuten", "nicht 3 Stunden", "unter 1 Stunde",
+                 "mehr als 2 Stunden", "30 Minuten pro Lead", "so 45 Minuten",
+                 "meistens 20 Minuten", "2 Stunden bei uns"):
+        assert MINUTEN.normalisiere(satz) == satz, satz
+        assert MINUTEN.validator(satz) is False, satz
+
+
+def test_minuten_eindeutige_formen_bleiben():
+    # (Regression) Spec 3.4
+    for eingabe, erwartet in [
+        ("1,5h", "90"), ("45min", "45"), ("40", "40"), ("ca. 2 Std.", "120"),
+        ("3 Stunden", "180"), ("90 Minuten", "90"),
+    ]:
+        assert MINUTEN.normalisiere(eingabe) == erwartet, eingabe
+        assert MINUTEN.validator(MINUTEN.normalisiere(eingabe)) is True, eingabe
+
+
+def test_prozent_liest_keine_zahl_aus_saetzen():
+    # Spec 3.4
+    for satz in ("zu 70 Prozent sicher", "70 Prozent sicher", "ca. 70 % der Faelle",
+                 "so 70"):
+        assert PROZENT_0_100.normalisiere(satz) == satz, satz
+        assert PROZENT_0_100.validator(satz) is False, satz
+
+
+def test_prozent_eindeutige_formen_bleiben():
+    # (Regression) Spec 3.4
+    for eingabe, erwartet in [
+        ("70", "70"), ("70 %", "70"), ("70%", "70"), ("70 Prozent", "70"), ("70.", "70"),
+        ("ca. 70 %", "70"), ("1,5%", "1.5"),
+    ]:
+        assert PROZENT_0_100.normalisiere(eingabe) == erwartet, eingabe
+        assert PROZENT_0_100.validator(PROZENT_0_100.normalisiere(eingabe)) is True, eingabe
 
 
 def test_normalisierer_sind_total_und_werfen_nie():
@@ -298,6 +457,35 @@ def test_zahl_pro_prueft_jedes_vorkommen_inkl_interpunktion():
     assert ZAHL.validator("5 pro/Tag im Jahr") is False
 
 
+def test_zahl_liest_keine_zahl_aus_saetzen():
+    # Spec 3.4: nur die ganze Eingabe in der geschlossenen Grammatik zaehlt; ein Satz
+    # mit Zahl bleibt unveraendert (ungueltig -> Nachfrage), statt still falsch zu werden.
+    for satz in ("jeden 2. Monat", "20 Leads pro Woche", "jede Woche 2", "pro Monat 30",
+                 "so 30 im Monat", "etwa 20 Anfragen pro Monat"):
+        assert ZAHL.normalisiere(satz) == satz, satz
+        assert ZAHL.validator(satz) is False, satz
+
+
+def test_zahl_eindeutige_formen_bleiben():
+    # (Regression) Spec 3.4: was eindeutig und heute gueltig ist, bleibt gueltig.
+    for eingabe, erwartet in [
+        ("2x die Woche", "104"), ("2/Woche", "104"), ("2 mal in der Woche", "104"),
+        ("2 mal im Monat", "24"), ("300", "300"), ("300 im Jahr", "300"),
+        ("etwa 4 pro Monat.", "48"),
+    ]:
+        assert ZAHL.normalisiere(eingabe) == erwartet, eingabe
+        assert ZAHL.validator(ZAHL.normalisiere(eingabe)) is True, eingabe
+
+
+def test_zahl_bewusst_geaenderte_bestandsfaelle_sind_nun_ungueltig():
+    # Spec 3.4 (Bestandserwartungen bewusst umgekehrt): frueher "5 pro Woche pro Woche"
+    # -> 260 (dieselbe Periode zweimal) und "30 pro Monat [Person A]" -> 360 (Zahl gewinnt
+    # neben einem PII-Platzhalter). Die geschlossene Grammatik nimmt beides nicht an.
+    for eingabe in ("5 pro Woche pro Woche", "30 pro Monat [Person A]"):
+        assert ZAHL.normalisiere(eingabe) == eingabe, eingabe
+        assert ZAHL.validator(eingabe) is False, eingabe
+
+
 def test_zahl_zwei_verschiedene_perioden_werden_nicht_still_geraten():
     # Fix-Welle 6 (M2): der pro-Guard lässt "pro Woche" UND "pro Jahr" im
     # selben Text durch (beide sind je für sich bekannte Perioden) — bisher
@@ -312,9 +500,6 @@ def test_zahl_zwei_verschiedene_perioden_werden_nicht_still_geraten():
     # Regressionen: eindeutige Periode bleibt wie bisher funktionsfähig.
     assert ZAHL.normalisiere("50 pro Monat") == "600"
     assert ZAHL.normalisiere("300 im Jahr") == "300"
-    # Dieselbe Periode zweimal ist keine Mehrdeutigkeit (Policy: DISTINCT
-    # Perioden > 1 lehnt ab, Wiederholung derselben Periode nicht).
-    assert ZAHL.normalisiere("5 pro Woche pro Woche") == "260"
 
 
 # --- B2 PII-Filter: Platzhalter passieren die Normalisierer ------------------
@@ -324,8 +509,6 @@ def test_pii_platzhalter_passieren_text_und_listenfelder_unveraendert():
     assert LISTE.normalisiere("[Person A], [Person B]") == "[Person A], [Person B]"
     assert ZAHL.normalisiere("[Telefon A]") == "[Telefon A]"
     assert JA_NEIN.normalisiere("[Person A]") == "[Person A]"
-    # In Zahlenfeldern gewinnt die Zahl — gewollt (Konzept T3, Review M3).
-    assert ZAHL.normalisiere("30 pro Monat [Person A]") == "360"
 
 
 # --- ANZAHL: reine Anzahl, keine Periode -------------------------------------
@@ -440,7 +623,7 @@ def test_kurzform_skala(eingabe, erwartet):
     ("geschaetzt", "geschaetzt"), ("KP-01.TP-1", "KP-01.TP-1"),
     ("kp-01.tp-1.", "KP-01.TP-1"),
     ("KP-01.TP-1?", None), ("KP-01.TP-9", None), ("Erfassen", None),
-    ("geschätzt", None), ("geschaetzt..", None),
+    ("geschätzt", "geschaetzt"), ("geschaetzt..", None),
 ])
 def test_kurzform_auswahl(eingabe, erwartet):
     typ = AUSWAHL("geschaetzt", "KP-01.TP-1")
@@ -491,7 +674,7 @@ def test_kurzform_prozent(eingabe, erwartet):
     ("rund 3 Stunden", "3 Stunden", "180"),
     ("durchschnittlich 3 Stunden", "3 Stunden", "180"),
     ("etwa 3 Stunden", "3 Stunden", "180"),
-    ("3", None, None), ("40", None, None), ("90 min..", None, None),
+    ("90 min..", None, None),
     ("2 Std.!", None, None),
     ("Der Prozess dauert 3 Stunden.", None, None),
     ("nicht 3 Stunden", None, None), ("3 Stunden?", None, None),
@@ -519,7 +702,7 @@ def test_kurzform_minuten(eingabe, rein, minuten):
     ("rund 4 pro Monat", "4 pro Monat", "48"),
     ("im Schnitt 4 pro Monat", "4 pro Monat", "48"),
     ("durchschnittlich 4 pro Monat", "4 pro Monat", "48"),
-    ("2", None, None), ("2 pro Tag", None, None),
+    ("2 pro Tag", None, None),
     ("2 mal pro Monat, im Dezember mehr", None, None),
     ("Der Gesamtprozess läuft 2 mal pro Monat", None, None),
     ("2 pro Monat?", None, None), ("2 pro Monat..", None, None),
@@ -548,6 +731,72 @@ def test_kurzform_haeufigkeit_mit_x(eingabe, rein, jahr):
         assert ZAHL.normalisiere(rein) == jahr
 
 
+@pytest.mark.parametrize("eingabe, rein, jahr", [
+    ("2x die Woche", "2 pro Woche", "104"),
+    ("2/Woche", "2 pro Woche", "104"),
+    ("2 / Woche", "2 pro Woche", "104"),
+    ("2 mal in der Woche", "2 pro Woche", "104"),
+    ("2 mal im Monat", "2 pro Monat", "24"),
+    ("3 mal den Monat", "3 pro Monat", "36"),
+    ("300 im Jahr", "300 pro Jahr", "300"),
+    ("etwa 4 pro Monat.", "4 pro Monat", "48"),
+    ("2imMonat", None, None), ("2dieWoche", None, None),
+    ("2-3x pro Woche", None, None), ("2 pro/Woche", None, None),
+])
+def test_kurzform_haeufigkeit_erweiterte_verbindungen(eingabe, rein, jahr):
+    # Spec 3.4: Kurzform und Normalisierer teilen EINE Grammatik.
+    assert ZAHL.kurzform(eingabe) == rein
+    if rein is None:
+        assert ZAHL.normalisiere(eingabe) == eingabe
+    else:
+        assert ZAHL.normalisiere(eingabe) == jahr
+        assert ZAHL.normalisiere(rein) == jahr
+
+
+@pytest.mark.parametrize("typ, eingabe, rein, wert", [
+    # Spec 2 „Fester Schutz“: schreibt die Person genau eine Zahl, nimmt die Kurzform sie an.
+    (ZAHL, "300", "300", "300"), (ZAHL, "300.", "300", "300"),
+    (ZAHL, " 300! ", "300", "300"), (ZAHL, "1.000", "1.000", "1000"),
+    (MINUTEN, "40", "40", "40"), (MINUTEN, "40!", "40", "40"),
+    (MINUTEN, "1,5", "1,5", "1.5"),
+    # Alles mit Zusatz bleibt eine Nachfrage.
+    (ZAHL, "ca. 300", None, None), (MINUTEN, "ca. 40", None, None),
+    (ZAHL, "2x", None, None), (ZAHL, "zweimal", None, None), (ZAHL, "2 mal", None, None),
+    (ZAHL, "2-mal", None, None), (ZAHL, "300?", None, None), (MINUTEN, "40..", None, None),
+    (MINUTEN, "40 50", None, None), (ZAHL, "300 Stück", None, None),
+])
+def test_kurzform_nackte_zahl_bei_haeufigkeit_und_dauer(typ, eingabe, rein, wert):
+    assert typ.kurzform(eingabe) == rein
+    if rein is not None:
+        assert typ.normalisiere(rein) == wert
+
+
+@pytest.mark.parametrize("text, erwartet", [
+    ("2", True), ("300.", True), (" 40! ", True), ("1.000", True), ("1,5", True),
+    ("2 pro Jahr", False), ("2 Minuten", False), ("2x", False), ("ca. 40", False),
+    ("zweimal", False), ("", False), ("2 3", False), ("2?", False),
+])
+def test_ist_nackte_zahl(text, erwartet):
+    assert ist_nackte_zahl(text) is erwartet
+
+
+def test_nur_haeufigkeit_und_dauer_verwerfen_ki_zahlen_ohne_zeitraum():
+    # (Regression) Das Merkmal gilt generisch für den Typ, nie für Feldnamen; Anzahl, Prozent
+    # und Skala behalten die nackte Zahl auch vom KI-Weg.
+    typen = (ZAHL, MINUTEN, ANZAHL, PROZENT_0_100, SKALA_1_5, JA_NEIN, FREITEXT, LISTE,
+             AUSWAHL("a"))
+    assert {t.name for t in typen if t.nackte_zahl_nur_von_person} == {"zahl", "minuten"}
+
+
+@pytest.mark.parametrize("typ, eingabe, wert", [
+    # Normalisierer ⊇ Kurzform (Spec 3.4): auch mit „.“/„!“ am Ende der nackten Zahl.
+    (ZAHL, "300.", "300"), (ZAHL, "300!", "300"), (MINUTEN, "40.", "40"),
+    (MINUTEN, "1,5!", "1.5"), (ZAHL, "300..", "300.."), (MINUTEN, "40?", "40?"),
+])
+def test_normalisierer_nackte_zahl_mit_satzzeichen_am_ende(typ, eingabe, wert):
+    assert typ.normalisiere(eingabe) == wert
+
+
 @pytest.mark.parametrize("typ", [
     JA_NEIN, SKALA_1_5, AUSWAHL("a"), ANZAHL, PROZENT_0_100, MINUTEN, ZAHL,
 ])
@@ -557,3 +806,130 @@ def test_kurzform_haeufigkeit_mit_x(eingabe, rein, jahr):
 def test_kurzformen_sind_total(typ, eingabe):
     ergebnis = typ.kurzform(eingabe)
     assert ergebnis is None or isinstance(ergebnis, str)
+
+
+# Spec 3.4, Invariante „Normalisierer enthaelt Kurzform“: die Eingaben der Kurzform-Tests oben
+# (Rohtext, nicht die Zwischenform).
+_AUSWAHL_KURZFORM = AUSWAHL("geschaetzt", "KP-01.TP-1")
+_KURZFORM_EINGABEN = [
+    (JA_NEIN, e) for e in (
+        "Ja", "nein.", "JA!", "Ja, aber selten", "ja?", "jein", "", "ja..", "ja,", "Ja !")
+] + [
+    (SKALA_1_5, e) for e in ("4", "4.", "eher 4", "etwa 4", "4 von 5", "6", "4?", "4..")
+] + [
+    (_AUSWAHL_KURZFORM, e) for e in (
+        "geschaetzt", "KP-01.TP-1", "kp-01.tp-1.", "KP-01.TP-1?", "KP-01.TP-9",
+        "Erfassen", "geschätzt", "geschaetzt..")
+] + [
+    (ANZAHL, e) for e in (
+        "1", "etwa 3 Fälle", "ca 3.", "5 pro Woche", "3?", "ein Fall, manchmal 3")
+] + [
+    (PROZENT_0_100, e) for e in (
+        "70", "ca. 70 %", "70%", "70 Prozent", "70.", "im Schnitt 70 %", "circa 70",
+        "ungefähr 70", "ungefaehr 70", "rund 70", "durchschnittlich 70", "etwa 70", "ca 70",
+        "150 %", "70,5 %", "70 bis 80", "70?", "etwa 70 bis 80 %", "70 %..")
+] + [
+    (MINUTEN, e) for e in (
+        "3 Stunden", "ca 90 Min.", "45min", "1,5h", "40 Stunden", "im Schnitt 2 Std.",
+        "circa 3 Stunden", "ungefähr 3 Stunden", "ungefaehr 3 Stunden", "rund 3 Stunden",
+        "durchschnittlich 3 Stunden", "etwa 3 Stunden", "3", "40", "90 min..", "2 Std.!",
+        "Der Prozess dauert 3 Stunden.", "nicht 3 Stunden", "3 Stunden?",
+        "1 Stunde 30 Minuten", "3 Stunden, der Gesamtprozess dauert aber eine Woche")
+] + [
+    (ZAHL, e) for e in (
+        "2 pro Monat", "2 mal im Monat", "2mal im Monat", "2mal pro Woche", "2-mal je Jahr",
+        "etwa 4 pro Monat", "ca. 4 pro Monat", "ca 4 pro Monat", "circa 4 pro Monat",
+        "ungefähr 4 pro Monat", "ungefaehr 4 pro Monat", "rund 4 pro Monat",
+        "im Schnitt 4 pro Monat", "durchschnittlich 4 pro Monat", "2", "2 pro Tag",
+        "2 mal pro Monat, im Dezember mehr", "Der Gesamtprozess läuft 2 mal pro Monat",
+        "2 pro Monat?", "2 pro Monat..", "2x pro Monat", "1x im Jahr", "2 x pro Woche",
+        "2X je Monat", "etwa 3x im Monat", "2x pro Monat.", "2x", "2x pro Tag",
+        "2xx pro Monat", "x pro Monat", "2x pro Monat?", "2x pro Monat..", "0x10 pro Monat")
+]
+
+
+@pytest.mark.parametrize("typ, eingabe", _KURZFORM_EINGABEN)
+def test_normalisierer_umfasst_kurzform(typ, eingabe):
+    kurz = typ.kurzform(eingabe)
+    if kurz is None:
+        return
+    ergebnis = typ.normalisiere(eingabe)
+    zwischen = typ.normalisiere(kurz)
+    if typ.validator(zwischen):
+        assert typ.validator(ergebnis), (eingabe, ergebnis)
+        assert ergebnis == zwischen
+    else:
+        # z. B. „150 %“ -> „150“: der Pruefer lehnt ab, also bleibt auch der Rohtext ungueltig.
+        assert not typ.validator(ergebnis), (eingabe, ergebnis)
+
+
+@pytest.mark.parametrize("typ", [ZAHL, MINUTEN, ANZAHL, PROZENT_0_100, SKALA_1_5])
+@pytest.mark.parametrize("eingabe", [
+    "", "\n", "9" * 400, "9" * 400 + " Stunden", "9" * 400 + " pro Jahr",
+    "9" * 400 + " %", "9" * 400 + " Minuten", "9" * 309 + ",25 pro Woche", "äöü?…", "1.000.000 pro Jahr",
+    "1.000.000 Minuten", "ä", "ä", "5 Stunden̈",
+])
+def test_strenge_normalisierer_sind_total(typ, eingabe):
+    # Spec 3.4: die geschlossenen Grammatiken werfen nie; Riesenzahlen (inf) und
+    # Ueberlauf nach der Multiplikation bleiben unveraendert und ungueltig.
+    ergebnis = typ.normalisiere(eingabe)
+    assert isinstance(ergebnis, str)
+    assert isinstance(typ.validator(ergebnis), bool)
+    if eingabe.startswith("9" * 400):
+        assert ergebnis == eingabe
+        assert typ.validator(ergebnis) is False
+
+
+def test_antwortform_ja_nein_skala_anzahl():
+    assert JA_NEIN.antwortform == "ja oder nein"
+    assert SKALA_1_5.antwortform == "eine Ziffer von 1 bis 5"
+    assert ANZAHL.antwortform == "nur eine Zahl, ohne Einheit, z. B. ‚5‘"
+
+
+def test_antwortform_zahl_minuten():
+    assert ZAHL.antwortform == (
+        "Zahl pro Woche, pro Monat oder pro Jahr, z. B. ‚2 pro Monat‘")
+    assert MINUTEN.antwortform == (
+        "Dauer als Zahl mit ‚Minuten‘ oder ‚Stunden‘, z. B. ‚90 Minuten‘")
+
+
+def test_antwortform_prozent():
+    assert PROZENT_0_100.antwortform == "Zahl von 0 bis 100"
+    assert PROZENT_GANZ_0_100.antwortform == "ganze Zahl von 0 bis 100"
+
+
+def test_antwortform_auswahl():
+    assert AUSWAHL("a", "b").antwortform == "genau eine von: a, b"
+
+
+def test_antwortform_auswahl_nennt_namen():
+    typ = AUSWAHL("KP-01.TP-1", "KP-01.TP-2", namen={"KP-01.TP-1": "Anfrage erfassen"})
+    assert typ.antwortform == ("genau eine von: KP-01.TP-1 (= Anfrage erfassen), "
+                               "KP-01.TP-2")
+
+
+def test_auswahl_stellt_optionen_als_daten_bereit():
+    typ = AUSWAHL("KP-01.TP-1", "zwei Worte", "a, b")
+
+    assert typ.optionen == ("KP-01.TP-1", "zwei Worte", "a, b")
+
+
+def test_auswahl_stellt_namen_als_daten_bereit_nur_zu_den_optionen():
+    typ = AUSWAHL("a", "b", namen={"a": "Alpha", "x": "fremd"})
+
+    assert dict(typ.namen) == {"a": "Alpha"}
+    assert AUSWAHL("a").namen == () and JA_NEIN.optionen == () and JA_NEIN.namen == ()
+
+
+def test_vergleichsschluessel_ist_oeffentlich():
+    assert vergleichsschluessel("  R-01_Größe. ") == "r 01 groesse"
+
+
+def test_antwortform_freie_typen():
+    assert FREITEXT.antwortform == "Text"
+    assert LISTE.antwortform == "Liste, durch Kommas getrennt"
+
+
+def test_antwortform_ist_pflichtmerkmal():
+    with pytest.raises(TypeError):
+        Feldtyp("x", lambda w: True, lambda w: w)

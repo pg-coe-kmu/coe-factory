@@ -5,7 +5,8 @@ import pytest
 
 from bc1_core.core import process_turn
 from bc1_core.gespraech import TurnKontext
-from bc1_core.package import TOY_PROZESS
+from bc1_core.feldtypen import JA_NEIN
+from bc1_core.package import TOY_PROZESS, FieldSpec, UseCasePackage
 from bc1_core.store import InMemoryStateStore
 from bc1_core.types import SessionState
 from bc1_service.ollama_llm import OllamaLLM
@@ -64,6 +65,21 @@ def test_extract_liefert_kandidaten_und_filtert_unbekannte_felder():
     assert [(k.field_name, k.value) for k in kandidaten] == [
         ("prozess_name", "Urlaubsantrag")
     ]
+
+
+def test_ollama_extract_nutzt_den_helfer():
+    paket = UseCasePackage(
+        name="ollama_helfer", schema_version="0.1",
+        fields=(FieldSpec("aktiv", "Ist der Prozess aktiv?", typ=JA_NEIN),))
+    state = SessionState("s1", "0.1")
+    state.raw_log.append(("m1", "Start"))
+    state.antworten["m1"] = {"status": "frage", "payload": {"feld": "aktiv"}}
+    stub = _StubClient([_Antwort(_extraktions_json())])
+    OllamaLLM(client=stub).extract("Ja", paket, state)
+    nutzer = stub.aufrufe[0]["messages"][1]["content"]
+    assert "Gerade gestellte Frage" in nutzer
+    assert "ja oder nein" in nutzer
+    assert "als JSON nach dem vorgegebenen Schema" in nutzer
 
 
 # Leere Modell-Antwort (z. B. wenn ein via BC1_OLLAMA_MODELL gesetztes

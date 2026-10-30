@@ -81,11 +81,11 @@ def test_lange_antwort_geht_an_die_ki():
                           typ=MINUTEN)),
     )
     state = SessionState("s1", "0.1")
-    ki = _ZaehlerKI([ExtractionCandidate("gesamtdauer", "3 Stunden")])
-    extract_and_merge(state, "Der Prozess dauert 3 Stunden.", "m1", paket, ki,
+    ki = _ZaehlerKI([ExtractionCandidate("schrittdauer", "3 Stunden")])
+    extract_and_merge(state, "Der Schritt dauert 3 Stunden.", "m1", paket, ki,
                       gefragt=paket.field("schrittdauer"))
-    assert state.values["gesamtdauer"].value == "180"
-    assert "schrittdauer" not in state.values
+    assert state.values["schrittdauer"].value == "180"
+    assert "gesamtdauer" not in state.values
     assert ki.aufrufe == 1
 
 
@@ -204,7 +204,13 @@ def test_focus_step_kurzantwort():
     assert state.values["focus_step"].value == "KP-01.TP-1"
     assert state.values["focus_step"].status is FieldStatus.GUELTIG
     assert ki.aufrufe == 0
-    for text in ("KP-01.TP-9", "Erfassen", "KP-01.TP-1?"):
+    # Teilprozessname loest die Kurzform direkt auf (Spec 3.3): kein KI-Aufruf
+    direkt_ki = _ZaehlerKI()
+    direkt_state = SessionState("s3", paket.schema_version)
+    extract_and_merge(direkt_state, "Erfassen", "m1", paket, direkt_ki, gefragt=gefragt)
+    assert direkt_state.values["focus_step"].value == "KP-01.TP-1"
+    assert direkt_ki.aufrufe == 0
+    for text in ("KP-01.TP-9", "KP-01.TP-1?"):
         frische_ki = _ZaehlerKI()
         extract_and_merge(SessionState("s2", paket.schema_version), text,
                           "m1", paket, frische_ki, gefragt=gefragt)
@@ -428,8 +434,8 @@ def test_typ_normalisiert_vor_validierung_und_speichert_normalisiert():
         fields=(FieldSpec("dauer", "Wie lange?", typ=MINUTEN),),
     )
     state = SessionState("s1", "0.1")
-    llm = FakeLLM({"m": [ExtractionCandidate("dauer", "2 Stunden")]})
-    extract_and_merge(state, "m", "m1", paket, llm)
+    llm = FakeLLM({"2 Stunden": [ExtractionCandidate("dauer", "2 Stunden")]})
+    extract_and_merge(state, "2 Stunden", "m1", paket, llm)
     assert state.values["dauer"].value == "120"
     assert state.values["dauer"].status is FieldStatus.GUELTIG
 
@@ -468,14 +474,14 @@ def test_unklar_wird_ueber_normalisierten_kandidaten_match_aufgeloest():
     )
     state = SessionState("s1", "0.1")
     llm = FakeLLM({
-        "a": [ExtractionCandidate("menge", "600")],
-        "b": [ExtractionCandidate("menge", "1200")],
-        "c": [ExtractionCandidate("menge", "100 pro Monat")],
+        "600 pro Jahr": [ExtractionCandidate("menge", "600 pro Jahr")],
+        "1200 pro Jahr": [ExtractionCandidate("menge", "1200 pro Jahr")],
+        "100 pro Monat": [ExtractionCandidate("menge", "100 pro Monat")],
     })
-    extract_and_merge(state, "a", "m1", paket, llm)
-    extract_and_merge(state, "b", "m2", paket, llm)
+    extract_and_merge(state, "600 pro Jahr", "m1", paket, llm)
+    extract_and_merge(state, "1200 pro Jahr", "m2", paket, llm)
     assert state.values["menge"].status is FieldStatus.UNKLAR
-    extract_and_merge(state, "c", "m3", paket, llm)
+    extract_and_merge(state, "100 pro Monat", "m3", paket, llm)
     fv = state.values["menge"]
     assert fv.value == "1200"
     assert fv.status is FieldStatus.GUELTIG
@@ -491,11 +497,11 @@ def test_klaerung_erkennt_normalisierte_gleichheit():
     )
     state = SessionState("s1", "0.1")
     llm = FakeLLM({
-        "a": [ExtractionCandidate("menge", "50 pro Monat")],
-        "b": [ExtractionCandidate("menge", "600")],
+        "50 pro Monat": [ExtractionCandidate("menge", "50 pro Monat")],
+        "600 pro Jahr": [ExtractionCandidate("menge", "600 pro Jahr")],
     })
-    extract_and_merge(state, "a", "m1", paket, llm)
-    extract_and_merge(state, "b", "m2", paket, llm)
+    extract_and_merge(state, "50 pro Monat", "m1", paket, llm)
+    extract_and_merge(state, "600 pro Jahr", "m2", paket, llm)
     assert state.values["menge"].value == "600"
     assert state.values["menge"].status is FieldStatus.GUELTIG
     assert state.values["menge"].candidates == []
