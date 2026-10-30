@@ -87,10 +87,13 @@ PFLICHT = {
     "frequency_per_year": [
         "2 pro Monat", "2x die Woche", "2/Woche", "300", "wöchentlich", "einmal pro Woche",
         "jeden 2. Monat", "täglich", "2-3x pro Woche", "2x", "pro Monat 30",
-        "so 30 im Monat"],
+        "so 30 im Monat", "20 Leads pro Woche", "etwa 20 Anfragen pro Monat",
+        "jede Woche 2", "2 mal in der Woche"],
     "executions_per_run": ["1", "ca. 3 Fälle", "5 Leads", "immer 1", "fünf", "5 bis 10",
                            "5 pro Woche"],
-    "total_duration_minutes": DAUER_PFLICHT + ["30 Minuten pro Lead"],
+    "total_duration_minutes": DAUER_PFLICHT + [
+        "30 Minuten pro Lead", "mehr als 2 Stunden", "meistens 20 Minuten",
+        "2 Stunden bei uns"],
     "focus_step": [
         "KP-01.TP-1", "Anfrage erfassen", "Lieferanten-Bewertung", "anfrage erfassen.",
         "Anfrage erfassen?", "KP-01.TP-9", "erfassen", "der zweite Schritt", "die Prüfung",
