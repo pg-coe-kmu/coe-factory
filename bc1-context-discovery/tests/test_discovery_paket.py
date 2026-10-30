@@ -211,14 +211,15 @@ def test_b4_im_kontext_ohne_kernprozesse_bleibt_freitext():
 
 
 def test_kennung_mit_kernprozessen_hat_festen_wert():
-    # Fester Wert mit Namen (Spec Antwortformen 3.3; vorher nur IDs: 9e81785de2c8b1d8).
+    # Fester Wert mit Namen (Spec Antwortformen 3.3; vorher nur IDs: 9e81785de2c8b1d8,
+    # vor dem Eigner-Vorschlag im Fingerprint: 31e323f56aa45baf).
     kontext = replace(KONTEXT, prozesse=(("KP-01", "Auftrag"),))
-    assert baue_discovery_paket(kontext=kontext).schema_version == "1.2+ctx-31e323f56aa45baf"
+    assert baue_discovery_paket(kontext=kontext).schema_version == "1.2+ctx-9732b2e1a97ada02"
 
 
 def test_kennung_ohne_kernprozesse_hat_festen_wert():
-    # vorher nur IDs: 0a6cdaacdfde28de
-    assert baue_discovery_paket(kontext=KONTEXT).schema_version == "1.2+ctx-bbb1226f7e370e95"
+    # vorher nur IDs: 0a6cdaacdfde28de; vor dem Eigner-Vorschlag im Fingerprint: bbb1226f7e370e95
+    assert baue_discovery_paket(kontext=KONTEXT).schema_version == "1.2+ctx-1cd42b73d770ce80"
 
 
 def test_kennung_aendert_sich_wenn_ein_kernprozess_dazukommt():
@@ -385,9 +386,25 @@ def test_fingerabdruck_aendert_sich_mit_den_rollen_ids():
             != baue_discovery_paket(kontext=b).schema_version)
 
 
-def test_fingerabdruck_unabhaengig_vom_eigner():
-    a = replace(KONTEXT, rollen=(("R-01", "Sachbearbeitung"),), eigner=(("KP-01", "R-01"),))
-    b = replace(a, eigner=(("KP-01", None),))
+def test_eignerwechsel_zwischen_zwei_turns_ist_ein_paketkonflikt():
+    # Gesamtprüfung Befund 2: B3 wurde mit „Laut BC0 ist das Sachbearbeitung (R-01)“ gestellt;
+    # nach einem Eignerwechsel darf „Ja, stimmt“ nicht still als R-02 gelten.
+    basis = replace(KONTEXT, rollen=(("R-01", "Sachbearbeitung"), ("R-02", "Einkauf")))
+    vorher = baue_discovery_paket(kontext=replace(basis, eigner=(("KP-01", "R-01"),)))
+    nachher = baue_discovery_paket(kontext=replace(basis, eigner=(("KP-01", "R-02"),)))
+    store = InMemoryStateStore()
+    process_turn(store, FakeLLM(), vorher, "s1", "m1", "Hallo", company_id=MANDANT)
+    with pytest.raises(PaketKonfliktError):
+        process_turn(store, FakeLLM(), nachher, "s1", "m2", "Ja, stimmt",
+                     company_id=MANDANT)
+
+
+def test_kennung_bleibt_wenn_der_eigner_nicht_im_fragetext_steht():
+    # Nur der angezeigte Vorschlag ist antwortrelevant: bei mehreren Kernprozessen (kein
+    # Vorschlag im B3-Text) ändert ein anderer Eigner die Kennung nicht.
+    basis = replace(KONTEXT, rollen=(("R-01", "Sachbearbeitung"), ("R-02", "Einkauf")))
+    a = replace(basis, eigner=(("KP-01", "R-01"), ("KP-02", "R-01")))
+    b = replace(basis, eigner=(("KP-01", "R-02"), ("KP-02", "R-01")))
     assert (baue_discovery_paket(kontext=a).schema_version
             == baue_discovery_paket(kontext=b).schema_version)
 

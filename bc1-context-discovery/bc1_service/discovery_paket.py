@@ -62,19 +62,29 @@ class Bc0Kontext:
     prozesse: tuple[tuple[str, str], ...] = ()
 
 
+def _eigner_vorschlag(kontext: Bc0Kontext) -> list[str]:
+    """Rollen-ID, die der B3-Fragetext als Eigner-Vorschlag nennt (genau ein Kernprozess
+    mit aktiver Rolle), sonst leer."""
+    if len(kontext.eigner) == 1 and dict(kontext.rollen).get(kontext.eigner[0][1]) is not None:
+        return [kontext.eigner[0][1]]
+    return []
+
+
 def _ctx_fingerprint(kontext: Bc0Kontext) -> str:
     # Kanonisch, strukturiert, sortiert (Spec K2, R5-M7): gleiche Grundlagen =>
     # gleicher Wert, unabhaengig von Query-Reihenfolge. Rollen, Kernprozesse und
     # Teilprozesse gehen als (ID, Name)-Paare ein: die Namen wirken auf die
     # Auslegung der Eingabe (Spec Antwortformen 3.3), eine Umbenennung in BC0
-    # aendert also die Paket-Identitaet — gewollt. Die Eigner gehen nicht ein
-    # (nur Vorschlag und Befund).
+    # aendert also die Paket-Identitaet — gewollt. Vom Eigner geht nur der Vorschlag ein,
+    # den der B3-Fragetext nennt (Rollen-ID oder leer): er ist antwortrelevant, ein
+    # Eignerwechsel zwischen zwei Turns ist ein Paketkonflikt (Gesamtpruefung Befund 2).
     # Die Anfrage ist Teil der Paketidentitaet. Den Schutz gegen eine fremde Anfrage
     # traegt aber `pruefe_anfrage` (core) — der Recovery-Replay darf einen
     # abweichenden ctx-Hash passieren.
     roh = json.dumps(
         {"anfrage": kontext.anfrage_id,
          "company_id": kontext.company_id.lower(),
+         "eigner": _eigner_vorschlag(kontext),
          "kp": sorted(kontext.prozesse),
          "rollen": sorted(kontext.rollen),
          "snn": sorted(kontext.system_ids),
@@ -114,11 +124,8 @@ def baue_discovery_paket(*, kontext: Bc0Kontext | None = None) -> UseCasePackage
                     "Bitte nennen Sie die Rolle ("
                     + ", ".join(f"{rid} = {bez}" for rid, bez in kontext.rollen)
                     + ").")
-        if len(kontext.eigner) == 1:
-            rolle_id = kontext.eigner[0][1]
-            bezeichnung = dict(kontext.rollen).get(rolle_id)
-            if bezeichnung is not None:
-                b3_frage += f" Laut BC0 ist das {bezeichnung} ({rolle_id})."
+        for rolle_id in _eigner_vorschlag(kontext):
+            b3_frage += f" Laut BC0 ist das {dict(kontext.rollen)[rolle_id]} ({rolle_id})."
         f2_typ = baue_system_typ(frozenset(kontext.system_ids))
         # E4 ganzzahlig NUR im Kontext-Zweig (Codex R2-N-I4): geschrieben wird
         # ausschliesslich mit BC0-Kontext, und der Zweig traegt mit 1.1+ctx-
