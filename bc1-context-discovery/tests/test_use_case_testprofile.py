@@ -81,6 +81,14 @@ def test_fokusschritt_nachricht_nennt_die_kennung_des_fokus():
         assert fall.fokus_tp in traeger[0], fall.session_id
 
 
+def test_fokusschritt_nachricht_nennt_die_dauer_mit_einheit():
+    # Feste Sperre (b): ein KI-Wert mit Einheit gilt nur, wenn die Nachricht sie nennt.
+    for fall in FAELLE:
+        text, felder = next((t, f) for t, f in fall.nachrichten
+                            if any(name == "focus_step" for name, _ in f))
+        assert dict(felder)["focus_step_duration_minutes"] in text, fall.session_id
+
+
 def test_version_3_werte():
     assert "Version 3" in KENNZEICHEN
     for fall in FAELLE:

@@ -62,6 +62,12 @@ def extract_and_merge(state: SessionState, message: str, message_id: str,
         if (wert_roh is None and spec.typ.nackte_zahl_nur_von_person
                 and ist_nackte_zahl(cand.value)):
             continue
+        # Spec 2 „Feste Sperren“ (b): Zeitraum bzw. Einheit im KI-Wert nur, wenn die
+        # Nachricht sie selbst nennt („2x“ wird nie „2 pro Jahr“).
+        if (wert_roh is None and spec.typ.nennt_einheit is not None
+                and spec.typ.nennt_einheit(cand.value)
+                and not spec.typ.nennt_einheit(message)):
+            continue
         # Normalisierung VOR dem Merge: Vergleiche, Klärung und Kandidaten
         # arbeiten auf dem normalisierten Wert; gespeichert wird er auch.
         # Davor der PII-Filter (B2): der Anbieter sah nur Platzhalter, kann aber

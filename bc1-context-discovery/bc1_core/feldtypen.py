@@ -32,6 +32,9 @@ class Feldtyp:
     # Nur ZAHL und MINUTEN setzen es: eine nackte Zahl gilt nur, wenn die Person sie selbst
     # schreibt (Kurzform); als KI-Kandidat wird sie verworfen (Spec 2, „Fester Schutz“).
     nackte_zahl_nur_von_person: bool = field(default=False, kw_only=True)
+    # Nur ZAHL und MINUTEN setzen sie: Nennt die Nachricht selbst einen Zeitraum bzw. eine
+    # Zeiteinheit? Ein KI-Wert gilt nur dann (Spec 2, „Feste Sperren“ (b)).
+    nennt_einheit: Callable[[str], bool] | None = field(default=None, kw_only=True)
 
 
 # Deutsche Tausendergruppierung (z. B. "1.000", "12.345,5") VOR der einfachen
@@ -65,6 +68,25 @@ _NACKTE_ZAHL_MUSTER = re.compile(rf"({_ZAHL_TOKEN})[.!]?")
 
 def ist_nackte_zahl(text: str) -> bool:
     return _NACKTE_ZAHL_MUSTER.fullmatch(text.strip()) is not None
+
+
+# Spec 2 „Feste Sperren“ (b): Zeitraum-Wortstämme im Vergleichsschlüssel (ä -> ae), damit
+# auch „wöchentlich“ und „jährlich“ zählen.
+_ZEITRAUM_STAEMME = ("woch", "woech", "monat", "jahr", "jaehr")
+
+
+def _nennt_zeitraum(text: str) -> bool:
+    schluessel = vergleichsschluessel(text)
+    return any(stamm in schluessel for stamm in _ZEITRAUM_STAEMME)
+
+
+# Spec 2 „Feste Sperren“ (b): „minut“ und „stund“ als Stamm („halbe Stunde“); die Kürzel
+# min, std und h nur als eigenes Wort bzw. direkt an einer Zahl („1,5h“).
+_ZEITEINHEIT_MUSTER = re.compile(r"minut|stund|(?<![a-z])(?:min|std|h)(?![a-z])")
+
+
+def _nennt_zeiteinheit(text: str) -> bool:
+    return _ZEITEINHEIT_MUSTER.search(vergleichsschluessel(text)) is not None
 
 
 def _formatiere(zahl: float) -> str:
@@ -276,10 +298,12 @@ def _ist_nichtnegative_zahl(wert: str) -> bool:
 
 ZAHL = Feldtyp("zahl", _ist_nichtnegative_zahl, _normalisiere_zahl,
                kurzform=_kurzform_haeufigkeit, nackte_zahl_nur_von_person=True,
+               nennt_einheit=_nennt_zeitraum,
                antwortform="Zahl pro Woche, pro Monat oder pro Jahr, "
                            "z. B. ‚2 pro Monat‘")
 MINUTEN = Feldtyp("minuten", _ist_nichtnegative_zahl, _normalisiere_minuten,
                   kurzform=_kurzform_minuten, nackte_zahl_nur_von_person=True,
+                  nennt_einheit=_nennt_zeiteinheit,
                   antwortform="Dauer als Zahl mit ‚Minuten‘ oder ‚Stunden‘, "
                               "z. B. ‚90 Minuten‘")
 ANZAHL = Feldtyp("anzahl", _ist_nichtnegative_zahl, _normalisiere_anzahl,

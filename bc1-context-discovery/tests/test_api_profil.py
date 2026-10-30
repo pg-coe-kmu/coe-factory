@@ -60,8 +60,9 @@ WERTE = {
 }
 
 
-# Die Nachricht nennt die Kennung des Fokusschritts (feste Sperre (a), Spec 2).
-ALLES = "alles, der Fokus ist KP-01.TP-1"
+# Die Nachricht nennt die Kennung des Fokusschritts (feste Sperre (a), Spec 2) sowie
+# Zeitraum und Einheit der Zahlen (Sperre (b)).
+ALLES = "alles, der Fokus ist KP-01.TP-1, 120 pro Jahr, 90 Minuten"
 
 
 def _llm(ohne=(), abweichend=None):

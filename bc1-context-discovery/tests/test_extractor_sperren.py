@@ -4,7 +4,7 @@ Ein KI-Kandidat wird verworfen, wenn er der Originalnachricht widerspricht:
 (a) Identitätsbezug, (b) Zeitraum/Einheit, (c) Fragebezug.
 """
 from bc1_core.extractor import extract_and_merge
-from bc1_core.feldtypen import AUSWAHL
+from bc1_core.feldtypen import AUSWAHL, MINUTEN, ZAHL
 from bc1_core.llm import ExtractionCandidate, FakeLLM
 from bc1_core.package import FieldSpec, UseCasePackage
 from bc1_core.types import SessionState
@@ -64,6 +64,53 @@ def test_identitaet_name_mit_fragezeichen_wird_verworfen():
     state = _spiele(_paket_identitaet(), "Anfrage erfassen?",
                     [ExtractionCandidate("teilprozess", "KP-01.TP-1")])
     assert "teilprozess" not in state.values
+
+
+def _paket_wert(typ):
+    return UseCasePackage(name="sperre_b", schema_version="0.1",
+                          fields=(FieldSpec("wert", "Wie viel?", typ=typ),))
+
+
+def test_zeitraum_ohne_nennung_in_der_nachricht_wird_verworfen():
+    # „2x“ ist keine Zeitangabe: „2 pro Jahr“ wäre erfunden.
+    state = _spiele(_paket_wert(ZAHL), "2x",
+                    [ExtractionCandidate("wert", "2 pro Jahr")])
+    assert "wert" not in state.values
+
+
+def test_einheit_ohne_nennung_in_der_nachricht_wird_verworfen():
+    # „ca. 40“ nennt keine Einheit: „40 Minuten“ wäre erfunden.
+    state = _spiele(_paket_wert(MINUTEN), "ca. 40",
+                    [ExtractionCandidate("wert", "40 Minuten")])
+    assert "wert" not in state.values
+
+
+def test_einheit_halbe_stunde_in_der_nachricht_erlaubt_den_ki_wert():
+    # (Regression)
+    state = _spiele(_paket_wert(MINUTEN), "eine halbe Stunde",
+                    [ExtractionCandidate("wert", "30 Minuten")])
+    assert state.values["wert"].value == "30"
+
+
+def test_zeitraum_jeden_zweiten_monat_erlaubt_sechs_pro_jahr():
+    # (Regression) Der Zeitraum in der Nachricht (Monat) und im Wert (Jahr) dürfen sich
+    # unterscheiden — es zählt, dass die Nachricht überhaupt einen Zeitraum nennt.
+    state = _spiele(_paket_wert(ZAHL), "jeden 2. Monat",
+                    [ExtractionCandidate("wert", "6 pro Jahr")])
+    assert state.values["wert"].value == "6"
+
+
+def test_zeitraum_20_leads_pro_woche_ergibt_1040():
+    # (Regression)
+    state = _spiele(_paket_wert(ZAHL), "20 Leads pro Woche",
+                    [ExtractionCandidate("wert", "20 pro Woche")])
+    assert state.values["wert"].value == "1040"
+
+
+def test_zeitraum_wochentlich_in_der_nachricht_erlaubt_den_ki_wert():
+    state = _spiele(_paket_wert(ZAHL), "wöchentlich",
+                    [ExtractionCandidate("wert", "1 pro Woche")])
+    assert state.values["wert"].value == "52"
 
 
 def test_identitaet_ordinalzahl_ohne_kennung_oder_namen_wird_verworfen():

@@ -633,18 +633,19 @@ def _spiele_mit_zusatz(nummer, zusatz, lauf=1, ersetze=None):
 
 
 def test_bewertung_freie_antwort_setzt_ein_fremdes_feld_ist_nebenwirkung():
-    # Probe A (Gesamtprüfung I1): die Freitext-Antwort auf process_steps setzt D1 = 52. D1 wird
-    # nie gefragt („nicht geprüft“) — die Nebenwirkung steht als eigene ✗-Zeile.
+    # Probe A (Gesamtprüfung I1): die Freitext-Antwort auf process_steps setzt D4 = 4. D4 wird
+    # nie gefragt („nicht geprüft“) — die Nebenwirkung steht als eigene ✗-Zeile. (D1 „1 pro
+    # Woche“ wäre seit der festen Sperre (b) verworfen: die Antwort nennt keinen Zeitraum.)
     szenario, gespielt = _spiele_mit_zusatz(3, {
         ("process_steps", FREIE_ANTWORTEN["process_steps"]):
-            [ExtractionCandidate("frequency_per_year", "1 pro Woche")]})
+            [ExtractionCandidate("executions_per_run", "4")]})
 
     ergebnisse = bewerte(gespielt, szenario.erwartungen, DISCOVERY,
                          start_felder=szenario.start_felder)
 
     zeile = next(r for r in ergebnisse if r.ergebnis == "nebenwirkung")
     assert zeile.feld == "Nebenwirkung: Antwort auf process_steps"
-    assert zeile.detail == "Antwort änderte auch: frequency_per_year"
+    assert zeile.detail == "Antwort änderte auch: executions_per_run"
 
 
 def test_bewertung_freie_antwort_mit_mehreren_namen_setzt_e5_nicht():
@@ -678,7 +679,7 @@ def test_bewertung_startnachricht_darf_nur_die_vorgesehenen_felder_setzen():
 def test_bericht_zeigt_die_nebenwirkung_als_x_zeile_mit_ursache():
     szenario, gespielt = _spiele_mit_zusatz(3, {
         ("process_steps", FREIE_ANTWORTEN["process_steps"]):
-            [ExtractionCandidate("frequency_per_year", "1 pro Woche")]})
+            [ExtractionCandidate("executions_per_run", "4")]})
     ergebnisse = bewerte(gespielt, szenario.erwartungen, DISCOVERY,
                          start_felder=szenario.start_felder)
 
@@ -686,7 +687,7 @@ def test_bericht_zeigt_die_nebenwirkung_als_x_zeile_mit_ursache():
 
     assert ("| Nebenwirkung: Antwort auf process_steps | "
             f"{FREIE_ANTWORTEN['process_steps']} | 0 | – |  | "
-            "✗ Nebenwirkung (Antwort änderte auch: frequency_per_year) |") in text
+            "✗ Nebenwirkung (Antwort änderte auch: executions_per_run) |") in text
 
 
 def test_bericht_abnahme_nicht_erfuellt_bei_einem_x_trotz_voller_abdeckung():

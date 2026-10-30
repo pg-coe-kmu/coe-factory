@@ -434,8 +434,8 @@ def test_typ_normalisiert_vor_validierung_und_speichert_normalisiert():
         fields=(FieldSpec("dauer", "Wie lange?", typ=MINUTEN),),
     )
     state = SessionState("s1", "0.1")
-    llm = FakeLLM({"m": [ExtractionCandidate("dauer", "2 Stunden")]})
-    extract_and_merge(state, "m", "m1", paket, llm)
+    llm = FakeLLM({"2 Stunden": [ExtractionCandidate("dauer", "2 Stunden")]})
+    extract_and_merge(state, "2 Stunden", "m1", paket, llm)
     assert state.values["dauer"].value == "120"
     assert state.values["dauer"].status is FieldStatus.GUELTIG
 
@@ -474,14 +474,14 @@ def test_unklar_wird_ueber_normalisierten_kandidaten_match_aufgeloest():
     )
     state = SessionState("s1", "0.1")
     llm = FakeLLM({
-        "a": [ExtractionCandidate("menge", "600 pro Jahr")],
-        "b": [ExtractionCandidate("menge", "1200 pro Jahr")],
-        "c": [ExtractionCandidate("menge", "100 pro Monat")],
+        "600 pro Jahr": [ExtractionCandidate("menge", "600 pro Jahr")],
+        "1200 pro Jahr": [ExtractionCandidate("menge", "1200 pro Jahr")],
+        "100 pro Monat": [ExtractionCandidate("menge", "100 pro Monat")],
     })
-    extract_and_merge(state, "a", "m1", paket, llm)
-    extract_and_merge(state, "b", "m2", paket, llm)
+    extract_and_merge(state, "600 pro Jahr", "m1", paket, llm)
+    extract_and_merge(state, "1200 pro Jahr", "m2", paket, llm)
     assert state.values["menge"].status is FieldStatus.UNKLAR
-    extract_and_merge(state, "c", "m3", paket, llm)
+    extract_and_merge(state, "100 pro Monat", "m3", paket, llm)
     fv = state.values["menge"]
     assert fv.value == "1200"
     assert fv.status is FieldStatus.GUELTIG
@@ -497,11 +497,11 @@ def test_klaerung_erkennt_normalisierte_gleichheit():
     )
     state = SessionState("s1", "0.1")
     llm = FakeLLM({
-        "a": [ExtractionCandidate("menge", "50 pro Monat")],
-        "b": [ExtractionCandidate("menge", "600 pro Jahr")],
+        "50 pro Monat": [ExtractionCandidate("menge", "50 pro Monat")],
+        "600 pro Jahr": [ExtractionCandidate("menge", "600 pro Jahr")],
     })
-    extract_and_merge(state, "a", "m1", paket, llm)
-    extract_and_merge(state, "b", "m2", paket, llm)
+    extract_and_merge(state, "50 pro Monat", "m1", paket, llm)
+    extract_and_merge(state, "600 pro Jahr", "m2", paket, llm)
     assert state.values["menge"].value == "600"
     assert state.values["menge"].status is FieldStatus.GUELTIG
     assert state.values["menge"].candidates == []
