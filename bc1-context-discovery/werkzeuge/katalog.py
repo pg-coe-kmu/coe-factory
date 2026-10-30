@@ -8,15 +8,17 @@ def lade_katalog(pfad):
         return json.load(datei)
 
 
-def baue_paket(kontext):
+def baue_paket(kontext, variante=None):
     """Discovery-Paket mit dem Testkontext des Katalogs (Schluessel wie `Bc0Kontext`).
 
     Genau ein Eintrag in `eigner` heisst: fuer den Kernprozess der Anfrage wird
-    dieser Eigner vorgeschlagen (Frage B3); mehrere oder keiner: kein Vorschlag."""
+    dieser Eigner vorgeschlagen (Frage B3); mehrere oder keiner: kein Vorschlag.
+    `variante` ist der optionale Eintragsschluessel des Katalogs: "ohne_eigner"
+    laesst `eigner` weg (B3 ohne Vorschlag); sonst (None) gilt der Kontext wie er ist."""
     return baue_discovery_paket(kontext=Bc0Kontext(
         kontext["company_id"], tuple(map(tuple, kontext["teilprozesse"])),
         tuple(kontext["system_ids"]), rollen=tuple(map(tuple, kontext["rollen"])),
-        eigner=tuple(map(tuple, kontext["eigner"])),
+        eigner=() if variante == "ohne_eigner" else tuple(map(tuple, kontext["eigner"])),
         prozesse=tuple(map(tuple, kontext["prozesse"]))))
 
 
