@@ -522,9 +522,15 @@ def test_szenario1_grundlauf_mit_test_ki_fertig():
 
 
 def test_abdeckung_jeder_ki_fall_genau_einmal():
-    # KI-Faelle = Katalogeintraege ohne Kurzform (fest = Nachfrage); Kurzformen umgehen die KI.
+    # KI-Faelle = Katalogeintraege, die die KI wirklich erreichen: fest = Nachfrage UND die
+    # Kurzform nimmt die Antwort nicht (nimmt sie sie, scheitert höchstens die Prüfung).
+    def erreicht_die_ki(e):
+        spec = baue_paket(KATALOG["kontext"], e.get("variante")).field(e["feld"])
+        return spec.typ.kurzform is None or spec.typ.kurzform(e["antwort"]) is None
+
     ki_faelle = sorted(((e["feld"], e["antwort"], e.get("variante"))
-                        for e in KATALOG["eintraege"] if e["fest"] == "Nachfrage"), key=str)
+                        for e in KATALOG["eintraege"]
+                        if e["fest"] == "Nachfrage" and erreicht_die_ki(e)), key=str)
     faelle = abdeckung(KATALOG)
 
     assert sorted(((f.feld, f.antwort, f.variante) for f in faelle), key=str) == ki_faelle
@@ -537,6 +543,15 @@ def test_abdeckung_jeder_ki_fall_genau_einmal():
         erwartet = 4 if ki_je_fall[(fall.feld, fall.antwort, fall.variante)].endswith(
             "Nachfrage") else 2
         assert fall.szenario == erwartet
+
+
+def test_abdeckung_zaehlt_keine_antwort_die_die_kurzform_nimmt():
+    # Gesamtprüfung Befund 7: E4 „70,5 %“ nimmt die Kurzform (danach scheitert die
+    # Ganzzahl-Prüfung); die Extraktions-KI wird nie gefragt, also ist es kein KI-Fall.
+    faelle = {(f.feld, f.antwort) for f in abdeckung(KATALOG)}
+
+    assert ("focus_step_duration_confidence_pct", "70,5 %") not in faelle
+    assert ("focus_step_duration_confidence_pct", "zu 70 Prozent sicher") in faelle
 
 
 def test_anzahl_laeufe_ist_die_groesste_fallzahl_eines_felds():
@@ -579,8 +594,14 @@ def test_szenario2_waehlt_die_k_te_variante():
     zweiter = baue_szenario(KATALOG, 2, 2)
 
     # A2 und A3 werden einzeln gefragt: die Startnachricht nennt nur A1 und B1
-    assert "zeit_sparen" not in erster.start
-    assert FREIE_ANTWORTEN["process_name"] in erster.start
+    for lauf, szenario in ((1, erster), (2, zweiter)):
+        assert "zeit_sparen" not in szenario.start
+        assert FREIE_ANTWORTEN["process_name"] in szenario.start
+        # Der k-te Lauf spielt als ersten Versuch den k-ten Fall jedes Felds.
+        faelle = [f for f in abdeckung(KATALOG) if (f.szenario, f.lauf) == (2, lauf)]
+        assert faelle
+        assert all(szenario.antworten(f.feld, 0) == f.antwort for f in faelle)
+        assert szenario.pflicht == faelle
 
 
 def test_szenario2_d1_beginnt_mit_den_ki_faellen_ohne_nackte_zahl():

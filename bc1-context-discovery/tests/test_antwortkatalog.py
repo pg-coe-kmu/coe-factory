@@ -125,6 +125,14 @@ def test_katalog_deckt_alle_festen_pflichtfelder():
     assert fehlend == []
 
 
+def test_katalog_pflichtliste_beruecksichtigt_die_variante():
+    # Gesamtprüfung Befund 7: „Ja, stimmt“ gilt mit Eigner-Vorschlag (kein Eintragsschlüssel)
+    # UND ohne (Variante „ohne_eigner“) — beide Einträge müssen vorhanden sein.
+    varianten = {e.get("variante") for e in KATALOG["eintraege"]
+                 if (e["feld"], e["antwort"]) == ("process_owner_role", "Ja, stimmt")}
+    assert varianten == {None, "ohne_eigner"}
+
+
 @pytest.mark.parametrize(
     "eintrag", KATALOG["eintraege"],
     ids=[f"{e['feld']}-{e['antwort']}" for e in KATALOG["eintraege"]])
@@ -139,7 +147,8 @@ def test_katalog_kein_weg_liefert_falschen_wert(eintrag):
 
 
 def test_katalog_nackte_zahlen_nur_ueber_den_normalisierer():
-    # Ruling 8: D1 "300" = pro Jahr, E1/E2 "40" = Minuten; die Kurzform nimmt keine nackte Zahl
+    # Ruling 8: D1 "300" = pro Jahr, E1/E2 "40" = Minuten; der Normalisierer deutet die
+    # nackte Zahl so (seit dem festen Schutz nimmt auch die Kurzform sie, siehe unten)
     nackt = [e for e in KATALOG["eintraege"] if e["vertrag"] is not None]
     assert {(e["feld"], e["antwort"], e["vertrag"]) for e in nackt} == {
         ("frequency_per_year", "300", "300"), ("total_duration_minutes", "40", "40"),

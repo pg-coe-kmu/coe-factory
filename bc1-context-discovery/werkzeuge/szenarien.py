@@ -7,6 +7,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 
 from werkzeuge.antwortpruefung import Erwartung
+from werkzeuge.katalog import baue_paket
 
 # Antworten fuer Felder ohne Katalogeintrag (freier Text, Liste, Systemkennung).
 FREIE_ANTWORTEN = {
@@ -49,14 +50,21 @@ class Fall:
 
 
 def abdeckung(katalog):
-    """Ordnet jeden Katalogeintrag, der die KI erreicht (fest = Nachfrage, also keine
-    Kurzform), genau einem Lauf zu: ki = Wert -> Szenario 2, sonst Szenario 4; je Lauf
+    """Ordnet jeden Katalogeintrag, der die KI erreicht (fest = Nachfrage und die Kurzform
+    nimmt die Antwort nicht), genau einem Lauf zu: ki = Wert -> Szenario 2, sonst Szenario 4; je Lauf
     hoechstens ein Fall pro Feld (der n-te Fall eines Felds kommt in Lauf n)."""
     faelle = []
     gezaehlt = {}
+    pakete = {}   # je Variante ein Paket
     for eintrag in katalog["eintraege"]:
         if eintrag["fest"] != "Nachfrage":
             continue
+        variante = eintrag.get("variante")
+        if variante not in pakete:
+            pakete[variante] = baue_paket(katalog["kontext"], variante)
+        spec = pakete[variante].field(eintrag["feld"])
+        if spec.typ.kurzform is not None and spec.typ.kurzform(eintrag["antwort"]) is not None:
+            continue   # die Kurzform nimmt die Antwort: die KI wird nie gefragt
         szenario = 4 if eintrag["ki"].endswith("Nachfrage") else 2
         lauf = gezaehlt[(szenario, eintrag["feld"])] = (
             gezaehlt.get((szenario, eintrag["feld"]), 0) + 1)
