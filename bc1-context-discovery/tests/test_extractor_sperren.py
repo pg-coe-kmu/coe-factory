@@ -97,6 +97,20 @@ def test_identitaet_unsichere_oder_verneinte_nennung_wird_verworfen(nachricht):
     assert "teilprozess" not in state.values
 
 
+def test_identitaet_name_ohne_vergleichsschluessel_zaehlt_nicht_als_nennung():
+    # Fix-Welle 4 V2: Der Name „...“ hat einen leeren Schluessel und passte sonst ueberall.
+    paket = UseCasePackage(
+        name="sperre_a_leer", schema_version="0.1",
+        fields=(FieldSpec("teilprozess", "Welcher Teilprozess?",
+                          typ=AUSWAHL("KP-01.TP-1", "KP-01.TP-2",
+                                      namen={"KP-01.TP-1": "...",
+                                             "KP-01.TP-2": "Angebot prüfen"}),
+                          identitaetskritisch=True),))
+    state = _spiele(paket, "der zweite Schritt, bitte",
+                    [ExtractionCandidate("teilprozess", "KP-01.TP-1")])
+    assert "teilprozess" not in state.values
+
+
 def _paket_fragebezug():
     return UseCasePackage(
         name="sperre_c", schema_version="0.1",

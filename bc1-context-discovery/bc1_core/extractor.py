@@ -32,8 +32,9 @@ def _nennt_nur_option(message: str, typ: Feldtyp, option: str) -> bool:
         return False
     def nennt(opt: str) -> bool:
         woerter = [opt, *(name for o, name in typ.namen if o == opt)]
+        # Fix-Welle 4 V2: ein Wort mit leerem Vergleichsschlüssel passt nie.
         return any(re.search(rf"(?<!\w){re.escape(vergleichsschluessel(w))}(?!\w)", schluessel)
-                   for w in woerter)
+                   for w in woerter if vergleichsschluessel(w))
     return nennt(option) and not any(nennt(o) for o in typ.optionen if o != option)
 
 def _merke_kandidat(fv: FieldValue, wert: str, quelle: str) -> None:
