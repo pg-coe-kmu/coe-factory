@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 from bc1_core.core import zuletzt_gefragt
-from bc1_core.feldtypen import FREITEXT, MINUTEN
+from bc1_core.feldtypen import AUSWAHL, FREITEXT, MINUTEN
 from bc1_core.llm import ExtractionCandidate
 from bc1_core.package import FieldSpec, UseCasePackage
 from bc1_core.store import InMemoryStateStore
@@ -310,6 +310,23 @@ def test_nachfragetext_auswahl_nennt_alle_optionen():
         spec, "Meinen Sie die geschaeftsfuehrung, Vertrieb & Innendienst oder Lager+Versand?") == []
     assert pruefe_nachfragetext(spec, "Meinen Sie R-01 oder Vertrieb & Innendienst?") == [
         "nennt R-03 nicht"]
+
+
+def test_nachfragetext_auswahl_vergleicht_ganze_woerter_auch_bei_leerzeichen_in_optionen():
+    spec = FieldSpec("x", "Welche?", typ=AUSWAHL("zwei Worte", "a-1", namen={"a-1": "Alpha"}))
+
+    # Name statt Kennung genuegt
+    assert pruefe_nachfragetext(spec, "Meinen Sie zwei Worte oder Alpha?") == []
+    # nur das erste Wort, und "a-10" ist nicht "a-1"
+    assert pruefe_nachfragetext(spec, "Meinen Sie zwei oder a-10?") == [
+        "nennt zwei Worte nicht", "nennt a-1 nicht"]
+
+
+def test_nachfragetext_auswahl_ohne_optionen_daten_ist_ein_verstoss():
+    ohne_daten = replace(AUSWAHL("a", "b"), optionen=())
+    spec = FieldSpec("x", "Welche?", typ=ohne_daten)
+
+    assert pruefe_nachfragetext(spec, "a oder b?") == ["Optionen nicht ermittelbar"]
 
 
 def test_nachfragetext_skala_nennt_1_und_5():
@@ -622,6 +639,20 @@ def test_kommandozeile_spielt_ohne_lauf_alle_laeufe_und_mit_lauf_nur_einen(tmp_p
     assert "- Lauf 2: " in text_einer and "- Lauf 1: " not in text_einer
 
 
+def test_kommandozeile_meldet_bei_teillauf_keine_abnahme(tmp_path):
+    waehle = lambda umgebung: _test_ki(baue_szenario(KATALOG, 2))
+    teil, ganz = tmp_path / "teil.md", tmp_path / "ganz.md"
+
+    main(["--szenario", "2", "--lauf", "2", "--ausgabe", str(teil)], umgebung={}, waehle=waehle)
+    main(["--szenario", "3", "--lauf", "1", "--ausgabe", str(ganz)], umgebung={},
+         waehle=lambda umgebung: _test_ki(baue_szenario(KATALOG, 3)))
+
+    assert "Teilergebnis: Abdeckung nur für Lauf 2 geprüft" in teil.read_text("utf-8")
+    assert "Abnahme erfüllt" not in teil.read_text("utf-8")
+    # Szenario 3 hat nur einen Lauf: --lauf 1 ist das ganze Szenario
+    assert "Abnahme erfüllt" in ganz.read_text("utf-8")
+
+
 def test_kommandozeile_legt_berichte_nie_im_repo_ab():
     ziel = Path(__file__).parent / "darf-nicht-entstehen.md"
     aufrufe = []
@@ -664,6 +695,19 @@ def test_bericht_zeigt_fehlende_werte_als_strich_statt_none():
 
     assert "| e1 |  | 0 | – |" in text
     assert "None" not in text
+
+
+def test_bericht_teillauf_trifft_keine_abnahme_aussage():
+    szenario = baue_szenario(KATALOG, 2, 2)
+    _, ergebnisse = _spiele_szenario(2, 2)
+
+    text = bericht([replace(r, lauf=2) for r in ergebnisse], modell="m", code_stand="c",
+                   szenario="s", pflicht=szenario.pflicht, teillauf=2)
+
+    assert ("Teilergebnis: Abdeckung nur für Lauf 2 geprüft — "
+            "Abnahme hier nicht beurteilbar") in text
+    assert "Abnahme erfüllt" not in text and "Abnahme NICHT erfüllt" not in text
+    assert "| frequency_per_year | wöchentlich | 2 | 2 | gelaufen |" in text
 
 
 def test_szenario3_nachfrage_dann_richtige_antwort():

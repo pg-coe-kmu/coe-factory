@@ -16,6 +16,7 @@ from bc1_core.feldtypen import (
     PROZENT_0_100,
     SKALA_1_5,
     ZAHL,
+    vergleichsschluessel,
 )
 from bc1_service.paket_feldtypen import PROZENT_GANZ_0_100
 
@@ -860,6 +861,23 @@ def test_antwortform_auswahl_nennt_namen():
     typ = AUSWAHL("KP-01.TP-1", "KP-01.TP-2", namen={"KP-01.TP-1": "Anfrage erfassen"})
     assert typ.antwortform == ("genau eine von: KP-01.TP-1 (= Anfrage erfassen), "
                                "KP-01.TP-2")
+
+
+def test_auswahl_stellt_optionen_als_daten_bereit():
+    typ = AUSWAHL("KP-01.TP-1", "zwei Worte", "a, b")
+
+    assert typ.optionen == ("KP-01.TP-1", "zwei Worte", "a, b")
+
+
+def test_auswahl_stellt_namen_als_daten_bereit_nur_zu_den_optionen():
+    typ = AUSWAHL("a", "b", namen={"a": "Alpha", "x": "fremd"})
+
+    assert dict(typ.namen) == {"a": "Alpha"}
+    assert AUSWAHL("a").namen == () and JA_NEIN.optionen == () and JA_NEIN.namen == ()
+
+
+def test_vergleichsschluessel_ist_oeffentlich():
+    assert vergleichsschluessel("  R-01_Größe. ") == "r 01 groesse"
 
 
 def test_antwortform_freie_typen():

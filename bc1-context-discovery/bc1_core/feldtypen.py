@@ -25,6 +25,10 @@ class Feldtyp:
     normalisiere: Callable[[str], str]
     kurzform: Callable[[str], str | None] | None = None
     antwortform: str = field(kw_only=True)
+    # Nur AUSWAHL setzt sie: die Optionen als Daten (fuer das Pruefwerkzeug).
+    optionen: tuple[str, ...] = field(default=(), kw_only=True)
+    # (Option, Name)-Paare; als Tupel, damit Feldtyp hashbar bleibt.
+    namen: tuple[tuple[str, str], ...] = field(default=(), kw_only=True)
 
 
 # Deutsche Tausendergruppierung (z. B. "1.000", "12.345,5") VOR der einfachen
@@ -163,6 +167,10 @@ def _schluessel(text: str) -> str:
     trifft keine Option). Die Kurzform nutzt den Schluessel ohne Raender, weil sie
     ihre engen Raender (hoechstens ein „.“/„!“) vorher selbst prueft."""
     return _entferne_rand(_schluessel_ohne_rand(text))
+
+
+# Oeffentlicher Name fuer Aufrufer ausserhalb dieses Moduls (Pruefwerkzeug).
+vergleichsschluessel = _schluessel
 
 
 def _normalisiere_ja_nein(wert: str) -> str:
@@ -325,6 +333,9 @@ def AUSWAHL(*optionen: str, namen: Mapping[str, str] | None = None,
         validator=lambda w: w in optionen,
         normalisiere=_normalisiere,
         kurzform=_kurzform,
+        optionen=tuple(optionen),
+        namen=tuple((option, namen[option]) for option in optionen
+                    if namen and namen.get(option)),
         antwortform="genau eine von: " + ", ".join(
             f"{option} (= {namen[option]})" if namen and namen.get(option) else option
             for option in optionen),

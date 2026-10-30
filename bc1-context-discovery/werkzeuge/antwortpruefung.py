@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass, field
 
 from bc1_core.core import process_turn
-from bc1_core.feldtypen import _schluessel
+from bc1_core.feldtypen import vergleichsschluessel
 
 
 @dataclass
@@ -54,12 +54,15 @@ def pruefe_nachfragetext(spec, text):
             if not re.search(rf"\b{wort}\b", text, re.IGNORECASE):
                 verstoesse.append(f"nennt {wort} nicht")
     elif spec.typ.name.startswith("auswahl("):
-        schluessel_text = _schluessel(text)
-        # Optionen und Namen stehen in der Antwortform: "genau eine von: R-01 (= Name), ..."
-        for option, name in re.findall(r"(?:: |, )([^\s,(]+)(?: \(= ([^)]*)\))?",
-                                       spec.typ.antwortform):
-            if not any(_schluessel(bezeichnung) in schluessel_text
-                       for bezeichnung in (option, name) if bezeichnung):
+        schluessel_text = vergleichsschluessel(text)
+        namen = dict(spec.typ.namen)
+        if not spec.typ.optionen:
+            verstoesse.append("Optionen nicht ermittelbar")
+        for option in spec.typ.optionen:
+            # Kennung ODER Name, als ganze Wortfolge (nicht als Teilstring)
+            if not any(re.search(rf"(?<!\w){re.escape(vergleichsschluessel(bezeichnung))}(?!\w)",
+                                 schluessel_text)
+                       for bezeichnung in (option, namen.get(option)) if bezeichnung):
                 verstoesse.append(f"nennt {option} nicht")
     elif spec.typ.name == "skala_1_5":
         for ziffer in ("1", "5"):
@@ -132,7 +135,8 @@ def bewerte(lauf, erwartungen, paket=None):
     return ergebnisse
 
 
-def bericht(ergebnisse, *, modell, code_stand, szenario, pflicht=(), laeufe=()):
+def bericht(ergebnisse, *, modell, code_stand, szenario, pflicht=(), laeufe=(),
+            teillauf=None):
     """Markdown-Bericht (Klartext zuerst, dann die Felder)."""
     geprueft = [r for r in ergebnisse if r.ergebnis != "nicht_geprueft"]
     bestanden = sum(1 for r in geprueft if r.ergebnis.startswith("ok"))
@@ -170,9 +174,14 @@ def bericht(ergebnisse, *, modell, code_stand, szenario, pflicht=(), laeufe=()):
         gelaufen = {(r.feld, r.lauf, r.gesendet[0]) for r in ergebnisse
                     if r.ergebnis != "nicht_geprueft"}
         fehlend = [f for f in pflicht if (f.feld, f.lauf, f.antwort) not in gelaufen]
-        zeilen += ["", "## Abdeckung",
-                   "Abnahme NICHT erfüllt: mindestens ein Pflichtfall ist nicht gelaufen."
-                   if fehlend else "Abnahme erfüllt: jeder Pflichtfall ist gelaufen.",
+        if teillauf is not None:
+            urteil = (f"Teilergebnis: Abdeckung nur für Lauf {teillauf} geprüft — "
+                      "Abnahme hier nicht beurteilbar")
+        elif fehlend:
+            urteil = "Abnahme NICHT erfüllt: mindestens ein Pflichtfall ist nicht gelaufen."
+        else:
+            urteil = "Abnahme erfüllt: jeder Pflichtfall ist gelaufen."
+        zeilen += ["", "## Abdeckung", urteil,
                    "", "| Feld | Antwort | Szenario | Lauf | Status |", "|---|---|---|---|---|"]
         zeilen += [f"| {f.feld} | {f.antwort} | {f.szenario} | {f.lauf} | "
                    f"{'NICHT gelaufen' if f in fehlend else 'gelaufen'} |" for f in pflicht]

@@ -56,7 +56,8 @@ def main(argv=None, umgebung=None, waehle=None):
     stand = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True,
                            text=True, cwd=Path(__file__).parent)
     text = bericht(ergebnisse, modell=modell, code_stand=stand.stdout.strip() or "unbekannt",
-                   szenario=f"Szenario {args.szenario}", pflicht=pflicht, laeufe=laeufe)
+                   szenario=f"Szenario {args.szenario}", pflicht=pflicht, laeufe=laeufe,
+                   teillauf=args.lauf if len(laeufe) < anzahl else None)
     args.ausgabe.write_text(text, encoding="utf-8")
     return 0
 
