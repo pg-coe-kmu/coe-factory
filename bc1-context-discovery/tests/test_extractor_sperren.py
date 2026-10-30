@@ -4,7 +4,7 @@ Ein KI-Kandidat wird verworfen, wenn er der Originalnachricht widerspricht:
 (a) Identitätsbezug, (b) Zeitraum/Einheit, (c) Fragebezug.
 """
 from bc1_core.extractor import extract_and_merge
-from bc1_core.feldtypen import AUSWAHL, MINUTEN, ZAHL
+from bc1_core.feldtypen import ANZAHL, AUSWAHL, MINUTEN, ZAHL
 from bc1_core.llm import ExtractionCandidate, FakeLLM
 from bc1_core.package import FieldSpec, UseCasePackage
 from bc1_core.types import SessionState
@@ -64,6 +64,33 @@ def test_identitaet_name_mit_fragezeichen_wird_verworfen():
     state = _spiele(_paket_identitaet(), "Anfrage erfassen?",
                     [ExtractionCandidate("teilprozess", "KP-01.TP-1")])
     assert "teilprozess" not in state.values
+
+
+def _paket_fragebezug():
+    return UseCasePackage(
+        name="sperre_c", schema_version="0.1",
+        fields=(FieldSpec("haeufigkeit", "Wie oft?", typ=ZAHL),
+                FieldSpec("faelle", "Wie viele Fälle je Durchlauf?", typ=ANZAHL)))
+
+
+def test_fragebezug_ohne_gueltigen_wert_fuers_gefragte_feld_verwirft_andere_felder():
+    # „5 pro Woche“ auf die Fallzahl-Frage darf nicht die Häufigkeit ändern.
+    paket = _paket_fragebezug()
+    state = _spiele(paket, "5 pro Woche",
+                    [ExtractionCandidate("haeufigkeit", "5 pro Woche")],
+                    gefragt=paket.field("faelle"))
+    assert "haeufigkeit" not in state.values
+
+
+def test_fragebezug_mit_gueltigem_wert_fuers_gefragte_feld_gelten_alle_kandidaten():
+    # (Regression) Beantwortet die KI die gestellte Frage, wirken auch ihre anderen Felder.
+    paket = _paket_fragebezug()
+    state = _spiele(paket, "5 Fälle, und das 5 pro Woche",
+                    [ExtractionCandidate("haeufigkeit", "5 pro Woche"),
+                     ExtractionCandidate("faelle", "5")],
+                    gefragt=paket.field("faelle"))
+    assert state.values["faelle"].value == "5"
+    assert state.values["haeufigkeit"].value == "260"
 
 
 def _paket_wert(typ):

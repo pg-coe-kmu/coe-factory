@@ -53,6 +53,12 @@ def extract_and_merge(state: SessionState, message: str, message_id: str,
     else:
         with ki_aufruf("extraktion"):
             kandidaten = llm.extract(message, package, state)
+    # Spec 2 „Feste Sperren“ (c): Liefert die KI für das gefragte Feld keinen gültigen Wert,
+    # gelten ihre Kandidaten für andere Felder in diesem Turn nicht. Die Kandidaten des
+    # gefragten Felds kommen deshalb zuerst (stabil: die Reihenfolge je Feld bleibt).
+    gefragt_ok = False
+    if gefragt is not None and wert_roh is None:
+        kandidaten = sorted(kandidaten, key=lambda c: c.field_name != gefragt.name)
     for cand in kandidaten:
         spec = package.field(cand.field_name)
         if spec is None:
@@ -79,6 +85,11 @@ def extract_and_merge(state: SessionState, message: str, message_id: str,
                 and wert in spec.typ.optionen
                 and not _nennt_nur_option(message, spec.typ, wert)):
             continue
+        if gefragt is not None and wert_roh is None:
+            if spec is gefragt:
+                gefragt_ok = gefragt_ok or status_fuer(spec, wert) is FieldStatus.GUELTIG
+            elif not gefragt_ok:
+                continue
         fv = state.values.get(cand.field_name)
         if fv is None or fv.value is None:
             state.values[cand.field_name] = FieldValue(

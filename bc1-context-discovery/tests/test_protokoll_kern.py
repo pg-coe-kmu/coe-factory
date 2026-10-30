@@ -99,7 +99,10 @@ def test_ungueltiger_wert_wird_ohne_wert_protokolliert(korrelation, caplog):
 def test_widerspruch_wird_als_unklar_protokolliert(korrelation, caplog):
     caplog.set_level(logging.INFO, logger="bc1.kern")
     llm = FakeLLM({"a": [ExtractionCandidate("prozess_name", "Freigabe")],
-                   "b": [ExtractionCandidate("prozess_name", "Bestellung")]})
+                   # Turn 2 beantwortet die gestellte Frage (ausloeser) und widerspricht
+                   # dem Namen; sonst gälte der Widerspruch nach Sperre (c) nicht.
+                   "b": [ExtractionCandidate("ausloeser", "Antrag"),
+                         ExtractionCandidate("prozess_name", "Bestellung")]})
     store = InMemoryStateStore()
     for mid, text in (("m1", "a"), ("m2", "b")):
         process_turn(store, llm, TOY_PROZESS, "s1", mid, text, company_id=MANDANT)

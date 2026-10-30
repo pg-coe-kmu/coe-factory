@@ -81,11 +81,11 @@ def test_lange_antwort_geht_an_die_ki():
                           typ=MINUTEN)),
     )
     state = SessionState("s1", "0.1")
-    ki = _ZaehlerKI([ExtractionCandidate("gesamtdauer", "3 Stunden")])
-    extract_and_merge(state, "Der Prozess dauert 3 Stunden.", "m1", paket, ki,
+    ki = _ZaehlerKI([ExtractionCandidate("schrittdauer", "3 Stunden")])
+    extract_and_merge(state, "Der Schritt dauert 3 Stunden.", "m1", paket, ki,
                       gefragt=paket.field("schrittdauer"))
-    assert state.values["gesamtdauer"].value == "180"
-    assert "schrittdauer" not in state.values
+    assert state.values["schrittdauer"].value == "180"
+    assert "gesamtdauer" not in state.values
     assert ki.aufrufe == 1
 
 

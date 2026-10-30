@@ -715,8 +715,10 @@ def test_abbruch_mit_blockiertem_aufraeumen_liefert_trotzdem_200(umgebung, caplo
     llm = FakeLLM({
         "schritt KP-01.TP-1": [ExtractionCandidate("focus_step", "KP-01.TP-1")],
         # Zweitnennung eines ANDEREN gueltigen Schritts => Feld wird UNKLAR;
-        # am Rundenlimit greift damit der Completion-Guard.
-        "wirr KP-01.TP-2": [ExtractionCandidate("focus_step", "KP-01.TP-2")]})
+        # am Rundenlimit greift damit der Completion-Guard. Die Antwort beantwortet
+        # zugleich die gestellte Frage (dauer), sonst verwuerfe Sperre (c) den Widerspruch.
+        "wirr KP-01.TP-2": [ExtractionCandidate("dauer", "eine Weile"),
+                            ExtractionCandidate("focus_step", "KP-01.TP-2")]})
     client = TestClient(create_app(InMemoryStateStore(), llm, knapp,
                                    company_id=MANDANT_A,
                                    writer=ProfilWriter(pool, MANDANT_A, knapp)))
