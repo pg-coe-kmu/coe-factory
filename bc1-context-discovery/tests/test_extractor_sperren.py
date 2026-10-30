@@ -3,6 +3,8 @@
 Ein KI-Kandidat wird verworfen, wenn er der Originalnachricht widerspricht:
 (a) Identitätsbezug, (b) Zeitraum/Einheit, (c) Fragebezug.
 """
+import pytest
+
 from bc1_core.extractor import extract_and_merge
 from bc1_core.feldtypen import ANZAHL, AUSWAHL, MINUTEN, ZAHL
 from bc1_core.llm import ExtractionCandidate, FakeLLM
@@ -62,6 +64,35 @@ def test_identitaet_kennung_und_name_einer_anderen_option_wird_verworfen():
 
 def test_identitaet_name_mit_fragezeichen_wird_verworfen():
     state = _spiele(_paket_identitaet(), "Anfrage erfassen?",
+                    [ExtractionCandidate("teilprozess", "KP-01.TP-1")])
+    assert "teilprozess" not in state.values
+
+
+def test_identitaet_verneinte_option_wird_verworfen():
+    # Fix-Welle 4 V1: Die Nachricht nennt den Namen, schliesst die Option aber aus.
+    state = _spiele(_paket_identitaet(),
+                    "Nicht Anfrage erfassen, sondern den zweiten Schritt",
+                    [ExtractionCandidate("teilprozess", "KP-01.TP-1")])
+    assert "teilprozess" not in state.values
+
+
+@pytest.mark.parametrize("nachricht", [
+    "Vielleicht Anfrage erfassen",
+    "Eventuell Anfrage erfassen",
+    "Evtl. Anfrage erfassen",
+    "Wahrscheinlich Anfrage erfassen",
+    "Vermutlich Anfrage erfassen",
+    "Anfrage erfassen oder Angebot prüfen",
+    "Keine Anfrage erfassen",
+    "Nein, Anfrage erfassen",
+    "Anfrage erfassen, sondern etwas anderes",
+    "Ich bin unsicher: Anfrage erfassen",
+    "Ich weiss nicht, Anfrage erfassen",
+    "Ich weiß nicht, Anfrage erfassen",
+])
+def test_identitaet_unsichere_oder_verneinte_nennung_wird_verworfen(nachricht):
+    # Fix-Welle 4 V1: Vorkommen ist keine Festlegung.
+    state = _spiele(_paket_identitaet(), nachricht,
                     [ExtractionCandidate("teilprozess", "KP-01.TP-1")])
     assert "teilprozess" not in state.values
 

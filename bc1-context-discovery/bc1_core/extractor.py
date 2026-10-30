@@ -25,6 +25,11 @@ def _nennt_nur_option(message: str, typ: Feldtyp, option: str) -> bool:
     if "?" in message:
         return False
     schluessel = vergleichsschluessel(message)
+    # Fix-Welle 4 V1: Verneinung oder Unsicherheit ist keine Festlegung („weiß nicht“
+    # fängt „nicht“ ab: der Schlüssel schreibt ß als ss, das Wort „nicht“ bleibt).
+    if re.search(r"(?<!\w)(?:nicht|kein|keine|nein|vielleicht|eventuell|evtl|wahrscheinlich"
+                 r"|vermutlich|oder|sondern|unsicher)(?!\w)", schluessel):
+        return False
     def nennt(opt: str) -> bool:
         woerter = [opt, *(name for o, name in typ.namen if o == opt)]
         return any(re.search(rf"(?<!\w){re.escape(vergleichsschluessel(w))}(?!\w)", schluessel)
