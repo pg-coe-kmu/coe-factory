@@ -95,6 +95,17 @@ def test_system_extraktion_regeln():
     assert PII_HINWEIS in s
 
 
+def test_system_extraktion_nackte_zahl_unveraendert():
+    s = SYSTEM_EXTRAKTION
+    assert "nackte Zahl" in s
+    assert "unverändert zurück" in s
+    assert "ihre Bedeutung legt der Vertrag fest" in s
+    # Die Häufigkeits-/Dauer-Regel verlangt keine ergänzte Einheit mehr.
+    assert "mit Zeitraum bzw. Einheit, bei Anzahl" not in s
+    # Die Weglass-Regel „nur mit einer Annahme umrechenbar“ erfasst sie nicht.
+    assert "eine nackte Zahl gehört nicht dazu" in s
+
+
 def test_system_prompts_sind_die_bekannten_deutschen_prompts():
     assert "extrahierst" in SYSTEM_EXTRAKTION
 

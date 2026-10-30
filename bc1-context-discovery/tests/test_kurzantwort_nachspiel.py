@@ -118,6 +118,20 @@ def test_nachspiel_generalprobe2_natuerlich():
     assert store.load("s1").values["focus_step_media_break"].status is FieldStatus.UNGUELTIG
 
 
+def test_nachspiel_nackte_zahl_bei_d1_gilt_ohne_nachfrage():
+    # Vertrag: eine nackte Zahl bei D1 gilt als pro Jahr; die KI gibt sie
+    # unveraendert zurueck (SYSTEM_EXTRAKTION), der Normalisierer nimmt sie an.
+    llm = _ZaehlendesLLM(_skript({"300": [
+        ExtractionCandidate("frequency_per_year", "300")]}))
+    store = InMemoryStateStore()
+    paket = _bis_vor("frequency_per_year", llm, store)
+    antwort = process_turn(store, llm, paket, "s1", "m-d1", "300",
+                           company_id=MANDANT)
+    feld = store.load("s1").values["frequency_per_year"]
+    assert (feld.status, feld.value) == (FieldStatus.GUELTIG, "300")
+    assert antwort["payload"]["feld"] == "executions_per_run"
+
+
 def test_nachspiel_kurzantworten_fuellen_alle_pflichtfelder():
     paket = baue_discovery_paket(kontext=KONTEXT)
     llm = FakeLLM({
