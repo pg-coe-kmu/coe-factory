@@ -1,0 +1,133 @@
+{
+  "projekt_kurzname": "kp-06",
+  "lieferung_id": "del-kp-06-2026-10-31-090033",
+  "kp_id": "KP-06",
+  "teilprozess_ids": [
+    "KP-06.TP-5"
+  ],
+  "erzeugt_am": "2026-10-31T09:00:33.733Z",
+  "erzeugt_von": "BC3-50 Bauplan erzeugen",
+  "komponenten": [
+    {
+      "name": "E-Mail",
+      "anbindung": "Email",
+      "rollen": [
+        "Quelle"
+      ],
+      "verwendet_in": [
+        "Reisestornierung automatisiert ausführen und bestätigen"
+      ]
+    },
+    {
+      "name": "Anbieterportal",
+      "anbindung": "API",
+      "rollen": [
+        "Quelle+Ziel"
+      ],
+      "verwendet_in": [
+        "Reisestornierung automatisiert ausführen und bestätigen"
+      ]
+    },
+    {
+      "name": "n8n",
+      "anbindung": "API",
+      "rollen": [
+        "Ziel"
+      ],
+      "verwendet_in": [
+        "Reisestornierung automatisiert ausführen und bestätigen"
+      ]
+    },
+    {
+      "name": "NocoDB",
+      "anbindung": "API",
+      "rollen": [
+        "Ziel"
+      ],
+      "verwendet_in": [
+        "Reisestornierung automatisiert ausführen und bestätigen"
+      ]
+    },
+    {
+      "name": "PostgreSQL 16",
+      "anbindung": "DB",
+      "rollen": [
+        "Ziel"
+      ],
+      "verwendet_in": [
+        "Reisestornierung automatisiert ausführen und bestätigen"
+      ]
+    }
+  ],
+  "datenfluesse": [
+    {
+      "von": "E-Mail",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Anbieterportal",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Prozess",
+      "nach": "Anbieterportal",
+      "art": "schreibt"
+    },
+    {
+      "von": "Prozess",
+      "nach": "n8n",
+      "art": "schreibt"
+    },
+    {
+      "von": "Prozess",
+      "nach": "NocoDB",
+      "art": "schreibt"
+    },
+    {
+      "von": "Prozess",
+      "nach": "PostgreSQL 16",
+      "art": "schreibt"
+    }
+  ],
+  "menschliche_entscheidungspunkte": [
+    {
+      "story_id": "st-9581-6fb5-8875-abf71bf5a815-8",
+      "epic_id": "ep-9581-6fb5-8875-abf71bf5a815",
+      "titel": "Ausgabe übersteuern oder verwerfen (Art. 14 KI-VO)",
+      "erkannt_an": "übersteuer"
+    },
+    {
+      "story_id": "st-9581-6fb5-8875-abf71bf5a815-9",
+      "epic_id": "ep-9581-6fb5-8875-abf71bf5a815",
+      "titel": "Betrieb anhalten (Art. 14 KI-VO)",
+      "erkannt_an": "anhalten"
+    },
+    {
+      "story_id": "st-9581-6fb5-8875-abf71bf5a815-10",
+      "epic_id": "ep-9581-6fb5-8875-abf71bf5a815",
+      "titel": "Aufsichtsentscheidungen protokollieren (Art. 12 und 14 KI-VO)",
+      "erkannt_an": "Freigab"
+    }
+  ],
+  "tech_stack": [
+    "n8n (self-hosted, Hetzner) — Workflow-Orchestrierung und E-Mail-Trigger",
+    "PostgreSQL 16 — Protokollspeicher für Vorgangsdaten",
+    "NocoDB (self-hosted, IONOS) — strukturierte Aufgabenablage für Ausnahmen und Transparenz",
+    "Ollama (Mistral/Llama/Qwen) — optionale LLM-gestützte Extraktion bei freitextlichen Buchungsnummer-Formulierungen",
+    "Anthropic Claude (EU-Region, mit AVV) — Fallback für komplexe Freitextextraktion, sofern Ollama nicht ausreicht",
+    "Grafana + Loki — Monitoring und Alerting des Workflow-Status"
+  ],
+  "epics": [
+    {
+      "epic_id": "ep-9581-6fb5-8875-abf71bf5a815",
+      "titel": "Automatisierte Ausführung und Bestätigung von Reisestornierungen",
+      "kategorien": [
+        "it:backend",
+        "it:integration"
+      ],
+      "anzahl_stories": 10
+    }
+  ]
+}
