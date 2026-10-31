@@ -1,0 +1,107 @@
+{
+  "priorisierung_id": "cfadf740-088d-4a4e-82af-9a248ee8b393",
+  "schema_version": "3.1",
+  "company_id": "7c2d5ee9-2a9a-5990-810f-502ea2b2012d",
+  "paket_id": "c84eaaa2-8dee-4b41-888b-1f64e09dd08a",
+  "uebergeben_am": "2026-10-31T08:20:32.104750+00:00",
+  "fassung": 1,
+  "erzeugt_am": "2026-10-31T08:47:25.774897+00:00",
+  "score_formel": "`score = impact × (11 − umsetzungskomplexitaet)`, Bereich 1…100.\n\n- `impact = round((impact_monetaer + nutzwert) / 2)` — beide auf 1–10.\n- `umsetzungskomplexitaet = round(11 − 2 × Mittel der vier BC1-Skalen)`; fehlen die Skalen, urteilt das LLM und die Herkunft ist `geurteilt`.\n- Die **lineare** Umkehrung der Komplexität ist bewusst gesetzt, obwohl der Sprung ins sehr Aufwendige fachlich überproportional wäre — offengelegt, nicht kaschiert (ADR-006 · BC2).",
+  "konzept_ids": [
+    "e67fe571-ecba-4d40-85e6-82a1e58d2076"
+  ],
+  "eintraege": [
+    {
+      "potenzialrang": 1,
+      "prioritaetsgruppe": "PRIO 2",
+      "potenzial_id": "b50d088b-f4e6-48ff-90b2-b3cb496f526d",
+      "konzept_id": "e67fe571-ecba-4d40-85e6-82a1e58d2076",
+      "titel": "Reisestornierung automatisiert ausführen und bestätigen",
+      "kp_id": "KP-06",
+      "betroffene_teilprozess_ids": [
+        "KP-06.TP-5"
+      ],
+      "kategorie": "Zurueckgestellt",
+      "impact": 4,
+      "impact_monetaer": 2,
+      "nutzwert_mittel": 6.0,
+      "umsetzungskomplexitaet": 6,
+      "komplexitaet_herkunft": "geurteilt",
+      "score": 20,
+      "aufwand_pt": 18.0,
+      "einsparung_eur_jahr": {
+        "min": 743,
+        "max": 2167
+      },
+      "investition_eur_richtwert": 14400,
+      "amortisation_monate": {
+        "min": 79.7,
+        "max": 232.6
+      }
+    }
+  ],
+  "prozess_raenge": [
+    {
+      "prozessrang": 1,
+      "kp_id": "KP-06",
+      "konzept_id": "e67fe571-ecba-4d40-85e6-82a1e58d2076",
+      "bestes_potenzial_id": "b50d088b-f4e6-48ff-90b2-b3cb496f526d",
+      "bester_score": 20,
+      "anzahl_potenziale": 1
+    }
+  ],
+  "gestrichene_potenziale": [],
+  "ausgangslage": {
+    "unternehmen": {
+      "name": "NoroAI Consulting GmbH",
+      "branche": "KI-Beratung",
+      "mitarbeitende": 10,
+      "region": "FH-Suedwestfalen-Region",
+      "geschaeftsmodell": "KI-Beratung mit eigenem Tech-Stack"
+    },
+    "herausforderungen": [
+      {
+        "beschreibung": "Hoher manueller Übertragungsaufwand zwischen unverbundenen Kanälen und Systemen",
+        "auswirkung": "Mitarbeiter verbringen wiederkehrend Zeit mit dem Abtippen, Übertragen und Einpflegen von Informationen, die keine inhaltliche Wertschöpfung erzeugen.",
+        "kp_ids": [
+          "KP-06"
+        ]
+      },
+      {
+        "beschreibung": "Fehlerrisiko beim manuellen Abtippen der Buchungsnummer",
+        "auswirkung": "Fehlgeschlagene oder falsch adressierte Stornierungen können zu Mehraufwand und Rückfragen führen, die den Durchlauf weiter verlängern.",
+        "kp_ids": [
+          "KP-06"
+        ]
+      },
+      {
+        "beschreibung": "Rückfragen bei fehlender Buchungsnummer verlängern den Durchlauf und binden Personalkapazität",
+        "auswirkung": "Jeder Vorgang ohne vollständige Angaben erzeugt einen zusätzlichen Kommunikationsschritt, der auf eine bearbeitende Person wartet.",
+        "kp_ids": [
+          "KP-06"
+        ]
+      },
+      {
+        "beschreibung": "Status der Stornierung ist nur bei der bearbeitenden Person bekannt, keine Transparenz für den Anfragenden",
+        "auswirkung": "Anfragende erhalten keine proaktive Rückmeldung und müssen bei Unklarheit erneut nachfragen, was weitere Kapazität bindet.",
+        "kp_ids": [
+          "KP-06"
+        ]
+      },
+      {
+        "beschreibung": "Prozessdurchläufe werden nicht erhoben, Fehler und Verzögerungen bleiben unsichtbar",
+        "auswirkung": "Probleme im Ablauf können nicht systematisch erkannt oder behoben werden, weil keine Datenbasis für Auswertungen existiert.",
+        "kp_ids": [
+          "KP-06"
+        ]
+      }
+    ]
+  },
+  "gate1": {
+    "status": "approved",
+    "entschieden_am": "2026-10-31T08:49:10.300974+00:00",
+    "approved_potenzial_ids": [
+      "b50d088b-f4e6-48ff-90b2-b3cb496f526d"
+    ]
+  }
+}

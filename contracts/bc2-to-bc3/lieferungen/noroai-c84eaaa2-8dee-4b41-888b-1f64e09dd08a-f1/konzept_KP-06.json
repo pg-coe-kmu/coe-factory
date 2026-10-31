@@ -1,0 +1,341 @@
+{
+  "konzept_id": "e67fe571-ecba-4d40-85e6-82a1e58d2076",
+  "ersetzt_konzept_id": null,
+  "schema_version": "3.1",
+  "company_id": "7c2d5ee9-2a9a-5990-810f-502ea2b2012d",
+  "paket_id": "c84eaaa2-8dee-4b41-888b-1f64e09dd08a",
+  "uebergeben_am": "2026-10-31T08:20:32.104750+00:00",
+  "gelesen_am": "2026-10-31T08:44:32.309221+00:00",
+  "fassung": 1,
+  "erzeugt_am": "2026-10-31T08:47:25.774897+00:00",
+  "erzeugt_von": "bc2-strategic-advisor · Ausarbeitung · claude-sonnet-4-6",
+  "kontext": {
+    "prozess_kurzbeschreibung": "Der Kernprozess Personal umfasst u. a. die Bearbeitung von Reisestornierungen: Stornowünsche gehen per E-Mail oder Telefon ein, werden manuell über mehrere unverbundene Kanäle (Nachricht, Notiz, Anbieterportal, E-Mail) abgewickelt und als Bestätigung zurückgemeldet.",
+    "kp_id": "KP-06",
+    "unternehmen": "NoroAI Consulting GmbH",
+    "hauptschmerzpunkte": [
+      {
+        "beschreibung": "Hoher manueller Übertragungsaufwand zwischen unverbundenen Kanälen und Systemen",
+        "auswirkung": "Mitarbeiter verbringen wiederkehrend Zeit mit dem Abtippen, Übertragen und Einpflegen von Informationen, die keine inhaltliche Wertschöpfung erzeugen."
+      },
+      {
+        "beschreibung": "Fehlerrisiko beim manuellen Abtippen der Buchungsnummer",
+        "auswirkung": "Fehlgeschlagene oder falsch adressierte Stornierungen können zu Mehraufwand und Rückfragen führen, die den Durchlauf weiter verlängern."
+      },
+      {
+        "beschreibung": "Rückfragen bei fehlender Buchungsnummer verlängern den Durchlauf und binden Personalkapazität",
+        "auswirkung": "Jeder Vorgang ohne vollständige Angaben erzeugt einen zusätzlichen Kommunikationsschritt, der auf eine bearbeitende Person wartet."
+      },
+      {
+        "beschreibung": "Status der Stornierung ist nur bei der bearbeitenden Person bekannt, keine Transparenz für den Anfragenden",
+        "auswirkung": "Anfragende erhalten keine proaktive Rückmeldung und müssen bei Unklarheit erneut nachfragen, was weitere Kapazität bindet."
+      },
+      {
+        "beschreibung": "Prozessdurchläufe werden nicht erhoben, Fehler und Verzögerungen bleiben unsichtbar",
+        "auswirkung": "Probleme im Ablauf können nicht systematisch erkannt oder behoben werden, weil keine Datenbasis für Auswertungen existiert."
+      }
+    ]
+  },
+  "potenziale": [
+    {
+      "potenzial_id": "b50d088b-f4e6-48ff-90b2-b3cb496f526d",
+      "ersetzt_potenzial_ids": [],
+      "titel": "Reisestornierung automatisiert ausführen und bestätigen",
+      "potenzialrang": 1,
+      "prioritaetsgruppe": "PRIO 2",
+      "beschreibung": "## Automatisierte Ausführung und Bestätigung von Reisestornierungen\n\n### Was wird automatisiert?\nDer vollständige operative Ablauf einer Reisestornierung wird vom Eingang des Stornowunschs bis zur abschließenden Rückmeldung an den Anfragenden automatisiert. Das betrifft insbesondere die Extraktion der Buchungsnummer aus eingehenden E-Mails, die Vollständigkeitsprüfung per Regelwerk, die Auslösung der Stornierung beim Anbieter sowie die strukturierte Ergebnisrückmeldung.\n\n### In welchen Teilprozessen?\nDer Teilprozess KP-06.TP-5 (Reise: Stornierung) wird vollständig adressiert: von der Entgegennahme des Stornowunschs über die Identifikation der Buchungsnummer und die Interaktion mit dem Anbieterportal bis hin zur Bestätigung oder Rückfrage an den Anfragenden.\n\n### Mit welchem Ergebnis?\nIm Standardfall wird die Stornierung ohne manuelle Intervention durchgeführt und dem Anfragenden automatisch bestätigt. Bei fehlender Buchungsnummer wird eine strukturierte Rückfrage ohne Wartezeit auf eine bearbeitende Person ausgelöst. Das Ergebnis jedes Vorgangs wird protokolliert und ist damit nachvollziehbar. Der Anteil der vollständig automatisiert abgeschlossenen Fälle liegt, abhängig von der Verfügbarkeit von Anbieter-APIs, zwischen 60 % und 75 %.\n\n### Datenflüsse\nEingehende E-Mails werden als Auslöser gelesen. Die Buchungsnummer wird extrahiert und gegen das Regelwerk geprüft. Bei vollständigen Daten wird die Stornierungsanfrage an die Anbieter-API oder das Anbieterportal übergeben. Das Ergebnis (storniert / nicht gefunden / fehlgeschlagen) wird strukturiert empfangen und als Antwort-E-Mail an den Anfragenden sowie als Eintrag im Protokollspeicher (PostgreSQL oder NocoDB) weitergegeben.\n\n### Beteiligte Rollen\nDer Anfragende (Mitarbeiter oder interne Rolle) sendet den Stornowunsch. Die Automatisierung übernimmt die Bearbeitung. Eine sachbearbeitende Person wird nur noch bei Ausnahmen (fehlende Buchungsnummer nach Rückfrage, Anbieter ohne API-Zugang, unklares Stornierungsergebnis) einbezogen.\n\n### Vorbedingungen\nDie eingehenden Stornowünsche müssen über einen E-Mail-Kanal eingehen, der programmatisch ausgelesen werden kann. Für den vollautomatischen Pfad muss der jeweilige Anbieter eine nutzbare API oder eine automatisierbare Weboberfläche bereitstellen.\n\n### Sonderfälle und Ausnahmen\nBei Anbietern ohne API (z. B. reine Telefonanbieter oder Portale ohne Automatisierungsmöglichkeit) verbleibt der Stornierungsschritt manuell; die Automatisierung beschränkt sich dann auf Eingang, Extraktion und Rückmeldung. Mehrfach-Stornierungen, widersprüchliche Buchungsnummern oder nicht gefundene Buchungen werden als Ausnahme an die sachbearbeitende Person weitergeleitet und protokolliert.",
+      "to_be_vision": "Im Soll-Zustand löst jede eingehende Stornierungsanfrage per E-Mail einen vollautomatisierten Ablauf aus: Die Workflow-Automation liest die Nachricht, extrahiert die Buchungsnummer regelbasiert und prüft ihre Vollständigkeit. Ist sie vorhanden, wird die Stornierung unmittelbar über die Anbieter-API ausgelöst; das strukturierte Ergebnis wird im selben Durchlauf als Bestätigung an den Anfragenden zurückgesendet und im Protokollsystem gespeichert. Fehlt die Buchungsnummer, generiert der Workflow automatisch eine präzise Rückfrage, ohne dass eine sachbearbeitende Person eingreifen muss. Ausnahmen — etwa Anbieter ohne programmatische Schnittstelle oder nicht auflösbare Buchungsnummern — werden als aufbereitete Aufgabe mit allen verfügbaren Informationen an die zuständige Person übergeben, die damit unmittelbar handlungsfähig ist. Alle Vorgänge werden lückenlos protokolliert, sodass Bearbeitungsstand, Ergebnis und etwaige Rückfragen jederzeit nachvollziehbar sind. Die sachbearbeitende Person arbeitet damit ausschließlich an Ausnahmen, während der Standardfall ohne Wartezeit und ohne Medienbruch abgewickelt wird. Die Rückmeldung an den Anfragenden erfolgt spürbar schneller als im heutigen Ablauf, und die Qualität der Stornierungsbestätigungen ist einheitlich und nachweisbar.",
+      "user_story": "Als Mitarbeiter der Personalverwaltung möchte ich, dass eingehende Reisestornierungsanfragen automatisch erkannt, beim Anbieter ausgelöst und bestätigt werden, damit ich mich auf Ausnahmen konzentrieren kann und Anfragende ohne Verzögerung eine verlässliche Rückmeldung erhalten.",
+      "akzeptanzkriterien_geschaeftlich": [
+        {
+          "kriterium": "Gegeben eine eingehende E-Mail mit vollständiger Buchungsnummer, wenn der Workflow die Nachricht verarbeitet, dann wird die Stornierung beim Anbieter ausgelöst und eine strukturierte Bestätigung automatisch an den Anfragenden gesendet, ohne dass eine sachbearbeitende Person manuell eingreift.",
+          "messverfahren": "Zeitstempel im Vorgangsprotokoll (PostgreSQL/NocoDB): Eingangszeit der E-Mail, Zeitpunkt der Anbieteranfrage und Zeitpunkt der Bestätigungs-E-Mail werden verglichen; Stichprobe abgeschlossener Vorgänge zeigt durchgängig automatischen Abschluss ohne manuelle Aktion."
+        },
+        {
+          "kriterium": "Gegeben eine eingehende E-Mail ohne Buchungsnummer, wenn der Workflow die Nachricht verarbeitet, dann wird automatisch eine Rückfrage an den Anfragenden generiert und der Vorgang als 'ausstehend' im Protokoll erfasst, ohne Wartezeit auf eine bearbeitende Person.",
+          "messverfahren": "Stichprobe von Vorgängen mit fehlender Buchungsnummer im Protokollsystem; Prüfung, ob eine Rückfrage-E-Mail zeitnah nach Eingang ausgelöst wurde und kein manueller Eingriff vor Versand dokumentiert ist."
+        },
+        {
+          "kriterium": "Gegeben ein Vorgang, bei dem der Anbieter die Buchungsnummer nicht findet oder die Stornierung fehlschlägt, wenn das Ergebnis der Anbieter-API eingeht, dann wird der Vorgang als Ausnahme mit allen verfügbaren Informationen an die sachbearbeitende Person übergeben und im Protokoll als 'Ausnahme' gekennzeichnet.",
+          "messverfahren": "Auswertung der Ausnahme-Einträge im Protokollsystem über einen definierten Zeitraum; Verifikation, dass jeder Ausnahmefall eine zugeordnete Folgeaktion oder Kennzeichnung trägt."
+        },
+        {
+          "kriterium": "Gegeben ein abgeschlossener Stornierungsvorgang (automatisch oder manuell), wenn das Protokoll abgefragt wird, dann sind Eingangszeit, Bearbeitungsschritte, Ergebnis und Rückmeldezeit vollständig und nachvollziehbar dokumentiert.",
+          "messverfahren": "Prüfung der Vollständigkeit der Protokolleinträge durch Stichprobenauswertung im Protokollsystem; alle Pflichtfelder müssen befüllt sein."
+        }
+      ],
+      "fachliche_anforderungen": [
+        "Eingehende Stornierungsanfragen müssen über einen E-Mail-Kanal entgegengenommen werden, der programmatisch ausgelesen werden kann; Telefonwünsche sind im ersten Schritt nicht automatisiert und müssen als manueller Eingang im Protokoll erfasst werden.",
+        "Die Buchungsnummern-Extraktion muss per Regelwerk erfolgen und darf keine Buchungsnummer erfinden oder verändern; im Zweifelsfall ist eine Rückfrage auszulösen.",
+        "Für jeden Stornierungsvorgang muss ein lückenloser Protokolleintrag erstellt werden, der Eingang, Verarbeitungsschritte, Anbieterantwort und Rückmeldung umfasst.",
+        "Ausnahmen (nicht gefundene Buchungsnummer, fehlgeschlagene Stornierung, Anbieter ohne API) müssen mit allen bis dahin erfassten Informationen an eine sachbearbeitende Person übergeben werden; eine stillschweigende Ablage ohne Weiterleitung ist unzulässig.",
+        "Die automatisch generierte Bestätigungs- oder Rückfrage-E-Mail muss inhaltlich korrekt, vollständig und im Ton der Organisation angemessen sein; eine Freigabemöglichkeit für neue Vorlagen ist vorzusehen.",
+        "Der Automatisierungsablauf muss bei Anbieterportalen ohne API auf den manuellen Stornierungsschritt zurückfallen können, ohne den gesamten Workflow zu unterbrechen.",
+        "Alle verarbeiteten Nachrichten und erzeugten Antworten müssen so gespeichert werden, dass sie für Rückfragen und Audits verfügbar sind."
+      ],
+      "betroffene_teilprozess_ids": [
+        "KP-06.TP-5"
+      ],
+      "betroffene_prozessschritte": [
+        "Reise: Stornierung"
+      ],
+      "betroffene_systeme": [
+        {
+          "name": "E-Mail",
+          "rolle": "Quelle",
+          "integration": "Email"
+        },
+        {
+          "name": "Anbieterportal",
+          "rolle": "Quelle+Ziel",
+          "integration": "API"
+        },
+        {
+          "name": "n8n",
+          "rolle": "Ziel",
+          "integration": "API"
+        },
+        {
+          "name": "NocoDB",
+          "rolle": "Ziel",
+          "integration": "API"
+        },
+        {
+          "name": "PostgreSQL 16",
+          "rolle": "Ziel",
+          "integration": "DB"
+        }
+      ],
+      "manueller_aufwand_heute": {
+        "stunden_jahr": 48.0,
+        "herkunft": "geschaetzt",
+        "konfidenz_pct": 70.0
+      },
+      "automatisierungsgrad": {
+        "klasse": "Integration",
+        "angesetzt_min_pct": 60.0,
+        "angesetzt_max_pct": 75.0,
+        "begruendung": "Die bc0-Kriterien und bc1-Skalen zeigen durchweg mittlere Reife: Systemintegration ist schwach ausgeprägt, Dokumentation und Standardisierung sind nur teilweise vorhanden, und die Datenbereitstellung ist rudimentär. Ob Anbieterportale eine programmierbare Schnittstelle bieten, ist ungewiss — bei reinen Webportalen ohne API muss ein Mensch Ausnahmen abfangen. Daher wird das obere Ende des Korridors nicht ausgeschöpft; ein nennenswerter Anteil der Fälle bleibt voraussichtlich manuell oder erfordert Prüfung.",
+        "bc1_schaetzung_pct": null
+      },
+      "nutzwert": {
+        "qualitaet": {
+          "wert": 6,
+          "begruendung": "Die automatisierte Extraktion der Buchungsnummer und die strukturierte Rückmeldung machen das Ergebnis einheitlicher und reduzieren Übertragungsfehler; Verbesserungen sind für den Empfänger spürbar, erreichen aber keinen Stand, den der heutige Ablauf grundsätzlich nicht erzielen könnte."
+        },
+        "durchlaufzeit": {
+          "wert": 7,
+          "begruendung": "Der Übergabeschritt zwischen Eingang, Notiz, Portal und Rückmeldung entfällt für den Standardfall; Rückfragen bei fehlender Buchungsnummer werden automatisch und ohne Wartezeit auf eine bearbeitende Person ausgelöst, sodass der Vorgang deutlich früher abgeschlossen ist."
+        },
+        "fehlerreduktion": {
+          "wert": 7,
+          "begruendung": "Das manuelle Abtippen der Buchungsnummer als Hauptfehlerquelle entfällt im automatisierten Kanal weitgehend; Verwechslungen und vergessene Rückmeldungen werden durch das Regelwerk und die automatische Bestätigung weitgehend abgefangen."
+        },
+        "mitarbeiterzufriedenheit": {
+          "wert": 6,
+          "begruendung": "Die repetitive Aufgabe des manuellen Übertragens und des Einpflegens in das Anbieterportal fällt für den Großteil der Fälle weg; die verbleibende Arbeit konzentriert sich auf Ausnahmen, was den Arbeitsalltag spürbar erleichtert, ohne ihn grundlegend zu verändern."
+        },
+        "compliance": {
+          "wert": 4,
+          "begruendung": "Die strukturierte Protokollierung von Stornierungsvorgängen verbessert die Nachweisbarkeit gegenüber dem heutigen Zustand ohne Prozesserfassung; ein konkretes regulatorisches Risiko ist für diesen Prozessschritt jedoch nicht erkennbar."
+        },
+        "mittel": 6.0
+      },
+      "impact": 4,
+      "impact_monetaer": 2,
+      "umsetzungskomplexitaet": 6,
+      "komplexitaet_herkunft": "geurteilt",
+      "komplexitaet_begruendung": "Die gemessene Zahl spiegelt nur die vier bc1-Skalen wider und unterschätzt die tatsächliche Integrationstiefe: Die Loesung muss E-Mail-Parsing, Regelwerk zur Nummernprüfung, Anbindung an mindestens ein externes Portal oder eine API sowie automatische Rückfrage- und Bestätigungslogik umfassen. Die schwache Systemintegration laut bc0 und die geringe Datenbereitstellung erhöhen den Abstimmungs- und Testaufwand. Eine leicht erhöhte Komplexität ist daher angemessener als der reine Skalenmittelwert.",
+      "value": {
+        "value_quelle": "berechnet",
+        "ist_kosten_eur_jahr": {
+          "min": 1238,
+          "max": 2890
+        },
+        "einsparung_eur_jahr": {
+          "min": 743,
+          "max": 2167
+        },
+        "ersparnis_prozent": {
+          "min": 60.0,
+          "max": 75.0
+        },
+        "investition_eur_richtwert": 14400,
+        "amortisation_monate": {
+          "min": 79.7,
+          "max": 232.6
+        },
+        "annahmen": [
+          "Mischsatz 43 EUR/h aus dem NoroAI-Unternehmensprofil (#172) — die Rollenachse wird nicht erhoben.",
+          "Bausatz 800 EUR/PT fuer die Investition; ein anderer Satz als die Einsparungsseite, mit Absicht (ADR-006, 2.1). Reine Setzung.",
+          "Automatisierungsgrad 60–75 % aus dem Korridor der Klasse 'Integration' — gesetzt, nicht erhoben.",
+          "Bandbreite ±40 % aus der Herkunft der Dauer (geschaetzt).",
+          "Zusammensetzung als Eckenrechnung: bewusst pessimistisch, sie unterstellt gleichsinnige Fehler.",
+          "Aufwandsrichtwert 18 PT vom Bewertungsschritt geurteilt, nicht erhoben (ADR-006 · BC2, Nachtrag 7): Entwurf und Konzeption der E-Mail-Parsing-Logik sowie des Regelwerks zur Buchungsnummernprüfung, Entwicklung und Test der Anbindung an das Anbieterportal oder die API, Bau der automatischen Rückfrage- und Bestätigungskomponente, Fehlerbehandlung für nicht gefundene oder fehlgeschlagene Stornierungen sowie Abnahmetests mit realen Fällen und Einführungsbegleitung bestimmen den Aufwand."
+        ]
+      },
+      "aufwand_schaetzung_pt": 18.0,
+      "prioritaet_score": 20,
+      "kategorie": "Zurueckgestellt",
+      "querschnitte": {
+        "zukunftssicherheit": "Die Lösung ist auf n8n und PostgreSQL aufgebaut, die im Mandanten bereits skaliert betrieben werden, und lässt sich durch zusätzliche Anbieter-Connectoren oder geänderte Extraktionsregeln erweitern, ohne die Grundarchitektur zu berühren.",
+        "reifegrad": "Bitkom-Stufe im Mittel 2,1 von 5, aus 30 Bewertungen der berührten Teilprozesse. Rangiert, trennt aber nicht (#161).",
+        "abhaengigkeiten": []
+      },
+      "potenzielle_loesung": {
+        "ansatz": "## Technischer Lösungsansatz\n\n### Grundprinzip\nDer Workflow wird als n8n-Automatisierung implementiert, die auf eingehende E-Mails im definierten Postfach reagiert. n8n ist im Mandanten bereits produktiv und self-hosted auf Hetzner; die Integration ist damit ohne neue Infrastruktur realisierbar.\n\n### Schritt 1 — E-Mail-Eingang und Extraktion\nEin E-Mail-Trigger-Node in n8n überwacht das Stornierungspostfach in konfigurierbarem Intervall. Der Nachrichtentext wird regelbasiert auf Buchungsnummern-Muster geprüft (reguläre Ausdrücke, ggf. ergänzt durch einen LLM-Extraktionsschritt via Ollama oder Claude für freitextliche Formulierungen). Ist eine Buchungsnummer erkannt, geht der Ablauf in Schritt 2 über; fehlt sie, wird Schritt 4 (Rückfrage) ausgelöst.\n\n### Schritt 2 — Stornierung beim Anbieter\nSofern der Anbieter eine REST-API bereitstellt, sendet n8n einen parametrisierten HTTP-Request mit der Buchungsnummer. Das Antwortobjekt (storniert / nicht gefunden / fehlgeschlagen) wird strukturiert ausgewertet. Bei Anbietern ohne API wird der Vorgang als Ausnahme mit aufbereiteten Informationen in NocoDB eingetragen und an die sachbearbeitende Person übergeben.\n\n### Schritt 3 — Ergebnisrückmeldung und Protokoll\nBei erfolgreicher Stornierung generiert n8n eine Bestätigungs-E-Mail an den Anfragenden auf Basis einer definierten Vorlage. Gleichzeitig wird ein strukturierter Protokolleintrag in PostgreSQL oder NocoDB geschrieben, der Zeitstempel, Buchungsnummer, Anbieter, Ergebnis und die versendete Antwort enthält.\n\n### Schritt 4 — Automatische Rückfrage\nFehlt die Buchungsnummer, erzeugt n8n eine standardisierte Rückfrage-E-Mail, die den Anfragenden um die fehlende Angabe bittet. Der Vorgang wird im Protokoll als 'ausstehend' markiert; sobald die Antwort eingeht, durchläuft er erneut den Extraktionsschritt.\n\n### Schritt 5 — Ausnahmebehandlung\nVorgänge, die nicht automatisch abgeschlossen werden können (Anbieter ohne API, mehrdeutige Buchungsnummern, fehlgeschlagene Stornierung nach Rückfrage), werden als aufbereiteter Aufgabeneintrag in NocoDB angelegt, der alle bisher erfassten Informationen enthält, und der sachbearbeitenden Person zugewiesen.\n\n### Monitoring\nDer Workflow-Status wird über Grafana/Loki beobachtet; Fehler und Ausnahmen erzeugen Alerts, sodass Probleme im Ablauf frühzeitig erkannt werden.",
+        "tech_stack_empfehlung": [
+          "n8n (self-hosted, Hetzner) — Workflow-Orchestrierung und E-Mail-Trigger",
+          "PostgreSQL 16 — Protokollspeicher für Vorgangsdaten",
+          "NocoDB (self-hosted, IONOS) — strukturierte Aufgabenablage für Ausnahmen und Transparenz",
+          "Ollama (Mistral/Llama/Qwen) — optionale LLM-gestützte Extraktion bei freitextlichen Buchungsnummer-Formulierungen",
+          "Anthropic Claude (EU-Region, mit AVV) — Fallback für komplexe Freitextextraktion, sofern Ollama nicht ausreicht",
+          "Grafana + Loki — Monitoring und Alerting des Workflow-Status"
+        ],
+        "to_be_kurz": "Stornierungsanfragen per E-Mail werden automatisch verarbeitet, beim Anbieter ausgelöst und als strukturierte Bestätigung zurückgemeldet — manuelles Eingreifen ist nur noch bei echten Ausnahmen erforderlich. Alle Vorgänge werden lückenlos protokolliert und sind für alle Beteiligten transparent."
+      },
+      "voraussetzungen": [
+        "Ein dediziertes E-Mail-Postfach für Stornierungsanfragen muss eingerichtet und für n8n programmatisch zugänglich sein (IMAP/SMTP oder API).",
+        "Die verfügbaren Anbieterportale müssen hinsichtlich API-Verfügbarkeit geprüft und dokumentiert werden, bevor der Automatisierungsgrad verbindlich festgelegt wird.",
+        "Eine Vorlage für Bestätigungs- und Rückfrage-E-Mails muss fachlich abgenommen sein, bevor der Workflow produktiv geht.",
+        "Das Protokollschema in PostgreSQL oder NocoDB muss definiert und migriert sein.",
+        "Verantwortlichkeiten für die Ausnahmebehandlung (wer bearbeitet ungelöste Vorgänge?) müssen organisatorisch geregelt sein."
+      ],
+      "risiken": [
+        {
+          "beschreibung": "Anbieterportale stellen keine nutzbare API bereit, sodass der Stornierungsschritt manuell verbleibt und der Automatisierungsgrad deutlich unter dem oberen Korridor liegt.",
+          "wahrscheinlichkeit": "high",
+          "auswirkung": "med",
+          "gegenmassnahme": "Vor Implementierungsbeginn API-Verfügbarkeit aller relevanten Anbieter erheben und dokumentieren; Workflow so gestalten, dass der manuelle Fallback ohne Umbau integrierbar ist."
+        },
+        {
+          "beschreibung": "Die Buchungsnummern-Extraktion aus freitextlichen E-Mails liefert fehlerhafte oder fehlende Ergebnisse, was zu falschen Stornierungen oder unnötigen Rückfragen führt.",
+          "wahrscheinlichkeit": "med",
+          "auswirkung": "high",
+          "gegenmassnahme": "Regelbasierte Extraktion mit LLM-Fallback kombinieren; Schwellenwert für Konfidenz definieren, unterhalb dessen immer eine Rückfrage ausgelöst wird; initiale Pilotphase mit manueller Nachprüfung."
+        },
+        {
+          "beschreibung": "Das Stornierungspostfach wird zweckfremde E-Mails enthalten (Weiterleitungen, Out-of-Office, Spam), die den Workflow mit Fehlläufen belasten.",
+          "wahrscheinlichkeit": "med",
+          "auswirkung": "low",
+          "gegenmassnahme": "Filterregeln und Absenderprüfung im Trigger-Node; Fehlläufe werden protokolliert und lösen keinen automatischen Stornierungsversuch aus."
+        },
+        {
+          "beschreibung": "Änderungen an Anbieter-APIs oder -Portalen führen ohne Ankündigung zu Workflow-Unterbrechungen.",
+          "wahrscheinlichkeit": "low",
+          "auswirkung": "med",
+          "gegenmassnahme": "API-Antwortcodes und Fehlermeldungen werden überwacht (Grafana/Loki-Alert); bei Unterbrechung fällt der Vorgang automatisch in die manuelle Ausnahmebehandlung."
+        },
+        {
+          "beschreibung": "Protokolldaten enthalten personenbezogene Angaben der Anfragenden, was datenschutzrechtliche Anforderungen auslöst.",
+          "wahrscheinlichkeit": "med",
+          "auswirkung": "med",
+          "gegenmassnahme": "Datenschutz-Folgenabschätzung für den Workflow durchführen; Aufbewahrungsfristen und Zugriffsrechte im Protokollschema von Beginn an definieren."
+        }
+      ]
+    }
+  ],
+  "gesamtempfehlung": {
+    "reihenfolge_potenzial_ids": [
+      "b50d088b-f4e6-48ff-90b2-b3cb496f526d"
+    ],
+    "begruendung": "Das Konzept umfasst ein einzelnes Potenzial (P1), das den vollständigen Stornierungsablauf in KP-06.TP-5 von Grund auf adressiert. Da keine weiteren Potenziale im Lauf vorhanden sind, gibt es keine fachlichen Abhängigkeiten, die die Reihenfolge beeinflussen. Die Umsetzung von P1 ist in sich abgeschlossen: Sie beseitigt alle identifizierten Schmerzpunkte des Teilprozesses — den manuellen Medienbruch, das Fehlerrisiko beim Abtippen, die fehlende Transparenz und die fehlende Protokollierung — in einem Schritt. Der größte Unsicherheitsfaktor ist die API-Verfügbarkeit der Anbieterportale; eine Erhebung dieser Verfügbarkeit sollte daher als erster Schritt vor dem Implementierungsbeginn stehen, da sie den erreichbaren Automatisierungsgrad direkt bestimmt. Ist die Erhebung abgeschlossen, kann die Implementierung ohne Vorleistungen aus anderen Projekten gestartet werden."
+  },
+  "eingangswerte": [
+    {
+      "groesse": "frequency_per_year",
+      "wert": 96.0,
+      "einheit": "Durchlaeufe/Jahr",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "frequency_per_year",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-5",
+      "gelesen_am": "2026-10-31T08:44:32.309221+00:00"
+    },
+    {
+      "groesse": "focus_step_duration_minutes",
+      "wert": 30.0,
+      "einheit": "Minuten/Durchlauf",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "focus_step_duration_minutes",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-5",
+      "gelesen_am": "2026-10-31T08:44:32.309221+00:00"
+    },
+    {
+      "groesse": "focus_step_duration_source",
+      "wert": "geschaetzt",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "focus_step_duration_source",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-5",
+      "gelesen_am": "2026-10-31T08:44:32.309221+00:00"
+    },
+    {
+      "groesse": "focus_step_duration_confidence_pct",
+      "wert": 70.0,
+      "einheit": "%",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "focus_step_duration_confidence_pct",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-5",
+      "gelesen_am": "2026-10-31T08:44:32.309221+00:00"
+    },
+    {
+      "groesse": "documentation_status",
+      "wert": 3,
+      "einheit": "1-5",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "documentation_status",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-5",
+      "gelesen_am": "2026-10-31T08:44:32.309221+00:00"
+    },
+    {
+      "groesse": "standardization_level",
+      "wert": 3,
+      "einheit": "1-5",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "standardization_level",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-5",
+      "gelesen_am": "2026-10-31T08:44:32.309221+00:00"
+    },
+    {
+      "groesse": "data_availability_score",
+      "wert": 3,
+      "einheit": "1-5",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "data_availability_score",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-5",
+      "gelesen_am": "2026-10-31T08:44:32.309221+00:00"
+    },
+    {
+      "groesse": "stability_score",
+      "wert": 3,
+      "einheit": "1-5",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "stability_score",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-5",
+      "gelesen_am": "2026-10-31T08:44:32.309221+00:00"
+    },
+    {
+      "groesse": "mischsatz_eur_h",
+      "wert": 43.0,
+      "einheit": "EUR/h",
+      "herkunft_tabelle": "(Setzung)",
+      "herkunft_spalte": "NoroAI-Unternehmensprofil Kap. 9.2, #172",
+      "gelesen_am": "2026-10-31T08:44:32.309221+00:00"
+    },
+    {
+      "groesse": "bausatz_eur_pt",
+      "wert": 800.0,
+      "einheit": "EUR/PT",
+      "herkunft_tabelle": "(Setzung)",
+      "herkunft_spalte": "ADR-006 BC2, 2.1",
+      "gelesen_am": "2026-10-31T08:44:32.309221+00:00"
+    }
+  ]
+}
