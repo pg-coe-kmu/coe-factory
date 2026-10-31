@@ -1,0 +1,471 @@
+{
+  "lieferung_id": "del-kp-06-2026-10-31-090033",
+  "schema_version": "3.5",
+  "projekt_kurzname": "kp-06",
+  "erzeugt_am": "2026-10-31T09:00:33.254Z",
+  "konzept_ref": {
+    "konzept_id": "e67fe571-ecba-4d40-85e6-82a1e58d2076",
+    "schema_version": "3.1",
+    "source_file": "konzept_KP-06.json",
+    "kp_id": "KP-06",
+    "teilprozess_ids": [
+      "KP-06.TP-5"
+    ],
+    "value_quelle": "berechnet"
+  },
+  "prozess_kurzbeschreibung": "Der Kernprozess Personal umfasst u. a. die Bearbeitung von Reisestornierungen: Stornowünsche gehen per E-Mail oder Telefon ein, werden manuell über mehrere unverbundene Kanäle (Nachricht, Notiz, Anbieterportal, E-Mail) abgewickelt und als Bestätigung zurückgemeldet.",
+  "vorpruefung": {
+    "ampel": "yellow",
+    "ai_act_klasse": "high",
+    "anhang_iii_kategorie": "Anhang III Nr. 4 Buchstabe b",
+    "dsgvo_rechtsgrundlage": "Artikel 6 Absatz 1 Buchstabe b (Vertragserfüllung), Artikel 22 Absatz 2 Buchstabe a (ausdrückliche Einwilligung für automatisierte Entscheidung), Artikel 32 (Sicherheit der Verarbeitung)",
+    "betroffene_datenarten": [
+      "Gehalts- und Vertragsdaten (Stufe hoch)",
+      "E-Mail-Adresse (Stufe gering)",
+      "Telefonnummer (Stufe gering)",
+      "Reise- und Termindaten (Stufe gering)",
+      "Buchungsnummer (Stufe gering)"
+    ],
+    "begruendung_ampel": "Der Prozess fällt unter Anhang III Nr. 4 Buchstabe b (Beschäftigung: Entscheidungen über Arbeitsbedingungen) und ist daher als Hochrisiko-KI-System eingestuft. Die Ampel ist gelb, weil menschliche Aufsicht an kritischen Stellen (Buchungsnummern-Extraktion, API-Fehler, Stornierungsentscheidungen) eingebaut ist und personenbezogene Daten pseudonymisiert werden. Die Maßnahmen erfüllen die Anforderungen der Artikel 9, 12, 13, 14, 15 und 17 KI-VO sowie der DSGVO."
+  },
+  "pflichten": [
+    {
+      "id": "p1",
+      "tag": "[AI-Act Art. 4]",
+      "text": "Schulung der Personen, die den Workflow nutzen, zu den Grundsätzen des KI-Systems und den geltenden Compliance-Anforderungen durchführen.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "gering",
+      "stelle": "Prozessstart vor Inbetriebnahme des Workflows",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p2",
+      "tag": "[AI-Act Art. 9]",
+      "text": "Risikomanagementprozess für den Workflow etablieren, der kontinuierlich Risiken identifiziert, bewertet und mindert, insbesondere für Fehler bei der Buchungsnummern-Extraktion und API-Unterbrechungen.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "gering",
+      "stelle": "Vor Implementierungsbeginn und während des Betriebs",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p3",
+      "tag": "[AI-Act Art. 12]",
+      "text": "Protokollierung aller automatisierten Stornierungsvorgänge mit Zeitstempel, Eingabedaten, Systementscheidungen und Ergebnissen, um die Nachvollziehbarkeit für Audits und Rückfragen zu gewährleisten.",
+      "massnahme": "protokollieren",
+      "datenkategorie": "gering",
+      "stelle": "Vorgangsdaten lückenlos protokollieren und für Audits verfügbar halten (Story ep-b50d088b-f4e6-48ff-90b2-b3cb496f526d-5)",
+      "adressat": "bc4",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": [
+        "ep-b50d088b-f4e6-48ff-90b2-b3cb496f526d-5"
+      ]
+    },
+    {
+      "id": "p4",
+      "tag": "[AI-Act Art. 13]",
+      "text": "Transparenzhinweis in der Bestätigungs- oder Rückfrage-E-Mail einfügen, der den Anfragenden darüber informiert, dass die Stornierung automatisiert bearbeitet wurde.",
+      "massnahme": "hinweis_geben",
+      "datenkategorie": "gering",
+      "stelle": "Bestätigungs- oder Rückfrage-E-Mail generieren und versenden (Story ep-b50d088b-f4e6-48ff-90b2-b3cb496f526d-4)",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p5",
+      "tag": "[AI-Act Art. 14]",
+      "text": "Menschliche Aufsicht über den Workflow sicherstellen, indem kritische Entscheidungen (z. B. Stornierung bei niedriger Konfidenz der Buchungsnummern-Extraktion oder API-Fehlern) an eine sachbearbeitende Person übergeben werden.",
+      "massnahme": "mensch_prueft",
+      "datenkategorie": "hoch",
+      "stelle": "Stornierung beim Anbieter auslösen und Ergebnis verarbeiten (Story ep-b50d088b-f4e6-48ff-90b2-b3cb496f526d-3)",
+      "adressat": "bc4",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": [
+        "ep-b50d088b-f4e6-48ff-90b2-b3cb496f526d-3"
+      ]
+    },
+    {
+      "id": "p6",
+      "tag": "[AI-Act Art. 15]",
+      "text": "Genauigkeit und Robustheit des Workflows sicherstellen, indem ein Konfidenzschwellenwert für die Buchungsnummern-Extraktion definiert wird, unterhalb dessen eine manuelle Prüfung erfolgt.",
+      "massnahme": "mensch_prueft",
+      "datenkategorie": "gering",
+      "stelle": "Buchungsnummer aus E-Mail extrahieren und Vollständigkeit prüfen (Story ep-b50d088b-f4e6-48ff-90b2-b3cb496f526d-2)",
+      "adressat": "bc4",
+      "wird_zu_story": false,
+      "abgedeckt_durch": [
+        "ep-b50d088b-f4e6-48ff-90b2-b3cb496f526d-2"
+      ]
+    },
+    {
+      "id": "p7",
+      "tag": "[AI-Act Art. 17]",
+      "text": "Qualitätsmanagementprozess für den Workflow einführen, der regelmäßige Überprüfungen der API-Verfügbarkeit, der Protokolldaten und der Fehlerraten umfasst.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "gering",
+      "stelle": "Während des Betriebs des Workflows",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p8",
+      "tag": "[DSGVO Art. 25]",
+      "text": "Personenbezogene Daten (E-Mail-Adresse, Telefonnummer) vor der Protokollierung pseudonymisieren, um den Datenschutz durch Technikgestaltung zu gewährleisten.",
+      "massnahme": "pseudonymisieren",
+      "datenkategorie": "gering",
+      "stelle": "Eingehende Stornierungsanfragen per E-Mail empfangen und protokollieren (Story ep-b50d088b-f4e6-48ff-90b2-b3cb496f526d-1)",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p9",
+      "tag": "[DSGVO Art. 32]",
+      "text": "Sicherheitsmaßnahmen für die Verarbeitung personenbezogener Daten im Workflow implementieren, einschließlich Zugriffskontrollen, Verschlüsselung und regelmäßiger Sicherheitsüberprüfungen.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "hoch",
+      "stelle": "Während des gesamten Workflows",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p10",
+      "tag": "[DSGVO Art. 22]",
+      "text": "Automatisierte Stornierungsentscheidungen mit erheblicher Wirkung (z. B. Vertragsbeendigung) durch eine menschliche Prüfung ergänzen, um die Anforderungen von Artikel 22 Absatz 1 DSGVO zu erfüllen.",
+      "massnahme": "mensch_prueft",
+      "datenkategorie": "hoch",
+      "stelle": "Stornierung beim Anbieter auslösen und Ergebnis verarbeiten (Story ep-b50d088b-f4e6-48ff-90b2-b3cb496f526d-3)",
+      "adressat": "bc4",
+      "wird_zu_story": false,
+      "abgedeckt_durch": [
+        "ep-b50d088b-f4e6-48ff-90b2-b3cb496f526d-3"
+      ]
+    },
+    {
+      "id": "p14-uebersteuern",
+      "tag": "[AI-Act Art. 14]",
+      "text": "Ausgabe übersteuern oder verwerfen im Zielsystem einbauen.",
+      "massnahme": "mensch_prueft",
+      "datenkategorie": "hoch",
+      "stelle": "ep-b50d088b-f4e6-48ff-90b2-b3cb496f526d: Automatisierte Ausführung und Bestätigung von Reisestornierungen",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3",
+      "quelle": "BC3-Vorlage Hochrisiko"
+    },
+    {
+      "id": "p14-anhalten",
+      "tag": "[AI-Act Art. 14]",
+      "text": "Betrieb anhalten im Zielsystem einbauen.",
+      "massnahme": "mensch_prueft",
+      "datenkategorie": "hoch",
+      "stelle": "ep-b50d088b-f4e6-48ff-90b2-b3cb496f526d: Automatisierte Ausführung und Bestätigung von Reisestornierungen",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3",
+      "quelle": "BC3-Vorlage Hochrisiko"
+    },
+    {
+      "id": "p14-protokollieren",
+      "tag": "[AI-Act Art. 14]",
+      "text": "Aufsichtsentscheidung protokollieren im Zielsystem einbauen.",
+      "massnahme": "protokollieren",
+      "datenkategorie": "hoch",
+      "stelle": "ep-b50d088b-f4e6-48ff-90b2-b3cb496f526d: Automatisierte Ausführung und Bestätigung von Reisestornierungen",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3",
+      "quelle": "BC3-Vorlage Hochrisiko"
+    },
+    {
+      "id": "u-risikomanagement",
+      "tag": "[AI-Act Art. 9]",
+      "text": "Unterlage „Risikomanagement“ erstellen und vor Inbetriebnahme abschließen.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "hoch",
+      "stelle": "vor Inbetriebnahme",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "quelle": "BC3-Vorlage Hochrisiko",
+      "vorlage": "Zweck: Der Kernprozess Personal umfasst u. a. die Bearbeitung von Reisestornierungen: Stornowünsche gehen per E-Mail oder Telefon ein, werden manuell über mehrere unverbundene Kanäle (Nachricht, Notiz, Anbieterportal, E-Mail) abgewickelt und als Bestätigung zurückgemeldet.\nBekannte Risiken:\n- Anbieterportale stellen keine nutzbare API bereit, sodass der Stornierungsschritt manuell verbleibt und der Automatisierungsgrad deutlich unter dem oberen Korridor liegt. | Gegenmaßnahme laut BC2: Vor Implementierungsbeginn API-Verfügbarkeit aller relevanten Anbieter erheben und dokumentieren; Workflow so gestalten, dass der manuelle Fallback ohne Umbau integrierbar ist.\n- Die Buchungsnummern-Extraktion aus freitextlichen E-Mails liefert fehlerhafte oder fehlende Ergebnisse, was zu falschen Stornierungen oder unnötigen Rückfragen führt. | Gegenmaßnahme laut BC2: Regelbasierte Extraktion mit LLM-Fallback kombinieren; Schwellenwert für Konfidenz definieren, unterhalb dessen immer eine Rückfrage ausgelöst wird; initiale Pilotphase mit manueller Nachprüfung.\n- Das Stornierungspostfach wird zweckfremde E-Mails enthalten (Weiterleitungen, Out-of-Office, Spam), die den Workflow mit Fehlläufen belasten. | Gegenmaßnahme laut BC2: Filterregeln und Absenderprüfung im Trigger-Node; Fehlläufe werden protokolliert und lösen keinen automatischen Stornierungsversuch aus.\n- Änderungen an Anbieter-APIs oder -Portalen führen ohne Ankündigung zu Workflow-Unterbrechungen. | Gegenmaßnahme laut BC2: API-Antwortcodes und Fehlermeldungen werden überwacht (Grafana/Loki-Alert); bei Unterbrechung fällt der Vorgang automatisch in die manuelle Ausnahmebehandlung.\n- Protokolldaten enthalten personenbezogene Angaben der Anfragenden, was datenschutzrechtliche Anforderungen auslöst. | Gegenmaßnahme laut BC2: Datenschutz-Folgenabschätzung für den Workflow durchführen; Aufbewahrungsfristen und Zugriffsrechte im Protokollschema von Beginn an definieren.\nMaßnahmen im System:\n- [AI-Act Art. 12] Protokollierung aller automatisierten Stornierungsvorgänge mit Zeitstempel, Eingabedaten, Systementscheidungen und Ergebnissen, um die Nachvollziehbarkeit für Audits und Rückfragen zu gewährleisten.\n- [AI-Act Art. 13] Transparenzhinweis in der Bestätigungs- oder Rückfrage-E-Mail einfügen, der den Anfragenden darüber informiert, dass die Stornierung automatisiert bearbeitet wurde.\n- [AI-Act Art. 14] Menschliche Aufsicht über den Workflow sicherstellen, indem kritische Entscheidungen (z. B. Stornierung bei niedriger Konfidenz der Buchungsnummern-Extraktion oder API-Fehlern) an eine sachbearbeitende Person übergeben werden.\n- [AI-Act Art. 15] Genauigkeit und Robustheit des Workflows sicherstellen, indem ein Konfidenzschwellenwert für die Buchungsnummern-Extraktion definiert wird, unterhalb dessen eine manuelle Prüfung erfolgt.\n- [DSGVO Art. 25] Personenbezogene Daten (E-Mail-Adresse, Telefonnummer) vor der Protokollierung pseudonymisieren, um den Datenschutz durch Technikgestaltung zu gewährleisten.\n- [DSGVO Art. 22] Automatisierte Stornierungsentscheidungen mit erheblicher Wirkung (z. B. Vertragsbeendigung) durch eine menschliche Prüfung ergänzen, um die Anforderungen von Artikel 22 Absatz 1 DSGVO zu erfüllen.\n- [AI-Act Art. 14] Ausgabe übersteuern oder verwerfen im Zielsystem einbauen.\n- [AI-Act Art. 14] Betrieb anhalten im Zielsystem einbauen.\n- [AI-Act Art. 14] Aufsichtsentscheidung protokollieren im Zielsystem einbauen.\nRestrisiko und Bewertung: [offen]\nTests vor Inbetriebnahme: [offen]\nÜberprüfung im Betrieb (wer, wie oft): [offen]"
+    },
+    {
+      "id": "u-technische-dokumentation",
+      "tag": "[AI-Act Art. 11, Anhang IV]",
+      "text": "Unterlage „Technische Dokumentation“ erstellen und vor Inbetriebnahme abschließen.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "hoch",
+      "stelle": "vor Inbetriebnahme",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "quelle": "BC3-Vorlage Hochrisiko",
+      "vorlage": "Zweck und Einsatzbereich: Der Kernprozess Personal umfasst u. a. die Bearbeitung von Reisestornierungen: Stornowünsche gehen per E-Mail oder Telefon ein, werden manuell über mehrere unverbundene Kanäle (Nachricht, Notiz, Anbieterportal, E-Mail) abgewickelt und als Bestätigung zurückgemeldet.\nVerarbeitete Daten: Gehalts- und Vertragsdaten (Stufe hoch), E-Mail-Adresse (Stufe gering), Telefonnummer (Stufe gering), Reise- und Termindaten (Stufe gering)\nEntscheidung über Personen: Beendigung oder Befristung eines Vertrags (Anhang III Nr. 4 Buchstabe b); Geldwirksame Entscheidung (Artikel 22 DSGVO, erhebliche Wirkung)\nKomponenten und Modelle: siehe architecture.md und blueprint.json der Lieferung; im BC3-Lauf: Ratgeber (Auffälligkeiten): mistral-medium-3-5, Story-Architekt: mistral-large-2512\nAnbieter des Zielsystems, Version, Änderungshistorie: [offen]\nLeistungsgrenzen und Genauigkeit (Art. 15): [offen]"
+    },
+    {
+      "id": "u-betriebsanleitung",
+      "tag": "[AI-Act Art. 13]",
+      "text": "Unterlage „Betriebsanleitung für die Nutzenden“ erstellen und vor Inbetriebnahme abschließen.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "hoch",
+      "stelle": "vor Inbetriebnahme",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "quelle": "BC3-Vorlage Hochrisiko",
+      "vorlage": "Was das System tut und was nicht: [offen]\nGrenzen und bekannte Fehlerbilder: [offen]\nWie die Aufsicht ausgeübt wird: übersteuern, verwerfen, anhalten, protokollieren (siehe Stories zu Art. 14)\nAnsprechpartner: [offen]"
+    },
+    {
+      "id": "u-aufsichtskonzept",
+      "tag": "[AI-Act Art. 14, Art. 26 Abs. 2]",
+      "text": "Unterlage „Aufsichtskonzept“ erstellen und vor Inbetriebnahme abschließen.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "hoch",
+      "stelle": "vor Inbetriebnahme",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "quelle": "BC3-Vorlage Hochrisiko",
+      "vorlage": "Aufsicht über: Beendigung oder Befristung eines Vertrags (Anhang III Nr. 4 Buchstabe b); Geldwirksame Entscheidung (Artikel 22 DSGVO, erhebliche Wirkung)\nZuständige Personen und Vertretung: [offen]\nNötige Kompetenz und Schulung (Art. 4): [offen]\nBefugnis, Ausgaben zu verwerfen und den Betrieb anzuhalten: [offen]"
+    },
+    {
+      "id": "u-protokoll-aufbewahrung",
+      "tag": "[AI-Act Art. 12, Art. 26 Abs. 6]",
+      "text": "Unterlage „Aufbewahrung der Protokolle“ erstellen und vor Inbetriebnahme abschließen.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "hoch",
+      "stelle": "vor Inbetriebnahme",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "quelle": "BC3-Vorlage Hochrisiko",
+      "vorlage": "Was protokolliert wird: siehe Story zu Art. 12/14\nAufbewahrungsdauer (Betreiber: mindestens sechs Monate, sofern nichts anderes gilt): [offen]\nZugriff und Löschung: [offen]"
+    },
+    {
+      "id": "u-dsfa",
+      "tag": "[DSGVO Art. 35]",
+      "text": "Unterlage „Datenschutz-Folgenabschätzung“ erstellen und vor Inbetriebnahme abschließen.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "hoch",
+      "stelle": "vor Inbetriebnahme",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "quelle": "BC3-Vorlage Hochrisiko",
+      "vorlage": "Verarbeitung: Der Kernprozess Personal umfasst u. a. die Bearbeitung von Reisestornierungen: Stornowünsche gehen per E-Mail oder Telefon ein, werden manuell über mehrere unverbundene Kanäle (Nachricht, Notiz, Anbieterportal, E-Mail) abgewickelt und als Bestätigung zurückgemeldet.\nDatenarten: Gehalts- und Vertragsdaten (Stufe hoch), E-Mail-Adresse (Stufe gering), Telefonnummer (Stufe gering), Reise- und Termindaten (Stufe gering)\nRechtsgrundlage laut Vorprüfung: Artikel 6 Absatz 1 Buchstabe b (Vertragserfüllung), Artikel 22 Absatz 2 Buchstabe a (ausdrückliche Einwilligung für automatisierte Entscheidung), Artikel 32 (Sicherheit der Verarbeitung)\nRisiken für Betroffene und Abhilfe: [offen]\nStellungnahme Datenschutzbeauftragte(r): [offen]"
+    },
+    {
+      "id": "u-konformitaet",
+      "tag": "[AI-Act Art. 43, Art. 49]",
+      "text": "Unterlage „Konformitätsbewertung und Registrierung“ erstellen und vor Inbetriebnahme abschließen.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "hoch",
+      "stelle": "vor Inbetriebnahme",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "quelle": "BC3-Vorlage Hochrisiko",
+      "vorlage": "Verfahren (bei Anhang III Nr. 2 bis 8: interne Kontrolle nach Anhang VI): [offen]\nEU-Konformitätserklärung: [offen]\nEintrag in die EU-Datenbank: [offen]\nRolle des Unternehmens (Anbieter, Betreiber oder beides): [offen]"
+    },
+    {
+      "id": "u-information-betroffene",
+      "tag": "[AI-Act Art. 26 Abs. 11]",
+      "text": "Unterlage „Information der betroffenen Personen“ erstellen und vor Inbetriebnahme abschließen.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "hoch",
+      "stelle": "vor Inbetriebnahme",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "quelle": "BC3-Vorlage Hochrisiko",
+      "vorlage": "Betroffene: [offen]\nHinweis, dass ein Hochrisiko-System die Entscheidung unterstützt (Beendigung oder Befristung eines Vertrags (Anhang III Nr. 4 Buchstabe b); Geldwirksame Entscheidung (Artikel 22 DSGVO, erhebliche Wirkung)): [offen: Text und Zeitpunkt]\nAuskunft und Widerspruch: [offen]"
+    },
+    {
+      "id": "u-information-beschaeftigte",
+      "tag": "[AI-Act Art. 26 Abs. 7]",
+      "text": "Unterlage „Information der Beschäftigten und ihrer Vertretung“ erstellen und vor Inbetriebnahme abschließen.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "hoch",
+      "stelle": "vor Inbetriebnahme",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "quelle": "BC3-Vorlage Hochrisiko",
+      "vorlage": "Information vor Inbetriebnahme am Arbeitsplatz: [offen: wann, durch wen]\nArbeitnehmervertretung beteiligt (ggf. § 87 Abs. 1 Nr. 6 BetrVG): [offen]"
+    },
+    {
+      "id": "u-grundrechte",
+      "tag": "[AI-Act Art. 27]",
+      "text": "Prüfen, ob die Grundrechte-Folgenabschätzung nötig ist (Art. 27 Abs. 1), und sie dann vor Inbetriebnahme abschließen.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "hoch",
+      "stelle": "vor Inbetriebnahme",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "quelle": "BC3-Vorlage Hochrisiko",
+      "vorlage": "Pflicht nur für öffentliche Stellen und private Einrichtungen, die öffentliche Dienste erbringen: [offen: trifft das zu?]\nProzess und Zeitraum der Nutzung: Der Kernprozess Personal umfasst u. a. die Bearbeitung von Reisestornierungen: Stornowünsche gehen per E-Mail oder Telefon ein, werden manuell über mehrere unverbundene Kanäle (Nachricht, Notiz, Anbieterportal, E-Mail) abgewickelt und als Bestätigung zurückgemeldet.\nBetroffene Personengruppen: [offen]\nRisiken für Grundrechte: [offen]\nAufsicht und Abhilfe: siehe Aufsichtskonzept\nMitteilung an die Marktüberwachungsbehörde: [offen]"
+    }
+  ],
+  "pflichten_nach_adressat": {
+    "bc4": [
+      "p3",
+      "p4",
+      "p5",
+      "p6",
+      "p8",
+      "p10",
+      "p14-uebersteuern",
+      "p14-anhalten",
+      "p14-protokollieren"
+    ],
+    "organisation": [
+      "p1",
+      "p2",
+      "p7",
+      "p9",
+      "u-risikomanagement",
+      "u-technische-dokumentation",
+      "u-betriebsanleitung",
+      "u-aufsichtskonzept",
+      "u-protokoll-aufbewahrung",
+      "u-dsfa",
+      "u-konformitaet",
+      "u-information-betroffene",
+      "u-information-beschaeftigte",
+      "u-grundrechte"
+    ],
+    "plattform": [],
+    "ohne_angabe": []
+  },
+  "nicht_an_bc4": [],
+  "plattform_standards": [
+    "Zentrale Protokollierung aller Workflow-Schritte mit Zeitstempel und Pseudonymisierung personenbezogener Daten",
+    "Regelmäßige Sicherheitsüberprüfungen der Protokoll- und Verarbeitungssysteme",
+    "Zugriffskontrollen für Protokolldaten und sensible Informationen"
+  ],
+  "zuordnung": [
+    {
+      "epic_id": "ep-9581-6fb5-8875-abf71bf5a815",
+      "use_case_id_ref": "b50d088b-f4e6-48ff-90b2-b3cb496f526d",
+      "id_saat": "b50d088b-f4e6-48ff-90b2-b3cb496f526d",
+      "titel": "Automatisierte Ausführung und Bestätigung von Reisestornierungen"
+    },
+    {
+      "story_id": "st-9581-6fb5-8875-abf71bf5a815-6",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p4"
+      ]
+    },
+    {
+      "story_id": "st-9581-6fb5-8875-abf71bf5a815-7",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p8"
+      ]
+    },
+    {
+      "story_id": "st-9581-6fb5-8875-abf71bf5a815-8",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p14-uebersteuern"
+      ]
+    },
+    {
+      "story_id": "st-9581-6fb5-8875-abf71bf5a815-9",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p14-anhalten"
+      ]
+    },
+    {
+      "story_id": "st-9581-6fb5-8875-abf71bf5a815-10",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p14-protokollieren"
+      ]
+    },
+    {
+      "story_id": "st-9581-6fb5-8875-abf71bf5a815-5",
+      "herkunft": "fachlich mit Pflicht",
+      "pflicht_ids": [
+        "p3"
+      ],
+      "quelle": "abgedeckt_durch"
+    },
+    {
+      "story_id": "st-9581-6fb5-8875-abf71bf5a815-3",
+      "herkunft": "fachlich mit Pflicht",
+      "pflicht_ids": [
+        "p5"
+      ],
+      "quelle": "abgedeckt_durch"
+    },
+    {
+      "story_id": "st-9581-6fb5-8875-abf71bf5a815-2",
+      "herkunft": "fachlich mit Pflicht",
+      "pflicht_ids": [
+        "p6"
+      ],
+      "quelle": "abgedeckt_durch"
+    },
+    {
+      "story_id": "st-9581-6fb5-8875-abf71bf5a815-3",
+      "herkunft": "fachlich mit Pflicht",
+      "pflicht_ids": [
+        "p10"
+      ],
+      "quelle": "abgedeckt_durch"
+    }
+  ],
+  "nicht_zugeordnete_compliance_stories": [],
+  "zuordnung_korrigiert": [],
+  "zusammengelegt": [],
+  "befunde_zuordnung": [
+    "Prüfen: Pflicht p3 [AI-Act Art. 12] gilt laut BC3-30 durch „Vorgangsdaten lückenlos protokollieren und für Audits verfüg“ als erfüllt.",
+    "Prüfen: Pflicht p5 [AI-Act Art. 14] gilt laut BC3-30 durch „Stornierung beim Anbieter auslösen und Ergebnis verarbeiten“ als erfüllt.",
+    "Prüfen: Pflicht p6 [AI-Act Art. 15] gilt laut BC3-30 durch „Buchungsnummer aus E-Mail extrahieren und Vollständigkeit pr“ als erfüllt.",
+    "Prüfen: Pflicht p10 [DSGVO Art. 22] gilt laut BC3-30 durch „Stornierung beim Anbieter auslösen und Ergebnis verarbeiten“ als erfüllt."
+  ],
+  "pflichten_ohne_story": [],
+  "pflichten_mit_story_ohne_vermerk": [
+    "p3",
+    "p5",
+    "p6",
+    "p10"
+  ],
+  "befunde_adressat": [],
+  "pruefung_bc3": {
+    "geprueft_gegen": "tickets.schema.json 3.5",
+    "ergebnis": "bestanden",
+    "befunde": [
+      "Epic 1: K1 steht schon in „Stornierung beim Anbieter auslösen und Ergebnis verarbeiten“ (im Kriterium genannt), kein Nachauftrag.",
+      "Epic 1: K2 steht schon in „Buchungsnummer aus E-Mail extrahieren und Vollständigkeit pr“ (im Kriterium genannt), kein Nachauftrag.",
+      "Epic 1: K3 steht schon in „Stornierung beim Anbieter auslösen und Ergebnis verarbeiten“ (im Kriterium genannt), kein Nachauftrag.",
+      "Epic 1: K4 steht schon in „Vorgangsdaten lückenlos protokollieren und für Audits verfüg“ (im Kriterium genannt), kein Nachauftrag."
+    ],
+    "epics": 1,
+    "stories": 5,
+    "potenziale": 1,
+    "anforderungen_im_eingang": 7,
+    "akzeptanzkriterien_im_eingang": 4,
+    "vorgaben_bc3": 0,
+    "stories_ohne_kriterium": 0
+  }
+}

@@ -1,0 +1,197 @@
+{
+  "lieferung_id": "del-kp-06-2026-10-31-090033",
+  "schema_version": "3.5",
+  "projekt_kurzname": "kp-06",
+  "konzept_ref": {
+    "konzept_id": "e67fe571-ecba-4d40-85e6-82a1e58d2076",
+    "schema_version": "3.1",
+    "source_file": "konzept_KP-06.json",
+    "kp_id": "KP-06",
+    "teilprozess_ids": [
+      "KP-06.TP-5"
+    ],
+    "value_quelle": "berechnet"
+  },
+  "epics": [
+    {
+      "epic_id": "ep-9581-6fb5-8875-abf71bf5a815",
+      "titel": "Automatisierte Ausführung und Bestätigung von Reisestornierungen",
+      "ziel": "Den vollständigen operativen Ablauf einer Reisestornierung vom Eingang des Stornowunschs bis zur abschließenden Rückmeldung automatisieren, um manuelle Eingriffe im Standardfall zu eliminieren.",
+      "kategorien": [
+        "it:backend",
+        "it:integration"
+      ],
+      "stories": [
+        {
+          "story_id": "st-9581-6fb5-8875-abf71bf5a815-1",
+          "titel": "Eingehende Stornierungsanfragen per E-Mail empfangen und protokollieren",
+          "beschreibung": "Als Workflow-Automation möchte ich eingehende Stornierungsanfragen per E-Mail programmatisch auslesen und den Eingang im Protokollspeicher erfassen, damit der automatisierte Ablauf ausgelöst wird.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine eingehende E-Mail an das dedizierte Stornierungs-Postfach, When der Workflow die Nachricht ausliest, Then wird der Eingang im Protokollsystem (PostgreSQL/NocoDB) mit Zeitstempel und Absender erfasst.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given eine Stornierungsanfrage per Telefon, When der Workflow nicht ausgelöst wird, Then wird der manuelle Eingang im Protokoll als 'manuell erfasst' gekennzeichnet.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-9581-6fb5-8875-abf71bf5a815-2",
+          "titel": "Buchungsnummer aus E-Mail extrahieren und Vollständigkeit prüfen",
+          "beschreibung": "Als Workflow-Automation möchte ich die Buchungsnummer aus der eingegangenen E-Mail regelbasiert extrahieren und auf Vollständigkeit prüfen, damit im Standardfall die Stornierung ausgelöst oder bei Fehlen eine Rückfrage generiert wird.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine E-Mail mit einer vollständigen Buchungsnummer, When der Workflow die Extraktion durchführt, Then wird die Buchungsnummer korrekt identifiziert und für die weitere Verarbeitung bereitgestellt.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given eine E-Mail ohne Buchungsnummer oder mit unvollständiger Buchungsnummer, When der Workflow die Extraktion durchführt, Then wird eine Rückfrage an den Anfragenden ausgelöst und der Vorgang als 'ausstehend' im Protokoll erfasst.",
+              "messverfahren": "Stichprobe von Vorgängen mit fehlender Buchungsnummer im Protokollsystem; Prüfung, ob eine Rückfrage-E-Mail zeitnah ausgelöst wurde (K2)."
+            },
+            {
+              "text": "Given eine E-Mail mit freitextlicher oder unklarer Buchungsnummer, When der Workflow die Extraktion durchführt, Then wird keine Buchungsnummer erfunden oder verändert, sondern eine Rückfrage ausgelöst.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-9581-6fb5-8875-abf71bf5a815-1"
+          ]
+        },
+        {
+          "story_id": "st-9581-6fb5-8875-abf71bf5a815-3",
+          "titel": "Stornierung beim Anbieter auslösen und Ergebnis verarbeiten",
+          "beschreibung": "Als Workflow-Automation möchte ich die Stornierung beim Anbieter über die verfügbare API oder das Anbieterportal auslösen und das Ergebnis strukturiert verarbeiten, damit die Rückmeldung an den Anfragenden erfolgen kann.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine vollständige Buchungsnummer und eine verfügbare Anbieter-API, When der Workflow die Stornierung auslöst, Then wird die Anfrage an den Anbieter gesendet und das Ergebnis (storniert / nicht gefunden / fehlgeschlagen) empfangen.",
+              "messverfahren": "Zeitstempel im Vorgangsprotokoll: Vergleich von Zeitpunkt der Anbieteranfrage und Zeitpunkt des Ergebniseingangs (K1)."
+            },
+            {
+              "text": "Given ein Anbieter ohne API oder mit nicht automatisierbarer Weboberfläche, When der Workflow die Stornierung nicht auslösen kann, Then wird der Vorgang als Ausnahme an die sachbearbeitende Person übergeben und im Protokoll als 'manuell zu bearbeiten' gekennzeichnet.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given ein Vorgang, bei dem der Anbieter die Buchungsnummer nicht findet oder die Stornierung fehlschlägt, When das Ergebnis der Anbieter-API eingeht, Then wird der Vorgang als Ausnahme mit allen verfügbaren Informationen an die sachbearbeitende Person übergeben und im Protokoll als 'Ausnahme' gekennzeichnet.",
+              "messverfahren": "Auswertung der Ausnahme-Einträge im Protokollsystem über einen definierten Zeitraum; Verifikation, dass jeder Ausnahmefall eine zugeordnete Folgeaktion trägt (K3)."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-9581-6fb5-8875-abf71bf5a815-2"
+          ]
+        },
+        {
+          "story_id": "st-9581-6fb5-8875-abf71bf5a815-4",
+          "titel": "Bestätigungs- oder Rückfrage-E-Mail generieren und versenden",
+          "beschreibung": "Als Workflow-Automation möchte ich eine inhaltlich korrekte und vollständige Bestätigungs- oder Rückfrage-E-Mail an den Anfragenden senden, damit dieser über den Status der Stornierung informiert wird.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein erfolgreicher Stornierungsvorgang, When der Workflow die Bestätigungs-E-Mail generiert, Then wird eine strukturierte und im Ton angemessene E-Mail an den Anfragenden gesendet und im Protokoll erfasst.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given eine fehlende Buchungsnummer oder unklare Anfrage, When der Workflow die Rückfrage-E-Mail generiert, Then wird eine präzise Rückfrage an den Anfragenden gesendet und der Vorgang als 'ausstehend' im Protokoll erfasst.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given eine neue Vorlage für Bestätigungs- oder Rückfrage-E-Mails, When die Vorlage fachlich abgenommen ist, Then kann sie im Workflow verwendet werden, ohne dass der produktive Betrieb unterbrochen wird.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-9581-6fb5-8875-abf71bf5a815-3"
+          ]
+        },
+        {
+          "story_id": "st-9581-6fb5-8875-abf71bf5a815-5",
+          "titel": "Vorgangsdaten lückenlos protokollieren und für Audits verfügbar halten",
+          "beschreibung": "Als Workflow-Automation möchte ich alle Schritte eines Stornierungsvorgangs (Eingang, Verarbeitung, Anbieterantwort, Rückmeldung) lückenlos im Protokollspeicher erfassen, damit die Nachvollziehbarkeit für Rückfragen und Audits gewährleistet ist.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein abgeschlossener Stornierungsvorgang (automatisch oder manuell), When das Protokoll abgefragt wird, Then sind Eingangszeit, Bearbeitungsschritte, Ergebnis und Rückmeldezeit vollständig und nachvollziehbar dokumentiert.",
+              "messverfahren": "Prüfung der Vollständigkeit der Protokolleinträge durch Stichprobenauswertung im Protokollsystem; alle Pflichtfelder müssen befüllt sein (K4)."
+            },
+            {
+              "text": "Given alle verarbeiteten Nachrichten und erzeugten Antworten, When sie im Protokollsystem gespeichert werden, Then sind sie für Rückfragen und Audits dauerhaft verfügbar.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-9581-6fb5-8875-abf71bf5a815-1",
+            "st-9581-6fb5-8875-abf71bf5a815-2",
+            "st-9581-6fb5-8875-abf71bf5a815-3",
+            "st-9581-6fb5-8875-abf71bf5a815-4"
+          ]
+        },
+        {
+          "story_id": "st-9581-6fb5-8875-abf71bf5a815-6",
+          "titel": "Transparenzhinweis in Bestätigungs- und Rückfrage-E-Mails einfügen",
+          "beschreibung": "Als Workflow-Automation möchte ich in jede Bestätigungs- und Rückfrage-E-Mail einen standardisierten Transparenzhinweis einfügen, der den Anfragenden darüber informiert, dass die Stornierung automatisiert bearbeitet wurde, um die Anforderungen von Artikel 13 KI-VO zu erfüllen.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine Bestätigungs- oder Rückfrage-E-Mail, When der Workflow die E-Mail generiert, Then enthält die E-Mail einen vordefinierten Transparenzhinweis (z. B. 'Diese Nachricht wurde automatisiert erstellt.').",
+              "messverfahren": "Prüfung der E-Mail-Vorlagen auf Vorhandensein des Transparenzhinweises vor Inbetriebnahme."
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-9581-6fb5-8875-abf71bf5a815-7",
+          "titel": "Pseudonymisierung personenbezogener Daten vor der Protokollierung",
+          "beschreibung": "Als Workflow-Automation möchte ich personenbezogene Daten (E-Mail-Adresse, Telefonnummer) vor der Protokollierung pseudonymisieren, um die Anforderungen von Artikel 25 DSGVO zu erfüllen.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine eingehende E-Mail mit personenbezogenen Daten, When der Workflow die Daten protokolliert, Then werden E-Mail-Adresse und Telefonnummer durch eine eindeutige Kennung ersetzt und die Originaldaten nicht im Protokoll gespeichert.",
+              "messverfahren": "Prüfung der Protokolldaten auf Vorhandensein von Pseudonymen statt Originaldaten; Stichprobenauswertung im Protokollsystem."
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-9581-6fb5-8875-abf71bf5a815-8",
+          "titel": "Ausgabe übersteuern oder verwerfen (Art. 14 KI-VO)",
+          "beschreibung": "Als zuständige Person möchte ich jede Ausgabe des Systems verwerfen oder durch eine eigene Entscheidung übersteuern können, bevor sie wirkt, damit die Entscheidung über Personen beim Menschen bleibt (Art. 14 Abs. 4 Buchst. d KI-VO).",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine Ausgabe des Systems liegt vor, When die zuständige Person sie verwirft oder ändert, Then wird ausschließlich die Entscheidung der Person weiterverwendet und die ursprüngliche Ausgabe bleibt nachvollziehbar gespeichert.",
+              "messverfahren": "Testfall je Ausgabeart (verwerfen und ändern), Prüfung des weiterverwendeten Werts und des gespeicherten Originals."
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-9581-6fb5-8875-abf71bf5a815-9",
+          "titel": "Betrieb anhalten (Art. 14 KI-VO)",
+          "beschreibung": "Als zuständige Person möchte ich den automatisierten Ablauf jederzeit anhalten können, damit bei Fehlverhalten keine weiteren Ausgaben entstehen. Angehaltene Vorgänge warten auf manuelle Bearbeitung (Art. 14 Abs. 4 Buchst. e KI-VO).",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given der Ablauf ist angehalten, When ein neuer Vorgang eingeht, Then wird keine automatische Ausgabe erzeugt und der Vorgang wartet auf manuelle Bearbeitung.",
+              "messverfahren": "Testlauf mit angehaltenem Ablauf: eingehende Vorgänge erzeugen keine Ausgabe und sind als wartend markiert. Offen: Anzahl der Testvorgänge festlegen."
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-9581-6fb5-8875-abf71bf5a815-10",
+          "titel": "Aufsichtsentscheidungen protokollieren (Art. 12 und 14 KI-VO)",
+          "beschreibung": "Als verantwortliche Stelle möchte ich, dass jede Freigabe, Änderung, Verwerfung und jedes Anhalten mit Person, Zeitpunkt und Begründung protokolliert wird, damit die Aufsicht nachweisbar ist (Art. 12 und Art. 14 KI-VO).",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine Aufsichtsentscheidung, When sie getroffen wird, Then enthält das Protokoll Person, Zeitpunkt, Entscheidung, betroffenen Vorgang und Begründung.",
+              "messverfahren": "Protokollauszug je Aufsichtsentscheidung, gegen die fünf Pflichtfelder geprüft. Offen: Umfang der Stichprobe festlegen."
+            }
+          ],
+          "abhaengigkeiten": []
+        }
+      ],
+      "teilprozess_ids": [
+        "KP-06.TP-5"
+      ]
+    }
+  ],
+  "gate2": {
+    "status": "approved"
+  }
+}
