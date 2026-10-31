@@ -1,6 +1,6 @@
 # BC3 – n8n-Workflows des Slicers
 
-Stand 25.10.2026 (BC3-10, BC3-80, BC3-91: Kennungen der Kette nach BC0 v3.18; BC3-82 mit Links zur Präsentation und zur Live-Demo, auch auf der Legal-Adresse; BC3-90 Live-Demo neu, mit Legal-Adresse), sonst 23.10.2026: veröffentlichte Fassung aus n8n, bereinigt exportiert. Ablauf eines Laufs: [../ablauf-slicer.md](../ablauf-slicer.md).
+Stand 31.10.2026 (BC3-90 Live-Demo: Knöpfe „Jetzt prüfen“, „Testfall“, „Aufzeichnung ansehen“), 25.10.2026 (BC3-10, BC3-80, BC3-91: Kennungen der Kette nach BC0 v3.18; BC3-82 mit Links zur Präsentation und zur Live-Demo, auch auf der Legal-Adresse; BC3-90 Live-Demo neu, mit Legal-Adresse), sonst 23.10.2026: veröffentlichte Fassung aus n8n, bereinigt exportiert. Ablauf eines Laufs: [../ablauf-slicer.md](../ablauf-slicer.md).
 
 ## Was bereinigt ist
 
@@ -26,7 +26,7 @@ Stand 25.10.2026 (BC3-10, BC3-80, BC3-91: Kennungen der Kette nach BC0 v3.18; BC
 | BC3-80 | [bc3-80-gate-2-freigabe.json](bc3-80-gate-2-freigabe.json) | Setzt die Entscheidung an Gate 2 um (Pull Request, Team-Datenbank) | `btNCECvEp5neQ2h4` |
 | BC3-81 | [bc3-81-gate-2-seite.json](bc3-81-gate-2-seite.json) | Gate-2-Seite zum Entscheiden (Webhook) | `eKr8CANKYO4OyM27` |
 | BC3-82 | [bc3-82-uebersicht.json](bc3-82-uebersicht.json) | Übersicht über Läufe, Fehler und Lieferungen (Webhook mit Passwort) | `1I8HbQb1g6SCRipA` |
-| BC3-90 | [bc3-90-live-demo.json](bc3-90-live-demo.json) | Live-Demo für Präsentationen: Seite mit Passwort, startet einen Testlauf (simuliertes UC1, Modus `test`) und zeigt ihn Schritt für Schritt bis zur Entscheidung an Gate 2 | `rzUhSiBt99pxsPui` |
+| BC3-90 | [bc3-90-live-demo.json](bc3-90-live-demo.json) | Live-Demo für Präsentationen: Seite mit Passwort, zeigt einen Lauf Schritt für Schritt bis zur Entscheidung an Gate 2. „Jetzt prüfen“ ruft BC3-01 auf und startet neue, an Gate 1 freigegebene Lieferungen von BC2 im Modus `echt` (nach Freigabe Pull Request an BC4), ohne neue Lieferung nur eine Meldung. „Testfall“ startet das simulierte UC1 im Modus `test` | `YkJfiOq1fJwAqVQD` |
 | BC3-91 | [bc3-91-laufprotokoll.json](bc3-91-laufprotokoll.json) | Schreibt den Stand eines Laufs in `laeufe` | `lJEmDjgpCHVBybUO` |
 | BC3-99 | [bc3-99-fehlerprotokoll.json](bc3-99-fehlerprotokoll.json) | Error Workflow aller BC3-Workflows, schreibt in `fehler` | `D03E5Rn1DDKDZGbL` |
 
