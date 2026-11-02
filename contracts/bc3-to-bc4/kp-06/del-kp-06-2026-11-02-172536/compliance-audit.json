@@ -1,0 +1,256 @@
+{
+  "lieferung_id": "del-kp-06-2026-11-02-172536",
+  "schema_version": "3.5",
+  "projekt_kurzname": "kp-06",
+  "erzeugt_am": "2026-11-02T17:25:36.009Z",
+  "konzept_ref": {
+    "konzept_id": "989b96f6-480f-4b6e-b603-7beff740a0cb",
+    "schema_version": "3.1",
+    "source_file": "konzept_KP-06.json",
+    "kp_id": "KP-06",
+    "teilprozess_ids": [
+      "KP-06.TP-2",
+      "KP-06.TP-4",
+      "KP-06.TP-5",
+      "KP-06.TP-3"
+    ],
+    "value_quelle": "berechnet"
+  },
+  "prozess_kurzbeschreibung": "Der Kernprozess Personal (KP-06) umfasst die vollständige Reisebearbeitung von der Anfrage über Angebot, Reservierung und Statusprüfung bis zur Stornierung – überwiegend manuell, kanalübergreifend und mit mehrfachen Medienbrüchen.",
+  "vorpruefung": {
+    "ampel": "yellow",
+    "ai_act_klasse": "limited",
+    "anhang_iii_kategorie": null,
+    "dsgvo_rechtsgrundlage": "Artikel 6 Absatz 1 Buchstabe b (Vertragserfüllung), Artikel 6 Absatz 1 Buchstabe f (berechtigtes Interesse)",
+    "betroffene_datenarten": [
+      "E-Mail-Adresse (Stufe gering)",
+      "Telefonnummer (Stufe gering)",
+      "Reise- und Termindaten (Stufe gering)",
+      "Kostenstelle und Budget (Stufe gering)"
+    ],
+    "begruendung_ampel": "Der Prozess fällt unter die 'limited'-Klasse des AI-Act, da automatisierte Antworten an Kunden gesendet werden, ohne dass Hochrisiko-Kriterien (Anhang III) oder verbotene Praktiken (Artikel 5) vorliegen. Die Ampel ist gelb, weil menschliche Freigaben für geldwirksame Entscheidungen (Reservierung, Stornierung) eingebaut sind und Kontaktdaten pseudonymisiert werden, um die Anforderungen aus DSGVO Artikel 22 und 25 zu erfüllen. Zusätzliche Transparenzhinweise in automatisierten Antworten sind erforderlich, um Artikel 50 Absatz 1 AI-Act zu genügen."
+  },
+  "pflichten": [
+    {
+      "id": "p1",
+      "tag": "[AI-Act Art. 4]",
+      "text": "Personen, die das KI-System nutzen, müssen über ausreichende KI-Kompetenz verfügen. Schulungen zur sicheren und regelkonformen Nutzung des Systems sind vorzusehen.",
+      "massnahme": "hinweis_geben",
+      "datenkategorie": "gering",
+      "stelle": "Prozessstart (vor Go-live)",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p2",
+      "tag": "[AI-Act Art. 50 Absatz 1]",
+      "text": "Kunden müssen darüber informiert werden, dass sie mit einem KI-System kommunizieren, wenn das System automatisiert auf ihre Anfragen antwortet.",
+      "massnahme": "hinweis_geben",
+      "datenkategorie": "gering",
+      "stelle": "Automatisierte Antwort-Mails (z. B. in ep-5cb09042-3, ep-698c6d9-4)",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p3",
+      "tag": "[DSGVO Art. 25]",
+      "text": "Kontaktdaten (E-Mail-Adresse, Telefonnummer) müssen vor der Verarbeitung durch das Extraktionsmodell pseudonymisiert oder in der EU verarbeitet werden, um Datenschutz durch Technikgestaltung zu gewährleisten.",
+      "massnahme": "pseudonymisieren",
+      "datenkategorie": "gering",
+      "stelle": "Extraktion aus E-Mails (ep-47032-2, ep-5cb09042-1, ep-698c6d9-2)",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p4",
+      "tag": "[DSGVO Art. 32]",
+      "text": "Die Verarbeitung der Reisedaten muss durch technische Maßnahmen (z. B. Verschlüsselung, Zugriffskontrollen) abgesichert werden, um die Sicherheit der Verarbeitung zu gewährleisten.",
+      "massnahme": "eu_modell",
+      "datenkategorie": "gering",
+      "stelle": "Alle Verarbeitungsschritte (z. B. ep-47032-2, ep-5cb09042-2, ep-698c6d9-4, ep-aaad-2)",
+      "adressat": "plattform",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p5",
+      "tag": "[DSGVO Art. 22 Absatz 1]",
+      "text": "Geldwirksame Entscheidungen (z. B. Reservierung, Stornierung) dürfen nicht ausschließlich automatisiert getroffen werden. Ein Mensch muss die finale Entscheidung treffen oder zumindest den Vorschlag des Systems prüfen und freigeben.",
+      "massnahme": "mensch_prueft",
+      "datenkategorie": "gering",
+      "stelle": "Freigabe von Reservierungen (ep-aaad-6) und Stornierungen (ep-698c6d9-3)",
+      "adressat": "bc4",
+      "wird_zu_story": false,
+      "abgedeckt_durch": [
+        "ep-698c6d9-3",
+        "ep-aaad-6"
+      ]
+    },
+    {
+      "id": "p6",
+      "tag": "[DSGVO Art. 12]",
+      "text": "Kunden müssen über die Verarbeitung ihrer Daten in verständlicher und transparenter Form informiert werden, insbesondere wenn automatisierte Entscheidungen getroffen werden.",
+      "massnahme": "hinweis_geben",
+      "datenkategorie": "gering",
+      "stelle": "Automatisierte Antwort-Mails (z. B. ep-5cb09042-3, ep-698c6d9-4)",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p7",
+      "tag": "[DSGVO Art. 30]",
+      "text": "Ein Verzeichnis der Verarbeitungstätigkeiten muss geführt werden, das die automatisierte Verarbeitung der Reisedaten dokumentiert.",
+      "massnahme": "protokollieren",
+      "datenkategorie": "gering",
+      "stelle": "Alle Verarbeitungsschritte (z. B. ep-47032-5, ep-5cb09042-5, ep-698c6d9-6)",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p8",
+      "tag": "[DSGVO Art. 5 Absatz 1 Buchstabe c]",
+      "text": "Die Verarbeitung der Reisedaten muss auf das notwendige Maß beschränkt werden (Datenminimierung). Felder, die für die Bearbeitung nicht erforderlich sind, dürfen nicht verarbeitet werden.",
+      "massnahme": "feld_weglassen",
+      "datenkategorie": "gering",
+      "stelle": "Extraktion aus E-Mails (ep-47032-2, ep-5cb09042-1, ep-698c6d9-2)",
+      "adressat": "bc4",
+      "wird_zu_story": false,
+      "abgedeckt_durch": []
+    }
+  ],
+  "pflichten_nach_adressat": {
+    "bc4": [
+      "p2",
+      "p3",
+      "p5",
+      "p6",
+      "p8"
+    ],
+    "organisation": [
+      "p1",
+      "p7"
+    ],
+    "plattform": [
+      "p4"
+    ],
+    "ohne_angabe": []
+  },
+  "nicht_an_bc4": [],
+  "plattform_standards": [
+    "Verschlüsselung der Daten während der Verarbeitung und Speicherung (DSGVO Artikel 32)",
+    "Zentrale Protokollierung aller Verarbeitungsschritte in einem Audit-Log (DSGVO Artikel 30)",
+    "Zugriffskontrollen für personenbezogene Daten (DSGVO Artikel 32)",
+    "Verarbeitung der Daten ausschließlich in der EU (DSGVO Artikel 25)"
+  ],
+  "zuordnung": [
+    {
+      "epic_id": "ep-f60b-e53b-a2a0-6325a747c273",
+      "use_case_id_ref": "47032e10-3355-4a24-b1b0-7f80809b4df3",
+      "id_saat": "47032e10-3355-4a24-b1b0-7f80809b4df3",
+      "titel": "Reiseanfrage-Daten automatisch aus E-Mail extrahieren und prüfen"
+    },
+    {
+      "story_id": "st-f60b-e53b-a2a0-6325a747c273-7",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p3"
+      ]
+    },
+    {
+      "epic_id": "ep-2561-531e-4784-e514f2e897aa",
+      "use_case_id_ref": "5cb09042-abe5-431a-b14e-fa1ba5f78e70",
+      "id_saat": "5cb09042-abe5-431a-b14e-fa1ba5f78e70",
+      "titel": "Buchungsstatus-Abfrage automatisieren"
+    },
+    {
+      "story_id": "st-2561-531e-4784-e514f2e897aa-6",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p2"
+      ]
+    },
+    {
+      "story_id": "st-2561-531e-4784-e514f2e897aa-7",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p6"
+      ]
+    },
+    {
+      "epic_id": "ep-ebfe-6811-cd8f-7c3709593b21",
+      "use_case_id_ref": "f698c6d9-dd69-4354-8c3f-6094078701de",
+      "id_saat": "f698c6d9-dd69-4354-8c3f-6094078701de",
+      "titel": "Automatisierung der Stornierungsauslösung und Bestätigung"
+    },
+    {
+      "story_id": "st-ebfe-6811-cd8f-7c3709593b21-7",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p2"
+      ]
+    },
+    {
+      "epic_id": "ep-14f7-4820-67d6-706698d024a0",
+      "use_case_id_ref": "d9b13642-aaad-415d-b087-ea364c47d543",
+      "id_saat": "d9b13642-aaad-415d-b087-ea364c47d543",
+      "titel": "Angebotserstellung und Reservierung mit Recherche-Assistent unterstützen"
+    },
+    {
+      "story_id": "st-ebfe-6811-cd8f-7c3709593b21-3",
+      "herkunft": "fachlich mit Pflicht",
+      "pflicht_ids": [
+        "p5"
+      ],
+      "quelle": "abgedeckt_durch"
+    },
+    {
+      "story_id": "st-14f7-4820-67d6-706698d024a0-6",
+      "herkunft": "fachlich mit Pflicht",
+      "pflicht_ids": [
+        "p5"
+      ],
+      "quelle": "abgedeckt_durch"
+    }
+  ],
+  "nicht_zugeordnete_compliance_stories": [],
+  "zuordnung_korrigiert": [],
+  "zusammengelegt": [],
+  "befunde_zuordnung": [
+    "Prüfen: Pflicht p5 [DSGVO Art. 22 Absatz 1] gilt laut BC3-30 durch „Freigabe-Schritt für Stornierungen mit menschlicher Entschei“ und „Reservierung prüfen und freigeben“ als erfüllt."
+  ],
+  "pflichten_ohne_story": [],
+  "pflichten_mit_story_ohne_vermerk": [
+    "p5"
+  ],
+  "befunde_adressat": [],
+  "pruefung_bc3": {
+    "geprueft_gegen": "tickets.schema.json 3.5",
+    "ergebnis": "bestanden",
+    "befunde": [
+      "Epic 4: deckt_ab nennt VORBEDINGUNGEN, die es im Eingang nicht gibt.",
+      "Epic 1: K3 im zweiten Durchgang ergänzt (1 Story(s))",
+      "Epic 1: Prüfen: Story des Ergänzers „Ausnahmefälle bei unklaren oder widersprüchlichen Reisedaten erkennen und eskali“ (K3) ähnlich wie ep-47032-2 (77 %), an Gate 2 prüfen, ob doppelt."
+    ],
+    "epics": 4,
+    "stories": 23,
+    "potenziale": 4,
+    "anforderungen_im_eingang": 20,
+    "akzeptanzkriterien_im_eingang": 12,
+    "vorgaben_bc3": 0,
+    "stories_ohne_kriterium": 0,
+    "nachgebessert": [
+      "Epic 1: K3 im zweiten Durchgang ergänzt (1 Story(s))"
+    ]
+  }
+}
