@@ -1,0 +1,550 @@
+{
+  "lieferung_id": "del-kp-06-2026-11-02-172536",
+  "schema_version": "3.5",
+  "projekt_kurzname": "kp-06",
+  "konzept_ref": {
+    "konzept_id": "989b96f6-480f-4b6e-b603-7beff740a0cb",
+    "schema_version": "3.1",
+    "source_file": "konzept_KP-06.json",
+    "kp_id": "KP-06",
+    "teilprozess_ids": [
+      "KP-06.TP-2",
+      "KP-06.TP-4",
+      "KP-06.TP-5",
+      "KP-06.TP-3"
+    ],
+    "value_quelle": "berechnet"
+  },
+  "epics": [
+    {
+      "epic_id": "ep-f60b-e53b-a2a0-6325a747c273",
+      "titel": "Reiseanfrage-Daten automatisch aus E-Mail extrahieren und prüfen",
+      "ziel": "Automatisierte Extraktion und Vollständigkeitsprüfung von Reisedaten aus E-Mail-Anfragen, um manuelle Medienbrüche zu vermeiden und die Datenqualität für die Weiterbearbeitung zu erhöhen.",
+      "kategorien": [
+        "it:backend",
+        "it:integration",
+        "it:ai-pipeline"
+      ],
+      "stories": [
+        {
+          "story_id": "st-f60b-e53b-a2a0-6325a747c273-1",
+          "titel": "E-Mail-Postfach für Reiseanfragen anbinden und überwachen",
+          "beschreibung": "Als Systemadministrator möchte ich das E-Mail-Postfach für Reiseanfragen programmatisch anbinden, damit eingehende Mails automatisch an das Extraktionsmodell weitergeleitet werden.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given das E-Mail-Postfach für Reiseanfragen ist via IMAP oder vergleichbarem Protokoll zugänglich, When eine neue E-Mail eingeht, Then wird sie innerhalb von 5 Minuten an das Extraktionsmodell übergeben.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given eine E-Mail mit Anhängen, die Reisedaten enthalten könnten, When die Mail im System eingeht, Then wird sie als Ausnahme markiert und zur manuellen Bearbeitung eskaliert, sofern keine OCR-Verarbeitung aktiviert ist.",
+              "messverfahren": "Stichprobe von als Ausnahme markierten Vorgängen; Prüfung, ob Anhänge korrekt erkannt wurden."
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-f60b-e53b-a2a0-6325a747c273-2",
+          "titel": "Reisedaten aus E-Mail extrahieren und in Erfassungsbogen übertragen",
+          "beschreibung": "Als Sachbearbeitender möchte ich, dass das Extraktionsmodell die Pflichtfelder Reiseziel, Abreisedatum, Rückreisedatum, Personenzahl und Budgetrahmen aus der E-Mail erkennt und in den Erfassungsbogen überträgt, damit ich keine manuelle Eingabe vornehmen muss.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine vollständig formulierte Reiseanfrage per E-Mail mit Reiseziel, Daten, Personenzahl und Budget, When die Mail im System eingeht, Then sind die Pflichtfelder im Erfassungsbogen korrekt und vollständig befüllt.",
+              "messverfahren": "Stichprobe verarbeiteter E-Mail-Anfragen: Abgleich des automatisch befüllten Erfassungsbogens mit der Quell-Mail; Anteil korrekt und vollständig übertragener Pflichtfelder wird im Vorgangsprotokoll dokumentiert."
+            },
+            {
+              "text": "Given eine E-Mail mit unklaren oder widersprüchlichen Angaben, When das Modell keine zuverlässige Extraktion vornehmen kann, Then wird der Vorgang mit einem Ausnahme-Flag versehen und dem Sachbearbeitenden zur manuellen Bearbeitung vorgelegt.",
+              "messverfahren": "Stichprobe von als Ausnahme markierten Vorgängen; Prüfung, ob korrekt erkannte Unklarheiten zu einer Eskalation geführt haben."
+            },
+            {
+              "text": "Given das Extraktionsmodell verarbeitet eine E-Mail, When die Extraktion abgeschlossen ist, Then werden Zeitpunkt des Eingangs, Zeitpunkt der Extraktion, Ergebnis und extrahierte Feldwerte im Vorgangsprotokoll gespeichert.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-f60b-e53b-a2a0-6325a747c273-1"
+          ]
+        },
+        {
+          "story_id": "st-f60b-e53b-a2a0-6325a747c273-3",
+          "titel": "Vollständigkeitsprüfung der extrahierten Reisedaten durchführen",
+          "beschreibung": "Als Sachbearbeitender möchte ich, dass das System nach der Extraktion prüft, ob alle Pflichtfelder im Erfassungsbogen belegt sind, damit unvollständige Vorgänge automatisch erkannt und behandelt werden.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine Reiseanfrage per E-Mail mit fehlenden Pflichtfeldern, When die Extraktion eine Lücke erkennt, Then wird der Vorgang als ausstehend markiert und eine Rückfrage-Mail an den Absender gesendet.",
+              "messverfahren": "Zeitstempel im Vorgangsprotokoll: Differenz zwischen Eingang der Mail und Versand der Rückfrage-Mail; Vorhandensein der Rückfrage-Mail im Postausgang."
+            },
+            {
+              "text": "Given eine Rückfrage-Mail wird versendet, When die Mail generiert wird, Then enthält sie nur Hinweise auf die konkret fehlenden Felder und keine zusätzlichen Informationen aus der ursprünglichen Anfrage.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given eine Rückfrage-Mail wurde versendet, When nach einer konfigurierten Wartezeit keine Antwort eingeht, Then wird der Vorgang dem Sachbearbeitenden zur Nachverfolgung bereitgestellt.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-f60b-e53b-a2a0-6325a747c273-2"
+          ]
+        },
+        {
+          "story_id": "st-f60b-e53b-a2a0-6325a747c273-4",
+          "titel": "Vollständige Vorgänge an Recherchephase übergeben",
+          "beschreibung": "Als Sachbearbeitender möchte ich, dass vollständige Vorgänge automatisch an die Recherchephase übergeben werden, damit ich direkt mit der Bearbeitung beginnen kann.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein Erfassungsbogen ist vollständig befüllt, When die Vollständigkeitsprüfung abgeschlossen ist, Then wird der Vorgang in die Vorgangsdatenbank geschrieben und als bearbeitungsreif markiert.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given ein Vorgang ist als bearbeitungsreif markiert, When der Sachbearbeitende die Arbeitsliste öffnet, Then wird der Vorgang dort angezeigt und kann direkt bearbeitet werden.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-f60b-e53b-a2a0-6325a747c273-3"
+          ]
+        },
+        {
+          "story_id": "st-f60b-e53b-a2a0-6325a747c273-5",
+          "titel": "Verarbeitungsschritte protokollieren und überwachen",
+          "beschreibung": "Als Systemadministrator möchte ich, dass alle Verarbeitungsschritte in Loki/Grafana protokolliert werden, damit Fehlerquoten und Ausnahmeanteile im Dashboard sichtbar sind.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine E-Mail wird verarbeitet, When die Extraktion, Vollständigkeitsprüfung oder Ausnahmebehandlung abgeschlossen ist, Then werden die Schritte mit Zeitstempeln und Ergebnissen in Loki protokolliert.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given die Protokolldaten sind in Loki verfügbar, When das Grafana-Dashboard aufgerufen wird, Then sind Fehlerquoten und Ausnahmeanteile in Echtzeit sichtbar.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-f60b-e53b-a2a0-6325a747c273-1",
+            "st-f60b-e53b-a2a0-6325a747c273-2",
+            "st-f60b-e53b-a2a0-6325a747c273-3"
+          ]
+        },
+        {
+          "story_id": "st-f60b-e53b-a2a0-6325a747c273-6",
+          "titel": "Ausnahmefälle bei unklaren oder widersprüchlichen Reisedaten erkennen und eskalieren",
+          "beschreibung": "Als Sachbearbeitender im Reisebüro möchte ich, dass unklare oder widersprüchliche Angaben in einer Reiseanfrage automatisch erkannt und zur manuellen Bearbeitung markiert werden, damit keine fehlerhaften Rückfragen an den Kunden gesendet werden und ich mich auf die Klärung der Ausnahmefälle konzentrieren kann.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine Anfrage-Mail mit unklaren oder widersprüchlichen Angaben When das Extraktionsmodell keine zuverlässige Extraktion vornehmen kann Then wird der Vorgang mit einem Ausnahme-Flag versehen und dem Sachbearbeitenden zur manuellen Bearbeitung vorgelegt, ohne dass eine automatische Rückfrage ausgeht",
+              "messverfahren": "Stichprobe von als Ausnahme markierten Vorgängen; Prüfung, ob korrekt erkannte Unklarheiten zu einer Eskalation geführt haben und kein automatischer Rückfrageduplikat entstanden ist"
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-f60b-e53b-a2a0-6325a747c273-7",
+          "titel": "Kontaktdaten vor Extraktionsmodell pseudonymisieren",
+          "beschreibung": "Als Systemadministrator möchte ich, dass Kontaktdaten (E-Mail-Adresse, Telefonnummer) vor der Verarbeitung durch das Extraktionsmodell pseudonymisiert werden, um Datenschutz durch Technikgestaltung zu gewährleisten (DSGVO Artikel 25).",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine eingehende E-Mail mit Kontaktdaten, When die Extraktion erfolgt, Then werden E-Mail-Adresse und Telefonnummer durch eine Kennung ersetzt, bevor sie an das Extraktionsmodell übergeben werden.",
+              "messverfahren": "Stichprobe verarbeiteter E-Mails; Prüfung, ob Kontaktdaten im Extraktionsprotokoll pseudonymisiert sind."
+            },
+            {
+              "text": "Given pseudonymisierte Kontaktdaten im Erfassungsbogen, When der Sachbearbeitende den Vorgang prüft, Then werden die originalen Kontaktdaten wieder angezeigt.",
+              "messverfahren": "Stichprobe von Erfassungsbögen; Prüfung, ob Kontaktdaten für den Sachbearbeitenden lesbar sind."
+            }
+          ],
+          "abhaengigkeiten": []
+        }
+      ],
+      "teilprozess_ids": [
+        "KP-06.TP-2"
+      ]
+    },
+    {
+      "epic_id": "ep-2561-531e-4784-e514f2e897aa",
+      "titel": "Buchungsstatus-Abfrage automatisieren",
+      "ziel": "Automatisierte Bearbeitung von Statusanfragen zu Buchungen per E-Mail, um Sachbearbeitende zu entlasten und Kunden ohne Wartezeit zu informieren.",
+      "kategorien": [
+        "it:backend",
+        "it:integration",
+        "it:ai-pipeline"
+      ],
+      "stories": [
+        {
+          "story_id": "st-2561-531e-4784-e514f2e897aa-1",
+          "titel": "E-Mails als Statusanfragen klassifizieren und Buchungsnummer extrahieren",
+          "beschreibung": "Als Automatisierungssystem möchte ich eingehende E-Mails zuverlässig als Statusanfragen erkennen und die enthaltene Buchungsnummer extrahieren, damit der Buchungsstatus beim Anbieterportal abgefragt werden kann.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine eingehende E-Mail mit einer Buchungsnummer und einer Frage nach dem Buchungsstatus, When die E-Mail verarbeitet wird, Then wird die E-Mail als Statusanfrage klassifiziert und die Buchungsnummer korrekt extrahiert.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given eine eingehende E-Mail ohne Buchungsnummer, When die Verarbeitung keine Buchungsnummer erkennt, Then wird die E-Mail als unvollständig markiert und eine Rückfrage ausgelöst.",
+              "messverfahren": "Stichprobe von E-Mails ohne Buchungsnummer; Prüfung auf korrekte Auslösung der Rückfrage."
+            },
+            {
+              "text": "Given eine eingehende E-Mail mit mehreren Buchungsnummern, When die Verarbeitung mehrdeutige Anfragen erkennt, Then wird der Vorgang zur manuellen Bearbeitung eskaliert.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-2561-531e-4784-e514f2e897aa-2",
+          "titel": "Buchungsstatus beim Anbieterportal abrufen",
+          "beschreibung": "Als Automatisierungssystem möchte ich den aktuellen Buchungsstatus (inkl. Zahlungsstatus und Stornierbarkeit) über eine Integration mit dem Anbieterportal abrufen, damit die Informationen für die Antwort an den Kunden bereitstehen.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine gültige Buchungsnummer, When die Abfrage beim Anbieterportal erfolgt, Then wird der aktuelle Status (Buchungsstatus, Zahlungsstatus, Stornierbarkeit) abgerufen und für die Antwort vorbereitet.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given eine Buchungsnummer, die im Anbieterportal nicht gefunden wird oder bei der ein technischer Fehler auftritt, When die Abfrage scheitert, Then wird der Vorgang zur manuellen Bearbeitung eskaliert.",
+              "messverfahren": "Stichprobe von fehlgeschlagenen Abfragen; Prüfung auf Eskalation und Abwesenheit automatischer Kundenantworten."
+            },
+            {
+              "text": "Given eine nicht verfügbare API des Anbieterportals, When die Abfrage erfolgt, Then greift ein definierter Fallback (z. B. RPA-basierter Portalzugriff) oder der Vorgang wird eskaliert.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-2561-531e-4784-e514f2e897aa-1"
+          ]
+        },
+        {
+          "story_id": "st-2561-531e-4784-e514f2e897aa-3",
+          "titel": "Strukturierte Antwort-Mail an Kunden senden",
+          "beschreibung": "Als Automatisierungssystem möchte ich eine strukturierte Antwort-Mail mit dem Buchungsstatus, Zahlungsstatus und Stornierbarkeit an den Kunden senden, damit dieser ohne Wartezeit informiert wird.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein erfolgreich abgerufener Buchungsstatus, When die Antwort-Mail generiert wird, Then enthält die Mail mindestens Status, Zahlungsstatus und Stornierbarkeit in verständlicher Sprache.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given K1 (gültige Buchungsnummer und Statusanfrage), When die Antwort-Mail versendet wird, Then liegt die Differenz zwischen Eingang der Anfrage-Mail und Versand der Antwort-Mail innerhalb der vereinbarten Frist.",
+              "messverfahren": "Zeitstempel im Vorgangsprotokoll: Differenz zwischen Eingang der Anfrage-Mail und Versand der Antwort-Mail."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-2561-531e-4784-e514f2e897aa-2"
+          ]
+        },
+        {
+          "story_id": "st-2561-531e-4784-e514f2e897aa-4",
+          "titel": "Rückfrage bei fehlender Buchungsnummer auslösen",
+          "beschreibung": "Als Automatisierungssystem möchte ich bei fehlender Buchungsnummer in der Statusanfrage automatisch eine Rückfrage an den Kunden senden, damit der Vorgang nicht unbeantwortet bleibt.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine Statusanfrage ohne Buchungsnummer, When die Verarbeitung keine Buchungsnummer erkennt, Then wird automatisch eine Rückfrage-Mail mit dem Hinweis auf die fehlende Nummer gesendet und der Vorgang als ausstehend markiert.",
+              "messverfahren": "Zeitstempel im Vorgangsprotokoll; Stichprobe auf korrekte Auslösung der Rückfrage bei fehlender Buchungsnummer."
+            },
+            {
+              "text": "Given K2 (Statusanfrage ohne Buchungsnummer), When die Rückfrage-Mail versendet wird, Then liegt die Differenz zwischen Eingang der Anfrage-Mail und Versand der Rückfrage-Mail innerhalb der vereinbarten Frist.",
+              "messverfahren": "Zeitstempel im Vorgangsprotokoll: Differenz zwischen Eingang der Anfrage-Mail und Versand der Rückfrage-Mail."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-2561-531e-4784-e514f2e897aa-1"
+          ]
+        },
+        {
+          "story_id": "st-2561-531e-4784-e514f2e897aa-5",
+          "titel": "Vorgänge protokollieren und eskalieren",
+          "beschreibung": "Als Automatisierungssystem möchte ich jeden Statusabruf, jede Antwort und jede Eskalation in der Vorgangsdatenbank protokollieren, damit die Nachvollziehbarkeit gewährleistet ist.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein erfolgreicher oder fehlgeschlagener Statusabruf, When der Vorgang verarbeitet wird, Then werden Zeitstempel, Buchungsnummer und Ergebnis in der Vorgangsdatenbank protokolliert.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given eine Eskalation (unbekannte Buchungsnummer, Portalfehler, mehrdeutige Anfrage), When der Vorgang eskaliert wird, Then wird der Vorgang mit Eskalations-Flag versehen und dem Sachbearbeitenden zugewiesen.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given K3 (Buchungsnummer nicht gefunden oder Portalfehler), When die Verarbeitung scheitert, Then wird der Vorgang eskaliert und keine fehlerhafte Antwort an den Kunden gesendet.",
+              "messverfahren": "Stichprobe eskalierter Vorgänge; Prüfung auf Abwesenheit automatischer Kundenantworten bei Ausnahmefällen."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-2561-531e-4784-e514f2e897aa-1",
+            "st-2561-531e-4784-e514f2e897aa-2",
+            "st-2561-531e-4784-e514f2e897aa-3",
+            "st-2561-531e-4784-e514f2e897aa-4"
+          ]
+        },
+        {
+          "story_id": "st-2561-531e-4784-e514f2e897aa-6",
+          "titel": "Transparenzhinweis in automatisierten Antwort-Mails ergänzen",
+          "beschreibung": "Als Kunde möchte ich in automatisierten Antwort-Mails darauf hingewiesen werden, dass meine Anfrage von einem KI-System bearbeitet wurde, um Transparenz über die Nutzung von KI zu gewährleisten (Artikel 50 Absatz 1 AI-Act).",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine automatisierte Antwort-Mail an den Kunden, When die Mail generiert wird, Then enthält sie einen standardisierten Hinweis, dass die Bearbeitung durch ein KI-System erfolgt ist.",
+              "messverfahren": "Stichprobe automatisierter Antwort-Mails; Prüfung auf Vorhandensein des Transparenzhinweises."
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-2561-531e-4784-e514f2e897aa-7",
+          "titel": "Transparenz und Information in Statusantwort-Mails sicherstellen",
+          "beschreibung": "Als Kunde möchte ich in automatisierten Statusantwort-Mails darüber informiert werden, wie meine Daten verarbeitet werden und dass ein KI-System beteiligt ist, um die Anforderungen aus DSGVO Artikel 12 und AI-Act Artikel 50 Absatz 1 zu erfüllen.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine automatisierte Statusantwort-Mail, When die Mail generiert wird, Then enthält sie einen Hinweis auf die automatisierte Verarbeitung und einen Link zur Datenschutzerklärung.",
+              "messverfahren": "Stichprobe automatisierter Statusantwort-Mails; Prüfung auf Vorhandensein des Hinweises und des Links."
+            }
+          ],
+          "abhaengigkeiten": []
+        }
+      ],
+      "teilprozess_ids": [
+        "KP-06.TP-4"
+      ]
+    },
+    {
+      "epic_id": "ep-ebfe-6811-cd8f-7c3709593b21",
+      "titel": "Automatisierung der Stornierungsauslösung und Bestätigung",
+      "ziel": "Eingehende Stornowünsche per E-Mail vollautomatisch bearbeiten, von der Erkennung bis zur Bestätigung an den Kunden, unter vollständiger Protokollierung und Eskalation von Ausnahmen.",
+      "kategorien": [
+        "it:backend",
+        "it:integration",
+        "it:ai-pipeline"
+      ],
+      "stories": [
+        {
+          "story_id": "st-ebfe-6811-cd8f-7c3709593b21-1",
+          "titel": "E-Mails als Stornowünsche klassifizieren und von anderen Anfragen unterscheiden",
+          "beschreibung": "Als System möchte ich eingehende E-Mails zuverlässig als Stornowünsche erkennen und von Statusanfragen sowie Neuanfragen unterscheiden, damit nur relevante Vorgänge automatisiert bearbeitet werden.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine eingehende E-Mail mit einem Stornowunsch, When die Klassifizierung erfolgt, Then wird die E-Mail als Stornowunsch markiert und zur weiteren Verarbeitung weitergeleitet.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given eine eingehende E-Mail ohne Stornowunsch (z. B. Statusanfrage oder Neuanfrage), When die Klassifizierung erfolgt, Then wird die E-Mail nicht als Stornowunsch markiert und nicht weiterverarbeitet.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-ebfe-6811-cd8f-7c3709593b21-2",
+          "titel": "Buchungsnummer aus E-Mails extrahieren und validieren",
+          "beschreibung": "Als System möchte ich die Buchungsnummer aus einer als Stornowunsch klassifizierten E-Mail extrahieren und im Format des Anbieterportals übergeben, damit die Stornierung korrekt ausgelöst werden kann.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine E-Mail mit einer gültigen Buchungsnummer, When die Extraktion erfolgt, Then wird die Buchungsnummer korrekt erkannt und im geforderten Format bereitgestellt.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given eine E-Mail ohne Buchungsnummer, When die Extraktion erfolgt, Then wird keine Buchungsnummer erkannt und eine Rückfrage-Mail an den Kunden gesendet.",
+              "messverfahren": "Zeitstempel im Vorgangsprotokoll; Stichprobe auf korrekte Auslösung der Rückfrage (K2)"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-ebfe-6811-cd8f-7c3709593b21-1"
+          ]
+        },
+        {
+          "story_id": "st-ebfe-6811-cd8f-7c3709593b21-3",
+          "titel": "Freigabe-Schritt für Stornierungen mit menschlicher Entscheidung integrieren",
+          "beschreibung": "Als System möchte ich sicherstellen, dass Stornierungen, die einer menschlichen Freigabe bedürfen, vor der Auslösung an einen Sachbearbeitenden eskaliert werden, damit die fachlichen Vorgaben eingehalten werden.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine Stornierung, die laut fachlicher Vorgabe eine menschliche Freigabe erfordert, When die Stornierung ausgelöst werden soll, Then wird der Vorgang zur Freigabe an einen Sachbearbeitenden eskaliert und erst nach Freigabe weiterverarbeitet.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given eine Stornierung, die keine menschliche Freigabe erfordert, When die Stornierung ausgelöst werden soll, Then wird die Stornierung direkt beim Anbieterportal ausgelöst.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-ebfe-6811-cd8f-7c3709593b21-2"
+          ]
+        },
+        {
+          "story_id": "st-ebfe-6811-cd8f-7c3709593b21-4",
+          "titel": "Stornierung beim Anbieterportal auslösen und Ergebnis verarbeiten",
+          "beschreibung": "Als System möchte ich die Stornierung über die Portalschnittstelle (API oder RPA-Fallback) auslösen und das Ergebnis (storniert, nicht gefunden, fehlgeschlagen) auswerten, damit der Kunde eine strukturierte Bestätigung oder Fehlermeldung erhält.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine gültige Buchungsnummer und eine erfolgreiche Stornierung im Anbieterportal, When die Stornierung ausgelöst wird, Then wird eine Bestätigungs-Mail an den Kunden gesendet und der Vorgang als erfolgreich protokolliert.",
+              "messverfahren": "Zeitstempel im Vorgangsprotokoll: Differenz zwischen Eingang der Storno-Mail und Versand der Bestätigung; Stichprobe auf Übereinstimmung von Stornierungsergebnis im Portal und in der Antwort-Mail (K1)"
+            },
+            {
+              "text": "Given eine Buchungsnummer, die im Anbieterportal nicht gefunden wird oder bei der die Stornierung fehlschlägt, When die Stornierung ausgelöst wird, Then wird der Vorgang eskaliert und dem Sachbearbeitenden zugewiesen, und an den Kunden wird keine fehlerhafte Erfolgsbestätigung gesendet.",
+              "messverfahren": "Stichprobe eskalierter Vorgänge; Prüfung auf Abwesenheit fälschlicher Erfolgsbestätigungen im Postausgang (K3)"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-ebfe-6811-cd8f-7c3709593b21-3"
+          ]
+        },
+        {
+          "story_id": "st-ebfe-6811-cd8f-7c3709593b21-5",
+          "titel": "Ausnahmen (Teilstornierungen, Fristüberschreitungen) erkennen und eskalieren",
+          "beschreibung": "Als System möchte ich Sonderfälle wie Teilstornierungen, mehrere Buchungsnummern in einer Mail oder Stornierungen außerhalb der Stornofristen erkennen und zur manuellen Bearbeitung eskalieren, damit keine fehlerhaften Automatisierungen erfolgen.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine E-Mail mit einer Teilstornierung oder einer Stornierung außerhalb der Stornofrist, When die Verarbeitung erfolgt, Then wird der Vorgang zur manuellen Bearbeitung eskaliert.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given eine E-Mail mit mehreren Buchungsnummern, When die Verarbeitung erfolgt, Then wird der Vorgang zur manuellen Bearbeitung eskaliert.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-ebfe-6811-cd8f-7c3709593b21-1"
+          ]
+        },
+        {
+          "story_id": "st-ebfe-6811-cd8f-7c3709593b21-6",
+          "titel": "Stornierungsvorgänge vollständig in der Vorgangsdatenbank protokollieren",
+          "beschreibung": "Als System möchte ich jeden Stornierungsvorgang mit Zeitstempel, Buchungsnummer, ausgelöstem Ergebnis und Kundenmitteilung in der Vorgangsdatenbank protokollieren, damit eine vollständige Nachverfolgbarkeit gewährleistet ist.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein abgeschlossener Stornierungsvorgang (erfolgreich, fehlgeschlagen oder eskaliert), When der Vorgang beendet wird, Then wird ein vollständiger Protokolleintrag mit Zeitstempel, Buchungsnummer, Ergebnis und Kundenmitteilung in der Vorgangsdatenbank erstellt.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-ebfe-6811-cd8f-7c3709593b21-4",
+            "st-ebfe-6811-cd8f-7c3709593b21-5"
+          ]
+        },
+        {
+          "story_id": "st-ebfe-6811-cd8f-7c3709593b21-7",
+          "titel": "Transparenzhinweis in Stornierungsbestätigungen ergänzen",
+          "beschreibung": "Als Kunde möchte ich in Stornierungsbestätigungen darauf hingewiesen werden, dass meine Stornierung von einem KI-System bearbeitet wurde, um Transparenz über die Nutzung von KI zu gewährleisten (Artikel 50 Absatz 1 AI-Act).",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine Stornierungsbestätigung an den Kunden, When die Mail generiert wird, Then enthält sie einen standardisierten Hinweis, dass die Bearbeitung durch ein KI-System erfolgt ist.",
+              "messverfahren": "Stichprobe von Stornierungsbestätigungen; Prüfung auf Vorhandensein des Transparenzhinweises."
+            }
+          ],
+          "abhaengigkeiten": []
+        }
+      ],
+      "teilprozess_ids": [
+        "KP-06.TP-5"
+      ]
+    },
+    {
+      "epic_id": "ep-14f7-4820-67d6-706698d024a0",
+      "titel": "Angebotserstellung und Reservierung mit Recherche-Assistent unterstützen",
+      "ziel": "Automatisierte Aggregation und Kombination von Reiseoptionen aus Buchungsportalen, Budgetprüfung sowie nahtlose Datenübergabe zwischen Angebot und Reservierung, um manuelle Medienbrüche und Fehler zu reduzieren.",
+      "kategorien": [
+        "it:backend",
+        "it:integration",
+        "it:ai-pipeline"
+      ],
+      "stories": [
+        {
+          "story_id": "st-14f7-4820-67d6-706698d024a0-1",
+          "titel": "Erfassungsbogen-Daten für Assistenten bereitstellen",
+          "beschreibung": "Als Sachbearbeitender möchte ich, dass der Assistent die vollständigen Reisedaten aus dem Erfassungsbogen übernimmt, damit diese für die automatisierte Suche und Kombination von Angeboten genutzt werden können.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein vollständig befüllter Erfassungsbogen mit Reiseziel, Daten, Personenzahl und Budget, When der Assistent gestartet wird, Then liegen die Daten im maschinenlesbaren Format vor und sind für die weitere Verarbeitung verfügbar.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-14f7-4820-67d6-706698d024a0-2",
+          "titel": "Buchungsportale automatisiert abfragen und Suchergebnisse aggregieren",
+          "beschreibung": "Als Sachbearbeitender möchte ich, dass der Assistent Suchergebnisse aus den genutzten Buchungsportalen für Flug, Hotel und Mietwagen aggregiert, damit kombinierte Angebotsoptionen erstellt werden können.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein vollständig befüllter Erfassungsbogen, When der Assistent die Buchungsportale abfragt, Then werden Suchergebnisse aus mindestens den aktuell genutzten Portalen für Flug, Hotel und Mietwagen aggregiert.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given ein Portal, das nicht verfügbar ist oder keine automatisierten Abfragen erlaubt, When der Assistent keine Daten abrufen kann, Then wird der Vorgang für dieses Portal mit einem Hinweis-Flag versehen und dem Sachbearbeitenden zur manuellen Ergänzung übergeben, ohne den gesamten Vorgang zu blockieren.",
+              "messverfahren": "Stichprobe von Vorgängen mit Portal-Ausfall: Prüfung, ob Hinweis-Flags korrekt gesetzt wurden und der Vorgang ohne Systemfehler weiterbearbeitet werden konnte."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-14f7-4820-67d6-706698d024a0-1"
+          ]
+        },
+        {
+          "story_id": "st-14f7-4820-67d6-706698d024a0-3",
+          "titel": "Kombinierte Angebotsoptionen erstellen und Budget prüfen",
+          "beschreibung": "Als Sachbearbeitender möchte ich, dass der Assistent die aggregierten Suchergebnisse zu bis zu drei kombinierten Angebotsoptionen zusammenführt, gegen das Budget prüft und in die Angebotsliste einträgt, damit ich diese prüfen und freigeben kann.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given aggregierte Suchergebnisse aus den Buchungsportalen, When der Assistent die Optionen kombiniert, Then werden bis zu drei kombinierte Angebotsoptionen erstellt, die das vorgegebene Budget nicht überschreiten, und in die Angebotsliste eingetragen.",
+              "messverfahren": "Stichprobe abgeschlossener Angebotsvorgänge: Prüfung, ob mindestens eine budgetkonforme Option in der Angebotsliste eingetragen wurde; Abgleich mit manuellem Rechercheergebnis in einem Paralleltest."
+            },
+            {
+              "text": "Given kombinierte Angebotsoptionen, When der Assistent die Budgetprüfung durchführt, Then werden Optionen, die das Budget überschreiten, als solche markiert und erscheinen nicht als reguläre Optionen in der Angebotsliste.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given kombinierte Angebotsoptionen, When der Assistent die Optionen in die Angebotsliste einträgt, Then muss für jede Option nachvollziehbar sein, aus welchem Portal welcher Treffer stammt und wie der Gesamtpreis berechnet wurde.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-14f7-4820-67d6-706698d024a0-2"
+          ]
+        },
+        {
+          "story_id": "st-14f7-4820-67d6-706698d024a0-4",
+          "titel": "Angebotsdaten manuell prüfen und freigeben",
+          "beschreibung": "Als Sachbearbeitender möchte ich die vom Assistenten erstellten Angebotsoptionen prüfen, ggf. anpassen und freigeben können, damit das Angebot an den Kunden übermittelt werden kann.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine befüllte Angebotsliste mit kombinierten Optionen, When der Sachbearbeitende die Optionen prüft, Then kann er diese anpassen und freigeben, um das Angebot an den Kunden zu übermitteln.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-14f7-4820-67d6-706698d024a0-3"
+          ]
+        },
+        {
+          "story_id": "st-14f7-4820-67d6-706698d024a0-5",
+          "titel": "Angebotsdaten bei Annahme in Reservierungsformular übertragen",
+          "beschreibung": "Als Sachbearbeitender möchte ich, dass bei Annahme eines Angebots durch den Kunden die Angebotsdaten automatisch in das Reservierungsformular des Anbieterportals übertragen werden, damit ich die Reservierung prüfen und freigeben kann.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein vom Kunden angenommenes Angebot mit Angebotsnummer, When die Annahme erfasst wird, Then werden die Angebotsdaten automatisch in das Reservierungsformular des Anbieterportals übertragen und stehen dem Sachbearbeitenden zur Prüfung und Freigabe bereit, ohne erneute manuelle Eingabe.",
+              "messverfahren": "Stichprobe abgeschlossener Reservierungen: Vergleich der übertragenen Felder im Reservierungsformular mit den Angebotsdaten; Anteil fehlerfrei übertragener Felder wird protokolliert."
+            },
+            {
+              "text": "Given übertragene Angebotsdaten im Reservierungsformular, When der Sachbearbeitende die Daten prüft, Then muss er alle übertragenen Felder einsehen können, bevor er die Reservierung freigibt.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-14f7-4820-67d6-706698d024a0-4"
+          ]
+        },
+        {
+          "story_id": "st-14f7-4820-67d6-706698d024a0-6",
+          "titel": "Reservierung prüfen und freigeben",
+          "beschreibung": "Als Sachbearbeitender möchte ich die automatisch befüllten Reservierungsdaten prüfen und freigeben können, damit die Reservierung abgeschlossen und die Bestätigung an den Kunden übermittelt werden kann.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein automatisch befülltes Reservierungsformular, When der Sachbearbeitende die Reservierung prüft, Then kann er diese freigeben, um die Reservierungsnummer und Bestätigung an den Kunden zu übermitteln.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-14f7-4820-67d6-706698d024a0-5"
+          ]
+        }
+      ],
+      "teilprozess_ids": [
+        "KP-06.TP-2",
+        "KP-06.TP-3"
+      ]
+    }
+  ],
+  "gate2": {
+    "status": "approved"
+  }
+}

@@ -1,0 +1,334 @@
+{
+  "projekt_kurzname": "kp-06",
+  "lieferung_id": "del-kp-06-2026-11-02-172536",
+  "kp_id": "KP-06",
+  "teilprozess_ids": [
+    "KP-06.TP-2",
+    "KP-06.TP-4",
+    "KP-06.TP-5",
+    "KP-06.TP-3"
+  ],
+  "erzeugt_am": "2026-11-02T17:25:36.535Z",
+  "erzeugt_von": "BC3-50 Bauplan erzeugen",
+  "komponenten": [
+    {
+      "name": "E-Mail / Telefon",
+      "anbindung": "Email",
+      "rollen": [
+        "Quelle"
+      ],
+      "verwendet_in": [
+        "Reiseanfrage-Daten aus E-Mail extrahieren",
+        "Buchungsstatus-Abfrage automatisieren",
+        "Stornierungsauslösung und Bestätigung automatisieren",
+        "Angebotserstellung mit Recherche-Assistent unterstützen"
+      ]
+    },
+    {
+      "name": "Erfassungsbogen",
+      "anbindung": "Manuell",
+      "rollen": [
+        "Ziel",
+        "Quelle"
+      ],
+      "verwendet_in": [
+        "Reiseanfrage-Daten aus E-Mail extrahieren",
+        "Angebotserstellung mit Recherche-Assistent unterstützen"
+      ]
+    },
+    {
+      "name": "n8n",
+      "anbindung": "API",
+      "rollen": [
+        "Ziel"
+      ],
+      "verwendet_in": [
+        "Reiseanfrage-Daten aus E-Mail extrahieren",
+        "Buchungsstatus-Abfrage automatisieren",
+        "Stornierungsauslösung und Bestätigung automatisieren",
+        "Angebotserstellung mit Recherche-Assistent unterstützen"
+      ]
+    },
+    {
+      "name": "Ollama",
+      "anbindung": "API",
+      "rollen": [
+        "Ziel"
+      ],
+      "verwendet_in": [
+        "Reiseanfrage-Daten aus E-Mail extrahieren"
+      ]
+    },
+    {
+      "name": "Anbieterportal",
+      "anbindung": "API",
+      "rollen": [
+        "Quelle",
+        "Quelle+Ziel",
+        "Ziel"
+      ],
+      "verwendet_in": [
+        "Buchungsstatus-Abfrage automatisieren",
+        "Stornierungsauslösung und Bestätigung automatisieren",
+        "Angebotserstellung mit Recherche-Assistent unterstützen"
+      ]
+    },
+    {
+      "name": "Notiz",
+      "anbindung": "Manuell",
+      "rollen": [
+        "Quelle"
+      ],
+      "verwendet_in": [
+        "Buchungsstatus-Abfrage automatisieren",
+        "Stornierungsauslösung und Bestätigung automatisieren"
+      ]
+    },
+    {
+      "name": "PostgreSQL 16",
+      "anbindung": "DB",
+      "rollen": [
+        "Ziel"
+      ],
+      "verwendet_in": [
+        "Buchungsstatus-Abfrage automatisieren",
+        "Stornierungsauslösung und Bestätigung automatisieren"
+      ]
+    },
+    {
+      "name": "Buchungsportale Flug / Hotel / Mietwagen",
+      "anbindung": "API",
+      "rollen": [
+        "Quelle"
+      ],
+      "verwendet_in": [
+        "Angebotserstellung mit Recherche-Assistent unterstützen"
+      ]
+    },
+    {
+      "name": "Tabellenkalkulation",
+      "anbindung": "Manuell",
+      "rollen": [
+        "Quelle+Ziel"
+      ],
+      "verwendet_in": [
+        "Angebotserstellung mit Recherche-Assistent unterstützen"
+      ]
+    },
+    {
+      "name": "Angebotsliste",
+      "anbindung": "Manuell",
+      "rollen": [
+        "Ziel"
+      ],
+      "verwendet_in": [
+        "Angebotserstellung mit Recherche-Assistent unterstützen"
+      ]
+    }
+  ],
+  "datenfluesse": [
+    {
+      "von": "E-Mail / Telefon",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Prozess",
+      "nach": "Erfassungsbogen",
+      "art": "schreibt"
+    },
+    {
+      "von": "Erfassungsbogen",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Prozess",
+      "nach": "n8n",
+      "art": "schreibt"
+    },
+    {
+      "von": "Prozess",
+      "nach": "Ollama",
+      "art": "schreibt"
+    },
+    {
+      "von": "Anbieterportal",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Anbieterportal",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Prozess",
+      "nach": "Anbieterportal",
+      "art": "schreibt"
+    },
+    {
+      "von": "Prozess",
+      "nach": "Anbieterportal",
+      "art": "schreibt"
+    },
+    {
+      "von": "Notiz",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Prozess",
+      "nach": "PostgreSQL 16",
+      "art": "schreibt"
+    },
+    {
+      "von": "Buchungsportale Flug / Hotel / Mietwagen",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Tabellenkalkulation",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Prozess",
+      "nach": "Tabellenkalkulation",
+      "art": "schreibt"
+    },
+    {
+      "von": "Prozess",
+      "nach": "Angebotsliste",
+      "art": "schreibt"
+    }
+  ],
+  "menschliche_entscheidungspunkte": [
+    {
+      "story_id": "st-f60b-e53b-a2a0-6325a747c273-1",
+      "epic_id": "ep-f60b-e53b-a2a0-6325a747c273",
+      "titel": "E-Mail-Postfach für Reiseanfragen anbinden und überwachen",
+      "erkannt_an": "manuellen Bearbeitung"
+    },
+    {
+      "story_id": "st-f60b-e53b-a2a0-6325a747c273-2",
+      "epic_id": "ep-f60b-e53b-a2a0-6325a747c273",
+      "titel": "Reisedaten aus E-Mail extrahieren und in Erfassungsbogen übertragen",
+      "erkannt_an": "manuellen Bearbeitung"
+    },
+    {
+      "story_id": "st-f60b-e53b-a2a0-6325a747c273-6",
+      "epic_id": "ep-f60b-e53b-a2a0-6325a747c273",
+      "titel": "Ausnahmefälle bei unklaren oder widersprüchlichen Reisedaten erkennen und eskalieren",
+      "erkannt_an": "manuellen Bearbeitung"
+    },
+    {
+      "story_id": "st-2561-531e-4784-e514f2e897aa-1",
+      "epic_id": "ep-2561-531e-4784-e514f2e897aa",
+      "titel": "E-Mails als Statusanfragen klassifizieren und Buchungsnummer extrahieren",
+      "erkannt_an": "manuellen Bearbeitung"
+    },
+    {
+      "story_id": "st-2561-531e-4784-e514f2e897aa-2",
+      "epic_id": "ep-2561-531e-4784-e514f2e897aa",
+      "titel": "Buchungsstatus beim Anbieterportal abrufen",
+      "erkannt_an": "manuellen Bearbeitung"
+    },
+    {
+      "story_id": "st-ebfe-6811-cd8f-7c3709593b21-3",
+      "epic_id": "ep-ebfe-6811-cd8f-7c3709593b21",
+      "titel": "Freigabe-Schritt für Stornierungen mit menschlicher Entscheidung integrieren",
+      "erkannt_an": "Freigab"
+    },
+    {
+      "story_id": "st-ebfe-6811-cd8f-7c3709593b21-5",
+      "epic_id": "ep-ebfe-6811-cd8f-7c3709593b21",
+      "titel": "Ausnahmen (Teilstornierungen, Fristüberschreitungen) erkennen und eskalieren",
+      "erkannt_an": "manuellen Bearbeitung"
+    },
+    {
+      "story_id": "st-14f7-4820-67d6-706698d024a0-3",
+      "epic_id": "ep-14f7-4820-67d6-706698d024a0",
+      "titel": "Kombinierte Angebotsoptionen erstellen und Budget prüfen",
+      "erkannt_an": "freigeb"
+    },
+    {
+      "story_id": "st-14f7-4820-67d6-706698d024a0-4",
+      "epic_id": "ep-14f7-4820-67d6-706698d024a0",
+      "titel": "Angebotsdaten manuell prüfen und freigeben",
+      "erkannt_an": "freigeb"
+    },
+    {
+      "story_id": "st-14f7-4820-67d6-706698d024a0-5",
+      "epic_id": "ep-14f7-4820-67d6-706698d024a0",
+      "titel": "Angebotsdaten bei Annahme in Reservierungsformular übertragen",
+      "erkannt_an": "freigeb"
+    },
+    {
+      "story_id": "st-14f7-4820-67d6-706698d024a0-6",
+      "epic_id": "ep-14f7-4820-67d6-706698d024a0",
+      "titel": "Reservierung prüfen und freigeben",
+      "erkannt_an": "freigeb"
+    }
+  ],
+  "tech_stack": [
+    " erfasst.\n\n**Vollständigkeits-Ast:** Der befüllte Datensatz wird in die Vorgangsdatenbank (**PostgreSQL 16** oder **NocoDB**) geschrieben und dem Sachbearbeitenden als bearbeitungsreifer Vorgang zur Verfügung gestellt.\n\n**Ausnahme-Handling:** Unterschreitet die Modell-Konfidenz einen konfigurierten Schwellwert oder enthält die Mail Anhänge, die weitere Prüfung erfordern, wird der Vorgang mit Ausnahme-Flag gesetzt und manuell zugewiesen.\n\n**Monitoring:** Alle Verarbeitungsschritte werden in **Loki/Grafana** protokolliert; Fehlerquoten und Ausnahmeanteile sind in einem Dashboard sichtbar.",
+    "tech_stack_empfehlung",
+    ": [",
+    " n8n (Workflow-Automation, self-hosted)",
+    " ,",
+    " Ollama mit Mistral oder Qwen (LLM-Extraktion, self-hosted, EU/OSS)",
+    " PostgreSQL 16 (Vorgangsdatenbank)",
+    " NocoDB (optionale Low-Code-Oberfläche für Sachbearbeitende)",
+    " Grafana + Loki (Monitoring und Protokollierung)",
+    "n8n (Workflow-Automation, self-hosted)",
+    "Ollama mit Mistral oder Qwen (Klassifikation und Extraktion, self-hosted)",
+    "PostgreSQL 16 (Protokollierung)",
+    "Grafana + Loki (Monitoring)",
+    "Ollama mit Mistral oder Qwen (Kombinations- und Bewertungslogik, self-hosted)",
+    "NocoDB (Angebotsliste, Low-Code-Oberfläche)",
+    "PostgreSQL 16 (Datenhaltung)"
+  ],
+  "epics": [
+    {
+      "epic_id": "ep-f60b-e53b-a2a0-6325a747c273",
+      "titel": "Reiseanfrage-Daten automatisch aus E-Mail extrahieren und prüfen",
+      "kategorien": [
+        "it:backend",
+        "it:integration",
+        "it:ai-pipeline"
+      ],
+      "anzahl_stories": 7
+    },
+    {
+      "epic_id": "ep-2561-531e-4784-e514f2e897aa",
+      "titel": "Buchungsstatus-Abfrage automatisieren",
+      "kategorien": [
+        "it:backend",
+        "it:integration",
+        "it:ai-pipeline"
+      ],
+      "anzahl_stories": 7
+    },
+    {
+      "epic_id": "ep-ebfe-6811-cd8f-7c3709593b21",
+      "titel": "Automatisierung der Stornierungsauslösung und Bestätigung",
+      "kategorien": [
+        "it:backend",
+        "it:integration",
+        "it:ai-pipeline"
+      ],
+      "anzahl_stories": 7
+    },
+    {
+      "epic_id": "ep-14f7-4820-67d6-706698d024a0",
+      "titel": "Angebotserstellung und Reservierung mit Recherche-Assistent unterstützen",
+      "kategorien": [
+        "it:backend",
+        "it:integration",
+        "it:ai-pipeline"
+      ],
+      "anzahl_stories": 6
+    }
+  ]
+}
