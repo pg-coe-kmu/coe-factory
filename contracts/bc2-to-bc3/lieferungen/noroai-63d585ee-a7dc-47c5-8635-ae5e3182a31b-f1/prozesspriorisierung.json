@@ -1,0 +1,192 @@
+{
+  "priorisierung_id": "b5972f9c-d52d-430e-a3cc-4d76a70af47c",
+  "schema_version": "3.1",
+  "company_id": "7c2d5ee9-2a9a-5990-810f-502ea2b2012d",
+  "paket_id": "63d585ee-a7dc-47c5-8635-ae5e3182a31b",
+  "uebergeben_am": "2026-11-02T17:06:50.510382+00:00",
+  "fassung": 1,
+  "erzeugt_am": "2026-11-02T17:15:16.144403+00:00",
+  "score_formel": "`score = impact × (11 − umsetzungskomplexitaet)`, Bereich 1…100.\n\n- `impact = round((impact_monetaer + nutzwert) / 2)` — beide auf 1–10.\n- `umsetzungskomplexitaet = round(11 − 2 × Mittel der vier BC1-Skalen)`; fehlen die Skalen, urteilt das LLM und die Herkunft ist `geurteilt`.\n- Die **lineare** Umkehrung der Komplexität ist bewusst gesetzt, obwohl der Sprung ins sehr Aufwendige fachlich überproportional wäre — offengelegt, nicht kaschiert (ADR-006 · BC2).",
+  "konzept_ids": [
+    "989b96f6-480f-4b6e-b603-7beff740a0cb"
+  ],
+  "eintraege": [
+    {
+      "potenzialrang": 1,
+      "prioritaetsgruppe": "PRIO 2",
+      "potenzial_id": "47032e10-3355-4a24-b1b0-7f80809b4df3",
+      "konzept_id": "989b96f6-480f-4b6e-b603-7beff740a0cb",
+      "titel": "Reiseanfrage-Daten aus E-Mail extrahieren",
+      "kp_id": "KP-06",
+      "betroffene_teilprozess_ids": [
+        "KP-06.TP-2"
+      ],
+      "kategorie": "Optional",
+      "impact": 5,
+      "impact_monetaer": 4,
+      "nutzwert_mittel": 5.6,
+      "umsetzungskomplexitaet": 5,
+      "komplexitaet_herkunft": "gemessen",
+      "score": 30,
+      "aufwand_pt": 18.0,
+      "einsparung_eur_jahr": {
+        "min": 1858,
+        "max": 5635
+      },
+      "investition_eur_richtwert": 14400,
+      "amortisation_monate": {
+        "min": 30.7,
+        "max": 93.0
+      }
+    },
+    {
+      "potenzialrang": 2,
+      "prioritaetsgruppe": "PRIO 2",
+      "potenzial_id": "5cb09042-abe5-431a-b14e-fa1ba5f78e70",
+      "konzept_id": "989b96f6-480f-4b6e-b603-7beff740a0cb",
+      "titel": "Buchungsstatus-Abfrage automatisieren",
+      "kp_id": "KP-06",
+      "betroffene_teilprozess_ids": [
+        "KP-06.TP-4"
+      ],
+      "kategorie": "Zurueckgestellt",
+      "impact": 4,
+      "impact_monetaer": 2,
+      "nutzwert_mittel": 6.0,
+      "umsetzungskomplexitaet": 6,
+      "komplexitaet_herkunft": "geurteilt",
+      "score": 20,
+      "aufwand_pt": 22.0,
+      "einsparung_eur_jahr": {
+        "min": 1006,
+        "max": 2890
+      },
+      "investition_eur_richtwert": 17600,
+      "amortisation_monate": {
+        "min": 73.1,
+        "max": 209.9
+      }
+    },
+    {
+      "potenzialrang": 3,
+      "prioritaetsgruppe": "PRIO 2",
+      "potenzial_id": "f698c6d9-dd69-4354-8c3f-6094078701de",
+      "konzept_id": "989b96f6-480f-4b6e-b603-7beff740a0cb",
+      "titel": "Stornierungsauslösung und Bestätigung automatisieren",
+      "kp_id": "KP-06",
+      "betroffene_teilprozess_ids": [
+        "KP-06.TP-5"
+      ],
+      "kategorie": "Zurueckgestellt",
+      "impact": 4,
+      "impact_monetaer": 2,
+      "nutzwert_mittel": 6.2,
+      "umsetzungskomplexitaet": 6,
+      "komplexitaet_herkunft": "geurteilt",
+      "score": 20,
+      "aufwand_pt": 22.0,
+      "einsparung_eur_jahr": {
+        "min": 743,
+        "max": 2167
+      },
+      "investition_eur_richtwert": 17600,
+      "amortisation_monate": {
+        "min": 97.5,
+        "max": 284.2
+      }
+    },
+    {
+      "potenzialrang": 4,
+      "prioritaetsgruppe": "PRIO 3",
+      "potenzial_id": "d9b13642-aaad-415d-b087-ea364c47d543",
+      "konzept_id": "989b96f6-480f-4b6e-b603-7beff740a0cb",
+      "titel": "Angebotserstellung mit Recherche-Assistent unterstützen",
+      "kp_id": "KP-06",
+      "betroffene_teilprozess_ids": [
+        "KP-06.TP-2",
+        "KP-06.TP-3"
+      ],
+      "kategorie": "Zurueckgestellt",
+      "impact": 4,
+      "impact_monetaer": 2,
+      "nutzwert_mittel": 5.0,
+      "umsetzungskomplexitaet": 7,
+      "komplexitaet_herkunft": "geurteilt",
+      "score": 16,
+      "aufwand_pt": 35.0,
+      "einsparung_eur_jahr": {
+        "min": 495,
+        "max": 2543
+      },
+      "investition_eur_richtwert": 28000,
+      "amortisation_monate": {
+        "min": 132.1,
+        "max": 678.3
+      }
+    }
+  ],
+  "prozess_raenge": [
+    {
+      "prozessrang": 1,
+      "kp_id": "KP-06",
+      "konzept_id": "989b96f6-480f-4b6e-b603-7beff740a0cb",
+      "bestes_potenzial_id": "47032e10-3355-4a24-b1b0-7f80809b4df3",
+      "bester_score": 30,
+      "anzahl_potenziale": 4
+    }
+  ],
+  "gestrichene_potenziale": [],
+  "ausgangslage": {
+    "unternehmen": {
+      "name": "NoroAI Consulting GmbH",
+      "branche": "KI-Beratung",
+      "mitarbeitende": 10,
+      "region": "FH-Suedwestfalen-Region",
+      "geschaeftsmodell": "KI-Beratung mit eigenem Tech-Stack"
+    },
+    "herausforderungen": [
+      {
+        "beschreibung": "Hoher manueller Übertragungsaufwand zwischen E-Mail, Erfassungsbogen, Buchungsportalen, Tabellenkalkulation und Angebotsliste",
+        "auswirkung": "Mitarbeitende verbringen einen großen Teil ihrer Arbeitszeit mit Abtippen, Umkopieren und Nachverfolgen von Daten, die bereits in anderer Form vorliegen – wertschöpfende Beratungsleistung bleibt liegen.",
+        "haeufigkeit": "Bei jeder eingehenden Reiseanfrage und bei jeder Folgeaktion im Vorgang",
+        "kp_ids": [
+          "KP-06"
+        ]
+      },
+      {
+        "beschreibung": "Fehleranfälligkeit durch mehrfaches manuelles Abschreiben von Reisedaten, Buchungsnummern und Statusangaben",
+        "auswirkung": "Tippfehler bei Reisedaten, Daten oder Buchungsnummern können zu Falschbuchungen, fehlerhaften Stornierungen oder falschen Statusauskünften führen und lösen Nacharbeit aus.",
+        "haeufigkeit": "Latent bei jedem Vorgang; tritt spürbar auf, wenn Datenmengen oder Zeitdruck hoch sind",
+        "kp_ids": [
+          "KP-06"
+        ]
+      },
+      {
+        "beschreibung": "Keine Systemunterstützung bei Vollständigkeitsprüfung und Statusabfragen – Rückfragen und Portalabfragen erfolgen manuell",
+        "auswirkung": "Kunden warten länger auf Rückmeldungen; Mitarbeitende werden durch repetitive Routineaufgaben (Statusauskunft, Vollständigkeitsprüfung) gebunden, die keinen Beratungswert liefern.",
+        "haeufigkeit": "Wiederkehrend, insbesondere bei Statusabfragen und unvollständigen Anfragen",
+        "kp_ids": [
+          "KP-06"
+        ]
+      },
+      {
+        "beschreibung": "Doppelte Dateneingabe: Angebotsoptionen werden manuell in die Angebotsliste eingetragen und bei Annahme erneut ins Reservierungsformular eingegeben",
+        "auswirkung": "Zeitverlust und erhöhtes Fehlerrisiko durch redundante Eingabe derselben Informationen in zwei verschiedene Systeme; Prozessdurchlaufzeit verlängert sich unnötig.",
+        "haeufigkeit": "Bei jedem Angebot, das zur Reservierung führt",
+        "kp_ids": [
+          "KP-06"
+        ]
+      }
+    ]
+  },
+  "gate1": {
+    "status": "approved",
+    "entschieden_am": "2026-11-02T17:17:05.067662+00:00",
+    "approved_potenzial_ids": [
+      "47032e10-3355-4a24-b1b0-7f80809b4df3",
+      "5cb09042-abe5-431a-b14e-fa1ba5f78e70",
+      "d9b13642-aaad-415d-b087-ea364c47d543",
+      "f698c6d9-dd69-4354-8c3f-6094078701de"
+    ]
+  }
+}
