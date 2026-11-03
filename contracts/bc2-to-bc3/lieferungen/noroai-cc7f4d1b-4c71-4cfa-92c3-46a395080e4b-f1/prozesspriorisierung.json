@@ -1,0 +1,134 @@
+{
+  "priorisierung_id": "b7e0b991-83f7-4536-ac42-ef22f8279354",
+  "schema_version": "3.1",
+  "company_id": "7c2d5ee9-2a9a-5990-810f-502ea2b2012d",
+  "paket_id": "cc7f4d1b-4c71-4cfa-92c3-46a395080e4b",
+  "uebergeben_am": "2026-11-03T18:29:47.606554+00:00",
+  "fassung": 1,
+  "erzeugt_am": "2026-11-03T18:35:33.011295+00:00",
+  "score_formel": "`score = impact × (11 − umsetzungskomplexitaet)`, Bereich 1…100.\n\n- `impact = round((impact_monetaer + nutzwert) / 2)` — beide auf 1–10.\n- `umsetzungskomplexitaet = round(11 − 2 × Mittel der vier BC1-Skalen)`; fehlen die Skalen, urteilt das LLM und die Herkunft ist `geurteilt`.\n- Die **lineare** Umkehrung der Komplexität ist bewusst gesetzt, obwohl der Sprung ins sehr Aufwendige fachlich überproportional wäre — offengelegt, nicht kaschiert (ADR-006 · BC2).",
+  "konzept_ids": [
+    "4d53e481-b332-43c7-b191-63869059afd8"
+  ],
+  "eintraege": [
+    {
+      "potenzialrang": 1,
+      "prioritaetsgruppe": "PRIO 2",
+      "potenzial_id": "969094be-b547-4ebc-a849-ea319e31fda8",
+      "konzept_id": "4d53e481-b332-43c7-b191-63869059afd8",
+      "titel": "Reiseanfrage-Extraktion aus E-Mail in strukturierten Erfassungsbogen",
+      "kp_id": "KP-06",
+      "betroffene_teilprozess_ids": [
+        "KP-06.TP-2"
+      ],
+      "kategorie": "Optional",
+      "impact": 5,
+      "impact_monetaer": 4,
+      "nutzwert_mittel": 5.8,
+      "umsetzungskomplexitaet": 5,
+      "komplexitaet_herkunft": "gemessen",
+      "score": 30,
+      "aufwand_pt": 18.0,
+      "einsparung_eur_jahr": {
+        "min": 1858,
+        "max": 5635
+      },
+      "investition_eur_richtwert": 14400,
+      "amortisation_monate": {
+        "min": 30.7,
+        "max": 93.0
+      }
+    },
+    {
+      "potenzialrang": 2,
+      "prioritaetsgruppe": "PRIO 2",
+      "potenzial_id": "17530cac-5348-44c5-aaf1-187ad935e518",
+      "konzept_id": "4d53e481-b332-43c7-b191-63869059afd8",
+      "titel": "Medienbruch-Integration zwischen Angebotsliste, Anbieterportalen und Vorgangsliste",
+      "kp_id": "KP-06",
+      "betroffene_teilprozess_ids": [
+        "KP-06.TP-3",
+        "KP-06.TP-4",
+        "KP-06.TP-5"
+      ],
+      "kategorie": "Zurueckgestellt",
+      "impact": 5,
+      "impact_monetaer": 4,
+      "nutzwert_mittel": 6.6,
+      "umsetzungskomplexitaet": 6,
+      "komplexitaet_herkunft": "geurteilt",
+      "score": 25,
+      "aufwand_pt": 35.0,
+      "einsparung_eur_jahr": {
+        "min": 1858,
+        "max": 5418
+      },
+      "investition_eur_richtwert": 28000,
+      "amortisation_monate": {
+        "min": 62.0,
+        "max": 180.9
+      }
+    }
+  ],
+  "prozess_raenge": [
+    {
+      "prozessrang": 1,
+      "kp_id": "KP-06",
+      "konzept_id": "4d53e481-b332-43c7-b191-63869059afd8",
+      "bestes_potenzial_id": "969094be-b547-4ebc-a849-ea319e31fda8",
+      "bester_score": 30,
+      "anzahl_potenziale": 2
+    }
+  ],
+  "gestrichene_potenziale": [],
+  "ausgangslage": {
+    "unternehmen": {
+      "name": "NoroAI Consulting GmbH",
+      "branche": "KI-Beratung",
+      "mitarbeitende": 10,
+      "region": "FH-Suedwestfalen-Region",
+      "geschaeftsmodell": "KI-Beratung mit eigenem Tech-Stack"
+    },
+    "herausforderungen": [
+      {
+        "beschreibung": "Hoher manueller Übertragungsaufwand aus unstrukturierten E-Mails in den Erfassungsbogen",
+        "auswirkung": "Sachbearbeitung bindet Kapazität für repetitive Tipparbeit statt für wertschöpfende Aufgaben; Fehler beim Herausschreiben von Reisedaten führen zu Nacharbeit und Rückfragen.",
+        "haeufigkeit": "Bei jeder eingehenden Reiseanfrage",
+        "kp_ids": [
+          "KP-06"
+        ]
+      },
+      {
+        "beschreibung": "Fehlende systematische Vollständigkeitsprüfung der eingehenden Anfragedaten",
+        "auswirkung": "Unvollständige Angaben werden erst spät im Prozess bemerkt, was zusätzliche Rückfragerunden und Verzögerungen im Angebotsprozess verursacht.",
+        "kp_ids": [
+          "KP-06"
+        ]
+      },
+      {
+        "beschreibung": "Wiederholter manueller Übertrag von Buchungs-, Reservierungs- und Stornierungsdaten zwischen Anbieterportal, Angebotsliste, Vorgangsliste und E-Mail",
+        "auswirkung": "Mehrfachpflege paralleler Listen erhöht das Fehlerrisiko; der Vorgangsstatus ist nur bei der Sachbearbeitung bekannt und nicht zentral einsehbar.",
+        "haeufigkeit": "Bei jeder Reservierung, Buchungsprüfung und Stornierung",
+        "kp_ids": [
+          "KP-06"
+        ]
+      },
+      {
+        "beschreibung": "Stabilität des gesamten Reiseprozesses abhängig von individueller Personalkapazität",
+        "auswirkung": "Engpässe in der Sachbearbeitung verzögern alle Prozessphasen gleichzeitig, da kein Schritt automatisch voranläuft.",
+        "kp_ids": [
+          "KP-06"
+        ]
+      }
+    ]
+  },
+  "gate1": {
+    "status": "approved",
+    "entscheider": "Sergio",
+    "entschieden_am": "2026-11-03T18:40:21.339204+00:00",
+    "approved_potenzial_ids": [
+      "17530cac-5348-44c5-aaf1-187ad935e518",
+      "969094be-b547-4ebc-a849-ea319e31fda8"
+    ]
+  }
+}
