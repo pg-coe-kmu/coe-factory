@@ -1,0 +1,226 @@
+{
+  "projekt_kurzname": "kp-06",
+  "lieferung_id": "del-kp-06-2026-11-03-184824",
+  "kp_id": "KP-06",
+  "teilprozess_ids": [
+    "KP-06.TP-2",
+    "KP-06.TP-3",
+    "KP-06.TP-4",
+    "KP-06.TP-5"
+  ],
+  "erzeugt_am": "2026-11-03T18:48:25.147Z",
+  "erzeugt_von": "BC3-50 Bauplan erzeugen",
+  "komponenten": [
+    {
+      "name": "E-Mail / Telefon",
+      "anbindung": "Email",
+      "rollen": [
+        "Quelle"
+      ],
+      "verwendet_in": [
+        "Reiseanfrage-Extraktion aus E-Mail in strukturierten Erfassungsbogen",
+        "Medienbruch-Integration zwischen Angebotsliste, Anbieterportalen und Vorgangsliste"
+      ]
+    },
+    {
+      "name": "Erfassungsbogen",
+      "anbindung": "Manuell",
+      "rollen": [
+        "Ziel"
+      ],
+      "verwendet_in": [
+        "Reiseanfrage-Extraktion aus E-Mail in strukturierten Erfassungsbogen"
+      ]
+    },
+    {
+      "name": "n8n",
+      "anbindung": "API",
+      "rollen": [
+        "Ziel"
+      ],
+      "verwendet_in": [
+        "Reiseanfrage-Extraktion aus E-Mail in strukturierten Erfassungsbogen",
+        "Medienbruch-Integration zwischen Angebotsliste, Anbieterportalen und Vorgangsliste"
+      ]
+    },
+    {
+      "name": "NocoDB",
+      "anbindung": "API",
+      "rollen": [
+        "Ziel"
+      ],
+      "verwendet_in": [
+        "Reiseanfrage-Extraktion aus E-Mail in strukturierten Erfassungsbogen",
+        "Medienbruch-Integration zwischen Angebotsliste, Anbieterportalen und Vorgangsliste"
+      ]
+    },
+    {
+      "name": "Ollama",
+      "anbindung": "API",
+      "rollen": [
+        "Ziel"
+      ],
+      "verwendet_in": [
+        "Reiseanfrage-Extraktion aus E-Mail in strukturierten Erfassungsbogen"
+      ]
+    },
+    {
+      "name": "Angebotsliste",
+      "anbindung": "Manuell",
+      "rollen": [
+        "Quelle"
+      ],
+      "verwendet_in": [
+        "Medienbruch-Integration zwischen Angebotsliste, Anbieterportalen und Vorgangsliste"
+      ]
+    },
+    {
+      "name": "Anbieterportal",
+      "anbindung": "API",
+      "rollen": [
+        "Quelle+Ziel"
+      ],
+      "verwendet_in": [
+        "Medienbruch-Integration zwischen Angebotsliste, Anbieterportalen und Vorgangsliste"
+      ]
+    },
+    {
+      "name": "Vorgangsliste",
+      "anbindung": "DB",
+      "rollen": [
+        "Ziel"
+      ],
+      "verwendet_in": [
+        "Medienbruch-Integration zwischen Angebotsliste, Anbieterportalen und Vorgangsliste"
+      ]
+    },
+    {
+      "name": "PostgreSQL 16",
+      "anbindung": "DB",
+      "rollen": [
+        "Ziel"
+      ],
+      "verwendet_in": [
+        "Medienbruch-Integration zwischen Angebotsliste, Anbieterportalen und Vorgangsliste"
+      ]
+    }
+  ],
+  "datenfluesse": [
+    {
+      "von": "E-Mail / Telefon",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Prozess",
+      "nach": "Erfassungsbogen",
+      "art": "schreibt"
+    },
+    {
+      "von": "Prozess",
+      "nach": "n8n",
+      "art": "schreibt"
+    },
+    {
+      "von": "Prozess",
+      "nach": "NocoDB",
+      "art": "schreibt"
+    },
+    {
+      "von": "Prozess",
+      "nach": "Ollama",
+      "art": "schreibt"
+    },
+    {
+      "von": "Angebotsliste",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Anbieterportal",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Prozess",
+      "nach": "Anbieterportal",
+      "art": "schreibt"
+    },
+    {
+      "von": "Prozess",
+      "nach": "Vorgangsliste",
+      "art": "schreibt"
+    },
+    {
+      "von": "Prozess",
+      "nach": "PostgreSQL 16",
+      "art": "schreibt"
+    }
+  ],
+  "menschliche_entscheidungspunkte": [
+    {
+      "story_id": "st-5df5-0da1-9841-5793dbd06895-5",
+      "epic_id": "ep-5df5-0da1-9841-5793dbd06895",
+      "titel": "Rückfrage-Entwürfe bei fehlenden Pflichtfeldern generieren",
+      "erkannt_an": "Freigab"
+    },
+    {
+      "story_id": "st-5df5-0da1-9841-5793dbd06895-6",
+      "epic_id": "ep-5df5-0da1-9841-5793dbd06895",
+      "titel": "Extraktionsergebnisse revisionssicher protokollieren",
+      "erkannt_an": "Freigab"
+    },
+    {
+      "story_id": "st-5df5-0da1-9841-5793dbd06895-7",
+      "epic_id": "ep-5df5-0da1-9841-5793dbd06895",
+      "titel": "Ausnahmefälle und manuelle Bearbeitung kennzeichnen",
+      "erkannt_an": "manuelle Bearbeitung"
+    },
+    {
+      "story_id": "st-5df5-0da1-9841-5793dbd06895-9",
+      "epic_id": "ep-5df5-0da1-9841-5793dbd06895",
+      "titel": "Pseudonymisierung von Kontaktdaten vor Extraktionsschritt",
+      "erkannt_an": "Freigab"
+    },
+    {
+      "story_id": "st-26d9-5ed3-1682-ce59de66b523-6",
+      "epic_id": "ep-26d9-5ed3-1682-ce59de66b523",
+      "titel": "Benachrichtigungsentwürfe für Kunden erst nach Freigabe versenden",
+      "erkannt_an": "Freigab"
+    }
+  ],
+  "tech_stack": [
+    "n8n (self-hosted, Hetzner) — Workflow-Orchestrierung und E-Mail-Trigger",
+    "Ollama mit Mistral oder Qwen — lokales LLM für Feldextraktion und Rückfrage-Generierung",
+    "NocoDB (self-hosted, IONOS) — strukturierter Erfassungsbogen und Datenhaltung",
+    "PostgreSQL 16 — persistente Protokollierung der Extraktionsergebnisse und Freigaben",
+    "Anthropic Claude (EU-Region, optional, nur mit AVV) — Fallback für komplexe oder mehrdeutige E-Mails",
+    "n8n (self-hosted, Hetzner) — Workflow-Orchestrierung und Anbieteranbindung",
+    "NocoDB (self-hosted, IONOS) — Vorgangsliste und Angebotsliste als strukturierte Datenbasis",
+    "PostgreSQL 16 — Protokollierung aller Aktionen und Rohantworten",
+    "K3s — Container-Betrieb des RPA-Fallback-Dienstes (Playwright)",
+    "Ollama mit Mistral oder Qwen — optionale Klassifikation von Freitext-Portalantworten",
+    "GitLab CI (self-hosted) — Versionierung und Deployment der Workflow-Konfigurationen"
+  ],
+  "epics": [
+    {
+      "epic_id": "ep-5df5-0da1-9841-5793dbd06895",
+      "titel": "Automatisierte Extraktion von Reiseanfragen aus E-Mails in strukturierten Erfassungsbogen",
+      "kategorien": [
+        "it:backend",
+        "it:integration",
+        "it:ai-pipeline"
+      ],
+      "anzahl_stories": 9
+    },
+    {
+      "epic_id": "ep-26d9-5ed3-1682-ce59de66b523",
+      "titel": "Automatisierte Medienbruch-Integration zwischen Angebotsliste, Anbieterportalen und Vorgangsliste",
+      "kategorien": [
+        "it:backend",
+        "it:integration"
+      ],
+      "anzahl_stories": 8
+    }
+  ]
+}

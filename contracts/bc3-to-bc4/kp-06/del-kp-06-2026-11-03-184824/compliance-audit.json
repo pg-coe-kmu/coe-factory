@@ -1,0 +1,283 @@
+{
+  "lieferung_id": "del-kp-06-2026-11-03-184824",
+  "schema_version": "3.5",
+  "projekt_kurzname": "kp-06",
+  "erzeugt_am": "2026-11-03T18:48:24.710Z",
+  "konzept_ref": {
+    "konzept_id": "4d53e481-b332-43c7-b191-63869059afd8",
+    "schema_version": "3.1",
+    "source_file": "konzept_KP-06.json",
+    "kp_id": "KP-06",
+    "teilprozess_ids": [
+      "KP-06.TP-2",
+      "KP-06.TP-3",
+      "KP-06.TP-4",
+      "KP-06.TP-5"
+    ],
+    "value_quelle": "berechnet"
+  },
+  "prozess_kurzbeschreibung": "Der Kernprozess Personal (KP-06) umfasst den vollständigen Reisebuchungszyklus von der Anfrage über Angebot, Reservierung und Buchungsprüfung bis zur Stornierung — heute geprägt durch manuelle Datenübertragungen zwischen E-Mail, Portalen und internen Listen.",
+  "vorpruefung": {
+    "ampel": "yellow",
+    "ai_act_klasse": "limited",
+    "anhang_iii_kategorie": null,
+    "dsgvo_rechtsgrundlage": "Artikel 6 Absatz 1 Buchstabe b (Vertragserfüllung), Artikel 28 (AV-Vertrag bei externem Modellanbieter)",
+    "betroffene_datenarten": [
+      "Zugangsdaten (Stufe hoch)",
+      "E-Mail-Adresse (Stufe gering)",
+      "Telefonnummer (Stufe gering)",
+      "Reise- und Termindaten (Stufe gering)",
+      "Kostenstelle und Budget (Stufe gering)"
+    ],
+    "begruendung_ampel": "Der Prozess fällt nicht unter Anhang III (keine Auswahl, Einstellung oder Bewertung von Personen) und nicht unter Artikel 5 AI-Act (keine verbotenen Praktiken). Die geldwirksamen Entscheidungen erfordern einen Freigabeschritt durch die Sachbearbeitung, um Artikel 22 Absatz 1 DSGVO zu erfüllen. Die Pseudonymisierung der Kontaktdaten und Zugangsdaten vor dem Modellaufruf sowie der Transparenzhinweis nach Artikel 50 Absatz 1 AI-Act sind eingebaut. Damit ist die Ampel gelb, nicht rot."
+  },
+  "pflichten": [
+    {
+      "id": "p1",
+      "tag": "[AI-Act Art. 4]",
+      "text": "Schulung der Sachbearbeitung zur KI-Kompetenz: Einweisung in die Funktionsweise des Extraktionsdienstes, Erkennen von Halluzinationen und Umgang mit Ausnahmefällen.",
+      "massnahme": "hinweis_geben",
+      "datenkategorie": "gering",
+      "stelle": "Automatisierte Extraktion von Reiseanfragen aus E-Mails in strukturierten Erfassungsbogen",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p2",
+      "tag": "[AI-Act Art. 50 Absatz 1]",
+      "text": "Hinweis an die anfragende Person, dass die E-Mail-Verarbeitung durch ein KI-System erfolgt.",
+      "massnahme": "hinweis_geben",
+      "datenkategorie": "gering",
+      "stelle": "E-Mail-Postfach für eingehende Reiseanfragen überwachen",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p3",
+      "tag": "[DSGVO Art. 25]",
+      "text": "Pseudonymisierung der E-Mail-Adresse und Telefonnummer vor der Verarbeitung durch den Extraktionsdienst; Rückauflösung erst nach Freigabe durch die Sachbearbeitung.",
+      "massnahme": "pseudonymisieren",
+      "datenkategorie": "gering",
+      "stelle": "Reisedaten aus E-Mails extrahieren und in Erfassungsbogen eintragen",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p4",
+      "tag": "[DSGVO Art. 25]",
+      "text": "Zugangsdaten (Stufe hoch) werden vor dem Modellaufruf durch eine Kennung ersetzt und erst nach Freigabe durch die Sachbearbeitung wieder eingesetzt.",
+      "massnahme": "pseudonymisieren",
+      "datenkategorie": "hoch",
+      "stelle": "Reisedaten aus E-Mails extrahieren und in Erfassungsbogen eintragen",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p5",
+      "tag": "[DSGVO Art. 32]",
+      "text": "Verschlüsselung der E-Mail-Inhalte und Extraktionsergebnisse während der Übertragung und im Ruhezustand (TLS 1.2+ und AES-256).",
+      "massnahme": "eu_modell",
+      "datenkategorie": "gering",
+      "stelle": "E-Mail-Postfach für eingehende Reiseanfragen überwachen",
+      "adressat": "plattform",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p6",
+      "tag": "[DSGVO Art. 28]",
+      "text": "Abschluss eines Auftragsverarbeitungsvertrags mit dem externen Modellanbieter, falls der primäre Ollama-Pfad nicht genutzt wird.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "gering",
+      "stelle": "Reisedaten aus E-Mails extrahieren und in Erfassungsbogen eintragen",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p7",
+      "tag": "[DSGVO Art. 22 Absatz 1]",
+      "text": "Freigabeschritt durch die Sachbearbeitung vor jeder geldwirksamen Entscheidung (Reservierung, Buchung, Stornierung), um die Entscheidung nicht ausschließlich automatisiert zu treffen.",
+      "massnahme": "mensch_prueft",
+      "datenkategorie": "gering",
+      "stelle": "Automatisierte Reservierung beim Anbieter anlegen und Ergebnis in Vorgangsliste eintragen; Buchungsstatus beim Anbieter abrufen und in Vorgangsliste aktualisieren; Stornierungsauftrag beim Anbieter auslösen und Ergebnis in Vorgangsliste eintragen",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3",
+      "abgedeckt_durch": [
+        "ep-17530-6"
+      ]
+    },
+    {
+      "id": "p8",
+      "tag": "[DSGVO Art. 32]",
+      "text": "Protokollierung aller schreibenden Aktionen (Reservierung, Buchung, Stornierung) mit Zeitstempel, Benutzerkennung und Status in der Vorgangsliste.",
+      "massnahme": "protokollieren",
+      "datenkategorie": "gering",
+      "stelle": "Automatisierte Reservierung beim Anbieter anlegen und Ergebnis in Vorgangsliste eintragen; Buchungsstatus beim Anbieter abrufen und in Vorgangsliste aktualisieren; Stornierungsauftrag beim Anbieter auslösen und Ergebnis in Vorgangsliste eintragen",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3",
+      "abgedeckt_durch": [
+        "ep-17530-3",
+        "ep-17530-4",
+        "ep-17530-5"
+      ]
+    }
+  ],
+  "pflichten_nach_adressat": {
+    "bc4": [
+      "p2",
+      "p3",
+      "p4",
+      "p7",
+      "p8"
+    ],
+    "organisation": [
+      "p1",
+      "p6"
+    ],
+    "plattform": [
+      "p5"
+    ],
+    "ohne_angabe": []
+  },
+  "nicht_an_bc4": [],
+  "plattform_standards": [
+    "Verschlüsselung der E-Mail-Inhalte und Extraktionsergebnisse (TLS 1.2+ und AES-256)",
+    "Zentrales Audit-Log für alle schreibenden Aktionen (Reservierung, Buchung, Stornierung)",
+    "PII-Filter für Zugangsdaten und Kontaktdaten vor Modellaufruf"
+  ],
+  "zuordnung": [
+    {
+      "epic_id": "ep-5df5-0da1-9841-5793dbd06895",
+      "use_case_id_ref": "969094be-b547-4ebc-a849-ea319e31fda8",
+      "id_saat": "969094be-b547-4ebc-a849-ea319e31fda8",
+      "titel": "Automatisierte Extraktion von Reiseanfragen aus E-Mails in strukturierten Erfassungsbogen"
+    },
+    {
+      "story_id": "st-5df5-0da1-9841-5793dbd06895-9",
+      "herkunft": "fachlich mit Pflicht",
+      "pflicht_ids": [
+        "p4"
+      ]
+    },
+    {
+      "story_id": "st-5df5-0da1-9841-5793dbd06895-8",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p2"
+      ]
+    },
+    {
+      "story_id": "st-5df5-0da1-9841-5793dbd06895-9",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p3"
+      ]
+    },
+    {
+      "epic_id": "ep-26d9-5ed3-1682-ce59de66b523",
+      "use_case_id_ref": "17530cac-5348-44c5-aaf1-187ad935e518",
+      "id_saat": "17530cac-5348-44c5-aaf1-187ad935e518",
+      "titel": "Automatisierte Medienbruch-Integration zwischen Angebotsliste, Anbieterportalen und Vorgangsliste"
+    },
+    {
+      "story_id": "st-26d9-5ed3-1682-ce59de66b523-6",
+      "herkunft": "fachlich mit Pflicht",
+      "pflicht_ids": [
+        "p7"
+      ],
+      "quelle": "abgedeckt_durch"
+    },
+    {
+      "story_id": "st-26d9-5ed3-1682-ce59de66b523-3",
+      "herkunft": "fachlich mit Pflicht",
+      "pflicht_ids": [
+        "p8"
+      ],
+      "quelle": "abgedeckt_durch"
+    },
+    {
+      "story_id": "st-26d9-5ed3-1682-ce59de66b523-4",
+      "herkunft": "fachlich mit Pflicht",
+      "pflicht_ids": [
+        "p8"
+      ],
+      "quelle": "abgedeckt_durch"
+    },
+    {
+      "story_id": "st-26d9-5ed3-1682-ce59de66b523-5",
+      "herkunft": "fachlich mit Pflicht",
+      "pflicht_ids": [
+        "p8"
+      ],
+      "quelle": "abgedeckt_durch"
+    }
+  ],
+  "nicht_zugeordnete_compliance_stories": [],
+  "zuordnung_korrigiert": [],
+  "zusammengelegt": [
+    {
+      "titel": "Pseudonymisierung von Zugangsdaten vor Extraktionsschritt",
+      "pflicht_ids": [
+        "p4"
+      ],
+      "steht_schon_in": [
+        {
+          "story_id": "st-5df5-0da1-9841-5793dbd06895-9",
+          "titel": "Pseudonymisierung von Kontaktdaten vor Extraktionsschritt"
+        }
+      ],
+      "aehnlichkeit": [
+        0.78
+      ]
+    },
+    {
+      "titel": "Freigabeschritt für geldwirksame Entscheidungen vor Ausführung",
+      "pflicht_ids": [
+        "p7"
+      ],
+      "steht_schon_in": [
+        {
+          "story_id": "st-26d9-5ed3-1682-ce59de66b523-6",
+          "titel": "Benachrichtigungsentwürfe für Kunden erst nach Freigabe versenden"
+        }
+      ],
+      "quelle": "abgedeckt_durch"
+    }
+  ],
+  "befunde_zuordnung": [
+    "Prüfen: Pflicht p7 [DSGVO Art. 22 Absatz 1] gilt laut BC3-30 durch „Benachrichtigungsentwürfe für Kunden erst nach Freigabe vers“ als erfüllt.",
+    "Prüfen: Pflicht p8 [DSGVO Art. 32] gilt laut BC3-30 durch „Automatisierte Reservierung beim Anbieter anlegen und Ergebn“ und „Buchungsstatus beim Anbieter abrufen und in Vorgangsliste ak“ und „Stornierungsauftrag beim Anbieter auslösen und Ergebnis in V“ als erfüllt.",
+    "Compliance-Story „Pseudonymisierung von Zugangsdaten vor Extraktionsschritt“ nicht angehängt, ihre Kriterien stehen schon in „Pseudonymisierung von Kontaktdaten vor Extraktionsschritt“ (Pflicht p4).",
+    "Compliance-Story „Freigabeschritt für geldwirksame Entscheidungen vor Ausführung“ nicht angehängt, BC3-30 ordnet die Pflicht der vorhandenen Story „Benachrichtigungsentwürfe für Kunden erst nach Freigabe versenden“ zu (Pflicht p7)."
+  ],
+  "pflichten_ohne_story": [],
+  "pflichten_mit_story_ohne_vermerk": [],
+  "befunde_adressat": [],
+  "pruefung_bc3": {
+    "geprueft_gegen": "tickets.schema.json 3.5",
+    "ergebnis": "bestanden",
+    "befunde": [
+      "Epic 1: K1 steht schon fast wörtlich in „Reisedaten aus E-Mails extrahieren und in Erfassungsbogen ei“ (90 %), kein Nachauftrag."
+    ],
+    "epics": 2,
+    "stories": 15,
+    "potenziale": 2,
+    "anforderungen_im_eingang": 13,
+    "akzeptanzkriterien_im_eingang": 6,
+    "vorgaben_bc3": 0,
+    "stories_ohne_kriterium": 0
+  }
+}

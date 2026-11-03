@@ -1,0 +1,328 @@
+{
+  "lieferung_id": "del-kp-06-2026-11-03-184824",
+  "schema_version": "3.5",
+  "projekt_kurzname": "kp-06",
+  "konzept_ref": {
+    "konzept_id": "4d53e481-b332-43c7-b191-63869059afd8",
+    "schema_version": "3.1",
+    "source_file": "konzept_KP-06.json",
+    "kp_id": "KP-06",
+    "teilprozess_ids": [
+      "KP-06.TP-2",
+      "KP-06.TP-3",
+      "KP-06.TP-4",
+      "KP-06.TP-5"
+    ],
+    "value_quelle": "berechnet"
+  },
+  "epics": [
+    {
+      "epic_id": "ep-5df5-0da1-9841-5793dbd06895",
+      "titel": "Automatisierte Extraktion von Reiseanfragen aus E-Mails in strukturierten Erfassungsbogen",
+      "ziel": "Automatisierte Erfassung und Strukturierung von Reisedaten aus eingehenden E-Mail-Anfragen zur Reduktion manueller Übertragungsarbeit um bis zu 65 %.",
+      "kategorien": [
+        "it:backend",
+        "it:integration",
+        "it:ai-pipeline"
+      ],
+      "stories": [
+        {
+          "story_id": "st-5df5-0da1-9841-5793dbd06895-1",
+          "titel": "Pflichtfeldschema für Erfassungsbogen definieren und versionieren",
+          "beschreibung": "Als Prozessverantwortlicher möchte ich ein verbindliches und versioniertes Pflichtfeldschema für den Erfassungsbogen erstellen, damit der Extraktionsdienst die zu extrahierenden Felder kennt und einheitlich verarbeitet.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given das Pflichtfeldschema für den Erfassungsbogen, When es dokumentiert und versioniert wird, Then liegt es in einer verbindlichen Fassung vor und ist für den Extraktionsdienst zugänglich.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-5df5-0da1-9841-5793dbd06895-2",
+          "titel": "E-Mail-Postfach für eingehende Reiseanfragen überwachen",
+          "beschreibung": "Als Extraktionsdienst möchte ich eingehende E-Mails im Anfrage-Postfach überwachen, damit jede neue Reiseanfrage automatisch erkannt und verarbeitet wird.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine neue E-Mail im Anfrage-Postfach, When der Workflow sie erkennt, Then wird die E-Mail zur weiteren Verarbeitung an den Extraktionsdienst übergeben.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given der Lesezugriff auf das E-Mail-Postfach, When der Workflow gestartet wird, Then ist der Zugriff technisch und organisatorisch sichergestellt.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-5df5-0da1-9841-5793dbd06895-3",
+          "titel": "Reisedaten aus E-Mails extrahieren und in Erfassungsbogen eintragen",
+          "beschreibung": "Als Extraktionsdienst möchte ich Reisedaten (Ab- und Anreise, Zeitraum, Personenanzahl, Leistungsarten, Budget) aus der E-Mail extrahieren und in den strukturierten Erfassungsbogen eintragen, damit die Sachbearbeitung die Daten nicht manuell übertragen muss.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine vollständig formulierte Anfrage-E-Mail mit Reisedaten, Personenanzahl und Budget, When die E-Mail verarbeitet wird, Then sind alle erkannten Felder im Erfassungsbogen innerhalb von zwei Minuten automatisch belegt und für die Sachbearbeitung zur Prüfung bereitgestellt.",
+              "messverfahren": "Zeitstempel im Vorgangsprotokoll zwischen E-Mail-Eingang und erstem Eintrag im Erfassungsbogen; Stichprobe ausgefüllter Erfassungsbögen auf Vollständigkeit und Richtigkeit."
+            },
+            {
+              "text": "Given eine E-Mail mit erkennbaren Quellwerten, When der Extraktionsdienst die Felder belegt, Then werden ausschließlich Felder mit gefundenen Werten befüllt; fehlende Felder bleiben leer.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given eine mehrsprachige E-Mail (Deutsch oder Englisch), When der Extraktionsdienst sie verarbeitet, Then werden die Felder korrekt extrahiert; nicht erkannte Sprachen werden als Ausnahme markiert.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given eine E-Mail mit ungewöhnlichen Kombinationen (z. B. Mehrstoppreisen, Gruppenreisen), When der Extraktionsdienst sie verarbeitet, Then wird das Ergebnis als unsicher markiert und erfordert manuelle Nachprüfung.",
+              "messverfahren": "Review-Protokoll: Anteil der als unsicher markierten Felder, die tatsächlich Korrekturen erforderten."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-5df5-0da1-9841-5793dbd06895-1",
+            "st-5df5-0da1-9841-5793dbd06895-2"
+          ]
+        },
+        {
+          "story_id": "st-5df5-0da1-9841-5793dbd06895-4",
+          "titel": "Vollständigkeitsprüfung der extrahierten Daten durchführen",
+          "beschreibung": "Als Extraktionsdienst möchte ich prüfen, ob alle Pflichtfelder im Erfassungsbogen belegt sind, damit fehlende Angaben erkannt und Rückfragen ausgelöst werden können.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein ausgefüllter Erfassungsbogen, When der Extraktionsdienst die Pflichtfelder prüft, Then werden fehlende Felder identifiziert und als Lücken markiert.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-5df5-0da1-9841-5793dbd06895-3"
+          ]
+        },
+        {
+          "story_id": "st-5df5-0da1-9841-5793dbd06895-5",
+          "titel": "Rückfrage-Entwürfe bei fehlenden Pflichtfeldern generieren",
+          "beschreibung": "Als Extraktionsdienst möchte ich bei fehlenden Pflichtfeldern einen Rückfrage-Entwurf generieren und der Sachbearbeitung zur Freigabe vorlegen, damit diese die Rückfrage nicht manuell verfassen muss.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine Anfrage-E-Mail mit mindestens einem fehlenden Pflichtfeld, When der Extraktionsdienst die Lücke erkennt, Then wird automatisch ein Rückfrage-Entwurf erzeugt und der Sachbearbeitung zur Freigabe vorgelegt.",
+              "messverfahren": "Stichprobe von Vorgängen mit Rückfragen: Anteil der Fälle, in denen ein Entwurf vorlag, bevor die Sachbearbeitung die Rückfrage verfasst hat."
+            },
+            {
+              "text": "Given ein generierter Rückfrage-Entwurf, When die Sachbearbeitung ihn prüft, Then darf der Entwurf erst nach manueller Freigabe versendet werden.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-5df5-0da1-9841-5793dbd06895-4"
+          ]
+        },
+        {
+          "story_id": "st-5df5-0da1-9841-5793dbd06895-6",
+          "titel": "Extraktionsergebnisse revisionssicher protokollieren",
+          "beschreibung": "Als Extraktionsdienst möchte ich alle verarbeiteten E-Mails und zugehörigen Extraktionsergebnisse revisionssicher protokollieren, damit Korrekturen und Freigaben nachvollziehbar sind.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine verarbeitete E-Mail und ihr Extraktionsergebnis, When der Vorgang abgeschlossen ist, Then sind E-Mail, Ergebnis und Freigaben in der Protokollierung persistent gespeichert.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given ein unsicheres Extraktionsergebnis, When die Sachbearbeitung den Bogen öffnet, Then ist das unsichere Feld visuell hervorgehoben und enthält keinen ungekennzeichneten falschen Wert.",
+              "messverfahren": "Review-Protokoll: Anteil der als unsicher markierten Felder, die tatsächlich Korrekturen erforderten, verglichen mit dem Anteil unmarkierter Felder mit Fehlern."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-5df5-0da1-9841-5793dbd06895-3"
+          ]
+        },
+        {
+          "story_id": "st-5df5-0da1-9841-5793dbd06895-7",
+          "titel": "Ausnahmefälle und manuelle Bearbeitung kennzeichnen",
+          "beschreibung": "Als Extraktionsdienst möchte ich Ausnahmefälle (z. B. nicht erkannte Sprachen, Telefon-Anfragen) klar kennzeichnen, damit diese manuell bearbeitet werden können.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine E-Mail in einer nicht unterstützten Sprache oder eine Telefon-Anfrage, When der Extraktionsdienst sie verarbeitet, Then wird sie als Ausnahme markiert und nicht automatisch weiterverarbeitet.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-5df5-0da1-9841-5793dbd06895-3"
+          ]
+        },
+        {
+          "story_id": "st-5df5-0da1-9841-5793dbd06895-8",
+          "titel": "Transparenzhinweis bei E-Mail-Eingang automatisiert setzen",
+          "beschreibung": "Als Extraktionsdienst möchte ich bei jeder eingehenden E-Mail einen automatisierten Hinweis an den Absender senden, dass die Verarbeitung durch ein KI-System erfolgt, um Artikel 50 Absatz 1 AI-Act zu erfüllen.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine neue E-Mail im Anfrage-Postfach, When der Workflow sie erkennt, Then wird innerhalb von fünf Minuten eine automatisierte Antwort an den Absender versendet, die den KI-Hinweis enthält.",
+              "messverfahren": "Zeitstempel im E-Mail-Header der Antwort; Stichprobe von 100 Antworten auf Vorhandensein des Hinweises."
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-5df5-0da1-9841-5793dbd06895-9",
+          "titel": "Pseudonymisierung von Kontaktdaten vor Extraktionsschritt",
+          "beschreibung": "Als Extraktionsdienst möchte ich E-Mail-Adressen und Telefonnummern vor der Verarbeitung durch das LLM durch eine Kennung ersetzen und erst nach Freigabe durch die Sachbearbeitung wieder auflösen, um Artikel 25 DSGVO zu erfüllen.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine E-Mail mit Kontaktdaten, When der Extraktionsdienst die Daten verarbeitet, Then sind E-Mail-Adresse und Telefonnummer im Erfassungsbogen durch eine Kennung ersetzt und erst nach Freigabe durch die Sachbearbeitung wieder sichtbar.",
+              "messverfahren": "Stichprobe von 50 Erfassungsbögen: Anteil der pseudonymisierten Felder vor Freigabe."
+            }
+          ],
+          "abhaengigkeiten": []
+        }
+      ],
+      "teilprozess_ids": [
+        "KP-06.TP-2"
+      ]
+    },
+    {
+      "epic_id": "ep-26d9-5ed3-1682-ce59de66b523",
+      "titel": "Automatisierte Medienbruch-Integration zwischen Angebotsliste, Anbieterportalen und Vorgangsliste",
+      "ziel": "Eine Integrationsschicht verbindet die interne Vorgangsliste mit Anbieterportalen, um Reservierungsnummern, Buchungsstatus und Stornierungen automatisch zu synchronisieren und Kundenbenachrichtigungen vorzubereiten.",
+      "kategorien": [
+        "it:backend",
+        "it:integration"
+      ],
+      "stories": [
+        {
+          "story_id": "st-26d9-5ed3-1682-ce59de66b523-1",
+          "titel": "Strukturierte Datenbasis in NocoDB für Angebots- und Vorgangsliste sicherstellen",
+          "beschreibung": "Als Systemverantwortlicher möchte ich sicherstellen, dass die Angebotsliste und Vorgangsliste in NocoDB als strukturierte Datenbasis vorliegen, damit die Integrationsschicht darauf aufbauen kann.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given die Angebotsliste und Vorgangsliste sind nicht in NocoDB migriert, When die Integrationsschicht in Betrieb genommen werden soll, Then müssen beide Listen vollständig in NocoDB vorliegen und strukturell konsistent sein.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-26d9-5ed3-1682-ce59de66b523-2",
+          "titel": "Anbieterportal-Zugriffswege prüfen und dokumentieren",
+          "beschreibung": "Als Integrationsentwickler möchte ich für jeden Anbieter prüfen und dokumentieren, ob eine API oder nur RPA als Zugriffsweg verfügbar ist, damit die Integrationsschicht entsprechend konfiguriert werden kann.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein neuer Anbieter soll integriert werden, When die Zugriffswege geprüft werden, Then ist dokumentiert, ob eine API oder RPA genutzt wird, und die Entscheidung ist nachvollziehbar.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-26d9-5ed3-1682-ce59de66b523-3",
+          "titel": "Automatisierte Reservierung beim Anbieter anlegen und Ergebnis in Vorgangsliste eintragen",
+          "beschreibung": "Als Sachbearbeiter möchte ich, dass bei einer Kundenanfrage mit gültiger Angebotsnummer die Reservierung automatisch beim Anbieter angelegt und die Reservierungsnummer in die Vorgangsliste eingetragen wird, damit keine manuelle Übertragung nötig ist.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein Kunde nennt eine gültige Angebotsnummer für eine Reservierung, When der Workflow die Reservierung beim Anbieter anlegt, Then ist die zurückgegebene Reservierungsnummer automatisch in der Vorgangsliste eingetragen und ein Bestätigungsentwurf für den Kunden liegt zur Freigabe bereit — ohne manuellen Zwischenschritt.",
+              "messverfahren": "Zeitstempel im Vorgangsprotokoll zwischen Auslösung und Eintrag in der Vorgangsliste; Stichprobe von Reservierungsvorgängen auf Vollständigkeit der automatisch eingetragenen Felder."
+            },
+            {
+              "text": "Given eine Reservierung wird beim Anbieter ausgelöst, When die Aktion abgeschlossen ist, Then ist das Ergebnis mit Zeitstempel und Status in der Vorgangsliste protokolliert.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-26d9-5ed3-1682-ce59de66b523-1",
+            "st-26d9-5ed3-1682-ce59de66b523-2"
+          ]
+        },
+        {
+          "story_id": "st-26d9-5ed3-1682-ce59de66b523-4",
+          "titel": "Buchungsstatus beim Anbieter abrufen und in Vorgangsliste aktualisieren",
+          "beschreibung": "Als Sachbearbeiter möchte ich, dass bei einer Buchungsprüfungsanfrage mit gültiger Buchungsnummer der aktuelle Status, die Zahlungsinformationen und die Stornierbarkeit automatisch beim Anbieter abgerufen und in die Vorgangsliste eingetragen werden, damit eine strukturierte Auskunft vorbereitet werden kann.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine Buchungsprüfungsanfrage mit gültiger Buchungsnummer, When der Workflow den Status beim Anbieter abruft, Then enthält die Vorgangsliste den aktuellen Status, die Zahlungsinformation und die Stornierbarkeit, und ein Auskunftsentwurf steht der Sachbearbeitung bereit.",
+              "messverfahren": "Stichprobe von Buchungsprüfungsvorgängen: Anteil der Fälle, in denen alle drei Statusfelder automatisch befüllt wurden, bevor die Sachbearbeitung eingegriffen hat."
+            },
+            {
+              "text": "Given eine Buchungsprüfung wird ausgelöst, When die Aktion abgeschlossen ist, Then ist das Ergebnis mit Zeitstempel und Status in der Vorgangsliste protokolliert.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-26d9-5ed3-1682-ce59de66b523-1",
+            "st-26d9-5ed3-1682-ce59de66b523-2"
+          ]
+        },
+        {
+          "story_id": "st-26d9-5ed3-1682-ce59de66b523-5",
+          "titel": "Stornierungsauftrag beim Anbieter auslösen und Ergebnis in Vorgangsliste eintragen",
+          "beschreibung": "Als Sachbearbeiter möchte ich, dass bei einem Stornierungswunsch mit Buchungsnummer der Stornierungsauftrag automatisch beim Anbieter ausgelöst und das Ergebnis (storniert / nicht gefunden / fehlgeschlagen) in die Vorgangsliste geschrieben wird, damit der Vorgang ohne manuelle Übertragung abgeschlossen werden kann.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein Stornierungsauftrag wird mit gültiger Buchungsnummer ausgelöst, When der Workflow die Stornierung beim Anbieter durchführt, Then ist das Ergebnis (storniert / nicht gefunden / fehlgeschlagen) in der Vorgangsliste eingetragen und ein Bestätigungsentwurf liegt zur Freigabe bereit.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given ein Stornierungsauftrag schlägt beim Anbieter fehl oder liefert eine nicht eindeutige Antwort, When der Workflow das Ergebnis auswertet, Then wird der Vorgang als Ausnahme markiert und die Sachbearbeitung aktiv benachrichtigt, ohne dass eine Fehlinformation an den Kunden versendet wird.",
+              "messverfahren": "Auswertung der Ausnahme-Logs: Anteil fehlgeschlagener Stornierungen, die korrekt eskaliert wurden, ohne vorangehenden Versand einer falschen Bestätigung an den Kunden."
+            },
+            {
+              "text": "Given eine Stornierung wird ausgelöst, When die Aktion abgeschlossen ist, Then ist das Ergebnis mit Zeitstempel und Status in der Vorgangsliste protokolliert.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-26d9-5ed3-1682-ce59de66b523-1",
+            "st-26d9-5ed3-1682-ce59de66b523-2"
+          ]
+        },
+        {
+          "story_id": "st-26d9-5ed3-1682-ce59de66b523-6",
+          "titel": "Benachrichtigungsentwürfe für Kunden erst nach Freigabe versenden",
+          "beschreibung": "Als Sachbearbeiter möchte ich, dass Benachrichtigungsentwürfe an Kunden (Reservierungsbestätigung, Statusauskunft, Stornierungsbestätigung) erst nach meiner manuellen Freigabe versendet werden, damit keine fehlerhaften oder unvollständigen Informationen verschickt werden.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein Benachrichtigungsentwurf für einen Kunden liegt vor, When die Sachbearbeitung die Freigabe erteilt, Then wird die Benachrichtigung an den Kunden versendet.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given ein Benachrichtigungsentwurf liegt vor, When die Sachbearbeitung die Freigabe nicht erteilt, Then wird die Benachrichtigung nicht versendet und der Vorgang bleibt in der Freigabe-Queue.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-26d9-5ed3-1682-ce59de66b523-3",
+            "st-26d9-5ed3-1682-ce59de66b523-4",
+            "st-26d9-5ed3-1682-ce59de66b523-5"
+          ]
+        },
+        {
+          "story_id": "st-26d9-5ed3-1682-ce59de66b523-7",
+          "titel": "Hybriden Prozess für nicht automatisierbare Anbieterportale unterstützen",
+          "beschreibung": "Als Sachbearbeiter möchte ich, dass Anbieterportale ohne API oder zuverlässig automatisierbares Web-Interface weiterhin manuell bedient werden können, damit der Prozess beide Wege parallel unterstützt und keine Fälle verloren gehen.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein Anbieterportal bietet weder eine API noch ein zuverlässig automatisierbares Web-Interface, When ein Vorgang für diesen Anbieter bearbeitet wird, Then verbleibt der Vorgang im manuellen Ablauf und wird nicht von der Integrationsschicht übernommen.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-26d9-5ed3-1682-ce59de66b523-8",
+          "titel": "Anbieterindividuelle Konfiguration der Integrationsschicht für Portalantwortformate",
+          "beschreibung": "Als Integrationsentwickler möchte ich die Integrationsschicht anbieterindividuell konfigurieren können, um unterschiedliche Portalantwortformate (Flug, Hotel, Mietwagen) abzubilden und korrekt zu verarbeiten.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein neuer Anbieter mit abweichendem Portalantwortformat soll integriert werden, When die Integrationsschicht konfiguriert wird, Then können die spezifischen Felder (z. B. Flugnummer, Hotelname, Mietwagendetails) korrekt extrahiert und in die Vorgangsliste eingetragen werden.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-26d9-5ed3-1682-ce59de66b523-2"
+          ]
+        }
+      ],
+      "teilprozess_ids": [
+        "KP-06.TP-3",
+        "KP-06.TP-4",
+        "KP-06.TP-5"
+      ]
+    }
+  ],
+  "gate2": {
+    "status": "approved"
+  }
+}
