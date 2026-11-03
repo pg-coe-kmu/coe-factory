@@ -1,0 +1,774 @@
+{
+  "konzept_id": "4d53e481-b332-43c7-b191-63869059afd8",
+  "ersetzt_konzept_id": null,
+  "schema_version": "3.1",
+  "company_id": "7c2d5ee9-2a9a-5990-810f-502ea2b2012d",
+  "paket_id": "cc7f4d1b-4c71-4cfa-92c3-46a395080e4b",
+  "uebergeben_am": "2026-11-03T18:29:47.606554+00:00",
+  "gelesen_am": "2026-11-03T18:31:05.861269+00:00",
+  "fassung": 1,
+  "erzeugt_am": "2026-11-03T18:35:33.011295+00:00",
+  "erzeugt_von": "bc2-strategic-advisor · Ausarbeitung · claude-sonnet-4-6",
+  "kontext": {
+    "prozess_kurzbeschreibung": "Der Kernprozess Personal (KP-06) umfasst den vollständigen Reisebuchungszyklus von der Anfrage über Angebot, Reservierung und Buchungsprüfung bis zur Stornierung — heute geprägt durch manuelle Datenübertragungen zwischen E-Mail, Portalen und internen Listen.",
+    "kp_id": "KP-06",
+    "unternehmen": "NoroAI Consulting GmbH",
+    "hauptschmerzpunkte": [
+      {
+        "beschreibung": "Hoher manueller Übertragungsaufwand aus unstrukturierten E-Mails in den Erfassungsbogen",
+        "haeufigkeit": "Bei jeder eingehenden Reiseanfrage",
+        "auswirkung": "Sachbearbeitung bindet Kapazität für repetitive Tipparbeit statt für wertschöpfende Aufgaben; Fehler beim Herausschreiben von Reisedaten führen zu Nacharbeit und Rückfragen."
+      },
+      {
+        "beschreibung": "Fehlende systematische Vollständigkeitsprüfung der eingehenden Anfragedaten",
+        "auswirkung": "Unvollständige Angaben werden erst spät im Prozess bemerkt, was zusätzliche Rückfragerunden und Verzögerungen im Angebotsprozess verursacht."
+      },
+      {
+        "beschreibung": "Wiederholter manueller Übertrag von Buchungs-, Reservierungs- und Stornierungsdaten zwischen Anbieterportal, Angebotsliste, Vorgangsliste und E-Mail",
+        "haeufigkeit": "Bei jeder Reservierung, Buchungsprüfung und Stornierung",
+        "auswirkung": "Mehrfachpflege paralleler Listen erhöht das Fehlerrisiko; der Vorgangsstatus ist nur bei der Sachbearbeitung bekannt und nicht zentral einsehbar."
+      },
+      {
+        "beschreibung": "Stabilität des gesamten Reiseprozesses abhängig von individueller Personalkapazität",
+        "auswirkung": "Engpässe in der Sachbearbeitung verzögern alle Prozessphasen gleichzeitig, da kein Schritt automatisch voranläuft."
+      }
+    ]
+  },
+  "potenziale": [
+    {
+      "potenzial_id": "969094be-b547-4ebc-a849-ea319e31fda8",
+      "ersetzt_potenzial_ids": [],
+      "titel": "Reiseanfrage-Extraktion aus E-Mail in strukturierten Erfassungsbogen",
+      "potenzialrang": 1,
+      "prioritaetsgruppe": "PRIO 2",
+      "beschreibung": "## Reiseanfrage-Extraktion aus E-Mail in strukturierten Erfassungsbogen\n\nDieses Potenzial automatisiert den ersten und arbeitsintensivsten Schritt im Teilprozess **KP-06.TP-2 (Reise: Anfrage → Angebot)**: das Herauslesen und Strukturieren von Reisedaten aus eingehenden Anfrage-E-Mails.\n\n### Was wird automatisiert\nEin KI-gestützter Extraktionsdienst liest jede eingehende Anfrage-E-Mail und befüllt automatisch die definierten Felder des Erfassungsbogens — darunter Reisedaten (Ab- und Anreise, Zeitraum), Personenanzahl, gewünschte Leistungsarten (Flug, Hotel, Mietwagen) und Budget. Im Anschluss prüft der Dienst, welche Pflichtfelder fehlen, und generiert bei Lücken einen Rückfrage-Entwurf.\n\n### Beteiligte Teilprozesse\nAusschließlich KP-06.TP-2 bis zum Abschluss der Datenerfassung; die nachgelagerten Schritte (Recherche, Angebot, Versand) bleiben zunächst unberührt.\n\n### Datenfluesse\nEingehende E-Mail (E-Mail-Postfach) → Extraktionsdienst → strukturierter Erfassungsbogen (NocoDB oder Tabellenkalkulation) → bei Lückenerkennung: Rückfrage-Entwurf zur Freigabe durch die Sachbearbeitung → versendete Rückfrage per E-Mail.\n\n### Beteiligte Rollen\n- **Sachbearbeitung**: prüft den erzeugten Erfassungsbogen, gibt Rückfrage-Entwürfe frei und bearbeitet Ausnahmen.\n- **Anfragesteller (intern/extern)**: sendet die Anfrage-E-Mail und beantwortet ggf. die Rückfrage.\n\n### Vorbedingungen\nDer Extraktionsdienst benötigt Lesezugriff auf das eingehende E-Mail-Postfach und Schreibzugriff auf den Erfassungsbogen. Ein definiertes Pflichtfeldschema für den Erfassungsbogen muss vorliegen.\n\n### Sonderfälle und Ausnahmen\nMehrsprachige, stark frei formulierte oder unvollständige E-Mails können die Extraktionsqualität mindern. Telefon-Anfragen (außerhalb des E-Mail-Kanals) sind vom Automatisierungsumfang ausgenommen und verbleiben im manuellen Ablauf. Anfragen mit ungewöhnlichen Kombinationen (z. B. Mehrstoppreisen, Gruppenreisen) erfordern manuelle Nachprüfung. Das Ergebnis der Extraktion wird stets von der Sachbearbeitung gegengeprüft, bevor der Vorgang weiterläuft — vollautomatische Weiterleitung ohne Sichtprüfung ist nicht vorgesehen. Damit werden mindestens 50 % und bis zu 65 % der eingehenden E-Mail-Anfragen ohne manuelle Übertragungsarbeit erfasst.",
+      "to_be_vision": "Im Soll-Zustand trifft eine eingehende Reiseanfrage per E-Mail ein und wird innerhalb von Sekunden durch den Extraktionsdienst verarbeitet: Alle erkannten Reisedaten, Personenangaben, Leistungswünsche und Budgetangaben werden automatisch in den strukturierten Erfassungsbogen eingetragen. Der Dienst prüft in demselben Zug, ob alle Pflichtfelder belegt sind. Fehlen Angaben, wird sofort ein vorformulierter Rückfrage-Entwurf erzeugt, den die Sachbearbeitung mit einem Klick prüfen und versenden kann. Die Sachbearbeitung öffnet den Erfassungsbogen bereits vorausgefüllt, kontrolliert das Ergebnis und korrigiert ggf. einzelne Felder — statt die gesamte E-Mail manuell abzutippen. Repetitive Übertragungsarbeit entfällt für den Großteil der Anfragen; die verbleibende Arbeit konzentriert sich auf Qualitätskontrolle, Ausnahmebehandlung und die inhaltlich anspruchsvollen Schritte der Angebotserstellung. Der Prozess gewinnt dadurch an Geschwindigkeit und Zuverlässigkeit: Vollständigkeitsprüfungen laufen systematisch und einheitlich ab, nicht abhängig von individueller Aufmerksamkeit. Anfragen, die per Telefon eingehen oder in Sonderformen vorliegen, werden weiterhin manuell aufgenommen; der neue Dienst schließt diese Lücke nicht, markiert aber klar, welche Fälle er nicht bearbeiten konnte.",
+      "user_story": "Als Sachbearbeiterin im Reiseprozess möchte ich, dass eingehende Anfrage-E-Mails automatisch in den Erfassungsbogen extrahiert und auf Vollständigkeit geprüft werden, damit ich meine Kapazität auf Qualitätskontrolle und Angebotserstellung konzentrieren kann statt auf manuelle Dateneingabe.",
+      "akzeptanzkriterien_geschaeftlich": [
+        {
+          "kriterium": "Gegeben eine vollständig formulierte Anfrage-E-Mail mit Reisedaten, Personenanzahl und Budget, wenn die E-Mail im Postfach eingeht, dann sind alle erkannten Felder im Erfassungsbogen innerhalb von zwei Minuten automatisch belegt und für die Sachbearbeitung zur Prüfung bereitgestellt.",
+          "messverfahren": "Zeitstempel im Vorgangsprotokoll zwischen E-Mail-Eingang und erstem Eintrag im Erfassungsbogen; Stichprobe ausgefüllter Erfassungsbögen auf Vollständigkeit und Richtigkeit."
+        },
+        {
+          "kriterium": "Gegeben eine Anfrage-E-Mail mit mindestens einem fehlenden Pflichtfeld, wenn der Extraktionsdienst die Lücke erkennt, dann wird automatisch ein Rückfrage-Entwurf erzeugt und der Sachbearbeitung zur Freigabe vorgelegt, ohne dass sie die E-Mail erneut manuell lesen muss.",
+          "messverfahren": "Stichprobe von Vorgängen mit Rückfragen: Anteil der Fälle, in denen ein Entwurf vorlag, bevor die Sachbearbeitung die Rückfrage verfasst hat."
+        },
+        {
+          "kriterium": "Gegeben ein Extraktionsergebnis, das vom Dienst als unsicher markiert wurde, wenn die Sachbearbeitung den Bogen öffnet, dann ist das unsichere Feld visuell hervorgehoben und enthält keinen unkennzeichneten falschen Wert.",
+          "messverfahren": "Review-Protokoll: Anteil der als unsicher markierten Felder, die tatsächlich Korrekturen erforderten, verglichen mit dem Anteil unmarkierter Felder mit Fehlern."
+        }
+      ],
+      "fachliche_anforderungen": [
+        "Das Pflichtfeldschema des Erfassungsbogens muss vor Inbetriebnahme verbindlich dokumentiert und versioniert sein.",
+        "Die Extraktion darf ausschließlich Felder belegen, für die der Dienst einen erkennbaren Quellwert in der E-Mail gefunden hat; fehlende Felder bleiben leer und werden nicht geraten.",
+        "Rückfrage-Entwürfe dürfen erst nach manueller Freigabe durch die Sachbearbeitung versendet werden — kein automatischer Versand ohne Sichtprüfung.",
+        "Der Extraktionsdienst muss mit mehrsprachigen E-Mails (mindestens Deutsch und Englisch) umgehen können; nicht erkannte Sprachen werden als Ausnahme markiert und manuell bearbeitet.",
+        "Alle verarbeiteten E-Mails und zugehörigen Extraktionsergebnisse müssen revisionssicher protokolliert werden, sodass Korrekturen und Freigaben nachvollziehbar sind.",
+        "Telefon-Anfragen sind vom Automatisierungsumfang ausgenommen; der manuelle Aufnahmeweg bleibt unverändert bestehen."
+      ],
+      "betroffene_teilprozess_ids": [
+        "KP-06.TP-2"
+      ],
+      "betroffene_prozessschritte": [
+        "Reise: Anfrage -> Angebot"
+      ],
+      "betroffene_systeme": [
+        {
+          "name": "E-Mail / Telefon",
+          "rolle": "Quelle",
+          "integration": "Email"
+        },
+        {
+          "name": "Erfassungsbogen",
+          "rolle": "Ziel",
+          "integration": "Manuell"
+        },
+        {
+          "name": "n8n",
+          "rolle": "Ziel",
+          "integration": "API"
+        },
+        {
+          "name": "NocoDB",
+          "rolle": "Ziel",
+          "integration": "API"
+        },
+        {
+          "name": "Ollama",
+          "rolle": "Ziel",
+          "integration": "API"
+        }
+      ],
+      "manueller_aufwand_heute": {
+        "stunden_jahr": 144.0,
+        "herkunft": "geschaetzt",
+        "konfidenz_pct": 70.0
+      },
+      "automatisierungsgrad": {
+        "klasse": "Extraktion",
+        "angesetzt_min_pct": 50.0,
+        "angesetzt_max_pct": 65.0,
+        "begruendung": "Die Extraktion aus unstrukturierten E-Mails funktioniert gut bei einheitlichen Anfragen, doch das tatsächliche E-Mail-Verhalten der Anfragenden ist unbekannt. Viele Ausnahmen — unvollständige, frei formulierte oder mehrsprachige Nachrichten — zwingen den Menschen weiterhin zur Prüfung und Nachbearbeitung. Das obere Ende des Korridors wird nicht erreicht, weil die Vollständigkeitsprüfung und Rückfrage-Generierung menschliche Freigabe erfordert und ein nennenswerter Anteil der Fälle abweichend formuliert sein dürfte.",
+        "bc1_schaetzung_pct": null
+      },
+      "nutzwert": {
+        "qualitaet": {
+          "wert": 7,
+          "begruendung": "Der Erfassungsbogen wird systematisch und einheitlich befüllt; Pflichtfeldlücken werden zuverlässig erkannt, was Nacharbeit wegen unvollständiger Daten deutlich reduziert."
+        },
+        "durchlaufzeit": {
+          "wert": 6,
+          "begruendung": "Der manuelle Übertrag entfällt für den Großteil der Fälle, sodass der erste Bearbeitungsschritt spürbar schneller abgeschlossen ist, der Gesamtvorgang aber noch weitere manuelle Schritte enthält."
+        },
+        "fehlerreduktion": {
+          "wert": 7,
+          "begruendung": "Das fehleranfällige händische Herausschreiben von Reisedaten entfällt weitgehend; Übertragungsfehler und vergessene Felder werden durch automatische Erkennung abgefangen."
+        },
+        "mitarbeiterzufriedenheit": {
+          "wert": 6,
+          "begruendung": "Die repetitive Übertragungsarbeit aus E-Mails fällt für den Großteil der Anfragen weg, was die Sachbearbeitung spürbar entlastet, obwohl Prüf- und Ausnahmearbeit bleibt."
+        },
+        "compliance": {
+          "wert": 3,
+          "begruendung": "Es besteht kein unmittelbares regulatorisches Risiko; die strukturiertere Erfassung verbessert die Nachvollziehbarkeit leicht, ohne eine konkrete Lücke zu schließen."
+        },
+        "mittel": 5.8
+      },
+      "impact": 5,
+      "impact_monetaer": 4,
+      "umsetzungskomplexitaet": 5,
+      "komplexitaet_herkunft": "gemessen",
+      "komplexitaet_begruendung": "Mittel aus BC1s vier Skalen — KP-06.TP-2: Skalen 4/3/2/3, Mittel 3.00, round(11 − 2 × 3.00) = 5.",
+      "value": {
+        "value_quelle": "berechnet",
+        "ist_kosten_eur_jahr": {
+          "min": 3715,
+          "max": 8669
+        },
+        "einsparung_eur_jahr": {
+          "min": 1858,
+          "max": 5635
+        },
+        "ersparnis_prozent": {
+          "min": 50.0,
+          "max": 65.0
+        },
+        "investition_eur_richtwert": 14400,
+        "amortisation_monate": {
+          "min": 30.7,
+          "max": 93.0
+        },
+        "annahmen": [
+          "Mischsatz 43 EUR/h aus dem NoroAI-Unternehmensprofil (#172) — die Rollenachse wird nicht erhoben.",
+          "Bausatz 800 EUR/PT fuer die Investition; ein anderer Satz als die Einsparungsseite, mit Absicht (ADR-006, 2.1). Reine Setzung.",
+          "Automatisierungsgrad 50–65 % aus dem Korridor der Klasse 'Extraktion' — gesetzt, nicht erhoben.",
+          "Bandbreite ±40 % aus der Herkunft der Dauer (geschaetzt).",
+          "Zusammensetzung als Eckenrechnung: bewusst pessimistisch, sie unterstellt gleichsinnige Fehler.",
+          "Aufwandsrichtwert 18 PT vom Bewertungsschritt geurteilt, nicht erhoben (ADR-006 · BC2, Nachtrag 7): Entwurf und Konfiguration des Extraktionsmodells für variable E-Mail-Formate, Anbindung an den Erfassungsbogen, Entwicklung der Vollständigkeitsprüfungslogik und des Rückfrage-Entwurfs, Testläufe mit realen E-Mail-Mustern sowie Einführung und Abnahme durch die Sachbearbeitung."
+        ]
+      },
+      "aufwand_schaetzung_pt": 18.0,
+      "prioritaet_score": 30,
+      "kategorie": "Optional",
+      "querschnitte": {
+        "zukunftssicherheit": "Der Workflow ist modular aufgebaut und kann auf neue E-Mail-Typen, zusätzliche Pflichtfelder oder ein anderes LLM-Modell umgestellt werden, ohne die Kernarchitektur zu verändern.",
+        "reifegrad": "Bitkom-Stufe im Mittel 2,1 von 5, aus 30 Bewertungen der berührten Teilprozesse. Rangiert, trennt aber nicht (#161).",
+        "abhaengigkeiten": []
+      },
+      "potenzielle_loesung": {
+        "ansatz": "### Technischer Lösungsansatz\n\nDer Extraktionsdienst wird als automatisierter Workflow in **n8n** realisiert, der neue E-Mails im Postfach überwacht (IMAP-Trigger oder Webhook). Sobald eine Anfrage eintrifft, wird der E-Mail-Body an ein lokal gehostetes LLM über **Ollama** (z. B. Mistral oder Qwen) übergeben. Ein strukturierter Prompt extrahiert die definierten Felder (Reiseziel, Zeitraum, Personenanzahl, Leistungstypen, Budget) als JSON.\n\nDas zurückgegebene JSON wird gegen das Pflichtfeldschema geprüft. Vollständig belegte Datensätze werden direkt in **NocoDB** als neue Zeile des Erfassungsbogens geschrieben. Fehlende Pflichtfelder lösen einen zweiten LLM-Aufruf aus, der einen Rückfrage-Entwurf im passenden Tonfall generiert; dieser wird in n8n als Entwurf bereitgestellt und erst nach manueller Freigabe versendet.\n\nFür E-Mails, bei denen das Vertrauensniveau des Extraktionsergebnisses unter einem definierten Schwellenwert liegt (z. B. unbekannte Sprache, unstrukturierter Fließtext ohne erkennbare Reisedaten), setzt der Workflow ein Ausnahme-Flag in NocoDB und benachrichtigt die Sachbearbeitung zur manuellen Bearbeitung.\n\n**Optionale Erweiterung:** Liegt ein AVV vor und ist der Mehrwert dokumentiert, kann Anthropic Claude (EU-Region) als API-Fallback für komplexere oder mehrdeutige E-Mails eingebunden werden, um die Extraktionsqualität bei Grenzfällen zu erhöhen, ohne den Ollama-Primärpfad zu ersetzen.\n\nDie gesamte Verarbeitung bleibt innerhalb der bestehenden EU- und OSS-Infrastruktur (Hetzner/IONOS); personenbezogene Reisedaten verlassen nur dann die selbst gehostete Umgebung, wenn der Claude-Fallback explizit aktiviert und dokumentiert ist.",
+        "tech_stack_empfehlung": [
+          "n8n (self-hosted, Hetzner) — Workflow-Orchestrierung und E-Mail-Trigger",
+          "Ollama mit Mistral oder Qwen — lokales LLM für Feldextraktion und Rückfrage-Generierung",
+          "NocoDB (self-hosted, IONOS) — strukturierter Erfassungsbogen und Datenhaltung",
+          "PostgreSQL 16 — persistente Protokollierung der Extraktionsergebnisse und Freigaben",
+          "Anthropic Claude (EU-Region, optional, nur mit AVV) — Fallback für komplexe oder mehrdeutige E-Mails"
+        ],
+        "to_be_kurz": "Eingehende Anfrage-E-Mails werden automatisch ausgelesen und der Erfassungsbogen vorausgefüllt; fehlende Pflichtfelder lösen einen Rückfrage-Entwurf aus, den die Sachbearbeitung nur noch freigibt."
+      },
+      "voraussetzungen": [
+        "Verbindliches und versioniertes Pflichtfeldschema für den Erfassungsbogen liegt vor.",
+        "Lesezugriff des n8n-Workflows auf das Anfrage-E-Mail-Postfach ist technisch und organisatorisch genehmigt.",
+        "Datenschutzrechtliche Prüfung der Verarbeitung von Anfragedaten durch ein LLM ist abgeschlossen; bei Nutzung des Claude-Fallbacks muss ein AVV mit Anthropic vorliegen.",
+        "Die Sachbearbeitung ist in den neuen Workflow eingewiesen und weiß, wie Ausnahme-Flags und Entwürfe zu behandeln sind."
+      ],
+      "risiken": [
+        {
+          "beschreibung": "Stark frei formulierte oder unstrukturierte E-Mails führen zu niedrigen Extraktionsquoten und erhöhtem manuellem Nachbearbeitungsaufwand.",
+          "wahrscheinlichkeit": "med",
+          "auswirkung": "med",
+          "gegenmassnahme": "Ausnahme-Flag-Mechanismus stellt sicher, dass schlechte Extraktionen sofort zur manuellen Bearbeitung eskaliert werden; Prompt-Tuning auf realen E-Mail-Beispielen vor Go-live."
+        },
+        {
+          "beschreibung": "LLM-Extraktion erzeugt plausibel klingende, aber inhaltlich falsche Feldwerte (Halluzination), die von der Sachbearbeitung übersehen werden.",
+          "wahrscheinlichkeit": "low",
+          "auswirkung": "high",
+          "gegenmassnahme": "Pflichtfeld-Validierung gegen bekannte Wertemuster (Datumsformat, Zahlenbereich für Budget); visuelle Hervorhebung aller automatisch befüllten Felder zur Förderung aktiver Prüfung."
+        },
+        {
+          "beschreibung": "Änderungen im E-Mail-Format oder neue Anfrage-Typen machen regelmäßige Prompt-Anpassungen notwendig.",
+          "wahrscheinlichkeit": "med",
+          "auswirkung": "low",
+          "gegenmassnahme": "Prompts werden versioniert in GitLab gepflegt; Änderungen durchlaufen einen Review-Schritt."
+        },
+        {
+          "beschreibung": "Datenschutzrisiko bei Weiterleitung personenbezogener Reisedaten an externe LLM-APIs ohne ausreichende Rechtsgrundlage.",
+          "wahrscheinlichkeit": "low",
+          "auswirkung": "high",
+          "gegenmassnahme": "Primärpfad läuft ausschließlich über Ollama (self-hosted); externer API-Aufruf nur mit dokumentiertem AVV und expliziter Aktivierung."
+        }
+      ]
+    },
+    {
+      "potenzial_id": "17530cac-5348-44c5-aaf1-187ad935e518",
+      "ersetzt_potenzial_ids": [],
+      "titel": "Medienbruch-Integration zwischen Angebotsliste, Anbieterportalen und Vorgangsliste",
+      "potenzialrang": 2,
+      "prioritaetsgruppe": "PRIO 2",
+      "beschreibung": "## Medienbruch-Integration zwischen Angebotsliste, Anbieterportalen und Vorgangsliste\n\nDieses Potenzial adressiert den strukturellen Medienbruch, der sich durch die drei Teilprozesse **KP-06.TP-3 (Reservierung)**, **KP-06.TP-4 (Buchung prüfen)** und **KP-06.TP-5 (Stornierung)** zieht: Daten werden heute manuell zwischen Angebotsliste, Anbieterportal, Vorgangsliste und E-Mail übertragen.\n\n### Was wird automatisiert\nEine Integrationsschicht verbindet die interne Vorgangsliste mit den Anbieterportalen, sodass Reservierungsnummern, Buchungsstatus-Abfragen und Stornierbestätigungen automatisch in die Vorgangsliste zurückgeschrieben werden. Ausgehende Kundenbenachrichtigungen (Reservierungsbestätigung, Statusauskunft, Stornierungsbestätigung) werden aus diesen Daten erzeugt und der Sachbearbeitung zur Freigabe bereitgestellt.\n\n### Beteiligte Teilprozesse\n- **KP-06.TP-3**: Nach Kundenanfrage mit Angebotsnummer wird das Angebot aus der Angebotsliste abgerufen, die Reservierung beim Anbieter angelegt und die Reservierungsnummer automatisch in die Vorgangsliste eingetragen.\n- **KP-06.TP-4**: Buchungsnummer und Frageart werden aus der eingehenden Nachricht erkannt; der Buchungsstand wird automatisch beim Anbieter abgerufen und das Ergebnis aufbereitet.\n- **KP-06.TP-5**: Der Stornowunsch mit Buchungsnummer löst automatisch den Stornierungsaufruf beim Anbieter aus; das Ergebnis (storniert / nicht gefunden / fehlgeschlagen) wird in die Vorgangsliste geschrieben.\n\n### Datenfluesse\nKundenanfrage (E-Mail/Telefon) → Vorgangsliste (NocoDB) → Integrationsschicht (n8n) → Anbieterportal (API oder RPA) → Ergebnis zurück in Vorgangsliste → Benachrichtigungsentwurf → Freigabe durch Sachbearbeitung → Versand per E-Mail.\n\n### Beteiligte Rollen\n- **Sachbearbeitung**: nimmt Kundenwunsch auf, gibt Benachrichtigungen frei und bearbeitet Ausnahmen (fehlgeschlagene Aktionen, abweichende Portalantworten).\n- **Kunde**: stellt Reservierungs-, Status- oder Stornierungswunsch und erhält automatisch vorbereitete Rückmeldung.\n\n### Vorbedingungen\nDie Angebotsliste und Vorgangsliste müssen in NocoDB vorliegen oder dorthin migriert sein. Die Anbieterportale müssen auf API-Verfügbarkeit geprüft sein; wo keine API existiert, wird RPA als Fallback eingesetzt.\n\n### Sonderfälle und Ausnahmen\nStornierungen, die fehlschlagen oder bei denen das Portal keine eindeutige Rückmeldung liefert, werden als Ausnahme markiert und manuell abgeschlossen. Anbieterportale ohne API und ohne zuverlässig automatisierbares Web-Interface können nicht integriert werden und verbleiben im manuellen Ablauf. Abweichende Portalantwortformate erfordern anbieterindividuelle Anpassungen der Integrationsschicht. Damit werden mindestens 60 % und bis zu 75 % der Reservierungs-, Prüf- und Stornierungsvorgänge ohne manuellen Datenübertrag zwischen den Systemen abgewickelt.",
+      "to_be_vision": "Im Soll-Zustand meldet sich ein Kunde mit einer Angebotsnummer oder Buchungsnummer, und die Integrationsschicht übernimmt von diesem Moment an alle Datenübertragungen zwischen interner Vorgangsliste und Anbieterportal. Bei einer Reservierung legt der Workflow automatisch die Buchung beim Anbieter an, empfängt die Reservierungsnummer und schreibt sie sofort in die Vorgangsliste — kein manuelles Notieren, kein Übertragen zwischen Fenstern. Bei einer Buchungsprüfung ruft der Dienst den aktuellen Status, die Zahlungsinformationen und die Stornierbarkeit automatisch ab und bereitet eine strukturierte Auskunft vor. Bei einer Stornierung löst der Workflow den Stornierungsaufruf aus, wertet die Antwort aus und legt das Ergebnis in der Vorgangsliste ab. In allen drei Fällen wird ein Benachrichtigungsentwurf für den Kunden erzeugt, den die Sachbearbeitung prüft und freigibt. Der zentrale Vorgangsstatus ist damit jederzeit aktuell und für alle Berechtigten einsehbar — nicht mehr nur bei der Person, die zuletzt am Portal tätig war. Die parallele Pflege mehrerer Listen entfällt. Die Sachbearbeitung konzentriert sich auf Ausnahmen, Qualitätskontrolle der Entwürfe und Fälle, in denen das Portal nicht automatisierbar erreichbar ist. Anbieterportale ohne API oder zuverlässig automatisierbares Interface verbleiben im manuellen Ablauf; der Prozess ist also hybrid, aber strukturell stabiler als heute.",
+      "user_story": "Als Sachbearbeiterin im Reiseprozess möchte ich, dass Reservierungsnummern, Buchungsstatus und Stornierbestätigungen automatisch zwischen Anbieterportal und Vorgangsliste synchronisiert werden, damit ich keine Daten mehr manuell zwischen Systemen übertragen muss und der Vorgangsstatus jederzeit aktuell ist.",
+      "akzeptanzkriterien_geschaeftlich": [
+        {
+          "kriterium": "Gegeben ein Kunde nennt eine gültige Angebotsnummer für eine Reservierung, wenn der Workflow die Reservierung beim Anbieter anlegt, dann ist die zurückgegebene Reservierungsnummer automatisch in der Vorgangsliste eingetragen und ein Bestätigungsentwurf für den Kunden liegt zur Freigabe bereit — ohne manuellen Zwischenschritt.",
+          "messverfahren": "Zeitstempel im Vorgangsprotokoll zwischen Auslösung und Eintrag in der Vorgangsliste; Stichprobe von Reservierungsvorgängen auf Vollständigkeit der automatisch eingetragenen Felder."
+        },
+        {
+          "kriterium": "Gegeben eine Buchungsprüfungsanfrage mit gültiger Buchungsnummer, wenn der Workflow den Status beim Anbieter abruft, dann enthält die Vorgangsliste den aktuellen Status, die Zahlungsinformation und die Stornierbarkeit, und ein Auskunftsentwurf steht der Sachbearbeitung bereit.",
+          "messverfahren": "Stichprobe von Buchungsprüfungsvorgängen: Anteil der Fälle, in denen alle drei Statusfelder automatisch befüllt wurden, bevor die Sachbearbeitung eingegriffen hat."
+        },
+        {
+          "kriterium": "Gegeben ein Stornierungsauftrag schlägt beim Anbieter fehl oder liefert eine nicht eindeutige Antwort, wenn der Workflow das Ergebnis auswertet, dann wird der Vorgang als Ausnahme markiert und die Sachbearbeitung aktiv benachrichtigt, ohne dass eine Fehlinformation an den Kunden versendet wird.",
+          "messverfahren": "Auswertung der Ausnahme-Logs: Anteil fehlgeschlagener Stornierungen, die korrekt eskaliert wurden, ohne vorangehenden Versand einer falschen Bestätigung an den Kunden."
+        }
+      ],
+      "fachliche_anforderungen": [
+        "Die Angebotsliste und die Vorgangsliste müssen in NocoDB als strukturierte Datenbasis vorliegen, bevor die Integrationsschicht in Betrieb geht.",
+        "Für jeden integrierten Anbieter muss vorab geprüft und dokumentiert sein, ob eine offene API oder nur RPA als Zugriffsweg verfügbar ist.",
+        "Alle automatisch ausgelösten Aktionen beim Anbieter (Reservierung, Statusabruf, Stornierung) müssen in der Vorgangsliste mit Zeitstempel und Ergebnis protokolliert werden.",
+        "Benachrichtigungsentwürfe an Kunden dürfen erst nach manueller Freigabe durch die Sachbearbeitung versendet werden.",
+        "Fehlgeschlagene oder mehrdeutige Aktionen (z. B. Anbieter nicht erreichbar, unbekannte Fehlerantwort) müssen zuverlässig als Ausnahme eskaliert werden; eine automatische Wiederholung ohne Freigabe ist nicht erlaubt.",
+        "Anbieterportale, die weder eine API noch ein zuverlässig automatisierbares Web-Interface bieten, verbleiben im manuellen Ablauf; der Prozess muss beide Wege parallel unterstützen.",
+        "Die Integration muss anbieterindividuell konfigurierbar sein, um unterschiedliche Portalantwortformate (Flug, Hotel, Mietwagen) abbilden zu können."
+      ],
+      "betroffene_teilprozess_ids": [
+        "KP-06.TP-3",
+        "KP-06.TP-4",
+        "KP-06.TP-5"
+      ],
+      "betroffene_prozessschritte": [
+        "Reise: Reservierung",
+        "Reise: Buchung pruefen",
+        "Reise: Stornierung"
+      ],
+      "betroffene_systeme": [
+        {
+          "name": "E-Mail / Telefon",
+          "rolle": "Quelle",
+          "integration": "Email"
+        },
+        {
+          "name": "Angebotsliste",
+          "rolle": "Quelle",
+          "integration": "Manuell"
+        },
+        {
+          "name": "Anbieterportal",
+          "rolle": "Quelle+Ziel",
+          "integration": "API"
+        },
+        {
+          "name": "Vorgangsliste",
+          "rolle": "Ziel",
+          "integration": "DB"
+        },
+        {
+          "name": "n8n",
+          "rolle": "Ziel",
+          "integration": "API"
+        },
+        {
+          "name": "NocoDB",
+          "rolle": "Ziel",
+          "integration": "API"
+        },
+        {
+          "name": "PostgreSQL 16",
+          "rolle": "Ziel",
+          "integration": "DB"
+        }
+      ],
+      "manueller_aufwand_heute": {
+        "stunden_jahr": 120.0,
+        "herkunft": "geschaetzt",
+        "konfidenz_pct": 70.0
+      },
+      "automatisierungsgrad": {
+        "klasse": "Integration",
+        "angesetzt_min_pct": 60.0,
+        "angesetzt_max_pct": 75.0,
+        "begruendung": "Die drei Teilprozesse teilen denselben strukturellen Medienbruch, was eine gemeinsame Integrationsschicht begünstigt. Das untere Ende des angesetzten Bereichs gilt, weil die API-Verfügbarkeit der Anbieterportale unsicher ist und einzelne Portale möglicherweise nur per Bildschirmautomatisierung erreichbar sind, was Ausnahmebehandlung und manuelle Eingriffe erfordert. Das obere Ende des Korridors wird nicht erreicht, weil Stornierungsausnahmen und abweichende Portalantworten weiterhin menschliche Auswertung verlangen.",
+        "bc1_schaetzung_pct": null
+      },
+      "nutzwert": {
+        "qualitaet": {
+          "wert": 7,
+          "begruendung": "Reservierungsnummern, Buchungsstatus und Stornierbestätigungen werden automatisch und einheitlich zurückgeschrieben; Nacharbeit durch manuelle Übertragungsfehler geht deutlich zurück."
+        },
+        "durchlaufzeit": {
+          "wert": 7,
+          "begruendung": "Der Warte- und Übergabeschritt zwischen Portal, Liste und Kundenbenachrichtigung entfällt; Kunden erhalten Rückmeldungen ohne Verzögerung durch Bearbeitungsreihenfolge."
+        },
+        "fehlerreduktion": {
+          "wert": 8,
+          "begruendung": "Das parallele Pflegen mehrerer Listen entfällt; Übertragen, Verwechseln und Vergessen von Buchungsdaten werden weitgehend abgefangen, weil die Daten direkt aus der Quelle stammen."
+        },
+        "mitarbeiterzufriedenheit": {
+          "wert": 7,
+          "begruendung": "Die als monoton empfundene manuelle Übertragung zwischen Portal, Liste und E-Mail fällt für den Großteil der Vorgänge weg; die verbleibende Arbeit ist anspruchsvoller und situativer."
+        },
+        "compliance": {
+          "wert": 4,
+          "begruendung": "Die zentrale und automatische Vorgangsdokumentation verbessert die Nachvollziehbarkeit und Nachweisbarkeit von Buchungs- und Stornierungsaktionen, ohne dass heute eine konkrete verbindliche Luecke besteht."
+        },
+        "mittel": 6.6
+      },
+      "impact": 5,
+      "impact_monetaer": 4,
+      "umsetzungskomplexitaet": 6,
+      "komplexitaet_herkunft": "geurteilt",
+      "komplexitaet_begruendung": "Die gemessene Zahl unterschätzt die tatsächliche Herausforderung leicht: Drei Teilprozesse mit unterschiedlichen Portaltypen und unbekannter API-Verfügbarkeit müssen in eine gemeinsame Integrationsschicht überführt werden. Die niedrige Systemintegrations-Reife und die fehlende Datenverfügbarkeit erhöhen den Integrationsaufwand. Eine Stufe höher ist gerechtfertigt.",
+      "value": {
+        "value_quelle": "berechnet",
+        "ist_kosten_eur_jahr": {
+          "min": 3096,
+          "max": 7224
+        },
+        "einsparung_eur_jahr": {
+          "min": 1858,
+          "max": 5418
+        },
+        "ersparnis_prozent": {
+          "min": 60.0,
+          "max": 75.0
+        },
+        "investition_eur_richtwert": 28000,
+        "amortisation_monate": {
+          "min": 62.0,
+          "max": 180.9
+        },
+        "annahmen": [
+          "Mischsatz 43 EUR/h aus dem NoroAI-Unternehmensprofil (#172) — die Rollenachse wird nicht erhoben.",
+          "Bausatz 800 EUR/PT fuer die Investition; ein anderer Satz als die Einsparungsseite, mit Absicht (ADR-006, 2.1). Reine Setzung.",
+          "Automatisierungsgrad 60–75 % aus dem Korridor der Klasse 'Integration' — gesetzt, nicht erhoben.",
+          "Bandbreite ±40 % aus der Herkunft der Dauer (geschaetzt) — der schwaechsten unter 3 beruehrten Teilprozessen (Nachtrag 4).",
+          "Zusammensetzung als Eckenrechnung: bewusst pessimistisch, sie unterstellt gleichsinnige Fehler.",
+          "Aufwandsrichtwert 35 PT vom Bewertungsschritt geurteilt, nicht erhoben (ADR-006 · BC2, Nachtrag 7): Analyse und Anbindung der Anbieterportale für Flug, Hotel und Mietwagen, Entwicklung der Integrationsschicht mit Rückschreiblogik in die Vorgangsliste, Aufbau der Benachrichtigungsgenerierung für alle drei Teilprozesse, umfangreiche Tests mit realen Portal-Antwortformaten sowie Einführung und Abnahme."
+        ]
+      },
+      "aufwand_schaetzung_pt": 35.0,
+      "prioritaet_score": 25,
+      "kategorie": "Zurueckgestellt",
+      "querschnitte": {
+        "zukunftssicherheit": "Die modulare Struktur der Workflows in n8n erlaubt es, neue Anbieter, zusätzliche Aktionstypen oder veränderte Portalschnittstellen anzubinden, ohne die Kernarchitektur zu verändern; steigende Vorgangsmengen werden durch den self-hosted K3s-Betrieb horizontal skalierbar abgefangen.",
+        "reifegrad": "Bitkom-Stufe im Mittel 2,1 von 5, aus 90 Bewertungen der berührten Teilprozesse. Rangiert, trennt aber nicht (#161).",
+        "abhaengigkeiten": [
+          "969094be-b547-4ebc-a849-ea319e31fda8 (Reiseanfrage-Extraktion aus E-Mail in strukturierten Erfassungsbogen): Eine strukturierte Datenbasis in NocoDB (Vorgangsliste, Angebotsliste) ist Voraussetzung für P2; P1 legt die Grundlage für einheitlich strukturierte Eingangsdaten, auf die die Integrationsschicht von P2 aufsetzt. P2 kann unabhängig von P1 in Betrieb gehen, profitiert aber erheblich von der durch P1 geschaffenen Datenstruktur am Prozesseingang."
+        ]
+      },
+      "potenzielle_loesung": {
+        "ansatz": "### Technischer Lösungsansatz\n\nDie Integrationsschicht wird in **n8n** (self-hosted, Hetzner) als Sammlung anbieterindividueller Workflows realisiert. Jeder Workflow deckt einen der drei Teilprozesse (Reservierung, Buchungsprüfung, Stornierung) ab und ist für jeden Anbietertyp (Flug, Hotel, Mietwagen) konfigurierbar.\n\n**Auslösung:** Ein eingehender Trigger (Webhook aus E-Mail-Verarbeitung oder manuelle Auslösung durch die Sachbearbeitung über NocoDB-Schaltfläche) übergibt Angebots- oder Buchungsnummer sowie Aktionstyp an den Workflow.\n\n**Anbieteranbindung — API-Pfad:** Steht eine dokumentierte REST- oder SOAP-API des Anbieterportals zur Verfügung, ruft n8n diese direkt auf. Das Ergebnis (Reservierungsnummer, Statusfelder, Stornierbestätigung) wird als JSON empfangen, validiert und in **NocoDB** (Vorgangsliste) zurückgeschrieben.\n\n**Anbieteranbindung — RPA-Fallback:** Bietet ein Portal keine API, wird eine RPA-Komponente (z. B. Playwright oder Selenium, betrieben als Container in K3s) als Fallback eingesetzt, um die Portaloberfläche zu bedienen. Das Ergebnis wird geparst und ebenfalls in NocoDB geschrieben. RPA-Schritte sind fehleranfälliger und werden mit strengerer Ausnahmebehandlung abgesichert.\n\n**Benachrichtigungsgenerierung:** Nach erfolgreichem Schreiben in die Vorgangsliste generiert ein nachgelagerter n8n-Schritt einen Benachrichtigungsentwurf (Reservierungsbestätigung, Statusauskunft oder Stornierungsbestätigung) auf Basis einer Vorlage. Dieser Entwurf landet in einer Freigabe-Queue, aus der die Sachbearbeitung ihn mit einem Klick versenden kann.\n\n**Ausnahmebehandlung:** Schlägt ein API- oder RPA-Aufruf fehl oder liefert eine nicht auswertbare Antwort, setzt der Workflow ein Ausnahme-Flag in NocoDB und sendet eine interne Benachrichtigung (z. B. via n8n → E-Mail oder Webhook) an die Sachbearbeitung. Kein Versand an den Kunden ohne Freigabe.\n\n**Persistenz und Protokollierung:** Alle Aktionen, Zeitstempel und Rohantworte werden in **PostgreSQL 16** protokolliert, um Revisionssicherheit und spätere Fehleranalyse zu ermöglichen.\n\n**Optionaler LLM-Einsatz:** Für Portalantworten in Freitextform (z. B. Stornierungsablehnungen mit Begründung) kann ein lokal gehostetes LLM über **Ollama** eingesetzt werden, um die Antwort zu klassifizieren und für den Benachrichtigungsentwurf aufzubereiten.",
+        "tech_stack_empfehlung": [
+          "n8n (self-hosted, Hetzner) — Workflow-Orchestrierung und Anbieteranbindung",
+          "NocoDB (self-hosted, IONOS) — Vorgangsliste und Angebotsliste als strukturierte Datenbasis",
+          "PostgreSQL 16 — Protokollierung aller Aktionen und Rohantworten",
+          "K3s — Container-Betrieb des RPA-Fallback-Dienstes (Playwright)",
+          "Ollama mit Mistral oder Qwen — optionale Klassifikation von Freitext-Portalantworten",
+          "GitLab CI (self-hosted) — Versionierung und Deployment der Workflow-Konfigurationen"
+        ],
+        "to_be_kurz": "Eine Integrationsschicht schreibt Reservierungsnummern, Buchungsstatus und Stornierbestätigungen automatisch aus dem Anbieterportal in die Vorgangsliste und erzeugt Benachrichtigungsentwürfe zur Freigabe durch die Sachbearbeitung."
+      },
+      "voraussetzungen": [
+        "Angebotsliste und Vorgangsliste sind in NocoDB als strukturierte Datenbank vorliegen oder dorthin migriert.",
+        "Für jeden genutzten Anbieter (Flug, Hotel, Mietwagen) ist dokumentiert, ob eine API oder nur RPA als Zugriffsweg verfügbar ist.",
+        "API-Zugangsdaten oder Portal-Credentials für automatisierten Zugriff liegen vor und sind sicher in einem Secret-Store hinterlegt.",
+        "Datenschutzrechtliche und vertragliche Prüfung des automatisierten Portalzugriffs (insbesondere bei RPA) ist abgeschlossen.",
+        "Die Sachbearbeitung ist in den neuen Workflow eingewiesen, insbesondere in die Freigabe-Queue und den Umgang mit Ausnahme-Flags.",
+        "P1 (Extraktion) ist keine technische Voraussetzung, aber eine gemeinsame Inbetriebnahme beider Potenziale schafft eine durchgehend strukturierte Datenbasis vom Eingang bis zur Buchung."
+      ],
+      "risiken": [
+        {
+          "beschreibung": "Anbieterportale stellen keine offene API bereit; RPA-Fallback ist wartungsintensiv und reagiert empfindlich auf Portal-Änderungen.",
+          "wahrscheinlichkeit": "high",
+          "auswirkung": "med",
+          "gegenmassnahme": "Vor Projektstart API-Verfügbarkeit aller genutzten Portale prüfen und dokumentieren; RPA-Komponenten mit versionierten Selektoren und automatisierten Smoke-Tests absichern."
+        },
+        {
+          "beschreibung": "Fehlerhafte Automatisierung löst unbeabsichtigt Buchungen, Reservierungen oder Stornierungen beim Anbieter aus.",
+          "wahrscheinlichkeit": "low",
+          "auswirkung": "high",
+          "gegenmassnahme": "Alle schreibenden Aktionen beim Anbieter erfordern explizite Auslösung (kein vollautomatischer Modus ohne Freigabe-Schritt in der Rollout-Phase); Testumgebung mit Sandbox-Zugängen der Anbieter nutzen."
+        },
+        {
+          "beschreibung": "Parallel gepflegte manuelle und automatisierte Prozesse für verschiedene Anbieter führen zu Inkonsistenzen in der Vorgangsliste.",
+          "wahrscheinlichkeit": "med",
+          "auswirkung": "med",
+          "gegenmassnahme": "Klare Kennzeichnung in NocoDB, welche Vorgänge automatisiert und welche manuell bearbeitet wurden; regelmäßige Stichprobenprüfung der Vorgangsliste."
+        },
+        {
+          "beschreibung": "Abhängigkeit von der Verfügbarkeit und Stabilität der selbst gehosteten n8n- und NocoDB-Instanzen kann zu Ausfällen im Buchungsablauf führen.",
+          "wahrscheinlichkeit": "low",
+          "auswirkung": "high",
+          "gegenmassnahme": "Monitoring über Grafana und Prometheus; Alerting bei Ausfall der relevanten Dienste; manueller Fallback-Prozess bleibt für alle Anbieter dokumentiert und einsatzbereit."
+        }
+      ]
+    }
+  ],
+  "gesamtempfehlung": {
+    "reihenfolge_potenzial_ids": [
+      "969094be-b547-4ebc-a849-ea319e31fda8",
+      "17530cac-5348-44c5-aaf1-187ad935e518"
+    ],
+    "begruendung": "Die beiden Potenziale P1 und P2 decken den Reiseprozess von NoroAI Consulting vollständig ab — P1 den Eingang (Extraktion aus der Anfrage-E-Mail) und P2 die Durchführungsphase (Reservierung, Buchungsprüfung, Stornierung). Die Umsetzung in dieser Reihenfolge ist aus zwei Gründen sinnvoll: Erstens schafft P1 eine strukturierte Datenbasis in NocoDB, auf die P2 in der Durchführungsphase aufsetzen kann; ein durchgehend strukturierter Datenfluss vom Eingang bis zur Buchung reduziert den Abstimmungsaufwand zwischen den beiden Lösungen erheblich. Zweitens ist P1 technisch schlanker und mit geringerem Risiko verbunden, da es ausschließlich lesend auf externe Systeme zugreift und schreibende Aktionen erst nach manueller Freigabe ausgelöst werden — es eignet sich damit als erster Schritt, um Vertrauen in die Automatisierung aufzubauen. P2 setzt eine weitergehende Klärung voraus (API-Verfügbarkeit der Anbieterportale, vertragliche Prüfung des automatisierten Portalzugriffs) und ist deshalb bewusst als zweiter Schritt eingeordnet. Eine fachliche Abhängigkeit im Sinne eines harten Blockers besteht nicht: P2 kann auch ohne P1 in Betrieb gehen, wenn die Vorgangsliste anderweitig strukturiert vorliegt. Die Kombination beider Potenziale ergibt jedoch einen durchgehend automatisierten Datenpfad, der die heute dominierenden Medienbrüche im gesamten Reiseprozess schließt und die Sachbearbeitung auf Qualitätskontrolle und Ausnahmebehandlung konzentriert."
+  },
+  "eingangswerte": [
+    {
+      "groesse": "frequency_per_year",
+      "wert": 96.0,
+      "einheit": "Durchlaeufe/Jahr",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "frequency_per_year",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-2",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    },
+    {
+      "groesse": "focus_step_duration_minutes",
+      "wert": 90.0,
+      "einheit": "Minuten/Durchlauf",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "focus_step_duration_minutes",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-2",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    },
+    {
+      "groesse": "focus_step_duration_source",
+      "wert": "geschaetzt",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "focus_step_duration_source",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-2",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    },
+    {
+      "groesse": "focus_step_duration_confidence_pct",
+      "wert": 70.0,
+      "einheit": "%",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "focus_step_duration_confidence_pct",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-2",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    },
+    {
+      "groesse": "documentation_status",
+      "wert": 4,
+      "einheit": "1-5",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "documentation_status",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-2",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    },
+    {
+      "groesse": "standardization_level",
+      "wert": 3,
+      "einheit": "1-5",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "standardization_level",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-2",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    },
+    {
+      "groesse": "data_availability_score",
+      "wert": 2,
+      "einheit": "1-5",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "data_availability_score",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-2",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    },
+    {
+      "groesse": "stability_score",
+      "wert": 3,
+      "einheit": "1-5",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "stability_score",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-2",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    },
+    {
+      "groesse": "mischsatz_eur_h",
+      "wert": 43.0,
+      "einheit": "EUR/h",
+      "herkunft_tabelle": "(Setzung)",
+      "herkunft_spalte": "NoroAI-Unternehmensprofil Kap. 9.2, #172",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    },
+    {
+      "groesse": "bausatz_eur_pt",
+      "wert": 800.0,
+      "einheit": "EUR/PT",
+      "herkunft_tabelle": "(Setzung)",
+      "herkunft_spalte": "ADR-006 BC2, 2.1",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    },
+    {
+      "groesse": "frequency_per_year",
+      "wert": 72.0,
+      "einheit": "Durchlaeufe/Jahr",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "frequency_per_year",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-3",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    },
+    {
+      "groesse": "focus_step_duration_minutes",
+      "wert": 40.0,
+      "einheit": "Minuten/Durchlauf",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "focus_step_duration_minutes",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-3",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    },
+    {
+      "groesse": "focus_step_duration_source",
+      "wert": "geschaetzt",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "focus_step_duration_source",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-3",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    },
+    {
+      "groesse": "focus_step_duration_confidence_pct",
+      "wert": 70.0,
+      "einheit": "%",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "focus_step_duration_confidence_pct",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-3",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    },
+    {
+      "groesse": "documentation_status",
+      "wert": 4,
+      "einheit": "1-5",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "documentation_status",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-3",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    },
+    {
+      "groesse": "standardization_level",
+      "wert": 4,
+      "einheit": "1-5",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "standardization_level",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-3",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    },
+    {
+      "groesse": "data_availability_score",
+      "wert": 3,
+      "einheit": "1-5",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "data_availability_score",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-3",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    },
+    {
+      "groesse": "stability_score",
+      "wert": 3,
+      "einheit": "1-5",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "stability_score",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-3",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    },
+    {
+      "groesse": "frequency_per_year",
+      "wert": 180.0,
+      "einheit": "Durchlaeufe/Jahr",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "frequency_per_year",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-4",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    },
+    {
+      "groesse": "focus_step_duration_minutes",
+      "wert": 20.0,
+      "einheit": "Minuten/Durchlauf",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "focus_step_duration_minutes",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-4",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    },
+    {
+      "groesse": "focus_step_duration_source",
+      "wert": "geschaetzt",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "focus_step_duration_source",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-4",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    },
+    {
+      "groesse": "documentation_status",
+      "wert": 3,
+      "einheit": "1-5",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "documentation_status",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-4",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    },
+    {
+      "groesse": "standardization_level",
+      "wert": 4,
+      "einheit": "1-5",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "standardization_level",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-4",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    },
+    {
+      "groesse": "data_availability_score",
+      "wert": 3,
+      "einheit": "1-5",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "data_availability_score",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-4",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    },
+    {
+      "groesse": "stability_score",
+      "wert": 4,
+      "einheit": "1-5",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "stability_score",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-4",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    },
+    {
+      "groesse": "frequency_per_year",
+      "wert": 24.0,
+      "einheit": "Durchlaeufe/Jahr",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "frequency_per_year",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-5",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    },
+    {
+      "groesse": "focus_step_duration_minutes",
+      "wert": 30.0,
+      "einheit": "Minuten/Durchlauf",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "focus_step_duration_minutes",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-5",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    },
+    {
+      "groesse": "focus_step_duration_source",
+      "wert": "geschaetzt",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "focus_step_duration_source",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-5",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    },
+    {
+      "groesse": "focus_step_duration_confidence_pct",
+      "wert": 70.0,
+      "einheit": "%",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "focus_step_duration_confidence_pct",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-5",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    },
+    {
+      "groesse": "documentation_status",
+      "wert": 3,
+      "einheit": "1-5",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "documentation_status",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-5",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    },
+    {
+      "groesse": "standardization_level",
+      "wert": 3,
+      "einheit": "1-5",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "standardization_level",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-5",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    },
+    {
+      "groesse": "data_availability_score",
+      "wert": 3,
+      "einheit": "1-5",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "data_availability_score",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-5",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    },
+    {
+      "groesse": "stability_score",
+      "wert": 3,
+      "einheit": "1-5",
+      "herkunft_tabelle": "bc1.prozessprofil",
+      "herkunft_spalte": "stability_score",
+      "herkunft_id": "E-2026-10",
+      "betrifft_teilprozess_id": "KP-06.TP-5",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    },
+    {
+      "groesse": "mischsatz_eur_h",
+      "wert": 43.0,
+      "einheit": "EUR/h",
+      "herkunft_tabelle": "(Setzung)",
+      "herkunft_spalte": "NoroAI-Unternehmensprofil Kap. 9.2, #172",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    },
+    {
+      "groesse": "bausatz_eur_pt",
+      "wert": 800.0,
+      "einheit": "EUR/PT",
+      "herkunft_tabelle": "(Setzung)",
+      "herkunft_spalte": "ADR-006 BC2, 2.1",
+      "gelesen_am": "2026-11-03T18:31:05.861269+00:00"
+    }
+  ]
+}
