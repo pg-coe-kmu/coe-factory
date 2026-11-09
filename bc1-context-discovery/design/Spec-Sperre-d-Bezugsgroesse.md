@@ -4,7 +4,8 @@
 > 6 Minor), Entwurf 2 von agy (1 Critical, 5 Important, 3 Minor); alles eingearbeitet, siehe
 > Abschnitt „Was aus den Prüfungen wurde“. Ergänzt `Spec-Antwortformen.md`, Abschnitt 2,
 > „Feste Sperren“ (a)–(c). Herkunft: `Abschlussplan-BC1.md`, Kleinpunkte „Neu 09.11.“ (1).
-> **Wartet auf Abnahme.**
+> Nachprüfung von Entwurf 3 durch agy: baufertig, keine neuen Befunde.
+> **Abgenommen 09.11.2026 (BC1-Projektleitung): E1–E4 wie empfohlen. Bau noch nicht begonnen.**
 
 ## Big Picture
 
