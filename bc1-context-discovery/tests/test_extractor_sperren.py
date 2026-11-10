@@ -238,6 +238,21 @@ def test_bezug_schraegstrich_nach_der_einheit_verwirft_den_ki_wert():
     assert "wert" not in state.values
 
 
+def test_bezug_min_max_ist_keine_bezugsgroesse():
+    # Spec Sperre (d), Entscheidung 10.11. (C): „Min/Max“ ist eine Bestandsangabe; sonst
+    # gingen Häufigkeit und, über Sperre (c), auch die Systeme verloren.
+    paket = UseCasePackage(
+        name="sperre_d_minmax", schema_version="0.1",
+        fields=(FieldSpec("haeufigkeit", "Wie oft läuft der Prozess?", typ=ZAHL),
+                FieldSpec("systeme", "Welche Systeme?", typ=LISTE)))
+    state = _spiele(paket, "2 mal pro Woche, dabei prüfen wir die Min/Max-Bestände in SAP",
+                    [ExtractionCandidate("haeufigkeit", "2 pro Woche"),
+                     ExtractionCandidate("systeme", "SAP")],
+                    gefragt=paket.field("haeufigkeit"))
+    assert state.values["haeufigkeit"].value == "104"
+    assert state.values["systeme"].value == "SAP"
+
+
 def test_bezug_pro_lead_verwirft_den_ki_wert_fuer_die_haeufigkeit():
     # Sperre (b) lässt ihn durch (die Nachricht nennt „Monat“); 5 je Lead sind keine
     # 5 Durchläufe im Monat.

@@ -102,10 +102,12 @@ _ERLAUBTER_BEZUG = (r"(?:(?:woche|wochen|monat|monate|monaten|jahr|jahre|jahren)
 _FREMDER_BEZUG_MUSTER = re.compile(
     rf"(?<![a-z])(?:pro|je)(?!\s+{_ERLAUBTER_BEZUG})(?![a-z])")
 # Spec Sperre (d), E3: ein „/“ direkt nach einer Zeiteinheit (Wörter wie in (b), auch mit
-# Punkt) zählt wie „pro“ („30 min/Fall“); Zeitraum und Lauf danach bleiben erlaubt.
+# Punkt) zählt wie „pro“ („30 min/Fall“); Zeitraum und Lauf danach bleiben erlaubt, ebenso
+# „max“ oder wieder eine Zeiteinheit („Min/Max“, „Minuten/Stunden“; Entscheidung 10.11.).
+_ZEITEINHEIT_WORT = r"(?:minute|minuten|stunde|stunden|viertelstunde|min|std|h)"
 _EINHEIT_SCHRAEGSTRICH_MUSTER = re.compile(
-    r"(?<![a-z])(?:minute|minuten|stunde|stunden|viertelstunde|min|std|h)\.?\s*/"
-    rf"(?!\s*{_ERLAUBTER_BEZUG})")
+    rf"(?<![a-z]){_ZEITEINHEIT_WORT}\.?\s*/"
+    rf"(?!\s*(?:{_ERLAUBTER_BEZUG}|(?:max|{_ZEITEINHEIT_WORT})(?![a-z])))")
 
 
 def nennt_fremden_bezug(text: str) -> bool:

@@ -90,7 +90,9 @@ PFLICHT = {
         "so 30 im Monat", "20 Leads pro Woche", "etwa 20 Anfragen pro Monat",
         "jede Woche 2", "2 mal in der Woche", "2 mal", "zweimal", "2-mal",
         # Vertrag 1.5, „Normalisierung der Zahlen“: Beispiel über die KI-Auswertung
-        "30 monatlich"],
+        "30 monatlich",
+        # Spec Sperre (d), Entscheidung 10.11. (C): „Min/Max“ sperrt nicht
+        "2 mal pro Woche, dabei prüfen wir Min/Max in SAP"],
     "executions_per_run": ["1", "ca. 3 Fälle", "5 Leads", "immer 1", "fünf", "5 bis 10",
                            "5 pro Woche"],
     "total_duration_minutes": DAUER_PFLICHT + [

@@ -1002,6 +1002,20 @@ def test_schraegstrich_mit_zeitraum_lauf_oder_ohne_einheit_ist_frei(text):
     assert nennt_fremden_bezug(text) is False
 
 
+@pytest.mark.parametrize("text", [
+    # Spec Sperre (d), Entscheidung 10.11. (C): folgt auf „/“ „max“ oder wieder eine
+    # Zeiteinheit, ist es keine Bezugsgröße.
+    "Min/Max-Bestände prüfen, 2 mal pro Woche",
+    "Excel (Min/Max-Bestand)",
+    "Min.-/Max.-Bestand",
+    "min./max. 30 Minuten",
+    "Std/Min-Abrechnung",
+    "Minuten/Stunden, ca. 30 Minuten",
+])
+def test_schraegstrich_vor_max_oder_einer_einheit_ist_frei(text):
+    assert nennt_fremden_bezug(text) is False
+
+
 def test_schraegstrich_nach_wortende_h_ist_keine_einheit():
     # (Regression) Spec Sperre (d), E3: Die Einheit ist ein ganzes Wort; „Bosch/Siemens“
     # endet nur auf „h“.
