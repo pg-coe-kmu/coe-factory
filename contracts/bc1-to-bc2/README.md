@@ -88,10 +88,10 @@ ein Lauf („pro Durchlauf") folgt, etwa „pro Fall", „je Mitarbeiter", „pr
 „/" direkt nach einer Zeiteinheit („30 min/Fall") —, übernimmt BC1 aus dieser Antwort keinen
 Wert für Häufigkeit oder Dauer. Ist das Feld noch offen, fragt BC1 nach („90 Minuten pro
 Fall" → Nachfrage; bleibt es offen, `ungeloest` → `NULL`); ein schon erfasster Wert bleibt
-unverändert. D3 ist optional und wird nie nachgefragt. Ohne „pro"/„je"/„/" („jeder Fall
-dauert 30 Minuten", „für jeden Fall 30 Minuten") oder mit einem Zeitraum direkt danach („2
-Stunden pro Woche" auf eine Dauer-Frage, „5 pro Woche und Mitarbeiter") bleibt es bei der
-ungeprüften Annahme. Bis Fassung 1.4 ging ein solcher Zusatz verloren („90 Minuten
+unverändert. D3 ist optional und wird nie nachgefragt. Ohne „pro"/„je" und ohne „/" nach
+einer Zeiteinheit („jeder Fall dauert 30 Minuten", „für jeden Fall 30 Minuten", „5/Lead im
+Monat") oder mit einem Zeitraum direkt danach („2 Stunden pro Woche" auf eine Dauer-Frage,
+„5 pro Woche und Mitarbeiter") bleibt es bei der ungeprüften Annahme. Bis Fassung 1.4 ging ein solcher Zusatz verloren („90 Minuten
 pro Fall" → `90`).
 
 Profile mit Paketfassung vor 1.2 haben E2 ohne Bezugsgröße gefragt („Wie lange dauert

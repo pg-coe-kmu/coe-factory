@@ -60,7 +60,7 @@
     "frequency_per_year": {
       "type": ["number", "null"],
       "minimum": 0,
-      "description": "PROZESSDURCHLÄUFE PRO JAHR des Prozesses, wie ihn der Befragte in process_name gerahmt hat (Frage D1: 'Wie oft läuft der gesamte Prozess?'), gespeichert auf der Zeile des Fokus-Schritts — Profile desselben Kernprozesses können sich darin widersprechen, BC2 summiert nicht je KP. Normalisiert, wenn Woche/Monat/Jahr genannt ist ('30 pro Monat' → 360, auch 'monatlich'); eine nackte Zahl gilt als pro Jahr, wenn die Person sie selbst schreibt; andere Perioden ('3 pro Tag') und eine andere Bezugsgröße direkt nach 'pro'/'je' ('5 pro Lead') werden nachgefragt, nicht geraten; sonst ist die Bezugsgröße ungeprüft (README, I1 und 'Normalisierung der Zahlen'). Null, wenn das Interview das Feld nach der Frage und einer Nachfrage aufgegeben hat (profil.ungeloeste_felder); BC2 weist eine Null-Zeile nicht ab, verliert dann aber die monetäre Aussage (#163)."
+      "description": "PROZESSDURCHLÄUFE PRO JAHR des Prozesses, wie ihn der Befragte in process_name gerahmt hat (Frage D1: 'Wie oft läuft der gesamte Prozess?'), gespeichert auf der Zeile des Fokus-Schritts — Profile desselben Kernprozesses können sich darin widersprechen, BC2 summiert nicht je KP. Normalisiert, wenn Woche/Monat/Jahr genannt ist ('30 pro Monat' → 360, auch 'monatlich'); eine nackte Zahl gilt als pro Jahr, wenn die Person sie selbst schreibt; andere Perioden ('3 pro Tag') und eine andere Bezugsgröße direkt nach 'pro'/'je' ('5 pro Lead') oder nach einer Zeiteinheit mit '/' ('30 min/Fall') werden nachgefragt, nicht geraten; sonst ist die Bezugsgröße ungeprüft (README, I1 und 'Normalisierung der Zahlen'). Null, wenn das Interview das Feld nach der Frage und einer Nachfrage aufgegeben hat (profil.ungeloeste_felder); BC2 weist eine Null-Zeile nicht ab, verliert dann aber die monetäre Aussage (#163)."
     },
     "step_frequency_per_year": {
       "type": ["number", "null"],
@@ -75,7 +75,7 @@
     "total_duration_minutes": {
       "type": ["number", "null"],
       "minimum": 0,
-      "description": "MINUTEN JE PROZESSDURCHLAUF (Frage E1: 'Wie lange dauert ein kompletter Durchlauf im Schnitt?'), einschließlich der darin bearbeiteten executions_per_run Fälle. Jahresminuten = frequency_per_year × total_duration_minutes. Die Bezugsgröße ist eine Annahme aus dem Fragetext: Einheiten werden auf Minuten gerechnet ('3 Stunden' → 180); nennt die Antwort eine andere Bezugsgröße ('30 Minuten pro Fall'), fragt BC1 nach (ab Vertragsfassung 1.5, README I1), sonst prüft BC1 die Bezugsgröße nicht. Null nach aufgegebenem Nachfragen."
+      "description": "MINUTEN JE PROZESSDURCHLAUF (Frage E1: 'Wie lange dauert ein kompletter Durchlauf im Schnitt?'), einschließlich der darin bearbeiteten executions_per_run Fälle. Jahresminuten = frequency_per_year × total_duration_minutes. Die Bezugsgröße ist eine Annahme aus dem Fragetext: Einheiten werden auf Minuten gerechnet ('3 Stunden' → 180); nennt die Antwort eine andere Bezugsgröße ('30 Minuten pro Fall', '30 min/Fall'), fragt BC1 nach (ab Vertragsfassung 1.5, README I1), sonst prüft BC1 die Bezugsgröße nicht. Null nach aufgegebenem Nachfragen."
     },
     "focus_step_duration_minutes": {
       "type": ["number", "null"],

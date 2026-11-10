@@ -96,7 +96,7 @@ PFLICHT = {
     "total_duration_minutes": DAUER_PFLICHT + [
         "30 Minuten pro Lead", "mehr als 2 Stunden", "meistens 20 Minuten",
         "2 Stunden bei uns", "ca. 40",
-        # Spec Sperre (d): E2, E3 und das Restrisiko E1 (misst den Prompt)
+        # Spec Sperre (d): E2 und E3 setzt der Code durch, das Restrisiko E1 misst den Prompt
         "2 mal pro Woche, je Fall 30 Minuten", "30 min/Fall", "2 Stunden pro Woche",
         # erlaubte Form („pro Durchlauf“), auch Beispiel im Vertrag 1.5
         "90 Minuten pro Durchlauf"],

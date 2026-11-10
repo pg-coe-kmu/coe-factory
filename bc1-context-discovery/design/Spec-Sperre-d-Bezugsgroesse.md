@@ -44,7 +44,7 @@ Wert; das kann keine Regel erkennen.
 |---|---|---|---|
 | E1 | Sperrt die Regel bei der Dauer auch Zeiträume („2 Stunden pro Woche“)? | **Nein** (Entwurf 2 sagte noch Ja). Zeitraum und Lauf sind bei beiden Typen erlaubt. | Mit Ja verlöre jede Nachricht, die Häufigkeit und Dauer zusammen nennt, den Dauerwert: „15 pro Monat, 3 Stunden“. So schreiben es die Testprofile (`bc1_service/use_case_testprofile.py`), die Demo-Läufe und rund 200 Sätze in den Tests, und so antworten Menschen. Der Fall „Dauer mit Zeitraum“ ist nicht beobachtet; er bleibt Restrisiko und wird mit einem Katalogeintrag gemessen. |
 | E2 | Die Regel wirkt auf die ganze Nachricht, nicht je Zahl. Hinnehmen? | **Hinnehmen.** | Eine Zuordnung „welches ‚pro‘ gehört zu welcher Zahl“ wäre neue, fehleranfällige Logik. Mit E1 = Nein trifft es nur Nachrichten mit einer fremden Bezugsgröße. Dann gehen alle Häufigkeits- und Dauerwerte der Nachricht verloren; ist das gesperrte Feld das gerade gefragte, verwirft Sperre (c) auch die übrigen Felder des Turns. Kosten: eine Nachfrage, im schlechtesten Fall ein offenes Feld, nie ein falscher Wert. |
-| E3 | „/“ als Bezug („30 min/Fall“)? | **Nicht jetzt.** Ziel: kein falscher Wert aus „min/…“. Nächster Schritt: Katalogeintrag „30 min/Fall“ (KI: Nachfrage); zeigt Szenario 4 einen Durchrutscher, eine Sperre an der Einheit („min/…“, „Std./…“, „h/…“) bauen. | Bisher nicht beobachtet. Ein freies „/“ stünde auch in Systemlisten („Outlook/SAP“) und in Häufigkeiten („2/Woche“). |
+| E3 | „/“ als Bezug („30 min/Fall“)? | **Nicht jetzt** (umgesetzt 10.11. nach dem Durchrutscher in Szenario 4, siehe Nachtrag „E3 umgesetzt“). Ziel: kein falscher Wert aus „min/…“. Nächster Schritt: Katalogeintrag „30 min/Fall“ (KI: Nachfrage); zeigt Szenario 4 einen Durchrutscher, eine Sperre an der Einheit („min/…“, „Std./…“, „h/…“) bauen. | Bisher nicht beobachtet. Ein freies „/“ stünde auch in Systemlisten („Outlook/SAP“) und in Häufigkeiten („2/Woche“). |
 | E4 | Der Vertrag mit BC2 beschreibt heute das Gegenteil („‚90 Minuten pro Fall‘ → `90`“). | **Die Vertragstexte im selben PR ändern (Fassung 1.5, nur Text, Stellen unten), Hinweis an BC2 in #286 vor dem Ausrollen.** Nicht auf BC2s Antwort warten. | Die Normalisierung ist Vertragsbestandteil und wird nicht ohne Hinweis an BC2 geändert. Für BC2 wird es strenger, nicht anders: statt eines still übernommenen Werts im seltenen Fall `NULL`. Struktur, Typen und `lesen.sql` bleiben. Hängt am Roadmap-Punkt „BC2-Texte angleichen“ (Kleinpunkte „Neu 30.10.“ (4)). |
 
 ## Technischer Teil
@@ -141,7 +141,7 @@ immer den BC0-Kontext.
 - Ausrollen nur mit Ansage an BC0 und vor der Probe zur Endpräsentation, nicht danach
   (24-Stunden-Ruhe).
 
-**Nicht Teil dieser Spec.** „/“ als Bezug (E3); eine Dauer mit Zeitraum (E1); Formulierungen
+**Nicht Teil dieser Spec.** „/“ als Bezug (E3; umgesetzt 10.11. für „/“ nach einer Zeiteinheit, siehe Nachtrag); eine Dauer mit Zeitraum (E1); Formulierungen
 ohne „pro“/„je“; zwei Zeiträume in einer Nachricht („pro Woche … pro Monat“), die die KI zu einem
 sauberen Wert macht (früher lehnte das der Normalisierer ab, heute schützt nur der Prompt); eine
 Zuordnung je Zahl (E2).
@@ -200,7 +200,9 @@ fremde Bezugsgröße nennt“):
 Kosten je Fall: eine Nachfrage, nie ein falscher Wert. „je + Zahl“ freizugeben würde auch
 „drei Fälle, je 30 Minuten“ freigeben. Möglich wären: (A) hinnehmen und hier benennen;
 (B) zusätzlich eine Zahl zwischen „pro/je“ und Zeitraum erlauben („pro zwei Wochen“), eine
-kleine Musteränderung mit eigenem Test.
+kleine Musteränderung mit eigenem Test. Für E3 dazu (C): ein „/“, auf das „max“ oder wieder
+eine Zeiteinheit folgt („Min/Max“, „Minuten/Stunden“), nicht sperren; „Min/Max“ ist bei
+Lager- und Einkaufsprozessen eine übliche Angabe.
 
 **E3 umgesetzt (10.11., Go der BC1-Projektleitung).** Anlass: Prüfwerkzeug Szenario 4 mit
 echter KI (Code-Stand `c61e322`), Lauf 9: „30 min/Fall“ → 30 (die KI ließ „/Fall“ weg; (b)
@@ -215,7 +217,18 @@ Teil von `nennt_fremden_bezug`, kein neues Merkmal. Ein freies „/“ ohne Einh
 | „30 min/Fall“, „30 Min. / Fall“, „1,5h/Fall“, „2 Std./Vorgang“, „30 Minuten/Lead“, „2 Std/Tag“ | sperrt |
 | „30 min/Woche“, „2 Std./Monat“, „90 min/Durchlauf“, „Outlook/SAP, 30 Minuten“, „2/Woche“, „50 km/h“ | frei |
 
-Grenze wie bei (d): „30 min/Woche“ auf eine Dauer-Frage bleibt ungeprüft (E1).
+Grenze wie bei (d): „30 min/Woche“ auf eine Dauer-Frage bleibt ungeprüft (E1). Ein „/“ ohne
+Zeiteinheit davor wird nicht geprüft, auch nicht bei einer fremden Bezugsgröße: „5/Lead im
+Monat“ → 60 (mit „pro“ gesperrt). Selten und nie schlechter als vor E3.
+
+Geprüft (Claude-Prüfer, 0 Critical, 0 Important, 4 Minor): `_FREMDER_BEZUG_MUSTER` nach dem
+Zusammenlegen zeichengleich; Systemlisten, „km/h“, Datumsangaben und Brüche bleiben frei;
+Testlücken (weitere Einheiten, Leerraum nach „/“) und Texte (Vertrag, Schema, Spec)
+nachgezogen. **Zu weit (gehört zur offenen Entscheidung unten):** E3 sperrt auch „Min/Max“
+(„2 mal pro Woche, dabei prüfen wir die Min/Max-Bestände in SAP“ → D1 und SAP verworfen, beim
+gleichen Satz noch einmal D1 `ungeloest`), „24h/7“, abgekürzte Zeiträume („2 Std./Wo.“) und
+„Minuten/Stunden“. Kosten wie bei (d): Nachfragen, im schlechtesten Fall `NULL`, nie ein
+falscher Wert.
 
 **Offen zur Entscheidung (D3, Nachprüfung N1):** (A) (d) gilt für D3 wie für D1, so gebaut
 und im Vertrag benannt, gleiches Verhalten wie Fester Schutz und (b). (B) (d) nur dort, wo
