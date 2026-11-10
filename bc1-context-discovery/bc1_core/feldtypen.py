@@ -97,13 +97,21 @@ def _nennt_zeiteinheit(text: str) -> bool:
 # (b), ohne die Adverbien) oder ein Lauf („Lauf“, „Durchlauf“, …) folgt, ist eine fremde
 # Bezugsgröße („pro Fall“, „je Vorgang“, „pro Tag“). Negativform: auch Satzzeichen danach
 # („pro (einzelnem) Fall“) und „je“ vor einer Zahl sperren.
+_ERLAUBTER_BEZUG = (r"(?:(?:woche|wochen|monat|monate|monaten|jahr|jahre|jahren)"
+                    r"|[a-z]*lauf)(?![a-z])")
 _FREMDER_BEZUG_MUSTER = re.compile(
-    r"(?<![a-z])(?:pro|je)(?!\s+(?:(?:woche|wochen|monat|monate|monaten|jahr|jahre|jahren)"
-    r"|[a-z]*lauf)(?![a-z]))(?![a-z])")
+    rf"(?<![a-z])(?:pro|je)(?!\s+{_ERLAUBTER_BEZUG})(?![a-z])")
+# Spec Sperre (d), E3: ein „/“ direkt nach einer Zeiteinheit (Wörter wie in (b), auch mit
+# Punkt) zählt wie „pro“ („30 min/Fall“); Zeitraum und Lauf danach bleiben erlaubt.
+_EINHEIT_SCHRAEGSTRICH_MUSTER = re.compile(
+    r"(?<![a-z])(?:minute|minuten|stunde|stunden|viertelstunde|min|std|h)\.?\s*/"
+    rf"(?!\s*{_ERLAUBTER_BEZUG})")
 
 
 def nennt_fremden_bezug(text: str) -> bool:
-    return _FREMDER_BEZUG_MUSTER.search(vergleichsschluessel(text)) is not None
+    schluessel = vergleichsschluessel(text)
+    return (_FREMDER_BEZUG_MUSTER.search(schluessel) is not None
+            or _EINHEIT_SCHRAEGSTRICH_MUSTER.search(schluessel) is not None)
 
 
 def _formatiere(zahl: float) -> str:

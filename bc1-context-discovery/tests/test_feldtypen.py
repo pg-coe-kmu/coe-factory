@@ -973,6 +973,39 @@ def test_zeitraum_oder_lauf_ist_keine_fremde_bezugsgroesse(text):
 
 
 @pytest.mark.parametrize("text", [
+    # Spec Sperre (d), E3: ein „/“ direkt nach einer Zeiteinheit zählt wie „pro“.
+    "30 min/Fall",
+    "30 Min. / Fall",
+    "1,5h/Fall",
+    "2 Std./Vorgang",
+    "30 Minuten/Lead",
+    "2 Std/Tag",
+])
+def test_schraegstrich_nach_der_einheit_ist_fremde_bezugsgroesse(text):
+    assert nennt_fremden_bezug(text) is True
+
+
+@pytest.mark.parametrize("text", [
+    # (Regression) Spec Sperre (d), E3: Zeitraum und Lauf nach „/“ bleiben erlaubt (E1); ein
+    # „/“ ohne Zeiteinheit davor zählt nicht.
+    "30 min/Woche",
+    "2 Std./Monat",
+    "90 min/Durchlauf",
+    "Outlook/SAP, 30 Minuten",
+    "2/Woche",
+    "50 km/h",
+])
+def test_schraegstrich_mit_zeitraum_lauf_oder_ohne_einheit_ist_frei(text):
+    assert nennt_fremden_bezug(text) is False
+
+
+def test_schraegstrich_nach_wortende_h_ist_keine_einheit():
+    # (Regression) Spec Sperre (d), E3: Die Einheit ist ein ganzes Wort; „Bosch/Siemens“
+    # endet nur auf „h“.
+    assert nennt_fremden_bezug("Bosch/Siemens, 30 Minuten") is False
+
+
+@pytest.mark.parametrize("text", [
     "Die Boje wird 2 mal pro Woche geprüft",
     "Repro: 2 mal pro Woche",
 ])

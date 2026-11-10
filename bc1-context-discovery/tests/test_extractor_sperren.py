@@ -231,6 +231,13 @@ def test_bezug_pro_fall_verwirft_den_ki_wert_fuer_die_dauer():
     assert "wert" not in state.values
 
 
+def test_bezug_schraegstrich_nach_der_einheit_verwirft_den_ki_wert():
+    # Spec Sperre (d), E3: Prüfwerkzeug Szenario 4 (10.11.), „30 min/Fall“ wurde 30.
+    state = _spiele(_paket_wert(MINUTEN), "30 min/Fall",
+                    [ExtractionCandidate("wert", "30 Minuten")])
+    assert "wert" not in state.values
+
+
 def test_bezug_pro_lead_verwirft_den_ki_wert_fuer_die_haeufigkeit():
     # Sperre (b) lässt ihn durch (die Nachricht nennt „Monat“); 5 je Lead sind keine
     # 5 Durchläufe im Monat.
