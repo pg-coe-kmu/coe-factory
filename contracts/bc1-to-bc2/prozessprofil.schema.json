@@ -60,12 +60,12 @@
     "frequency_per_year": {
       "type": ["number", "null"],
       "minimum": 0,
-      "description": "PROZESSDURCHLÄUFE PRO JAHR des Prozesses, wie ihn der Befragte in process_name gerahmt hat (Frage D1: 'Wie oft läuft der gesamte Prozess?'), gespeichert auf der Zeile des Fokus-Schritts — Profile desselben Kernprozesses können sich darin widersprechen, BC2 summiert nicht je KP. Normalisiert, wenn Woche/Monat/Jahr genannt ist ('30 pro Monat' → 360); eine nackte Zahl gilt als pro Jahr; andere Perioden ('3 pro Tag') werden nachgefragt, nicht geraten. Null, wenn das Interview das Feld nach zwei Nachfragen aufgegeben hat (profil.ungeloeste_felder); BC2 weist eine Null-Zeile nicht ab, verliert dann aber die monetäre Aussage (#163)."
+      "description": "PROZESSDURCHLÄUFE PRO JAHR des Prozesses, wie ihn der Befragte in process_name gerahmt hat (Frage D1: 'Wie oft läuft der gesamte Prozess?'), gespeichert auf der Zeile des Fokus-Schritts — Profile desselben Kernprozesses können sich darin widersprechen, BC2 summiert nicht je KP. Normalisiert, wenn Woche/Monat/Jahr genannt ist ('30 pro Monat' → 360, auch 'monatlich'); eine nackte Zahl gilt als pro Jahr, wenn die Person sie selbst schreibt; andere Perioden ('3 pro Tag') und andere Bezugsgrößen ('5 pro Lead') werden nachgefragt, nicht geraten (README, I1 und 'Normalisierung der Zahlen'). Null, wenn das Interview das Feld nach zwei Nachfragen aufgegeben hat (profil.ungeloeste_felder); BC2 weist eine Null-Zeile nicht ab, verliert dann aber die monetäre Aussage (#163)."
     },
     "step_frequency_per_year": {
       "type": ["number", "null"],
       "minimum": 0,
-      "description": "DURCHLAEUFE PRO JAHR DES FOKUS-SCHRITTS, falls abweichend vom Prozess (Frage D3, optional: 'Wie oft laeuft dieser einzelne Schritt, falls abweichend?'). IST DAS FELD GESETZT, HAT ES VORRANG vor frequency_per_year fuer den Fokus-Schritt: dessen Jahresminuten sind dann step_frequency_per_year x focus_step_duration_minutes (Invariante I8 im README). Null oder ungeloest bedeutet 'nicht abweichend' — BC2 faellt auf frequency_per_year zurueck. Gebunden am 20.09.2026 (offener Punkt 2); seit BC1s PR #263 (22.09.2026) eine echte Spalte in bc1.prozessprofil, vorher nur im JSON (Bruch von lesen.sql, #249/#255). Normalisiert wie frequency_per_year."
+      "description": "DURCHLAEUFE PRO JAHR DES FOKUS-SCHRITTS, falls abweichend vom Prozess (Frage D3, optional: 'Wie oft laeuft dieser einzelne Schritt, falls abweichend?'). IST DAS FELD GESETZT, HAT ES VORRANG vor frequency_per_year fuer den Fokus-Schritt: dessen Jahresminuten sind dann step_frequency_per_year x focus_step_duration_minutes (Invariante I8 im README). Null oder ungeloest bedeutet 'nicht abweichend' — BC2 faellt auf frequency_per_year zurueck. Gebunden am 20.09.2026 (offener Punkt 2); seit BC1s PR #263 (22.09.2026) eine echte Spalte in bc1.prozessprofil, vorher nur im JSON (Bruch von lesen.sql, #249/#255). Normalisiert und nachgefragt wie frequency_per_year, auch bei einer anderen Bezugsgröße (README, I1)."
     },
     "executions_per_run": {
       "type": ["number", "null"],
@@ -75,12 +75,12 @@
     "total_duration_minutes": {
       "type": ["number", "null"],
       "minimum": 0,
-      "description": "MINUTEN JE PROZESSDURCHLAUF (Frage E1: 'Wie lange dauert ein kompletter Durchlauf im Schnitt?'), einschließlich der darin bearbeiteten executions_per_run Fälle. Jahresminuten = frequency_per_year × total_duration_minutes. Die Bezugsgröße ist eine Annahme aus dem Fragetext, von BC1 nicht geprüft: Einheiten werden auf Minuten gerechnet ('3 Stunden' → 180), Zusätze wie 'pro Fall' gehen verloren. Null nach aufgegebenem Nachfragen."
+      "description": "MINUTEN JE PROZESSDURCHLAUF (Frage E1: 'Wie lange dauert ein kompletter Durchlauf im Schnitt?'), einschließlich der darin bearbeiteten executions_per_run Fälle. Jahresminuten = frequency_per_year × total_duration_minutes. Die Bezugsgröße ist eine Annahme aus dem Fragetext: Einheiten werden auf Minuten gerechnet ('3 Stunden' → 180); nennt die Antwort eine andere Bezugsgröße ('30 Minuten pro Fall'), fragt BC1 nach (ab Vertragsfassung 1.5, README I1), sonst prüft BC1 die Bezugsgröße nicht. Null nach aufgegebenem Nachfragen."
     },
     "focus_step_duration_minutes": {
       "type": ["number", "null"],
       "minimum": 0,
-      "description": "MINUTEN JE AUSFÜHRUNG DES FOKUS-SCHRITTS (Frage E2 ab Paketfassung 1.2: 'Wie lange dauert ein einzelner Lauf dieses Schritts im Schnitt?'; davor 'Wie lange dauert dieser Schritt im Schnitt?' ohne Bezugsgröße, dort gilt je Prozessdurchlauf, ungeprüft). Ohne step_frequency_per_year rechnet BC2 mit einer Ausführung je Prozessdurchlauf — eine Annahme, D3 wird nur passiv erfasst (Invariante I1). Der Fokus-Schritt ist der Teilprozess aus focus_step_id. Null nach aufgegebenem Nachfragen. Wie oft der Fokus-Schritt laeuft, steht in step_frequency_per_year, sofern abweichend — dieses Feld hat dann Vorrang (Invariante I8)."
+      "description": "MINUTEN JE AUSFÜHRUNG DES FOKUS-SCHRITTS (Frage E2 ab Paketfassung 1.2: 'Wie lange dauert ein einzelner Lauf dieses Schritts im Schnitt?'; davor 'Wie lange dauert dieser Schritt im Schnitt?' ohne Bezugsgröße, dort gilt je Prozessdurchlauf, ungeprüft). Ohne step_frequency_per_year rechnet BC2 mit einer Ausführung je Prozessdurchlauf — eine Annahme, D3 wird nur passiv erfasst (Invariante I1). Nennt die Antwort eine andere Bezugsgröße ('30 Minuten pro Fall'), fragt BC1 nach (ab Vertragsfassung 1.5). Der Fokus-Schritt ist der Teilprozess aus focus_step_id. Null nach aufgegebenem Nachfragen. Wie oft der Fokus-Schritt laeuft, steht in step_frequency_per_year, sofern abweichend — dieses Feld hat dann Vorrang (Invariante I8)."
     },
     "focus_step_duration_source": {
       "type": ["string", "null"],
