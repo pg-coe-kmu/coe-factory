@@ -84,13 +84,14 @@ Schrittzeit im Jahr zu niedrig; `executions_per_run` gleicht das nicht aus (I2).
 **Die Bezugsgröße ist eine Annahme aus dem Fragetext, keine Prüfung.** BC1 speichert den
 normalisierten Zahlenwert. Eine Ausnahme prüft BC1 *(ab Fassung 1.5)*: Nennt die Antwort
 selbst eine andere Bezugsgröße — „pro" oder „je", worauf weder Woche, Monat oder Jahr noch
-ein Lauf („pro Durchlauf") folgt, etwa „pro Fall", „je Mitarbeiter", „pro Tag" —, übernimmt
-BC1 aus dieser Antwort keinen Wert für Häufigkeit oder Dauer. Ist das Feld noch offen, fragt
-BC1 nach („90 Minuten pro Fall" → Nachfrage; bleibt es offen, `ungeloest` → `NULL`); ein
-schon erfasster Wert bleibt unverändert. D3 ist optional und wird nie nachgefragt. Ohne
-„pro"/„je" („jeder Fall dauert 30 Minuten", „30 min/Fall") oder mit einem Zeitraum direkt
-danach („2 Stunden pro Woche" auf eine Dauer-Frage, „5 pro Woche und Mitarbeiter") bleibt es
-bei der ungeprüften Annahme. Bis Fassung 1.4 ging ein solcher Zusatz verloren („90 Minuten
+ein Lauf („pro Durchlauf") folgt, etwa „pro Fall", „je Mitarbeiter", „pro Tag"; ebenso ein
+„/" direkt nach einer Zeiteinheit („30 min/Fall") —, übernimmt BC1 aus dieser Antwort keinen
+Wert für Häufigkeit oder Dauer. Ist das Feld noch offen, fragt BC1 nach („90 Minuten pro
+Fall" → Nachfrage; bleibt es offen, `ungeloest` → `NULL`); ein schon erfasster Wert bleibt
+unverändert. D3 ist optional und wird nie nachgefragt. Ohne „pro"/„je"/„/" („jeder Fall
+dauert 30 Minuten", „für jeden Fall 30 Minuten") oder mit einem Zeitraum direkt danach („2
+Stunden pro Woche" auf eine Dauer-Frage, „5 pro Woche und Mitarbeiter") bleibt es bei der
+ungeprüften Annahme. Bis Fassung 1.4 ging ein solcher Zusatz verloren („90 Minuten
 pro Fall" → `90`).
 
 Profile mit Paketfassung vor 1.2 haben E2 ohne Bezugsgröße gefragt („Wie lange dauert
@@ -181,7 +182,8 @@ den Dauern sind feste Regeln im Code und hängen nicht an der KI:
 Dauern (E1, E2): `3 Stunden` → `180`, `90 min` → `90`, `90 Minuten pro Durchlauf` → `90`;
 die Einheit wird auf Minuten gerechnet. Eine nackte Zahl (`40`) gilt als Minuten, wie bei D1
 nur, wenn die Person sie selbst schreibt. Nennt die Antwort eine andere Bezugsgröße
-(`30 Minuten pro Fall`), fragt BC1 nach (siehe I1). Die Konfidenz (E4) ist ganzzahlig.
+(`30 Minuten pro Fall`, `30 min/Fall`), fragt BC1 nach (siehe I1). Die Konfidenz (E4) ist
+ganzzahlig.
 D3 (`step_frequency_per_year`) wird wie D1 normalisiert, und einen Wert mit anderer
 Bezugsgröße übernimmt BC1 auch hier nicht; nachgefragt wird D3 aber nie (optional, siehe I1).
 Die Spalte bleibt dann `NULL`, auch wenn der Schritt abweicht, und BC2 rechnet nach I8 mit
@@ -290,8 +292,8 @@ Gate-0-Freigabe. BC1 muss dafür nichts ändern.
 ## Stand
 
 **Fassung 1.5 — Vorschlag von BC1, 10.11.2026 (Sperre (d)).** Nennt eine Antwort eine
-andere Bezugsgröße („90 Minuten pro Fall"), fragt BC1 nach, statt den Zusatz zu verwerfen
-(I1, „Normalisierung der Zahlen") · die Normalisierungstabelle auf den Bau gebracht
+andere Bezugsgröße („90 Minuten pro Fall", „30 min/Fall"), fragt BC1 nach, statt den Zusatz
+zu verwerfen (I1, „Normalisierung der Zahlen") · die Normalisierungstabelle auf den Bau gebracht
 (`30 monatlich` ergibt über die KI-Auswertung `360`; die nackte Zahl gilt nur, wenn die
 Person sie selbst schreibt) · berichtigt: BC1 stellt jede Rechengröße höchstens zweimal
 (Frage und eine Nachfrage), nicht „nach zwei Nachfragen" · klargestellt: welche Nachfragen

@@ -31,7 +31,7 @@ Sie erkennt nicht:
 - eine Dauer mit Zeitraum („2 Stunden pro Woche“, „2 Stunden im Monat“): bei einer Dauer-Frage
   eine Summe, keine Dauer je Lauf. Das schützt weiter nur der Prompt (E1);
 - Formulierungen ohne „pro“ oder „je“ („für jeden Fall“, „jeder Fall dauert 30 Minuten“,
-  „jeweils 30 Minuten“, „30 min/Fall“);
+  „jeweils 30 Minuten“; „30 min/Fall“ seit 10.11. erkannt, siehe Nachtrag „E3 umgesetzt“);
 - gezählte Dinge vor dem Zeitraum („20 Leads pro Woche“ ist die Zahl der Leads, nicht
   unbedingt der Durchläufe; im Katalog schon als Grenzfall „1040 oder Nachfrage“ geführt);
 - Wörter auf „-lauf“, die keinen Prozesslauf meinen („pro Anlauf“, „pro Rücklauf“).
