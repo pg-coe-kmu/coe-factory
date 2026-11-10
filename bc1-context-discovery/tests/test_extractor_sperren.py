@@ -266,8 +266,8 @@ def test_bezug_gilt_fuer_die_ganze_nachricht():
 
 
 def test_bezug_im_gefragten_feld_verwirft_auch_die_anderen_felder():
-    # Spec Sperre (d), E2 mit Sperre (c): Ist das gesperrte Feld das gefragte, gilt kein
-    # anderer KI-Kandidat dieses Turns. Hält die Reihenfolge (d) vor (c) fest.
+    # (Regression) Spec Sperre (d), E2 mit Sperre (c): Ist das gesperrte Feld das gefragte,
+    # gilt kein anderer KI-Kandidat dieses Turns. Hält die Reihenfolge (d) vor (c) fest.
     paket = UseCasePackage(
         name="sperre_d_c", schema_version="0.1",
         fields=(FieldSpec("dauer", "Wie lange dauert ein Lauf?", typ=MINUTEN),

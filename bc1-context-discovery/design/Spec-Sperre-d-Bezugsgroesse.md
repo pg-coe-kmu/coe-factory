@@ -170,13 +170,21 @@ berichtigt, ebenso die Zählung: „nach zwei Nachfragen“ (Big Picture oben) h
 vor Sperre (c), „pro“/„je“ am Wortende) und zwei Katalogeinträge („30 monatlich“, „90 Minuten
 pro Durchlauf“, beide über die KI) sind dazugekommen.
 
-**Zusätzlich gemessene Grenzen (keine Regression gegenüber vorher):**
+**Zusätzlich gemessene Grenzen** (Regression gegenüber vorher nur beim zweiten und dritten
+Punkt):
 - Eine fremde Bezugsgröße **hinter** einem Zeitraum rutscht durch: „5 pro Woche und
   Mitarbeiter“ → 260, „30 Minuten pro Woche und Fall“ → 30. Wie E1 ein Restrisiko.
 - Eine **Korrektur** mit fremder Bezugsgröße an einem schon gültigen Feld geht still
   verloren: Dauer gültig 60, dann „Korrektur: 30 Minuten pro Fall“ → bleibt 60, keine
   Klärungsfrage (vor (d): `UNKLAR` mit Klärungsfrage). So verhalten sich auch Sperre (b) und
   der feste Schutz. Ziel und nächster Schritt stehen im Abschlussplan.
+- **D3 (`step_frequency_per_year`) ist optional und wird nie nachgefragt.** Sperrt (d) dort,
+  ist der Wert weg: „Der Schritt läuft je Fall einmal, also etwa 20 mal pro Woche …“ → D3
+  `NULL` (ohne (d): 1040). BC2 liest `NULL` nach I8 als „nicht abweichend“ und rechnet mit
+  `frequency_per_year`, also zu niedrig, wenn der Schritt mehrmals je Durchlauf läuft. Für D3
+  ist die Sperre damit nicht „strenger, nicht anders“ (E4), sondern anders. Fester Schutz und
+  Sperre (b) wirken bei D3 schon heute genauso. Im Vertrag (1.5) offen benannt; ob (d) für D3
+  gelten soll, ist offen (unten).
 - `wert_roh is None` in der Bedingung ist durch keinen Test unterscheidbar: keine Eingabe,
   die eine Kurzform annimmt, enthält eine fremde Bezugsgröße. Bewusst wie bei (b) gebaut.
 
@@ -193,3 +201,10 @@ Kosten je Fall: eine Nachfrage, nie ein falscher Wert. „je + Zahl“ freizugeb
 „drei Fälle, je 30 Minuten“ freigeben. Möglich wären: (A) hinnehmen und hier benennen;
 (B) zusätzlich eine Zahl zwischen „pro/je“ und Zeitraum erlauben („pro zwei Wochen“), eine
 kleine Musteränderung mit eigenem Test.
+
+**Offen zur Entscheidung (D3, Nachprüfung N1):** (A) (d) gilt für D3 wie für D1, so gebaut
+und im Vertrag benannt, gleiches Verhalten wie Fester Schutz und (b). (B) (d) nur dort, wo
+eine Nachfrage folgen kann, also nur für Pflichtfelder: ein generisches Merkmal der Feldangabe
+(`required`), kein Feldname. Dann bliebe ein D3-Wert wie „20 pro Woche“ erhalten, aber auch
+ein falsch umgerechneter („3 mal pro Fall, 20 Fälle pro Woche“ → KI „3 pro Woche“ statt
+„60 pro Woche“; Sperre (b) lässt ihn durch, weil die Nachricht „Woche“ nennt).

@@ -977,7 +977,7 @@ def test_zeitraum_oder_lauf_ist_keine_fremde_bezugsgroesse(text):
     "Repro: 2 mal pro Woche",
 ])
 def test_pro_und_je_als_wortende_sind_keine_fremde_bezugsgroesse(text):
-    # Spec Sperre (d): nur das ganze Wort „pro“/„je“ zählt, auch nicht am Ende eines Worts.
+    # (Regression) Spec Sperre (d): nur das ganze Wort „pro“/„je“ zählt, nicht am Wortende.
     assert nennt_fremden_bezug(text) is False
 
 

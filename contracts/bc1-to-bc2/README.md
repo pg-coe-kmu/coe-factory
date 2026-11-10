@@ -76,7 +76,8 @@ Schritts im Schnitt?", ab Paketfassung 1.2 — das ist der Teil vor dem `+` in
 **Ohne `step_frequency_per_year` gilt eine Ausführung des Fokus-Schritts je
 Prozessdurchlauf** (I8); dann fallen beide Bezugsgrößen zusammen. Das ist eine Annahme,
 keine Prüfung: BC1 erfasst D3 nur, wenn die befragte Person es von sich aus nennt, `NULL`
-heißt „nicht erwähnt" ([#286](https://github.com/pg-coe-kmu/coe-factory/issues/286)).
+heißt „nicht oder nicht verwertbar erwähnt" (etwa mit einer anderen Bezugsgröße, siehe unten;
+[#286](https://github.com/pg-coe-kmu/coe-factory/issues/286)).
 Läuft der Schritt mehrmals je Prozessdurchlauf, etwa einmal je Fall, und fehlt D3, ist die
 Schrittzeit im Jahr zu niedrig; `executions_per_run` gleicht das nicht aus (I2).
 
@@ -183,13 +184,15 @@ nur, wenn die Person sie selbst schreibt. Nennt die Antwort eine andere Bezugsgr
 (`30 Minuten pro Fall`), fragt BC1 nach (siehe I1). Die Konfidenz (E4) ist ganzzahlig.
 D3 (`step_frequency_per_year`) wird wie D1 normalisiert, und einen Wert mit anderer
 Bezugsgröße übernimmt BC1 auch hier nicht; nachgefragt wird D3 aber nie (optional, siehe I1).
+Die Spalte bleibt dann `NULL`, auch wenn der Schritt abweicht, und BC2 rechnet nach I8 mit
+`frequency_per_year`; läuft der Schritt mehrmals je Durchlauf, ist die Schrittzeit zu niedrig.
 
 **D4 (`executions_per_run`) ist eine reine Anzahl** (ab Paketfassung 1.2): `3`, `etwa 3`,
 `3 Fälle`, `3 je Durchlauf` → `3`. Eine Periode („5 pro Woche") ist keine Fallzahl je
 Durchlauf; das Interview fragt nach, bleibt das Feld offen, `ungeloest` → `NULL`. Anders als
-bei D1 und den Dauern hängt diese Nachfrage an der KI-Auswertung (gemessen mit dem
-Prüfwerkzeug); eine feste Sperre gibt es für die Anzahl nicht. Vor 1.2 lief D4 durch
-denselben Normalisierer wie D1 („5 pro Woche" → `260`).
+die Nachfragen in der Tabelle und bei den Dauern oben hängt diese an der KI-Auswertung
+(gemessen mit dem Prüfwerkzeug); eine feste Sperre gibt es für die Anzahl nicht. Vor 1.2
+lief D4 durch denselben Normalisierer wie D1 („5 pro Woche" → `260`).
 
 ## Güte
 
@@ -290,13 +293,16 @@ Gate-0-Freigabe. BC1 muss dafür nichts ändern.
 andere Bezugsgröße („90 Minuten pro Fall"), fragt BC1 nach, statt den Zusatz zu verwerfen
 (I1, „Normalisierung der Zahlen") · die Normalisierungstabelle auf den Bau gebracht
 (`30 monatlich` ergibt über die KI-Auswertung `360`; die nackte Zahl gilt nur, wenn die
-Person sie selbst schreibt) · berichtigt: BC1 stellt eine Frage höchstens zweimal (Frage und
-eine Nachfrage), nicht „nach zwei Nachfragen"; D3 wird nie nachgefragt; die Nachfrage bei D4
-hängt an der KI-Auswertung · Schema-Beschreibungen zu `frequency_per_year`,
+Person sie selbst schreibt) · berichtigt: BC1 stellt jede Rechengröße höchstens zweimal
+(Frage und eine Nachfrage), nicht „nach zwei Nachfragen" · klargestellt: welche Nachfragen
+feste Regeln sind und welche an der KI-Auswertung hängen (D4); D3 wird nie nachgefragt · I1
+nennt die Grenzen der Prüfung · Schema-Beschreibungen zu `frequency_per_year`,
 `step_frequency_per_year`, `total_duration_minutes` und `focus_step_duration_minutes`
-nachgezogen. Für BC2 wird es strenger, nicht anders: statt eines still übernommenen Werts im
-seltenen Fall `NULL`. Typen, Pflichtfelder und `lesen.sql` sind unverändert. Hinweis an BC2
-in [#286](https://github.com/pg-coe-kmu/coe-factory/issues/286) vor dem Ausrollen.
+nachgezogen. Für D1, E1 und E2 wird es strenger, nicht anders: statt eines still übernommenen
+Werts im seltenen Fall `NULL`. **Für D3 kann es anders werden:** Ein abweichender Wert mit
+anderer Bezugsgröße bleibt `NULL`, ohne Nachfrage, und BC2 fällt nach I8 auf
+`frequency_per_year` zurück. Typen, Pflichtfelder und `lesen.sql` sind unverändert. Hinweis an
+BC2 in [#286](https://github.com/pg-coe-kmu/coe-factory/issues/286) vor dem Ausrollen.
 
 **Fassung 1.4 — Vorschlag von BC1, 24.10.2026 (Paket C1a).** `process_owner_rolle_id` ist
 gefüllt (B3 als Auswahl der aktiven Rollen, Befund `eigner_rolle_abweichung` bei Abweichung
