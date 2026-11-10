@@ -141,6 +141,9 @@
     {"feld": "total_duration_minutes", "antwort": "mehr als 2 Stunden", "fest": "Nachfrage", "ki": "Nachfrage", "vertrag": null},
     {"feld": "total_duration_minutes", "antwort": "meistens 20 Minuten", "fest": "Nachfrage", "ki": "20", "vertrag": null},
     {"feld": "total_duration_minutes", "antwort": "2 Stunden bei uns", "fest": "Nachfrage", "ki": "120", "vertrag": null},
+    {"feld": "total_duration_minutes", "antwort": "2 mal pro Woche, je Fall 30 Minuten", "fest": "Nachfrage", "ki": "Nachfrage", "vertrag": null},
+    {"feld": "total_duration_minutes", "antwort": "30 min/Fall", "fest": "Nachfrage", "ki": "Nachfrage", "vertrag": null},
+    {"feld": "total_duration_minutes", "antwort": "2 Stunden pro Woche", "fest": "Nachfrage", "ki": "Nachfrage", "vertrag": null},
 
     {"feld": "focus_step_duration_minutes", "antwort": "40 Stunden", "fest": "2400", "ki": "2400", "vertrag": null},
     {"feld": "focus_step_duration_minutes", "antwort": "40", "fest": "40", "ki": "40", "vertrag": "40"},

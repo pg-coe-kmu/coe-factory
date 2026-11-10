@@ -93,7 +93,9 @@ PFLICHT = {
                            "5 pro Woche"],
     "total_duration_minutes": DAUER_PFLICHT + [
         "30 Minuten pro Lead", "mehr als 2 Stunden", "meistens 20 Minuten",
-        "2 Stunden bei uns", "ca. 40"],
+        "2 Stunden bei uns", "ca. 40",
+        # Spec Sperre (d): E2, E3 und das Restrisiko E1 (misst den Prompt)
+        "2 mal pro Woche, je Fall 30 Minuten", "30 min/Fall", "2 Stunden pro Woche"],
     "focus_step": [
         "KP-01.TP-1", "Anfrage erfassen", "Lieferanten-Bewertung", "anfrage erfassen.",
         "Anfrage erfassen?", "KP-01.TP-9", "erfassen", "der zweite Schritt", "die Prüfung",
