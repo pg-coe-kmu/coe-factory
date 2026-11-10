@@ -7,7 +7,7 @@ Ein KI-Kandidat wird verworfen, wenn er der Originalnachricht widerspricht:
 import pytest
 
 from bc1_core.extractor import extract_and_merge
-from bc1_core.feldtypen import ANZAHL, AUSWAHL, MINUTEN, ZAHL
+from bc1_core.feldtypen import ANZAHL, AUSWAHL, LISTE, MINUTEN, ZAHL
 from bc1_core.llm import ExtractionCandidate, FakeLLM
 from bc1_core.package import FieldSpec, UseCasePackage
 from bc1_core.types import SessionState
@@ -263,6 +263,20 @@ def test_bezug_gilt_fuer_die_ganze_nachricht():
                      ExtractionCandidate("dauer", "30 Minuten")])
     assert "haeufigkeit" not in state.values
     assert "dauer" not in state.values
+
+
+def test_bezug_im_gefragten_feld_verwirft_auch_die_anderen_felder():
+    # Spec Sperre (d), E2 mit Sperre (c): Ist das gesperrte Feld das gefragte, gilt kein
+    # anderer KI-Kandidat dieses Turns. Hält die Reihenfolge (d) vor (c) fest.
+    paket = UseCasePackage(
+        name="sperre_d_c", schema_version="0.1",
+        fields=(FieldSpec("dauer", "Wie lange dauert ein Lauf?", typ=MINUTEN),
+                FieldSpec("systeme", "Welche Systeme?", typ=LISTE)))
+    state = _spiele(paket, "In SAP, 30 Minuten pro Fall",
+                    [ExtractionCandidate("dauer", "30 Minuten"),
+                     ExtractionCandidate("systeme", "SAP")],
+                    gefragt=paket.field("dauer"))
+    assert state.values == {}
 
 
 def test_bezug_laesst_typen_ohne_merkmal_unberuehrt():

@@ -972,6 +972,15 @@ def test_zeitraum_oder_lauf_ist_keine_fremde_bezugsgroesse(text):
     assert nennt_fremden_bezug(text) is False
 
 
+@pytest.mark.parametrize("text", [
+    "Die Boje wird 2 mal pro Woche geprüft",
+    "Repro: 2 mal pro Woche",
+])
+def test_pro_und_je_als_wortende_sind_keine_fremde_bezugsgroesse(text):
+    # Spec Sperre (d): nur das ganze Wort „pro“/„je“ zählt, auch nicht am Ende eines Worts.
+    assert nennt_fremden_bezug(text) is False
+
+
 def test_nur_haeufigkeit_und_dauer_pruefen_die_bezugsgroesse():
     # Spec Sperre (d): wie (b) ein Merkmal des Typs, nie des Feldnamens.
     typen = (ZAHL, MINUTEN, ANZAHL, PROZENT_0_100, SKALA_1_5, JA_NEIN, FREITEXT, LISTE,
