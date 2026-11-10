@@ -159,3 +159,37 @@ Zuordnung je Zahl (E2).
   Bindestrich-Schreibweisen, „pro Schritt“ (hingenommen, benannt); Stellenliste E4
   unvollständig (ergänzt); Restrisiken ohne „pro/je“ und mit Zeitraum (benannt). Minor:
   Testaufbau, D4-Begründung, `PFLICHT`-Liste (übernommen).
+
+## Nachtrag: Prüfung des Baus (10.11.2026)
+
+Gebaut wie oben (Muster zeichengleich mit der Spec). Geprüft von agy (keine Befunde) und
+einem Claude-Prüfer (0 Critical, 1 Important, 6 Minor). Das Important betraf den
+Vertragstext (D3 wird nie nachgefragt, die D4-Nachfrage hängt an der KI) und ist dort
+berichtigt, ebenso die Zählung: „nach zwei Nachfragen“ (Big Picture oben) heißt richtig
+„nach der Frage und einer Nachfrage“ (`MAX_ATTEMPTS_PER_FIELD = 2`). Zwei Tests (Reihenfolge
+vor Sperre (c), „pro“/„je“ am Wortende) und zwei Katalogeinträge („30 monatlich“, „90 Minuten
+pro Durchlauf“, beide über die KI) sind dazugekommen.
+
+**Zusätzlich gemessene Grenzen (keine Regression gegenüber vorher):**
+- Eine fremde Bezugsgröße **hinter** einem Zeitraum rutscht durch: „5 pro Woche und
+  Mitarbeiter“ → 260, „30 Minuten pro Woche und Fall“ → 30. Wie E1 ein Restrisiko.
+- Eine **Korrektur** mit fremder Bezugsgröße an einem schon gültigen Feld geht still
+  verloren: Dauer gültig 60, dann „Korrektur: 30 Minuten pro Fall“ → bleibt 60, keine
+  Klärungsfrage (vor (d): `UNKLAR` mit Klärungsfrage). So verhalten sich auch Sperre (b) und
+  der feste Schutz. Ziel und nächster Schritt stehen im Abschlussplan.
+- `wert_roh is None` in der Bedingung ist durch keinen Test unterscheidbar: keine Eingabe,
+  die eine Kurzform annimmt, enthält eine fremde Bezugsgröße. Bewusst wie bei (b) gebaut.
+
+**Offen zur Entscheidung (Befund 2 der Prüfung):** Die Regel sperrt auch Nachrichten
+**ohne** fremde Bezugsgröße, und das ist mehr, als Big Picture und E2 sagen („nur wer eine
+fremde Bezugsgröße nennt“):
+- „je“ im Sinn von „jeweils“ vor einer Zahl: „2 mal im Monat, je 30 Minuten“ (alle Werte
+  verworfen; „jeweils 30 Minuten“ ist frei);
+- ein Zeitraum mit Zahl dazwischen: „einmal pro zwei Wochen“, „je 2 Wochen“ (vorher 26
+  angenommen; „alle zwei Wochen“ ist frei);
+- „Pro“ als Produktname: „Mit DATEV Pro, 2 mal im Monat“.
+
+Kosten je Fall: eine Nachfrage, nie ein falscher Wert. „je + Zahl“ freizugeben würde auch
+„drei Fälle, je 30 Minuten“ freigeben. Möglich wären: (A) hinnehmen und hier benennen;
+(B) zusätzlich eine Zahl zwischen „pro/je“ und Zeitraum erlauben („pro zwei Wochen“), eine
+kleine Musteränderung mit eigenem Test.
