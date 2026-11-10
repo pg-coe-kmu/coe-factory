@@ -5,7 +5,8 @@
 > Abschnitt „Was aus den Prüfungen wurde“. Ergänzt `Spec-Antwortformen.md`, Abschnitt 2,
 > „Feste Sperren“ (a)–(c). Herkunft: `Abschlussplan-BC1.md`, Kleinpunkte „Neu 09.11.“ (1).
 > Nachprüfung von Entwurf 3 durch agy: baufertig, keine neuen Befunde.
-> **Abgenommen 09.11.2026 (BC1-Projektleitung): E1–E4 wie empfohlen. Bau noch nicht begonnen.**
+> **Abgenommen 09.11.2026 (BC1-Projektleitung): E1–E4 wie empfohlen. Gebaut 10.11.2026,
+> mit E3 und den Entscheidungen vom 10.11.; Stand und Prüfungen siehe Nachträge unten.**
 
 ## Big Picture
 
@@ -246,4 +247,7 @@ A, aber C für ‚Min/Max‘?“: „Ja, so“):**
   folgt, sperrt nicht („Min/Max-Bestände“, „min./max.“, „Min.-/Max.-Bestand“,
   „Minuten/Stunden“, „Std/Min-Abrechnung“). Weiter gesperrt (A): „24h/7“, abgekürzte
   Zeiträume („2 Std./Wo.“). Mit Katalogeintrag „2 mal pro Woche, dabei prüfen wir Min/Max in
-  SAP“ (`frequency_per_year`, fest „Nachfrage“, KI 104).
+  SAP“ (`frequency_per_year`, fest „Nachfrage“, KI 104). Hingenommene Grenze (Kurzprüfung):
+  Eine Rate je Zeiteinheit bleibt damit frei („15 Minuten/Stunde“ → 15; mit „pro“ gesperrt),
+  weil das Muster eine Rate nicht von einer Alternative („Minuten/Stunden“) unterscheidet.
+  Selten, und als Antwort auf „Wie lange dauert ein Durchlauf?“ ungewöhnlich.

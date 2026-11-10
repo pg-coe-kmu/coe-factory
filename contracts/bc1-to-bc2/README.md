@@ -85,7 +85,8 @@ Schrittzeit im Jahr zu niedrig; `executions_per_run` gleicht das nicht aus (I2).
 normalisierten Zahlenwert. Eine Ausnahme prüft BC1 *(ab Fassung 1.5)*: Nennt die Antwort
 selbst eine andere Bezugsgröße — „pro" oder „je", worauf weder Woche, Monat oder Jahr noch
 ein Lauf („pro Durchlauf") folgt, etwa „pro Fall", „je Mitarbeiter", „pro Tag"; ebenso ein
-„/" direkt nach einer Zeiteinheit („30 min/Fall") —, übernimmt BC1 aus dieser Antwort keinen
+„/" direkt nach einer Zeiteinheit („30 min/Fall"), außer vor „max" oder einer weiteren
+Zeiteinheit („Min/Max", „Minuten/Stunden") —, übernimmt BC1 aus dieser Antwort keinen
 Wert für Häufigkeit oder Dauer. Ist das Feld noch offen, fragt BC1 nach („90 Minuten pro
 Fall" → Nachfrage; bleibt es offen, `ungeloest` → `NULL`); ein schon erfasster Wert bleibt
 unverändert. D3 ist optional und wird nie nachgefragt. Ohne „pro"/„je" und ohne „/" nach

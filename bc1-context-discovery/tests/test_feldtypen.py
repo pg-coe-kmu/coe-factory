@@ -982,6 +982,7 @@ def test_zeitraum_oder_lauf_ist_keine_fremde_bezugsgroesse(text):
     "2 Std/Tag",
     "2 Stunden/Fall",
     "eine Viertelstunde/Fall",
+    "2 Std./Händler",
 ])
 def test_schraegstrich_nach_der_einheit_ist_fremde_bezugsgroesse(text):
     assert nennt_fremden_bezug(text) is True
