@@ -88,14 +88,18 @@ PFLICHT = {
         "2 pro Monat", "2x die Woche", "2/Woche", "300", "wöchentlich", "einmal pro Woche",
         "jeden 2. Monat", "täglich", "2-3x pro Woche", "2x", "pro Monat 30",
         "so 30 im Monat", "20 Leads pro Woche", "etwa 20 Anfragen pro Monat",
-        "jede Woche 2", "2 mal in der Woche", "2 mal", "zweimal", "2-mal"],
+        "jede Woche 2", "2 mal in der Woche", "2 mal", "zweimal", "2-mal",
+        # Vertrag 1.5, „Normalisierung der Zahlen“: Beispiel über die KI-Auswertung
+        "30 monatlich"],
     "executions_per_run": ["1", "ca. 3 Fälle", "5 Leads", "immer 1", "fünf", "5 bis 10",
                            "5 pro Woche"],
     "total_duration_minutes": DAUER_PFLICHT + [
         "30 Minuten pro Lead", "mehr als 2 Stunden", "meistens 20 Minuten",
         "2 Stunden bei uns", "ca. 40",
         # Spec Sperre (d): E2, E3 und das Restrisiko E1 (misst den Prompt)
-        "2 mal pro Woche, je Fall 30 Minuten", "30 min/Fall", "2 Stunden pro Woche"],
+        "2 mal pro Woche, je Fall 30 Minuten", "30 min/Fall", "2 Stunden pro Woche",
+        # erlaubte Form („pro Durchlauf“), auch Beispiel im Vertrag 1.5
+        "90 Minuten pro Durchlauf"],
     "focus_step": [
         "KP-01.TP-1", "Anfrage erfassen", "Lieferanten-Bewertung", "anfrage erfassen.",
         "Anfrage erfassen?", "KP-01.TP-9", "erfassen", "der zweite Schritt", "die Prüfung",

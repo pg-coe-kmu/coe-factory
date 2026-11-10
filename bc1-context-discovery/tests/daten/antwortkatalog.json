@@ -110,6 +110,7 @@
     {"feld": "frequency_per_year", "antwort": "2 mal", "fest": "Nachfrage", "ki": "Nachfrage", "vertrag": null},
     {"feld": "frequency_per_year", "antwort": "zweimal", "fest": "Nachfrage", "ki": "Nachfrage", "vertrag": null},
     {"feld": "frequency_per_year", "antwort": "2-mal", "fest": "Nachfrage", "ki": "Nachfrage", "vertrag": null},
+    {"feld": "frequency_per_year", "antwort": "30 monatlich", "fest": "Nachfrage", "ki": "360", "vertrag": null},
     {"feld": "frequency_per_year", "antwort": "pro Monat 30", "fest": "Nachfrage", "ki": "360", "vertrag": null},
     {"feld": "frequency_per_year", "antwort": "so 30 im Monat", "fest": "Nachfrage", "ki": "360", "vertrag": null},
     {"feld": "frequency_per_year", "antwort": "20 Leads pro Woche", "fest": "Nachfrage", "ki": "1040 oder Nachfrage", "vertrag": null},
@@ -144,6 +145,7 @@
     {"feld": "total_duration_minutes", "antwort": "2 mal pro Woche, je Fall 30 Minuten", "fest": "Nachfrage", "ki": "Nachfrage", "vertrag": null},
     {"feld": "total_duration_minutes", "antwort": "30 min/Fall", "fest": "Nachfrage", "ki": "Nachfrage", "vertrag": null},
     {"feld": "total_duration_minutes", "antwort": "2 Stunden pro Woche", "fest": "Nachfrage", "ki": "Nachfrage", "vertrag": null},
+    {"feld": "total_duration_minutes", "antwort": "90 Minuten pro Durchlauf", "fest": "Nachfrage", "ki": "90", "vertrag": null},
 
     {"feld": "focus_step_duration_minutes", "antwort": "40 Stunden", "fest": "2400", "ki": "2400", "vertrag": null},
     {"feld": "focus_step_duration_minutes", "antwort": "40", "fest": "40", "ki": "40", "vertrag": "40"},
