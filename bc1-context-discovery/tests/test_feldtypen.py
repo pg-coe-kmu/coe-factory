@@ -17,6 +17,7 @@ from bc1_core.feldtypen import (
     SKALA_1_5,
     ZAHL,
     ist_nackte_zahl,
+    nennt_fremden_bezug,
     vergleichsschluessel,
 )
 from bc1_service.paket_feldtypen import PROZENT_GANZ_0_100
@@ -933,3 +934,46 @@ def test_antwortform_freie_typen():
 def test_antwortform_ist_pflichtmerkmal():
     with pytest.raises(TypeError):
         Feldtyp("x", lambda w: True, lambda w: w)
+
+
+@pytest.mark.parametrize("text", [
+    # Spec Sperre (d): „pro“/„je“ ohne folgenden Zeitraum oder Lauf ist eine fremde
+    # Bezugsgröße — auch mit Satzzeichen danach, beim zweiten Vorkommen und vor einer Zahl.
+    "30 Minuten pro Fall",
+    "30 Minuten pro (einzelnem) Fall",
+    "je Vorgang etwa eine halbe Stunde",
+    "drei Fälle, je 30 Minuten",
+    "pro Laufzettel 5 Minuten",
+    "5 pro Lead im Monat",
+    "je nach Saison 2 mal im Monat",
+    "2 mal pro Woche, je Fall 30 Minuten",
+    "2 pro Woche, 30 Minuten pro Fall",
+    "2 pro Wochentag",
+    "5 pro Tag",
+])
+def test_fremde_bezugsgroesse_wird_erkannt(text):
+    assert nennt_fremden_bezug(text) is True
+
+
+@pytest.mark.parametrize("text", [
+    # Spec Sperre (d), E1: Zeitraum und Lauf sind bei Häufigkeit und Dauer erlaubt; „pro“
+    # und „je“ nur als ganzes Wort („Projekt“, „jede“ zählen nicht).
+    "90 Minuten pro Durchlauf",
+    "pro Prozessdurchlauf etwa 90 Minuten",
+    "15 pro Monat, 3 Stunden",
+    "2 mal pro Woche, je Lauf 30 Minuten",
+    "20 Leads pro Woche",
+    "2 Stunden pro Woche",
+    "300 pro Jahr",
+    "Prozess läuft wöchentlich",
+    "Projektbericht jede Woche",
+])
+def test_zeitraum_oder_lauf_ist_keine_fremde_bezugsgroesse(text):
+    assert nennt_fremden_bezug(text) is False
+
+
+def test_nur_haeufigkeit_und_dauer_pruefen_die_bezugsgroesse():
+    # Spec Sperre (d): wie (b) ein Merkmal des Typs, nie des Feldnamens.
+    typen = (ZAHL, MINUTEN, ANZAHL, PROZENT_0_100, SKALA_1_5, JA_NEIN, FREITEXT, LISTE,
+             AUSWAHL("a"))
+    assert {t.name for t in typen if t.prueft_bezug} == {"zahl", "minuten"}
