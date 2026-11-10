@@ -202,6 +202,21 @@ Kosten je Fall: eine Nachfrage, nie ein falscher Wert. „je + Zahl“ freizugeb
 (B) zusätzlich eine Zahl zwischen „pro/je“ und Zeitraum erlauben („pro zwei Wochen“), eine
 kleine Musteränderung mit eigenem Test.
 
+**E3 umgesetzt (10.11., Go der BC1-Projektleitung).** Anlass: Prüfwerkzeug Szenario 4 mit
+echter KI (Code-Stand `c61e322`), Lauf 9: „30 min/Fall“ → 30 (die KI ließ „/Fall“ weg; (b)
+sieht „min“, (d) kennt kein „/“). Regel, wie E3 sie vorsah: Ein „/“ direkt nach einer
+Zeiteinheit (dieselben ganzen Wörter wie in Sperre (b): Minute(n), Stunde(n), Viertelstunde,
+min, std, h, auch mit Punkt) zählt wie „pro“. Erlaubt sind danach wieder Zeitraum und Lauf (E1).
+Teil von `nennt_fremden_bezug`, kein neues Merkmal. Ein freies „/“ ohne Einheit davor
+(„Outlook/SAP“, „2/Woche“) bleibt unberührt.
+
+| Nachricht | Muster |
+|---|---|
+| „30 min/Fall“, „30 Min. / Fall“, „1,5h/Fall“, „2 Std./Vorgang“, „30 Minuten/Lead“, „2 Std/Tag“ | sperrt |
+| „30 min/Woche“, „2 Std./Monat“, „90 min/Durchlauf“, „Outlook/SAP, 30 Minuten“, „2/Woche“, „50 km/h“ | frei |
+
+Grenze wie bei (d): „30 min/Woche“ auf eine Dauer-Frage bleibt ungeprüft (E1).
+
 **Offen zur Entscheidung (D3, Nachprüfung N1):** (A) (d) gilt für D3 wie für D1, so gebaut
 und im Vertrag benannt, gleiches Verhalten wie Fester Schutz und (b). (B) (d) nur dort, wo
 eine Nachfrage folgen kann, also nur für Pflichtfelder: ein generisches Merkmal der Feldangabe
