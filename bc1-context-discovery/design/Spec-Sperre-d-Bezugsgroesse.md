@@ -183,12 +183,12 @@ Punkt):
   `NULL` (ohne (d): 1040). BC2 liest `NULL` nach I8 als „nicht abweichend“ und rechnet mit
   `frequency_per_year`, also zu niedrig, wenn der Schritt mehrmals je Durchlauf läuft. Für D3
   ist die Sperre damit nicht „strenger, nicht anders“ (E4), sondern anders. Fester Schutz und
-  Sperre (b) wirken bei D3 schon heute genauso. Im Vertrag (1.5) offen benannt; ob (d) für D3
-  gelten soll, ist offen (unten).
+  Sperre (b) wirken bei D3 schon heute genauso. Im Vertrag (1.5) offen benannt; (d) gilt für
+  D3 weiter (entschieden 10.11., siehe ganz unten).
 - `wert_roh is None` in der Bedingung ist durch keinen Test unterscheidbar: keine Eingabe,
   die eine Kurzform annimmt, enthält eine fremde Bezugsgröße. Bewusst wie bei (b) gebaut.
 
-**Offen zur Entscheidung (Befund 2 der Prüfung):** Die Regel sperrt auch Nachrichten
+**Zur Entscheidung vorgelegt (Befund 2 der Prüfung; entschieden 10.11., siehe ganz unten):** Die Regel sperrt auch Nachrichten
 **ohne** fremde Bezugsgröße, und das ist mehr, als Big Picture und E2 sagen („nur wer eine
 fremde Bezugsgröße nennt“):
 - „je“ im Sinn von „jeweils“ vor einer Zahl: „2 mal im Monat, je 30 Minuten“ (alle Werte
@@ -224,15 +224,26 @@ Monat“ → 60 (mit „pro“ gesperrt). Selten und nie schlechter als vor E3.
 Geprüft (Claude-Prüfer, 0 Critical, 0 Important, 4 Minor): `_FREMDER_BEZUG_MUSTER` nach dem
 Zusammenlegen zeichengleich; Systemlisten, „km/h“, Datumsangaben und Brüche bleiben frei;
 Testlücken (weitere Einheiten, Leerraum nach „/“) und Texte (Vertrag, Schema, Spec)
-nachgezogen. **Zu weit (gehört zur offenen Entscheidung unten):** E3 sperrt auch „Min/Max“
+nachgezogen. **Zu weit (entschieden 10.11., siehe ganz unten):** E3 sperrte auch „Min/Max“
 („2 mal pro Woche, dabei prüfen wir die Min/Max-Bestände in SAP“ → D1 und SAP verworfen, beim
 gleichen Satz noch einmal D1 `ungeloest`), „24h/7“, abgekürzte Zeiträume („2 Std./Wo.“) und
 „Minuten/Stunden“. Kosten wie bei (d): Nachfragen, im schlechtesten Fall `NULL`, nie ein
 falscher Wert.
 
-**Offen zur Entscheidung (D3, Nachprüfung N1):** (A) (d) gilt für D3 wie für D1, so gebaut
+**Zur Entscheidung vorgelegt (D3, Nachprüfung N1; entschieden 10.11., siehe unten):** (A) (d) gilt für D3 wie für D1, so gebaut
 und im Vertrag benannt, gleiches Verhalten wie Fester Schutz und (b). (B) (d) nur dort, wo
 eine Nachfrage folgen kann, also nur für Pflichtfelder: ein generisches Merkmal der Feldangabe
 (`required`), kein Feldname. Dann bliebe ein D3-Wert wie „20 pro Woche“ erhalten, aber auch
 ein falsch umgerechneter („3 mal pro Fall, 20 Fälle pro Woche“ → KI „3 pro Woche“ statt
 „60 pro Woche“; Sperre (b) lässt ihn durch, weil die Nachricht „Woche“ nennt).
+
+**Entschieden 10.11.2026 (BC1-Projektleitung, auf die Frage „D3 = A und zu weite Sperre =
+A, aber C für ‚Min/Max‘?“: „Ja, so“):**
+- **D3: (A).** (d) gilt für D3 wie gebaut; der Vertrag 1.5 benennt die Folge.
+- **Zu weite Sperre: (A)** für „je“ im Sinn von „jeweils“, „pro zwei Wochen“ und „Pro“ als
+  Produktname: hingenommen, je eine Nachfrage.
+- **(C) für E3:** Ein „/“ nach einer Zeiteinheit, auf das „max“ oder wieder eine Zeiteinheit
+  folgt, sperrt nicht („Min/Max-Bestände“, „min./max.“, „Min.-/Max.-Bestand“,
+  „Minuten/Stunden“, „Std/Min-Abrechnung“). Weiter gesperrt (A): „24h/7“, abgekürzte
+  Zeiträume („2 Std./Wo.“). Mit Katalogeintrag „2 mal pro Woche, dabei prüfen wir Min/Max in
+  SAP“ (`frequency_per_year`, fest „Nachfrage“, KI 104).
