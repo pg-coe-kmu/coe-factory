@@ -1,7 +1,8 @@
 """Feste Sperren gegen Regelverstöße der KI (Spec-Antwortformen Abschnitt 2).
 
 Ein KI-Kandidat wird verworfen, wenn er der Originalnachricht widerspricht:
-(a) Identitätsbezug, (b) Zeitraum/Einheit, (c) Fragebezug.
+(a) Identitätsbezug, (b) Zeitraum/Einheit, (c) Fragebezug, (d) fremde Bezugsgröße
+(Spec-Sperre-d-Bezugsgroesse.md).
 """
 import pytest
 
@@ -220,3 +221,62 @@ def test_identitaet_ordinalzahl_ohne_kennung_oder_namen_wird_verworfen():
     state = _spiele(_paket_identitaet(), "der zweite Schritt",
                     [ExtractionCandidate("teilprozess", "KP-01.TP-1")])
     assert "teilprozess" not in state.values
+
+
+def test_bezug_pro_fall_verwirft_den_ki_wert_fuer_die_dauer():
+    # Spec Sperre (d): Ob ein Lauf genau einen Fall bearbeitet, steht nicht fest; „30 Minuten“
+    # je Lauf wäre eine Annahme (Prüfwerkzeug 30.10., Szenario 4).
+    state = _spiele(_paket_wert(MINUTEN), "30 Minuten pro Fall",
+                    [ExtractionCandidate("wert", "30 Minuten")])
+    assert "wert" not in state.values
+
+
+def test_bezug_pro_lead_verwirft_den_ki_wert_fuer_die_haeufigkeit():
+    # Sperre (b) lässt ihn durch (die Nachricht nennt „Monat“); 5 je Lead sind keine
+    # 5 Durchläufe im Monat.
+    state = _spiele(_paket_wert(ZAHL), "5 pro Lead im Monat",
+                    [ExtractionCandidate("wert", "5 pro Monat")])
+    assert "wert" not in state.values
+
+
+def _paket_haeufigkeit_dauer():
+    return UseCasePackage(
+        name="sperre_d", schema_version="0.1",
+        fields=(FieldSpec("haeufigkeit", "Wie oft läuft der Prozess?", typ=ZAHL),
+                FieldSpec("dauer", "Wie lange dauert ein Lauf?", typ=MINUTEN)))
+
+
+def test_bezug_zeitraum_und_dauer_in_einer_nachricht_gelten_beide():
+    # (Regression) Spec Sperre (d), E1: So schreiben es die Testprofile und Demo-Läufe.
+    state = _spiele(_paket_haeufigkeit_dauer(), "15 pro Monat, 3 Stunden",
+                    [ExtractionCandidate("haeufigkeit", "15 pro Monat"),
+                     ExtractionCandidate("dauer", "3 Stunden")])
+    assert state.values["haeufigkeit"].value == "180"
+    assert state.values["dauer"].value == "180"
+
+
+def test_bezug_gilt_fuer_die_ganze_nachricht():
+    # Spec Sperre (d), E2 (bewusst hingenommen): keine Zuordnung je Zahl, „je Fall“ kostet
+    # auch die Häufigkeit eine Nachfrage.
+    state = _spiele(_paket_haeufigkeit_dauer(), "2 mal pro Woche, je Fall 30 Minuten",
+                    [ExtractionCandidate("haeufigkeit", "2 pro Woche"),
+                     ExtractionCandidate("dauer", "30 Minuten")])
+    assert "haeufigkeit" not in state.values
+    assert "dauer" not in state.values
+
+
+def test_bezug_laesst_typen_ohne_merkmal_unberuehrt():
+    # (Regression) Die Sperre hängt am Typ (`prueft_bezug`), nicht am Wort „pro“: eine
+    # Anzahl „pro Lead“ bleibt.
+    state = _spiele(_paket_wert(ANZAHL), "5 pro Lead",
+                    [ExtractionCandidate("wert", "5")])
+    assert state.values["wert"].value == "5"
+
+
+def test_bezug_kurzform_laeuft_wie_bisher():
+    # (Regression) Kurze Antworten gehen ohne KI ins gefragte Feld. Die Kurzform-Grammatik
+    # kennt nach „pro“/„je“ nur einen Zeitraum, eine fremde Bezugsgröße erreicht sie nie.
+    paket = _paket_haeufigkeit_dauer()
+    state = _spiele(paket, "2 mal pro Woche", [],
+                    gefragt=paket.field("haeufigkeit"))
+    assert state.values["haeufigkeit"].value == "104"
