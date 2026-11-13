@@ -48,7 +48,7 @@ from praesentation import (  # noqa: E402
     als_bytes,
     baue_praesentation,
 )
-from praesentation.folien import KACHELN_JE_FOLIE, ZEILEN_KOSTEN  # noqa: E402
+from praesentation.folien import KACHELN_JE_FOLIE, ZEILEN_KOSTEN, werkzeugname  # noqa: E402
 from praesentation import formulierung as F  # noqa: E402
 
 WURZEL = Path(__file__).resolve().parents[3]
@@ -680,7 +680,7 @@ def test_eine_v3_2_zeigt_beide_kurztexte_ohne_folgefolie_fuer_die_linken_bloecke
         loesung = pot["potenzielle_loesung"]
         assert pot["heute_kurz"] in text
         assert loesung["to_be_kurz"] in text
-        assert f"Werkzeuge: {', '.join(loesung['tech_stack_empfehlung'])}" in text
+        assert f"Werkzeuge: {', '.join(map(werkzeugname, loesung['tech_stack_empfehlung']))}" in text
         assert F.automatisierungsgrad(pot) in text
         # Die langen Texte bleiben für BC3 — auf der Folie stehen sie nicht.
         alles = _text_der([erste, *fortsetzungen])
@@ -707,9 +707,29 @@ def test_eine_v3_1_zeigt_heute_lang_und_soll_kurz(befund_lauf):
         assert not fehlt, f"Heute ist nicht der lange Text: {list(fehlt)[:10]}"
         loesung = pot["potenzielle_loesung"]
         assert loesung["to_be_kurz"] in alles
-        assert f"Werkzeuge: {', '.join(loesung['tech_stack_empfehlung'])}" in alles
+        assert f"Werkzeuge: {', '.join(map(werkzeugname, loesung['tech_stack_empfehlung']))}" in alles
+        # Die Erläuterung hinter dem Gedankenstrich bleibt für BC3 im Vertrag.
+        for w in loesung["tech_stack_empfehlung"]:
+            if " — " in w:
+                assert w.split(" — ", 1)[1] not in alles
         assert klartext(aus_markdown(pot["to_be_vision"], 10))[:80] not in alles
         assert "Lösungsansatz" not in alles
+
+
+@pytest.mark.parametrize("eintrag, name", [
+    ("n8n (self-hosted, Hetzner) — Workflow-Orchestrierung und E-Mail-Trigger",
+     "n8n (self-hosted, Hetzner)"),
+    ("K3s – Container-Betrieb des RPA-Fallback-Dienstes", "K3s"),
+    ("PostgreSQL 16 (Vorgangsdatenbank)", "PostgreSQL 16 (Vorgangsdatenbank)"),
+    ("  NocoDB ", "NocoDB"),
+])
+def test_auf_der_folie_steht_nur_der_werkzeugname(eintrag, name):
+    """Die Zeile „Werkzeuge“ trägt den Namen, nicht die Erläuterung dahinter.
+
+    In echten Lieferungen ist ``tech_stack_empfehlung`` wortreich; ganz zitiert
+    wurde die Zeile länger als der Kurztext, den sie ergänzt (#382).
+    """
+    assert werkzeugname(eintrag) == name
 
 
 def test_ohne_to_be_kurz_steht_soll_lang_samt_loesungsansatz(befund_lauf):

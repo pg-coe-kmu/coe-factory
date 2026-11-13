@@ -52,6 +52,7 @@ herausgenommenes Potenzial kommt gar nicht vor, auch seine Begründung nicht —
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, replace
 from typing import Mapping, Sequence
 
@@ -609,6 +610,19 @@ def _zeile(text: str) -> list[Absatz]:
     return [Absatz((Lauf(text),), DETAIL_PT)]
 
 
+_ERLAEUTERUNG = re.compile(r"\s+[—–]\s+")
+
+
+def werkzeugname(eintrag: str) -> str:
+    """Der Name eines Werkzeugs aus ``tech_stack_empfehlung``, ohne Erläuterung.
+
+    Die Einträge lauten oft „n8n (self-hosted, Hetzner) — Workflow-Orchestrierung
+    …“. Auf der Folie steht nur, was vor dem Gedankenstrich steht; die Erläuterung
+    ist Bauhinweis für BC3 und bleibt im Vertrag (#382).
+    """
+    return _ERLAEUTERUNG.split(eintrag.strip(), maxsplit=1)[0].strip()
+
+
 def _kurz(wert) -> str | None:
     return wert.strip() if isinstance(wert, str) and wert.strip() else None
 
@@ -637,7 +651,7 @@ def _soll(pot: Mapping) -> list[Absatz]:
     loesung = pot.get("potenzielle_loesung") or {}
     kurz = _kurz(loesung.get("to_be_kurz"))
     if kurz:
-        werkzeuge = ", ".join(w.strip() for w in loesung.get("tech_stack_empfehlung") or []
+        werkzeuge = ", ".join(werkzeugname(w) for w in loesung.get("tech_stack_empfehlung") or []
                               if isinstance(w, str) and w.strip())
         return [*_md(kurz), *_zeile(F.automatisierungsgrad(pot)),
                 *_zeile(f"Werkzeuge: {werkzeuge or F.LUECKE}")]
