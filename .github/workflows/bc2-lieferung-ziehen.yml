@@ -1,0 +1,108 @@
+name: BC2 Lieferung ziehen
+
+# Bringt die Lieferungen von BC2 an BC3 ohne Handgriff ins Repo (#388, entschieden
+# in #383, Nachtrag zu ADR-007 · BC2 §2.2 vom 13.11.2026).
+#
+# Nach Zeitplan: freigegebene, lieferbare Läufe über GET /api/lieferungen holen
+# (eigener, nur lesender Schlüssel), mit tools/lieferung_ziehen.py abschreiben,
+# mit validate.py prüfen und je neuem Ordner einen PR anlegen und mergen.
+#
+# Warum die Action selbst prüft: ein PR, den GITHUB_TOKEN anlegt, stößt keinen
+# anderen Workflow an — "Verträge prüfen" liefe auf ihm nicht. Geprüft wird
+# deshalb hier, vor dem PR, mit demselben Befehl.
+#
+# Warum sie selbst mergt: die menschliche Entscheidung fällt an Gate 1 und ist
+# eingefroren; eine Gegenzeichnung hat BC3 nie verlangt. Das Signal an BC3
+# setzt CODEOWNERS (/contracts/bc2-to-bc3/ -> team-bc2, team-bc3).
+#
+# Scheitert der Zug (ein vorhandener Ordner weicht ab, eine Datei verletzt das
+# Schema, der Dienst antwortet nicht), endet der Lauf rot, ohne PR und ohne
+# Überschreiben. GitHub meldet den fehlgeschlagenen Lauf.
+#
+# Voraussetzungen, die nur ein Mensch erfüllt (DEPLOY.md, "Lieferung an BC3"):
+#   - Secret BC2_LIEFERUNG_TOKEN = derselbe Wert wie in der Server-.env
+#   - Einstellung "Allow GitHub Actions to create and approve pull requests"
+# Ohne Secret wird nichts gezogen, und der Lauf bleibt grün.
+
+on:
+  schedule:
+    - cron: "17,47 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: bc2-lieferung-ziehen
+  cancel-in-progress: false
+
+jobs:
+  ziehen:
+    name: Lieferungen ziehen, prüfen, mergen
+    runs-on: ubuntu-latest
+    env:
+      BC2_LIEFERUNG_TOKEN: ${{ secrets.BC2_LIEFERUNG_TOKEN }}
+      BC2_BASIS: ${{ vars.BC2_BASIS || 'https://bc2.02da.de' }}
+      ZIEL: contracts/bc2-to-bc3/lieferungen
+    steps:
+      - name: Schlüssel vorhanden?
+        id: schluessel
+        run: |
+          if [ -z "$BC2_LIEFERUNG_TOKEN" ]; then
+            echo "::notice::Secret BC2_LIEFERUNG_TOKEN fehlt - nichts gezogen."
+            echo "da=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "da=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.schluessel.outputs.da == 'true'
+
+      - uses: actions/setup-python@v5
+        if: steps.schluessel.outputs.da == 'true'
+        with:
+          python-version: "3.13"
+
+      # lieferung_ziehen.py braucht nur die Standardbibliothek, validate.py jsonschema.
+      - if: steps.schluessel.outputs.da == 'true'
+        run: pip install --quiet 'jsonschema>=4.0'
+
+      - name: Ziehen (lieferung_ziehen.py --von-url)
+        id: ziehen
+        if: steps.schluessel.outputs.da == 'true'
+        run: |
+          python bc2-strategic-advisor/tools/lieferung_ziehen.py --von-url "$BC2_BASIS"
+          neu=$(git ls-files --others --exclude-standard --directory -- "$ZIEL" \
+                | sed "s#^$ZIEL/##; s#/\$##" | tr '\n' ' ' | sed 's/ *$//')
+          echo "neu=$neu" >> "$GITHUB_OUTPUT"
+          echo "Neu gezogen: ${neu:-nichts}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Prüfen (validate.py)
+        if: steps.ziehen.outputs.neu != ''
+        run: python bc2-strategic-advisor/tools/validate.py
+
+      - name: Je Ordner ein PR, gemergt
+        if: steps.ziehen.outputs.neu != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NEU: ${{ steps.ziehen.outputs.neu }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for ordner in $NEU; do
+            zweig="lieferung/$ordner"
+            git fetch --quiet origin main
+            git switch --quiet -c "$zweig" origin/main
+            git add -- "$ZIEL/$ordner"
+            git commit --quiet -m "Lieferung an BC3: $ordner" \
+              -m "Automatisch gezogen und mit validate.py geprüft (#388, ADR-007 · BC2 §2.2)."
+            git push --quiet origin "$zweig"
+            url=$(gh pr create --base main --head "$zweig" \
+                    --title "Lieferung an BC3: $ordner" \
+                    --body-file "$ZIEL/$ordner/NACHRICHT_AN_BC3.md")
+            # Erst vom Zweig weg, dann mergen: sonst will gh lokal umschalten.
+            git switch --quiet --detach origin/main
+            gh pr merge "$url" --squash --delete-branch
+            echo "- [$ordner]($url)" >> "$GITHUB_STEP_SUMMARY"
+          done

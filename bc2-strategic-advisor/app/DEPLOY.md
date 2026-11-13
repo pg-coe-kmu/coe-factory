@@ -121,6 +121,10 @@ DOMAIN=bc2.02da.de
 ⚠️ **Port 5432, nicht 6543.** Der Transaction-Pooler hält keine Sitzung über die
 einzelne Anweisung hinaus.
 
+**Optional, für die Lieferung ohne Handgriff (#388):** `BC2_LIEFERUNG_TOKEN`, ein eigener, nur
+lesender Schlüssel für `GET /api/lieferungen` (siehe „Lieferung an BC3 ziehen“). Erzeugt wie in
+Schritt 4, **nie** derselbe Wert wie `BC2_TRIGGER_TOKEN`. Fehlt er, gibt es den Endpunkt nicht.
+
 **`BC2_LIEFERUNGEN` gibt es nicht mehr** (#306). Der Dienst schreibt keine Lieferdateien und
 legt die Präsentation nirgends ab; die Lieferung an BC3 wird aus Schema `bc2` gezogen (siehe
 „Lieferung an BC3 ziehen“ unten). Steht der Wert noch in einer `.env`, wird er ignoriert.
@@ -396,6 +400,38 @@ bc2.4 freigegebener Lauf ohne Akte erscheint dort erst, wenn er nachgetragen ist
 verlässt den Server nicht. Es schreibt nur **neue** Ordner; ein vorhandener, der jetzt anders
 herauskäme, bricht den ganzen Zug ab, bevor etwas geschrieben ist — eine übergebene Lieferung
 ändert sich nicht.
+
+### Ohne Handgriff: die Action nach Zeitplan (#388)
+
+`.github/workflows/bc2-lieferung-ziehen.yml` zieht alle 30 Minuten (und auf Handstart unter
+*Actions*) über `GET https://bc2.02da.de/api/lieferungen`, prüft mit `validate.py` und legt je
+neuem Ordner einen PR an, den sie selbst squash-mergt. `team-bc2` und `team-bc3` fordert
+CODEOWNERS als Reviewer an. Weicht ein vorhandener Ordner ab oder verletzt eine Datei das Schema,
+endet der Lauf rot, ohne PR (Nachtrag zu ADR-007 · BC2 §2.2 vom 13.11.2026).
+
+Einrichten, einmalig, nur durch einen Menschen. Der Schlüssel geht nicht durch einen Chat:
+
+```bash
+# 1. Auf dem Server: Schlüssel erzeugen und in die .env schreiben, Dienst neu anlegen
+ssh bc2
+cd /opt/bc2/bc2-strategic-advisor/app
+echo "BC2_LIEFERUNG_TOKEN=$(openssl rand -hex 32)" >> .env
+docker compose up -d app
+grep BC2_LIEFERUNG_TOKEN .env            # Wert für Schritt 2 kopieren
+
+# 2. Lokal: denselben Wert als Actions-Secret (fragt ihn verdeckt ab)
+gh secret set BC2_LIEFERUNG_TOKEN -R pg-coe-kmu/coe-factory
+
+# 3. Actions dürfen PRs anlegen (Repo-Einstellung, Admin)
+gh api -X PUT repos/pg-coe-kmu/coe-factory/actions/permissions/workflow \
+  -f default_workflow_permissions=read -F can_approve_pull_request_reviews=true
+
+# 4. Probe: Handstart, danach "Nichts Neues" oder ein gemergter Lieferungs-PR
+gh workflow run bc2-lieferung-ziehen.yml -R pg-coe-kmu/coe-factory
+```
+
+Von Hand geht es weiter wie oben, oder ohne ssh mit
+`BC2_LIEFERUNG_TOKEN=… python3 bc2-strategic-advisor/tools/lieferung_ziehen.py --von-url https://bc2.02da.de`.
 
 ## Aktualisieren
 

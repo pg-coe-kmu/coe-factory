@@ -6,18 +6,22 @@ Die Datenbank ist der eine Ort, der Lieferordner ihre Abbildung (ADR-007 · BC2,
 Nachtrag #305). **Seit #378 setzt dieses Werkzeug nichts mehr zusammen**
 (Nachtrag vom 13.11.2026): der Dienst friert beim Freigeben die Ergebnisakte
 ein, mit den fertigen Dateien an BC3, und hier werden die ``bc3``-Dateien der
-lieferbaren Akten nur abgeschrieben — Byte für Byte. Den PR öffnet ein Mensch,
-``validate.py`` prüft ihn in der CI (#253).
+lieferbaren Akten nur abgeschrieben — Byte für Byte. Den PR öffnet seit #388
+die Action ``bc2-lieferung-ziehen.yml`` nach Zeitplan; von Hand geht es weiter.
 
 Aus dem Repo-Wurzelverzeichnis::
 
     python3 bc2-strategic-advisor/tools/lieferung_ziehen.py            # über ssh bc2
     python3 bc2-strategic-advisor/tools/lieferung_ziehen.py --pruefen  # nur ansehen
     python3 bc2-strategic-advisor/tools/lieferung_ziehen.py --aus lieferungen.json
+    BC2_LIEFERUNG_TOKEN=… python3 bc2-strategic-advisor/tools/lieferung_ziehen.py \
+        --von-url https://bc2.02da.de
 
-Ohne ``--aus`` ruft es ``ssh bc2 docker exec app-app-1 python -m lieferung``; das
-liest im Betriebscontainer mit einer ``readonly``-Sitzung, die ``DATABASE_URL``
-verlässt den Server nicht (ADR-003).
+Ohne ``--aus`` und ``--von-url`` ruft es ``ssh bc2 docker exec app-app-1 python
+-m lieferung``; das liest im Betriebscontainer mit einer ``readonly``-Sitzung,
+die ``DATABASE_URL`` verlässt den Server nicht (ADR-003). ``--von-url`` holt
+dieselbe Ausgabe über ``GET /api/lieferungen``, mit dem eigenen, nur lesenden
+Schlüssel aus der Umgebung (#388) — so zieht die Action, ohne ssh.
 
 **Keine Markierung „geliefert“** (Nachtrag #305, Punkt 3). Jeder Zug schreibt
 alle lieferbaren Akten ab und hält sie gegen den Arbeitsbaum. Liegt ein Ordner
@@ -33,8 +37,11 @@ import base64
 import difflib
 import hashlib
 import json
+import os
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -42,6 +49,28 @@ BASE = Path(__file__).resolve().parents[2]
 LIEFERUNGEN = BASE / "contracts" / "bc2-to-bc3" / "lieferungen"
 
 SSH_AUFRUF = ["ssh", "bc2", "docker", "exec", "app-app-1", "python", "-m", "lieferung"]
+
+
+class QuelleNichtLesbar(RuntimeError):
+    """Der Endpunkt hat nicht geliefert — Schlüssel, Netz oder Dienst."""
+
+
+def von_url(basis: str) -> str:
+    """Die Ausgabe von ``python -m lieferung`` über ``GET /api/lieferungen`` (#388)."""
+    schluessel = (os.environ.get("BC2_LIEFERUNG_TOKEN") or "").strip()
+    if not schluessel:
+        raise QuelleNichtLesbar("BC2_LIEFERUNG_TOKEN ist nicht gesetzt")
+    anfrage = urllib.request.Request(
+        basis.rstrip("/") + "/api/lieferungen",
+        headers={"Authorization": f"Bearer {schluessel}", "Accept": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(anfrage, timeout=60) as antwort:
+            return antwort.read().decode("utf-8")
+    except urllib.error.HTTPError as e:
+        raise QuelleNichtLesbar(f"{e.code} von {anfrage.full_url}") from None
+    except urllib.error.URLError as e:
+        raise QuelleNichtLesbar(f"{anfrage.full_url} nicht erreichbar: {e.reason}") from None
 
 
 class PruefsummeFalsch(ValueError):
@@ -119,8 +148,11 @@ def ziehe(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[1])
-    parser.add_argument("--aus", type=Path,
+    quelle = parser.add_mutually_exclusive_group()
+    quelle.add_argument("--aus", type=Path,
                         help="Ausgabe von `python -m lieferung` aus einer Datei statt über ssh")
+    quelle.add_argument("--von-url", metavar="BASIS",
+                        help="über GET <BASIS>/api/lieferungen, Schlüssel aus BC2_LIEFERUNG_TOKEN")
     parser.add_argument("--ziel", type=Path, default=LIEFERUNGEN,
                         help="Lieferungen-Verzeichnis (Vorgabe: contracts/bc2-to-bc3/lieferungen)")
     parser.add_argument("--pruefen", action="store_true",
@@ -129,6 +161,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.aus:
         text = args.aus.read_text(encoding="utf-8")
+    elif args.von_url:
+        try:
+            text = von_url(args.von_url)
+        except QuelleNichtLesbar as e:
+            print(f"Abgebrochen, nichts geschrieben: {e}", file=sys.stderr)
+            return 1
     else:
         text = subprocess.run(SSH_AUFRUF, check=True, capture_output=True, text=True).stdout
     try:
