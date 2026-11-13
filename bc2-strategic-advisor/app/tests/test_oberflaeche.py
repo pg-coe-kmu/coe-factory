@@ -722,9 +722,12 @@ def _nachrechenbarer_lauf() -> Laufansicht:
     return replace(ansicht, ausgangslage=als_ausgangslage(_M(), [konzept]))
 
 
-def test_die_praesentation_wird_nirgends_abgelegt(buch, gate1_buch, kopf, tmp_path, monkeypatch):
+def test_die_praesentation_liegt_in_der_akte_nicht_im_dateisystem(
+    buch, gate1_buch, kopf, tmp_path, monkeypatch
+):
     """Sie geht an den Mandanten, nicht an BC3 (#305, Punkt 4): Download ja,
-    Lieferordner nein — auch nicht für einen lieferbaren Lauf."""
+    Lieferordner nein — auch nicht für einen lieferbaren Lauf. Abgelegt wird
+    sie seit #378 in der Ergebnisakte, nicht in einem Verzeichnis."""
     from fastapi.testclient import TestClient
 
     from app import erzeuge_app
@@ -739,6 +742,142 @@ def test_die_praesentation_wird_nirgends_abgelegt(buch, gate1_buch, kopf, tmp_pa
     assert antwort.status_code == 200
     assert "x-bc2-ablage" not in antwort.headers
     assert not any(tmp_path.iterdir())
+    assert gate1_buch.akte("PKT-2026-0042").praesentation == antwort.content
+
+
+# ---------------------------------------------------------------------------
+# Die Ergebnisakte (#378): eingefroren beim Freigeben, Link ohne Schlüssel
+# ---------------------------------------------------------------------------
+
+
+def _freigegeben(client, kopf) -> tuple[str, dict]:
+    lauf = ein_lauf(client, kopf)
+    pid = lauf["kopf"]["paket_id"]
+    antwort = sende(client, kopf, pid, alle_freigeben(lauf))
+    assert antwort.status_code == 200, antwort.text
+    return pid, antwort.json()
+
+
+def test_die_freigabe_friert_die_akte_ein(client, kopf, gate1_buch):
+    pid, rumpf = _freigegeben(client, kopf)
+
+    akte = gate1_buch.akte(pid)
+    assert akte is not None and akte.praesentation[:2] == b"PK"
+    uebersicht = rumpf["ergebnisakte"]
+    assert uebersicht["link"] == f"praesentation/{akte.link_token}"
+    assert uebersicht["eingefroren_am"]
+    assert {d["name"] for d in uebersicht["dateien"]} >= {"praesentation.pptx"}
+    # Und beim Laden des Laufs steht sie wieder da.
+    lauf = client.get(f"/api/oberflaeche/laeufe/{pid}", headers=kopf).json()
+    assert lauf["ergebnisakte"]["link"] == uebersicht["link"]
+
+
+def test_vor_der_freigabe_und_nach_ablehnung_gibt_es_keine_akte(client, kopf, gate1_buch):
+    lauf = ein_lauf(client, kopf)
+    pid = lauf["kopf"]["paket_id"]
+    assert "ergebnisakte" not in lauf
+    sende(client, kopf, pid, {"status": "rejected", "kommentar": "Zahlen unplausibel."})
+    assert gate1_buch.akte(pid) is None
+    assert "ergebnisakte" not in client.get(f"/api/oberflaeche/laeufe/{pid}", headers=kopf).json()
+
+
+def test_der_download_liefert_die_eingefrorene_datei(client, kopf, gate1_buch, monkeypatch):
+    """Nach der Freigabe wird nicht mehr gezeichnet (Nachtrag 13.11., Punkt 3)."""
+    import ergebnisakte
+
+    pid, _ = _freigegeben(client, kopf)
+
+    def nicht_zeichnen(*_a, **_k):
+        raise AssertionError("nach der Freigabe wird nicht neu gezeichnet")
+
+    import praesentation
+    import praesentation.folien
+
+    monkeypatch.setattr(ergebnisakte, "zeichne_praesentation", nicht_zeichnen)
+    monkeypatch.setattr(praesentation, "baue_praesentation", nicht_zeichnen)
+    monkeypatch.setattr(praesentation.folien, "baue_praesentation", nicht_zeichnen)
+    antwort = _praesentation(client, kopf, pid)
+    assert antwort.status_code == 200
+    assert antwort.content == gate1_buch.akte(pid).praesentation
+
+
+def test_scheitert_das_einfrieren_ist_gate1_nicht_freigegeben(client, kopf, gate1_buch, monkeypatch):
+    import oberflaeche
+
+    def kaputt(*_a, **_k):
+        raise RuntimeError("Folie 7 passt nicht")
+
+    monkeypatch.setattr(oberflaeche, "akte_einfrieren", kaputt)
+    lauf = ein_lauf(client, kopf)
+    pid = lauf["kopf"]["paket_id"]
+    antwort = sende(client, kopf, pid, alle_freigeben(lauf))
+
+    assert antwort.status_code == 500
+    assert "nicht freigegeben" in antwort.json()["fehler"]
+    assert "Folie 7 passt nicht" in antwort.json()["fehler"]
+    assert gate1_buch.lesen(pid) is None and gate1_buch.akte(pid) is None
+    gate1 = client.get(f"/api/oberflaeche/laeufe/{pid}", headers=kopf).json()["gate1"]
+    assert gate1["status"] == "pending"
+
+
+def test_scheitert_das_ablegen_der_akte_ist_gate1_nicht_freigegeben(client, kopf, gate1_buch):
+    gate1_buch.akten_antworten = False
+    lauf = ein_lauf(client, kopf)
+    pid = lauf["kopf"]["paket_id"]
+    antwort = sende(client, kopf, pid, alle_freigeben(lauf))
+
+    assert antwort.status_code == 503
+    assert "nicht freigegeben" in antwort.json()["fehler"]
+    assert gate1_buch.lesen(pid) is None
+
+    # Danach geht es wieder — die Entscheidung war ja nie abgelegt.
+    gate1_buch.akten_antworten = True
+    assert sende(client, kopf, pid, alle_freigeben(lauf)).status_code == 200
+
+
+def test_eine_freigabe_ohne_akte_bekommt_keine_neu_gezeichnete(client, kopf, gate1_buch):
+    """Vor bc2.4 freigegeben und nicht nachgetragen: 409 mit dem Weg, nicht eine
+    zweite Präsentation desselben Laufs."""
+    from gate1 import Gate1Entscheidung
+
+    lauf = ein_lauf(client, kopf)
+    pid = lauf["kopf"]["paket_id"]
+    gate1_buch.abgelegt[(pid, 1)] = Gate1Entscheidung(
+        paket_id=pid, company_id=lauf["kopf"]["company_id"], status="approved",
+        approved_potenzial_ids=tuple(e["potenzial_id"] for e in lauf["eintraege"]),
+    )
+    antwort = _praesentation(client, kopf, pid)
+    assert antwort.status_code == 409
+    assert "nachtragen" in antwort.json()["fehler"]
+
+
+def test_der_link_liefert_die_praesentation_ohne_schluessel(client, kopf, gate1_buch):
+    pid, rumpf = _freigegeben(client, kopf)
+
+    antwort = client.get("/" + rumpf["ergebnisakte"]["link"])  # kein Schlüssel
+
+    assert antwort.status_code == 200
+    assert antwort.content == gate1_buch.akte(pid).praesentation
+    assert antwort.headers["content-type"].startswith(
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation")
+    assert 'filename="praesentation.pptx"' in antwort.headers["content-disposition"]
+    assert "no-store" in antwort.headers["cache-control"]
+
+
+@pytest.mark.parametrize("token", ["unbekannt-aber-lang-genug-1234567890", "kurz", "a.b"])
+def test_ein_unbekannter_link_ist_404(client, token):
+    assert client.get(f"/praesentation/{token}").status_code == 404
+
+
+def test_ein_gesperrter_link_ist_404(client, kopf, gate1_buch):
+    pid, rumpf = _freigegeben(client, kopf)
+    assert gate1_buch.sperren(gate1_buch.akte(pid).link_token)
+
+    assert client.get("/" + rumpf["ergebnisakte"]["link"]).status_code == 404
+    # Der Download mit Schlüssel bleibt: gesperrt ist der Link, nicht die Akte.
+    assert _praesentation(client, kopf, pid).status_code == 200
+    lauf = client.get(f"/api/oberflaeche/laeufe/{pid}", headers=kopf).json()
+    assert lauf["ergebnisakte"]["link"] is None and lauf["ergebnisakte"]["link_gesperrt_am"]
 
 
 def test_die_seite_bringt_ihre_eigene_enge_policy_mit(client):

@@ -9,6 +9,15 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+# Die Vertragsschemas, nach denen die Ergebnisakte die Dateien an BC3 ordnet
+# (#378). Sie liegen ausserhalb von app/, also ausserhalb des Bau-Kontexts;
+# docker-compose.yml reicht sie als zweiten Kontext `vertrag` herein. Ein
+# blankes `docker build .` scheitert darum hier — gebaut wird mit
+# `docker compose build`. Kopiert statt eingehaengt: was die Lieferdatei
+# ordnet, gehoert zum Stand des Images, nicht zum Arbeitsbaum auf dem Server.
+COPY --from=vertrag priorisierung.schema.json konzept.schema.json /vertrag/
+ENV BC2_VERTRAG=/vertrag
+
 EXPOSE 8000
 
 # --proxy-headers: Hinter Caddy kaeme sonst bei jeder Anfrage nur Caddys IP an.

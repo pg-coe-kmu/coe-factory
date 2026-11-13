@@ -34,6 +34,12 @@ die **Garantien** gibt nur Postgres:
   erwartet. Das Schema gehört BC0, nicht BC2 — es kann sich ändern, ohne dass
   jemand BC2 fragt. Genau dafür ist dieser Test da.
 
+**Seit #378 die Ergebnisakte** (``migration_bc2.4_ergebnisakte.sql``): dass sie
+mit der Freigabe in einer Transaktion liegt oder beide nicht, dass eine Freigabe
+ohne Akte am COMMIT scheitert, dass Kopf und Dateien unveränderlich sind bis auf
+die Sperre des Links, dass die Kaskade vom Lauf sie trotzdem löscht, und dass
+``bc_leser`` die Sicht lesen darf.
+
 **Seit #290 dazu Schema ``bc2`` selbst** (``migration_bc2.2_lauf.sql``,
 ADR-008 · BC2): dass die Datenbank die Fassung vergibt, höchstens einen offenen
 Lauf je Paket zulässt, das Ergebnis nicht mehr umschreiben lässt und eine
@@ -302,6 +308,20 @@ def _entscheidung(ansicht, status: str):
     )
 
 
+def _merken(gate1_buch, ansicht, status: str):
+    """Entscheiden wie die Oberfläche: bei ``approved`` mit eingefrorener Akte (#378)."""
+    from ablage import PostgresErgebnisbuch
+    from ergebnisakte import akte_einfrieren
+
+    e = _entscheidung(ansicht, status)
+    akte = None
+    if status == "approved":
+        abgelegt = PostgresErgebnisbuch().letzter(ansicht.kopf.paket_id)
+        akte = akte_einfrieren(ansicht, e, abgelegt=abgelegt)
+    gate1_buch.merken(e, akte=akte)
+    return e
+
+
 def test_migration_bc2_2_ist_gelaufen():
     with _db() as conn, conn.cursor() as cur:
         for objekt in ("bc2.lauf", "bc2.konzept", "bc2.potenzial", "bc2.gate1",
@@ -332,28 +352,26 @@ def test_sperrgrund_und_hinweise_liegen_getrennt(quelle, ergebnisse, gate1_buch,
     assert abgelegt.sperrgrund is None and abgelegt.hinweise == ("Vertragstest.",)
     assert test_paket_id not in ergebnisse.geliefert(), "noch nicht freigegeben"
 
-    gate1_buch.merken(_entscheidung(a, "approved"))
+    _merken(gate1_buch, a, "approved")
     assert test_paket_id in ergebnisse.geliefert()
 
 
 def test_die_lieferung_liest_nur(quelle, gate1_buch, test_paket_id):
     """``python -m lieferung`` läuft gegen die gemeinsame Datenbank — lesend."""
+    import json
+
     import psycopg2
 
-    from ablage import PostgresErgebnisbuch
+    from gate1 import PostgresGate1Buch
     from lieferung import lieferungen
 
     a = quelle.ansicht(test_paket_id)
-    gate1_buch.merken(_entscheidung(a, "approved"))
-    lesend = PostgresErgebnisbuch(nur_lesen=True)
-    from gate1 import PostgresGate1Buch
+    _merken(gate1_buch, a, "approved")
+    lesend = PostgresGate1Buch(nur_lesen=True)
 
-    gefunden = {
-        l.priorisierung["paket_id"]: l
-        for l in lieferungen(lesend, PostgresGate1Buch(nur_lesen=True))
-    }
+    gefunden = {l.paket_id: l for l in lieferungen(lesend)}
     l = gefunden[test_paket_id]
-    assert l.priorisierung["gate1"]["status"] == "approved"
+    assert json.loads(l.dateien["prozesspriorisierung.json"])["gate1"]["status"] == "approved"
     assert l.ordner.endswith(f"-{test_paket_id}-f1")
     with pytest.raises(psycopg2.errors.ReadOnlySqlTransaction):
         with lesend._verbindung() as conn, conn.cursor() as cur:
@@ -390,7 +408,7 @@ def test_die_fassung_ist_je_paket_eindeutig(quelle, gate1_buch, test_paket_id):
     """Auch ohne den partiellen Index: zwei gleiche Nummern lässt UNIQUE nicht zu."""
     import psycopg2
 
-    gate1_buch.merken(_entscheidung(quelle.ansicht(test_paket_id), "rejected"))
+    _merken(gate1_buch, quelle.ansicht(test_paket_id), "rejected")
     with pytest.raises(psycopg2.errors.UniqueViolation):
         with _db() as conn, conn.cursor() as cur:
             cur.execute(
@@ -419,8 +437,7 @@ def test_gate1_uebersteht_den_neustart(quelle, gate1_buch, test_paket_id):
     from gate1 import PostgresGate1Buch
 
     ansicht = quelle.ansicht(test_paket_id)
-    entscheidung = _entscheidung(ansicht, "approved")
-    gate1_buch.merken(entscheidung)
+    entscheidung = _merken(gate1_buch, ansicht, "approved")
 
     gelesen = PostgresGate1Buch().lesen(test_paket_id, 1)
     assert gelesen is not None
@@ -439,9 +456,9 @@ def test_nach_abschluss_ist_gate1_ein_konflikt(quelle, gate1_buch, test_paket_id
     from gate1 import Gate1Konflikt
 
     ansicht = quelle.ansicht(test_paket_id)
-    gate1_buch.merken(_entscheidung(ansicht, "approved"))
+    _merken(gate1_buch, ansicht, "approved")
     with pytest.raises(Gate1Konflikt):
-        gate1_buch.merken(_entscheidung(ansicht, "rejected"))
+        _merken(gate1_buch, ansicht, "rejected")
 
     # Und am Anwendungscode vorbei: der Trigger hält die Entscheidung fest.
     with pytest.raises(psycopg2.errors.CheckViolation):
@@ -461,20 +478,20 @@ def test_neulauf_nur_nach_reject(quelle, ergebnisse, gate1_buch, test_paket_id):
     with pytest.raises(NeulaufNichtErlaubt):
         quelle.neu_rechnen(test_paket_id)
 
-    gate1_buch.merken(_entscheidung(f1, "rejected"))
+    _merken(gate1_buch, f1, "rejected")
     f2 = quelle.neu_rechnen(test_paket_id)
     assert f2.kopf.fassung == 2
 
     vorige = {k["kontext"]["kp_id"]: k["konzept_id"]
               for k in ergebnisse.letzter(test_paket_id).konzepte}
     assert all(vorige.values())
-    gate1_buch.merken(_entscheidung(f2, "approved"))
+    _merken(gate1_buch, f2, "approved")
     with pytest.raises(NeulaufNichtErlaubt):
         quelle.neu_rechnen(test_paket_id)
 
 
 def test_die_sicht_fuer_bc0_zeigt_die_juengste_fassung(quelle, gate1_buch, test_paket_id):
-    gate1_buch.merken(_entscheidung(quelle.ansicht(test_paket_id), "rejected"))
+    _merken(gate1_buch, quelle.ansicht(test_paket_id), "rejected")
     quelle.neu_rechnen(test_paket_id)
 
     with _db() as conn, conn.cursor() as cur:
@@ -509,7 +526,7 @@ def test_vorgaenger_kandidaten_brechen_den_lauf_ab(ergebnisse, gate1_buch, quell
     from laeufe import SpeicherLaufquelle
 
     a = quelle.ansicht(test_paket_id)
-    gate1_buch.merken(_entscheidung(a, "approved"))
+    _merken(gate1_buch, a, "approved")
 
     zweites = f"{test_paket_id}-B"
     b_quelle = AblegendeLaufquelle(
@@ -557,7 +574,7 @@ def test_die_kette_ueber_pakete_gegen_die_echte_abfrage(ergebnisse, gate1_buch, 
     from nachfolge import Ausgang, Nachfolge
 
     a = quelle.ansicht(test_paket_id)
-    gate1_buch.merken(_entscheidung(a, "approved"))
+    _merken(gate1_buch, a, "approved")
     company = a.kopf.company_id
     tps = list(a.kopf.teilprozess_ids)
     zweites, drittes = f"{test_paket_id}-B", f"{test_paket_id}-C"
@@ -574,7 +591,9 @@ def test_die_kette_ueber_pakete_gegen_die_echte_abfrage(ergebnisse, gate1_buch, 
     b, neu = _neu_verschluesselt(a, zweites)
     ausgaenge = [Ausgang(erster, "gestrichen", begruendung="Faellt nach der Nacherhebung weg.")]
     ausgaenge += [Ausgang(alt, "fortgeschrieben", neu[alt]) for alt in a.potenzial_ids()[1:]]
-    b = replace(b, ausgangslage={"unternehmen": {"name": None}},
+    b = replace(b, ausgangslage={"unternehmen": {
+                    "name": None, "branche": None, "mitarbeitende": None, "region": None,
+                    "geschaeftsmodell": None}, "herausforderungen": []},
                  nachfolge=Nachfolge(tuple(kandidaten), tuple(ausgaenge)))
     gerechnet_b = AblegendeLaufquelle(SpeicherLaufquelle([b]), ergebnisse).ansicht(zweites)
     assert gerechnet_b.gestrichene_potenziale[0]["potenzial_id"] == erster
@@ -591,7 +610,202 @@ def test_die_kette_ueber_pakete_gegen_die_echte_abfrage(ergebnisse, gate1_buch, 
     assert {k.potenzial_id for k in ergebnisse.kandidaten(company, drittes, tps)} == set(
         a.potenzial_ids()
     ), "B ist noch nicht freigegeben"
-    gate1_buch.merken(_entscheidung(gerechnet_b, "approved"))
+    _merken(gate1_buch, gerechnet_b, "approved")
     assert {k.potenzial_id for k in ergebnisse.kandidaten(company, drittes, tps)} == set(
         neu.values()
     )
+
+
+# ---------------------------------------------- Die Ergebnisakte (#378, bc2.4)
+
+
+def _akte_zum(quelle, gate1_buch, test_paket_id):
+    """Ein freigegebener TEST-Lauf samt Akte; gibt Ansicht, Entscheidung, Akte."""
+    a = quelle.ansicht(test_paket_id)
+    e = _merken(gate1_buch, a, "approved")
+    return a, e, gate1_buch.akte(test_paket_id, 1)
+
+
+def _pid(test_paket_id) -> str:
+    with _db() as conn, conn.cursor() as cur:
+        cur.execute("SELECT priorisierung_id FROM bc2.lauf WHERE paket_id = %s", (test_paket_id,))
+        return cur.fetchone()[0]
+
+
+def test_migration_bc2_4_ist_gelaufen():
+    with _db() as conn, conn.cursor() as cur:
+        for objekt in ("bc2.ergebnisakte", "bc2.ergebnisakte_datei", "bc2.v_ergebnisakte"):
+            cur.execute("SELECT to_regclass(%s)", (objekt,))
+            assert cur.fetchone()[0] is not None, (
+                f"{objekt} fehlt. migration_bc2.4_ergebnisakte.sql einspielen."
+            )
+        cur.execute("SELECT 1 FROM pg_trigger WHERE tgname = 'gate1_freigabe_mit_akte'")
+        assert cur.fetchone() is not None
+
+
+def test_freigabe_und_akte_liegen_zusammen(quelle, gate1_buch, test_paket_id):
+    """Eine neue Instanz liest Byte für Byte, was beim Freigeben eingefroren wurde."""
+    import hashlib
+
+    from gate1 import PostgresGate1Buch
+
+    _, _, akte = _akte_zum(quelle, gate1_buch, test_paket_id)
+    gelesen = PostgresGate1Buch().akte(test_paket_id, 1)
+
+    assert gelesen is not None and gelesen.eingefroren_am is not None
+    assert {d.name: d.inhalt for d in gelesen.dateien} == {d.name: d.inhalt for d in akte.dateien}
+    assert all(d.pruefsumme == hashlib.sha256(d.inhalt).hexdigest() for d in gelesen.dateien)
+    assert PostgresGate1Buch().praesentation_zum_token(akte.link_token) == akte.praesentation
+
+    with _db() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT name, empfaenger, lieferbar, link_pfad, dokument -> 'gate1' ->> 'status' "
+            "FROM bc2.v_ergebnisakte WHERE paket_id = %s ORDER BY name", (test_paket_id,)
+        )
+        zeilen = cur.fetchall()
+    assert {z[0] for z in zeilen} == {d.name for d in akte.dateien}
+    assert all(z[2] is True and z[3] == f"/praesentation/{akte.link_token}" for z in zeilen)
+    assert dict((z[0], z[4]) for z in zeilen)["prozesspriorisierung.json"] == "approved"
+
+
+def test_scheitert_die_akte_gilt_die_freigabe_nicht(quelle, ergebnisse, gate1_buch, test_paket_id):
+    """Die Transaktion aus Nachtrag 13.11., Punkt 1: eine Datei, die die Datenbank
+    abweist, nimmt die Freigabe mit."""
+    from dataclasses import replace
+
+    import psycopg2
+
+    from ergebnisakte import Aktendatei, akte_einfrieren
+
+    a = quelle.ansicht(test_paket_id)
+    e = _entscheidung(a, "approved")
+    akte = akte_einfrieren(a, e, abgelegt=ergebnisse.letzter(test_paket_id))
+    kaputt = replace(akte, dateien=akte.dateien + (Aktendatei("../boese.md", "bc3", b"x"),))
+
+    with pytest.raises(psycopg2.errors.CheckViolation):
+        gate1_buch.merken(e, akte=kaputt)
+
+    assert gate1_buch.lesen(test_paket_id, 1) is None
+    assert gate1_buch.akte(test_paket_id, 1) is None
+    assert ergebnisse.letzter(test_paket_id).beleg.zustand == "offen"
+    gate1_buch.merken(e, akte=akte)  # mit einer heilen Akte geht es
+    assert gate1_buch.lesen(test_paket_id, 1).status == "approved"
+
+
+def test_eine_freigabe_ohne_akte_scheitert_am_commit(quelle, gate1_buch, test_paket_id):
+    """Am Anwendungscode vorbei: der Constraint-Trigger prüft am Ende der Transaktion."""
+    import psycopg2
+
+    quelle.ansicht(test_paket_id)
+    pid = _pid(test_paket_id)
+    with pytest.raises(psycopg2.errors.CheckViolation, match="ohne Ergebnisakte"):
+        with _db() as conn, conn.cursor() as cur:
+            cur.execute("INSERT INTO bc2.gate1 (priorisierung_id, status, entschieden_am) "
+                        "VALUES (%s, 'approved', now())", (pid,))
+    assert gate1_buch.lesen(test_paket_id, 1) is None
+    # Eine Ablehnung braucht keine Akte.
+    _merken(gate1_buch, quelle.ansicht(test_paket_id), "rejected")
+    assert gate1_buch.lesen(test_paket_id, 1).status == "rejected"
+
+
+def test_eine_akte_gibt_es_nur_zu_einer_freigabe(quelle, ergebnisse, gate1_buch, test_paket_id):
+    """Der Einfüge-Trigger: kein Kopf ohne ``approved``, keine BC3-Datei bei Sperrgrund."""
+    from dataclasses import replace
+
+    import psycopg2
+
+    from ergebnisakte import akte_einfrieren
+
+    a = quelle.ansicht(test_paket_id)
+    akte = akte_einfrieren(a, _entscheidung(a, "approved"), abgelegt=ergebnisse.letzter(test_paket_id))
+    with pytest.raises(psycopg2.errors.CheckViolation, match="nicht freigegeben"):
+        gate1_buch.nachtragen(akte)
+
+    a, e, akte = _akte_zum(quelle, gate1_buch, test_paket_id)
+    with _db() as conn, conn.cursor() as cur:
+        cur.execute("DELETE FROM bc2.ergebnisakte WHERE paket_id = %s", (test_paket_id,))
+    with pytest.raises(psycopg2.errors.CheckViolation, match="Sperrgrund"):
+        gate1_buch.nachtragen(replace(akte, sperrgrund="Gesperrt im Vertragstest."))
+
+
+def test_die_akte_ist_unveraenderlich_bis_auf_die_sperre(quelle, gate1_buch, test_paket_id):
+    import psycopg2
+
+    _, _, akte = _akte_zum(quelle, gate1_buch, test_paket_id)
+    pid = _pid(test_paket_id)
+    for anweisung in (
+        "UPDATE bc2.ergebnisakte SET ordner = 'anders' WHERE priorisierung_id = %s",
+        "UPDATE bc2.ergebnisakte SET vermerk = 'nachgeschoben' WHERE priorisierung_id = %s",
+        "UPDATE bc2.ergebnisakte_datei SET inhalt = 'x'::bytea, pruefsumme = encode(sha256('x'::bytea), 'hex') "
+        "WHERE priorisierung_id = %s",
+        "DELETE FROM bc2.ergebnisakte_datei WHERE priorisierung_id = %s AND name = 'praesentation.pptx'",
+        "INSERT INTO bc2.ergebnisakte_datei (priorisierung_id, name, empfaenger, inhalt, pruefsumme) "
+        "VALUES (%s, 'spaeter.md', 'mandant', 'x'::bytea, encode(sha256('x'::bytea), 'hex'))",
+    ):
+        with pytest.raises(psycopg2.errors.CheckViolation):
+            with _db() as conn, conn.cursor() as cur:
+                cur.execute(anweisung, (pid,))
+
+    # Die Prüfsumme hält die Datenbank selbst.
+    with pytest.raises(psycopg2.errors.CheckViolation):
+        with _db() as conn, conn.cursor() as cur:
+            cur.execute("INSERT INTO bc2.ergebnisakte_datei VALUES (%s, 'x.md', 'mandant', "
+                        "'x'::bytea, 'falsch')", (pid,))
+
+    # Die eine Ausnahme: die Sperre des Links.
+    assert gate1_buch.sperren(akte.link_token) is True
+    assert gate1_buch.praesentation_zum_token(akte.link_token) is None
+    assert gate1_buch.sperren(akte.link_token) is False
+    with _db() as conn, conn.cursor() as cur:
+        cur.execute("SELECT DISTINCT link_pfad FROM bc2.v_ergebnisakte WHERE paket_id = %s",
+                    (test_paket_id,))
+        assert cur.fetchall() == [(None,)]
+    assert gate1_buch.akte(test_paket_id, 1).praesentation == akte.praesentation
+
+
+def test_kein_loeschschutz_die_kaskade_vom_lauf_nimmt_die_akte_mit(quelle, gate1_buch, test_paket_id):
+    _akte_zum(quelle, gate1_buch, test_paket_id)
+    pid = _pid(test_paket_id)
+    with _db() as conn, conn.cursor() as cur:
+        cur.execute("DELETE FROM bc2.lauf WHERE priorisierung_id = %s", (pid,))
+        cur.execute("SELECT count(*) FROM bc2.ergebnisakte_datei WHERE priorisierung_id = %s", (pid,))
+        assert cur.fetchone()[0] == 0
+        cur.execute("SELECT count(*) FROM bc2.ergebnisakte WHERE priorisierung_id = %s", (pid,))
+        assert cur.fetchone()[0] == 0
+
+
+def test_nachtragen_gegen_echtes_sql_ist_byte_gleich(quelle, gate1_buch, test_paket_id):
+    """Punkt 6 im Kleinen: Akte weg, Freigabe bleibt — nachträglich eingefroren
+    kommt dieselbe Lieferung heraus, nach der Rundreise durch ``timestamptz`` und
+    ``jsonb``. Genau das muss beim Ausrollen für ``cc7f4d1b`` (f1) gelten."""
+    from ablage import PostgresErgebnisbuch
+    from ergebnisakte import NachtragNichtMoeglich, nachtragen
+    from gate1 import PostgresGate1Buch
+
+    _, _, vorher = _akte_zum(quelle, gate1_buch, test_paket_id)
+    with _db() as conn, conn.cursor() as cur:
+        cur.execute("DELETE FROM bc2.ergebnisakte WHERE paket_id = %s", (test_paket_id,))
+    assert gate1_buch.akte(test_paket_id, 1) is None
+    assert test_paket_id in {z["paket_id"] for z in PostgresGate1Buch(nur_lesen=True).ohne_akte()}
+
+    trocken = nachtragen(PostgresErgebnisbuch(nur_lesen=True), PostgresGate1Buch(nur_lesen=True),
+                         test_paket_id, vermerk="Vertragstest, trocken.", trocken=True)
+    assert gate1_buch.akte(test_paket_id, 1) is None
+    nachtragen(PostgresErgebnisbuch(), gate1_buch, test_paket_id, vermerk="Vertragstest.")
+
+    nachher = gate1_buch.akte(test_paket_id, 1)
+    assert nachher.vermerk == "Vertragstest."
+    bc3 = {d.name: d.inhalt for d in vorher.fuer("bc3")}
+    assert {d.name: d.inhalt for d in nachher.fuer("bc3")} == bc3
+    assert {d.name: d.inhalt for d in trocken.fuer("bc3")} == bc3
+    with pytest.raises(NachtragNichtMoeglich, match="schon eine Ergebnisakte"):
+        nachtragen(PostgresErgebnisbuch(), gate1_buch, test_paket_id, vermerk="Zweites Mal.")
+
+
+def test_die_sicht_ergebnisakte_ist_fuer_bc_leser_freigegeben():
+    with _db() as conn, conn.cursor() as cur:
+        cur.execute("SELECT 1 FROM pg_roles WHERE rolname = 'bc_leser'")
+        if cur.fetchone() is None:
+            pytest.skip("Rolle bc_leser gibt es in dieser Datenbank nicht.")
+        cur.execute("SELECT has_table_privilege('bc_leser', 'bc2.v_ergebnisakte', 'SELECT')")
+        assert cur.fetchone()[0] is True

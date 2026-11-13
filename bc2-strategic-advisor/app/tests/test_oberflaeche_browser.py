@@ -354,6 +354,26 @@ def test_nach_der_freigabe_laesst_sich_die_praesentation_herunterladen(seite_mit
     assert "liegt nicht im Lieferordner" in seite.locator("#meldung").inner_text()
 
 
+def test_nach_der_freigabe_steht_der_link_fuer_den_mandanten_da(seite_mit_ablage):
+    """Die Ergebnisakte (#378): der Link liefert die eingefrorene Präsentation,
+    ohne den Schlüssel der Oberfläche — und nach dem Neuladen steht er wieder da."""
+    seite = seite_mit_ablage
+    assert seite.locator("[data-link]").count() == 0
+    seite.fill("input[data-entscheider]", "S. Morazan")
+    seite.locator('[data-tat="approved"]').click()
+    seite.wait_for_selector("[data-link]", timeout=5000)
+    adresse = seite.locator("[data-link]").get_attribute("href")
+    assert "/praesentation/" in adresse
+
+    # Ohne Schlüssel, wie der Mandant ihn öffnet: ein eigener Anfragekontext.
+    antwort = seite.context.request.get(adresse)
+    assert antwort.status == 200 and antwort.body()[:2] == b"PK"
+
+    seite.reload()
+    seite.wait_for_selector("[data-link]", timeout=5000)
+    assert seite.locator("[data-link]").get_attribute("href") == adresse
+
+
 def test_der_kommentar_geht_mit_der_freigabe_und_steht_danach_da(seite_mit_ablage):
     """Ein freiwilliger Kommentar neben „Entscheider“ (#377).
 

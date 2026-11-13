@@ -28,13 +28,23 @@ Code:
 
 Der Doppelgänger zieht beide Regeln mit; die Garantie gegen zwei gleichzeitige
 Schreiber gibt trotzdem nur die Datenbank (``tests/test_vertrag_postgres.py``).
+
+**Seit #378 friert eine Freigabe die Ergebnisakte ein**, in derselben
+Transaktion (``ergebnisakte.py``, ``migration_bc2.4_ergebnisakte.sql``):
+``merken`` nimmt bei ``approved`` die Akte mit und schreibt beides oder nichts.
+Eine Freigabe ohne Akte nimmt es nicht an, und die Datenbank prüft dasselbe noch
+einmal am Ende der Transaktion. Darum liegen hier auch die Lesewege der Akte —
+sie gehört zur Freigabe wie die Begründungen.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Protocol
+
+import ergebnisakte as akten
+from ergebnisakte import AkteFehlt, Ergebnisakte
 
 if TYPE_CHECKING:  # nur für die Signatur; ablage.py importiert gate1 nicht
     from ablage import SpeicherErgebnisbuch
@@ -254,18 +264,44 @@ def pruefe(
 class Gate1Buch(Protocol):
     """Was die Oberfläche von ihrer Ablage braucht — mehr nicht."""
 
-    def merken(self, entscheidung: Gate1Entscheidung) -> None:
+    def merken(self, entscheidung: Gate1Entscheidung, akte: Ergebnisakte | None = None) -> None:
         """Legt die Entscheidung über den Lauf ``(paket_id, fassung)`` ab.
 
         Solange sie ``pending`` ist, ersetzt eine neue die alte. Ist sie
         ``approved`` oder ``rejected``, wirft jedes weitere ``merken``
         ``Gate1Konflikt``. Die Geschichte des Pendelns trägt die **Fassung**
         (ADR-007 · BC2, 2.3), nicht ein Überschreiben.
+
+        Bei ``approved`` gehört die **Ergebnisakte** dazu (#378), geschrieben
+        in derselben Transaktion; ohne sie ``AkteFehlt``, und scheitert ihr
+        Schreiben, liegt auch die Freigabe nicht.
         """
         ...
 
     def lesen(self, paket_id: str, fassung: int = 1) -> Gate1Entscheidung | None:
         """Die Entscheidung zu diesem Lauf, oder ``None``."""
+        ...
+
+    def akte(self, paket_id: str, fassung: int = 1) -> Ergebnisakte | None:
+        """Die Ergebnisakte dieses Laufs, oder ``None`` (nicht freigegeben, oder
+        freigegeben vor bc2.4 und noch nicht nachgetragen)."""
+        ...
+
+    def praesentation_zum_token(self, token: str) -> bytes | None:
+        """Die Präsentation hinter einem Link — ``None`` bei unbekanntem oder
+        gesperrtem Token."""
+        ...
+
+    def lieferbare_akten(self) -> list[Ergebnisakte]:
+        """Die Akten freigegebener Läufe ohne Sperrgrund, nach ``paket_id``."""
+        ...
+
+    def nachtragen(self, akte: Ergebnisakte) -> None:
+        """Friert einen schon freigegebenen Lauf nachträglich ein (#378, Punkt 6)."""
+        ...
+
+    def sperren(self, token: str) -> bool:
+        """Sperrt den Link. ``False``: kein ungesperrter Link mit diesem Token."""
         ...
 
 
@@ -277,16 +313,33 @@ class SpeicherGate1Buch:
     schließt er dort den Lauf ab, wie es ``PostgresGate1Buch`` in derselben
     Transaktion tut — sonst wüsste das Ergebnisbuch nicht, dass nach einem
     Reject eine neue Fassung zulässig ist.
+
+    Die Ergebnisakte ahmt er so nach, wie die Datenbank sie hält: Freigabe und
+    Akte liegen beide oder keine, und ``akten_antworten=False`` lässt das
+    Schreiben der Akte scheitern (Testfall).
     """
 
     abgelegt: dict[tuple[str, int], Gate1Entscheidung] = field(default_factory=dict)
     ergebnisse: SpeicherErgebnisbuch | None = None
+    akten: dict[tuple[str, int], Ergebnisakte] = field(default_factory=dict)
+    akten_antworten: bool = True
 
-    def merken(self, entscheidung: Gate1Entscheidung) -> None:
+    def _akte_ablegen(self, akte: Ergebnisakte) -> None:
+        if not self.akten_antworten:
+            raise RuntimeError("Ablage der Ergebnisakte antwortet nicht (Testfall).")
+        schluessel = (akte.paket_id, akte.fassung)
+        if schluessel in self.akten:
+            raise akten.AkteUngueltig(f"{akte.paket_id} f{akte.fassung} hat schon eine Akte.")
+        self.akten[schluessel] = replace(akte, eingefroren_am=jetzt())
+
+    def merken(self, entscheidung: Gate1Entscheidung, akte: Ergebnisakte | None = None) -> None:
         schluessel = (entscheidung.paket_id, entscheidung.fassung)
         bisher = self.abgelegt.get(schluessel)
         if bisher is not None and bisher.status in ENDGUELTIG:
             raise Gate1Konflikt(entscheidung.paket_id, entscheidung.fassung, bisher.status)
+        _akte_passt(entscheidung, akte)
+        if akte is not None:
+            self._akte_ablegen(akte)  # zuerst: scheitert sie, liegt auch die Freigabe nicht
         self.abgelegt[schluessel] = entscheidung
         if self.ergebnisse is not None:
             self.ergebnisse.abschliessen(
@@ -295,6 +348,48 @@ class SpeicherGate1Buch:
 
     def lesen(self, paket_id: str, fassung: int = 1) -> Gate1Entscheidung | None:
         return self.abgelegt.get((paket_id, fassung))
+
+    def akte(self, paket_id: str, fassung: int = 1) -> Ergebnisakte | None:
+        return self.akten.get((paket_id, fassung))
+
+    def praesentation_zum_token(self, token: str) -> bytes | None:
+        for a in self.akten.values():
+            if a.link_token == token and a.link_gesperrt_am is None:
+                return a.praesentation
+        return None
+
+    def lieferbare_akten(self) -> list[Ergebnisakte]:
+        return sorted(
+            (a for a in self.akten.values() if a.lieferbar),
+            key=lambda a: (a.paket_id, a.fassung),
+        )
+
+    def nachtragen(self, akte: Ergebnisakte) -> None:
+        entscheidung = self.lesen(akte.paket_id, akte.fassung)
+        if entscheidung is None or entscheidung.status != "approved":
+            raise akten.AkteUngueltig(
+                f"{akte.paket_id} f{akte.fassung} ist an Gate 1 nicht freigegeben."
+            )
+        akten.pruefe(akte, entscheidung)
+        self._akte_ablegen(akte)
+
+    def sperren(self, token: str) -> bool:
+        for schluessel, a in self.akten.items():
+            if a.link_token == token and a.link_gesperrt_am is None:
+                self.akten[schluessel] = replace(a, link_gesperrt_am=jetzt())
+                return True
+        return False
+
+
+def _akte_passt(entscheidung: Gate1Entscheidung, akte: Ergebnisakte | None) -> None:
+    """Bei ``approved`` gehört eine Akte dazu, sonst keine — für beide Ablagen."""
+    if entscheidung.status == "approved" and akte is None:
+        raise AkteFehlt(
+            f"Gate 1 fuer {entscheidung.paket_id} (Fassung {entscheidung.fassung}): eine "
+            "Freigabe ohne Ergebnisakte gilt nicht (#376)."
+        )
+    if akte is not None:
+        akten.pruefe(akte, entscheidung)
 
 
 # ----------------------------------------------------------------------------
@@ -408,6 +503,35 @@ def zeilen_aus(entscheidung: Gate1Entscheidung) -> tuple[list[dict], list[dict]]
     return potenziale, prozesse
 
 
+def wie_abgelegt(entscheidung: Gate1Entscheidung) -> Gate1Entscheidung:
+    """Die Entscheidung so, wie sie aus Schema ``bc2`` zurückkommt (#378).
+
+    ``PostgresGate1Buch.lesen`` setzt sie aus den Rang-Zeilen zusammen: die
+    Potenziale nach gesetztem Rang, ohne Rang nach Kennung, und der Zeitpunkt in
+    der Zone der Sitzung. Die Oberfläche schickt die Kennungen dagegen in ihrer
+    eigenen Folge. Für den Vertrag ist beides dasselbe, für die Bytes nicht —
+    und die Ergebnisakte muss gleich ausfallen, ob sie beim Freigeben entsteht
+    oder nachträglich aus der Datenbank (Punkt 6, ``cc7f4d1b``). Darum friert sie
+    diese Form ein, mit dem Zeitpunkt in UTC.
+    """
+    potenziale, _ = zeilen_aus(entscheidung)
+    reihe = sorted(
+        potenziale,
+        key=lambda z: (z["finaler_rang"] is None, z["finaler_rang"] or 0, z["potenzial_id"]),
+    )
+    am = entscheidung.entschieden_am
+    return replace(
+        entscheidung,
+        approved_potenzial_ids=tuple(z["potenzial_id"] for z in reihe if z["freigegeben"] is True),
+        nicht_freigegeben=tuple(
+            NichtFreigegeben(z["potenzial_id"], z["begruendung"] or "")
+            for z in reihe
+            if z["freigegeben"] is False
+        ),
+        entschieden_am=am.astimezone(timezone.utc) if am is not None else None,
+    )
+
+
 class PostgresGate1Buch:
     """Gate 1 in Schema ``bc2``. Verbindet je Vorgang neu, wie die anderen Ablagen.
 
@@ -434,9 +558,10 @@ class PostgresGate1Buch:
             conn.set_session(readonly=True)
         return conn
 
-    def merken(self, entscheidung: Gate1Entscheidung) -> None:
+    def merken(self, entscheidung: Gate1Entscheidung, akte: Ergebnisakte | None = None) -> None:
         import psycopg2.extras
 
+        _akte_passt(entscheidung, akte)
         potenziale, prozesse = zeilen_aus(entscheidung)
         with self._verbindung() as conn, conn.cursor(
             cursor_factory=psycopg2.extras.RealDictCursor
@@ -474,6 +599,12 @@ class PostgresGate1Buch:
             )
             if entscheidung.status in ENDGUELTIG:
                 cur.execute(_SQL_ABSCHLIESSEN, pid)
+            # Zuletzt die Akte: ihr Einfüge-Trigger verlangt die Freigabe, die eben
+            # geschrieben ist. Scheitert sie, rollt der ``with``-Block alles zurück,
+            # auch ``approved`` — und ohne sie scheitert das COMMIT am
+            # Constraint-Trigger ``gate1_freigabe_mit_akte`` (bc2.4).
+            if akte is not None:
+                akten.schreiben(cur, lauf["priorisierung_id"], akte)
 
     def lesen(self, paket_id: str, fassung: int = 1) -> Gate1Entscheidung | None:
         import psycopg2.extras
@@ -518,6 +649,61 @@ class PostgresGate1Buch:
             kommentar=kopf["kommentar"] or "",
             entschieden_am=kopf["entschieden_am"],
         )
+
+
+    # --- Die Ergebnisakte (#378) --------------------------------------------
+
+    def akte(self, paket_id: str, fassung: int = 1) -> Ergebnisakte | None:
+        import psycopg2.extras
+
+        with self._verbindung() as conn, conn.cursor(
+            cursor_factory=psycopg2.extras.RealDictCursor
+        ) as cur:
+            cur.execute(akten.SQL_AKTE_ZUM_LAUF, {"paket_id": paket_id, "fassung": fassung})
+            kopf = cur.fetchone()
+            return akten.lesen(cur, kopf) if kopf is not None else None
+
+    def praesentation_zum_token(self, token: str) -> bytes | None:
+        with self._verbindung() as conn, conn.cursor() as cur:
+            cur.execute(
+                akten.SQL_PRAESENTATION_ZUM_TOKEN,
+                {"token": token, "name": akten.PRAESENTATION_DATEI},
+            )
+            z = cur.fetchone()
+            return bytes(z[0]) if z is not None else None
+
+    def lieferbare_akten(self) -> list[Ergebnisakte]:
+        import psycopg2.extras
+
+        with self._verbindung() as conn, conn.cursor(
+            cursor_factory=psycopg2.extras.RealDictCursor
+        ) as cur:
+            cur.execute(akten.SQL_LIEFERBARE)
+            return [akten.lesen(cur, kopf) for kopf in cur.fetchall()]
+
+    def nachtragen(self, akte: Ergebnisakte) -> None:
+        """Nur die Akte — die Freigabe liegt schon; der Einfüge-Trigger prüft das."""
+        with self._verbindung() as conn, conn.cursor() as cur:
+            cur.execute(_SQL_LAUF, {"paket_id": akte.paket_id, "fassung": akte.fassung})
+            lauf = cur.fetchone()
+            if lauf is None:
+                raise LaufUnbekannt(f"{akte.paket_id} f{akte.fassung}")
+            akten.schreiben(cur, lauf[0], akte)
+
+    def sperren(self, token: str) -> bool:
+        with self._verbindung() as conn, conn.cursor() as cur:
+            cur.execute(akten.SQL_SPERREN, {"token": token})
+            return cur.rowcount == 1
+
+    def ohne_akte(self) -> list[dict]:
+        """Freigegebene Läufe ohne Akte — vor bc2.4 freigegeben, nachzutragen."""
+        import psycopg2.extras
+
+        with self._verbindung() as conn, conn.cursor(
+            cursor_factory=psycopg2.extras.RealDictCursor
+        ) as cur:
+            cur.execute(akten.SQL_OHNE_AKTE)
+            return [dict(z) for z in cur.fetchall()]
 
 
 def jetzt() -> datetime:

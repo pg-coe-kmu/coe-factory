@@ -35,7 +35,9 @@ Kennungen. BC2 nimmt jetzt beides an — siehe Schritt 8 und 9.
 | `migration_bc2.1_eingang.sql` | Legt `bc2.eingang` an. Wiederholbar. |
 | `migration_bc2.2_lauf.sql` | Lauf, Konzept, Potenzial und Gate 1 in `bc2`, Sicht für BC0 (#290, ADR-008 · BC2). Wiederholbar, setzt bc2.1 voraus. |
 | `migration_bc2.3_sperrgrund.sql` | `bc2.lauf.sperrgrund` und `hinweise` statt `warnung` (#306). Wiederholbar, setzt bc2.2 voraus. |
-| `lieferung.py` | Was geliefert ist, für `tools/lieferung_ziehen.py` (#306). `python -m lieferung` liest nur. |
+| `migration_bc2.4_ergebnisakte.sql` | Die Ergebnisakte: `bc2.ergebnisakte`, `bc2.ergebnisakte_datei`, Sicht `bc2.v_ergebnisakte` für BC0 (#378). Wiederholbar, setzt bc2.3 voraus. **Vor** dem Neubau einspielen. |
+| `ergebnisakte.py` | Einfrieren beim Freigeben, Ordnen nach den Vertragsschemas, Nachricht an BC3 (#378). `python -m ergebnisakte` trägt nach und sperrt Links. |
+| `lieferung.py` | Die `bc3`-Dateien der lieferbaren Ergebnisakten, für `tools/lieferung_ziehen.py` (#306, #378). `python -m lieferung` liest nur. |
 | `ablage.py`, `gate1.py` | Ablage von Ergebnis und Gate-1-Entscheidung. Postgres mit `DATABASE_URL`, sonst Arbeitsspeicher. |
 | `Dockerfile`, `docker-compose.yml`, `Caddyfile` | Container, Reverse-Proxy, HTTPS |
 | `.env.example` | Vorlage. Die echte `.env` liegt **nur** auf dem Server. |
@@ -134,8 +136,21 @@ set -a && . ./.env && set +a
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migration_bc2.1_eingang.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migration_bc2.2_lauf.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migration_bc2.3_sperrgrund.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migration_bc2.4_ergebnisakte.sql
 ```
 
+Für bc2.4: zwei `CREATE TABLE` mit vier `COMMENT`, vier `CREATE FUNCTION` und fünf Trigger (je
+ein `DROP TRIGGER`, beim ersten Mal mit `NOTICE … does not exist, skipping`, und ein `CREATE
+TRIGGER`), `CREATE VIEW`, `COMMENT` und am Ende ein `DO` — ohne `bc_leser` steht dort ein `NOTICE` statt des
+`GRANT`. Zweimal eingespielt ändert sich nichts. Am 13.11.2026 gegen ein Wegwerf-PostgreSQL 17
+(Container, Rollen `bc2_role` und `bc_leser` wie in der gemeinsamen Datenbank) zweimal eingespielt
+und mit den schemaeigenen Vertragstests geprüft.
+
+⚠️ **bc2.4 kommt vor dem Neubau, und dazwischen wird nicht freigegeben.** Ab bc2.4 gilt in der
+Datenbank „keine Freigabe ohne Ergebnisakte“ (Constraint-Trigger `gate1_freigabe_mit_akte`, geprüft
+am COMMIT). Der alte Dienst schreibt keine Akte; eine Freigabe über ihn scheitert ab jetzt mit
+`check_violation` und wird nicht abgelegt. Ablehnen geht weiter. Umgekehrt scheitert im neuen
+Dienst ohne bc2.4 **jede** Freigabe, weil die Tabellen fehlen — darum diese Reihenfolge.
 Für bc2.3: zwei `ALTER TABLE`, zwei `COMMENT`, zwei `UPDATE` (beim ersten Mal tragen sie die
 alten `warnung`-Texte über, danach `UPDATE 0`) und ein `COMMENT`. Die Übertragung entscheidet
 im Zweifel für **Sperrgrund**: nur das Modellurteil des echten Wegs wird Hinweis.
@@ -307,10 +322,65 @@ auf und legt ihren Schlüssel je Pfad in ein eigenes Fach: Die Vorschau liest de
 nie. Nach einer Änderung am `Caddyfile` Caddy mit `docker compose up -d --force-recreate caddy`
 neu anlegen, `caddy reload` sieht die einzeln eingehängte Datei nach `git pull` nicht.
 
+## Ergebnisakte und Link
+
+Jede Freigabe am Gate 1 friert eine **Ergebnisakte** ein, in derselben Transaktion wie `approved`
+(ADR-007 · BC2, Nachtrag vom 13.11.2026, #378): bei einem lieferbaren Lauf
+`prozesspriorisierung.json` mit `gate1`, `konzept_<KP>.json` und `NACHRICHT_AN_BC3.md` (Empfänger
+`bc3`), bei jedem Lauf `praesentation.pptx` (Empfänger `mandant`). Scheitert ein Schritt — die
+Präsentation, die Vertragsschemas, das Schreiben —, gilt die Freigabe nicht, und die Oberfläche
+zeigt den Grund. Die Akte ist danach unveränderlich, bis auf die Sperre des Links; gelöscht wird sie
+nur mit dem Lauf (Kaskade, kein Löschschutz).
+
+**Die Vertragsschemas liegen im Image** unter `/vertrag` (`BC2_VERTRAG`), hereingereicht als
+zweiter Bau-Kontext `vertrag` (`docker-compose.yml`, `additional_contexts`). Ein blankes
+`docker build .` scheitert darum; gebaut wird mit `docker compose build`. Gegenprobe nach dem Bau:
+
+```bash
+docker compose exec app python -c "import ergebnisakte; ergebnisakte.vertragsschemas(); print('ok')"
+```
+
+**Der Download** im Laufkopf liefert nach der Freigabe die eingefrorene Präsentation; neu gezeichnet
+wird nicht mehr. **Der Link** daneben geht an den Mandanten:
+
+```
+https://bc2.02da.de/praesentation/<link_token>
+```
+
+ohne den Schlüssel der Oberfläche, unbefristet. Unbekannte und gesperrte Tokens geben `404`. Wer den
+Link hat, bekommt Mandantendaten. Sperren (die Bytes bleiben in der Akte, der Download mit
+Schlüssel auch):
+
+```bash
+docker exec app-app-1 python -m ergebnisakte sperren <link_token>
+```
+
+**BC0 liest `bc2.v_ergebnisakte`**, eine Zeile je Datei: Paket, Fassung, Ordner, `lieferbar`,
+Sperrgrund, `eingefroren_am`, `vermerk`, `link_pfad` (relativ zu `https://bc2.02da.de`, `NULL`
+solange gesperrt), Name, Empfänger, Prüfsumme, Größe, `inhalt` (bytea), dazu `inhalt_text` und
+`dokument` (jsonb) für die Textdateien. `SELECT` an `bc_leser` vergibt die Migration.
+
+**Nachträglich einfrieren**, einmalig für Läufe, die vor bc2.4 freigegeben wurden (#378, Punkt 6).
+Erst ansehen, dann trocken gegen den Lieferordner halten, dann schreiben:
+
+```bash
+ssh bc2 docker exec app-app-1 python -m ergebnisakte offen          # liest nur
+ssh bc2 docker exec app-app-1 python -m ergebnisakte nachtragen <paket_id> \
+    --vermerk "…" --trocken > /tmp/akte.json                         # liest nur
+python3 bc2-strategic-advisor/tools/lieferung_ziehen.py --aus /tmp/akte.json --pruefen
+# erwartet: "unverändert  <ordner>" — sonst NICHT schreiben, erst klären
+ssh bc2 docker exec app-app-1 python -m ergebnisakte nachtragen <paket_id> --vermerk "…"
+```
+
+`nachtragen` nimmt die Entscheidung, wie sie in `bc2.gate1*` liegt, und zeichnet die Präsentation
+mit dem dann aktuellen Code. Ein Lauf, der schon eine Akte hat, wird nicht noch einmal eingefroren.
+
 ## Lieferung an BC3 ziehen
 
 Die Freigabe am Gate 1 ist die Übergabe — bei BC3 ankommen tut der Lauf, wenn sein Ordner im
-Repo liegt (ADR-007 · BC2, Nachtrag #305). Gezogen wird **lokal**, aus dem Repo-Wurzelverzeichnis:
+Repo liegt (ADR-007 · BC2, Nachtrag #305). Seit #378 setzt das Werkzeug nichts mehr zusammen: es
+schreibt die `bc3`-Dateien der lieferbaren Ergebnisakten ab, Byte für Byte und nach Prüfsumme.
+Gezogen wird **lokal**, aus dem Repo-Wurzelverzeichnis:
 
 ```bash
 git switch -c lieferung/<paket_id>
@@ -321,7 +391,8 @@ git add contracts/bc2-to-bc3/lieferungen && git commit && gh pr create
 ```
 
 Das Werkzeug ruft `ssh bc2 docker exec app-app-1 python -m lieferung`: es liest im Container,
-in einer `readonly`-Sitzung, alle freigegebenen Läufe ohne Sperrgrund. Die `DATABASE_URL`
+in einer `readonly`-Sitzung, die Ergebnisakten aller freigegebenen Läufe ohne Sperrgrund. Ein vor
+bc2.4 freigegebener Lauf ohne Akte erscheint dort erst, wenn er nachgetragen ist. Die `DATABASE_URL`
 verlässt den Server nicht. Es schreibt nur **neue** Ordner; ein vorhandener, der jetzt anders
 herauskäme, bricht den ganzen Zug ab, bevor etwas geschrieben ist — eine übergebene Lieferung
 ändert sich nicht.
@@ -333,4 +404,5 @@ cd /opt/bc2 && git pull
 cd bc2-strategic-advisor/app && docker compose up -d --build
 ```
 
-Die `.env` bleibt dabei unberührt; sie ist nicht im Repo.
+Die `.env` bleibt dabei unberührt; sie ist nicht im Repo. **Bringt der Stand eine neue Migration
+mit** (zuletzt bc2.4, #378), wird sie vor dem `--build` eingespielt, siehe Schritt 6.

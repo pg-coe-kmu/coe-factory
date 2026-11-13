@@ -94,3 +94,17 @@ def paket() -> dict:
         "teilprozesse": ["KP-02.TP-1", "KP-02.TP-3", "KP-04.TP-2"],
         "anfrage_id": "A-2026-01",
     }
+
+
+def akte_zur_freigabe(gate1_buch, ansicht, entscheidung):
+    """Die Ergebnisakte, ohne die eine Freigabe nicht gilt (#378).
+
+    Eingefroren wie an der Oberfläche: aus dem abgelegten Lauf, wenn ein
+    Ergebnisbuch am Gate-1-Buch hängt, sonst aus der Ansicht. Für Tests, die
+    ``merken`` ohne den Umweg über HTTP rufen.
+    """
+    from ergebnisakte import akte_einfrieren
+
+    ergebnisse = getattr(gate1_buch, "ergebnisse", None)
+    abgelegt = ergebnisse.letzter(entscheidung.paket_id) if ergebnisse is not None else None
+    return akte_einfrieren(ansicht, entscheidung, abgelegt=abgelegt)

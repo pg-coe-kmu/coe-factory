@@ -526,6 +526,9 @@ def erzeuge_app(
             else "postgres",
         )
     )
+    # Der Link auf die eingefrorene Präsentation (#378) — ohne Schlüssel, das
+    # Token der Akte ist der Zugang.
+    app.include_router(oberflaeche.erzeuge_link_router(entscheidungen))
     app.include_router(
         oberflaeche.erzeuge_seiten_router(vorschau=os.environ.get("BC2_VORSCHAU") == "1")
     )
