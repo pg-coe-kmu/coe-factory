@@ -39,6 +39,11 @@ verschenkter Ertrag" sind kausale Behauptungen, die aus den Daten nicht folgen �
 und die Kacheln „Kunden & Volumen", „Markt & Ziele" sowie die Investitionslogik
 mit laufenden Kosten: dafür trägt kein Lauf Daten.
 
+**Die Detailfolie zeigt die Kurztexte** aus dem Konzept (``heute_kurz``,
+``potenzielle_loesung.to_be_kurz``, Vertrag 3.2, #382); die langen Texte und der
+Lösungsansatz bleiben für BC3. Fehlt ein Kurztext — jede Datei vor 3.2 hat kein
+``heute_kurz`` —, steht an seiner Stelle der lange Text wie bisher.
+
 **Gezeigt wird das Ergebnis des Gate 1**, nicht der Vorschlag: nur freigegebene
 Potenziale, in der am Gate gesetzten Reihenfolge, falls eine gesetzt ist. Ein
 herausgenommenes Potenzial kommt gar nicht vor, auch seine Begründung nicht —
@@ -604,25 +609,58 @@ def _zeile(text: str) -> list[Absatz]:
     return [Absatz((Lauf(text),), DETAIL_PT)]
 
 
-def _detailtexte(e: _Eintrag) -> tuple[list[Absatz], list[Absatz]]:
-    """Die beiden Textflüsse der Detailfolie: links Heute und Soll, rechts unten Querschnitte."""
+def _kurz(wert) -> str | None:
+    return wert.strip() if isinstance(wert, str) and wert.strip() else None
+
+
+def _heute(e: _Eintrag) -> list[Absatz]:
+    """Der Block „Heutiger Prozess“: der Kurztext, sonst die Beschreibung (#382, Rückfall)."""
     pot = e.potenzial
+    kurz = _kurz(pot.get("heute_kurz"))
     systeme = ", ".join(sys_.get("name", "") for sys_ in pot.get("betroffene_systeme", [])) or F.LUECKE
-    heute = [
-        *_md(_text(pot, "beschreibung", "Beschreibung")),
+    return [
+        *_md(kurz or _text(pot, "beschreibung", "Beschreibung")),
         *_zeile(F.manueller_aufwand(pot)),
         *_zeile(f"Teilprozesse: {', '.join(e.eintrag['betroffene_teilprozess_ids'])}  ·  "
                 f"Systeme: {systeme}"),
     ]
-    ansatz = ((pot.get("potenzielle_loesung") or {}).get("ansatz") or "").strip()
+
+
+def _soll(pot: Mapping) -> list[Absatz]:
+    """Der Block „Automatisierungspotenzial“: der Kurztext samt Werkzeugen, sonst lang.
+
+    **Der lange Lösungsansatz entfällt von der Folie, sobald der Kurztext da ist**
+    (ADR-010 · BC2, Nachtrag vom 13.11.2026): er ist Bauanleitung für BC3, nicht
+    Entscheidungsgrundlage für den Mandanten. Fehlt der Kurztext, steht wie bisher
+    die Soll-Vision mit dem Lösungsansatz — aufgeteilt nach #380.
+    """
+    loesung = pot.get("potenzielle_loesung") or {}
+    kurz = _kurz(loesung.get("to_be_kurz"))
+    if kurz:
+        werkzeuge = ", ".join(w.strip() for w in loesung.get("tech_stack_empfehlung") or []
+                              if isinstance(w, str) and w.strip())
+        return [*_md(kurz), *_zeile(F.automatisierungsgrad(pot)),
+                *_zeile(f"Werkzeuge: {werkzeuge or F.LUECKE}")]
+    ansatz = (loesung.get("ansatz") or "").strip()
     if not ansatz:
-        loesung = _zeile(f"Lösungsansatz: {_TEXT_FEHLT}.")
+        lang = _zeile(f"Lösungsansatz: {_TEXT_FEHLT}.")
     elif ansatz.startswith("#"):
-        loesung = _md(ansatz)  # trägt seine Überschrift selbst
+        lang = _md(ansatz)  # trägt seine Überschrift selbst
     else:
-        loesung = _md(f"**Lösungsansatz:** {ansatz}")
-    soll = [*_md(_text(pot, "to_be_vision", "Soll-Vision")), *loesung,
+        lang = _md(f"**Lösungsansatz:** {ansatz}")
+    return [*_md(_text(pot, "to_be_vision", "Soll-Vision")), *lang,
             *_zeile(F.automatisierungsgrad(pot))]
+
+
+def _detailtexte(e: _Eintrag) -> tuple[list[Absatz], list[Absatz]]:
+    """Die beiden Textflüsse der Detailfolie: links Heute und Soll, rechts unten Querschnitte.
+
+    Links stehen seit Vertrag 3.2 die beiden **Kurztexte** (``heute_kurz``,
+    ``potenzielle_loesung.to_be_kurz``, #382), je Hälfte mit Rückfall auf den
+    langen Text: eine 3.1 trägt ``to_be_kurz`` meist schon, ``heute_kurz`` nie.
+    Querschnitte und Voraussetzungen haben keinen Kurztext; dort teilt #380.
+    """
+    pot = e.potenzial
 
     q = pot.get("querschnitte") or {}
     quer = [f"Zukunftssicherheit: {q['zukunftssicherheit']}" if q.get("zukunftssicherheit")
@@ -640,8 +678,8 @@ def _detailtexte(e: _Eintrag) -> tuple[list[Absatz], list[Absatz]]:
     if hinweise:
         vtext += _md("**Hinweise:**") + [a for h in hinweise for a in _md(f"- {h['art']}: {h['text']}")]
 
-    haupt = (_abschnitt("HEUTIGER PROZESS", BLUE, heute)
-             + _abschnitt("AUTOMATISIERUNGSPOTENZIAL", GREEN, soll))
+    haupt = (_abschnitt("HEUTIGER PROZESS", BLUE, _heute(e))
+             + _abschnitt("AUTOMATISIERUNGSPOTENZIAL", GREEN, _soll(pot)))
     seite = (_abschnitt("QUERSCHNITTE (gehen in keine Rechnung ein)", GREY,
                         [a for z in quer for a in _md(z)])
              + _abschnitt("VORAUSSETZUNGEN", GREY, vtext))
