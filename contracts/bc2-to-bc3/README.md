@@ -4,8 +4,8 @@
 
 | Datei | Liefergegenstand | Version |
 |---|---|---|
-| `konzept.schema.json` | L2-01 Automatisierungskonzept, je **Kernprozess** | **3.1** (nimmt 3.0 weiter an) |
-| `priorisierung.schema.json` | L2-02 Priorisierung, je **Analyselauf** | **3.1** (nimmt 3.0 weiter an) |
+| `konzept.schema.json` | L2-01 Automatisierungskonzept, je **Kernprozess** | **3.2** (nimmt 3.0 und 3.1 weiter an) |
+| `priorisierung.schema.json` | L2-02 Priorisierung, je **Analyselauf** | **3.2** (nimmt 3.0 und 3.1 weiter an) |
 | [`archiv/`](archiv/) | eingefrorene v2.0-Fassung für die Lieferung vom 30.08.2026 | 2.0 |
 
 Fixtures liegen in [`../examples/`](../examples/): `mock_automatisierungskonzept.json` (KP-06),
@@ -53,6 +53,32 @@ Die Dateien lagen bis zum 30.08.2026 außerhalb des Repos und davor in zwei weit
 divergierenden Kopien. Sie liegen jetzt hier und werden **nicht noch einmal verschoben** — BC3
 hatte am 20.08. darum gebeten. Aufgeräumt in
 [#162](https://github.com/pg-coe-kmu/coe-factory/issues/162).
+
+## Was sich von v3.1 auf v3.2 geändert hat
+
+**Additiv, ein neues Feld und eine Pflicht, beide im Konzept**: die Kurztexte für die Folie
+([#382](https://github.com/pg-coe-kmu/coe-factory/issues/382), entschieden in
+[#381](https://github.com/pg-coe-kmu/coe-factory/issues/381),
+[ADR-010 · BC2, Nachtrag vom 13.11.2026](../../bc2-strategic-advisor/docs/adr/ADR-010_Konzepttexte_nach_der_Rechnung.md)).
+Die langen Potenzialtexte passen auf keine Detailfolie; was der Mandant stattdessen liest, steht im
+Vertrag, damit BC3 es kennt und gegen die lange Fassung halten kann.
+
+| Was | v3.1 | v3.2 | Warum |
+|---|---|---|---|
+| `potenziale[].heute_kurz` im Konzept | — | **Pflicht**: der heutige Ablauf, den das Potenzial berührt, in ein bis zwei Sätzen | Gegenstück zu `to_be_kurz`; die Heute-Hälfte der Detailfolie hatte bisher nur die lange `beschreibung` |
+| `potenziale[].potenzielle_loesung.to_be_kurz` | optional, ungeformt | **Pflicht** | Die Soll-Hälfte gab es schon; alle gelieferten 3.1-Potenziale tragen sie |
+| Form beider Kurztexte | — | `$defs.kurztext`: höchstens **300 Zeichen**, nicht leer, kein Zeilenumbruch, kein Markdown (`#`, `**`, Aufzählungszeichen am Anfang) | Der Text geht unverändert auf die Folie |
+| `schema_version` | `"3.0"` oder `"3.1"` | auch `"3.2"`, **in beiden Schemas** | Die Priorisierung einer 3.2 gleicht der einer 3.1; die Nummer läuft mit, weil ein Lauf eine Nummer trägt |
+
+- **Eine 3.0 oder 3.1 trägt `heute_kurz` nicht**, und ihr `to_be_kurz` bleibt optional und
+  ungeformt — jede gelieferte Lieferung bleibt unverändert gültig. Ausgangslage, Streichliste und
+  `ersetzt_potenzial_ids` gelten in 3.2 wie in 3.1.
+- **Das Rechenverbot gilt** wie für jeden Potenzialtext: keine Zahl mit Einheit außer dem
+  eingesetzten Automatisierungsgrad. Das prüft BC2s Wächter vor dem Ablegen, nicht das Schema; die
+  300 Zeichen gelten nach dem Einsetzen.
+- **Was BC3 tun muss: nichts.** `bc3-10-konzept-einlesen` liest ohne Schemaprüfung und mit
+  `schema_version >= 3.1`; eine 3.2 bricht dort nichts. Wer gegen eine eigene Kopie des Schemas
+  prüft, ersetzt sie. Die Kurztexte zu nutzen ist keine Pflicht.
 
 ## Was sich von v3.0 auf v3.1 geändert hat
 
@@ -163,7 +189,7 @@ python3 -m pip install jsonschema
 python3 bc2-strategic-advisor/tools/validate.py   # aus dem Repo-Wurzelverzeichnis
 ```
 
-Prüft die Fixtures gegen v3.1 und die alte Lieferung gegen die archivierten v2-Schemas, dann die
+Prüft die Fixtures gegen v3.2 und die alte Lieferung gegen die archivierten v2-Schemas, dann die
 fachliche Konsistenz: dass sich das Rechenmodell aus ADR-006 · BC2 nachrechnen lässt (Nutzwert,
 Impact, Score, Kategorie, Prioritätsgruppe), dass Konzepte und Priorisierung eines Laufs sich
 nicht widersprechen, dass der Prozessrang dem jeweils besten Potenzial folgt, dass die beiden
@@ -174,9 +200,9 @@ Exit 0 = grün.
 `gen_mocks.py` ist nach `bc2-strategic-advisor/tools/archiv/gen_mocks_v2.py` eingefroren.
 
 Gefunden wird **jeder** Ordner unter `lieferungen/`, nicht eine feste Liste: was dort liegt und
-nicht die eingefrorene v2-Lieferung ist, läuft gegen das aktuelle Schema (nimmt 3.0 und 3.1) —
+nicht die eingefrorene v2-Lieferung ist, läuft gegen das aktuelle Schema (nimmt 3.0, 3.1 und 3.2) —
 Schema, ein Lauf je Ordner, Konzepte und Priorisierung decken dieselben Potenziale, Rangfolge wie
-im Rechenkern, Ordnername `<company>-<paket_id>-f<n>`, bei 3.1 die Ausgangslage (genau die
+im Rechenkern, Ordnername `<company>-<paket_id>-f<n>`, ab 3.1 die Ausgangslage (genau die
 Schmerzpunkte der Konzepte, nichts dazu) und die Kette (`tools/kette.py`: 1:1, Vorgänger und
 Gestrichenes aus einer früheren **freigegebenen** Lieferung im Repo, gleicher Kernprozess, gleiche
 Lösungsklasse, nichts zugleich fortgeschrieben und gestrichen), und bei `paket_id` `SIM-…` die
