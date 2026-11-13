@@ -330,6 +330,18 @@ def test_fremdes_potenzial_wird_abgewiesen(client, kopf):
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.parametrize("status", ["pending", "approved"])
+def test_der_kommentar_geht_auch_ohne_ablehnung_mit(client, kopf, status):
+    """Freiwillig bei Entwurf und Freigabe, und danach wieder zu lesen (#377)."""
+    lauf = ein_lauf(client, kopf)
+    paket_id = lauf["kopf"]["paket_id"]
+    antwort = sende(client, kopf, paket_id,
+                    alle_freigeben(lauf, status=status, kommentar="Mit dem Fachbereich abgestimmt."))
+    assert antwort.status_code == 200, antwort.json()
+    gelesen = client.get(f"/api/oberflaeche/laeufe/{paket_id}", headers=kopf).json()
+    assert gelesen["gate1"]["kommentar"] == "Mit dem Fachbereich abgestimmt."
+
+
 def test_ablehnung_braucht_einen_kommentar(client, kopf):
     lauf = ein_lauf(client, kopf)
     antwort = sende(client, kopf, lauf["kopf"]["paket_id"], {"status": "rejected"})

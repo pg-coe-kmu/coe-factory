@@ -354,6 +354,38 @@ def test_nach_der_freigabe_laesst_sich_die_praesentation_herunterladen(seite_mit
     assert "liegt nicht im Lieferordner" in seite.locator("#meldung").inner_text()
 
 
+def test_der_kommentar_geht_mit_der_freigabe_und_steht_danach_da(seite_mit_ablage):
+    """Ein freiwilliger Kommentar neben „Entscheider“ (#377).
+
+    Geprüft über ein Neuladen: was danach in der Fußleiste steht, kommt vom
+    Server, nicht aus dem Zwischenstand der Seite.
+    """
+    seite = seite_mit_ablage
+    seite.fill("input[data-entscheider]", "S. Morazan")
+    seite.fill("[data-kommentar]", "Mit dem Fachbereich abgestimmt.")
+    seite.locator('[data-tat="approved"]').click()
+    seite.wait_for_selector("[data-praesentation]", timeout=5000)
+
+    seite.reload()
+    seite.wait_for_function("() => Z.gate1 && Z.gate1.status === 'approved'", timeout=5000)
+    assert seite.evaluate("() => Z.gate1.kommentar") == "Mit dem Fachbereich abgestimmt."
+    assert "Mit dem Fachbereich abgestimmt." in seite.locator(".fussleiste").inner_text()
+
+
+def test_ablehnen_ohne_kommentar_warnt_statt_nachzufragen(seite_mit_ablage):
+    """Kein ``prompt()`` mehr: die Begründung steht im Feld „Kommentar“ (#377)."""
+    seite = seite_mit_ablage
+    dialoge: list[str] = []
+    seite.on("dialog", lambda d: (dialoge.append(d.message), d.dismiss()))
+    seite.locator('[data-tat="rejected"]').click()
+    seite.wait_for_selector("#meldung .hinweis.warn", timeout=5000)
+
+    assert dialoge == []
+    assert "Kommentar" in seite.locator("#meldung").inner_text()
+    assert seite.evaluate("() => Z.gate1.status") == "pending"
+    assert seite.evaluate("() => document.activeElement.dataset.kommentar") == "1"
+
+
 def test_nach_reject_rechnet_der_knopf_die_naechste_fassung(seite_mit_ablage):
     """Reject → „neu rechnen“ → Fassung 2, Gate 1 wieder offen (ADR-008 · BC2, 2.1).
 
@@ -361,9 +393,10 @@ def test_nach_reject_rechnet_der_knopf_die_naechste_fassung(seite_mit_ablage):
     die der Server mit 409 abwiese.
     """
     seite = seite_mit_ablage
-    seite.on("dialog", lambda d: d.accept("Der Schnitt ist zu grob."))
+    seite.fill("[data-kommentar]", "Der Schnitt ist zu grob.")
     seite.locator('[data-tat="rejected"]').click()
     seite.wait_for_selector("[data-neu]", timeout=5000)
+    assert "Der Schnitt ist zu grob." in seite.locator(".fussleiste").inner_text()
 
     assert seite.locator('[data-tat="approved"]').count() == 0
     assert "endgültig" in seite.locator(".fussleiste").inner_text()

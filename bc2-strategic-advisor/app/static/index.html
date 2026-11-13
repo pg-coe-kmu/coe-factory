@@ -292,6 +292,7 @@ const Z = {
   prozessfolge: null,     // gesetzte Kernprozessfolge
   abweichungsgrund: "",
   entscheider: "",
+  kommentar: "",          // zum ganzen Lauf; beim Ablehnen Pflicht (#377)
   gewaehlt: null,
   sicht: "liste",         // liste | matrix
   offen: new Set(),       // aufgeklappte Kernprozesse
@@ -450,7 +451,7 @@ function vorbelegen(){
   Z.offen = new Set(Z.ansicht.prozess_raenge.map(r => r.kp_id));
   Z.ablehnungsgrund = {};
   Z.reihenfolge = null; Z.prozessfolge = null;
-  Z.abweichungsgrund = ""; Z.geaendert = false;
+  Z.abweichungsgrund = ""; Z.kommentar = ""; Z.geaendert = false;
 }
 
 /** Übernimmt einen bereits gespeicherten Gate-1-Stand vom Server. */
@@ -466,6 +467,7 @@ function ausGate1(g){
   if (g.finale_prozessreihenfolge_kp_ids) Z.prozessfolge = g.finale_prozessreihenfolge_kp_ids;
   Z.abweichungsgrund = g.abweichungsbegruendung || "";
   Z.entscheider = g.entscheider || Z.entscheider;
+  Z.kommentar = g.kommentar || "";
   Z.geaendert = false;
 }
 
@@ -1016,6 +1018,7 @@ function fussleiste(offen){
       <span style="color:var(--muted)">Fassung ${Z.ansicht.kopf.fassung}${
         Z.gate1.entscheider ? ` · ${esc(Z.gate1.entscheider)}` : ""}${wann ? ` · ${wann}` : ""}
         · endgültig</span>
+      ${Z.gate1.kommentar ? `<span>„${esc(Z.gate1.kommentar)}“</span>` : ""}
       <span style="margin-left:auto"></span>
       ${status === "rejected" && Z.neulauf
         ? `<button class="btn" data-neu="1">neu rechnen (Fassung ${Z.ansicht.kopf.fassung + 1})</button>`
@@ -1037,6 +1040,12 @@ function fussleiste(offen){
       <input data-entscheider="1" value="${esc(Z.entscheider)}" placeholder="Name"
         style="border:1px solid var(--line);border-radius:7px;padding:5px 9px;
                font-family:inherit;font-size:12.5px;width:150px"></label>
+    <label style="color:var(--muted);font-size:12.5px;display:flex;align-items:center;gap:6px">
+      Kommentar
+      <input data-kommentar="1" value="${esc(Z.kommentar)}"
+        placeholder="freiwillig, beim Ablehnen Pflicht"
+        style="border:1px solid var(--line);border-radius:7px;padding:5px 9px;
+               font-family:inherit;font-size:12.5px;width:260px"></label>
     <span style="margin-left:auto"></span>
     <button class="btn sec" data-tat="rejected">ganzen Lauf ablehnen</button>
     <button class="btn" ${darfFreigeben() ? "" : "disabled"} data-tat="approved">
@@ -1229,6 +1238,10 @@ function alsEntscheidung(status){
     // antwortet der Server mit 409 statt über die falsche zu entscheiden.
     fassung: Z.ansicht.kopf.fassung,
     entscheider: Z.entscheider,
+    // Bei 'approved' und 'pending' freiwillig, bei 'rejected' die Begründung
+    // des ganzen Laufs. Ein Feld für alle drei: der Kommentar gehört zur
+    // Entscheidung, nicht zu einem bestimmten Ausgang (#377).
+    kommentar: Z.kommentar.trim(),
     approved_potenzial_ids: [...Z.freigegeben],
     nicht_freigegeben: Z.ansicht.eintraege
       .filter(e => !Z.freigegeben.has(e.potenzial_id))
@@ -1245,7 +1258,6 @@ function alsEntscheidung(status){
     // verlangt bei 'rejected' den Kommentar und keine Einzelbegründungen.
     // Ausdrücklich NICHT die Abweichungsbegründung — die erklärt, warum die
     // Reihenfolge anders ist, nicht warum der Lauf nicht taugt.
-    rumpf.kommentar = (prompt("Warum wird der ganze Lauf abgelehnt?") || "").trim();
     rumpf.approved_potenzial_ids = [];
     rumpf.nicht_freigegeben = [];
     delete rumpf.finale_reihenfolge_potenzial_ids;
@@ -1259,8 +1271,11 @@ async function entscheiden(status){
   const rumpf = alsEntscheidung(status);
   if (status === "rejected" && rumpf.kommentar.length < 5){
     Z.meldung = {art: "warn",
-      text: "Ohne Begründung wird nichts abgelehnt — mindestens fünf Zeichen."};
-    return zeichne();
+      text: "Ohne Begründung wird nichts abgelehnt — bitte im Feld „Kommentar“ "
+          + "mindestens fünf Zeichen."};
+    zeichne();
+    document.querySelector("[data-kommentar]")?.focus();
+    return;
   }
 
   const antwort = await ruf(
@@ -1429,6 +1444,8 @@ document.addEventListener("input", e => {
   }
   const entscheider = e.target.closest("[data-entscheider]");
   if (entscheider){ Z.entscheider = e.target.value; }
+  const kommentar = e.target.closest("[data-kommentar]");
+  if (kommentar){ Z.kommentar = e.target.value; }
 });
 
 /** Führt die Fußleiste nach, ohne die Seite neu zu zeichnen. */
