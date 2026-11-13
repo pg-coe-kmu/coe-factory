@@ -10,7 +10,8 @@ Zwei Teile, getrennt wie in ``modell/`` (#238):
 - :mod:`~praesentation.folien` — die **reine Funktion**: Konzepte +
   Priorisierung → ``Presentation`` im Speicher. Mit
   :mod:`~praesentation.formulierung` (wie Zahlen auf die Folie kommen) und
-  :mod:`~praesentation.zeichnen` (Palette und Formen aus dem KIsult-Schnitt).
+  :mod:`~praesentation.zeichnen` (Palette und Formen aus dem KIsult-Schnitt) und
+  :mod:`~praesentation.absaetze` (Markdown in Absätze, teilen statt schrumpfen, #380).
 - :mod:`~praesentation.ablage` — der **dünne Aufrufer**: zu Bytes machen für
   den Download. Abgelegt wird sie nicht; sie geht an den Mandanten (#305).
 

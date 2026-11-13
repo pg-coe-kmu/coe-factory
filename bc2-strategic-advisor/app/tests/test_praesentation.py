@@ -462,18 +462,13 @@ def _titel_und_etikett(folie, titel: str):
 def _passt(rahmen) -> bool:
     """Steht der Text bei seiner Schriftgröße vollständig im Rahmen?
 
-    Geschätzt wie in ``zeichnen.passende_groesse``, mit der Zeichenbreite für
-    **fette** Schrift (0,58 em) — der Titel ist fett, und genau die zu schmal
-    angesetzte Breite ließ ihn in der ersten Fassung unter das Etikett laufen.
+    Geschätzt wie beim Zeichnen (:func:`praesentation.zeichnen.ueberlaeuft`), mit
+    den Breiten der **fetten** Calibri — der Titel ist fett, und genau die zu
+    schmal angesetzte Breite ließ ihn in der ersten Fassung unter das Etikett laufen.
     """
-    from pptx.util import Emu
+    from praesentation.zeichnen import ueberlaeuft
 
-    groesse = max(r.font.size.pt for p in rahmen.text_frame.paragraphs for r in p.runs)
-    breite_pt = Emu(rahmen.width).pt - 14.4
-    hoehe_pt = Emu(rahmen.height).pt - 7.2
-    je_zeile = int(breite_pt / (groesse * 0.58))
-    zeilen = sum(max(1, -(-len(z) // je_zeile)) for z in rahmen.text_frame.text.split("\n"))
-    return zeilen * groesse * 1.2 <= hoehe_pt
+    return not ueberlaeuft(rahmen)
 
 
 @pytest.mark.parametrize("titel", [
@@ -497,3 +492,158 @@ def test_der_titel_der_detailfolie_laeuft_nie_unter_das_etikett(messsatz_lauf, t
     assert eintrag["titel"] in rahmen.text_frame.text, "Der Titel steht nicht vollständig im Rahmen."
     assert rahmen.text_frame.word_wrap is True
     assert _passt(rahmen), "Der Titel passt bei seiner Schriftgröße nicht in den Rahmen."
+
+
+# ---------------------------------------------------------------------------
+# Kein Überlauf, kein rohes Markdown (#380)
+# ---------------------------------------------------------------------------
+
+from collections import Counter  # noqa: E402
+
+from pptx.util import Inches  # noqa: E402
+
+from praesentation.absaetze import Absatz, Lauf, aus_markdown, klartext, teile  # noqa: E402
+from praesentation.zeichnen import ueberlaeuft  # noqa: E402
+
+#: Die Lieferung aus dem Befund vom 10.11.2026: ihre Präsentation lief auf den
+#: Detailfolien um das 2,5-Fache über und zeigte ``##`` und ``**`` roh.
+LIEFERUNG_BEFUND = WURZEL / "contracts" / "bc2-to-bc3" / "lieferungen" / (
+    "noroai-cc7f4d1b-4c71-4cfa-92c3-46a395080e4b-f1")
+
+
+@pytest.fixture
+def befund_lauf() -> tuple[list[dict], dict]:
+    prio = json.loads((LIEFERUNG_BEFUND / "prozesspriorisierung.json").read_text(encoding="utf-8"))
+    konzepte = [json.loads(p.read_text(encoding="utf-8"))
+                for p in sorted(LIEFERUNG_BEFUND.glob("konzept_*.json"))]
+    return konzepte, prio
+
+
+def _ueberlaufende(prs) -> list[str]:
+    funde = []
+    for n, folie in enumerate(prs.slides, start=1):
+        for sp in folie.shapes:
+            if sp.has_text_frame and sp.text_frame.text.strip() and ueberlaeuft(sp):
+                funde.append(f"Folie {n}: {sp.text_frame.text[:70]!r}")
+    return funde
+
+
+def test_kein_textrahmen_laeuft_ueber(befund_lauf, fixture_lauf, messsatz_lauf, keine_wertaussage_lauf):
+    """Der Test gegen Rückfall: jeder Rahmen passt bei seiner gesetzten Größe — geschätzt
+    wie beim Zeichnen. PowerPoint schrumpft beim Öffnen nicht; was hier rot wird,
+    überdeckt dort, was darunter steht."""
+    for konzepte, prio, *_ in (befund_lauf, fixture_lauf, messsatz_lauf, keine_wertaussage_lauf):
+        assert _ueberlaufende(baue_praesentation(konzepte, prio)) == []
+
+
+def test_die_pruefung_auf_ueberlauf_ist_nicht_blind():
+    """Gegenprobe: der lange Text aus dem Befund, in den alten Rahmen der Detailfolie
+    (6,1 × 2,35 Zoll) bei 8 pt gesetzt — so sah es vorher aus, und das muss rot sein."""
+    from pptx import Presentation
+    from praesentation.zeichnen import txt
+
+    lang = json.loads((LIEFERUNG_BEFUND / "konzept_KP-06.json").read_text(encoding="utf-8"))
+    beschreibung = max((p["beschreibung"] for p in lang["potenziale"]), key=len)
+    prs = Presentation()
+    folie = prs.slides.add_slide(prs.slide_layouts[6])
+    alt = txt(folie, 0, 0, Inches(6.1), Inches(2.35), beschreibung, 11)
+    kurz = txt(folie, 0, 0, Inches(6.1), Inches(2.35), "Ein kurzer Satz.", 11)
+    assert ueberlaeuft(alt) and not ueberlaeuft(kurz)
+
+
+def test_kein_markdown_auf_einer_folie(befund_lauf):
+    text = _volltext(baue_praesentation(*befund_lauf))
+    assert "##" not in text and "**" not in text
+    assert not re.search(r"(?m)^\s*#", text), "Eine Zeile beginnt mit #."
+    assert "Lösungsansatz: ###" not in text
+
+
+def _woerter(text: str) -> Counter:
+    return Counter(re.findall(r"[\wÄÖÜäöüß€%.,:;()–—→/+-]+", text.replace("*", "").replace("#", "")))
+
+
+def test_langer_text_geht_auf_fortsetzungsfolien_ohne_dass_etwas_fehlt(befund_lauf):
+    """Teilen statt Schrumpfen: alles steht da, in 10 pt, notfalls auf der Fortsetzung."""
+    konzepte, prio = befund_lauf
+    konzepte = copy.deepcopy(konzepte)
+    pot = konzepte[0]["potenziale"][0]
+    pot["beschreibung"] = "\n\n".join([pot["beschreibung"]] * 3)  # rund 8.500 Zeichen
+    prs = baue_praesentation(konzepte, prio)
+
+    pid = pot["potenzial_id"]
+    eigene = [f for f in prs.slides
+              if f"potenzial_id: {pid}" in _notiz(f) or f"fortsetzung_von: {pid}" in _notiz(f)]
+    assert len(eigene) >= 3, "Der dreifache Text passt nicht auf eine Folie und eine Fortsetzung."
+    assert sum(f"fortsetzung_von: {pid}" in _notiz(f) for f in prs.slides) == len(eigene) - 1
+    kicker = [t for f in eigene[1:] for t in _texte_der_folie(f) if "FORTSETZUNG" in t]
+    assert len(kicker) == len(eigene) - 1
+    assert _ueberlaufende(prs) == []
+
+    gezeigt = _woerter("\n".join(t for f in eigene for t in _texte_der_folie(f)))
+    for feld in (pot["beschreibung"], pot["to_be_vision"], pot["potenzielle_loesung"]["ansatz"],
+                 *pot["voraussetzungen"]):
+        fehlt = _woerter(klartext(aus_markdown(feld, 10))) - gezeigt
+        assert not fehlt, f"Abgeschnitten: {list(fehlt)[:10]}"
+    # Die Größe bleibt: geteilt, nicht geschrumpft — Fließtext 10 pt, Abschnittsköpfe 11,5 pt.
+    groessen = {r.font.size.pt for f in eigene[1:] for sp in f.shapes
+                if sp.has_text_frame and Inches(1.3) <= sp.top < Inches(7.0)
+                for p in sp.text_frame.paragraphs for r in p.runs}
+    assert groessen == {10.0, 11.5}
+
+
+def test_eine_detailfolie_ohne_fortsetzung_wenn_der_text_kurz_ist(fixture_lauf):
+    konzepte, prio = fixture_lauf
+    konzepte = copy.deepcopy(konzepte)
+    for k in konzepte:
+        for p in k["potenziale"]:
+            p["beschreibung"] = "Heute tippt die Sachbearbeitung jede Anfrage ab."
+            p["to_be_vision"] = "Künftig liest ein Dienst die Anfrage aus."
+    prs = baue_praesentation(konzepte, prio)
+    assert not _folien_mit_notiz(prs, "fortsetzung_von:")
+
+
+def test_voraussetzungen_als_aufzaehlung_nicht_mit_semikolon(befund_lauf):
+    text = _volltext(baue_praesentation(*befund_lauf))
+    assert ".;" not in text
+
+
+def test_einzahl_und_mehrzahl(befund_lauf):
+    """Ein Kernprozess, ein Konzept: nicht „in 1 Kernprozessen", nicht „1 Konzept(e)"."""
+    text = _volltext(baue_praesentation(*befund_lauf))
+    assert "in 1 Kernprozess\n" in text or text.count("in 1 Kernprozess") >= 1
+    assert "1 Kernprozessen" not in text
+    assert "Konzept(e)" not in text and "1 Konzept des Analyselaufs" in text
+
+
+# --- Markdown und Teilen, für sich ---------------------------------------------
+
+
+def test_markdown_wird_absatz_aufzaehlung_und_fettung():
+    absaetze = aus_markdown(
+        "## Titel\n\nText mit **fett** und *kursiv*.\n\n### Rollen\n- **Sachbearbeitung**: prüft\n"
+        "1. erstens", 10)
+    assert [a.text for a in absaetze] == [
+        "Titel", "Text mit fett und kursiv.", "Rollen", "Sachbearbeitung: prüft", "erstens"]
+    assert [a.punkt for a in absaetze] == [False, False, False, True, True]
+    assert absaetze[0].laeufe == (Lauf("Titel", True),) and absaetze[0].halten
+    assert Lauf("fett", True) in absaetze[1].laeufe
+    assert absaetze[3].laeufe[0] == Lauf("Sachbearbeitung", True)
+
+
+def test_teilen_verliert_nichts_und_haelt_ueberschriften():
+    text = " ".join(f"Wort{i}" for i in range(600))
+    absaetze = [Absatz((Lauf("Kopf", True),), 11, halten=True), Absatz((Lauf(text),), 10)]
+    alle, rest = [], absaetze
+    while rest:
+        drin, rest = teile(rest, 300, 200)
+        assert drin, "Eine Fläche blieb leer — das liefe endlos."
+        alle.extend(drin)
+    assert " ".join(a.text for a in alle[1:]).split() == text.split()
+    # Eine Überschrift, nach der nicht mindestens zwei Zeilen passen, wandert mit.
+    from praesentation.absaetze import INNEN_HOEHE_PT, ZEILENHOEHE, hoehe_pt
+
+    voll = Absatz((Lauf("Wort " * 150),), 10)
+    kopf = Absatz((Lauf("Kopf", True),), 11, halten=True)
+    platz = hoehe_pt([voll], 300) + INNEN_HOEHE_PT + 11 * ZEILENHOEHE + 5  # Kopf ja, zwei Zeilen nein
+    drin, rest = teile([voll, kopf, Absatz((Lauf("Text " * 40),), 10)], 300, platz)
+    assert drin == [voll] and rest[0] is kopf

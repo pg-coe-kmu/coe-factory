@@ -17,7 +17,10 @@ from __future__ import annotations
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.text import MSO_ANCHOR, MSO_AUTO_SIZE, PP_ALIGN
+from pptx.oxml.ns import qn
 from pptx.util import Inches, Pt
+
+from .absaetze import EINZUG_PT, INNEN_BREITE_PT, INNEN_HOEHE_PT, Absatz, Lauf, hoehe_pt, passt
 
 INK = RGBColor(0x1A, 0x1A, 0x2E)
 DEEP = RGBColor(0x10, 0x2A, 0x43)
@@ -42,8 +45,19 @@ HOEHE = Inches(7.5)
 __all__ = [
     "ACCENT", "AMBER", "BLUE", "BREITE", "CARD", "DEEP", "GREEN", "GREY", "HELLBLAU", "HOEHE",
     "INK", "LIGHT", "LINE", "RED", "TEAL", "TITELBLAU", "WARN_FILL", "WHITE",
-    "box", "divider", "flaeche", "foot", "header", "passende_groesse", "txt",
+    "box", "box_groesse", "box_hoehe", "divider", "flaeche", "foot", "gelesene_absaetze", "header", "karte", "passende_groesse",
+    "rahmen", "txt", "txt_hoehe", "ueberlaeuft",
 ]
+
+
+def _groesse_fuer(baue, w, h, size: float, mindest: float) -> float:
+    """Die größte Schrift bis ``size`` in halben Punkten, bei der ``baue(groesse)`` passt."""
+    groesse = size
+    while groesse > mindest:
+        if passt(baue(groesse), w / 12700, h / 12700):
+            return groesse
+        groesse -= 0.5
+    return mindest
 
 
 def passende_groesse(text: str, w, h, size: float, mindest: float = 8.0, fett: bool = False) -> float:
@@ -53,32 +67,78 @@ def passende_groesse(text: str, w, h, size: float, mindest: float = 8.0, fett: b
     erst nach, wenn jemand den Text bearbeitet; eine frisch erzeugte Datei
     zeigt überlaufenden Text also in voller Größe. ``python-pptx`` kann exakt
     messen (``fit_text``), braucht dafür aber eine Schriftdatei auf dem Server.
-    Die Schätzung — mittlere Zeichenbreite 0,5 em (fett 0,58 em), Zeilenhöhe 1,2 em — liegt
-    eher zu groß und kostet dann eine halbe Stufe Schrift. Abgeschnitten wird
-    nie; reicht auch ``mindest`` nicht, bricht der Text weiter um.
+    Die Schätzung steht in :mod:`praesentation.absaetze` — mittlere
+    Zeichenbreite 0,5 em (fett 0,58 em), Zeilenhöhe 1,2 em, Umbruch an
+    Wortgrenzen — und liegt eher zu groß.
+
+    **Unter ``mindest`` geht es nicht.** Passt der Text auch dort nicht, ist
+    das kein Fall zum Schrumpfen, sondern zum Teilen (:func:`absaetze.teile`);
+    der Test gegen Rückfall (#380) fängt jeden Rahmen, der dann noch überläuft.
     """
-    breite_pt = max(w / 12700 - 14.4, 10)
-    hoehe_pt = max(h / 12700 - 7.2, 6)
-    groesse = size
-    while groesse > mindest:
-        zeichen_je_zeile = max(int(breite_pt / (groesse * (0.58 if fett else 0.5))), 1)
-        zeilen = sum(max(1, -(-len(z) // zeichen_je_zeile)) for z in text.split("\n"))
-        if zeilen * groesse * 1.2 <= hoehe_pt:
-            return groesse
-        groesse -= 0.5
-    return mindest
+    def baue(g):
+        return [Absatz((Lauf(z, fett),), g) for z in text.split("\n")]
+    return _groesse_fuer(baue, w, h, size, mindest)
+
+
+def _setze(tf, absaetze, color, align) -> None:
+    """Schreibt Absätze in einen Textrahmen: Läufe, Fettung, Aufzählung, Abstand davor."""
+    for i, a in enumerate(absaetze):
+        p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
+        p.alignment = align
+        if i and a.abstand_vor:
+            p.space_before = Pt(a.abstand_vor)
+        if a.punkt:
+            _aufzaehlung(p, mit_zeichen=not a.extra.get("fortsetzung"))
+        for lauf in a.laeufe:
+            r = p.add_run()
+            r.text = lauf.text
+            r.font.size = Pt(a.groesse)
+            r.font.bold = lauf.fett
+            r.font.color.rgb = a.farbe or color
+            r.font.name = "Calibri"
+
+
+def _aufzaehlung(p, mit_zeichen: bool) -> None:
+    """Hängender Einzug mit „•"; die Fortsetzung eines geteilten Punkts ohne Zeichen."""
+    ppr = p._p.get_or_add_pPr()
+    ppr.set("marL", str(Pt(EINZUG_PT)))
+    ppr.set("indent", str(-Pt(EINZUG_PT) if mit_zeichen else 0))
+    for alt in ppr.findall(qn("a:buNone")) + ppr.findall(qn("a:buChar")):
+        ppr.remove(alt)
+    if mit_zeichen:
+        bu = ppr.makeelement(qn("a:buChar"), {"char": "•"})
+    else:
+        bu = ppr.makeelement(qn("a:buNone"), {})
+    ppr.append(bu)
 
 
 def _absaetze(tf, text: str, size: float, color, bold: bool, align) -> None:
-    for i, zeile in enumerate(text.split("\n")):
-        p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
-        p.alignment = align
-        r = p.add_run()
-        r.text = zeile
-        r.font.size = Pt(size)
-        r.font.bold = bold
-        r.font.color.rgb = color
-        r.font.name = "Calibri"
+    _setze(tf, [Absatz((Lauf(z, bold),), size) for z in text.split("\n")], color, align)
+
+
+def _box_absaetze(text: str, size: float, bold: bool) -> list[Absatz]:
+    """Erste Zeile in ``size`` und ``bold``, die übrigen normal und zwei Punkt kleiner."""
+    zeilen = text.split("\n")
+    return [Absatz((Lauf(zeilen[0], bold),), size)] + [
+        Absatz((Lauf(z, False),), max(size - 2, 8)) for z in zeilen[1:]]
+
+
+def box_groesse(text: str, w, h, size: float, bold: bool = True) -> float:
+    """Die Größe, die :func:`box` mit ``passend=True`` wählen würde — für eine
+    gemeinsame Größe mehrerer Formen auf einer Folie."""
+    return _groesse_fuer(lambda g: _box_absaetze(text, g, bold), w, h, size, 8.0)
+
+
+def txt_hoehe(text: str, w, size: float, bold: bool = False):
+    """Die Höhe, die ein Rahmen aus :func:`txt` braucht, damit ``text`` bei ``size`` passt."""
+    absaetze = [Absatz((Lauf(zeile, bold),), size) for zeile in text.split("\n")]
+    return int(Pt(hoehe_pt(absaetze, w / 12700) + INNEN_HOEHE_PT + 1))
+
+
+def box_hoehe(text: str, w, size: float, bold: bool = True):
+    """Die Höhe, die eine Form aus :func:`box` braucht, damit ``text`` bei ``size`` passt."""
+    breite = w / 12700 - 2 * 0.08 * 72 + INNEN_BREITE_PT
+    return int(Pt(hoehe_pt(_box_absaetze(text, size, bold), breite) + 2 * 0.03 * 72 + 1))
 
 
 def box(s, x, y, w, h, text, fill, font=WHITE, size=12, bold=True,
@@ -86,9 +146,9 @@ def box(s, x, y, w, h, text, fill, font=WHITE, size=12, bold=True,
         anchor=MSO_ANCHOR.MIDDLE, passend=True):
     """Eine gefüllte Form mit Text. Erste Zeile fett, die übrigen normal und kleiner.
 
-    Langer Text wird **umgebrochen und verkleinert, nie abgeschnitten**
-    (``TEXT_TO_FIT_SHAPE``) — die Regel „Überlauf wird umgebrochen, nie begrenzt"
-    (#244) gilt auch innerhalb einer Form.
+    Langer Text wird **umgebrochen und verkleinert, nie abgeschnitten** — die
+    Regel „Überlauf wird umgebrochen, nie begrenzt" (#244) gilt auch innerhalb
+    einer Form; reicht die Mindestgröße nicht, muss der Aufrufer teilen.
     """
     sp = s.shapes.add_shape(shape, x, y, w, h)
     sp.fill.solid()
@@ -105,16 +165,8 @@ def box(s, x, y, w, h, text, fill, font=WHITE, size=12, bold=True,
     tf.margin_left = tf.margin_right = Inches(0.08)
     tf.margin_top = tf.margin_bottom = Inches(0.03)
     if passend:
-        size = passende_groesse(text, w, h, size, fett=bold)
-    for i, zeile in enumerate(text.split("\n")):
-        p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
-        p.alignment = align
-        r = p.add_run()
-        r.text = zeile
-        r.font.size = Pt(size if i == 0 else max(size - 2, 8))
-        r.font.bold = bold if i == 0 else False
-        r.font.color.rgb = font
-        r.font.name = "Calibri"
+        size = box_groesse(text, w, h, size, bold)
+    _setze(tf, _box_absaetze(text, size, bold), font, align)
     tf.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
     return sp
 
@@ -135,7 +187,7 @@ def flaeche(s, x, y, w, h, fill, line=None, lw=0.75, shape=MSO_SHAPE.RECTANGLE):
 
 def txt(s, x, y, w, h, text, size=12, color=INK, bold=False, align=PP_ALIGN.LEFT,
         anchor=MSO_ANCHOR.TOP, schrumpfen=True):
-    """Ein Textrahmen ohne Füllung. Schrumpft bei Überlauf, schneidet nie ab."""
+    """Ein Textrahmen ohne Füllung. Schrumpft bis 8 pt, schneidet nie ab."""
     tb = s.shapes.add_textbox(x, y, w, h)
     tf = tb.text_frame
     tf.word_wrap = True
@@ -146,6 +198,54 @@ def txt(s, x, y, w, h, text, size=12, color=INK, bold=False, align=PP_ALIGN.LEFT
     if schrumpfen:
         tf.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
     return tb
+
+
+def rahmen(s, x, y, w, h, absaetze, color=INK, align=PP_ALIGN.LEFT):
+    """Ein Textrahmen aus fertigen Absätzen, **ohne** Schrumpfen.
+
+    Für Text, der vorher mit :func:`absaetze.teile` auf die Fläche zugeschnitten
+    wurde: er passt, also wird nichts verkleinert — und PowerPoint und
+    LibreOffice zeigen dieselbe Größe.
+    """
+    tb = s.shapes.add_textbox(x, y, w, h)
+    tf = tb.text_frame
+    tf.word_wrap = True
+    tf.vertical_anchor = MSO_ANCHOR.TOP
+    tf.auto_size = MSO_AUTO_SIZE.NONE
+    _setze(tf, absaetze, color, align)
+    return tb
+
+
+def gelesene_absaetze(sp) -> list[Absatz]:
+    """Liest aus einem gezeichneten Rahmen zurück, was :func:`ueberlaeuft` schätzt."""
+    absaetze = []
+    for p in sp.text_frame.paragraphs:
+        laeufe = tuple(Lauf(r.text, bool(r.font.bold)) for r in p.runs)
+        if not "".join(l.text for l in laeufe):
+            continue
+        groesse = max((r.font.size.pt for r in p.runs if r.font.size), default=18.0)
+        ppr = p._p.pPr
+        punkt = ppr is not None and int(ppr.get("marL", "0")) > 0
+        vor = p.space_before.pt if p.space_before is not None else 0.0
+        absaetze.append(Absatz(laeufe, groesse, punkt=punkt, abstand_vor=vor))
+    return absaetze
+
+
+def ueberlaeuft(sp) -> bool:
+    """Läuft der Text dieses Rahmens nach der Schätzung über? (Test gegen Rückfall, #380)
+
+    Gerechnet mit den tatsächlichen Innenabständen des Rahmens: eine Form aus
+    :func:`box` hat schmalere als ein Textrahmen.
+    """
+    absaetze = gelesene_absaetze(sp)
+    if not absaetze:
+        return False
+    tf = sp.text_frame
+    innen_b = (tf.margin_left + tf.margin_right) / 12700
+    innen_h = (tf.margin_top + tf.margin_bottom) / 12700
+    breite = sp.width / 12700 - innen_b + INNEN_BREITE_PT
+    hoehe = sp.height / 12700 - innen_h + INNEN_HOEHE_PT
+    return not passt(absaetze, breite, hoehe)
 
 
 def header(s, kicker, title, color=BLUE, titelbreite=Inches(12.2)):
@@ -164,10 +264,27 @@ def foot(s, n: int, fusszeile: str):
         align=PP_ALIGN.RIGHT)
 
 
+def karte(s, x, y, w, h, titel, farbe, kopf_h=Inches(0.55), radius=Inches(0.12)):
+    """Eine Karte mit farbigem Kopfbalken, dessen obere Ecken genau auf denen der Karte liegen.
+
+    Vorher waren es zwei Rechtecke mit je eigener Rundung; der Kopf saß mit
+    seinen unteren Ecken sichtbar versetzt in der Karte (#380). Jetzt hat der
+    Kopf nur oben runde Ecken, mit demselben Radius wie die Karte.
+    """
+    rahmen_ = flaeche(s, x, y, w, h, WHITE, line=farbe, lw=1.5, shape=MSO_SHAPE.ROUNDED_RECTANGLE)
+    rahmen_.adjustments[0] = radius / min(w, h)
+    kopf = box(s, x, y, w, kopf_h, titel, farbe, size=13, passend=False,
+               shape=MSO_SHAPE.ROUND_2_SAME_RECTANGLE)
+    kopf.adjustments[0] = radius / min(w, kopf_h)
+    kopf.adjustments[1] = 0.0
+    return rahmen_
+
+
 def divider(s, num: str, title: str, sub: str):
+    """Trennfolie. Die Ziffer in derselben Schrift wie der Titel, der Balken mit Luft darunter."""
     flaeche(s, 0, 0, BREITE, HOEHE, DEEP)
-    flaeche(s, Inches(0.9), Inches(3.7), Inches(2.2), Inches(0.09), ACCENT)
-    txt(s, Inches(0.9), Inches(2.4), Inches(4), Inches(1.4), num, 90, RGBColor(0x2E, 0x6B, 0xA8), True,
-        schrumpfen=False)
+    txt(s, Inches(0.9), Inches(1.85), Inches(4), Inches(1.7), num, 90, RGBColor(0x2E, 0x6B, 0xA8), True,
+        anchor=MSO_ANCHOR.BOTTOM, schrumpfen=False)
+    flaeche(s, Inches(1.0), Inches(3.72), Inches(2.2), Inches(0.09), ACCENT)
     txt(s, Inches(0.9), Inches(4.0), Inches(11), Inches(0.9), title, 38, WHITE, True)
-    txt(s, Inches(0.95), Inches(5.0), Inches(11.5), Inches(1.2), sub, 16, RGBColor(0x9F, 0xB9, 0xD6))
+    txt(s, Inches(0.9), Inches(5.0), Inches(11.5), Inches(1.2), sub, 16, RGBColor(0x9F, 0xB9, 0xD6))
