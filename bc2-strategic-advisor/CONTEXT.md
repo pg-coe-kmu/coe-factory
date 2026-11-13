@@ -270,6 +270,8 @@ _Avoid_: Ranking, Roadmap, Reihenfolge
 **Präsentation**:
 Die menschenlesbare **Darstellung** von Konzepten und Priorisierung als herunterladbares Dokument.
 Kein eigenes Ergebnis — sie trägt keine Information, die nicht in den beiden anderen steht.
+Ihre Detailfolien zeigen je Potenzial die Kurzfassungen aus dem Konzept (heute und soll, seit
+Vertrag 3.2); die ausführliche Fassung bleibt für BC3 (ADR-010 · BC2, Nachtrag).
 _Avoid_: Report, Foliensatz, Ergebnisdokument
 
 **Gate 1**:
