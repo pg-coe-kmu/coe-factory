@@ -48,7 +48,7 @@ def _werkzeug():
 ziehen = _werkzeug()
 
 
-def _echter_lauf(*, freigeben: str | None = "approved", heraus: int = 0):
+def _echter_lauf(*, freigeben: str | None = "approved", heraus: int = 0, kommentar: str = ""):
     """Ein ausgearbeiteter Lauf über zwei Kernprozesse, abgelegt und entschieden."""
     innen = _laufquelle(_JeKonzept(_erkannt_zwei(), _gut_zwei()), _zwei_kernprozesse(),
                         ("KP-06.TP-1", "KP-06.TP-2", "KP-07.TP-1"))
@@ -64,7 +64,7 @@ def _echter_lauf(*, freigeben: str | None = "approved", heraus: int = 0):
             nicht_freigegeben=tuple(
                 NichtFreigegeben(pid, "Kommt in dieser Runde nicht mit.") for pid in ids[:heraus]
             ),
-            kommentar="Abgelehnt im Test." if freigeben == "rejected" else "",
+            kommentar=kommentar or ("Abgelehnt im Test." if freigeben == "rejected" else ""),
             entscheider="Sergio",
             entschieden_am=jetzt(),
         ))
@@ -135,6 +135,18 @@ def test_der_gezogene_ordner_ist_schemagueltig(tmp_path):
         pruefer.validate(json.loads(datei.read_text(encoding="utf-8")))
     # Keine Präsentation: sie geht an den Mandanten (#305, Punkt 4).
     assert not list(ordner.glob("*.pptx"))
+
+
+def test_der_kommentar_zur_freigabe_steht_im_gezogenen_gate1_block(tmp_path):
+    """Der Kommentar reist im ``gate1``-Block mit (#377, entschieden in #376)."""
+    ergebnisse, gate1 = _echter_lauf(kommentar="Mit dem Fachbereich abgestimmt.")
+    ziehen.ziehe(_ueber_ssh(ergebnisse, gate1), tmp_path)
+
+    prio = json.loads(
+        (tmp_path / "noroai-PKT-301-f1" / "prozesspriorisierung.json").read_text(encoding="utf-8")
+    )
+    _validator("priorisierung.schema.json").validate(prio)
+    assert prio["gate1"]["kommentar"] == "Mit dem Fachbereich abgestimmt."
 
 
 def test_die_schluessel_stehen_in_der_reihenfolge_des_schemas(tmp_path):
