@@ -282,7 +282,14 @@ _Avoid_: Freigabe, Approval
 Was BC2 nach der Freigabe am Gate 1 an BC3 übergibt, sofern der Lauf keinen Sperrgrund trägt: die
 Priorisierung eines Analyselaufs mit ihren Konzepten, als Ordner je Fassung. Übergeben ist sie mit
 der Freigabe; bei BC3 angekommen ist sie, sobald der Ordner im Repo liegt. Die Präsentation gehört nicht dazu — sie geht an den Mandanten.
+Die Lieferung ist der Teil der **Ergebnisakte**, der an BC3 geht.
 _Avoid_: Export, Übergabepaket, Paket
+
+**Ergebnisakte**:
+Alles, was bei der Freigabe am Gate 1 aus einem Analyselauf festgehalten wird und sich danach nicht
+mehr ändert: die Lieferung an BC3, sofern der Lauf keinen Sperrgrund trägt, und die Präsentation
+für den Mandanten. Jede Freigabe hat genau eine Ergebnisakte, auch ein Lauf, der nicht lieferbar ist.
+_Avoid_: Lieferung (für das Ganze), Export, Archiv
 
 **Sperrgrund**:
 Warum ein Analyselauf nicht geliefert werden kann, etwa weil er nicht nachrechenbar ist oder kein

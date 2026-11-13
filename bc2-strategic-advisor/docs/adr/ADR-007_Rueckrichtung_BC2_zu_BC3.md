@@ -101,6 +101,44 @@ hat, holt niemand zurück.
 >
 > Bau: [Lieferung ziehen bauen](https://github.com/pg-coe-kmu/coe-factory/issues/306).
 
+> **Nachtrag vom 13.11.2026 ([#376](https://github.com/pg-coe-kmu/coe-factory/issues/376)): die
+> Ergebnisakte.** BC0 soll die vollständigen Ergebnisse eines freigegebenen Laufs aus Schema `bc2`
+> lesen können, so wie sie an BC3 und an den Mandanten gehen, samt Präsentation und Link. Bis
+> hierher stand der `gate1`-Block nur in der gezogenen Datei, die Nachricht nur im Repo, und die
+> Präsentation entstand bei jedem Klick neu. Damit ändert sich Punkt 4 und ein Teil von Punkt 2.
+>
+> 1. **Jede Freigabe friert eine Ergebnisakte ein**, auch bei einem Lauf mit Sperrgrund, und zwar
+>    in derselben Transaktion wie `approved`. Scheitert das Einfrieren, gilt die Freigabe nicht:
+>    „freigegeben, aber ohne Akte“ ist der stille Zwischenzustand, den Punkt 1 abschaffen sollte.
+> 2. **Der Dienst erzeugt die fertigen Dateien**: `prozesspriorisierung.json` mit `gate1`,
+>    `konzept_<KP>.json` je Konzept, `NACHRICHT_AN_BC3.md` und die Präsentation. Er legt sie Byte
+>    für Byte in `bc2` ab, jede mit ihrem Empfänger (`bc3` oder `mandant`). Die Vertragsschemas,
+>    nach denen die Schlüssel geordnet werden, kommen dafür ins Image. **Damit gibt es eine Stelle,
+>    an der die Lieferdatei entsteht.** `tools/lieferung_ziehen.py` setzt nichts mehr zusammen; es
+>    schreibt die `bc3`-Dateien eines lieferbaren Laufs ab. Die Lieferung bleibt der Teil der Akte,
+>    der an BC3 geht. Ein Lauf mit Sperrgrund hat eine Akte, aber keine Lieferung.
+> 3. **Punkt 4 kehrt sich für die Präsentation um.** Sie bleibt kein Teil der Lieferung, wird aber
+>    abgelegt: als Datei der Akte mit Empfänger `mandant`. Nach der Freigabe liefert der Download
+>    diese Datei; neu gezeichnet wird nicht mehr. Sonst gäbe es zwei Präsentationen desselben
+>    Laufs, die nach einer Codeänderung auseinanderlaufen.
+> 4. **Die Akte ist nach dem Schreiben unveränderlich**, wie das Ergebnis eines Laufs (ADR-008 ·
+>    BC2, 2.2). Einzige Ausnahme ist die Sperre des Links. **Einen Löschschutz gibt es nicht**: das
+>    Löschen über die Kaskade vom Lauf bleibt möglich, wie für den Lauf selbst. Anlass der Frage war,
+>    dass BC0 zwei gelieferte Läufe gelöscht hatte
+>    ([#379](https://github.com/pg-coe-kmu/coe-factory/issues/379)).
+> 5. **Der Link** auf die Präsentation führt zu BC2, mit einem zufälligen Token je Akte und ohne
+>    den Schlüssel der Oberfläche. Er gilt unbefristet und lässt sich sperren. Die Bytes liegen
+>    zusätzlich in der Datenbank, damit BC0 sie auch selbst ausliefern kann. Wer den Link hat,
+>    bekommt Mandantendaten; für den PoC mit einem Mandanten ist das in Kauf genommen.
+> 6. **BC0 liest eine Sicht `bc2.v_ergebnisakte`**, nicht die Tabellen. `v_ergebnis_je_paket`
+>    zeigt nur die jüngste Fassung je Paket, eine Akte gehört aber zu genau einer Fassung.
+>
+> Verworfen: nur die Dokumente als `jsonb` ablegen und Ordnen und Nachricht im Werkzeug lassen.
+> Dann sähe BC0 nicht, was BC3 bekommt, und die Datei entstünde weiter an zwei Orten.
+>
+> Bau: [Ergebnisakte bauen](https://github.com/pg-coe-kmu/coe-factory/issues/378), nach den
+> beiden Präsentations-Tickets, weil eingefroren endgültig ist.
+
 ### 2.3 Ein Reject liefert nichts aus und löscht nichts
 
 Bei `gate1.status = rejected` geht **nichts** in den Lieferordner — dieser Ordner ist BC3s Eingang,
