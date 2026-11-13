@@ -39,11 +39,12 @@ from erkennung.modellruf import Modellruf
 from modell.ausgabe import als_ausgangslage, als_eingangswerte
 from modell.rechnen import Lauf
 
-from .anweisung import ANTWORTSCHEMA, PLATZHALTER, baue_frage
+from .anweisung import ANTWORTSCHEMA, baue_frage, setze_ein
+from .anweisung import zahl as _zahl
 from .nutzlast import baue_nutzlast
 from .pruefen import Erwartung, normalisiere, pruefe_ausarbeitung
 
-__all__ = ["Ausarbeitung", "AusarbeitungAbgebrochen", "arbeite_aus", "setze_ein"]
+__all__ = ["Ausarbeitung", "AusarbeitungAbgebrochen", "VERTRAGSVERSION", "arbeite_aus", "setze_ein"]
 
 
 class AusarbeitungAbgebrochen(RuntimeError):
@@ -64,8 +65,9 @@ class AusarbeitungAbgebrochen(RuntimeError):
 class Ausarbeitung:
     """Das Ergebnis für einen Lauf: die Konzepte in Vertragsform und die Ausgangslage.
 
-    Die Konzepte tragen alles außer dem Kopf, den erst die Ablage kennt
-    (``konzept_id``, ``fassung``, ``erzeugt_am`` …, siehe ``ablage.py``).
+    Die Konzepte tragen ihren Vertragsstand (:data:`VERTRAGSVERSION`) und sonst
+    alles außer dem Kopf, den erst die Ablage kennt (``konzept_id``, ``fassung``,
+    ``erzeugt_am`` …, siehe ``ablage.py``).
     """
 
     konzepte: tuple[dict[str, Any], ...]
@@ -73,23 +75,15 @@ class Ausarbeitung:
     aufrufe: tuple[Aufrufprotokoll, ...] = ()
 
 
-def _zahl(wert: float) -> str:
-    """``65.0`` → ``65``, ``67.5`` → ``67,5`` — deutsch, ohne Nachkommanull."""
-    text = f"{wert:.1f}".rstrip("0").rstrip(".")
-    return text.replace(".", ",")
+#: Der Vertragsstand, den ein ausgearbeitetes Konzept trägt: 3.2, weil es beide
+#: Kurztexte für die Folie immer schreibt (#382). Die Ablage übernimmt ihn in den
+#: Kopf (``Laufansicht.vertragsversion``).
+VERTRAGSVERSION = "3.2"
 
 
-def setze_ein(wert: Any, grad: Mapping[str, float]) -> Any:
-    """Setzt die Platzhalter in allen Texten eines Potenzials ein (ADR-010 · BC2, 2.4)."""
-    if isinstance(wert, str):
-        for name in PLATZHALTER:
-            wert = wert.replace("{" + name + "}", _zahl(grad[name]))
-        return wert
-    if isinstance(wert, dict):
-        return {k: setze_ein(v, grad) for k, v in wert.items()}
-    if isinstance(wert, list):
-        return [setze_ein(v, grad) for v in wert]
-    return wert
+def _grad(gerechnet: Mapping[str, Any]) -> dict[str, float]:
+    g = gerechnet["automatisierungsgrad"]
+    return {"grad_min": g["angesetzt_min_pct"], "grad_max": g["angesetzt_max_pct"]}
 
 
 def _systemtext(tps) -> str:
@@ -149,14 +143,13 @@ def _konzept(
     potenziale = []
     eingangswerte: list[dict] = []
     for erkannt, gerechnet in stuecke:
-        t = texte[erkannt.potenzial_id]
-        grad = gerechnet["automatisierungsgrad"]
-        t = setze_ein(
-            t, {"grad_min": grad["angesetzt_min_pct"], "grad_max": grad["angesetzt_max_pct"]}
-        )
-        loesung = {"ansatz": t["loesungsansatz"].strip(), "tech_stack_empfehlung": t["tech_stack_empfehlung"]}
-        if str(t.get("to_be_kurz") or "").strip():
-            loesung["to_be_kurz"] = t["to_be_kurz"].strip()
+        t = setze_ein(texte[erkannt.potenzial_id], _grad(gerechnet))
+        # Beide Kurztexte immer: der Wächter hat sie verlangt, und eine 3.2 trägt sie (#382).
+        loesung = {
+            "ansatz": t["loesungsansatz"].strip(),
+            "tech_stack_empfehlung": t["tech_stack_empfehlung"],
+            "to_be_kurz": t["to_be_kurz"].strip(),
+        }
         querschnitte: dict[str, Any] = {"zukunftssicherheit": t["zukunftssicherheit"].strip()}
         reife = _reifegrad(erkannt, kp)
         if reife:
@@ -176,6 +169,7 @@ def _konzept(
             {
                 **gerechnet,
                 "beschreibung": t["beschreibung"].strip(),
+                "heute_kurz": t["heute_kurz"].strip(),
                 "to_be_vision": t["to_be_vision"].strip(),
                 "user_story": t["user_story"].strip(),
                 "akzeptanzkriterien_geschaeftlich": [
@@ -216,6 +210,7 @@ def _konzept(
     kontext["hauptschmerzpunkte"] = schmerzpunkte
 
     return {
+        "schema_version": VERTRAGSVERSION,
         "gelesen_am": bestand.gelesen_am.isoformat(),
         "erzeugt_von": f"bc2-strategic-advisor · Ausarbeitung · {modellname}",
         "kontext": kontext,
@@ -283,6 +278,7 @@ def arbeite_aus(
             nummern=tuple(e.potenzial_id for e, _ in stuecke),
             alle_nummern=alle,
             systeme={e.potenzial_id: _systeme(e, kp, bestand.mandant.tech_stack) for e, _ in stuecke},
+            grade={e.potenzial_id: _grad(g) for e, g in stuecke},
         )
         gruende: list[str] = []
         verworfen: list[str] = []

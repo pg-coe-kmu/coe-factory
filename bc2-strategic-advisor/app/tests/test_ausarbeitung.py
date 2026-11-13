@@ -222,6 +222,67 @@ def test_der_waechter_verwirft(aenderung, erwartet):
     assert any(erwartet in g for g in gruende), gruende
 
 
+# --- Die Kurztexte für die Folie (Vertrag 3.2, #382) ------------------------------
+
+
+@pytest.mark.parametrize("feld", ["heute_kurz", "to_be_kurz"])
+@pytest.mark.parametrize(
+    "text, erwartet",
+    [
+        ("", "fehlt oder leer"),
+        ("   ", "fehlt oder leer"),
+        (None, "fehlt oder leer"),
+        ("x" * 299 + ".!", "länger als 300 Zeichen"),
+        ("Heute tippt die Buchhaltung.\nDann prüft sie.", "Zeilenumbruch"),
+        ("## Heute", "Markdown"),
+        ("Heute tippt die Buchhaltung **von Hand**.", "Markdown"),
+        ("- Heute tippt die Buchhaltung.", "Markdown"),
+        ("1. Heute tippt die Buchhaltung.", "Markdown"),
+        ("Heute kostet das 40 Stunden im Monat.", "Zahl mit Einheit"),
+        ("Heute erreicht der Ablauf {grad_mitte} Prozent.", "unbekannter Platzhalter"),
+    ],
+    ids=["leer", "leerzeichen", "null", "301-zeichen", "zeilenumbruch", "ueberschrift", "fett",
+         "aufzaehlung", "nummeriert", "zahl-mit-einheit", "fremder-platzhalter"],
+)
+def test_der_waechter_verwirft_einen_kurztext(feld, text, erwartet):
+    antwort = _mit(f"potenziale.0.{feld}", text)(_ausgearbeitet("P1", "P2"))
+    gruende = pruefe_ausarbeitung(antwort, _erwartung())
+    assert any(f"potenziale[P1].{feld}" in g and erwartet in g for g in gruende), gruende
+
+
+def test_ein_fehlender_kurztext_ist_ein_verstoss():
+    antwort = _ausgearbeitet("P1", "P2")
+    del antwort["potenziale"][1]["heute_kurz"]
+    (grund,) = pruefe_ausarbeitung(antwort, _erwartung())
+    assert grund == "potenziale[P2].heute_kurz: fehlt oder leer"
+
+
+def test_gemessen_wird_der_kurztext_nach_dem_einsetzen():
+    """295 Zeichen und ein Platzhalter sind roh 305 — mit dem gerechneten Grad 297."""
+    text = "x" * 285 + " {grad_min} % y."
+    assert len(text) == 301
+    antwort = _mit("potenziale.0.to_be_kurz", text)(_ausgearbeitet("P1", "P2"))
+    grad = {"grad_min": 65.0, "grad_max": 85.0}
+    assert pruefe_ausarbeitung(antwort, _erwartung(grade={"P1": grad, "P2": grad})) == ()
+    # Ohne bekannten Grad misst der Wächter den Rohtext: ein Platzhalter ist länger als
+    # jede Zahl, die ihn ersetzt — die Grenze hält also auch dann.
+    (grund,) = pruefe_ausarbeitung(antwort, _erwartung())
+    assert "potenziale[P1].to_be_kurz: länger als 300 Zeichen" in grund
+
+
+def test_ein_verworfener_kurztext_wird_im_selben_budget_wiederholt():
+    bestand, erkennung, bewertung, lauf, ansicht = _gerechnet()
+    schlecht = _mit("potenziale.0.heute_kurz", "## Heute\n- Abtippen")(_ausgearbeitet("P1", "P2"))
+    modell = Doppelgaenger([schlecht, _ausgearbeitet("P1", "P2")])
+
+    a = arbeite_aus(lauf, ansicht.potenziale, erkennung, bewertung.kennungen, bestand, modell)
+
+    assert "dieser Aufruf ist eine Wiederholung" in modell.fragen[1]
+    assert "heute_kurz" in modell.fragen[1] and "Markdown" in modell.fragen[1]
+    (aufruf,) = a.aufrufe
+    assert aufruf.versuche == 2
+
+
 def test_ein_system_muss_im_bestand_oder_im_tech_stack_stehen():
     antwort = _ausgearbeitet("P1", "P2")
     erwartung = _erwartung(systeme={"P1": "lexware, outlook", "P2": "projekttool"})
@@ -290,6 +351,13 @@ def test_die_konzepte_tragen_texte_und_maschinelle_felder():
     # Der Platzhalter trägt die gerechnete Untergrenze, nicht eine Zahl des Modells.
     unten = p1["automatisierungsgrad"]["angesetzt_min_pct"]
     assert f"mindestens {unten:g} % ohne Nacharbeit" in p1["akzeptanzkriterien_geschaeftlich"][0]["kriterium"]
+    # Beide Kurztexte stehen immer da, mit eingesetztem Grad, und das Konzept ist eine 3.2 (#382).
+    assert konzept["schema_version"] == "3.2"
+    for p in (p1, p2):
+        assert p["heute_kurz"].startswith("Heute tippt die Buchhaltung")
+        assert "{" not in p["potenzielle_loesung"]["to_be_kurz"]
+    oben = p1["automatisierungsgrad"]["angesetzt_max_pct"]
+    assert f"bis {oben:g} % ohne Nacharbeit" in p1["potenzielle_loesung"]["to_be_kurz"]
     # Teilprozesse heißen im Vertrag „Prozessschritte“.
     assert p2["betroffene_prozessschritte"] == ["Einsatzplanung", "Zeiterfassung abrechnen"]
     assert p1["querschnitte"]["reifegrad"].startswith("Bitkom-Stufe im Mittel 3 von 5")
@@ -423,7 +491,7 @@ def test_ohne_ausarbeitung_bleibt_der_lauf_ohne_texte():
     assert ansicht.konzepte is None and ansicht.ausgangslage is None
 
 
-def test_der_abgelegte_lauf_ist_ein_schemagueltiger_vertrag_3_1():
+def test_der_abgelegte_lauf_ist_ein_schemagueltiger_vertrag_3_2():
     """Der Kern des Tickets: der echte Weg legt einen Vertrag ab, der an BC3 gehen kann."""
     modell = _JeKonzept(_erkannt_zwei(), _gut_zwei())
     innen = _laufquelle(modell, _zwei_kernprozesse(),
@@ -442,12 +510,12 @@ def test_der_abgelegte_lauf_ist_ein_schemagueltiger_vertrag_3_1():
 
     abgelegt = ergebnisse.letzter("PKT-301")
     priorisierung = {**abgelegt.dokument, "gate1": entscheidung.als_vertrag()}
-    assert priorisierung["schema_version"] == "3.1"
+    assert priorisierung["schema_version"] == "3.2"
     _validator("priorisierung.schema.json").validate(priorisierung)
     pruefer = _validator("konzept.schema.json")
     assert len(abgelegt.konzepte) == 2
     for konzept in abgelegt.konzepte:
-        assert konzept["schema_version"] == "3.1"
+        assert konzept["schema_version"] == "3.2"
         pruefer.validate(konzept)
     # Die Detail-Schublade zeigt die Texte (Q8: sehen ja, ändern nein).
     for pot in laeufe.ansicht("PKT-301").potenziale.values():

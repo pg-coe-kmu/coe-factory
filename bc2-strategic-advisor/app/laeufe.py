@@ -157,7 +157,7 @@ class Laufansicht:
     potenziale: dict[str, dict]
     #: ``kp_id`` → Klartextname, soweit bekannt.
     kp_namen: dict[str, str] = field(default_factory=dict)
-    #: ``priorisierung.ausgangslage`` (v3.1, #254), sobald die Quelle sie trägt.
+    #: ``priorisierung.ausgangslage`` (ab v3.1, #254), sobald die Quelle sie trägt.
     #: Ein Messsatz trägt sie nicht — er kennt weder Mandantensatz noch
     #: Schmerzpunkte —, und dann fehlt sie, statt erfunden zu werden.
     ausgangslage: dict | None = None
@@ -183,12 +183,26 @@ class Laufansicht:
         """Alle Kernprozesse, in **gerechneter** Prozessrangfolge."""
         return [r["kp_id"] for r in self.prozess_raenge]
 
+    def vertragsversion(self) -> str:
+        """Der Vertragsstand dieses Laufs — einer für alle seine Dateien.
+
+        3.0 ohne Ausgangslage (Messsatz). Mit ihr 3.2, wenn jedes Konzept der
+        Quelle eine 3.2 ist — der Ausarbeitungsschritt schreibt beide Kurztexte
+        für die Folie immer (#382) —, sonst 3.1: ein Lieferordner aus der Zeit
+        davor bleibt, was er ist, und wird nicht hochgezählt.
+        """
+        if not self.ausgangslage:
+            return "3.0"
+        versionen = {k.get("schema_version") for k in self.konzepte or []}
+        return "3.2" if versionen == {"3.2"} else "3.1"
+
     def als_vertrag(self, gate1: dict) -> tuple[list[dict], dict]:
         """Konzepte und Priorisierung dieses Laufs, soweit die Quelle sie trägt.
 
         Das ist die Eingabe des Foliengenerators (#257). Die Priorisierung ist
         vollständig bis auf das, was die Quelle nicht hat: ``ausgangslage``
-        steht nur da, wenn sie da ist (dann ``schema_version`` 3.1, sonst 3.0).
+        steht nur da, wenn sie da ist (dann ``schema_version`` 3.1 oder 3.2,
+        sonst 3.0; :meth:`vertragsversion`).
         Die **Konzepte** sind ohne eigene Quelle nur die gerechneten Hälften
         der Potenziale (``modell/ausgabe.py``) — ohne Beschreibung, Vision und
         Lösungsansatz, die das LLM schreibt. Sie sind damit **nicht
@@ -213,7 +227,7 @@ class Laufansicht:
                 })
         k = self.kopf
         priorisierung: dict = {
-            "schema_version": "3.1" if self.ausgangslage else "3.0",
+            "schema_version": self.vertragsversion(),
             "company_id": k.company_id,
             "paket_id": k.paket_id,
             "uebergeben_am": k.uebergeben_am.isoformat(),

@@ -13,6 +13,14 @@ eines Potenzials erlaubt, jeder andere Ausdruck in geschweiften Klammern ist ein
 Verstoß, und im Kontext und in der Gesamtempfehlung ist auch ein erlaubter
 Platzhalter einer — dort gibt es keinen Automatisierungsgrad, den Python
 einsetzen könnte.
+
+**Die Kurztexte für die Folie** (``heute_kurz``, ``to_be_kurz``; Vertrag 3.2,
+#382) gehen unverändert vor den Mandanten. Darum prüft er dort mehr als die
+Form: nicht leer, Fließtext ohne Markdown und ohne Zeilenumbruch, höchstens
+:data:`~ausarbeitung.anweisung.KURZ_MAX` Zeichen **nach** dem Einsetzen des
+gerechneten Grads. Nicht im Antwortschema (``maxLength``), sondern hier: ein
+Verstoß wird benannt und im selben Budget wiederholt, statt die Antwort an der
+Grenze abzuschneiden.
 """
 
 from __future__ import annotations
@@ -23,7 +31,7 @@ from typing import Any, Iterator
 
 from erkennung.pruefen import ZAHL_MIT_EINHEIT
 
-from .anweisung import INTEGRATIONEN, PLATZHALTER, ROLLEN, STUFEN
+from .anweisung import INTEGRATIONEN, KURZ_MAX, KURZTEXTE, PLATZHALTER, ROLLEN, STUFEN, setze_ein
 
 __all__ = ["Erwartung", "ROLLEN", "INTEGRATIONEN", "STUFEN", "normalisiere", "pruefe_ausarbeitung"]
 
@@ -33,6 +41,8 @@ __all__ = ["Erwartung", "ROLLEN", "INTEGRATIONEN", "STUFEN", "normalisiere", "pr
 _MIN = {"beschreibung": 300, "to_be_vision": 300, "loesungsansatz": 30, "zukunftssicherheit": 10}
 
 _KLAMMER = re.compile(r"\{([^{}]*)\}")
+#: Markdown, das auf einer Folie roh stünde: Fettung, Überschrift, Aufzählung am Zeilenanfang.
+_MARKDOWN = re.compile(r"\*\*|^\s*#|^\s*(?:[-*+•]|\d+[.)])\s", re.MULTILINE)
 _NICHT_ALNUM = re.compile(r"[^0-9a-zäöüß]")
 
 
@@ -60,6 +70,10 @@ class Erwartung:
     #: (:func:`normalisiere`). ``None`` heißt: der Bestand nennt keines — dann
     #: wird nicht geprüft, sonst hinge der Lauf an einer Datenlücke fest.
     systeme: dict[str, str | None] = field(default_factory=dict)
+    #: Je Potenzial der gerechnete Grad (``grad_min``, ``grad_max``), mit dem die
+    #: Kurztexte gemessen werden. Fehlt er, zählt der Rohtext — ein Platzhalter ist
+    #: länger als jede Zahl, die ihn ersetzt, die Grenze hält also auch dann.
+    grade: dict[str, dict[str, float]] = field(default_factory=dict)
 
 
 def _texte(wert: Any, pfad: str) -> Iterator[tuple[str, str]]:
@@ -99,6 +113,29 @@ def _text(d: dict, feld: str, ort: str, mindestens: int = 1) -> list[str]:
     return []
 
 
+def _kurztext(p: dict, feld: str, ort: str, grad: dict[str, float] | None) -> list[str]:
+    """Ein Kurztext für die Folie: Fließtext, nicht leer, höchstens 300 Zeichen eingesetzt."""
+    wert = p.get(feld)
+    if not isinstance(wert, str) or not wert.strip():
+        return [f"{ort}.{feld}: fehlt oder leer"]
+    wert = wert.strip()
+    g = []
+    if "\n" in wert or "\r" in wert:
+        g.append(f"{ort}.{feld}: Zeilenumbruch — ein bis zwei Sätze Fließtext, er steht so auf der Folie")
+    if _MARKDOWN.search(wert):
+        g.append(
+            f"{ort}.{feld}: Markdown (Überschrift, Fettung oder Aufzählung) — Fließtext, "
+            "er steht so auf der Folie"
+        )
+    laenge = len(setze_ein(wert, grad) if grad else wert)
+    if laenge > KURZ_MAX:
+        g.append(
+            f"{ort}.{feld}: länger als {KURZ_MAX} Zeichen ({laenge}"
+            + (" nach dem Einsetzen des Automatisierungsgrads" if grad else "") + ")"
+        )
+    return g
+
+
 def _textliste(d: dict, feld: str, ort: str, mindestens: int) -> list[str]:
     wert = d.get(feld)
     if not isinstance(wert, list) or any(not isinstance(x, str) or not x.strip() for x in wert):
@@ -114,6 +151,8 @@ def _potenzial(p: dict, erwartung: Erwartung) -> list[str]:
     g: list[str] = []
     for feld, n in _MIN.items():
         g += _text(p, feld, ort, n)
+    for feld in KURZTEXTE:
+        g += _kurztext(p, feld, ort, erwartung.grade.get(nr))
     story = _text(p, "user_story", ort, 20)
     g += story
     if not story and not _SOPHIST.match(p["user_story"]):
