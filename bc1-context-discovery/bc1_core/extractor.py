@@ -3,7 +3,7 @@ import logging
 import re
 from bc1_core.types import Candidate, FieldStatus, FieldValue, SessionState
 from bc1_core.package import UseCasePackage, FieldSpec
-from bc1_core.feldtypen import Feldtyp, ist_nackte_zahl, vergleichsschluessel
+from bc1_core.feldtypen import Feldtyp, ist_nackte_zahl, nennt_fremden_bezug, vergleichsschluessel
 from bc1_core.llm import ExtractionCandidate, LLMClient
 from bc1_core.pii import ersetze_pii
 from bc1_core.protokoll import aktuelle_korrelation, ki_aufruf
@@ -79,6 +79,10 @@ def extract_and_merge(state: SessionState, message: str, message_id: str,
         if (wert_roh is None and spec.typ.nennt_einheit is not None
                 and spec.typ.nennt_einheit(cand.value)
                 and not spec.typ.nennt_einheit(message)):
+            continue
+        # Spec Sperre (d): Nennt die Nachricht eine fremde Bezugsgröße („pro Fall“), gilt
+        # kein KI-Wert für Häufigkeit oder Dauer aus ihr (Nachfrage).
+        if wert_roh is None and spec.typ.prueft_bezug and nennt_fremden_bezug(message):
             continue
         # Normalisierung VOR dem Merge: Vergleiche, Klärung und Kandidaten
         # arbeiten auf dem normalisierten Wert; gespeichert wird er auch.

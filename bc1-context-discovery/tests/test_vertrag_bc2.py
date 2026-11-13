@@ -84,7 +84,7 @@ RECHENGROESSEN = ("frequency_per_year", "executions_per_run",
 
 
 def test_fertiges_profil_mit_ungeloesten_rechengroessen_erfuellt_das_schema(pool):
-    # README "Was BC1 zusagt": nach zwei Nachfragen wird das Profil trotzdem fertig,
+    # README "Was BC1 zusagt": nach der Frage und einer Nachfrage wird das Profil trotzdem fertig,
     # die Spalten sind NULL. Der Stand wird gebaut wie in den Writer-Tests -- den
     # Dialog bis zum Limit zu treiben, pruefte den Dialog, nicht das Format.
     anfrage = ANFRAGEN["KP-06.TP-2"]

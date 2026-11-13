@@ -76,16 +76,28 @@ Schritts im Schnitt?", ab Paketfassung 1.2 — das ist der Teil vor dem `+` in
 **Ohne `step_frequency_per_year` gilt eine Ausführung des Fokus-Schritts je
 Prozessdurchlauf** (I8); dann fallen beide Bezugsgrößen zusammen. Das ist eine Annahme,
 keine Prüfung: BC1 erfasst D3 nur, wenn die befragte Person es von sich aus nennt, `NULL`
-heißt „nicht erwähnt" ([#286](https://github.com/pg-coe-kmu/coe-factory/issues/286)).
+heißt „nicht oder nicht verwertbar erwähnt" (etwa mit einer anderen Bezugsgröße, siehe unten;
+[#286](https://github.com/pg-coe-kmu/coe-factory/issues/286)).
 Läuft der Schritt mehrmals je Prozessdurchlauf, etwa einmal je Fall, und fehlt D3, ist die
 Schrittzeit im Jahr zu niedrig; `executions_per_run` gleicht das nicht aus (I2).
 
 **Die Bezugsgröße ist eine Annahme aus dem Fragetext, keine Prüfung.** BC1 speichert den
-normalisierten Zahlenwert; ein Zusatz wie „pro Fall" oder „je Mitarbeiter" geht dabei
-verloren („90 Minuten pro Fall" → `90`). Profile mit Paketfassung vor 1.2 haben E2 ohne
-Bezugsgröße gefragt („Wie lange dauert dieser Schritt im Schnitt?"); dort gilt je
-Prozessdurchlauf, ungeprüft, und I8 passt nur, wenn `step_frequency_per_year` `NULL` ist.
-In den Testprofilen ist es nicht gesetzt.
+normalisierten Zahlenwert. Eine Ausnahme prüft BC1 *(ab Fassung 1.5)*: Nennt die Antwort
+selbst eine andere Bezugsgröße — „pro" oder „je", worauf weder Woche, Monat oder Jahr noch
+ein Lauf („pro Durchlauf") folgt, etwa „pro Fall", „je Mitarbeiter", „pro Tag"; ebenso ein
+„/" direkt nach einer Zeiteinheit („30 min/Fall"), außer vor „max" oder einer weiteren
+Zeiteinheit („Min/Max", „Minuten/Stunden") —, übernimmt BC1 aus dieser Antwort keinen
+Wert für Häufigkeit oder Dauer. Ist das Feld noch offen, fragt BC1 nach („90 Minuten pro
+Fall" → Nachfrage; bleibt es offen, `ungeloest` → `NULL`); ein schon erfasster Wert bleibt
+unverändert. D3 ist optional und wird nie nachgefragt. Ohne „pro"/„je" und ohne „/" nach
+einer Zeiteinheit („jeder Fall dauert 30 Minuten", „für jeden Fall 30 Minuten", „5/Lead im
+Monat") oder mit einem Zeitraum direkt danach („2 Stunden pro Woche" auf eine Dauer-Frage,
+„5 pro Woche und Mitarbeiter") bleibt es bei der ungeprüften Annahme. Bis Fassung 1.4 ging ein solcher Zusatz verloren („90 Minuten
+pro Fall" → `90`).
+
+Profile mit Paketfassung vor 1.2 haben E2 ohne Bezugsgröße gefragt („Wie lange dauert
+dieser Schritt im Schnitt?"); dort gilt je Prozessdurchlauf, ungeprüft, und I8 passt nur,
+wenn `step_frequency_per_year` `NULL` ist. In den Testprofilen ist es nicht gesetzt.
 
 **`frequency_per_year` und `total_duration_minutes` beschreiben den Prozess, wie ihn der
 Befragte in `process_name` gerahmt hat** — D1 und E1 fragen nach „dem gesamten Prozess",
@@ -156,20 +168,33 @@ einer Multiplikation schon einmal entgleist ist, steht in **I2**.
 ## Normalisierung der Zahlen
 
 Was BC1 aus einer Antwort macht, bevor sie in die Spalte kommt — gemessen am Bau
-(`bc1_core/feldtypen.py`), nicht am Wunsch:
+(`bc1_core/feldtypen.py`, `bc1_core/extractor.py`), nicht am Wunsch. Freie Formulierungen
+(`30 monatlich`, `90 Minuten pro Durchlauf`) rechnet die KI-Auswertung um; ob sie das
+zuverlässig tut, misst BC1 mit seinem Prüfwerkzeug. Die Nachfragen in der Tabelle und bei
+den Dauern sind feste Regeln im Code und hängen nicht an der KI:
 
 | Antwort auf D1 (`frequency_per_year`) | Spalte | Warum |
 |---|---|---|
-| `30 pro Monat` · `2 pro Woche` | `360` · `104` | Woche/Monat/Jahr werden auf das Jahr gerechnet |
-| `30` | `30` | nackte Zahl gilt als **pro Jahr**, ohne Rückfrage |
-| `30 monatlich` · `3 pro Tag` · `30 pro Quartal` | Nachfrage | unbekannte Periode wird nicht geraten; nach zwei Nachfragen `ungeloest` → `NULL` |
+| `30 pro Monat` · `2 pro Woche` · `30 monatlich` | `360` · `104` · `360` | Woche/Monat/Jahr werden auf das Jahr gerechnet, auch als „wöchentlich", „monatlich", „jährlich" |
+| `30` | `30` | nackte Zahl gilt als **pro Jahr**, ohne Rückfrage — nur wenn die Person genau diese Zahl schreibt; `ca. 30` oder `2x` ohne Zeitraum werden nachgefragt |
+| `3 pro Tag` · `30 pro Quartal` | Nachfrage | unbekannte Periode wird nicht geraten; bleibt das Feld nach der Nachfrage offen, `ungeloest` → `NULL` |
+| `5 pro Lead im Monat` | Nachfrage | andere Bezugsgröße („pro"/„je" ohne Zeitraum oder Lauf, siehe I1); bleibt das Feld offen, ebenso `NULL` |
 
-Dauern (E1, E2): `3 Stunden` → `180`, `90 min` → `90`; die Einheit wird auf Minuten
-gerechnet, Zusätze zur Bezugsgröße verworfen (siehe I1). Die Konfidenz (E4) ist ganzzahlig.
+Dauern (E1, E2): `3 Stunden` → `180`, `90 min` → `90`, `90 Minuten pro Durchlauf` → `90`;
+die Einheit wird auf Minuten gerechnet. Eine nackte Zahl (`40`) gilt als Minuten, wie bei D1
+nur, wenn die Person sie selbst schreibt. Nennt die Antwort eine andere Bezugsgröße
+(`30 Minuten pro Fall`, `30 min/Fall`), fragt BC1 nach (siehe I1). Die Konfidenz (E4) ist
+ganzzahlig.
+D3 (`step_frequency_per_year`) wird wie D1 normalisiert, und einen Wert mit anderer
+Bezugsgröße übernimmt BC1 auch hier nicht; nachgefragt wird D3 aber nie (optional, siehe I1).
+Die Spalte bleibt dann `NULL`, auch wenn der Schritt abweicht, und BC2 rechnet nach I8 mit
+`frequency_per_year`; läuft der Schritt mehrmals je Durchlauf, ist die Schrittzeit zu niedrig.
 
 **D4 (`executions_per_run`) ist eine reine Anzahl** (ab Paketfassung 1.2): `3`, `etwa 3`,
 `3 Fälle`, `3 je Durchlauf` → `3`. Eine Periode („5 pro Woche") ist keine Fallzahl je
-Durchlauf; das Interview fragt nach, nach zwei Nachfragen `ungeloest` → `NULL`. Vor 1.2
+Durchlauf; das Interview fragt nach, bleibt das Feld offen, `ungeloest` → `NULL`. Anders als
+die Nachfragen in der Tabelle und bei den Dauern oben hängt diese an der KI-Auswertung
+(gemessen mit dem Prüfwerkzeug); eine feste Sperre gibt es für die Anzahl nicht. Vor 1.2
 lief D4 durch denselben Normalisierer wie D1 („5 pro Woche" → `260`).
 
 ## Güte
@@ -191,8 +216,8 @@ Bitkom-Bestand ([#161](https://github.com/pg-coe-kmu/coe-factory/issues/161)).
 
 ## Was BC1 zusagt — und was BC2 aushält
 
-**Zusage:** Alle vier Rechengrößen sind Pflichtfragen, und BC1 fragt jede höchstens
-zweimal nach. **Bleibt eine danach ungeklärt, wird das Profil trotzdem `fertig`.** Das
+**Zusage:** Alle vier Rechengrößen sind Pflichtfragen, und BC1 stellt jede höchstens
+zweimal (die Frage und eine Nachfrage). **Bleibt eine danach ungeklärt, wird das Profil trotzdem `fertig`.** Das
 Feld steht dann im Profil-JSON mit `status='ungeloest'` und einem `grund`
 (`nachfrage_limit_erreicht` oder `runden_limit_erreicht`), sein Name steht in
 `profil.ungeloeste_felder`, und die typisierte Spalte ist `NULL`. Nur die Identität
@@ -266,6 +291,21 @@ kommt seit [#165](https://github.com/pg-coe-kmu/coe-factory/issues/165) erst nac
 Gate-0-Freigabe. BC1 muss dafür nichts ändern.
 
 ## Stand
+
+**Fassung 1.5 — Vorschlag von BC1, 10.11.2026 (Sperre (d)).** Nennt eine Antwort eine
+andere Bezugsgröße („90 Minuten pro Fall", „30 min/Fall"), fragt BC1 nach, statt den Zusatz
+zu verwerfen (I1, „Normalisierung der Zahlen") · die Normalisierungstabelle auf den Bau gebracht
+(`30 monatlich` ergibt über die KI-Auswertung `360`; die nackte Zahl gilt nur, wenn die
+Person sie selbst schreibt) · berichtigt: BC1 stellt jede Rechengröße höchstens zweimal
+(Frage und eine Nachfrage), nicht „nach zwei Nachfragen" · klargestellt: welche Nachfragen
+feste Regeln sind und welche an der KI-Auswertung hängen (D4); D3 wird nie nachgefragt · I1
+nennt die Grenzen der Prüfung · Schema-Beschreibungen zu `frequency_per_year`,
+`step_frequency_per_year`, `total_duration_minutes` und `focus_step_duration_minutes`
+nachgezogen. Für D1, E1 und E2 wird es strenger, nicht anders: statt eines still übernommenen
+Werts im seltenen Fall `NULL`. **Für D3 kann es anders werden:** Ein abweichender Wert mit
+anderer Bezugsgröße bleibt `NULL`, ohne Nachfrage, und BC2 fällt nach I8 auf
+`frequency_per_year` zurück. Typen, Pflichtfelder und `lesen.sql` sind unverändert. Hinweis an
+BC2 in [#286](https://github.com/pg-coe-kmu/coe-factory/issues/286) vor dem Ausrollen.
 
 **Fassung 1.4 — Vorschlag von BC1, 24.10.2026 (Paket C1a).** `process_owner_rolle_id` ist
 gefüllt (B3 als Auswahl der aktiven Rollen, Befund `eigner_rolle_abweichung` bei Abweichung

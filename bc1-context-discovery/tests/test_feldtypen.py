@@ -17,6 +17,7 @@ from bc1_core.feldtypen import (
     SKALA_1_5,
     ZAHL,
     ist_nackte_zahl,
+    nennt_fremden_bezug,
     vergleichsschluessel,
 )
 from bc1_service.paket_feldtypen import PROZENT_GANZ_0_100
@@ -933,3 +934,106 @@ def test_antwortform_freie_typen():
 def test_antwortform_ist_pflichtmerkmal():
     with pytest.raises(TypeError):
         Feldtyp("x", lambda w: True, lambda w: w)
+
+
+@pytest.mark.parametrize("text", [
+    # Spec Sperre (d): „pro“/„je“ ohne folgenden Zeitraum oder Lauf ist eine fremde
+    # Bezugsgröße — auch mit Satzzeichen danach, beim zweiten Vorkommen und vor einer Zahl.
+    "30 Minuten pro Fall",
+    "30 Minuten pro (einzelnem) Fall",
+    "je Vorgang etwa eine halbe Stunde",
+    "drei Fälle, je 30 Minuten",
+    "pro Laufzettel 5 Minuten",
+    "5 pro Lead im Monat",
+    "je nach Saison 2 mal im Monat",
+    "2 mal pro Woche, je Fall 30 Minuten",
+    "2 pro Woche, 30 Minuten pro Fall",
+    "2 pro Wochentag",
+    "5 pro Tag",
+])
+def test_fremde_bezugsgroesse_wird_erkannt(text):
+    assert nennt_fremden_bezug(text) is True
+
+
+@pytest.mark.parametrize("text", [
+    # Spec Sperre (d), E1: Zeitraum und Lauf sind bei Häufigkeit und Dauer erlaubt; „pro“
+    # und „je“ nur als ganzes Wort („Projekt“, „jede“ zählen nicht).
+    "90 Minuten pro Durchlauf",
+    "pro Prozessdurchlauf etwa 90 Minuten",
+    "15 pro Monat, 3 Stunden",
+    "2 mal pro Woche, je Lauf 30 Minuten",
+    "20 Leads pro Woche",
+    "2 Stunden pro Woche",
+    "300 pro Jahr",
+    "Prozess läuft wöchentlich",
+    "Projektbericht jede Woche",
+])
+def test_zeitraum_oder_lauf_ist_keine_fremde_bezugsgroesse(text):
+    assert nennt_fremden_bezug(text) is False
+
+
+@pytest.mark.parametrize("text", [
+    # Spec Sperre (d), E3: ein „/“ direkt nach einer Zeiteinheit zählt wie „pro“.
+    "30 min/Fall",
+    "30 Min. / Fall",
+    "1,5h/Fall",
+    "2 Std./Vorgang",
+    "30 Minuten/Lead",
+    "2 Std/Tag",
+    "2 Stunden/Fall",
+    "eine Viertelstunde/Fall",
+    "2 Std./Händler",
+])
+def test_schraegstrich_nach_der_einheit_ist_fremde_bezugsgroesse(text):
+    assert nennt_fremden_bezug(text) is True
+
+
+@pytest.mark.parametrize("text", [
+    # (Regression) Spec Sperre (d), E3: Zeitraum und Lauf nach „/“ bleiben erlaubt (E1); ein
+    # „/“ ohne Zeiteinheit davor zählt nicht.
+    "30 min/Woche",
+    "30 min/ Woche",
+    "2 Std./Monat",
+    "90 min/Durchlauf",
+    "Outlook/SAP, 30 Minuten",
+    "2/Woche",
+    "50 km/h",
+])
+def test_schraegstrich_mit_zeitraum_lauf_oder_ohne_einheit_ist_frei(text):
+    assert nennt_fremden_bezug(text) is False
+
+
+@pytest.mark.parametrize("text", [
+    # Spec Sperre (d), Entscheidung 10.11. (C): folgt auf „/“ „max“ oder wieder eine
+    # Zeiteinheit, ist es keine Bezugsgröße.
+    "Min/Max-Bestände prüfen, 2 mal pro Woche",
+    "Excel (Min/Max-Bestand)",
+    "Min.-/Max.-Bestand",
+    "min./max. 30 Minuten",
+    "Std/Min-Abrechnung",
+    "Minuten/Stunden, ca. 30 Minuten",
+])
+def test_schraegstrich_vor_max_oder_einer_einheit_ist_frei(text):
+    assert nennt_fremden_bezug(text) is False
+
+
+def test_schraegstrich_nach_wortende_h_ist_keine_einheit():
+    # (Regression) Spec Sperre (d), E3: Die Einheit ist ein ganzes Wort; „Buch/Heft“
+    # endet nur auf „h“.
+    assert nennt_fremden_bezug("Buch/Heft, 30 Minuten") is False
+
+
+@pytest.mark.parametrize("text", [
+    "Die Boje wird 2 mal pro Woche geprüft",
+    "Repro: 2 mal pro Woche",
+])
+def test_pro_und_je_als_wortende_sind_keine_fremde_bezugsgroesse(text):
+    # (Regression) Spec Sperre (d): nur das ganze Wort „pro“/„je“ zählt, nicht am Wortende.
+    assert nennt_fremden_bezug(text) is False
+
+
+def test_nur_haeufigkeit_und_dauer_pruefen_die_bezugsgroesse():
+    # Spec Sperre (d): wie (b) ein Merkmal des Typs, nie des Feldnamens.
+    typen = (ZAHL, MINUTEN, ANZAHL, PROZENT_0_100, SKALA_1_5, JA_NEIN, FREITEXT, LISTE,
+             AUSWAHL("a"))
+    assert {t.name for t in typen if t.prueft_bezug} == {"zahl", "minuten"}

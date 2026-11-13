@@ -35,6 +35,9 @@ class Feldtyp:
     # Nur ZAHL und MINUTEN setzen sie: Nennt die Nachricht selbst einen Zeitraum bzw. eine
     # Zeiteinheit? Ein KI-Wert gilt nur dann (Spec 2, „Feste Sperren“ (b)).
     nennt_einheit: Callable[[str], bool] | None = field(default=None, kw_only=True)
+    # Nur ZAHL und MINUTEN setzen es: Nennt die Nachricht eine fremde Bezugsgröße („pro
+    # Fall“), gilt ein KI-Wert nicht (Spec Sperre (d), `nennt_fremden_bezug`).
+    prueft_bezug: bool = field(default=False, kw_only=True)
 
 
 # Deutsche Tausendergruppierung (z. B. "1.000", "12.345,5") VOR der einfachen
@@ -88,6 +91,29 @@ _ZEITEINHEIT_MUSTER = re.compile(r"(?<![a-z])(?:minute|minuten|stunde|stunden|vi
 
 def _nennt_zeiteinheit(text: str) -> bool:
     return _ZEITEINHEIT_MUSTER.search(vergleichsschluessel(text)) is not None
+
+
+# Spec Sperre (d): jedes ganze Wort „pro“/„je“, dem nicht ein Zeitraum (ganze Wörter wie in
+# (b), ohne die Adverbien) oder ein Lauf („Lauf“, „Durchlauf“, …) folgt, ist eine fremde
+# Bezugsgröße („pro Fall“, „je Vorgang“, „pro Tag“). Negativform: auch Satzzeichen danach
+# („pro (einzelnem) Fall“) und „je“ vor einer Zahl sperren.
+_ERLAUBTER_BEZUG = (r"(?:(?:woche|wochen|monat|monate|monaten|jahr|jahre|jahren)"
+                    r"|[a-z]*lauf)(?![a-z])")
+_FREMDER_BEZUG_MUSTER = re.compile(
+    rf"(?<![a-z])(?:pro|je)(?!\s+{_ERLAUBTER_BEZUG})(?![a-z])")
+# Spec Sperre (d), E3: ein „/“ direkt nach einer Zeiteinheit (Wörter wie in (b), auch mit
+# Punkt) zählt wie „pro“ („30 min/Fall“); Zeitraum und Lauf danach bleiben erlaubt, ebenso
+# „max“ oder wieder eine Zeiteinheit („Min/Max“, „Minuten/Stunden“; Entscheidung 10.11.).
+_ZEITEINHEIT_WORT = r"(?:minute|minuten|stunde|stunden|viertelstunde|min|std|h)"
+_EINHEIT_SCHRAEGSTRICH_MUSTER = re.compile(
+    rf"(?<![a-z]){_ZEITEINHEIT_WORT}\.?\s*/"
+    rf"(?!\s*(?:{_ERLAUBTER_BEZUG}|(?:max|{_ZEITEINHEIT_WORT})(?![a-z])))")
+
+
+def nennt_fremden_bezug(text: str) -> bool:
+    schluessel = vergleichsschluessel(text)
+    return (_FREMDER_BEZUG_MUSTER.search(schluessel) is not None
+            or _EINHEIT_SCHRAEGSTRICH_MUSTER.search(schluessel) is not None)
 
 
 def _formatiere(zahl: float) -> str:
@@ -299,12 +325,12 @@ def _ist_nichtnegative_zahl(wert: str) -> bool:
 
 ZAHL = Feldtyp("zahl", _ist_nichtnegative_zahl, _normalisiere_zahl,
                kurzform=_kurzform_haeufigkeit, nackte_zahl_nur_von_person=True,
-               nennt_einheit=_nennt_zeitraum,
+               nennt_einheit=_nennt_zeitraum, prueft_bezug=True,
                antwortform="Zahl pro Woche, pro Monat oder pro Jahr, "
                            "z. B. ‚2 pro Monat‘")
 MINUTEN = Feldtyp("minuten", _ist_nichtnegative_zahl, _normalisiere_minuten,
                   kurzform=_kurzform_minuten, nackte_zahl_nur_von_person=True,
-                  nennt_einheit=_nennt_zeiteinheit,
+                  nennt_einheit=_nennt_zeiteinheit, prueft_bezug=True,
                   antwortform="Dauer als Zahl mit ‚Minuten‘ oder ‚Stunden‘, "
                               "z. B. ‚90 Minuten‘")
 ANZAHL = Feldtyp("anzahl", _ist_nichtnegative_zahl, _normalisiere_anzahl,
