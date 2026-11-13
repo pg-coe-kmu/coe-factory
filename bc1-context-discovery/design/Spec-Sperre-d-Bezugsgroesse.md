@@ -206,7 +206,7 @@ eine Zeiteinheit folgt („Min/Max“, „Minuten/Stunden“), nicht sperren; �
 Lager- und Einkaufsprozessen eine übliche Angabe.
 
 **E3 umgesetzt (10.11., Go der BC1-Projektleitung).** Anlass: Prüfwerkzeug Szenario 4 mit
-echter KI (Code-Stand `c61e322`), Lauf 9: „30 min/Fall“ → 30 (die KI ließ „/Fall“ weg; (b)
+echter KI (Code-Stand `f9548c2`), Lauf 9: „30 min/Fall“ → 30 (die KI ließ „/Fall“ weg; (b)
 sieht „min“, (d) kennt kein „/“). Regel, wie E3 sie vorsah: Ein „/“ direkt nach einer
 Zeiteinheit (dieselben ganzen Wörter wie in Sperre (b): Minute(n), Stunde(n), Viertelstunde,
 min, std, h, auch mit Punkt) zählt wie „pro“. Erlaubt sind danach wieder Zeitraum und Lauf (E1).
