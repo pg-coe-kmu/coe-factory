@@ -27,9 +27,10 @@ Fehlt etwas, steht dort, *dass* es fehlt — erfunden wird es nicht.
   7   Überblick                                je 6 Potenziale eine („1 von 2")
   8   Priorisierungsmatrix                     je 9 Potenziale eine
   9   Kernprozess-Abschnitt                    je Kernprozess eine
- 10   Potenzial im Detail                      je Potenzial eine, ohne Obergrenze
+ 10   Potenzial im Detail                      je Potenzial eine, ohne Obergrenze —
+                                               dazu Fortsetzungen, so viele der Text braucht
  11   03 · Kostenschätzung                     Trenner
- 12   Kosten und Nutzen je Potenzial           je 7 Potenziale eine
+ 12   Kosten und Nutzen je Potenzial           höchstens 7 Potenziale je Folie, nach Höhe
  13   Abschluss                                einmal
 ====  =======================================  ========================================
 
@@ -46,7 +47,7 @@ herausgenommenes Potenzial kommt gar nicht vor, auch seine Begründung nicht —
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Mapping, Sequence
 
 from pptx import Presentation
@@ -55,9 +56,11 @@ from pptx.enum.text import PP_ALIGN
 from pptx.util import Inches
 
 from . import formulierung as F
+from .absaetze import Absatz, Lauf, aus_markdown, teile
 from .zeichnen import (
     ACCENT, AMBER, BLUE, BREITE, DEEP, GREEN, GREY, HOEHE, INK, LIGHT, LINE, RED, TEAL,
-    TITELBLAU, WARN_FILL, WHITE, box, divider, flaeche, foot, header, txt,
+    TITELBLAU, WARN_FILL, WHITE, box, box_groesse, box_hoehe, divider, flaeche, foot, header, karte,
+    rahmen, txt, txt_hoehe,
 )
 
 __all__ = ["KeineFreigabe", "baue_praesentation", "KACHELN_JE_FOLIE", "ZEILEN_MATRIX",
@@ -203,6 +206,11 @@ def _seiten(liste: list, je_seite: int) -> list[list]:
     return [liste[i:i + je_seite] for i in range(0, len(liste), je_seite)]
 
 
+def _anzahl(n: int, einzahl: str, mehrzahl: str) -> str:
+    """„1 Kernprozess", „2 Kernprozessen" — nicht „1 Kernprozessen", nicht „1 Konzept(e)" (#380)."""
+    return f"{n} {einzahl if n == 1 else mehrzahl}"
+
+
 def _von(i: int, n: int) -> str:
     return f" ({i} von {n})" if n > 1 else ""
 
@@ -270,7 +278,8 @@ def baue_praesentation(
     _unternehmen(satz, lauf)
     _herausforderungen(satz, lauf)
     divider(satz.folie(fuss=False), "02", "Automatisierungspotenziale",
-            f"{len(lauf.eintraege)} freigegebene Potenziale in {len(lauf.kp_folge)} Kernprozessen")
+            f"{_anzahl(len(lauf.eintraege), 'freigegebenes Potenzial', 'freigegebene Potenziale')} in "
+            f"{_anzahl(len(lauf.kp_folge), 'Kernprozess', 'Kernprozessen')}")
     _ueberblick(satz, lauf)
     _matrix(satz, lauf)
     for i, kp_id in enumerate(lauf.kp_folge, start=1):
@@ -305,7 +314,8 @@ def _titel(
         freigabe += f" durch {g['entscheider']}"
     zeilen = [
         f"Mandant:      {lauf.mandant}",
-        f"Kernprozesse: {', '.join(lauf.kp_folge)}  ·  {len(lauf.eintraege)} freigegebene Potenziale",
+        f"{'Kernprozess:  ' if len(lauf.kp_folge) == 1 else 'Kernprozesse: '}{', '.join(lauf.kp_folge)}  ·  "
+        f"{_anzahl(len(lauf.eintraege), 'freigegebenes Potenzial', 'freigegebene Potenziale')}",
         f"Paket {p['paket_id']}  ·  Fassung {p['fassung']}  ·  übergeben am {F.datum(p['uebergeben_am'])}",
         f"{freigabe}  ·  Erstellt von BC2 — Strategic Advisor (Autonomous CoE Factory)",
     ]
@@ -385,8 +395,7 @@ def _unternehmen(satz: _Satz, lauf: _Lauf) -> None:
     ys = [Inches(1.5), Inches(4.1)]
     for i, (t, d, c) in enumerate(kacheln):
         x, y = xs[i % 2], ys[i // 2]
-        box(s, x, y, Inches(6.0), Inches(2.4), "", WHITE, INK, 11, False, line=c, lw=1.5)
-        box(s, x, y, Inches(6.0), Inches(0.55), t, c, size=13, passend=False)
+        karte(s, x, y, Inches(6.0), Inches(2.4), t, c)
         txt(s, x + Inches(0.2), y + Inches(0.7), Inches(5.6), Inches(1.6), d, 13, INK)
 
 
@@ -408,13 +417,20 @@ def _herausforderungen(satz: _Satz, lauf: _Lauf) -> None:
                 "zusammengestellt — die Präsentation trägt keine eigene Information.", 14, INK)
             continue
         hoehe_liste = Inches(3.3) if (kernaussage and n == 1) else Inches(5.2)
-        zeile_h = int(hoehe_liste / HERAUSFORDERUNGEN_JE_FOLIE)
-        for i, h in enumerate(seite):
-            y = Inches(1.4) + zeile_h * i
+        # Wenige Karten werden höher, statt Platz zu lassen und zu schrumpfen; höchstens 1 Zoll.
+        zeile_h = min(int(hoehe_liste / max(len(seite), 1)), Inches(1.0))
+        texte = []
+        for h in seite:
             haeufig = f" ({h['haeufigkeit']})" if h.get("haeufigkeit") else ""
-            text = f"{h['beschreibung']}{haeufig}\nAuswirkung: {h['auswirkung']}  ·  {', '.join(h['kp_ids'])}"
-            box(s, Inches(0.55), y, Inches(12.25), zeile_h - Inches(0.08), text, LIGHT, INK, 12.5, True,
-                align=PP_ALIGN.LEFT, line=LINE)
+            texte.append(f"{h['beschreibung']}{haeufig}\n"
+                         f"Auswirkung: {h['auswirkung']}  ·  {', '.join(h['kp_ids'])}")
+        # Eine Größe für alle Karten der Folie: die der längsten. Sonst stand eine
+        # Karte kleiner als ihre Nachbarn (#380).
+        breite, hoehe = Inches(12.25), zeile_h - Inches(0.08)
+        groesse = min(box_groesse(t, breite, hoehe, 12.5, True) for t in texte) if texte else 12.5
+        for i, text in enumerate(texte):
+            box(s, Inches(0.55), Inches(1.4) + zeile_h * i, breite, hoehe, text, LIGHT, INK, groesse, True,
+                align=PP_ALIGN.LEFT, line=LINE, passend=False)
         if kernaussage and n == 1:
             box(s, Inches(0.55), Inches(4.9), Inches(12.25), Inches(1.5),
                 f"KERNAUSSAGE\n{kernaussage}", LIGHT, INK, 13, True, align=PP_ALIGN.LEFT, line=ACCENT)
@@ -489,10 +505,13 @@ def _matrix(satz: _Satz, lauf: _Lauf) -> None:
 
 def _quadranten(s, quadranten: dict[str, list[str]]) -> None:
     mx, my, mw, mh = Inches(7.45), Inches(1.7), Inches(5.3), Inches(4.75)
-    box(s, mx, my, mw, mh, "", WHITE, INK, 10, False, line=LINE)
-    txt(s, mx, my + Inches(0.05), mw, Inches(0.3), "  hoher Impact ↑   (Ziffern = Rang)", 10, GREY, True)
-    txt(s, mx, my + mh - Inches(0.32), mw, Inches(0.3),
-        "  Umsetzungskomplexität  (gering → hoch) →", 10, GREY)
+    # Ein eckiger Rahmen: in den runden Ecken lagen die Beschriftungen auf der Linie (#380).
+    flaeche(s, mx, my, mw, mh, WHITE, line=LINE)
+    innen = Inches(0.2)  # mit dem Textrand 0,1 Zoll auf der Flucht der Quadranten
+    txt(s, mx + innen, my + Inches(0.08), mw - 2 * innen, Inches(0.3),
+        "hoher Impact ↑   (Ziffern = Rang)", 10, GREY, True)
+    txt(s, mx + innen, my + mh - Inches(0.4), mw - 2 * innen, Inches(0.3),
+        "Umsetzungskomplexität  (gering → hoch) →", 10, GREY)
 
     def inhalt(k):
         return ", ".join(quadranten.get(k, [])) or "keines"
@@ -538,35 +557,113 @@ def _text(pot: Mapping, feld: str, bezeichnung: str) -> str:
     return f"{bezeichnung}: {_TEXT_FEHLT}."
 
 
-def _detail(satz: _Satz, lauf: _Lauf, e: _Eintrag) -> None:
+#: Der Fließtext der Detailfolie steht in **einer** Größe, auf der ersten Folie
+#: wie auf der Fortsetzung. Was nicht passt, wird geteilt, nicht geschrumpft (#380):
+#: bei rund 3.000 Zeichen je Feld hätte Schrumpfen unter jede Lesbarkeit geführt.
+DETAIL_PT = 10.0
+_KOPF_PT = 11.5
+
+# Spalten als (x, y, Breite, Höhe); unten endet jede vor der Fußzeile.
+_SPALTE_LINKS = (Inches(0.55), Inches(1.3), Inches(6.1), Inches(5.72))
+_SPALTE_RECHTS = (Inches(6.95), Inches(1.3), Inches(5.85), Inches(5.72))
+_BEWERTUNG_PT = 11.0
+
+
+def _abschnitt(titel: str, farbe, inhalt: list[Absatz]) -> list[Absatz]:
+    """Ein Abschnittskopf und sein Text; jeder Absatz merkt sich, wohin er gehört."""
+    marke = {"abschnitt": (titel, farbe)}
+    kopf = Absatz((Lauf(titel, True),), _KOPF_PT, farbe=farbe, kopf=True, halten=True, abstand_vor=10,
+                  extra=marke)
+    return [kopf, *(replace(a, extra={**a.extra, **marke}) for a in inhalt)]
+
+
+def _mit_koepfen(liste: list[Absatz]) -> list[Absatz]:
+    """Wo ein Abschnitt mitten im Text weiterläuft, steht „<KOPF> (Fortsetzung)" davor."""
+    aus, vorher = [], None
+    for a in liste:
+        abschnitt = a.extra.get("abschnitt")
+        if abschnitt and abschnitt != vorher and not a.kopf:
+            titel, farbe = abschnitt
+            aus.append(Absatz((Lauf(f"{titel} (Fortsetzung)", True),), _KOPF_PT, farbe=farbe,
+                               kopf=True, halten=True, abstand_vor=10, extra={"abschnitt": abschnitt}))
+        aus.append(a)
+        vorher = abschnitt
+    return aus
+
+
+def _fuelle(liste: list[Absatz], spalte) -> tuple[list[Absatz], list[Absatz]]:
+    _x, _y, w, h = spalte
+    return teile(_mit_koepfen(liste), w / 12700, h / 12700)
+
+
+def _md(text: str) -> list[Absatz]:
+    return aus_markdown(text, DETAIL_PT)
+
+
+def _zeile(text: str) -> list[Absatz]:
+    return [Absatz((Lauf(text),), DETAIL_PT)]
+
+
+def _detailtexte(e: _Eintrag) -> tuple[list[Absatz], list[Absatz]]:
+    """Die beiden Textflüsse der Detailfolie: links Heute und Soll, rechts unten Querschnitte."""
     pot = e.potenzial
-    s = satz.folie(notiz=f"potenzial_id: {e.potenzial_id}\nkp_id: {e.kp_id}")
+    systeme = ", ".join(sys_.get("name", "") for sys_ in pot.get("betroffene_systeme", [])) or F.LUECKE
+    heute = [
+        *_md(_text(pot, "beschreibung", "Beschreibung")),
+        *_zeile(F.manueller_aufwand(pot)),
+        *_zeile(f"Teilprozesse: {', '.join(e.eintrag['betroffene_teilprozess_ids'])}  ·  "
+                f"Systeme: {systeme}"),
+    ]
+    ansatz = ((pot.get("potenzielle_loesung") or {}).get("ansatz") or "").strip()
+    if not ansatz:
+        loesung = _zeile(f"Lösungsansatz: {_TEXT_FEHLT}.")
+    elif ansatz.startswith("#"):
+        loesung = _md(ansatz)  # trägt seine Überschrift selbst
+    else:
+        loesung = _md(f"**Lösungsansatz:** {ansatz}")
+    soll = [*_md(_text(pot, "to_be_vision", "Soll-Vision")), *loesung,
+            *_zeile(F.automatisierungsgrad(pot))]
+
+    q = pot.get("querschnitte") or {}
+    quer = [f"Zukunftssicherheit: {q['zukunftssicherheit']}" if q.get("zukunftssicherheit")
+            else f"Zukunftssicherheit: {_TEXT_FEHLT}"]
+    if q.get("reifegrad"):
+        quer.append(f"Reifegrad: {q['reifegrad']}")
+    if q.get("umsatzpotenzial"):
+        quer.append(f"Umsatzpotenzial: {q['umsatzpotenzial']}")
+    if q.get("abhaengigkeiten"):
+        quer.append(f"Abhängigkeiten: {'; '.join(q['abhaengigkeiten'])}")
+    voraus = pot.get("voraussetzungen") or []
+    # Eine Aufzählung, nicht "; ".join — das machte aus „… vor." und „;" ein „vor.;" (#380).
+    vtext = [a for v in voraus for a in _md(f"- {v}")] or _zeile(f"Voraussetzungen: {_TEXT_FEHLT}.")
+    hinweise = pot.get("hinweise") or []
+    if hinweise:
+        vtext += _md("**Hinweise:**") + [a for h in hinweise for a in _md(f"- {h['art']}: {h['text']}")]
+
+    haupt = (_abschnitt("HEUTIGER PROZESS", BLUE, heute)
+             + _abschnitt("AUTOMATISIERUNGSPOTENZIAL", GREEN, soll))
+    seite = (_abschnitt("QUERSCHNITTE (gehen in keine Rechnung ein)", GREY,
+                        [a for z in quer for a in _md(z)])
+             + _abschnitt("VORAUSSETZUNGEN", GREY, vtext))
+    return haupt, seite
+
+
+def _detail_kopf(s, e: _Eintrag, kicker: str) -> None:
     # Das Etikett steht rechts im Kopfbalken; der Titel endet 0,15 Zoll davor und bricht um.
     etikett_x = Inches(10.2)
-    header(s, f"02 · {e.kp_id} · POTENZIAL", f"Rang {e.rang}   {e.titel}", color=GREEN,
+    header(s, kicker, f"Rang {e.rang}   {e.titel}", color=GREEN,
            titelbreite=etikett_x - Inches(0.55) - Inches(0.15))
     box(s, etikett_x, Inches(0.25), Inches(2.85), Inches(0.55), f"{e.gruppe} · {e.kategorie}",
         _PRIO_FARBE.get(e.gruppe, AMBER), size=12)
 
-    links_x, links_w = Inches(0.55), Inches(6.1)
-    txt(s, links_x, Inches(1.3), links_w, Inches(0.3), "HEUTIGER PROZESS", 12, BLUE, True)
-    systeme = ", ".join(sys_.get("name", "") for sys_ in pot.get("betroffene_systeme", [])) or F.LUECKE
-    heute = "\n".join([
-        _text(pot, "beschreibung", "Beschreibung"),
-        F.manueller_aufwand(pot),
-        f"Teilprozesse: {', '.join(e.eintrag['betroffene_teilprozess_ids'])}  ·  Systeme: {systeme}",
-    ])
-    txt(s, links_x, Inches(1.62), links_w, Inches(2.35), heute, 11, INK)
 
-    txt(s, links_x, Inches(4.05), links_w, Inches(0.3), "AUTOMATISIERUNGSPOTENZIAL", 12, GREEN, True)
-    ansatz = (pot.get("potenzielle_loesung") or {}).get("ansatz")
-    soll = "\n".join([
-        _text(pot, "to_be_vision", "Soll-Vision"),
-        f"Lösungsansatz: {ansatz}" if ansatz else f"Lösungsansatz: {_TEXT_FEHLT}.",
-        F.automatisierungsgrad(pot),
-    ])
-    txt(s, links_x, Inches(4.37), links_w, Inches(2.6), soll, 11, INK)
+def _detail(satz: _Satz, lauf: _Lauf, e: _Eintrag) -> None:
+    """Die Detailfolie eines Potenzials, und so viele Fortsetzungen, wie der Text braucht.
 
+    Erst wird der Text auf Spalten verteilt, dann gezeichnet: so steht die Zahl
+    der Fortsetzungen fest, bevor die erste Folie ihren Kopf bekommt.
+    """
+    pot = e.potenzial
     rechts_x, rechts_w = Inches(6.95), Inches(5.85)
     impact_mon = e.eintrag.get("impact_monetaer")
     monetaer = f"monetär {impact_mon}" if impact_mon is not None else "monetär: keine Wertaussage"
@@ -577,47 +674,71 @@ def _detail(satz: _Satz, lauf: _Lauf, e: _Eintrag) -> None:
                    f"{F.zahl(e.eintrag['nutzwert_mittel'], 1)}", BLUE),
         ("UMSETZUNGSKOMPLEXITÄT", f"{e.eintrag['umsetzungskomplexitaet']} von 10  —  {kompl_herkunft}", AMBER),
     ]
-    hoehen = [Inches(1.25), Inches(0.62), Inches(0.62)]
+    # Jeder Kasten so hoch, wie sein Text braucht: ein Grund ohne Wertaussage kann
+    # 400 Zeichen haben und passte in den festen Kasten auch bei 8 pt nicht (#380).
+    textbreite = rechts_w - Inches(0.3)
+    hoehen = [max(Inches(0.62), Inches(0.3) + txt_hoehe(d, textbreite, _BEWERTUNG_PT, True))
+              for _t, d, _c in bewertungen]
+    unten = Inches(1.3) + sum(hoehen) + Inches(0.08) * len(hoehen)
+    x, _y, w, h = _SPALTE_RECHTS
+    spalte_rechts = (x, unten, w, _SPALTE_RECHTS[1] + h - unten)
+
+    haupt, seite = _detailtexte(e)
+    links, rest_haupt = _fuelle(haupt, _SPALTE_LINKS)
+    rechts, rest_seite = _fuelle(seite, spalte_rechts)
+    fortsetzungen: list[list[tuple[tuple, list[Absatz]]]] = []
+    rest = rest_haupt + rest_seite
+    while rest:
+        folie = []
+        for spalte in (_SPALTE_LINKS, _SPALTE_RECHTS):
+            if rest:
+                drin, rest = _fuelle(rest, spalte)
+                folie.append((spalte, drin))
+        if not any(drin for _sp, drin in folie):
+            raise RuntimeError("Eine Fortsetzungsfolie bliebe leer — der Text passt in keine Spalte.")
+        fortsetzungen.append(folie)
+
+    s = satz.folie(notiz=f"potenzial_id: {e.potenzial_id}\nkp_id: {e.kp_id}")
+    _detail_kopf(s, e, f"02 · {e.kp_id} · POTENZIAL")
+    rahmen(s, *_SPALTE_LINKS, links)
+
     y = Inches(1.3)
     for (t, d, c), h in zip(bewertungen, hoehen):
         box(s, rechts_x, y, rechts_w, h, "", WHITE, INK, 10, False, line=c, lw=1.25)
         txt(s, rechts_x + Inches(0.15), y + Inches(0.02), Inches(2.6), Inches(0.3), t, 10.5, c, True)
-        txt(s, rechts_x + Inches(0.15), y + Inches(0.28), rechts_w - Inches(0.3), h - Inches(0.3),
-            d, 11, INK, True)
+        txt(s, rechts_x + Inches(0.15), y + Inches(0.28), textbreite, h - Inches(0.3),
+            d, _BEWERTUNG_PT, INK, True)
         y += h + Inches(0.08)
+    if rechts:
+        rahmen(s, *spalte_rechts, rechts)
 
-    q = pot.get("querschnitte") or {}
-    quer = []
-    quer.append(f"Zukunftssicherheit: {q['zukunftssicherheit']}" if q.get("zukunftssicherheit")
-                else f"Zukunftssicherheit: {_TEXT_FEHLT}")
-    if q.get("reifegrad"):
-        quer.append(f"Reifegrad: {q['reifegrad']}")
-    if q.get("umsatzpotenzial"):
-        quer.append(f"Umsatzpotenzial: {q['umsatzpotenzial']}")
-    if q.get("abhaengigkeiten"):
-        quer.append(f"Abhängigkeiten: {'; '.join(q['abhaengigkeiten'])}")
-    txt(s, rechts_x, Inches(4.08), rechts_w, Inches(0.3), "QUERSCHNITTE (gehen in keine Rechnung ein)",
-        11, GREY, True)
-    txt(s, rechts_x, Inches(4.36), rechts_w, Inches(1.35), "\n".join(quer), 10.5, INK)
-
-    voraus = pot.get("voraussetzungen")
-    txt(s, rechts_x, Inches(5.75), rechts_w, Inches(0.3), "VORAUSSETZUNGEN", 11, GREY, True)
-    vtext = "; ".join(voraus) if voraus else f"Voraussetzungen: {_TEXT_FEHLT}."
-    hinweise = pot.get("hinweise") or []
-    if hinweise:
-        vtext += "\nHinweise: " + "; ".join(f"{h['art']}: {h['text']}" for h in hinweise)
-    txt(s, rechts_x, Inches(6.03), rechts_w, Inches(0.98), vtext, 10.5, INK)
+    for n, folie in enumerate(fortsetzungen, start=1):
+        s = satz.folie(notiz=f"fortsetzung_von: {e.potenzial_id}")
+        _detail_kopf(s, e, f"02 · {e.kp_id} · POTENZIAL IM DETAIL, FORTSETZUNG"
+                           + (f" {n} VON {len(fortsetzungen)}" if len(fortsetzungen) > 1 else ""))
+        for spalte, drin in folie:
+            rahmen(s, *spalte, drin)
 
 
 # --- 12 Kosten -------------------------------------------------------------
+
+
+_KOSTEN_PT = 10.5
+_KOSTEN_OBEN = Inches(1.98)
+_KOSTEN_UNTEN = Inches(6.58)
+_KOSTEN_ZEILE_MAX = Inches(1.5)
 
 
 def _kosten(satz: _Satz, lauf: _Lauf) -> None:
     mit_wert = [e for e in lauf.eintraege if F.hat_wertaussage(e.potenzial)]
     keiner = not mit_wert
     if keiner:
-        unter = (f"Für keines der {len(lauf.eintraege)} Potenziale liegt eine Wertaussage vor — "
-                 "statt leerer Tabellen steht je Potenzial der Grund.")
+        if len(lauf.eintraege) == 1:
+            unter = ("Für das freigegebene Potenzial liegt keine Wertaussage vor — statt einer leeren "
+                     "Tabelle steht der Grund.")
+        else:
+            unter = (f"Für keines der {len(lauf.eintraege)} Potenziale liegt eine Wertaussage vor — "
+                     "statt leerer Tabellen steht je Potenzial der Grund.")
     else:
         unter = "Spannen statt Punktwerte, die Herkunft im selben Satz"
     divider(satz.folie(fuss=False), "03", "Kostenschätzung", unter)
@@ -632,30 +753,46 @@ def _kosten(satz: _Satz, lauf: _Lauf) -> None:
     for b in breiten[:-1]:
         xs.append(xs[-1] + b)
 
-    seiten = _seiten(lauf.eintraege, ZEILEN_KOSTEN)
+    def zellen(e: _Eintrag) -> list[str]:
+        pot = e.potenzial
+        if keiner:
+            return [str(e.rang), e.titel, F.einsparung(pot).removeprefix("Keine Wertaussage: "),
+                    F.investition(pot).removeprefix("Investition: ")]
+        return [str(e.rang), e.titel, F.einsparung(pot),
+                F.investition(pot).removeprefix("Investition: "),
+                F.amortisation(pot).removeprefix("Amortisation ")]
+
+    # Jede Zeile so hoch, wie ihr längster Eintrag braucht: ein Grund ohne
+    # Wertaussage passte in 0,62 Zoll auch bei 8 pt nicht (#380). Umbrochen wird
+    # nach Höhe, höchstens ZEILEN_KOSTEN je Folie.
+    zeilen = []
+    for e in lauf.eintraege:
+        z = zellen(e)
+        h = max([Inches(0.62), *(box_hoehe(t, w, _KOSTEN_PT, j == 0)
+                                 for j, (t, w) in enumerate(zip(z, breiten)))])
+        zeilen.append((z, min(h, _KOSTEN_ZEILE_MAX)))
+    seiten: list[list] = [[]]
+    frei = _KOSTEN_UNTEN - _KOSTEN_OBEN
+    for z, h in zeilen:
+        if seiten[-1] and (len(seiten[-1]) == ZEILEN_KOSTEN or h > frei):
+            seiten.append([])
+            frei = _KOSTEN_UNTEN - _KOSTEN_OBEN
+        seiten[-1].append((z, h))
+        frei -= h + Inches(0.04)
+
     for n, seite in enumerate(seiten, start=1):
         s = satz.folie()
         header(s, "03 · KOSTENSCHÄTZUNG", "Kosten und Nutzen je Potenzial" + _von(n, len(seiten)),
                color=AMBER)
         for t, x, w in zip(koepfe, xs, breiten):
             box(s, x, Inches(1.45), w, Inches(0.5), t, AMBER, size=11, passend=False)
-        for i, e in enumerate(seite):
-            y = Inches(1.98) + Inches(0.66) * i
+        y = _KOSTEN_OBEN
+        for i, (z, h) in enumerate(seite):
             fill = WHITE if i % 2 == 0 else LIGHT
-            pot = e.potenzial
-            if keiner:
-                grund = F.einsparung(pot).removeprefix("Keine Wertaussage: ")
-                zellen = [str(e.rang), e.titel, grund,
-                          F.investition(pot).removeprefix("Investition: ")]
-            else:
-                zellen = [
-                    str(e.rang), e.titel, F.einsparung(pot),
-                    F.investition(pot).removeprefix("Investition: "),
-                    F.amortisation(pot).removeprefix("Amortisation "),
-                ]
-            for j, (t, x, w) in enumerate(zip(zellen, xs, breiten)):
-                box(s, x, y, w, Inches(0.62), t, fill, INK, 10.5, j == 0, line=LINE,
+            for j, (t, x, w) in enumerate(zip(z, xs, breiten)):
+                box(s, x, y, w, h, t, fill, INK, _KOSTEN_PT, j == 0, line=LINE,
                     align=PP_ALIGN.CENTER if j == 0 else PP_ALIGN.LEFT)
+            y += h + Inches(0.04)
         txt(s, Inches(0.55), Inches(6.62), Inches(12.2), Inches(0.42),
             "Einsparung: Eckenrechnung aus der Bandbreite der Dauer und dem Korridor des "
             "Automatisierungsgrads (ADR-006 · BC2). Investition: Richtwert aus dem geschätzten Aufwand "
@@ -675,7 +812,7 @@ def _abschluss(satz: _Satz, lauf: _Lauf) -> None:
     if kernaussage:
         txt(s, Inches(0.9), Inches(3.8), Inches(11.5), Inches(1.6), kernaussage, 16, WHITE)
     grundlage = (
-        f"Grundlage: Priorisierung und {len(lauf.konzept_je_kp)} Konzept(e) des Analyselaufs "
+        f"Grundlage: Priorisierung und {_anzahl(len(lauf.konzept_je_kp), 'Konzept', 'Konzepte')} des Analyselaufs "
         f"Paket {p['paket_id']}, Fassung {p['fassung']}, übergeben am {F.datum(p['uebergeben_am'])} "
         f"— Vertrag BC2 → BC3 v{p['schema_version']}. Diese Präsentation trägt keine Information, "
         "die nicht dort steht."
