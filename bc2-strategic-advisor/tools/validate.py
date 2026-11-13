@@ -2,18 +2,22 @@
 
 Zwei Vertragsstaende nebeneinander, mit Absicht:
 
-  * **v3.1** -- der aktuelle Vertrag (`contracts/bc2-to-bc3/`). Additiv gegenueber v3.0 (#254):
-    die Priorisierung traegt die `ausgangslage` des Laufs. Das eine Schema nimmt `schema_version`
-    3.0 und 3.1 an und verlangt die Ausgangslage genau bei 3.1. Seit #291 traegt eine 3.1 ausserdem
-    die Kette ueber Pakete hinweg (`ersetzt_potenzial_ids` je Potenzial, `gestrichene_potenziale` in
-    der Priorisierung); geprueft wird sie gegen die freigegebenen Lieferungen im Repo (`kette.py`). Dagegen laufen die Fixtures in
-    `contracts/examples/` (Priorisierung auf 3.1) und jede Lieferung, gleich welcher der beiden.
+  * **v3.2** -- der aktuelle Vertrag (`contracts/bc2-to-bc3/`). Additiv gegenueber v3.1 (#382):
+    jedes Potenzial traegt die beiden Kurztexte fuer die Folie (`heute_kurz`,
+    `potenzielle_loesung.to_be_kurz`); ihre Form -- hoechstens 300 Zeichen, ohne Markdown und ohne
+    Zeilenumbruch -- haelt das Schema fest. v3.1 ist additiv gegenueber v3.0 (#254): die
+    Priorisierung traegt die `ausgangslage` des Laufs. Das eine Schema nimmt `schema_version` 3.0,
+    3.1 und 3.2 an und verlangt die Ausgangslage ab 3.1. Seit #291 traegt eine 3.1 (und jede 3.2)
+    ausserdem die Kette ueber Pakete hinweg (`ersetzt_potenzial_ids` je Potenzial,
+    `gestrichene_potenziale` in der Priorisierung); geprueft wird sie gegen die freigegebenen
+    Lieferungen im Repo (`kette.py`). Dagegen laufen die Fixtures in `contracts/examples/` (auf 3.2)
+    und jede Lieferung, gleich welchen der drei Staende sie traegt.
   * **v2.0** -- eingefroren in `contracts/bc2-to-bc3/archiv/`. Dagegen laeuft nur noch die bereits
     uebergebene Lieferung vom 30.08.2026. Ein uebergebenes Konzept wird nie ungueltig, es veraltet
     (ADR-007 BC2, 2.4); es nachzuziehen zerstoerte, worauf die Lieferung sich beruft.
 
 Jede **andere** Lieferung unter `contracts/bc2-to-bc3/lieferungen/` wird gefunden, nicht
-aufgezaehlt, und laeuft gegen v3.0/v3.1 (Abschnitt 4) -- samt Ausgangslage-Pruefung, wo eine da ist. Die CI startet dieses Skript bei jeder
+aufgezaehlt, und laeuft gegen v3.0/v3.1/v3.2 (Abschnitt 4) -- samt Ausgangslage-Pruefung, wo eine da ist. Die CI startet dieses Skript bei jeder
 Aenderung an der Lieferstrecke (`.github/workflows/vertraege-pruefen.yml`, #253).
 
 Aufruf aus dem Repo-Wurzelverzeichnis:
@@ -41,6 +45,8 @@ FIXTURE_KONZEPTE = [
 ]
 FIXTURE_PRIO = "contracts/examples/mock_prozesspriorisierung.json"
 LIEFERUNG = "contracts/bc2-to-bc3/lieferungen/2026-08-30-vorlaeufig"
+#: Die Staende, die die Ausgangslage tragen: ab 3.1 (#254); 3.2 aendert daran nichts (#382).
+MIT_AUSGANGSLAGE = ("3.1", "3.2")
 
 PAARE = (
     [(KONZEPT_V3, p) for p in FIXTURE_KONZEPTE]
@@ -53,7 +59,7 @@ PAARE = (
         (KONZEPT_V2, f"{LIEFERUNG}/konzept_KP-03.json"),
         (KONZEPT_V2, f"{LIEFERUNG}/konzept_KP-04.json"),
         (PRIO_V2, f"{LIEFERUNG}/prozesspriorisierung.json"),
-        # Alle anderen Lieferungen findet Abschnitt 4 selbst und prueft sie gegen v3.0.
+        # Alle anderen Lieferungen findet Abschnitt 4 selbst und prueft sie gegen v3.0 bis v3.2.
     ]
 )
 
@@ -81,15 +87,15 @@ def kfm(x):
 def pruefe_ausgangslage(name, konzepte, prio):
     """Die Ausgangslage (v3.1, #254) erfindet nichts.
 
-    Sie ist da genau dann, wenn die Priorisierung 3.1 ist; jede Herausforderung steht woertlich als
-    Schmerzpunkt in einem Konzept ihrer kp_ids, und jeder Schmerzpunkt kommt in ihr vor. Die
+    Sie ist da genau dann, wenn die Priorisierung 3.1 oder 3.2 ist; jede Herausforderung steht
+    woertlich als Schmerzpunkt in einem Konzept ihrer kp_ids, und jeder Schmerzpunkt kommt in ihr vor. Die
     Praesentation traegt keine eigene Information (Glossar) -- die Ausgangslage, aus der sie Teil 1
     zeichnet, darf es dann auch nicht. Gilt fuer die Fixtures und fuer **jede** Lieferung.
     """
     aus = prio.get("ausgangslage")
     pruefe(
-        (prio["schema_version"] == "3.1") == (aus is not None),
-        f"{name}: Ausgangslage vorhanden genau dann, wenn die Priorisierung v3.1 ist "
+        (prio["schema_version"] in MIT_AUSGANGSLAGE) == (aus is not None),
+        f"{name}: Ausgangslage vorhanden genau dann, wenn die Priorisierung ab v3.1 ist "
         f"(hier {prio['schema_version']})",
         f"{name}: Ausgangslage und schema_version {prio['schema_version']} passen nicht zusammen",
     )
@@ -170,12 +176,12 @@ for schema_pfad, daten_pfad in PAARE:
         print(f"OK    {daten_pfad} -> {schema_pfad}")
 
 # ---------------------------------------------------------------------------
-# 2. Fixtures v3.0 -- fachliche Konsistenz
+# 2. Fixtures v3.2 -- fachliche Konsistenz
 #    Die Schema-Pruefung sagt, dass die Felder da sind. Hier wird geprueft, ob sie
 #    zueinander passen: das Rechenmodell aus ADR-006 BC2 laesst sich nachrechnen, und die
 #    beiden Artefakte eines Laufs widersprechen sich nicht.
 # ---------------------------------------------------------------------------
-print("\n--- Fixtures v3.0 / v3.1 ---")
+print("\n--- Fixtures v3.2 ---")
 konzepte = [lies(p) for p in FIXTURE_KONZEPTE]
 prio = lies(FIXTURE_PRIO)
 potenziale = {p["potenzial_id"]: (k, p) for k in konzepte for p in k["potenziale"]}
@@ -436,12 +442,12 @@ pruefe(
 )
 
 # ---------------------------------------------------------------------------
-# 4. Lieferungen v3.0/v3.1 -- JEDER Ordner unter lieferungen/, nicht eine feste Liste (#253).
+# 4. Lieferungen v3.0/v3.1/v3.2 -- JEDER Ordner unter lieferungen/, nicht eine feste Liste (#253).
 #    Bis #253 stand hier genau ein Ordner, fest eingetragen. Eine neue Lieferung per PR waere
 #    damit gruen gewesen, ohne je geprueft worden zu sein -- das Netz aus ADR-007 BC2, 2.2
 #    haette genau die Faelle durchgelassen, fuer die es da ist. Jetzt gilt: was unter
 #    lieferungen/ liegt und nicht die eingefrorene v2-Lieferung ist, laeuft gegen das aktuelle
-#    Schema, das 3.0 und 3.1 annimmt (#254). Ein weiterer Vertragsstand faellt rot auf
+#    Schema, das 3.0, 3.1 und 3.2 annimmt (#254, #382). Ein weiterer Vertragsstand faellt rot auf
 #    (schema_version ist ein Enum), bis er hier eingetragen ist -- gewollt.
 # ---------------------------------------------------------------------------
 LIEFERUNGEN = BASE / "contracts/bc2-to-bc3/lieferungen"
@@ -608,7 +614,7 @@ def pruefe_lieferung_v3(ordner):
         f"{name}: Ordnername passt nicht zu paket_id und Fassung -- erwartet '<company>{endung}'",
     )
 
-    # 4.6 Die Ausgangslage (v3.1, #254): da genau bei 3.1, und sie erfindet nichts.
+    # 4.6 Die Ausgangslage (v3.1, #254): da genau ab 3.1, und sie erfindet nichts.
     pruefe_ausgangslage(name, konzepte, prio)
 
     # 4.7 Die Kette ueber Pakete (v3.1, #291), und eine einheitliche Fassung im Lauf.
@@ -622,7 +628,7 @@ def pruefe_lieferung_v3(ordner):
 v3_ordner = sorted(o for o in LIEFERUNGEN.iterdir() if o.is_dir() and o.name not in EINGEFROREN_V2)
 for o in v3_ordner:
     pruefe_lieferung_v3(o)
-print(f"\n{len(v3_ordner)} Lieferung(en) gegen v3.0/v3.1 geprueft: "
+print(f"\n{len(v3_ordner)} Lieferung(en) gegen v3.0/v3.1/v3.2 geprueft: "
       f"{', '.join(o.name for o in v3_ordner) or '(keine)'}")
 
 print("\nGESAMT: " + ("gruen" if ok else "ROT -- siehe FAIL-Zeilen oben"))

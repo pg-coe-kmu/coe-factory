@@ -2,6 +2,8 @@
 Hebt BC3s Formatvorlage vom 31.08.2026 auf den Vertrag v3.0 -- als Fixture, nicht als Lieferung.
 Seit #254 traegt die Priorisierung zusaetzlich die Ausgangslage des Laufs (v3.1), seit #291 die
 Streichliste, und jedes Potenzial seinen Vorgaenger (beides leer: die Vorlage ist ein erster Lauf).
+Seit #382 (v3.2) traegt jedes Potenzial die beiden Kurztexte fuer die Folie: to_be_kurz steht in
+der Vorlage, heute_kurz nicht -- er wird aus BC3s eigener Beschreibung genommen (heute_kurz()).
 
 ZWECK. Ticket #187 verlangt, dass BC3s drei Beispielkonzepte gegen das neue Schema validieren.
 Woertlich koennen sie das nicht: sie tragen schema_version '2.1-bc3', fuehren gate1 im Konzept
@@ -209,6 +211,32 @@ def user_story(potenzial, kp_id):
     )
 
 
+#: Der Kurztext fuer die Folie (v3.2, #382): hoechstens so viele Zeichen und Saetze.
+KURZ_ZEICHEN = 300
+KURZ_SAETZE = 2
+
+
+def heute_kurz(beschreibung):
+    """Der Heute-Kurztext aus BC3s Beschreibung -- ihr eigener Wortlaut, nichts dazu.
+
+    Die Vorlage fuehrt keinen (v3.2 kam spaeter, #382). Jede ihrer Beschreibungen beginnt aber
+    mit dem heutigen Ablauf ("Heute erreichen Reiseanfragen ...") und wechselt mit "Automatisiert
+    wird ..." zum Soll. Genommen werden die Saetze davor, hoechstens zwei und hoechstens 300
+    Zeichen -- abgeschnitten wird an der Satzgrenze, nie mitten im Satz.
+    """
+    saetze = re.split(r"(?<=[.!?])\s+", beschreibung.split("\n")[0].strip())
+    kurz = []
+    for satz in saetze:
+        if satz.startswith("Automatisiert wird") or len(kurz) == KURZ_SAETZE:
+            break
+        if len(" ".join([*kurz, satz])) > KURZ_ZEICHEN:
+            break
+        kurz.append(satz)
+    if not kurz:
+        raise ValueError(f"Kein Heute-Satz unter {KURZ_ZEICHEN} Zeichen: {beschreibung[:80]!r}")
+    return " ".join(kurz)
+
+
 def hebe_potenzial(p, kp_id, quelle_datei):
     stundensatz = stundensatz_aus_annahmen(p["value"].get("annahmen", []))
     stunden_jahr = round(p["value"]["ist_kosten_eur_jahr"] / stundensatz, 1)
@@ -273,6 +301,7 @@ def hebe_potenzial(p, kp_id, quelle_datei):
         "potenzialrang": 0,  # wird nach dem Sortieren ueber den ganzen Lauf gesetzt
         "prioritaetsgruppe": gruppe,
         "beschreibung": p["beschreibung"],
+        "heute_kurz": heute_kurz(p["beschreibung"]),
         "to_be_vision": p["to_be_vision"],
         "user_story": user_story(p, kp_id),
         "akzeptanzkriterien_geschaeftlich": [
@@ -372,7 +401,7 @@ def main():
             {
                 "konzept_id": konzept_id,
                 "ersetzt_konzept_id": None,
-                "schema_version": "3.1",
+                "schema_version": "3.2",
                 "company_id": COMPANY_ID,
                 "paket_id": PAKET_ID,
                 "uebergeben_am": UEBERGEBEN_AM,
@@ -480,7 +509,7 @@ def main():
 
     priorisierung = {
         "priorisierung_id": str(uuid.uuid5(NS, f"{PAKET_ID}/priorisierung/f1")),
-        "schema_version": "3.1",
+        "schema_version": "3.2",
         "company_id": COMPANY_ID,
         "paket_id": PAKET_ID,
         "uebergeben_am": UEBERGEBEN_AM,
