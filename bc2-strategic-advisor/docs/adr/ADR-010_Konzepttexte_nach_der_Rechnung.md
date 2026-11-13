@@ -162,3 +162,52 @@ setzte den gerechneten Grad ein. Ein Aufruf dauert 2½ bis 6 Minuten, das größ
 Potenziale) am längsten. Offen bleibt, dass die Systemprüfung **großzügig** ist: „Mail“ oder
 „Formular“ bestehen, sobald das Wort im Ablauf steht — sie verhindert erfundene Systeme, nicht
 unscharfe.
+
+## 5. Nachtrag vom 13.11.2026: Kurztexte für die Folie
+
+> **Anlass ([#381](https://github.com/pg-coe-kmu/coe-factory/issues/381)):** Die langen
+> Potenzialtexte (`beschreibung`, `to_be_vision`, `potenzielle_loesung.ansatz`, zusammen
+> 2.400–3.800 Zeichen je Block) passen auf keine Detailfolie
+> ([#380](https://github.com/pg-coe-kmu/coe-factory/issues/380)). Vorgeschlagen war ein Folientext,
+> der nur in Schema `bc2` liegt und nicht an BC3 geht, als Ausnahme von der Regel „die Präsentation
+> trägt keine eigene Information“ (Glossar, #244).
+>
+> **Der Befund stellte die Frage um.** Die Soll-Hälfte gibt es längst im Vertrag:
+> `potenzielle_loesung.to_be_kurz`, optional, „1–2 Sätze Soll-Zustand für die Präsentation“. Die
+> Ausarbeitung erzeugt sie im selben Aufruf, und alle elf bis dahin gelieferten Potenziale tragen
+> sie (180–295 Zeichen). Nur die Präsentation las sie nicht. Es fehlt allein die Heute-Hälfte.
+>
+> 1. **Beide Kurztexte stehen im Vertrag, keine Ausnahme von #244.** Neu ist `heute_kurz` am
+>    Potenzial, neben `beschreibung`, als Gegenstück zu `to_be_kurz`. Was der Mandant liest, soll
+>    das Team kennen, das es baut: Eine Zusammenfassung ist eine Aussage, und BC3 kann sie gegen die
+>    lange Fassung halten. Gate 1 und die Ergebnisakte führen die Kurztexte damit ohne eigenes
+>    Bauteil mit, weil sie Teil des Vertragsdokuments sind.
+> 2. **Vertrag 3.2, additiv.** Eine 3.2 trägt `heute_kurz` und `to_be_kurz` an jedem Potenzial
+>    (per `allOf`, wie `ersetzt_potenzial_ids` in 3.1); 3.0- und 3.1-Dateien bleiben gültig.
+>    `to_be_kurz` wird damit in 3.2 Pflicht. BC3 liest ohne Schemaprüfung und mit
+>    `schema_version >= 3.1` (`bc3-10-konzept-einlesen`); eine 3.2 bricht dort nichts. Gemergt wird
+>    vorab, BC3 erfährt es über die offenen Punkte.
+> 3. **Form:** Fließtext, ein bis zwei Sätze, **höchstens 300 Zeichen**, ohne Markdown und ohne
+>    Zeilenumbruch, weil der Text unverändert auf die Folie geht. Das Rechenverbot gilt wie für jeden
+>    Potenzialtext, die Platzhalter `{grad_min}`/`{grad_max}` sind erlaubt; gemessen wird nach dem
+>    Einsetzen. Geprüft vom Wächter (Mahnung und Wiederholung), nicht vom Antwortschema.
+> 4. **Nur die beiden großen Blöcke der Detailfolie.** „Heutiger Prozess“ zeigt `heute_kurz`,
+>    Aufwand, Teilprozesse und Systeme; „Automatisierungspotenzial“ zeigt `to_be_kurz`, den
+>    Automatisierungsgrad und eine Zeile „Werkzeuge: …“ aus `tech_stack_empfehlung`. **Der lange
+>    Lösungsansatz entfällt von der Folie**, bewusst: Er ist Bauanleitung für BC3. Querschnitte und
+>    Voraussetzungen sind schon in Sätze geschnitten und bekommen keinen Kurztext; dort teilt #380
+>    auf Folgefolien auf.
+> 5. **Rückfall je Hälfte.** Fehlt ein Kurztext (jede Datei vor 3.2 hat kein `heute_kurz`), steht
+>    an seiner Stelle der lange Text wie bisher, aufgeteilt nach #380. Eingefrorene Läufe werden
+>    nicht nachgezogen.
+> 6. **Gate 1 zeigt die Kurztexte zuerst** im aufgeklappten Potenzial, als „Auf der Folie“, darüber
+>    die langen Texte. Wie in 2.7: lesen, nicht bearbeiten.
+>
+> Verworfen: eine Spalte `bc2.konzept.folientext` außerhalb des Vertrags. Sie hätte vier eigene
+> Bauteile gebraucht (Herausnahme vor dem Ablegen, Spalte, Gate-1-Anzeige, Einfrieren in der
+> Ergebnisakte), die Kurzfassung auf zwei Orte verteilt (Soll im Vertrag, Heute nicht) und eine
+> Ausnahme vom Glossar verlangt. Die Gründe aus #244 gegen eigene Präsentationsinhalte („nirgends
+> versioniert“) hätte die Ergebnisakte zwar ausgeräumt; übrig blieb „geht nicht an BC3“, und das
+> war der Nachteil.
+>
+> Bau: [Folien-Kurztext bauen](https://github.com/pg-coe-kmu/coe-factory/issues/382).
