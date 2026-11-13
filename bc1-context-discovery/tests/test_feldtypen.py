@@ -1018,9 +1018,9 @@ def test_schraegstrich_vor_max_oder_einer_einheit_ist_frei(text):
 
 
 def test_schraegstrich_nach_wortende_h_ist_keine_einheit():
-    # (Regression) Spec Sperre (d), E3: Die Einheit ist ein ganzes Wort; „Bosch/Siemens“
+    # (Regression) Spec Sperre (d), E3: Die Einheit ist ein ganzes Wort; „Buch/Heft“
     # endet nur auf „h“.
-    assert nennt_fremden_bezug("Bosch/Siemens, 30 Minuten") is False
+    assert nennt_fremden_bezug("Buch/Heft, 30 Minuten") is False
 
 
 @pytest.mark.parametrize("text", [

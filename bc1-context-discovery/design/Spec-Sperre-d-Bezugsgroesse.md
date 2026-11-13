@@ -136,7 +136,7 @@ immer den BC0-Kontext.
   - `prozessprofil.schema.json`: Beschreibungen von `total_duration_minutes`,
     `focus_step_duration_minutes`, `frequency_per_year` und `step_frequency_per_year`.
   - `README.md`, Abschnitt „Stand“: Eintrag „Fassung 1.5“.
-  - Entwurf des Hinweises an BC2 liegt lokal vor, Versand nur mit OK.
+  - Hinweis an BC2 in #286 vor dem Ausrollen.
 - Prüfwerkzeug nach dem Bau: Szenario 4 zweimal (`betrieb/BETRIEB.md`, Abschnitt 8). Dabei
   prüfen, ob die Nachfrage zu E1/E2 „Lauf“ bzw. „Durchlauf“ nennt.
 - Ausrollen nur mit Ansage an BC0 und vor der Probe zur Endpräsentation, nicht danach
@@ -196,7 +196,7 @@ fremde Bezugsgröße nennt“):
   verworfen; „jeweils 30 Minuten“ ist frei);
 - ein Zeitraum mit Zahl dazwischen: „einmal pro zwei Wochen“, „je 2 Wochen“ (vorher 26
   angenommen; „alle zwei Wochen“ ist frei);
-- „Pro“ als Produktname: „Mit DATEV Pro, 2 mal im Monat“.
+- „Pro“ als Produktname: „Mit Buchhaltung Pro, 2 mal im Monat“.
 
 Kosten je Fall: eine Nachfrage, nie ein falscher Wert. „je + Zahl“ freizugeben würde auch
 „drei Fälle, je 30 Minuten“ freigeben. Möglich wären: (A) hinnehmen und hier benennen;
@@ -238,8 +238,7 @@ eine Nachfrage folgen kann, also nur für Pflichtfelder: ein generisches Merkmal
 ein falsch umgerechneter („3 mal pro Fall, 20 Fälle pro Woche“ → KI „3 pro Woche“ statt
 „60 pro Woche“; Sperre (b) lässt ihn durch, weil die Nachricht „Woche“ nennt).
 
-**Entschieden 10.11.2026 (BC1-Projektleitung, auf die Frage „D3 = A und zu weite Sperre =
-A, aber C für ‚Min/Max‘?“: „Ja, so“):**
+**Entschieden 10.11.2026 (BC1-Projektleitung):**
 - **D3: (A).** (d) gilt für D3 wie gebaut; der Vertrag 1.5 benennt die Folge.
 - **Zu weite Sperre: (A)** für „je“ im Sinn von „jeweils“, „pro zwei Wochen“ und „Pro“ als
   Produktname: hingenommen, je eine Nachfrage.
