@@ -139,6 +139,44 @@ hat, holt niemand zurück.
 > Bau: [Ergebnisakte bauen](https://github.com/pg-coe-kmu/coe-factory/issues/378), nach den
 > beiden Präsentations-Tickets, weil eingefroren endgültig ist.
 
+> **Nachtrag vom 13.11.2026 ([#383](https://github.com/pg-coe-kmu/coe-factory/issues/383)): die
+> Lieferung kommt ohne Handgriff ins Repo.** Seit der Ergebnisakte entsteht die Lieferdatei fertig
+> im Dienst; übrig blieb der Handgriff aus Punkt 2 des Nachtrags vom 09.10.: Werkzeug fahren,
+> committen, PR öffnen. Er fällt weg, ohne dass ein Schlüssel mit Schreibrecht entsteht.
+>
+> 1. **Eine GitHub Action zieht nach Zeitplan**, alle 30 Minuten und auf Handstart. Sie liest über
+>    HTTPS einen eigenen Endpunkt des Dienstes, der **nur die `bc3`-Dateien lieferbarer Akten**
+>    zeigt, mit einem **eigenen, nur lesenden Schlüssel** als Actions-Secret. Er verrät nichts, was
+>    nicht ohnehin ins Repo käme. Ausdrücklich nicht der Schlüssel der Oberfläche: mit dem ließe
+>    sich Gate 1 entscheiden.
+> 2. **Zeitplan statt Ereignis.** Ein Anstoß beim Freigeben bräuchte Schreibrecht des Servers auf
+>    GitHub (`repository_dispatch`), also genau den Schlüssel, den Punkt 2 vom 09.10. abgelehnt hat.
+>    Der Preis ist eine halbe Stunde, dazu die Verspätung des GitHub-Zeitplans; BC3 zieht ohnehin.
+> 3. **PR, und die Action mergt selbst**, sobald ihre Prüfung grün ist: dieselbe wie die CI
+>    (`tools/validate.py`). Ein PR mit `GITHUB_TOKEN` stößt keinen anderen Workflow an, deshalb
+>    prüft sie selbst, vor dem Öffnen. Die menschliche Entscheidung fällt an Gate 1 und ist
+>    eingefroren; eine Gegenzeichnung hat BC3 nie verlangt (09.09.2026). Ein zweiter, menschlicher
+>    Merge wäre ein Stempel. Der PR bleibt, weil er Nachweis und Signal ist.
+> 4. **Das Signal an BC3 gibt CODEOWNERS**: `/contracts/bc2-to-bc3/` fordert `team-bc2` und
+>    `team-bc3` automatisch an. Die Action braucht dafür kein Recht. Die PR-Beschreibung ist die
+>    `NACHRICHT_AN_BC3.md`.
+> 5. **Scheitert der Zug, bleibt alles stehen.** Weicht ein vorhandener Ordner ab oder verletzt eine
+>    Datei das Schema, endet der Lauf rot, ohne PR und ohne Überschreiben; GitHub meldet den
+>    fehlgeschlagenen Lauf. Was übergeben ist, ändert sich nicht (Punkt 3 vom 09.10.).
+> 6. **`tools/lieferung_ziehen.py` bleibt der Kern.** Es bekommt eine zweite Quelle (der Endpunkt
+>    statt `ssh bc2`); Abschreiben und Abbruch bei Abweichung bleiben, wie sie sind. Von Hand
+>    ziehen geht weiter.
+>
+> Verworfen: der Dienst öffnet den PR (Schreibschlüssel auf dem Server, wie am 09.10.); ein
+> SSH-Schlüssel zum VPS oder die Datenbank-DSN als Actions-Secret (das Geheimnis verließe den
+> Server, ADR-003); ein Zeitplan auf Sergios Rechner (hängt an einem Gerät und einer Person).
+>
+> Voraussetzungen, die nur ein Mensch erfüllt: In den Repo-Einstellungen dürfen Actions PRs
+> anlegen. Der Schlüssel steht in der Server-`.env` und als Actions-Secret, eingetragen von
+> Sergio, nicht durch den Chat.
+>
+> Bau: [Lieferung automatisch pushen bauen](https://github.com/pg-coe-kmu/coe-factory/issues/388).
+
 ### 2.3 Ein Reject liefert nichts aus und löscht nichts
 
 Bei `gate1.status = rejected` geht **nichts** in den Lieferordner — dieser Ordner ist BC3s Eingang,
