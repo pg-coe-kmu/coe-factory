@@ -25,6 +25,8 @@ services:
       # kam bis #306 gar nicht im Container an — die .env allein reicht nicht,
       # was hier nicht steht, sieht die Anwendung nicht.
       - BC2_LAUFQUELLE=${BC2_LAUFQUELLE:-}
+      # Nur lesender Schluessel fuer GET /api/lieferungen (#388); leer = Endpunkt aus.
+      - BC2_LIEFERUNG_TOKEN=${BC2_LIEFERUNG_TOKEN:-}
       # Nur fuer den echten Weg. Liegt ausschliesslich in der Server-.env (ADR-003).
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
     volumes:

@@ -48,6 +48,7 @@ from typing import Any
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+import lieferung
 import oberflaeche
 from eingang import Eingangsbuch, Paket, PostgresEingangsbuch
 from ablage import (
@@ -529,6 +530,9 @@ def erzeuge_app(
     # Der Link auf die eingefrorene Präsentation (#378) — ohne Schlüssel, das
     # Token der Akte ist der Zugang.
     app.include_router(oberflaeche.erzeuge_link_router(entscheidungen))
+    # Die Lieferungen für die Action nach Zeitplan (#388) — eigener, nur
+    # lesender Schlüssel; ohne ihn gibt es den Endpunkt nicht.
+    app.include_router(lieferung.erzeuge_router(entscheidungen))
     app.include_router(
         oberflaeche.erzeuge_seiten_router(vorschau=os.environ.get("BC2_VORSCHAU") == "1")
     )

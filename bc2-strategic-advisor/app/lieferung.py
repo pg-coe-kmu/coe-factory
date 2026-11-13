@@ -22,21 +22,38 @@ Aufruf auf dem VPS, nur lesend::
 
 Die Dateien reisen als Base64 mit ihrer SHA-256, damit das Werkzeug Byte für
 Byte abschreibt und prüfen kann, dass unterwegs nichts verloren ging.
+
+**Dieselbe Ausgabe über HTTPS** (#388, Nachtrag zu ADR-007 · BC2 §2.2 vom
+13.11.2026): ``GET /api/lieferungen`` liefert sie einer GitHub Action, die nach
+Zeitplan zieht. Der Endpunkt hat einen **eigenen** Schlüssel,
+``BC2_LIEFERUNG_TOKEN``, nicht den der Oberfläche: mit dem ließe sich Gate 1
+entscheiden, und er läge dann als Actions-Secret in GitHub. Dieser hier zeigt
+nur, was ohnehin ins Repo kommt. Ist er nicht gesetzt, gibt es den Endpunkt
+nicht.
 """
 
 from __future__ import annotations
 
 import base64
 import hashlib
+import hmac
 import json
+import logging
+import os
 import sys
 from dataclasses import dataclass
+
+from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
 
 from ergebnisakte import Ergebnisakte, mandantenkuerzel, ordnername
 from gate1 import Gate1Buch
 
+log = logging.getLogger("bc2.lieferung")
+
 __all__ = [
     "Lieferung",
+    "erzeuge_router",
     "lieferung_aus",
     "lieferungen",
     "mandantenkuerzel",
@@ -91,12 +108,52 @@ def lieferungen(gate1_buch: Gate1Buch) -> list[Lieferung]:
     return [l for a in gate1_buch.lieferbare_akten() if (l := lieferung_aus(a)) is not None]
 
 
+def als_json(gefunden: list[Lieferung]) -> dict:
+    """Die Ausgabe von ``python -m lieferung`` und ``GET /api/lieferungen``."""
+    return {"lieferungen": [l.als_json() for l in gefunden]}
+
+
+def _lieferschluessel() -> str:
+    return (os.environ.get("BC2_LIEFERUNG_TOKEN") or "").strip()
+
+
+def erzeuge_router(gate1_buch: Gate1Buch) -> APIRouter:
+    """``GET /api/lieferungen`` — die Lieferungen für die Action (#388).
+
+    Nur lesend, und nur die ``bc3``-Dateien lieferbarer Akten. Ohne gesetzten
+    Schlüssel antwortet er wie ein Pfad, den es nicht gibt (404): ein leerer
+    Schlüssel darf nie passen, und abgeschaltet soll nicht wie kaputt aussehen.
+    Der Vergleich läuft in gleichbleibender Zeit, wie beim Trigger.
+    """
+    router = APIRouter()
+
+    @router.get("/api/lieferungen", include_in_schema=False)
+    def lieferungen_abrufen(request: Request):
+        erwartet = _lieferschluessel()
+        if not erwartet:
+            return JSONResponse({"detail": "Not Found"}, status_code=404)
+        kopf = request.headers.get("authorization") or ""
+        if not (kopf.lower().startswith("bearer ")
+                and hmac.compare_digest(kopf[7:].strip(), erwartet)):
+            return JSONResponse({"fehler": "Schluessel fehlt oder stimmt nicht."},
+                                status_code=401)
+        try:
+            gefunden = lieferungen(gate1_buch)
+        except Exception as e:  # noqa: BLE001 — die Action soll rot werden, nicht raten
+            log.error("Lieferungen nicht lesbar: %s", e)
+            return JSONResponse({"fehler": "Datenbank nicht erreichbar."}, status_code=503)
+        log.info("Lieferungen abgerufen: %d", len(gefunden))
+        return JSONResponse(als_json(gefunden), headers={"Cache-Control": "no-store"})
+
+    return router
+
+
 def main() -> int:
     from gate1 import PostgresGate1Buch
 
     gefunden = lieferungen(PostgresGate1Buch(nur_lesen=True))
     json.dump(
-        {"lieferungen": [l.als_json() for l in gefunden]},
+        als_json(gefunden),
         sys.stdout,
         ensure_ascii=False,
         indent=2,
