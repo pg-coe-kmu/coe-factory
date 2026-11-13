@@ -384,7 +384,8 @@ def test_das_zweite_paket_liefert_eine_gueltige_kette_und_eine_streichliste():
     assert "vorgaenger" in modell.schemas[3]["required"]
 
     dok = ergebnisse.letzter("PKT-B").dokument
-    assert dok["schema_version"] == "3.1"
+    # Der echte Weg schreibt die Kurztexte für die Folie mit (#382); die Kette trägt eine 3.2 wie eine 3.1.
+    assert dok["schema_version"] == "3.2"
     # Die Hinweise kommen aus der Rechnung, nicht aus dem Kopf der Übersicht —
     # seit die Ablage vor dem Rechnen anlegt, liegen beide nebeneinander.
     hinweise = " ".join(b.kopf.hinweise)

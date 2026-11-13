@@ -5,7 +5,8 @@ Aus einem **gerechneten** Lauf werden lieferbare Konzepte: die Texte, die BC3
 zu Tickets schneidet und der Mandant in der Präsentation liest — Beschreibung,
 Soll-Vision, User Story, Akzeptanzkriterien, Kontext —, zusammengesetzt mit dem,
 was Python maschinell beiträgt, und die Ausgangslage des Laufs dazu. Damit legt
-der echte Weg einen schemagültigen Vertrag 3.1 ab.
+der echte Weg einen schemagültigen Vertrag 3.2 ab — seit #382 mit den beiden
+Kurztexten für die Folie.
 
 Vier Teile, dieselbe Bauform wie :mod:`erkennung` und :mod:`bewertung`:
 

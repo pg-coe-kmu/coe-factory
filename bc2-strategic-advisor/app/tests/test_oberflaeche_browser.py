@@ -458,6 +458,33 @@ def test_vorgaenger_und_streichliste_stehen_am_gate_1(seite_mit_kette):
     assert "{grad_min}" not in text and "ohne Nacharbeit abgerechnet" in text
 
 
+def test_die_schublade_zeigt_zuerst_was_auf_der_folie_steht(seite_mit_kette):
+    """Die beiden Kurztexte (Vertrag 3.2, #382) gehen unverändert vor den Mandanten —
+    der Mensch am Gate 1 sieht sie darum zuerst, und nur lesend (ADR-010 · BC2, Nachtrag)."""
+    seite = seite_mit_kette
+    seite.locator(".dzeile .titel").first.click()
+    seite.wait_for_selector(".schublade [data-folie]")
+
+    folie = seite.locator(".schublade [data-folie]")
+    text = folie.inner_text()
+    assert "Auf der Folie" in text
+    assert "Heute tippt die Buchhaltung die Zeiten aus dem Projekttool von Hand" in text
+    assert "Zeiten wandern von selbst in die Rechnung" in text
+    assert "{grad_min}" not in text and "% ohne Nacharbeit" in text
+    assert folie.locator("textarea, input, select, [contenteditable]").count() == 0
+
+    ganz = seite.locator(".schublade").inner_text()
+    oben = ganz.index("Auf der Folie")
+    assert oben < ganz.index("Fortgeschrieben") and oben < ganz.index("Beschreibung")
+
+
+def test_ohne_ausarbeitung_steht_kein_folienblock(seite):
+    """Ein Messsatz hat keine Texte — dann auch keinen Block, der so tut, als gäbe es sie."""
+    seite.locator(".dzeile .titel").first.click()
+    seite.wait_for_selector(".schublade")
+    assert seite.locator(".schublade [data-folie]").count() == 0
+
+
 @pytest.fixture
 def seite_teuer():
     """Ein Dienst mit teurer Quelle wie im Betrieb — Rechnen kostet Modellaufrufe."""

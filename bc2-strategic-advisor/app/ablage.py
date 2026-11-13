@@ -258,12 +258,13 @@ def dokumente_aus_ansicht(
 
     kp_ids = [r["kp_id"] for r in ansicht.prozess_raenge]
     neue_ids = {kp: str(uuid.uuid4()) for kp in kp_ids}
-    # Wie ``Laufansicht.als_vertrag``: 3.1 nur, wenn die Quelle die
-    # Ausgangslage trägt (#254). Ein Messsatz trägt sie nicht.
+    # Wie ``Laufansicht.als_vertrag``: ab 3.1 nur, wenn die Quelle die
+    # Ausgangslage trägt (#254) — ein Messsatz trägt sie nicht —, und 3.2, wenn
+    # ihre Konzepte die Kurztexte für die Folie tragen (#382).
     v31 = bool(ansicht.ausgangslage)
 
     kopf = {
-        "schema_version": "3.1" if v31 else "3.0",
+        "schema_version": ansicht.vertragsversion(),
         "company_id": beleg.company_id,
         "paket_id": beleg.paket_id,
         "uebergeben_am": _iso(beleg.uebergeben_am),

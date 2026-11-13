@@ -556,12 +556,26 @@ function detailHtml(id){
     <p style="white-space:pre-wrap;font-size:13px;line-height:1.55">${esc(text)}</p></details>`;
   const liste = xs => `<ul>${xs.map(x => `<li>${x}</li>`).join("")}</ul>`;
   const q = p.querschnitte || {};
+  // Was auf der Detailfolie steht (Vertrag 3.2, #382): die beiden Kurztexte, zuerst
+  // und nur lesend — sie gehen unverändert vor den Mandanten. Fehlt einer (jede
+  // Fassung vor 3.2 hat kein heute_kurz), steht auf der Folie der lange Text.
+  const kurzOderLang = (kurz, lang) => kurz
+    ? `<dd>${esc(kurz)}</dd>`
+    : `<dd><span class="tag fehlt">kein Kurztext</span>
+         <span style="color:var(--muted)">auf der Folie steht ${lang}</span></dd>`;
+  const folienBlock = !p.beschreibung ? "" : `<div class="block" data-folie>
+      <h3>Auf der Folie</h3>
+      <dl><dt>Heute</dt>${kurzOderLang(p.heute_kurz, "die Beschreibung")}
+          <dt>Soll</dt>${kurzOderLang(p.potenzielle_loesung?.to_be_kurz,
+                                      "die Soll-Vision mit dem Lösungsansatz")}</dl>
+      <p style="color:var(--muted);font-size:12.5px;margin:8px 0 0">So, wie es hier steht,
+        geht es auf die Detailfolie. Ist es falsch, den Lauf ablehnen und es in der
+        Begründung sagen.</p></div>`;
+
   const konzeptBlock = !p.beschreibung
     ? `<div class="block"><h3>Konzept</h3><p class="hinweis luecke">Die Texte liegen nicht vor —
          diese Quelle hat keinen Ausarbeitungsschritt (Messsatz).</p></div>`
     : `<div class="block"><h3>Konzept</h3>
-        ${p.potenzielle_loesung?.to_be_kurz
-          ? `<p style="font-size:13px">${esc(p.potenzielle_loesung.to_be_kurz)}</p>` : ""}
         <p style="font-size:13px"><i>${esc(p.user_story)}</i></p>
         ${lang("Beschreibung", p.beschreibung)}
         ${lang("Soll-Vision", p.to_be_vision)}
@@ -598,6 +612,7 @@ function detailHtml(id){
       <span class="tag ${GRP[p.prioritaetsgruppe]}">${p.prioritaetsgruppe}</span>
       <span class="tag ${KAT[p.kategorie]}">${p.kategorie}</span>
       Rang ${p.potenzialrang} · Score ${p.prioritaet_score}</div>
+    ${folienBlock}
     ${vorgaengerVon(id) ? `<div class="block"><h3>Fortgeschrieben</h3>
       <p>Dasselbe Vorhaben wie ${geliefertHtml(vorgaengerVon(id))}, auf neuem Datenstand
         bewertet. BC3 schreibt das bestehende Epic fort, statt ein neues anzulegen.</p>

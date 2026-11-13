@@ -194,8 +194,11 @@ def _ausgearbeitet(*nummern: str, abhaengig: dict[str, str] | None = None) -> di
             {
                 "id": nr,
                 "beschreibung": lang,
+                "heute_kurz": "Heute tippt die Buchhaltung die Zeiten aus dem Projekttool von Hand "
+                              "in die Rechnung.",
                 "to_be_vision": lang,
-                "to_be_kurz": "Zeiten wandern von selbst in die Rechnung.",
+                "to_be_kurz": "Zeiten wandern von selbst in die Rechnung, {grad_min} bis "
+                              "{grad_max} % ohne Nacharbeit.",
                 "user_story": "Als Projektleitung moechte ich, dass Zeiten von selbst "
                               "abgerechnet werden, damit keine Doppelerfassung entsteht.",
                 "akzeptanzkriterien": [

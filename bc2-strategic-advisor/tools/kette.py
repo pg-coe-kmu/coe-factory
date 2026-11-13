@@ -9,6 +9,9 @@ Rein und ohne Abhängigkeiten, damit `validate.py` und die Tests dieselbe Regel 
 """
 from __future__ import annotations
 
+#: Die Vertragsstände, die die Kette tragen: seit 3.1 (#291), in 3.2 unverändert (#382).
+MIT_KETTE = frozenset({"3.1", "3.2"})
+
 
 def gelieferte_potenziale(lieferungen):
     """Index aller Potenziale aus freigegebenen Lieferungen.
@@ -34,14 +37,15 @@ def gelieferte_potenziale(lieferungen):
 def kettenbefunde(konzepte, prio, geliefert):
     """Liste der Verstöße gegen ADR-009 · BC2; leer heißt: die Kette hält.
 
-    Eine 3.0-Lieferung kennt keine Kette und wird nur auf einheitliche Fassung geprüft.
+    Eine 3.0-Lieferung kennt keine Kette und wird nur auf einheitliche Fassung geprüft;
+    eine 3.2 trägt sie wie eine 3.1 (#382).
     """
     befunde = []
     versionen = {k["schema_version"] for k in konzepte} | {prio["schema_version"]}
     if len(versionen) > 1:
         befunde.append(f"uneinheitliche schema_version im Lauf: {sorted(versionen)}")
         return befunde
-    if versionen != {"3.1"}:
+    if not versionen <= MIT_KETTE:
         return befunde
 
     eigene = {p["potenzial_id"] for k in konzepte for p in k["potenziale"]}

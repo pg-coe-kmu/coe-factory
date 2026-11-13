@@ -35,7 +35,8 @@ Streichliste. Seit [#301](https://github.com/pg-coe-kmu/coe-factory/issues/301) 
 **Ausarbeitungsschritt** (`app/ausarbeitung/`, ADR-010 · BC2) **nach** der Rechnung die Texte der
 Konzepte — ein Aufruf je Konzept, parallel, bewacht —, und Python setzt sie mit dem Gerechneten,
 den Eingangswerten und der Ausgangslage zusammen. **Der echte Weg legt damit einen schemagültigen
-Vertrag 3.1 ab** und trägt die Kette über Pakete.
+Vertrag ab** — seit [#382](https://github.com/pg-coe-kmu/coe-factory/issues/382) einen 3.2 mit den
+beiden Kurztexten für die Detailfolie (`heute_kurz`, `to_be_kurz`) — und trägt die Kette über Pakete.
 
 ⚠ **Die Oberfläche ist noch nicht betriebsfest**, und sie sagt das selbst an. Ihre Voreinstellung ist
 weiter der **Messsatz**: der echte Weg — angenommenes Paket → Erkennung → Bewertung → Rechenkern →
@@ -120,7 +121,7 @@ divergierenden Kopien unter `Projektgruppe/BC2/` sind aufgelöst und liegen dort
 
 | Was | Wo |
 |---|---|
-| Verträge an BC3 (**v3.1**, additiv seit #254 und #291; BC3-Bestätigung offen) | `contracts/bc2-to-bc3/` — **Endlage, wird nicht mehr verschoben**; `archiv/` hält v2.0 für die Lieferung vom 30.08. |
+| Verträge an BC3 (**v3.2**, additiv seit #254, #291 und #382; BC3-Bestätigung zu 3.1 offen) | `contracts/bc2-to-bc3/` — **Endlage, wird nicht mehr verschoben**; `archiv/` hält v2.0 für die Lieferung vom 30.08. |
 | Mocks / Fixtures | `contracts/examples/` |
 | `migriere_bc3_vorlage.py`, `validate.py`, `kalibrierung.py` | `bc2-strategic-advisor/tools/` — aus dem Repo-Wurzelverzeichnis aufrufen |
 | Systemarchitektur (27.06., teils überholt) | `bc2-strategic-advisor/architektur/` |
@@ -129,7 +130,7 @@ divergierenden Kopien unter `Projektgruppe/BC2/` sind aufgelöst und liegen dort
 | **Erkennungsschritt** (#194 / #248) | `bc2-strategic-advisor/app/erkennung/` — `bestand.py` (Leseseite), `nutzlast.py` (was das Modell sieht), `anweisung.py` (samt `antwortschema()`), `modellruf.py` (Naht zum LLM: `frage(text, schema)`, SDK über `output_config`, CLI über `--json-schema`), `pruefen.py` (Nachkontrolle) |
 | **Bewertungsschritt** (#260 / #288) | `bc2-strategic-advisor/app/bewertung/` — `nutzlast.py` (ohne Stunden, Euro, Dauern; BC1-Profil → `Schrittmessung`), `anweisung.py`, `pruefen.py` (Wächter 6.5), `bewerten.py` |
 | **Nutzwert-Anker** (Nachtrag 6) | `app/modell/parameter.py`, `nutzwert_anker` — Setzung, am ersten echten Lauf mitzuprüfen |
-| **Ausarbeitungsschritt** (ADR-010 · BC2, #301) | `bc2-strategic-advisor/app/ausarbeitung/` — `nutzlast.py` (je Konzept, ohne Zahl aus der Rechnung), `anweisung.py` (zwei Platzhalter `{grad_min}`/`{grad_max}`), `pruefen.py` (Wächter: Schablonen, Systeme aus Bestand oder Tech-Stack, Rechenverbot), `ausarbeiten.py` (Ablauf und Zusammensetzen) |
+| **Ausarbeitungsschritt** (ADR-010 · BC2, #301) | `bc2-strategic-advisor/app/ausarbeitung/` — `nutzlast.py` (je Konzept, ohne Zahl aus der Rechnung), `anweisung.py` (zwei Platzhalter `{grad_min}`/`{grad_max}`), `pruefen.py` (Wächter: Schablonen, Systeme aus Bestand oder Tech-Stack, Rechenverbot, Kurztexte für die Folie), `ausarbeiten.py` (Ablauf und Zusammensetzen) |
 | Ausarbeitung an echten Aufrufen messen (#301) | `bc2-strategic-advisor/tools/ausarbeitung_messen.py` — `--von /tmp/bewertung-299` nimmt Erkennung und Urteile einer früheren Erhebung |
 | **Nachfolger über Pakete** (ADR-009 · BC2, #295) | `app/nachfolge.py` (Kandidat, Ausgang, Nachprüfung — rein), Kandidatensuche in `app/ablage.py`, Zuordnung im Wächter von `app/erkennung/` |
 | **Gate-1-Oberfläche** (Fassung D, #167/#243) | `app/static/index.html` (eine Datei), `app/oberflaeche.py` (die Rufe), `app/gate1.py` (Entscheidung, Prüfung, Ablage), `app/laeufe.py` (Laufquelle) |

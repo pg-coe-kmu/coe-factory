@@ -39,19 +39,25 @@ def _fehler(schema_datei: str, daten: dict) -> list:
 
 
 def _konzept_31() -> dict:
-    return _lies(BEISPIELE / "mock_automatisierungskonzept_KP-05.json")
+    """Die Beispieldatei als 3.1 — sie ist seit #382 eine 3.2, die zusätzlich ``heute_kurz`` trägt."""
+    k = _lies(BEISPIELE / "mock_automatisierungskonzept_KP-05.json")
+    k["schema_version"] = "3.1"
+    for pot in k["potenziale"]:
+        del pot["heute_kurz"]
+    return k
 
 
 def _prio_31() -> dict:
-    return _lies(BEISPIELE / "mock_prozesspriorisierung.json")
+    return {**_lies(BEISPIELE / "mock_prozesspriorisierung.json"), "schema_version": "3.1"}
 
 
 # --- 1. Vertragsform ---------------------------------------------------------
 
 
-def test_die_fixtures_sind_v3_1_und_tragen_eine_leere_kette():
-    k, p = _konzept_31(), _prio_31()
-    assert k["schema_version"] == p["schema_version"] == "3.1"
+def test_die_fixtures_tragen_eine_leere_kette():
+    k = _lies(BEISPIELE / "mock_automatisierungskonzept_KP-05.json")
+    p = _lies(BEISPIELE / "mock_prozesspriorisierung.json")
+    assert k["schema_version"] == p["schema_version"] == "3.2"
     assert all(pot["ersetzt_potenzial_ids"] == [] for pot in k["potenziale"])
     assert p["gestrichene_potenziale"] == []
     assert not _fehler("konzept.schema.json", k)

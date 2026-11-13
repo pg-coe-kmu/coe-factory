@@ -26,20 +26,50 @@ Vertrags und stehen deshalb wörtlich hier.
 from __future__ import annotations
 
 import json
+from typing import Any, Mapping
 
 from erkennung.modellruf import objekt, oder_null
 
 __all__ = [
-    "ANTWORTSCHEMA", "ANWEISUNG", "INTEGRATIONEN", "MAHNUNG", "PLATZHALTER", "ROLLEN",
-    "STUFEN", "baue_frage",
+    "ANTWORTSCHEMA", "ANWEISUNG", "INTEGRATIONEN", "KURZ_MAX", "KURZTEXTE", "MAHNUNG",
+    "PLATZHALTER", "ROLLEN", "STUFEN", "baue_frage", "setze_ein",
 ]
 
 #: Die einzigen Platzhalter, die Python einsetzt (ADR-010 · BC2, 2.4).
 PLATZHALTER = ("grad_min", "grad_max")
 
-#: Die Aufzählungen aus ``konzept.schema.json`` v3.1. Hier und nicht im Wächter,
-#: weil Anweisung, Antwortschema und Wächter sie alle drei brauchen und der
-#: Wächter ohnehin von hier liest.
+#: Die beiden Kurztexte für die Folie (Vertrag 3.2, #382) und ihre Höchstlänge,
+#: gemessen nach dem Einsetzen. Das Antwortschema kennt die Grenze nicht — sie
+#: hält der Wächter, wie jede Länge (#319).
+KURZTEXTE = ("heute_kurz", "to_be_kurz")
+KURZ_MAX = 300
+
+
+def zahl(wert: float) -> str:
+    """``65.0`` → ``65``, ``67.5`` → ``67,5`` — deutsch, ohne Nachkommanull."""
+    text = f"{wert:.1f}".rstrip("0").rstrip(".")
+    return text.replace(".", ",")
+
+
+def setze_ein(wert: Any, grad: Mapping[str, float]) -> Any:
+    """Setzt die Platzhalter in allen Texten eines Potenzials ein (ADR-010 · BC2, 2.4).
+
+    Hier und nicht im Ablauf, weil auch der Wächter einsetzt: die Kurztexte
+    werden nach dem Einsetzen gemessen (#382).
+    """
+    if isinstance(wert, str):
+        for name in PLATZHALTER:
+            wert = wert.replace("{" + name + "}", zahl(grad[name]))
+        return wert
+    if isinstance(wert, dict):
+        return {k: setze_ein(v, grad) for k, v in wert.items()}
+    if isinstance(wert, list):
+        return [setze_ein(v, grad) for v in wert]
+    return wert
+
+#: Die Aufzählungen aus ``konzept.schema.json`` (seit v3.1 unverändert). Hier und
+#: nicht im Wächter, weil Anweisung, Antwortschema und Wächter sie alle drei
+#: brauchen und der Wächter ohnehin von hier liest.
 ROLLEN = ("Quelle", "Ziel", "Quelle+Ziel")
 INTEGRATIONEN = ("API", "RPA", "Datei", "DB", "Email", "OCR", "Manuell")
 STUFEN = ("low", "med", "high")
@@ -91,8 +121,16 @@ und die Richtung ("... sinkt gegenueber der Ausgangsmessung"), keinen Zielwert.
   (a) was wird automatisiert, (b) in welchen Teilprozessen, (c) mit welchem
   Ergebnis, (d) Datenfluesse, (e) beteiligte Rollen, (f) Vorbedingungen,
   (g) Sonderfaelle und Ausnahmen.
+- `heute_kurz` — der heutige Ablauf, den dieses Potenzial beruehrt, in ein bis
+  zwei Saetzen.
 - `to_be_vision` — der Soll-Zustand, ausfuehrlich, mindestens 300 Zeichen.
 - `to_be_kurz` — derselbe Soll-Zustand in ein bis zwei Saetzen.
+
+  `heute_kurz` und `to_be_kurz` stehen so, wie du sie schreibst, auf der Folie,
+  die der Mandant sieht — die ausfuehrlichen Fassungen nicht. Darum fuer beide:
+  Fliesstext, hoechstens 300 Zeichen, kein Markdown (keine Ueberschrift, keine
+  Fettung, keine Aufzaehlung) und kein Zeilenumbruch. Das Rechenverbot gilt wie
+  ueberall; `{grad_min}` und `{grad_max}` sind erlaubt.
 - `user_story` — SOPHIST-Schablone, ein Satz: "Als <Rolle> moechte ich <Ziel>,
   damit <Nutzen>."
 - `akzeptanzkriterien` — mindestens eines, je mit
@@ -140,6 +178,7 @@ Antworte mit NICHTS als einem JSON-Objekt dieser Form:
     {
       "id": "die id des Potenzials, woertlich",
       "beschreibung": "...",
+      "heute_kurz": "...",
       "to_be_vision": "...",
       "to_be_kurz": "...",
       "user_story": "Als ... moechte ich ..., damit ...",
@@ -178,6 +217,7 @@ ANTWORTSCHEMA = objekt(
     potenziale={"type": "array", "items": objekt(
         id=_TEXT,
         beschreibung=_TEXT,
+        heute_kurz=_TEXT,
         to_be_vision=_TEXT,
         to_be_kurz=_TEXT,
         user_story=_TEXT,

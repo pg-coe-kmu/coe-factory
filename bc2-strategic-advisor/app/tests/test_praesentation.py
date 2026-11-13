@@ -15,8 +15,8 @@ Gelesen wird über alle Textrahmen **und** die Notizen. Die Notizen tragen je
 Detail- und Kernprozessfolie die Kennung (``potenzial_id: …``, ``kp_id: …``):
 daran zählt (b), statt an Titeln, die sich wiederholen dürfen.
 
-Eingänge: die v3.1-Fixtures aus ``contracts/examples`` (volle Texte, zwei
-Kernprozesse) und der Messsatz aus #167 über die Oberflächenquelle (elf
+Eingänge: die v3.2-Fixtures aus ``contracts/examples`` (volle Texte samt
+Kurztexten für die Folie, zwei Kernprozesse), eine gelieferte 3.1-Lieferung und der Messsatz aus #167 über die Oberflächenquelle (elf
 Potenziale in vier Kernprozessen, ohne LLM-Texte — der Weg, den der Knopf heute
 geht).
 """
@@ -48,7 +48,8 @@ from praesentation import (  # noqa: E402
     als_bytes,
     baue_praesentation,
 )
-from praesentation.folien import KACHELN_JE_FOLIE, ZEILEN_KOSTEN  # noqa: E402
+from praesentation.folien import KACHELN_JE_FOLIE, ZEILEN_KOSTEN, werkzeugname  # noqa: E402
+from praesentation import formulierung as F  # noqa: E402
 
 WURZEL = Path(__file__).resolve().parents[3]
 BEISPIELE = WURZEL / "contracts" / "examples"
@@ -78,7 +79,7 @@ def _freigabe(prio: dict, **gate1) -> dict:
 
 @pytest.fixture
 def fixture_lauf() -> tuple[list[dict], dict]:
-    """Die v3.1-Fixtures: zwei Konzepte (KP-05, KP-06), sechs Potenziale, freigegeben."""
+    """Die v3.2-Fixtures: zwei Konzepte (KP-05, KP-06), sechs Potenziale, freigegeben."""
     konzepte = [_lies("mock_automatisierungskonzept.json"),
                 _lies("mock_automatisierungskonzept_KP-05.json")]
     return konzepte, _freigabe(_lies("mock_prozesspriorisierung.json"))
@@ -580,7 +581,8 @@ def test_langer_text_geht_auf_fortsetzungsfolien_ohne_dass_etwas_fehlt(befund_la
     assert _ueberlaufende(prs) == []
 
     gezeigt = _woerter("\n".join(t for f in eigene for t in _texte_der_folie(f)))
-    for feld in (pot["beschreibung"], pot["to_be_vision"], pot["potenzielle_loesung"]["ansatz"],
+    # Eine 3.1: Heute fällt auf den langen Text zurück, Soll steht kurz (#382).
+    for feld in (pot["beschreibung"], pot["potenzielle_loesung"]["to_be_kurz"],
                  *pot["voraussetzungen"]):
         fehlt = _woerter(klartext(aus_markdown(feld, 10))) - gezeigt
         assert not fehlt, f"Abgeschnitten: {list(fehlt)[:10]}"
@@ -647,3 +649,126 @@ def test_teilen_verliert_nichts_und_haelt_ueberschriften():
     platz = hoehe_pt([voll], 300) + INNEN_HOEHE_PT + 11 * ZEILENHOEHE + 5  # Kopf ja, zwei Zeilen nein
     drin, rest = teile([voll, kopf, Absatz((Lauf("Text " * 40),), 10)], 300, platz)
     assert drin == [voll] and rest[0] is kopf
+
+
+# --- Die Kurztexte für die Folie (Vertrag 3.2, #382) -------------------------------
+
+
+def _eigene(prs, pid: str) -> list:
+    """Die Detailfolie eines Potenzials und ihre Fortsetzungen, in Folienfolge."""
+    return [f for f in prs.slides
+            if f"potenzial_id: {pid}" in _notiz(f) or f"fortsetzung_von: {pid}" in _notiz(f)]
+
+
+def _text_der(folien) -> str:
+    return "\n".join(t for f in folien for t in _texte_der_folie(f))
+
+
+_LINKE_KOEPFE = ("HEUTIGER PROZESS", "AUTOMATISIERUNGSPOTENZIAL")
+
+
+def test_eine_v3_2_zeigt_beide_kurztexte_ohne_folgefolie_fuer_die_linken_bloecke(fixture_lauf):
+    """Die Abnahme aus #382: Heute und Soll passen auf die erste Detailfolie."""
+    konzepte, prio = fixture_lauf
+    assert prio["schema_version"] == "3.2"
+    prs = baue_praesentation(konzepte, prio)
+    assert _ueberlaufende(prs) == []
+
+    for pot in (p for k in konzepte for p in k["potenziale"]):
+        erste, *fortsetzungen = _eigene(prs, pot["potenzial_id"])
+        text = _text_der([erste])
+        loesung = pot["potenzielle_loesung"]
+        assert pot["heute_kurz"] in text
+        assert loesung["to_be_kurz"] in text
+        assert f"Werkzeuge: {', '.join(map(werkzeugname, loesung['tech_stack_empfehlung']))}" in text
+        assert F.automatisierungsgrad(pot) in text
+        # Die langen Texte bleiben für BC3 — auf der Folie stehen sie nicht.
+        alles = _text_der([erste, *fortsetzungen])
+        assert "Automatisiert wird" not in alles, "die Beschreibung läuft über den Kurztext hinaus"
+        assert klartext(aus_markdown(pot["to_be_vision"], 10))[:80] not in alles
+        assert "Lösungsansatz" not in alles
+        for f in fortsetzungen:
+            assert not any(kopf in _text_der([f]) for kopf in _LINKE_KOEPFE), (
+                f"{pot['titel']}: Heute oder Soll läuft auf eine Folgefolie")
+
+
+def test_eine_v3_1_zeigt_heute_lang_und_soll_kurz(befund_lauf):
+    """Rückfall je Hälfte: einer 3.1 fehlt heute_kurz, to_be_kurz trägt sie schon."""
+    konzepte, prio = befund_lauf
+    assert prio["schema_version"] == "3.1"
+    prs = baue_praesentation(konzepte, prio)
+    assert _ueberlaufende(prs) == []
+
+    for pot in (p for k in konzepte for p in k["potenziale"]):
+        assert "heute_kurz" not in pot
+        eigene = _eigene(prs, pot["potenzial_id"])
+        alles = _text_der(eigene)
+        fehlt = _woerter(klartext(aus_markdown(pot["beschreibung"], 10))) - _woerter(alles)
+        assert not fehlt, f"Heute ist nicht der lange Text: {list(fehlt)[:10]}"
+        loesung = pot["potenzielle_loesung"]
+        assert loesung["to_be_kurz"] in alles
+        assert f"Werkzeuge: {', '.join(map(werkzeugname, loesung['tech_stack_empfehlung']))}" in alles
+        # Die Erläuterung hinter dem Gedankenstrich bleibt für BC3 im Vertrag.
+        for w in loesung["tech_stack_empfehlung"]:
+            if " — " in w:
+                assert w.split(" — ", 1)[1] not in alles
+        assert klartext(aus_markdown(pot["to_be_vision"], 10))[:80] not in alles
+        assert "Lösungsansatz" not in alles
+
+
+@pytest.mark.parametrize("eintrag, name", [
+    ("n8n (self-hosted, Hetzner) — Workflow-Orchestrierung und E-Mail-Trigger",
+     "n8n (self-hosted, Hetzner)"),
+    ("K3s – Container-Betrieb des RPA-Fallback-Dienstes", "K3s"),
+    ("PostgreSQL 16 (Vorgangsdatenbank)", "PostgreSQL 16 (Vorgangsdatenbank)"),
+    ("  NocoDB ", "NocoDB"),
+])
+def test_auf_der_folie_steht_nur_der_werkzeugname(eintrag, name):
+    """Die Zeile „Werkzeuge“ trägt den Namen, nicht die Erläuterung dahinter.
+
+    In echten Lieferungen ist ``tech_stack_empfehlung`` wortreich; ganz zitiert
+    wurde die Zeile länger als der Kurztext, den sie ergänzt (#382).
+    """
+    assert werkzeugname(eintrag) == name
+
+
+def test_ohne_to_be_kurz_steht_soll_lang_samt_loesungsansatz(befund_lauf):
+    """Die andere Hälfte des Rückfalls: eine Datei ohne to_be_kurz (wie jede vor #319)."""
+    konzepte, prio = befund_lauf
+    konzepte = copy.deepcopy(konzepte)
+    pot = konzepte[0]["potenziale"][0]
+    del pot["potenzielle_loesung"]["to_be_kurz"]
+    prs = baue_praesentation(konzepte, prio)
+
+    alles = _text_der(_eigene(prs, pot["potenzial_id"]))
+    gezeigt = _woerter(alles)
+    for feld in (pot["to_be_vision"], pot["potenzielle_loesung"]["ansatz"]):
+        fehlt = _woerter(klartext(aus_markdown(feld, 10))) - gezeigt
+        assert not fehlt, f"Abgeschnitten: {list(fehlt)[:10]}"
+    assert "Werkzeuge:" not in alles
+    assert _ueberlaufende(prs) == []
+
+
+def test_zwei_volle_kurztexte_passen_auf_die_erste_folie(fixture_lauf, befund_lauf):
+    """Die Grenze des Wächters, ausgeschöpft: je 300 Zeichen Heute und Soll, eine dreifache
+    Systemliste und die doppelte Werkzeugliste einer echten Lieferung (dort stehen zu jedem
+    Werkzeug Zweck und Betrieb) — die linken Blöcke bleiben trotzdem auf einer Folie."""
+    konzepte, prio = fixture_lauf
+    konzepte = copy.deepcopy(konzepte)
+    satz = "Die Sachbearbeitung prüft jede Anfrage von Hand und überträgt sie in die Liste. "
+    voll = (satz * 4)[:299].rstrip() + "."
+    echt = max((p["potenzielle_loesung"]["tech_stack_empfehlung"]
+                for k in befund_lauf[0] for p in k["potenziale"]),
+               key=lambda w: len(", ".join(w)))
+    for k in konzepte:
+        for p in k["potenziale"]:
+            p["heute_kurz"] = voll
+            p["potenzielle_loesung"]["to_be_kurz"] = voll
+            p["potenzielle_loesung"]["tech_stack_empfehlung"] = echt * 2
+            p["betroffene_systeme"] = p["betroffene_systeme"] * 3
+    prs = baue_praesentation(konzepte, prio)
+    assert _ueberlaufende(prs) == []
+    for pot in (p for k in konzepte for p in k["potenziale"]):
+        _erste, *fortsetzungen = _eigene(prs, pot["potenzial_id"])
+        for f in fortsetzungen:
+            assert not any(kopf in _text_der([f]) for kopf in _LINKE_KOEPFE)
