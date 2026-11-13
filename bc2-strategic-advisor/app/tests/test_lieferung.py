@@ -1,18 +1,21 @@
 """
-Tests: die Lieferung aus Schema ``bc2`` ziehen (#306, entschieden in #305).
+Tests: die Lieferung aus Schema ``bc2`` ziehen (#306, seit #378 aus der Ergebnisakte).
 
 Die Strecke ist die des Betriebs, bis auf die Datenbank: ein echter Lauf
 (Erkennung → Bewertung → Rechnung → Ausarbeitung, mit Doppelgänger-Modell)
-wird abgelegt und freigegeben, ``lieferung.lieferungen`` setzt ihn zusammen,
-und ``tools/lieferung_ziehen.py`` schreibt ihn in einen Lieferordner. Zwischen
-beiden liegt — wie über ``ssh`` — eine JSON-Rundreise.
+wird abgelegt und freigegeben, die Freigabe friert die Ergebnisakte ein,
+``lieferung.lieferungen`` gibt die ``bc3``-Dateien der lieferbaren Akten aus,
+und ``tools/lieferung_ziehen.py`` schreibt sie in einen Lieferordner ab.
+Zwischen beiden liegt — wie über ``ssh`` — eine JSON-Rundreise.
 
-Abnahme aus dem Ticket: schemagültig, ein zweiter Zug ändert nichts, ein
-manipulierter Ordner bricht ab.
+Abnahme aus #306: schemagültig, ein zweiter Zug ändert nichts, ein
+manipulierter Ordner bricht ab. Aus #378: abgeschrieben wird Byte für Byte, was
+die Akte trägt, und eine verdorbene Datei wird nicht geschrieben.
 """
 
 from __future__ import annotations
 
+import base64
 import importlib.util
 import json
 import sys
@@ -24,6 +27,7 @@ from ablage import AblegendeLaufquelle, SpeicherErgebnisbuch
 from gate1 import Gate1Entscheidung, NichtFreigegeben, SpeicherGate1Buch, jetzt
 from lieferung import lieferungen, mandantenkuerzel
 
+from conftest import akte_zur_freigabe
 from test_ausarbeitung import (
     NOROAI,
     _JeKonzept,
@@ -48,16 +52,21 @@ def _werkzeug():
 ziehen = _werkzeug()
 
 
-def _echter_lauf(*, freigeben: str | None = "approved", heraus: int = 0, kommentar: str = ""):
+def _echter_lauf(*, freigeben: str | None = "approved", heraus: int = 0, kommentar: str = "",
+                 sperrgrund: str | None = None):
     """Ein ausgearbeiteter Lauf über zwei Kernprozesse, abgelegt und entschieden."""
     innen = _laufquelle(_JeKonzept(_erkannt_zwei(), _gut_zwei()), _zwei_kernprozesse(),
                         ("KP-06.TP-1", "KP-06.TP-2", "KP-07.TP-1"))
     ergebnisse = SpeicherErgebnisbuch()
     gate1 = SpeicherGate1Buch(ergebnisse=ergebnisse)
-    ansicht = AblegendeLaufquelle(innen, ergebnisse).rechnen("PKT-301", neu=False)
+    quelle = AblegendeLaufquelle(innen, ergebnisse)
+    quelle.rechnen("PKT-301", neu=False)
+    if sperrgrund:
+        ergebnisse.zeilen["PKT-301"][-1].sperrgrund = sperrgrund
+    ansicht = quelle.ansicht("PKT-301")
     if freigeben:
         ids = ansicht.potenzial_ids()
-        gate1.merken(Gate1Entscheidung(
+        e = Gate1Entscheidung(
             paket_id="PKT-301", company_id=NOROAI, status=freigeben,
             fassung=ansicht.kopf.fassung,
             approved_potenzial_ids=tuple(ids[heraus:]) if freigeben == "approved" else (),
@@ -67,15 +76,16 @@ def _echter_lauf(*, freigeben: str | None = "approved", heraus: int = 0, komment
             kommentar=kommentar or ("Abgelehnt im Test." if freigeben == "rejected" else ""),
             entscheider="Sergio",
             entschieden_am=jetzt(),
-        ))
+        )
+        gate1.merken(e, akte=akte_zur_freigabe(gate1, ansicht, e)
+                     if freigeben == "approved" else None)
     return ergebnisse, gate1
 
 
-def _ueber_ssh(ergebnisse, gate1) -> dict:
+def _ueber_ssh(gate1) -> dict:
     """Was ``python -m lieferung`` ausgibt, nach der Rundreise durch JSON."""
     return json.loads(json.dumps(
-        {"lieferungen": [l.als_json() for l in lieferungen(ergebnisse, gate1)]},
-        ensure_ascii=False,
+        {"lieferungen": [l.als_json() for l in lieferungen(gate1)]}, ensure_ascii=False,
     ))
 
 
@@ -85,25 +95,37 @@ def _ueber_ssh(ergebnisse, gate1) -> dict:
 
 
 def test_ein_freigegebener_echter_lauf_ist_geliefert():
-    ergebnisse, gate1 = _echter_lauf()
-    (l,) = lieferungen(ergebnisse, gate1)
+    _, gate1 = _echter_lauf()
+    (l,) = lieferungen(gate1)
     assert l.ordner == "noroai-PKT-301-f1"
-    assert l.priorisierung["gate1"]["status"] == "approved"
-    assert [k["konzept_id"] for k in l.konzepte] == l.priorisierung["konzept_ids"]
+    assert sorted(l.dateien) == [
+        "NACHRICHT_AN_BC3.md", "konzept_KP-06.json", "konzept_KP-07.json",
+        "prozesspriorisierung.json",
+    ]
+    prio = json.loads(l.dateien["prozesspriorisierung.json"])
+    assert prio["gate1"]["status"] == "approved"
     # Das Modellurteil ist ein Hinweis (#305): es reist mit, sperrt aber nichts.
-    assert any("#299" in h for h in l.hinweise)
+    assert "#299" in l.dateien["NACHRICHT_AN_BC3.md"].decode("utf-8")
+
+
+def test_geliefert_wird_genau_was_die_akte_traegt():
+    """Eine Stelle, an der die Lieferdatei entsteht (Nachtrag 13.11., Punkt 2)."""
+    _, gate1 = _echter_lauf()
+    (l,) = lieferungen(gate1)
+    akte = gate1.akte("PKT-301")
+    assert l.dateien == {d.name: d.inhalt for d in akte.fuer("bc3")}
 
 
 @pytest.mark.parametrize("status", [None, "rejected"])
 def test_offen_oder_abgelehnt_ist_nichts_geliefert(status):
-    ergebnisse, gate1 = _echter_lauf(freigeben=status)
-    assert lieferungen(ergebnisse, gate1) == []
+    _, gate1 = _echter_lauf(freigeben=status)
+    assert lieferungen(gate1) == []
 
 
-def test_ein_freigegebener_lauf_mit_sperrgrund_ist_nicht_geliefert():
-    ergebnisse, gate1 = _echter_lauf()
-    ergebnisse.zeilen["PKT-301"][-1].sperrgrund = "Nicht nachrechenbar."
-    assert lieferungen(ergebnisse, gate1) == []
+def test_ein_freigegebener_lauf_mit_sperrgrund_hat_eine_akte_aber_ist_nicht_geliefert():
+    _, gate1 = _echter_lauf(sperrgrund="Nicht nachrechenbar.")
+    assert gate1.akte("PKT-301") is not None
+    assert lieferungen(gate1) == []
 
 
 def test_das_mandantenkuerzel():
@@ -113,13 +135,13 @@ def test_das_mandantenkuerzel():
 
 
 # ---------------------------------------------------------------------------
-# In den Lieferordner ziehen
+# In den Lieferordner abschreiben
 # ---------------------------------------------------------------------------
 
 
 def test_der_gezogene_ordner_ist_schemagueltig(tmp_path):
-    ergebnisse, gate1 = _echter_lauf(heraus=1)
-    abgleich, _ = ziehen.ziehe(_ueber_ssh(ergebnisse, gate1), tmp_path)
+    _, gate1 = _echter_lauf(heraus=1)
+    abgleich, _ = ziehen.ziehe(_ueber_ssh(gate1), tmp_path)
 
     assert abgleich.neu == ["noroai-PKT-301-f1"] and not abgleich.abweichend
     ordner = tmp_path / "noroai-PKT-301-f1"
@@ -137,10 +159,17 @@ def test_der_gezogene_ordner_ist_schemagueltig(tmp_path):
     assert not list(ordner.glob("*.pptx"))
 
 
+def test_abgeschrieben_wird_byte_fuer_byte(tmp_path):
+    _, gate1 = _echter_lauf()
+    ziehen.ziehe(_ueber_ssh(gate1), tmp_path)
+    for d in gate1.akte("PKT-301").fuer("bc3"):
+        assert (tmp_path / "noroai-PKT-301-f1" / d.name).read_bytes() == d.inhalt
+
+
 def test_der_kommentar_zur_freigabe_steht_im_gezogenen_gate1_block(tmp_path):
     """Der Kommentar reist im ``gate1``-Block mit (#377, entschieden in #376)."""
-    ergebnisse, gate1 = _echter_lauf(kommentar="Mit dem Fachbereich abgestimmt.")
-    ziehen.ziehe(_ueber_ssh(ergebnisse, gate1), tmp_path)
+    _, gate1 = _echter_lauf(kommentar="Mit dem Fachbereich abgestimmt.")
+    ziehen.ziehe(_ueber_ssh(gate1), tmp_path)
 
     prio = json.loads(
         (tmp_path / "noroai-PKT-301-f1" / "prozesspriorisierung.json").read_text(encoding="utf-8")
@@ -149,22 +178,8 @@ def test_der_kommentar_zur_freigabe_steht_im_gezogenen_gate1_block(tmp_path):
     assert prio["gate1"]["kommentar"] == "Mit dem Fachbereich abgestimmt."
 
 
-def test_die_schluessel_stehen_in_der_reihenfolge_des_schemas(tmp_path):
-    """Postgres ``jsonb`` vergisst die Reihenfolge — die Datei darf es nicht zeigen."""
-    roh = _ueber_ssh(*_echter_lauf())
-    l = roh["lieferungen"][0]
-    l["priorisierung"] = dict(sorted(l["priorisierung"].items(), key=lambda kv: (len(kv[0]), kv[0])))
-    ziehen.ziehe(roh, tmp_path)
-
-    text = (tmp_path / l["ordner"] / "prozesspriorisierung.json").read_text(encoding="utf-8")
-    schluessel = list(json.loads(text))
-    assert schluessel[:3] == ["priorisierung_id", "schema_version", "company_id"]
-    assert schluessel[-1] == "gate1"
-    assert text.endswith("}\n") and "\\u00" not in text
-
-
 def test_ein_zweiter_zug_aendert_nichts(tmp_path):
-    roh = _ueber_ssh(*_echter_lauf())
+    roh = _ueber_ssh(_echter_lauf()[1])
     ziehen.ziehe(roh, tmp_path)
     vorher = {d: d.read_bytes() for d in (tmp_path / "noroai-PKT-301-f1").iterdir()}
 
@@ -175,7 +190,7 @@ def test_ein_zweiter_zug_aendert_nichts(tmp_path):
 
 
 def test_ein_veraenderter_ordner_bricht_ab_und_nichts_wird_geschrieben(tmp_path, capsys):
-    roh = _ueber_ssh(*_echter_lauf())
+    roh = _ueber_ssh(_echter_lauf()[1])
     ziehen.ziehe(roh, tmp_path)
     prio = tmp_path / "noroai-PKT-301-f1" / "prozesspriorisierung.json"
     prio.write_text(prio.read_text(encoding="utf-8").replace('"fassung": 1', '"fassung": 9'),
@@ -194,36 +209,28 @@ def test_ein_veraenderter_ordner_bricht_ab_und_nichts_wird_geschrieben(tmp_path,
     assert not (tmp_path / "noroai-PKT-302-f1").exists()
 
 
+def test_eine_verdorbene_datei_wird_nicht_geschrieben(tmp_path, capsys):
+    """Die Prüfsumme reist mit; stimmt sie nicht, bricht der ganze Zug ab."""
+    roh = _ueber_ssh(_echter_lauf()[1])
+    d = roh["lieferungen"][0]["dateien"][0]
+    d["inhalt_b64"] = base64.b64encode(base64.b64decode(d["inhalt_b64"]) + b" ").decode()
+    datei = tmp_path / "roh.json"
+    datei.write_text(json.dumps(roh), encoding="utf-8")
+
+    assert ziehen.main(["--aus", str(datei), "--ziel", str(tmp_path)]) == 1
+    assert "Pruefsumme" in capsys.readouterr().err
+    assert not (tmp_path / "noroai-PKT-301-f1").exists()
+
+
 def test_pruefen_schreibt_nichts(tmp_path):
-    roh = _ueber_ssh(*_echter_lauf())
+    roh = _ueber_ssh(_echter_lauf()[1])
     abgleich, _ = ziehen.ziehe(roh, tmp_path, pruefen=True)
     assert abgleich.neu == ["noroai-PKT-301-f1"]
     assert not any(tmp_path.iterdir())
 
 
-def test_die_nachricht_traegt_freigabe_reihenfolge_und_hinweise(tmp_path):
-    ergebnisse, gate1 = _echter_lauf(heraus=1)
-    roh = _ueber_ssh(ergebnisse, gate1)
-    text = ziehen.nachricht(roh["lieferungen"][0])
-
-    assert text.startswith("# Lieferung an BC3 — noroai-PKT-301-f1\n")
-    assert "durch Sergio" in text
-    assert "nicht freigegeben: Kommt in dieser Runde nicht mit." in text
-    assert "## Hinweise" in text and "#299" in text
-    # Byte-gleich heißt auch: kein Zeitpunkt des Ziehens.
-    assert ziehen.nachricht(roh["lieferungen"][0]) == text
-
-
-def test_ordne_folgt_ref_und_anyof():
-    wurzel = {
-        "$defs": {"spanne": {"type": "object", "properties": {"min": {}, "max": {}}}},
-        "properties": {
-            "a": {"$ref": "#/$defs/spanne"},
-            "b": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/spanne"}]},
-            "c": {"type": "array", "items": {"$ref": "#/$defs/spanne"}},
-        },
-    }
-    daten = {"z": 1, "c": [{"max": 2, "min": 1}], "b": {"max": 2, "min": 1}, "a": {"max": 2, "min": 1}}
-    geordnet = ziehen.ordne(daten, wurzel, wurzel)
-    assert list(geordnet) == ["a", "b", "c", "z"]
-    assert list(geordnet["a"]) == list(geordnet["b"]) == list(geordnet["c"][0]) == ["min", "max"]
+def test_das_werkzeug_setzt_nichts_mehr_zusammen():
+    """Ordnen und Nachricht sind in den Dienst gezogen (#378, Punkt 3)."""
+    text = WERKZEUG.read_text(encoding="utf-8")
+    assert "def ordne" not in text and "def nachricht" not in text
+    assert "schema.json" not in text

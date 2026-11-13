@@ -51,7 +51,7 @@ from laeufe import (
 )
 from nachfolge import Ausgang, Kandidat, Nachfolge, pruefe_ausgaenge
 
-from conftest import MESSSAETZE
+from conftest import MESSSAETZE, akte_zur_freigabe
 from test_bewertung import NOROAI, STAND, _ausgearbeitet, _bestand, _bewertung, _erkannt, _gut
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
@@ -70,7 +70,7 @@ def _freigeben(gate1: SpeicherGate1Buch, ansicht, status: str = "approved"):
         kommentar="" if status == "approved" else "Taugt nicht.",
         entschieden_am=jetzt(),
     )
-    gate1.merken(e)
+    gate1.merken(e, akte=akte_zur_freigabe(gate1, ansicht, e) if status == "approved" else None)
     return e
 
 
@@ -468,7 +468,9 @@ def test_eine_kette_an_der_nachpruefung_vorbei_wird_nicht_abgelegt():
     """Die Ablage prüft selbst, statt der Quelle zu glauben."""
     vorlage = _messsatz_vorlage()
     a = replace(vorlage, kopf=replace(vorlage.kopf, paket_id="PAKET-A"),
-                ausgangslage={"unternehmen": {}})
+                ausgangslage={"unternehmen": {
+                    "name": None, "branche": None, "mitarbeitende": None, "region": None,
+                    "geschaeftsmodell": None}, "herausforderungen": []})
     ergebnisse = SpeicherErgebnisbuch()
     quelle_a = AblegendeLaufquelle(SpeicherLaufquelle([a]), ergebnisse)
     _freigeben(SpeicherGate1Buch(ergebnisse=ergebnisse), quelle_a.ansicht("PAKET-A"))

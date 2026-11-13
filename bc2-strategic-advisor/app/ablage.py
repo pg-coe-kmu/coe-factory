@@ -470,6 +470,11 @@ class AblegendeLaufquelle:
             return None
         return self.rechnen(paket_id, neu=False)
 
+    def abgelegt(self, paket_id: str) -> AbgelegterLauf | None:
+        """Der Lauf, wie er in ``bc2`` liegt — die Quelle der Ergebnisakte (#378):
+        eingefroren wird das abgelegte Dokument, nie eine Rekonstruktion."""
+        return self._buch.letzter(paket_id)
+
     def stand(self, paket_id: str) -> dict | None:
         """Wie weit ein noch nicht gezeigter Lauf ist — ohne zu rechnen."""
         kopf = next((k for k in self.uebersicht() if k.paket_id == paket_id), None)

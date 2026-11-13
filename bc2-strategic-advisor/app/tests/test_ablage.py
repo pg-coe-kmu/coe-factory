@@ -29,7 +29,7 @@ from gate1 import (
 )
 from laeufe import MesssatzLaufquelle
 
-from conftest import MESSSAETZE
+from conftest import MESSSAETZE, akte_zur_freigabe
 
 
 class ZaehlendeQuelle:
@@ -86,7 +86,7 @@ def entscheiden(gate1, ansicht, status: str, **weiteres) -> Gate1Entscheidung:
         entschieden_am=jetzt(),
         **weiteres,
     )
-    gate1.merken(e)
+    gate1.merken(e, akte=akte_zur_freigabe(gate1, ansicht, e) if status == "approved" else None)
     return e
 
 

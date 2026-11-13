@@ -797,7 +797,22 @@ function zeichneKopf(){
     ${zustand === "approved"
       ? `<div class="kennung"><button class="btn sm" data-praesentation>Präsentation herunterladen</button></div>`
       : ""}
+    ${zustand === "approved" ? linkKennung(Z.ansicht.ergebnisakte) : ""}
   </div>`;
+}
+
+/**
+ * Der Link auf die eingefrorene Präsentation (#378) — für den Mandanten, ohne
+ * Schlüssel. Der Server gibt ihn relativ zur Seite, damit die Vorschau unter
+ * /vorschau/ auf sich selbst zeigt; hier wird er zur vollen Adresse.
+ */
+function linkKennung(akte){
+  if (!akte) return `<div class="kennung">Link<b style="color:var(--warn)">keine Ergebnisakte</b></div>`;
+  if (!akte.link) return `<div class="kennung">Link<b style="color:var(--warn)">gesperrt</b></div>`;
+  const adresse = new URL(akte.link, location.href).href;
+  return `<div class="kennung">Link für den Mandanten<b><a data-link href="${esc(adresse)}"
+    title="Eingefroren am ${esc(new Date(akte.eingefroren_am).toLocaleString("de-DE"))}"
+    style="word-break:break-all;font-size:12px">${esc(adresse)}</a></b></div>`;
 }
 
 /**
@@ -821,8 +836,8 @@ async function praesentationHolen(){
   a.download = "praesentation.pptx";
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  Z.meldung = {art: "info", text: `<b>Präsentation erzeugt.</b> Sie geht an den Mandanten
-    und liegt nicht im Lieferordner.`};
+  Z.meldung = {art: "info", text: `<b>Präsentation aus der Ergebnisakte.</b> Eingefroren bei
+    der Freigabe; sie geht an den Mandanten und liegt nicht im Lieferordner.`};
   zeichne();
 }
 
@@ -1096,8 +1111,9 @@ function notiz(){
       wäre genau die Scheingenauigkeit, die die Bandbreite vermeiden soll.</li>
     <li><b>Was Gate 1 nicht darf:</b> Annahmen ändern. Das wäre Rechnen von Hand und
       zerstörte die Reproduzierbarkeit. Umsortieren und Herausnehmen ja, Zahlen anfassen nein.</li>
-    <li><b>Die Präsentation</b> entsteht erst nach der Freigabe (Knopf im Laufkopf) und
-      zeigt nur Freigegebenes, in der gesetzten Reihenfolge (#257).</li>
+    <li><b>Die Präsentation</b> entsteht bei der Freigabe, einmal, und liegt in der
+      Ergebnisakte (#378); Knopf und Link im Laufkopf liefern genau diese Datei. Sie zeigt
+      nur Freigegebenes, in der gesetzten Reihenfolge (#257).</li>
     <li><b>Noch nicht da:</b> die Klartextnamen der Kernprozesse (#248).</li>
   </ol></details>`;
 }
@@ -1314,20 +1330,24 @@ async function entscheiden(status){
     return zeichne();
   }
   if (!antwort.ok){
+    // Bei einer Freigabe meist die Ergebnisakte (#378): ohne sie gilt sie nicht.
     Z.meldung = {art: "warn",
-      text: `Speichern fehlgeschlagen (${antwort.status}). Die Entscheidung ist <b>nicht</b> abgelegt.`};
+      text: `Speichern fehlgeschlagen (${antwort.status}). Die Entscheidung ist <b>nicht</b> abgelegt.
+        ${esc(antwort.rumpf?.fehler || "")}`};
     return zeichne();
   }
 
   Z.gate1 = antwort.rumpf.gate1;
+  if (antwort.rumpf.ergebnisakte) Z.ansicht.ergebnisakte = antwort.rumpf.ergebnisakte;
   Z.geaendert = false;
   Z.meldung = {art: "info", text: status === "approved"
     ? (Z.ansicht.kopf.sperrgrund
         ? `<b>Gate 1 freigegeben, nicht lieferbar.</b> ${esc(Z.ansicht.kopf.sperrgrund)}
-           An BC3 geht nichts. Die Präsentation steht oben im Laufkopf bereit.`
+           An BC3 geht nichts. Die Ergebnisakte ist eingefroren; Präsentation und Link
+           stehen oben im Laufkopf.`
         : `<b>Gate 1 freigegeben.</b> ${Z.freigegeben.size} Potenzial(e) gehen an BC3, sobald
-           die Lieferung gezogen ist (<code>tools/lieferung_ziehen.py</code>). Die Präsentation
-           steht jetzt oben im Laufkopf zum Herunterladen bereit.`)
+           die Lieferung gezogen ist (<code>tools/lieferung_ziehen.py</code>). Die Ergebnisakte
+           ist eingefroren; Präsentation und Link stehen oben im Laufkopf.`)
     : `<b>Lauf abgelehnt.</b> Es wird nichts ausgeliefert und nichts gelöscht; ein erneuter
        Lauf erzeugt Fassung ${Z.ansicht.kopf.fassung + 1}, diese bleibt abrufbar.`};
   await ladeListe();

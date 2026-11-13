@@ -28,6 +28,7 @@ from erkennung.modellruf import Antwort, schaele_json
 from gate1 import Gate1Entscheidung, SpeicherGate1Buch, jetzt
 from laeufe import LaufAngehalten, PaketLaufquelle, Paketeintrag, SpeicherPaketverzeichnis, aus_lauf
 from modell import rechne_lauf
+from conftest import akte_zur_freigabe
 from test_bewertung import NOROAI, STAND, _ausgearbeitet, _bestand, _erkannt, _gut, _kennungen
 
 VERTRAEGE = Path(__file__).resolve().parents[3] / "contracts" / "bc2-to-bc3"
@@ -506,7 +507,7 @@ def test_der_abgelegte_lauf_ist_ein_schemagueltiger_vertrag_3_2():
         approved_potenzial_ids=tuple(ansicht.potenzial_ids()), kommentar="",
         entschieden_am=jetzt(),
     )
-    gate1.merken(entscheidung)
+    gate1.merken(entscheidung, akte=akte_zur_freigabe(gate1, ansicht, entscheidung))
 
     abgelegt = ergebnisse.letzter("PKT-301")
     priorisierung = {**abgelegt.dokument, "gate1": entscheidung.als_vertrag()}

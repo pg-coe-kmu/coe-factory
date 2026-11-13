@@ -1,6 +1,11 @@
 services:
   app:
-    build: .
+    build:
+      context: .
+      # Die Vertragsschemas fuer die Ergebnisakte (#378): ausserhalb von app/,
+      # darum ein zweiter Bau-Kontext, den das Dockerfile nach /vertrag kopiert.
+      additional_contexts:
+        vertrag: ../../contracts/bc2-to-bc3
     restart: unless-stopped
     environment:
       # Gemeinsame PostgreSQL bei Supabase, Session-Pooler Port 5432.
@@ -32,7 +37,10 @@ services:
   # Geheimnis: keine DATABASE_URL, kein Modellschluessel (vorschau.py streicht
   # sie zusaetzlich). Ihr Schluessel ist ein eigener, kein BC2_TRIGGER_TOKEN.
   vorschau:
-    build: .
+    build:
+      context: .
+      additional_contexts:
+        vertrag: ../../contracts/bc2-to-bc3
     restart: unless-stopped
     command: ["python", "vorschau.py", "--host", "0.0.0.0", "--port", "8243",
               "--messsaetze", "/kalibrierung",

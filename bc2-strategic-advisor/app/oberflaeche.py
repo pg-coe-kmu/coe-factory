@@ -8,10 +8,18 @@ Fünf Rufe, mehr braucht die Seite nicht:
 ``GET  /api/oberflaeche/laeufe``                        Die Liste der Läufe — der Einstieg
 ``GET  /api/oberflaeche/laeufe/{paket_id}``             Ein Lauf samt Gate-1-Stand
 ``POST /api/oberflaeche/laeufe/{paket_id}/gate1``       Die Entscheidung
-``POST /api/oberflaeche/laeufe/{paket_id}/praesentation``  Der Foliensatz, nur nach Freigabe (#257)
+``POST /api/oberflaeche/laeufe/{paket_id}/praesentation``  Der eingefrorene Foliensatz (#257, #378)
 ``POST /api/oberflaeche/laeufe/{paket_id}/rechnen``     Paket rechnen, im Hintergrund
 ``POST /api/oberflaeche/laeufe/{paket_id}/neu``         Neue Fassung nach Reject (#290)
+``GET  /praesentation/{token}``                         Der Link für den Mandanten, ohne Schlüssel
 ======================================================  ====================================
+
+**Die Freigabe friert die Ergebnisakte ein** (#378, ADR-007 · BC2, Nachtrag vom
+13.11.2026): beim ``approved`` zeichnet der Dienst die Präsentation einmal,
+setzt die Dateien an BC3 zusammen und legt beides in derselben Transaktion ab
+wie die Freigabe. Scheitert ein Schritt, gilt die Freigabe nicht, und die
+Antwort sagt, woran es lag. Danach liefert der Download die eingefrorene Datei;
+neu gezeichnet wird nicht mehr.
 
 **Ansehen rechnet nie** — jedenfalls nicht, wenn Rechnen Modellaufrufe kostet
 (``quelle.teuer``). Beim ersten echten Lauf (10.10.2026) öffnete die Seite nach
@@ -51,6 +59,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 
 from ablage import NeulaufNichtErlaubt
+from ergebnisakte import PPTX, TOKEN_FORM, akte_einfrieren
 from gate1 import (
     Gate1Buch,
     Gate1Entscheidung,
@@ -61,9 +70,7 @@ from gate1 import (
     pruefe,
 )
 from laeufe import Laufquelle
-from praesentation import DATEINAME, als_bytes, baue_praesentation
-
-PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+from praesentation import DATEINAME
 
 log = logging.getLogger("bc2.oberflaeche")
 
@@ -87,9 +94,10 @@ def erzeuge_router(
     BC0s Signatur aussieht. ``ablage_art`` sagt der Oberfläche, ob ihre
     Entscheidung einen Neustart überlebt.
 
-    Lieferdateien schreibt der Dienst nicht: der Lieferordner ist eine
-    Abbildung von Schema ``bc2`` und wird mit ``tools/lieferung_ziehen.py``
-    gezogen (ADR-007 · BC2, Nachtrag #305).
+    Lieferdateien schreibt der Dienst nicht in ein Verzeichnis: er friert sie
+    beim Freigeben in die Ergebnisakte ein (#378), und
+    ``tools/lieferung_ziehen.py`` schreibt sie von dort in den Lieferordner ab
+    (ADR-007 · BC2, Nachträge #305 und 13.11.2026).
     """
     router = APIRouter(prefix="/api/oberflaeche")
     teuer = bool(getattr(quelle, "teuer", False))
@@ -195,6 +203,9 @@ def erzeuge_router(
         antwort["gate1"] = (
             entscheidung.als_vertrag() if entscheidung is not None else {"status": "pending"}
         )
+        if entscheidung is not None and entscheidung.status == "approved":
+            akte = buch.akte(paket_id, ansicht.kopf.fassung)
+            antwort["ergebnisakte"] = akte.als_uebersicht() if akte is not None else None
         return JSONResponse(antwort)
 
     @router.post("/laeufe/{paket_id}/rechnen")
@@ -293,8 +304,24 @@ def erzeuge_router(
                 "Die Entscheidung ist so nicht zulaessig.", 422, maengel=maengel
             )
 
+        # Die Ergebnisakte entsteht **vor** dem Schreiben und wird mit der
+        # Freigabe in einer Transaktion abgelegt (#378). Scheitert sie, gilt die
+        # Freigabe nicht — „freigegeben, aber ohne Akte“ gibt es nicht.
+        akte = None
+        if entscheidung.status == "approved":
+            try:
+                abgelegt = quelle.abgelegt(paket_id) if hasattr(quelle, "abgelegt") else None
+                akte = akte_einfrieren(ansicht, entscheidung, abgelegt=abgelegt)
+            except Exception as e:  # noqa: BLE001 — der Grund geht an den Menschen
+                log.exception("Ergebnisakte fuer %s nicht entstanden", paket_id)
+                return _fehler(
+                    "Die Ergebnisakte ist nicht entstanden, darum ist Gate 1 nicht "
+                    f"freigegeben: {type(e).__name__}: {e}",
+                    500,
+                )
+
         try:
-            buch.merken(entscheidung)
+            buch.merken(entscheidung, akte=akte)
         except Gate1Konflikt as e:
             # 409: kein Formfehler, sondern ein anderer war schneller oder die
             # Seite zeigt einen alten Stand. Der geltende Stand kommt mit, damit
@@ -307,6 +334,14 @@ def erzeuge_router(
             )
         except LaufUnbekannt:
             return _fehler(f"Zu {paket_id} liegt kein abgelegter Lauf.", 409)
+        except Exception as e:  # noqa: BLE001 — die Transaktion ist zurückgerollt
+            log.exception("Gate 1 fuer %s nicht abgelegt", paket_id)
+            return _fehler(
+                "Die Entscheidung ist nicht abgelegt"
+                + (", Gate 1 ist nicht freigegeben" if akte is not None else "")
+                + f": {type(e).__name__}: {e}",
+                503,
+            )
         log.info(
             "Gate 1 fuer %s: %s (%d freigegeben, %d herausgenommen) durch %r",
             paket_id,
@@ -315,18 +350,22 @@ def erzeuge_router(
             len(entscheidung.nicht_freigegeben),
             entscheidung.entscheider or "(ohne Angabe)",
         )
-        return JSONResponse(
-            {"paket_id": paket_id, "fassung": fassung, "gate1": entscheidung.als_vertrag()},
-            status_code=200,
-        )
+        rumpf = {"paket_id": paket_id, "fassung": fassung, "gate1": entscheidung.als_vertrag()}
+        if akte is not None:
+            abgelegt_akte = buch.akte(paket_id, fassung) or akte
+            rumpf["ergebnisakte"] = abgelegt_akte.als_uebersicht()
+        return JSONResponse(rumpf, status_code=200)
 
     @router.post("/laeufe/{paket_id}/praesentation")
     def praesentation(request: Request, paket_id: str):
-        """Zeichnet den Foliensatz des Laufs — **nur nach Freigabe** (#244, #257).
+        """Der Foliensatz des Laufs — **nur nach Freigabe** (#244, #257), und
+        seit #378 **der eingefrorene** aus der Ergebnisakte.
 
-        Die Präsentation geht an den **Mandanten**, nicht an BC3: sie ist
-        Download, kein Teil der Lieferung (ADR-007 · BC2, Nachtrag #305,
-        Punkt 4). Abgelegt wird sie darum nirgends.
+        Die Präsentation geht an den **Mandanten**, nicht an BC3: sie ist kein
+        Teil der Lieferung (ADR-007 · BC2, Nachtrag #305, Punkt 4). Abgelegt
+        wird sie trotzdem, als Datei der Akte mit Empfänger ``mandant``
+        (Nachtrag 13.11.2026, Punkt 3): sonst gäbe es zwei Präsentationen
+        desselben Laufs, die nach einer Codeänderung auseinanderlaufen.
 
         ``POST`` und nicht ``GET``, wie bisher — der Knopf in der Oberfläche
         ruft es so.
@@ -351,18 +390,18 @@ def erzeuge_router(
                 409,
             )
 
-        konzepte, priorisierung = ansicht.als_vertrag(entscheidung.als_vertrag())
-        daten = als_bytes(
-            baue_praesentation(
-                konzepte,
-                priorisierung,
-                sperrgrund=ansicht.kopf.sperrgrund,
-                hinweise=ansicht.kopf.hinweise,
+        akte = buch.akte(paket_id, ansicht.kopf.fassung)
+        if akte is None or akte.praesentation is None:
+            # Nur ein vor bc2.4 freigegebener Lauf, der noch nicht nachgetragen
+            # ist. Neu gezeichnet wird nicht (Nachtrag 13.11.2026, Punkt 3).
+            return _fehler(
+                f"Zu dieser Freigabe liegt keine Ergebnisakte. Sie wird nachtraeglich "
+                f"eingefroren (python -m ergebnisakte nachtragen {paket_id}, DEPLOY.md).",
+                409,
             )
-        )
-        log.info("Praesentation fuer %s erzeugt (%d Bytes)", paket_id, len(daten))
+        log.info("Praesentation fuer %s aus der Akte (%d Bytes)", paket_id, len(akte.praesentation))
         return Response(
-            daten,
+            akte.praesentation,
             media_type=PPTX,
             headers={"Content-Disposition": f'attachment; filename="{DATEINAME}"'},
         )
@@ -398,6 +437,37 @@ def erzeuge_router(
         antwort = ansicht.als_json()
         antwort["gate1"] = {"status": "pending"}
         return JSONResponse(antwort, status_code=201)
+
+    return router
+
+
+def erzeuge_link_router(buch: Gate1Buch) -> APIRouter:
+    """Der Link auf die Präsentation einer Ergebnisakte (#378).
+
+    **Ohne** ``_wache``: der Link geht an den Mandanten, und der hat den
+    Schlüssel der Oberfläche nicht (ADR-007 · BC2, Nachtrag 13.11.2026,
+    Punkt 5). Das Token je Akte ist der Zugang — zufällig, unbefristet,
+    sperrbar. Unbekannt und gesperrt sehen gleich aus (``404``), damit das
+    Raten nichts verrät. Wer den Link hat, bekommt Mandantendaten; für den PoC
+    mit einem Mandanten in Kauf genommen.
+    """
+    router = APIRouter()
+
+    @router.get("/praesentation/{token}", include_in_schema=False)
+    def link(token: str):
+        daten = buch.praesentation_zum_token(token) if TOKEN_FORM.fullmatch(token) else None
+        if daten is None:
+            return _fehler("Kein gueltiger Link.", 404)
+        return Response(
+            daten,
+            media_type=PPTX,
+            headers={
+                "Content-Disposition": f'attachment; filename="{DATEINAME}"',
+                # Mandantendaten: in keinen geteilten Zwischenspeicher, in keinen Index.
+                "Cache-Control": "private, no-store",
+                "X-Robots-Tag": "noindex",
+            },
+        )
 
     return router
 
