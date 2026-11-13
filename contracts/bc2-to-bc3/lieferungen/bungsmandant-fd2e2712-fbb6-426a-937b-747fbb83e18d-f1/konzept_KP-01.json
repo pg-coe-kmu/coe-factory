@@ -1,0 +1,391 @@
+{
+  "konzept_id": "51a80db2-799c-405e-b45f-38862830f59c",
+  "ersetzt_konzept_id": null,
+  "schema_version": "3.1",
+  "company_id": "3e163e8a-18a2-4bde-b0ba-b7986de670f7",
+  "paket_id": "fd2e2712-fbb6-426a-937b-747fbb83e18d",
+  "uebergeben_am": "2026-09-04T05:12:34.159707+00:00",
+  "gelesen_am": "2026-10-10T11:33:48.267689+00:00",
+  "fassung": 1,
+  "erzeugt_am": "2026-10-10T11:37:42.618274+00:00",
+  "erzeugt_von": "bc2-strategic-advisor · Ausarbeitung · claude-sonnet-4-6",
+  "kontext": {
+    "prozess_kurzbeschreibung": "Der Strategieprozess umfasst die halbjährliche Klausur-Vorbereitung (Lagedaten-Sammlung, Agenda-Erstellung) sowie die Klausur-Durchführung mit anschließender Protokoll- und OKR-Kaskaden-Ableitung durch die Geschäftsführung.",
+    "kp_id": "KP-01",
+    "unternehmen": "Übungsmandant (Demo) — Testdaten, keine echten Werte",
+    "hauptschmerzpunkte": [
+      {
+        "beschreibung": "Manuelle Sammlung und Konsolidierung von Lagedaten aus mehreren Systemen vor jeder Klausur",
+        "haeufigkeit": "halbjährlich sowie bei ad-hoc-Lageänderungen",
+        "auswirkung": "Der gesamte Vorbereitungsaufwand liegt beim Management; die Zusammenführung ist fehleranfällig und bindet strategisch wertvolle Kapazität in reiner Datenpflege."
+      },
+      {
+        "beschreibung": "Protokollerstellung und OKR-Ableitung nach der Klausur sind vollständig manuell",
+        "haeufigkeit": "nach jeder Klausur, also halbjährlich im Regelfall",
+        "auswirkung": "Zwischen Klausur-Ende und verfügbarem Protokoll sowie eingetragener OKR-Kaskade entsteht ein spürbarer Zeitverzug; Beschlüsse bleiben in dieser Lücke nicht operationalisiert."
+      },
+      {
+        "beschreibung": "Keine automatische strukturierte Erhebung von Klausurergebnissen als Logs",
+        "auswirkung": "Nachvollziehbarkeit und Konsistenz der Klausurergebnisse hängen von individueller Disziplin ab; das Risiko lückenhafter oder inkonsistenter Einträge im OKR-Tooling ist dauerhaft erhöht."
+      }
+    ]
+  },
+  "potenziale": [
+    {
+      "potenzial_id": "1c647610-7fab-4ebe-bce2-9cea555ffd87",
+      "ersetzt_potenzial_ids": [],
+      "titel": "Automatisierte Klausur-Vorbereitung durch Lagedaten-Aggregation",
+      "potenzialrang": 1,
+      "prioritaetsgruppe": "PRIO 2",
+      "beschreibung": "## Was wird automatisiert?\n\nDie manuelle Sammlung, Konsolidierung und Aufbereitung von Lagedaten aus den Systemen EspoCRM, Grafana und NocoDB vor jeder Strategie-Klausur wird durch einen automatisierten n8n-Workflow ersetzt. Der Workflow erzeugt daraus einen strukturierten Klausur-Vorbereitungsdraft, bestehend aus einem Lagebild und einem Agenda-Entwurf.\n\n## Betroffene Teilprozesse\n\nDas Potenzial adressiert ausschließlich **KP-01.TP-1 — Strategie-Klausur vorbereiten**. Es endet mit dem freigegebenen Vorbereitungsdokument, bevor die Klausur selbst beginnt.\n\n## Ergebnis\n\nDie Geschäftsführung erhält automatisch und termintreu einen vollständigen Entwurf: ein Lagebild mit den relevanten Metriken und CRM-Daten sowie einen strukturierten Agenda-Vorschlag. Sie prüft, ergänzt und gibt das Dokument frei — der kreative Syntheseschritt bleibt menschlich.\n\n## Datenflüsse\n\nEspoCRM liefert Kunden-, Pipeline- und Kontaktdaten per API. Grafana stellt Betriebs- und Performance-Metriken bereit. NocoDB enthält Stamm- und Steuerungsdaten. Der n8n-Workflow ruft alle drei Quellen ab, normalisiert die Daten, übergibt sie an ein LLM (Ollama lokal oder Claude API mit AVV), das den strukturierten Draft erzeugt, und legt das Ergebnis in Nextcloud Hub zur Freigabe ab.\n\n## Beteiligte Rollen\n\n- **n8n-Workflow** (Orchestrierung und Datenabruf)\n- **LLM** (Textsynthese des Lagebilds und Agenda-Entwurfs)\n- **Geschäftsführung** (Abnahme, Ergänzung und Freigabe)\n\n## Vorbedingungen\n\nDie API-Verbindungen zwischen n8n und EspoCRM, Grafana sowie NocoDB müssen stabil und authentifiziert sein. Das LLM muss erreichbar und mit einem geeigneten Prompt-Template für den Klausur-Kontext konfiguriert sein. Nextcloud Hub muss als Ablageort eingebunden sein.\n\n## Sonderfälle und Ausnahmen\n\nDer sogenannte KB-Input (Knowledge-Base-Beiträge) ist in seiner Struktur nicht vollständig spezifiziert. Sollte er aus unstrukturierten externen Quellen bestehen, ist ein manueller Ergänzungsschritt erforderlich, bevor das Dokument freigegeben werden kann. Ad-hoc-Klausuren bei Lageänderungen können den Workflow mit unvollständigen Datenbeständen auslösen; in diesem Fall ist das Lagebild entsprechend als vorläufig zu kennzeichnen.",
+      "to_be_vision": "Im Soll-Zustand löst ein termingesteuerter n8n-Workflow die gesamte Datensammlung zur Klausur-Vorbereitung aus, ohne dass die Geschäftsführung manuell in mehreren Systemen recherchieren muss. Zum vereinbarten Vorbereitungszeitpunkt liegt ein vollständiger, strukturierter Draft in Nextcloud Hub bereit: ein Lagebild aus aktuellen CRM-, Monitoring- und Stammdaten sowie ein Agenda-Entwurf, der die wesentlichen strategischen Themen bereits benennt. Die Geschäftsführung liest, ergänzt inhaltliche Schwerpunkte und gibt frei — das strategisch anspruchsvolle Denken beginnt damit unmittelbar, ohne vorgelagerte Routinearbeit. Der Automatisierungsgrad liegt zwischen 30 % und 45 % der Vorbereitungsschritte, die heute vollständig manuell ausgeführt werden. Unstrukturierter KB-Input wird als explizit markierter Platzhalter im Draft ausgewiesen, damit die Geschäftsführung gezielt ergänzen kann. Das Ergebnis ist eine konsistentere, vollständigere Datenbasis vor jeder Klausur und eine spürbar verkürzte Vorlaufzeit.",
+      "user_story": "Als Geschäftsführerin möchte ich vor jeder Strategie-Klausur automatisch einen strukturierten Lagebild- und Agenda-Entwurf erhalten, damit ich meine Vorbereitungszeit auf inhaltliche Reflexion statt auf manuelle Datensammlung verwenden kann.",
+      "akzeptanzkriterien_geschaeftlich": [
+        {
+          "kriterium": "Gegeben ein geplanter Klausurtermin ist im System hinterlegt, wenn der Workflow zum konfigurierten Vorlauf-Zeitpunkt ausgelöst wird, dann liegt ein vollständiger Draft mit Lagebild und Agenda-Entwurf in Nextcloud Hub vor, bevor die Klausur beginnt.",
+          "messverfahren": "Zeitstempel der Datei-Erstellung in Nextcloud Hub wird mit dem Klausur-Startzeitpunkt verglichen; Prüfung nach jeder Klausur."
+        },
+        {
+          "kriterium": "Gegeben EspoCRM, Grafana und NocoDB sind erreichbar, wenn der Workflow ausgeführt wird, dann enthält das Lagebild Daten aus allen drei Quellen ohne manuelle Zwischenschritte.",
+          "messverfahren": "Prüfung des n8n-Workflow-Protokolls auf erfolgreiche Abfragen aller drei Quellen; Stichprobe der erzeugten Dokumente auf Vollständigkeit der Datenfelder."
+        },
+        {
+          "kriterium": "Gegeben der KB-Input liegt nicht in strukturierter Form vor, wenn der Workflow den Draft erzeugt, dann ist der KB-Abschnitt im Dokument als ausstehend markiert und nicht leer oder mit Platzhalterdaten gefüllt.",
+          "messverfahren": "Manuelle Sichtprüfung des Drafts nach Workflow-Ausführung; Kontrolle, ob der Marker-Text im Dokument vorhanden ist."
+        }
+      ],
+      "fachliche_anforderungen": [
+        "Der erzeugte Draft muss die Quellsysteme und den Abrufzeitpunkt der Daten transparent ausweisen, damit die Geschäftsführung die Aktualität der Datenbasis beurteilen kann.",
+        "Personenbezogene Daten aus EspoCRM dürfen nur in dem Umfang in den Draft übernommen werden, der für die strategische Lagebewertung erforderlich ist; eine Datenschutz-Prüfung ist vor Go-live durchzuführen.",
+        "Der Workflow muss bei Nichterreichbarkeit einer Quelle eine eindeutige Fehlerbenachrichtigung an die Geschäftsführung senden und den Draft mit entsprechendem Hinweis erzeugen statt stumm zu scheitern.",
+        "Der Freigabeschritt durch die Geschäftsführung ist zwingend; ein nicht freigegebener Draft darf nicht als finales Klausurdokument gelten."
+      ],
+      "betroffene_teilprozess_ids": [
+        "KP-01.TP-1"
+      ],
+      "betroffene_prozessschritte": [
+        "Strategie-Klausur vorbereiten"
+      ],
+      "betroffene_systeme": [
+        {
+          "name": "EspoCRM",
+          "rolle": "Quelle",
+          "integration": "API"
+        },
+        {
+          "name": "Grafana",
+          "rolle": "Quelle",
+          "integration": "API"
+        },
+        {
+          "name": "NocoDB",
+          "rolle": "Quelle",
+          "integration": "API"
+        },
+        {
+          "name": "n8n",
+          "rolle": "Quelle+Ziel",
+          "integration": "API"
+        },
+        {
+          "name": "Nextcloud Hub",
+          "rolle": "Ziel",
+          "integration": "API"
+        }
+      ],
+      "manueller_aufwand_heute": {
+        "stunden_jahr": 0.0,
+        "herkunft": "unbekannt",
+        "konfidenz_pct": null
+      },
+      "automatisierungsgrad": {
+        "klasse": "Textgenerierung",
+        "angesetzt_min_pct": 30.0,
+        "angesetzt_max_pct": 45.0,
+        "begruendung": "Die Lagedaten kommen aus strukturierten Quellen mit bestehenden API-Verbindungen, was eine solide Basis für Automatisierung bildet. Das untere Ende des Korridors wird angesetzt, weil der KB-Input in seiner Struktur unbekannt ist und die Geschäftsführung jeden Entwurf abnimmt und finalisiert — ein Mensch bleibt im Loop. Das obere Ende bleibt leicht unter dem Korridor-Maximum, weil der Agenda-Entwurf ein kreativer Syntheseschritt ist, der nicht vollständig automatisiert werden kann und inhaltliche Korrekturen wahrscheinlich sind.",
+        "bc1_schaetzung_pct": null
+      },
+      "nutzwert": {
+        "qualitaet": {
+          "wert": 6,
+          "begruendung": "Der automatisch erzeugte Lagebild-Draft sorgt für vollständigere und einheitlichere Datenbasis vor der Klausur; gelegentliche Lücken durch unstrukturierten KB-Input bleiben, daher kein voller Sieben-Wert."
+        },
+        "durchlaufzeit": {
+          "wert": 7,
+          "begruendung": "Die manuelle Sammlung und Konsolidierung aus mehreren Systemen entfällt als eigenständiger Vorbereitungsschritt; der strukturierte Draft liegt automatisch zum Klausurtermin vor. Ein Warte- und Zusammenführungsschritt fällt weg, was die Vorlaufzeit deutlich verkürzt."
+        },
+        "fehlerreduktion": {
+          "wert": 6,
+          "begruendung": "Übertragungsfehler beim manuellen Zusammenstellen aus CRM, Cockpit und Datenbank werden weitgehend eliminiert; inhaltliche Fehler im Lagebild durch Fehlinterpretation bleiben menschlich bedingt."
+        },
+        "mitarbeiterzufriedenheit": {
+          "wert": 6,
+          "begruendung": "Das repetitive Zusammensuchen und Konsolidieren von Systemdaten vor jeder Klausur ist eine lästige Routineaufgabe; ihr Wegfall entlastet das Management spürbar, ohne die strategisch anspruchsvolle Klausurarbeit zu berühren."
+        },
+        "compliance": {
+          "wert": 2,
+          "begruendung": "Der Prozess hat keinen relevanten regulatorischen Bezug; die Lösung verbessert allenfalls die Nachvollziehbarkeit der Datenbasis, ohne ein bestehendes Compliance-Risiko zu adressieren."
+        },
+        "mittel": 5.4
+      },
+      "impact": 5,
+      "impact_monetaer": null,
+      "umsetzungskomplexitaet": 4,
+      "komplexitaet_herkunft": "geurteilt",
+      "komplexitaet_begruendung": "BC0-Kriterien zeigen eine mittlere Technologiebasis und vorhandene Systemintegrationen über n8n, was die technische Anbindung erleichtert. Die Datenerhebung ist niedrig gereift, aber die Quellen sind digital und mit Schnittstellen versehen. Die Beschreibung und Ausführung des Teilprozesses sind moderat standardisiert. Der KB-Input ist die wesentliche Unsicherheit; da er aber als ergänzende, nicht als zentrale Quelle beschrieben ist, bleibt die Gesamtkomplexität niedrig bis moderat. Eine Zahl von vier spiegelt: etablierte Integrationspunkte, überschaubare Ausnahmen, aber ein offener Inputpfad.",
+      "value": {
+        "value_quelle": "keine",
+        "grund": "Nicht fuer jeden beruehrten Teilprozess liegen Haeufigkeit, Schrittdauer und ihre Herkunft vor: KP-01.TP-1 (kein BC1-Profil). Eine Teilsumme laege systematisch zu niedrig; BC2 rechnet qualitativ weiter und vermerkt die Luecke (ADR-006 · BC2, 2.3 und Nachtrag 4)."
+      },
+      "aufwand_schaetzung_pt": 8.0,
+      "prioritaet_score": 35,
+      "kategorie": "Optional",
+      "querschnitte": {
+        "zukunftssicherheit": "Da der Workflow auf den bestehenden, self-hosted API-Schnittstellen der Kernsysteme aufsetzt und Prompt-Templates in GitLab versioniert sind, lässt er sich bei System-Updates, neuen Datenquellen oder wachsendem Klausur-Rhythmus ohne Architekturbruch erweitern.",
+        "reifegrad": "Bitkom-Stufe im Mittel 3,1 von 5, aus 30 Bewertungen der berührten Teilprozesse. Rangiert, trennt aber nicht (#161).",
+        "abhaengigkeiten": []
+      },
+      "potenzielle_loesung": {
+        "ansatz": "## Technischer Ansatz\n\nEin **n8n-Workflow** wird termingesteuert (Cron-Trigger, konfigurierbar je nach Klausur-Rhythmus) oder manuell durch die Geschäftsführung gestartet.\n\n### Datenabruf-Phase\n- **EspoCRM**: Abfrage relevanter Entitäten (z. B. offene Opportunities, Kunden-Status, Pipeline-Überblick) via EspoCRM REST API mit vorkonfiguriertem API-Token.\n- **Grafana**: Abfrage vordefinierter Dashboard-Metriken über die Grafana HTTP API oder direkt über Prometheus-Queries; Ergebnis als JSON-Snapshot.\n- **NocoDB**: Abfrage relevanter Stamm- und Steuerungstabellen via NocoDB REST API.\n\n### Konsolidierungs- und Synthesephase\n- n8n aggregiert die Rohdaten in einem strukturierten Zwischenformat (JSON-Payload).\n- Der Payload wird als Prompt-Kontext an ein **LLM** übergeben: primär **Ollama** (lokal, EU, OSS) mit einem geeigneten Modell (z. B. Mistral oder Llama); alternativ **Anthropic Claude** (EU-Region, AVV vorhanden) bei komplexeren Syntheseanforderungen.\n- Ein versioniertes **Prompt-Template** in GitLab steuert die Ausgabestruktur (Lagebild-Abschnitte, Agenda-Entwurf, Markierung fehlender KB-Inputs).\n\n### Ausgabe-Phase\n- Das erzeugte Markdown-Dokument wird via Nextcloud-WebDAV-API in einen definierten Klausur-Vorbereitungsordner in **Nextcloud Hub** abgelegt.\n- n8n sendet eine Benachrichtigung an die Geschäftsführung (z. B. per E-Mail oder Nextcloud-Notification).\n- Die Geschäftsführung öffnet das Dokument, ergänzt und gibt es frei (einfacher Freigabe-Vermerk im Dokument oder Status-Flag in NocoDB).\n\n### Fehlerbehandlung\n- Bei Ausfall einer Quelle: Workflow erzeugt Partial-Draft mit Fehler-Markierung und sendet Alarm via n8n-Fehler-Handler.",
+        "tech_stack_empfehlung": [
+          "n8n (self-hosted, Hetzner) — Workflow-Orchestrierung und Datenabruf",
+          "Ollama mit Mistral oder Llama — primäres LLM für Textsynthese (EU, OSS, kein externes API erforderlich)",
+          "Anthropic Claude API (EU-Region, AVV) — Fallback-LLM bei höherer Synthesekomplexität",
+          "Nextcloud Hub (self-hosted, Hetzner) — Ablage und Freigabe des generierten Drafts",
+          "GitLab self-hosted — Versionierung der Prompt-Templates und Workflow-Konfiguration",
+          "PostgreSQL 16 — optionale Persistenz von Workflow-Läufen und Snapshot-Daten"
+        ],
+        "to_be_kurz": "Vor jeder Strategie-Klausur aggregiert ein automatisierter Workflow Lagedaten aus CRM, Monitoring und Stammdaten und legt einen fertigen Vorbereitungsdraft zur Freigabe bereit. Die Geschäftsführung prüft und ergänzt — die manuelle Datensammlung entfällt vollständig."
+      },
+      "voraussetzungen": [
+        "API-Zugangsdaten für EspoCRM, Grafana und NocoDB sind in n8n als Credentials hinterlegt und gepflegt.",
+        "Ein versioniertes Prompt-Template für den Klausur-Kontext ist in GitLab abgelegt und getestet.",
+        "Ein dedizierter Klausur-Vorbereitungsordner in Nextcloud Hub ist definiert und mit Zugriffsrechten versehen.",
+        "Die Geschäftsführung hat den Freigabe-Prozess (Ablageort, Markierung) verstanden und akzeptiert.",
+        "Datenschutz-Prüfung für den Umgang mit CRM-Daten im LLM-Kontext ist abgeschlossen."
+      ],
+      "risiken": [
+        {
+          "beschreibung": "Der KB-Input liegt in unstrukturierter oder nicht maschinell lesbarer Form vor, sodass ein relevanter Teil des Lagebilds weiterhin manuell ergänzt werden muss.",
+          "wahrscheinlichkeit": "med",
+          "auswirkung": "med",
+          "gegenmassnahme": "KB-Input-Quellen vor Implementierung inventarisieren; für unstrukturierte Quellen einen expliziten manuellen Ergänzungsabschnitt im Draft-Template vorsehen."
+        },
+        {
+          "beschreibung": "LLM-Ausgabe enthält sachlich falsche oder irreführende Formulierungen im Lagebild, die die Geschäftsführung ungeprüft übernimmt.",
+          "wahrscheinlichkeit": "low",
+          "auswirkung": "high",
+          "gegenmassnahme": "Freigabepflicht durch Geschäftsführung ist prozessual verankert; im Dokument ist jede LLM-generierte Aussage als Entwurf gekennzeichnet. Quelldaten werden im Anhang des Drafts transparent ausgewiesen."
+        },
+        {
+          "beschreibung": "Änderungen an der API-Struktur von EspoCRM, Grafana oder NocoDB brechen den Workflow ohne sofortige Alarmierung.",
+          "wahrscheinlichkeit": "low",
+          "auswirkung": "med",
+          "gegenmassnahme": "Workflow-Fehler-Handler sendet sofort Alarm; Grafana-Monitoring überwacht die Erreichbarkeit der Quell-APIs."
+        }
+      ]
+    },
+    {
+      "potenzial_id": "ef702fb3-4958-4dba-9e98-1efa93caad2f",
+      "ersetzt_potenzial_ids": [],
+      "titel": "Automatisierte Protokoll- und OKR-Kaskaden-Ableitung nach der Klausur",
+      "potenzialrang": 2,
+      "prioritaetsgruppe": "PRIO 2",
+      "beschreibung": "## Was wird automatisiert?\n\nDie manuelle Protokollerstellung nach der Strategie-Klausur sowie die Ableitung und Eintragung der OKR-Kaskade ins OKR-Tooling werden durch einen KI-gestützten Workflow ersetzt. Der Workflow nimmt Klausur-Notizen oder -Aufzeichnungen entgegen, erzeugt einen strukturierten Protokollentwurf und überführt daraus OKR-Vorschläge in das OKR-Tooling — zur abschließenden Freigabe durch die Geschäftsführung.\n\n## Betroffene Teilprozesse\n\nDas Potenzial adressiert ausschließlich **KP-01.TP-2 — Strategie-Klausur durchführen** im Nachbereitungsanteil: Protokollverdichtung und OKR-Kaskaden-Ableitung.\n\n## Ergebnis\n\nUnmittelbar nach der Klausur steht ein freigebbarer Protokollentwurf bereit; OKR-Vorschläge sind strukturiert im OKR-Tooling voreingetragen. Der Zeitverzug von bisher mehreren Tagen auf nahezu unmittelbare Verfügbarkeit ist das zentrale Ergebnis.\n\n## Datenflüsse\n\nKlausurergebnisse werden als Eingabe übergeben — in strukturierter Form (Markdown-Notizen, Textdatei) direkt, in unstrukturierter Form (Audio, Fotos von Whiteboards) nach einem vorgelagerten Extraktionsschritt (Transkription, OCR). Ein LLM verarbeitet den Text und erzeugt Protokoll-Markdown und strukturierte OKR-Objekte. Die OKR-Objekte werden via n8n in das OKR-Tooling übertragen. Das Protokoll wird in Nextcloud Hub abgelegt. Der gesamte Vorgang wird in NocoDB als Log-Eintrag festgehalten.\n\n## Beteiligte Rollen\n\n- **Geschäftsführung** (Klausurinput liefern, Protokollentwurf und OKR-Vorschläge prüfen und freigeben)\n- **n8n-Workflow** (Orchestrierung, Routing je nach Eingabeformat)\n- **LLM** (Protokollsynthese und OKR-Strukturierung)\n- **OCR / Transkriptions-Komponente** (bei unstrukturiertem Input)\n\n## Vorbedingungen\n\nKlausurergebnisse müssen in irgendeiner Form digital vorliegen oder digitalisierbar sein. Das OKR-Tooling muss eine schreibbare Schnittstelle für n8n bereitstellen. Das LLM muss mit einem OKR-spezifischen Prompt-Template konfiguriert sein, das die Unternehmens-OKR-Logik kennt.\n\n## Sonderfälle und Ausnahmen\n\nDie Eingabeform der Klausurergebnisse variiert erheblich: Bei strukturierten Textnotizen ist der Verarbeitungsaufwand gering; bei Audio oder Whiteboard-Fotos ist ein vorgelagerter Extraktionsschritt (Whisper-Transkription, PaddleOCR) erforderlich, der die Durchlaufzeit verlängert und die Fehlerwahrscheinlichkeit erhöht. OKR-Vorschläge, die inhaltliches Urteilsvermögen erfordern (z. B. Priorisierung zwischen konkurrierenden Zielen), bleiben zwingend der Geschäftsführung vorbehalten. Klausuren mit sehr offenem, nicht vorstrukturiertem Verlauf können zu LLM-Ausgaben führen, die intensivere Nachbearbeitung erfordern.",
+      "to_be_vision": "Im Soll-Zustand übergibt die Geschäftsführung unmittelbar nach der Klausur ihre Notizen, Aufzeichnungen oder digitalen Mitschriften an den Workflow. Innerhalb kurzer Zeit liegt ein vollständiger Protokollentwurf in Nextcloud Hub bereit, der die wesentlichen Beschlüsse, Diskussionspunkte und Aktionspunkte strukturiert enthält. Gleichzeitig sind OKR-Vorschläge bereits im OKR-Tooling voreingetragen, sodass die Geschäftsführung nur noch prüft, ergänzt und freigibt. Der Automatisierungsgrad liegt zwischen 30 % und 42 % der Nachbereitungsschritte, die heute vollständig manuell ausgeführt werden. Das mehrtägige Zeitfenster zwischen Klausur und operationalisierter OKR-Kaskade schrumpft auf einen Bruchteil. Unstrukturierter Input wird erkannt und in einem vorgelagerten Extraktionsschritt aufbereitet, sodass der Workflow für alle realistischen Eingabeformate funktioniert. Die Nachvollziehbarkeit der Klausurergebnisse verbessert sich, weil Protokoll und OKR-Einträge strukturiert und versioniert vorliegen.",
+      "user_story": "Als Geschäftsführerin möchte ich nach der Strategie-Klausur automatisch einen Protokollentwurf und vorstrukturierte OKR-Vorschläge im Tooling erhalten, damit ich Klausurergebnisse ohne administrative Nacharbeit unmittelbar operationalisieren kann.",
+      "akzeptanzkriterien_geschaeftlich": [
+        {
+          "kriterium": "Gegeben strukturierte Klausur-Notizen liegen als Textdatei vor, wenn der Workflow gestartet wird, dann ist ein vollständiger Protokollentwurf in Nextcloud Hub abgelegt und OKR-Vorschläge sind im OKR-Tooling eingetragen, bevor der nächste Arbeitstag beginnt.",
+          "messverfahren": "Zeitstempel der Datei-Erstellung in Nextcloud Hub und Erstellungszeitpunkt der OKR-Einträge im Tooling werden gegenüber dem Klausur-Endzeitpunkt gemessen; Prüfung nach jeder Klausur."
+        },
+        {
+          "kriterium": "Gegeben die Klausurergebnisse wurden als Audio-Aufzeichnung übergeben, wenn der Workflow den Extraktionsschritt abschließt, dann enthält der Protokollentwurf die wesentlichen Beschlüsse und ist als 'aus Audio extrahiert' gekennzeichnet.",
+          "messverfahren": "Manuelle Stichprüfung des Protokollentwurfs gegen die Audio-Aufzeichnung durch die Geschäftsführung; Marker-Text im Dokument wird auf Vorhandensein geprüft."
+        },
+        {
+          "kriterium": "Gegeben OKR-Vorschläge sind im Tooling eingetragen, wenn die Geschäftsführung sie prüft und freigibt, dann sind keine weiteren manuellen Übertragungsschritte in das OKR-Tooling erforderlich.",
+          "messverfahren": "Audit der OKR-Tooling-Einträge: Wurden sie durch den Workflow angelegt oder manuell nachgetragen? Prüfung per Changelog oder Vorgangsprotokoll."
+        }
+      ],
+      "fachliche_anforderungen": [
+        "Das Protokoll muss Beschlüsse, Diskussionspunkte und Aktionspunkte in klar getrennten Abschnitten ausweisen; das Format muss über alle Klausuren hinweg einheitlich sein.",
+        "OKR-Vorschläge dürfen nur als Entwurf-Status im Tooling eingetragen werden; sie gelten erst nach expliziter Freigabe durch die Geschäftsführung als verbindlich.",
+        "Der Workflow muss die Eingabeform des Klausur-Inputs erkennen und bei unstrukturiertem Input (Audio, Bild) den Extraktionsschritt transparent ausweisen.",
+        "Klausur-Protokolle sind vertrauliche Dokumente; Zugriff in Nextcloud Hub ist auf berechtigte Personen zu beschränken.",
+        "Die Ableitung der OKR-Kaskade muss der unternehmensinternen OKR-Logik folgen; das Prompt-Template ist mit der Geschäftsführung abzustimmen und zu versionieren.",
+        "Bei Nichterreichbarkeit des OKR-Toolings muss der Workflow die OKR-Objekte als strukturierte Datei in Nextcloud Hub ablegen, damit kein Datenverlust entsteht."
+      ],
+      "betroffene_teilprozess_ids": [
+        "KP-01.TP-2"
+      ],
+      "betroffene_prozessschritte": [
+        "Strategie-Klausur durchführen"
+      ],
+      "betroffene_systeme": [
+        {
+          "name": "n8n",
+          "rolle": "Quelle+Ziel",
+          "integration": "API"
+        },
+        {
+          "name": "Nextcloud Hub",
+          "rolle": "Quelle+Ziel",
+          "integration": "API"
+        },
+        {
+          "name": "NocoDB",
+          "rolle": "Ziel",
+          "integration": "API"
+        },
+        {
+          "name": "PaddleOCR",
+          "rolle": "Quelle",
+          "integration": "API"
+        }
+      ],
+      "manueller_aufwand_heute": {
+        "stunden_jahr": 0.0,
+        "herkunft": "unbekannt",
+        "konfidenz_pct": null
+      },
+      "automatisierungsgrad": {
+        "klasse": "Textgenerierung",
+        "angesetzt_min_pct": 30.0,
+        "angesetzt_max_pct": 42.0,
+        "begruendung": "Das untere Ende des Korridors wird angesetzt, weil die Eingabeform der Klausurergebnisse stark variiert — von strukturierten Notizen bis zu Audio oder Fotos — und bei unstrukturierten Eingaben ein erheblicher Extraktionsaufwand verbleibt. Das obere Ende liegt klar unter dem Korridor-Maximum, weil OKR-Ableitung inhaltliches Urteilsvermögen erfordert, die Geschäftsführung jeden Schritt freigibt und die Variabilität der Inputs systematisch hohe Ausnahmewahrscheinlichkeit erzeugt.",
+        "bc1_schaetzung_pct": null
+      },
+      "nutzwert": {
+        "qualitaet": {
+          "wert": 7,
+          "begruendung": "Ein strukturiert erzeugter Protokollentwurf und vorstrukturierte OKR-Vorschläge erhöhen die Vollständigkeit und Einheitlichkeit der Klausurergebnisse spürbar; Nacharbeit wegen fehlender oder inkonsistenter Einträge im OKR-Tooling geht deutlich zurück."
+        },
+        "durchlaufzeit": {
+          "wert": 8,
+          "begruendung": "Der Zeitverzug zwischen Klausur und verfügbarem Protokoll sowie eingetragener OKR-Kaskade entfällt weitgehend. Was bisher Tage nach der Klausur fertig war, liegt unmittelbar danach als freigebbarer Entwurf vor — ein spürbarer Übergang von mehrtägiger Verzögerung zu nahezu unmittelbarer Verfügbarkeit."
+        },
+        "fehlerreduktion": {
+          "wert": 7,
+          "begruendung": "Das manuelle Übertragen von Klausurergebnissen ins Protokoll und die Ableitung der OKR-Kaskade per Hand sind typische Quellen für Übertragungsfehler und das Vergessen von Beschlüssen. Die Lösung fängt diese weitgehend ab; inhaltliche Interpretationsfehler bleiben menschliche Aufgabe."
+        },
+        "mitarbeiterzufriedenheit": {
+          "wert": 7,
+          "begruendung": "Protokollerstellung und OKR-Ableitung nach einer intensiven Klausur sind als Nachbereitungslast bekannt; ihr weitgehender Wegfall als manuelle Aufgabe gibt dem Management Zeit für die inhaltliche Reflexion statt für administrative Nacharbeit."
+        },
+        "compliance": {
+          "wert": 3,
+          "begruendung": "Protokolle von Strategieklausuren können in bestimmten Konstellationen Dokumentationspflichten unterliegen; die strukturierte Erzeugung verbessert die Nachvollziehbarkeit, ohne eine akute Compliance-Lücke zu schließen."
+        },
+        "mittel": 6.4
+      },
+      "impact": 6,
+      "impact_monetaer": null,
+      "umsetzungskomplexitaet": 6,
+      "komplexitaet_herkunft": "geurteilt",
+      "komplexitaet_begruendung": "BC0-Kriterien zeigen einen Teilprozess mit moderater Technologiebasis und mittlerer Systemintegration, aber niedriger Datenerhebungsreife und niedrigem Digitalisierungsgrad bei Zentrierung und Partizipation. Die entscheidende Komplexitätstreiber sind die unbekannte Inputform der Klausurergebnisse — mehrere mögliche Modalitäten erfordern unterschiedliche Extraktionspipelines — sowie die Verknüpfung von Textgenerierung mit strukturierter Übernahme ins OKR-Tooling. Die Freigabe durch die Geschäftsführung ist ein weiterer Integrationspunkt. Insgesamt eine mittlere Komplexität, die über P1 liegt.",
+      "value": {
+        "value_quelle": "keine",
+        "grund": "Nicht fuer jeden beruehrten Teilprozess liegen Haeufigkeit, Schrittdauer und ihre Herkunft vor: KP-01.TP-2 (kein BC1-Profil). Eine Teilsumme laege systematisch zu niedrig; BC2 rechnet qualitativ weiter und vermerkt die Luecke (ADR-006 · BC2, 2.3 und Nachtrag 4)."
+      },
+      "aufwand_schaetzung_pt": 14.0,
+      "prioritaet_score": 30,
+      "kategorie": "Strategisch",
+      "querschnitte": {
+        "zukunftssicherheit": "Da der Workflow modular auf austauschbaren OSS-Komponenten (n8n, Ollama, PaddleOCR) und versionierten Prompt-Templates aufbaut, lässt er sich bei wachsendem Klausur-Volumen, neuen Eingabeformaten oder einem Wechsel des OKR-Toolings ohne Architekturbruch anpassen.",
+        "reifegrad": "Bitkom-Stufe im Mittel 3,3 von 5, aus 30 Bewertungen der berührten Teilprozesse. Rangiert, trennt aber nicht (#161).",
+        "abhaengigkeiten": [
+          "1c647610-7fab-4ebe-bce2-9cea555ffd87 (Automatisierte Klausur-Vorbereitung durch Lagedaten-Aggregation): P1 erzeugt den strukturierten Klausur-Vorbereitungsdraft; dessen Format und Struktur können als Referenz für das Protokoll-Template in P2 dienen und sicherstellen, dass Vorbereitung und Nachbereitung strukturell konsistent sind. P2 ist jedoch unabhängig lauffähig, auch wenn P1 nicht existiert."
+        ]
+      },
+      "potenzielle_loesung": {
+        "ansatz": "## Technischer Ansatz\n\nEin **n8n-Workflow** wird manuell durch die Geschäftsführung gestartet, nachdem die Klausur-Unterlagen hochgeladen wurden.\n\n### Input-Routing\n- n8n prüft das Eingabeformat:\n  - **Strukturierter Text** (Markdown, Textdatei in Nextcloud Hub): direkt an LLM übergeben.\n  - **Audio**: Transkription via **Whisper** (OSS, lokal via Ollama-kompatibler Wrapper oder dedizierter Whisper-Instanz).\n  - **Bild / Whiteboard-Foto**: OCR via **PaddleOCR** (self-hosted); Ergebnis als Text an LLM.\n- Das erkannte Eingabeformat wird im erzeugten Dokument als Metadatum ausgewiesen.\n\n### Synthese-Phase\n- Der konsolidierte Text wird zusammen mit einem versionierten **Prompt-Template** (GitLab) an das LLM übergeben:\n  - Primär **Ollama** (lokal, EU, OSS) mit Mistral oder Llama.\n  - Fallback: **Anthropic Claude** (EU-Region, AVV) für komplexere Syntheseanforderungen.\n- Das LLM erzeugt zwei strukturierte Ausgaben:\n  1. **Protokoll-Markdown** mit den Abschnitten Beschlüsse, Diskussionspunkte, Aktionspunkte.\n  2. **OKR-JSON-Objekte** im definierten Schema des OKR-Toolings.\n\n### Ausgabe-Phase\n- Das Protokoll-Markdown wird via Nextcloud-WebDAV-API in den Klausur-Archivordner abgelegt.\n- Die OKR-JSON-Objekte werden via n8n in das OKR-Tooling übertragen (Schreib-API oder Datei-Import je nach verfügbarer Schnittstelle).\n- Ein Log-Eintrag wird in **NocoDB** angelegt (Klausurdatum, Eingabeformat, Workflow-Status).\n- n8n sendet Benachrichtigung an die Geschäftsführung zur Freigabe.\n\n### Fehlerbehandlung\n- Bei Ausfall des OKR-Toolings: OKR-JSON in Nextcloud Hub ablegen; Alarm senden.\n- Bei schlechter Extraktionsqualität (OCR/Transkription): Qualitäts-Score im Draft ausweisen, Nachbearbeitungshinweis einfügen.",
+        "tech_stack_empfehlung": [
+          "n8n (self-hosted, Hetzner) — Workflow-Orchestrierung und Input-Routing",
+          "Ollama mit Mistral oder Llama — primäres LLM für Protokoll-Synthese und OKR-Strukturierung (EU, OSS)",
+          "Anthropic Claude API (EU-Region, AVV) — Fallback-LLM bei hoher Eingabe-Komplexität",
+          "PaddleOCR (self-hosted) — OCR für Whiteboard-Fotos und gescannte Unterlagen",
+          "Nextcloud Hub (self-hosted, Hetzner) — Ablage von Protokoll und OKR-Fallback-Dateien",
+          "NocoDB (self-hosted, IONOS) — strukturiertes Logging der Workflow-Läufe",
+          "GitLab self-hosted — Versionierung von Prompt-Templates und OKR-Schema"
+        ],
+        "to_be_kurz": "Nach jeder Strategie-Klausur erzeugt ein KI-gestützter Workflow aus den Klausur-Notizen automatisch einen Protokollentwurf und vorstrukturierte OKR-Einträge im Tooling. Die Geschäftsführung prüft und gibt frei — der mehrtägige Zeitverzug entfällt."
+      },
+      "voraussetzungen": [
+        "Das OKR-Tooling verfügt über eine schreibbare API oder einen definierten Datei-Import-Mechanismus, den n8n nutzen kann.",
+        "Ein versioniertes Prompt-Template für Protokoll und OKR-Ableitung ist mit der Geschäftsführung abgestimmt und in GitLab abgelegt.",
+        "Der Klausur-Archivordner in Nextcloud Hub ist eingerichtet und mit den korrekten Zugriffsrechten versehen.",
+        "Die Eingabeformate (Text, Audio, Bild) sind vorab definiert; für Audio und Bild sind die Extraktions-Komponenten (Whisper, PaddleOCR) betriebsbereit.",
+        "Die Geschäftsführung hat den Freigabe-Prozess für Protokoll und OKR-Einträge verstanden und akzeptiert.",
+        "Datenschutz-Prüfung für die Verarbeitung von Klausur-Inhalten im LLM ist abgeschlossen."
+      ],
+      "risiken": [
+        {
+          "beschreibung": "Klausurergebnisse liegen in stark unstrukturierter Form vor (Audio schlechter Qualität, unleserliche Handschriften), sodass die Extraktion fehleranfällig ist und erhebliche manuelle Nacharbeit entsteht.",
+          "wahrscheinlichkeit": "med",
+          "auswirkung": "med",
+          "gegenmassnahme": "Qualitäts-Score der Extraktion im Draft ausweisen; Klausur-Notizen schon während der Klausur in einer strukturierten Textvorlage führen, um den besten Eingabepfad zu bevorzugen."
+        },
+        {
+          "beschreibung": "Das LLM leitet OKR-Vorschläge ab, die nicht zur unternehmensinternen OKR-Logik passen, und die Geschäftsführung übernimmt sie ohne vollständige Prüfung.",
+          "wahrscheinlichkeit": "low",
+          "auswirkung": "high",
+          "gegenmassnahme": "OKR-Vorschläge werden zwingend als Entwurf-Status eingetragen; Freigabe ist prozessual verankert und dokumentiert. Prompt-Template wird mit der Geschäftsführung iterativ verfeinert."
+        },
+        {
+          "beschreibung": "Das OKR-Tooling bietet keine oder nur eine instabile Schreib-Schnittstelle, sodass der Eintragungsschritt manuell bleibt.",
+          "wahrscheinlichkeit": "med",
+          "auswirkung": "med",
+          "gegenmassnahme": "Vorab Schnittstellen-Assessment des OKR-Toolings; Fallback auf strukturierte Datei-Ablage in Nextcloud Hub ist im Workflow bereits vorgesehen."
+        },
+        {
+          "beschreibung": "Klausur-Protokolle enthalten vertrauliche strategische Informationen; eine Fehlkonfiguration der Zugriffsrechte in Nextcloud Hub kann zu unberechtigtem Zugriff führen.",
+          "wahrscheinlichkeit": "low",
+          "auswirkung": "high",
+          "gegenmassnahme": "Zugriffsrechte des Klausur-Archivordners werden vor Go-live geprüft; Wazuh-Monitoring auf ungewöhnliche Zugriffsmuster konfigurieren."
+        }
+      ]
+    }
+  ],
+  "gesamtempfehlung": {
+    "reihenfolge_potenzial_ids": [
+      "1c647610-7fab-4ebe-bce2-9cea555ffd87",
+      "ef702fb3-4958-4dba-9e98-1efa93caad2f"
+    ],
+    "begruendung": "Die beiden Potenziale folgen der natürlichen Prozesslogik der Strategie-Klausur: P1 adressiert die Vorbereitung, P2 die Nachbereitung. Diese Reihenfolge ist aus mehreren Gründen empfehlenswert. Erstens ist P1 technisch einfacher umzusetzen: Die Eingabedaten kommen aus strukturierten Quellen mit bestehenden API-Verbindungen, das Risiko-Profil ist überschaubar und die Abhängigkeit vom LLM ist geringer als bei P2. Ein erfolgreicher Start mit P1 schafft Vertrauen in die Automatisierungslogik und liefert früh sichtbaren Nutzen für die Geschäftsführung. Zweitens bereitet P1 strukturell den Weg für P2: Das im Rahmen von P1 entwickelte Prompt-Template-Management in GitLab, die n8n-Credential-Verwaltung und die Nextcloud-Ablagestruktur können in P2 direkt wiederverwendet werden, was den Implementierungsaufwand für P2 spürbar senkt. Drittens ist P2 das komplexere Potenzial: Die Variabilität der Eingabeformate und die inhaltliche Anforderung an die OKR-Ableitung machen eine sorgfältigere Vorbereitung notwendig — insbesondere die Klärung der OKR-Tooling-Schnittstelle und die Abstimmung des Prompt-Templates. Diese Klärungen lassen sich parallel zu P1 betreiben, sodass P2 direkt im Anschluss starten kann. Eine fachliche Blockade existiert nicht: P2 ist unabhängig von P1 lauffähig. Dennoch ist die sequenzielle Umsetzung P1 vor P2 der parallelen vorzuziehen, weil sie Lerneffekte aus P1 in P2 einfließen lässt und das Risiko einer gleichzeitigen Einführungsbelastung für die Geschäftsführung vermeidet."
+  },
+  "eingangswerte": [
+    {
+      "groesse": "mischsatz_eur_h",
+      "wert": 43.0,
+      "einheit": "EUR/h",
+      "herkunft_tabelle": "(Setzung)",
+      "herkunft_spalte": "NoroAI-Unternehmensprofil Kap. 9.2, #172",
+      "gelesen_am": "2026-10-10T11:33:48.267689+00:00"
+    },
+    {
+      "groesse": "bausatz_eur_pt",
+      "wert": 800.0,
+      "einheit": "EUR/PT",
+      "herkunft_tabelle": "(Setzung)",
+      "herkunft_spalte": "ADR-006 BC2, 2.1",
+      "gelesen_am": "2026-10-10T11:33:48.267689+00:00"
+    },
+    {
+      "groesse": "mischsatz_eur_h",
+      "wert": 43.0,
+      "einheit": "EUR/h",
+      "herkunft_tabelle": "(Setzung)",
+      "herkunft_spalte": "NoroAI-Unternehmensprofil Kap. 9.2, #172",
+      "gelesen_am": "2026-10-10T11:33:48.267689+00:00"
+    },
+    {
+      "groesse": "bausatz_eur_pt",
+      "wert": 800.0,
+      "einheit": "EUR/PT",
+      "herkunft_tabelle": "(Setzung)",
+      "herkunft_spalte": "ADR-006 BC2, 2.1",
+      "gelesen_am": "2026-10-10T11:33:48.267689+00:00"
+    }
+  ]
+}

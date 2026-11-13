@@ -1,0 +1,116 @@
+{
+  "priorisierung_id": "c4e30d28-871f-4620-bbba-ffbce3b42162",
+  "schema_version": "3.1",
+  "company_id": "3e163e8a-18a2-4bde-b0ba-b7986de670f7",
+  "paket_id": "fd2e2712-fbb6-426a-937b-747fbb83e18d",
+  "uebergeben_am": "2026-09-04T05:12:34.159707+00:00",
+  "fassung": 1,
+  "erzeugt_am": "2026-10-10T11:37:42.618274+00:00",
+  "score_formel": "`score = impact × (11 − umsetzungskomplexitaet)`, Bereich 1…100.\n\n- `impact = round((impact_monetaer + nutzwert) / 2)` — beide auf 1–10.\n- `umsetzungskomplexitaet = round(11 − 2 × Mittel der vier BC1-Skalen)`; fehlen die Skalen, urteilt das LLM und die Herkunft ist `geurteilt`.\n- Die **lineare** Umkehrung der Komplexität ist bewusst gesetzt, obwohl der Sprung ins sehr Aufwendige fachlich überproportional wäre — offengelegt, nicht kaschiert (ADR-006 · BC2).",
+  "konzept_ids": [
+    "51a80db2-799c-405e-b45f-38862830f59c"
+  ],
+  "eintraege": [
+    {
+      "potenzialrang": 1,
+      "prioritaetsgruppe": "PRIO 2",
+      "potenzial_id": "1c647610-7fab-4ebe-bce2-9cea555ffd87",
+      "konzept_id": "51a80db2-799c-405e-b45f-38862830f59c",
+      "titel": "Automatisierte Klausur-Vorbereitung durch Lagedaten-Aggregation",
+      "kp_id": "KP-01",
+      "betroffene_teilprozess_ids": [
+        "KP-01.TP-1"
+      ],
+      "kategorie": "Optional",
+      "impact": 5,
+      "impact_monetaer": null,
+      "nutzwert_mittel": 5.4,
+      "umsetzungskomplexitaet": 4,
+      "komplexitaet_herkunft": "geurteilt",
+      "score": 35,
+      "aufwand_pt": 8.0
+    },
+    {
+      "potenzialrang": 2,
+      "prioritaetsgruppe": "PRIO 2",
+      "potenzial_id": "ef702fb3-4958-4dba-9e98-1efa93caad2f",
+      "konzept_id": "51a80db2-799c-405e-b45f-38862830f59c",
+      "titel": "Automatisierte Protokoll- und OKR-Kaskaden-Ableitung nach der Klausur",
+      "kp_id": "KP-01",
+      "betroffene_teilprozess_ids": [
+        "KP-01.TP-2"
+      ],
+      "kategorie": "Strategisch",
+      "impact": 6,
+      "impact_monetaer": null,
+      "nutzwert_mittel": 6.4,
+      "umsetzungskomplexitaet": 6,
+      "komplexitaet_herkunft": "geurteilt",
+      "score": 30,
+      "aufwand_pt": 14.0
+    }
+  ],
+  "prozess_raenge": [
+    {
+      "prozessrang": 1,
+      "kp_id": "KP-01",
+      "konzept_id": "51a80db2-799c-405e-b45f-38862830f59c",
+      "bestes_potenzial_id": "1c647610-7fab-4ebe-bce2-9cea555ffd87",
+      "bester_score": 35,
+      "anzahl_potenziale": 2
+    }
+  ],
+  "gestrichene_potenziale": [],
+  "ausgangslage": {
+    "unternehmen": {
+      "name": "Übungsmandant (Demo) — Testdaten, keine echten Werte",
+      "branche": "KI-Beratung",
+      "mitarbeitende": 10,
+      "region": "FH-Suedwestfalen-Region",
+      "geschaeftsmodell": "KI-Beratung mit eigenem Tech-Stack"
+    },
+    "herausforderungen": [
+      {
+        "beschreibung": "Manuelle Sammlung und Konsolidierung von Lagedaten aus mehreren Systemen vor jeder Klausur",
+        "auswirkung": "Der gesamte Vorbereitungsaufwand liegt beim Management; die Zusammenführung ist fehleranfällig und bindet strategisch wertvolle Kapazität in reiner Datenpflege.",
+        "haeufigkeit": "halbjährlich sowie bei ad-hoc-Lageänderungen",
+        "kp_ids": [
+          "KP-01"
+        ]
+      },
+      {
+        "beschreibung": "Protokollerstellung und OKR-Ableitung nach der Klausur sind vollständig manuell",
+        "auswirkung": "Zwischen Klausur-Ende und verfügbarem Protokoll sowie eingetragener OKR-Kaskade entsteht ein spürbarer Zeitverzug; Beschlüsse bleiben in dieser Lücke nicht operationalisiert.",
+        "haeufigkeit": "nach jeder Klausur, also halbjährlich im Regelfall",
+        "kp_ids": [
+          "KP-01"
+        ]
+      },
+      {
+        "beschreibung": "Keine automatische strukturierte Erhebung von Klausurergebnissen als Logs",
+        "auswirkung": "Nachvollziehbarkeit und Konsistenz der Klausurergebnisse hängen von individueller Disziplin ab; das Risiko lückenhafter oder inkonsistenter Einträge im OKR-Tooling ist dauerhaft erhöht.",
+        "kp_ids": [
+          "KP-01"
+        ]
+      }
+    ]
+  },
+  "gate1": {
+    "status": "approved",
+    "entscheider": "Sergio",
+    "kommentar": "test 123",
+    "entschieden_am": "2026-11-13T12:55:40.622322+00:00",
+    "approved_potenzial_ids": [
+      "ef702fb3-4958-4dba-9e98-1efa93caad2f",
+      "1c647610-7fab-4ebe-bce2-9cea555ffd87"
+    ],
+    "finale_reihenfolge_potenzial_ids": [
+      "ef702fb3-4958-4dba-9e98-1efa93caad2f",
+      "1c647610-7fab-4ebe-bce2-9cea555ffd87"
+    ],
+    "finale_prozessreihenfolge_kp_ids": [
+      "KP-01"
+    ],
+    "abweichungsbegruendung": "fdsfsdfds Test 345"
+  }
+}
