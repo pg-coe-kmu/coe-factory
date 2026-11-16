@@ -1,0 +1,226 @@
+{
+  "lieferung_id": "del-kp-01-2026-11-13-130559",
+  "schema_version": "3.5",
+  "projekt_kurzname": "kp-01",
+  "erzeugt_am": "2026-11-13T13:05:59.592Z",
+  "konzept_ref": {
+    "konzept_id": "51a80db2-799c-405e-b45f-38862830f59c",
+    "schema_version": "3.1",
+    "source_file": "konzept_KP-01.json",
+    "kp_id": "KP-01",
+    "teilprozess_ids": [
+      "KP-01.TP-1",
+      "KP-01.TP-2"
+    ],
+    "value_quelle": "keine"
+  },
+  "prozess_kurzbeschreibung": "Der Strategieprozess umfasst die halbjährliche Klausur-Vorbereitung (Lagedaten-Sammlung, Agenda-Erstellung) sowie die Klausur-Durchführung mit anschließender Protokoll- und OKR-Kaskaden-Ableitung durch die Geschäftsführung.",
+  "vorpruefung": {
+    "ampel": "yellow",
+    "ai_act_klasse": "limited",
+    "anhang_iii_kategorie": null,
+    "dsgvo_rechtsgrundlage": "Artikel 6 Absatz 1 Buchstabe f DSGVO (berechtigtes Interesse)",
+    "betroffene_datenarten": [
+      "Zugangsdaten (Stufe hoch)",
+      "Reise- und Termindaten (Stufe gering)",
+      "Metadaten des Workflows (Startzeit, Endzeit, Eingabeformat, Verarbeitungsschritte)"
+    ],
+    "begruendung_ampel": "Die Ampel steht auf yellow, da der Prozess KI-generierte Inhalte (Draft, Protokoll, OKR-Vorschläge) erzeugt, die nach Artikel 50 AI-Act gekennzeichnet werden müssen. Die Maßnahmen zur Kennzeichnung und Transparenz sind umsetzbar und wurden als Zusatz-Stories formuliert. Es liegt kein Hochrisiko nach Anhang III vor, da keine Entscheidungen über Personen getroffen werden. Die Verarbeitung personenbezogener Daten (Zugangsdaten) ist auf das notwendige Maß beschränkt und durch technische Maßnahmen abgesichert."
+  },
+  "pflichten": [
+    {
+      "id": "p1",
+      "tag": "[AI-Act Art. 4]",
+      "text": "Die Personen, die das KI-System nutzen (Geschäftsführung), müssen über ausreichende KI-Kompetenz verfügen, um die Funktionsweise, Grenzen und Risiken des Systems zu verstehen.",
+      "massnahme": "hinweis_geben",
+      "datenkategorie": "gering",
+      "stelle": "Freigabeprozess des Drafts in Nextcloud Hub (ep-7fab-6)",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p2",
+      "tag": "[AI-Act Art. 50 Absatz 1]",
+      "text": "Die Geschäftsführung muss darüber informiert werden, dass sie mit einem KI-System interagiert, wenn der Draft oder Protokollentwurf durch ein LLM erzeugt wurde.",
+      "massnahme": "hinweis_geben",
+      "datenkategorie": "gering",
+      "stelle": "Strukturierter Draft mit Lagebild und Agenda-Entwurf (ep-7fab-4), Strukturierter Protokollentwurf (ep-ef702fb3-3)",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p3",
+      "tag": "[AI-Act Art. 50 Absatz 2]",
+      "text": "LLM-generierte Inhalte (Draft, Protokollentwurf, OKR-Vorschläge) müssen maschinenlesbar als künstlich erzeugt gekennzeichnet werden.",
+      "massnahme": "hinweis_geben",
+      "datenkategorie": "gering",
+      "stelle": "Strukturierter Draft mit Lagebild und Agenda-Entwurf (ep-7fab-4), Strukturierter Protokollentwurf (ep-ef702fb3-3), OKR-Kaskade (ep-ef702fb3-4)",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p4",
+      "tag": "[DSGVO Art. 25]",
+      "text": "Personenbezogene Daten (Zugangsdaten) müssen durch Technikgestaltung auf das für die strategische Lagebewertung erforderliche Maß beschränkt werden.",
+      "massnahme": "feld_weglassen",
+      "datenkategorie": "hoch",
+      "stelle": "Daten aus Quellsystemen abrufen und normalisieren (ep-7fab-2)",
+      "adressat": "bc4",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": [
+        "ep-7fab-5"
+      ]
+    },
+    {
+      "id": "p5",
+      "tag": "[DSGVO Art. 32]",
+      "text": "Die Sicherheit der Verarbeitung muss durch geeignete technische Maßnahmen gewährleistet werden, insbesondere bei der Ablage des Drafts und Protokollentwurfs in Nextcloud Hub.",
+      "massnahme": "eu_modell",
+      "datenkategorie": "hoch",
+      "stelle": "Draft in Nextcloud Hub ablegen (ep-7fab-6), Protokollentwurf in Nextcloud Hub ablegen (ep-ef702fb3-3)",
+      "adressat": "plattform",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p6",
+      "tag": "[DSGVO Art. 28]",
+      "text": "Bei Nutzung eines externen LLM-Anbieters muss ein Auftragsverarbeitungsvertrag (AV-Vertrag) abgeschlossen werden.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "gering",
+      "stelle": "LLM-Verarbeitung (ep-7fab-4, ep-ef702fb3-3, ep-ef702fb3-4)",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p7",
+      "tag": "[DSGVO Art. 5 Absatz 1 Buchstabe c]",
+      "text": "Die Verarbeitung personenbezogener Daten muss auf das notwendige Maß beschränkt werden (Datenminimierung).",
+      "massnahme": "feld_weglassen",
+      "datenkategorie": "hoch",
+      "stelle": "Personenbezogene Daten filtern (ep-7fab-5)",
+      "adressat": "bc4",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": [
+        "ep-7fab-5"
+      ]
+    },
+    {
+      "id": "p8",
+      "tag": "[DSGVO Art. 13]",
+      "text": "Die Geschäftsführung muss über die Verarbeitung ihrer Daten im Rahmen des Workflows informiert werden (z. B. Zweck, Rechtsgrundlage, Speicherdauer).",
+      "massnahme": "hinweis_geben",
+      "datenkategorie": "gering",
+      "stelle": "Freigabeprozess des Drafts in Nextcloud Hub (ep-7fab-6)",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    }
+  ],
+  "pflichten_nach_adressat": {
+    "bc4": [
+      "p2",
+      "p3",
+      "p4",
+      "p7"
+    ],
+    "organisation": [
+      "p1",
+      "p6",
+      "p8"
+    ],
+    "plattform": [
+      "p5"
+    ],
+    "ohne_angabe": []
+  },
+  "nicht_an_bc4": [],
+  "plattform_standards": [
+    "Zentrale Verschlüsselung der Daten in Nextcloud Hub",
+    "Zugriffsrechte auf Klausur-Ordner in Nextcloud Hub werden vor Go-live geprüft und durch Wazuh-Monitoring überwacht",
+    "Pseudonymisierung von Zugangsdaten vor der Verarbeitung im LLM (falls technisch umsetzbar)"
+  ],
+  "zuordnung": [
+    {
+      "epic_id": "ep-703c-a5c0-a016-79366fe7cea8",
+      "use_case_id_ref": "1c647610-7fab-4ebe-bce2-9cea555ffd87",
+      "id_saat": "1c647610-7fab-4ebe-bce2-9cea555ffd87",
+      "titel": "Automatisierte Klausur-Vorbereitung durch Lagedaten-Aggregation"
+    },
+    {
+      "story_id": "st-703c-a5c0-a016-79366fe7cea8-8",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p2",
+        "p3"
+      ]
+    },
+    {
+      "epic_id": "ep-592d-60c5-c0cd-4eab59bdbf35",
+      "use_case_id_ref": "ef702fb3-4958-4dba-9e98-1efa93caad2f",
+      "id_saat": "ef702fb3-4958-4dba-9e98-1efa93caad2f",
+      "titel": "Automatisierte Protokoll- und OKR-Kaskaden-Ableitung nach der Strategie-Klausur"
+    },
+    {
+      "story_id": "st-592d-60c5-c0cd-4eab59bdbf35-7",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p2",
+        "p3"
+      ]
+    },
+    {
+      "story_id": "st-703c-a5c0-a016-79366fe7cea8-5",
+      "herkunft": "fachlich mit Pflicht",
+      "pflicht_ids": [
+        "p4"
+      ],
+      "quelle": "abgedeckt_durch"
+    },
+    {
+      "story_id": "st-703c-a5c0-a016-79366fe7cea8-5",
+      "herkunft": "fachlich mit Pflicht",
+      "pflicht_ids": [
+        "p7"
+      ],
+      "quelle": "abgedeckt_durch"
+    }
+  ],
+  "nicht_zugeordnete_compliance_stories": [],
+  "zuordnung_korrigiert": [],
+  "zusammengelegt": [],
+  "befunde_zuordnung": [
+    "Prüfen: Pflicht p4 [DSGVO Art. 25] gilt laut BC3-30 durch „Personenbezogene Daten datenschutzkonform filtern“ als erfüllt.",
+    "Prüfen: Pflicht p7 [DSGVO Art. 5 Absatz 1 Buchstabe c] gilt laut BC3-30 durch „Personenbezogene Daten datenschutzkonform filtern“ als erfüllt."
+  ],
+  "pflichten_ohne_story": [],
+  "pflichten_mit_story_ohne_vermerk": [
+    "p4",
+    "p7"
+  ],
+  "befunde_adressat": [],
+  "pruefung_bc3": {
+    "geprueft_gegen": "tickets.schema.json 3.5",
+    "ergebnis": "bestanden",
+    "befunde": [],
+    "epics": 2,
+    "stories": 13,
+    "potenziale": 2,
+    "anforderungen_im_eingang": 10,
+    "akzeptanzkriterien_im_eingang": 6,
+    "vorgaben_bc3": 0,
+    "stories_ohne_kriterium": 0
+  }
+}
