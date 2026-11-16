@@ -1,0 +1,267 @@
+{
+  "lieferung_id": "del-kp-06-2026-11-15-210539",
+  "schema_version": "3.5",
+  "projekt_kurzname": "kp-06",
+  "erzeugt_am": "2026-11-15T21:05:39.527Z",
+  "konzept_ref": {
+    "konzept_id": "923522fa-9cd5-5c95-846c-a5f8c4457c1f",
+    "schema_version": "3.1",
+    "source_file": "konzept_KP-06.json",
+    "kp_id": "KP-06",
+    "teilprozess_ids": [
+      "KP-06.TP-2",
+      "KP-06.TP-3",
+      "KP-06.TP-4",
+      "KP-06.TP-5"
+    ],
+    "value_quelle": "berechnet"
+  },
+  "prozess_kurzbeschreibung": "Der Kernprozess Personal (KP-06) umfasst den vollständigen Reisebuchungszyklus von der Anfrage über Angebot, Reservierung und Buchungsprüfung bis zur Stornierung — heute geprägt durch manuelle Datenübertragungen zwischen E-Mail, Portalen und internen Listen.",
+  "vorpruefung": {
+    "ampel": "yellow",
+    "ai_act_klasse": "limited",
+    "anhang_iii_kategorie": null,
+    "dsgvo_rechtsgrundlage": "Artikel 6 Absatz 1 Buchstabe b (Vertragserfüllung), Artikel 28 (AV-Vertrag mit externem Modellanbieter, falls genutzt), Artikel 32 (Sicherheit der Verarbeitung)",
+    "betroffene_datenarten": [
+      "Zugangsdaten (Stufe hoch)",
+      "E-Mail-Adresse (Stufe gering)",
+      "Telefonnummer (Stufe gering)",
+      "Reise- und Termindaten (Stufe gering)",
+      "Kostenstelle und Budget (Stufe gering)"
+    ],
+    "begruendung_ampel": "Die Ampel steht auf yellow, weil der Prozess geldwirksame Entscheidungen (Buchungen, Stornierungen) trifft, die nach Artikel 22 DSGVO eine menschliche Prüfung erfordern. Diese Prüfung ist durch Freigabeschritte in den Epics (ep-87ed6dd0-0860-2, ep-87ed6dd0-0860-4, ep-87ed6dd0-0860-5) bereits vorgesehen. Die KI-Klasse ist limited, da Artikel 50 AI-Act (Transparenzhinweise) gilt, aber keine Hochrisiko-Anwendung nach Anhang III vorliegt. Die Maßnahmen zur Pseudonymisierung, Protokollierung und Transparenz reduzieren die Risiken auf ein akzeptables Niveau."
+  },
+  "pflichten": [
+    {
+      "id": "p1",
+      "tag": "[AI-Act Art. 4]",
+      "text": "Personen, die das KI-System nutzen, müssen über ausreichende KI-Kompetenz verfügen, um die Funktionsweise, Risiken und Grenzen des Systems zu verstehen.",
+      "massnahme": "hinweis_geben",
+      "datenkategorie": "gering",
+      "stelle": "Schulung der Sachbearbeitung vor Inbetriebnahme des Extraktionsdienstes (ep-517a-3)",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p2",
+      "tag": "[AI-Act Art. 50 Abs. 1]",
+      "text": "Personen müssen darüber informiert werden, dass sie mit einem KI-System interagieren, wenn sie E-Mails an das Postfach senden oder Rückfragen erhalten.",
+      "massnahme": "hinweis_geben",
+      "datenkategorie": "gering",
+      "stelle": "Automatisierte Extraktion von Reiseanfragen aus E-Mails in strukturierten Erfassungsbogen (ep-517a)",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p3",
+      "tag": "[DSGVO Art. 25]",
+      "text": "Personenbezogene Daten (insbesondere Zugangsdaten) müssen durch Technikgestaltung geschützt werden, z. B. durch Pseudonymisierung vor der Verarbeitung im Modell.",
+      "massnahme": "pseudonymisieren",
+      "datenkategorie": "hoch",
+      "stelle": "Extraktion von Reisedaten aus E-Mails implementieren (ep-517a-3)",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p4",
+      "tag": "[DSGVO Art. 32]",
+      "text": "Die Sicherheit der Verarbeitung muss gewährleistet sein, insbesondere durch Protokollierung aller Zugriffe auf personenbezogene Daten und Schutz vor unbefugtem Zugriff.",
+      "massnahme": "protokollieren",
+      "datenkategorie": "hoch",
+      "stelle": "Revisionssichere Protokollierung der Extraktionsergebnisse (ep-517a-6)",
+      "adressat": "bc4",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": [
+        "ep-517a-6"
+      ]
+    },
+    {
+      "id": "p5",
+      "tag": "[DSGVO Art. 22]",
+      "text": "Geldwirksame Entscheidungen (z. B. Buchungen, Stornierungen) dürfen nicht ausschließlich automatisiert getroffen werden; ein Mensch muss die finale Entscheidung treffen.",
+      "massnahme": "mensch_prueft",
+      "datenkategorie": "gering",
+      "stelle": "Automatisierte Reservierung beim Anbieter durchführen (ep-87ed6dd0-0860-2), Automatisierte Stornierung durchführen (ep-87ed6dd0-0860-4), Benachrichtigungsentwürfe für Kunden erstellen und zur Freigabe bereitstellen (ep-87ed6dd0-0860-5)",
+      "adressat": "bc4",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": [
+        "ep-87ed6dd0-0860-2",
+        "ep-87ed6dd0-0860-4",
+        "ep-87ed6dd0-0860-5"
+      ]
+    },
+    {
+      "id": "p6",
+      "tag": "[DSGVO Art. 28]",
+      "text": "Bei Nutzung eines externen Modellanbieters (z. B. LLM-API) muss ein Auftragsverarbeitungsvertrag (AV-Vertrag) abgeschlossen und dokumentiert werden.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "hoch",
+      "stelle": "Primärpfad läuft ausschließlich über Ollama (self-hosted); externer API-Aufruf nur mit dokumentiertem AVV (Risikogegenmaßnahme im Konzept)",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p7",
+      "tag": "[AI-Act Art. 12]",
+      "text": "Bei unsicheren Extraktionsergebnissen müssen diese visuell hervorgehoben werden, um eine aktive Prüfung durch die Sachbearbeitung zu fördern.",
+      "massnahme": "hinweis_geben",
+      "datenkategorie": "gering",
+      "stelle": "Unsichere Extraktionsergebnisse kennzeichnen (ep-517a-5)",
+      "adressat": "bc4",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": [
+        "ep-517a-5"
+      ]
+    },
+    {
+      "id": "p8",
+      "tag": "[AI-Act Art. 50 Abs. 2]",
+      "text": "Automatisiert generierte Benachrichtigungen (z. B. Rückfragen, Bestätigungen) müssen als künstlich erzeugt gekennzeichnet werden, wenn sie an Kunden versendet werden.",
+      "massnahme": "hinweis_geben",
+      "datenkategorie": "gering",
+      "stelle": "Benachrichtigungsentwürfe für Kunden erstellen und zur Freigabe bereitstellen (ep-87ed6dd0-0860-5)",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    }
+  ],
+  "pflichten_nach_adressat": {
+    "bc4": [
+      "p2",
+      "p3",
+      "p4",
+      "p5",
+      "p7",
+      "p8"
+    ],
+    "organisation": [
+      "p1",
+      "p6"
+    ],
+    "plattform": [],
+    "ohne_angabe": []
+  },
+  "nicht_an_bc4": [],
+  "plattform_standards": [
+    "Zentraler PII-Filter zur Pseudonymisierung von Zugangsdaten und anderen sensiblen Feldern vor der Verarbeitung durch das LLM",
+    "Audit-Log für alle Zugriffe auf personenbezogene Daten (inkl. Zeitstempel, Nutzer, Aktion)",
+    "Verschlüsselung personenbezogener Daten in Ruhe und bei der Übertragung",
+    "Regelmäßige Überprüfung der AV-Verträge mit externen Modellanbietern (falls genutzt)"
+  ],
+  "zuordnung": [
+    {
+      "epic_id": "ep-0c87-632b-25ab-5bcd0274ec13",
+      "use_case_id_ref": "517a9ea2-c491-5692-86d3-d9af0dc680ba",
+      "id_saat": "517a9ea2-c491-5692-86d3-d9af0dc680ba",
+      "titel": "Automatisierte Extraktion von Reiseanfragen aus E-Mails in strukturierten Erfassungsbogen"
+    },
+    {
+      "story_id": "st-0c87-632b-25ab-5bcd0274ec13-8",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p2"
+      ]
+    },
+    {
+      "story_id": "st-0c87-632b-25ab-5bcd0274ec13-9",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p3"
+      ]
+    },
+    {
+      "epic_id": "ep-ce9e-c1ee-9446-95e4890bb0a6",
+      "use_case_id_ref": "87ed6dd0-0860-57b9-b142-c387a973347e",
+      "id_saat": "87ed6dd0-0860-57b9-b142-c387a973347e",
+      "titel": "Automatisierte Medienbruch-Integration zwischen Angebotsliste, Anbieterportalen und Vorgangsliste"
+    },
+    {
+      "story_id": "st-ce9e-c1ee-9446-95e4890bb0a6-8",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p8"
+      ]
+    },
+    {
+      "story_id": "st-0c87-632b-25ab-5bcd0274ec13-6",
+      "herkunft": "fachlich mit Pflicht",
+      "pflicht_ids": [
+        "p4"
+      ],
+      "quelle": "abgedeckt_durch"
+    },
+    {
+      "story_id": "st-ce9e-c1ee-9446-95e4890bb0a6-2",
+      "herkunft": "fachlich mit Pflicht",
+      "pflicht_ids": [
+        "p5"
+      ],
+      "quelle": "abgedeckt_durch"
+    },
+    {
+      "story_id": "st-ce9e-c1ee-9446-95e4890bb0a6-4",
+      "herkunft": "fachlich mit Pflicht",
+      "pflicht_ids": [
+        "p5"
+      ],
+      "quelle": "abgedeckt_durch"
+    },
+    {
+      "story_id": "st-ce9e-c1ee-9446-95e4890bb0a6-5",
+      "herkunft": "fachlich mit Pflicht",
+      "pflicht_ids": [
+        "p5"
+      ],
+      "quelle": "abgedeckt_durch"
+    },
+    {
+      "story_id": "st-0c87-632b-25ab-5bcd0274ec13-5",
+      "herkunft": "fachlich mit Pflicht",
+      "pflicht_ids": [
+        "p7"
+      ],
+      "quelle": "abgedeckt_durch"
+    }
+  ],
+  "nicht_zugeordnete_compliance_stories": [],
+  "zuordnung_korrigiert": [],
+  "zusammengelegt": [],
+  "befunde_zuordnung": [
+    "Prüfen: Pflicht p4 [DSGVO Art. 32] gilt laut BC3-30 durch „Revisionssichere Protokollierung der Extraktionsergebnisse“ als erfüllt.",
+    "Prüfen: Pflicht p5 [DSGVO Art. 22] gilt laut BC3-30 durch „Automatisierte Reservierung beim Anbieter durchführen“ und „Automatisierte Stornierung durchführen“ und „Benachrichtigungsentwürfe für Kunden erstellen und zur Freig“ als erfüllt.",
+    "Prüfen: Pflicht p7 [AI-Act Art. 12] gilt laut BC3-30 durch „Unsichere Extraktionsergebnisse kennzeichnen“ als erfüllt."
+  ],
+  "pflichten_ohne_story": [],
+  "pflichten_mit_story_ohne_vermerk": [
+    "p4",
+    "p5",
+    "p7"
+  ],
+  "befunde_adressat": [],
+  "pruefung_bc3": {
+    "geprueft_gegen": "tickets.schema.json 3.5",
+    "ergebnis": "bestanden",
+    "befunde": [
+      "Epic 1: K1 steht schon fast wörtlich in „Extraktion von Reisedaten aus E-Mails implementieren“ (95 %), kein Nachauftrag."
+    ],
+    "epics": 2,
+    "stories": 14,
+    "potenziale": 2,
+    "anforderungen_im_eingang": 13,
+    "akzeptanzkriterien_im_eingang": 6,
+    "vorgaben_bc3": 0,
+    "stories_ohne_kriterium": 0
+  }
+}
