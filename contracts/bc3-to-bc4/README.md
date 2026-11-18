@@ -30,6 +30,30 @@ selben Kernprozess nicht überschreiben. Die aktuelle Lieferung ist die mit der 
 `lieferung_id` (Datum und Uhrzeit stehen im Namen). Dateien direkt unter `<projekt>/` stammen
 aus der Zeit davor.
 
+### Gültige, Test- und veraltete Lieferungen
+
+Nur Ordner, die mit `del-` beginnen, sind gültige Lieferungen. Alles andere bitte nicht
+als Ergebnis werten.
+
+| Präfix | Bedeutung |
+|---|---|
+| `del-` | gültige Lieferung aus einem echten Lauf |
+| `test-del-` | Testlauf mit Übungsmandant oder Simulation, nur zum Ausprobieren |
+| `veraltet-del-` | echter Lauf, aber alter Stand (Vertrag 3.5, ohne IDs von BC2), nicht mehr maßgeblich |
+
+Stand 18.11.2026:
+
+| Projekt | Ordner | Art |
+|---|---|---|
+| kp-01 | `test-del-kp-01-2026-11-13-130559` | Übungsmandant |
+| kp-01 | `test-del-kp-01-2026-11-18-183750` | Übungsmandant (Vertrag 3.6) |
+| kp-06 | `test-del-kp-06-2026-11-15-210539` | Simulation |
+| kp-05 | `veraltet-del-kp-05-2026-10-26-185111` | alter Stand |
+| kp-06 | `veraltet-del-kp-06-2026-10-31-090033`, `-11-02-172536`, `-11-03-184824` | alter Stand |
+
+Eine gültige Lieferung nach Vertrag 3.6 gibt es noch nicht. Die erste kommt aus dem nächsten
+echten Lauf für UC1.
+
 ## Was BC4 braucht, und was nicht
 
 **Für eure Pipeline:** `ticket_set.json`, `blueprint.json`.
