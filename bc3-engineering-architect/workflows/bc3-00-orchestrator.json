@@ -57,7 +57,7 @@
               "id": "a7",
               "name": "liefermodus",
               "type": "string",
-              "value": "={{ String($json.pfad || '').startsWith('contracts/bc2-to-bc3/') ? 'echt' : 'test' }}"
+              "value": "={{ (() => { const p = String($json.pfad || ''); if (!p.startsWith('contracts/bc2-to-bc3/')) return 'test'; if (/\\/lieferungen\\/(simulation-|(ue|ü)?bungsmandant-)/i.test(p)) return 'test'; if (['echt', 'test'].includes($json.liefermodus)) return $json.liefermodus; const von = String($json.gestartet_von || ''); return (von === '' || von === 'Handstart') ? 'test' : 'echt'; })() }}"
             },
             {
               "id": "a8",
@@ -76,6 +76,30 @@
               "name": "telegram_chat_id",
               "type": "string",
               "value": "__TELEGRAM_CHAT_ID__"
+            },
+            {
+              "id": "a11",
+              "name": "telegram_chat_id_sabrina",
+              "type": "string",
+              "value": "__TELEGRAM_CHAT_ID_LEGAL__"
+            },
+            {
+              "id": "a12",
+              "name": "gate2_kommentar",
+              "type": "string",
+              "value": "={{ $json.gate2_kommentar || '' }}"
+            },
+            {
+              "id": "a13",
+              "name": "vorlauf",
+              "type": "string",
+              "value": "={{ $json.vorlauf || '' }}"
+            },
+            {
+              "id": "a14",
+              "name": "runde",
+              "type": "number",
+              "value": "={{ Number($json.runde) || 0 }}"
             }
           ]
         },
@@ -92,7 +116,7 @@
     },
     {
       "parameters": {
-        "jsCode": "/**\n * Legt den Umschlag an. Ab hier reisen alle Stufen mit demselben Objekt und\n * füllen nur ihren eigenen Platz - Vorbild ist das Muster aus der Vorlage\n * workflow_20_normalize_summarize.\n *\n * Alles Mandantenspezifische steht im Baustein davor, nicht hier im Code.\n * Damit ist ein zweiter Mandant ein Konfigurationssatz und kein zweiter Workflow.\n *\n * liefermodus (seit 12.10.2026): 'test' ist der Standard. Nur bei 'echt'\n * legt BC3-80 nach einer Freigabe Zweig und Pull Request im Gruppen-Repository\n * an. Umgestellt wird ausschliesslich in \"Lauf einstellen\".\n */\nconst cfg = $input.first().json;\n\nreturn [{\n  json: {\n    lauf_id: `bc3-${$execution.id}`, // ab BC3-40 die lieferung_id\n    umschlag: {\n      lauf: {\n        lauf_nr: `bc3-${$execution.id}`, // Schlüssel für BC3-91 und laeufe\n        pfad: cfg.pfad,\n        mandant: cfg.mandant,\n        ablage: cfg.ablage,\n        ablage_ordner: cfg.ablage_ordner || null,\n        gestartet_am: cfg.gestartet_am,\n        gestartet_von: cfg.gestartet_von,\n        bemerkung: cfg.bemerkung || null,\n        liefermodus: cfg.liefermodus === 'echt' ? 'echt' : 'test',\n      },\n      quelle: {},\n      konzept: {},\n      potenziale: [],\n      epics: [],\n      protokoll: [{\n        stufe: 'BC3-00 Orchestrator',\n        zeitpunkt: new Date().toISOString(),\n        status: 'gestartet',\n        befunde: [],\n      }],\n    },\n  },\n}];\n"
+        "jsCode": "/**\n * Legt den Umschlag an. Ab hier reisen alle Stufen mit demselben Objekt und\n * füllen nur ihren eigenen Platz - Vorbild ist das Muster aus der Vorlage\n * workflow_20_normalize_summarize.\n *\n * Alles Mandantenspezifische steht im Baustein davor, nicht hier im Code.\n * Damit ist ein zweiter Mandant ein Konfigurationssatz und kein zweiter Workflow.\n *\n * liefermodus (seit 12.10.2026): 'test' ist der Standard. Nur bei 'echt'\n * legt BC3-80 nach einer Freigabe Zweig und Pull Request im Gruppen-Repository\n * an. Umgestellt wird ausschliesslich in \"Lauf einstellen\".\n */\nconst cfg = $input.first().json;\n\n// Seit 11.11.2026: Rückweg Gate 2. Ein Neustart nach \"nachbessern\" bringt die Anmerkung\n// von Gate 2, den abgelehnten Lauf (vorlauf) und die Zahl der Neustarts (runde) mit.\nconst kommentar = String(cfg.gate2_kommentar || '').trim() || null;\nconst runde = Number(cfg.runde) || 0;\n\nreturn [{\n  json: {\n    lauf_id: `bc3-${$execution.id}`, // ab BC3-40 die lieferung_id\n    umschlag: {\n      lauf: {\n        lauf_nr: `bc3-${$execution.id}`, // Schlüssel für BC3-91 und laeufe\n        pfad: cfg.pfad,\n        mandant: cfg.mandant,\n        ablage: cfg.ablage,\n        ablage_ordner: cfg.ablage_ordner || null,\n        gestartet_am: cfg.gestartet_am,\n        gestartet_von: cfg.gestartet_von,\n        bemerkung: cfg.bemerkung || null,\n        liefermodus: cfg.liefermodus === 'echt' ? 'echt' : 'test',\n        gate2_kommentar: kommentar,\n        vorlauf: cfg.vorlauf || null,\n        runde,\n      },\n      quelle: {},\n      konzept: {},\n      potenziale: [],\n      epics: [],\n      protokoll: [{\n        stufe: 'BC3-00 Orchestrator',\n        zeitpunkt: new Date().toISOString(),\n        status: 'gestartet',\n        befunde: kommentar\n          ? [`Neustart ${runde} von 3 nach Nachbesserung an Gate 2 zu ${cfg.vorlauf || 'unbekannt'}. Anmerkung: ${kommentar}`]\n          : [],\n      }],\n    },\n  },\n}];\n"
       },
       "id": "cumschlag",
       "name": "Umschlag anlegen",
@@ -423,7 +447,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Fasst den Lauf zusammen, Grundlage für den Abschlussbericht und die Zeile in laeufe.\n// Hier kommen zwei Wege an: der fertige Lauf nach BC3-80 und der abgebrochene aus \"Fehler einordnen\".\nconst rein = $input.first().json;\nconst u = rein.umschlag || {};\nconst prot = u.protokoll || [];\nconst offen = prot.filter(p => p.status === 'offen');\nconst abgebrochen = prot.filter(p => p.status === 'abgebrochen');\nconst befunde = prot.flatMap(p => (p.befunde || []).map(b => ({ stufe: p.stufe, befund: b })));\n\n// \"ok\" nur, wenn wirklich geliefert und an Gate 2 entschieden wurde.\nconst fehlt = [];\nif (!(u.lieferung?.dateien || []).length) fehlt.push('keine Dateien in der Lieferung');\nif (!u.gate2?.entscheidung) fehlt.push('keine Entscheidung an Gate 2');\nconst vollstaendig = abgebrochen.length === 0 && u.lauf_status !== 'unvollständig' && fehlt.length === 0;\nconst abgelegt = (u.lieferung?.abgelegt || []).length;\n\nreturn [{\n  json: {\n    // Laufnummer für den Bericht, ab BC3-40 trägt rein.lauf_id die lieferung_id\n    lauf_id: u.lauf?.lauf_nr || rein.lauf_id,\n    lieferung_id: u.lieferung?.lieferung_id || null,\n    status: vollstaendig ? 'ok' : 'unvollständig',\n    stufen: prot.length,\n    offen: offen.map(p => p.stufe),\n    abgebrochen: abgebrochen.map(p => p.stufe.replace(/ \\(abgebrochen\\)$/, '')),\n    fehlt,\n    dateien_abgelegt: abgelegt,\n    befunde,\n    stoerfall: u.stoerfall || null,\n    gate2: u.gate2 || null,\n    naechster_schritt: !vollstaendig\n      ? (u.stoerfall?.was_tun\n          || (abgebrochen.length === 0 && fehlt.length ? `Umschlag unvollständig: ${fehlt.join(', ')}.` : '')\n          || 'In der Ausführungsansicht nachsehen, dann erneut starten.')\n      : u.gate2?.entscheidung === 'approved'\n        ? (u.gate2?.pr\n            ? (u.gate2.pr.gemergt\n                ? `Fertig. Pull Request #${u.gate2.pr.nummer} zusammengeführt, BC4 holt aus main.`\n                : `Pull Request #${u.gate2.pr.nummer} ist offen, von Hand zusammenführen.`)\n            : u.gate2?.liefermodus === 'test'\n              ? 'Testlauf freigegeben, kein Pull Request (Modus test).'\n              : 'Freigegeben, aber kein Pull Request entstanden. Protokoll von BC3-80 ansehen.')\n        : u.gate2?.entscheidung === 'nachbessern'\n          ? 'Zur Nachbesserung zurückgegeben. Nach der Nachbesserung neu starten.'\n        : u.gate2?.entscheidung === 'rejected'\n          ? 'An Gate 2 abgelehnt. Die Dateien bleiben in _vorschau, BC4 sieht nichts.'\n          : 'BC3-80 Gate 2 starten',\n    protokoll: prot,\n    umschlag: u,\n  },\n}];\n"
+        "jsCode": "// Fasst den Lauf zusammen, Grundlage für den Abschlussbericht und die Zeile in laeufe.\n// Hier kommen zwei Wege an: der fertige Lauf nach BC3-80 und der abgebrochene aus \"Fehler einordnen\".\nconst rein = $input.first().json;\nconst u = rein.umschlag || {};\nconst prot = u.protokoll || [];\nconst offen = prot.filter(p => p.status === 'offen');\nconst abgebrochen = prot.filter(p => p.status === 'abgebrochen');\nconst befunde = prot.flatMap(p => (p.befunde || []).map(b => ({ stufe: p.stufe, befund: b })));\n\n// \"ok\" nur, wenn wirklich geliefert und an Gate 2 entschieden wurde.\nconst fehlt = [];\nif (!(u.lieferung?.dateien || []).length) fehlt.push('keine Dateien in der Lieferung');\nif (!u.gate2?.entscheidung) fehlt.push('keine Entscheidung an Gate 2');\nconst vollstaendig = abgebrochen.length === 0 && u.lauf_status !== 'unvollständig' && fehlt.length === 0;\nconst abgelegt = (u.lieferung?.abgelegt || []).length;\n\n// Seit 11.11.2026: Rückweg Gate 2 (Svetlana 11.11.). Nur \"nachbessern\" mit Anmerkung startet\n// BC3-00 mit demselben Konzept neu, höchstens 3-mal je Fall. Ablehnen bleibt endgültig.\nconst MAX_NEUSTARTS = 3;\nconst laufNr = u.lauf?.lauf_nr || rein.lauf_id;\nconst runde = Number(u.lauf?.runde) || 0;\nconst kommentar = String(u.gate2?.begruendung || '').trim();\nconst nachbessern = vollstaendig && u.gate2?.entscheidung === 'nachbessern';\nconst rueckweg = nachbessern && kommentar && u.lauf?.pfad && runde < MAX_NEUSTARTS\n  ? {\n      neu_starten: true,\n      pfad: u.lauf.pfad,\n      gestartet_von: 'Rückweg Gate 2',\n      // 18.11.2026: Neustart behält den Modus (test bleibt test)\n      liefermodus: u.lauf?.liefermodus === 'echt' ? 'echt' : 'test',\n      bemerkung: `Rückweg Gate 2 von ${laufNr} (Neustart ${runde + 1} von ${MAX_NEUSTARTS})`,\n      gate2_kommentar: kommentar,\n      vorlauf: laufNr,\n      runde: runde + 1,\n    }\n  : { neu_starten: false };\n\nreturn [{\n  json: {\n    // Laufnummer für den Bericht, ab BC3-40 trägt rein.lauf_id die lieferung_id\n    lauf_id: u.lauf?.lauf_nr || rein.lauf_id,\n    lieferung_id: u.lieferung?.lieferung_id || null,\n    status: vollstaendig ? 'ok' : 'unvollständig',\n    stufen: prot.length,\n    offen: offen.map(p => p.stufe),\n    abgebrochen: abgebrochen.map(p => p.stufe.replace(/ \\(abgebrochen\\)$/, '')),\n    fehlt,\n    dateien_abgelegt: abgelegt,\n    befunde,\n    stoerfall: u.stoerfall || null,\n    gate2: u.gate2 || null,\n    naechster_schritt: !vollstaendig\n      ? (u.stoerfall?.was_tun\n          || (abgebrochen.length === 0 && fehlt.length ? `Umschlag unvollständig: ${fehlt.join(', ')}.` : '')\n          || 'In der Ausführungsansicht nachsehen, dann erneut starten.')\n      : u.gate2?.entscheidung === 'approved'\n        ? (u.gate2?.pr\n            ? (u.gate2.pr.gemergt\n                ? `Fertig. Pull Request #${u.gate2.pr.nummer} zusammengeführt, BC4 holt aus main.`\n                : `Pull Request #${u.gate2.pr.nummer} ist offen, von Hand zusammenführen.`)\n            : u.gate2?.liefermodus === 'test'\n              ? 'Testlauf freigegeben, kein Pull Request (Modus test).'\n              : 'Freigegeben, aber kein Pull Request entstanden. Protokoll von BC3-80 ansehen.')\n        : u.gate2?.entscheidung === 'nachbessern'\n          ? (rueckweg.neu_starten\n              ? `Zur Nachbesserung zurückgegeben. BC3 startet den Lauf mit der Anmerkung neu (Neustart ${rueckweg.runde} von ${MAX_NEUSTARTS}).`\n              : runde >= MAX_NEUSTARTS\n                ? `Zur Nachbesserung zurückgegeben, aber schon ${MAX_NEUSTARTS}-mal neu gestartet. Von Hand prüfen.`\n                : 'Zur Nachbesserung zurückgegeben, ohne Anmerkung kein Neustart. Nach der Nachbesserung neu starten.')\n        : u.gate2?.entscheidung === 'rejected'\n          ? 'An Gate 2 abgelehnt. Die Dateien bleiben in _vorschau, BC4 sieht nichts.'\n          : 'BC3-80 Gate 2 starten',\n    protokoll: prot,\n    rueckweg,\n    umschlag: u,\n  },\n}];\n"
       },
       "id": "cend",
       "name": "Lauf abschliessen",
@@ -1012,6 +1036,18 @@
             },
             {
               "name": "bemerkung"
+            },
+            {
+              "name": "gate2_kommentar"
+            },
+            {
+              "name": "vorlauf"
+            },
+            {
+              "name": "runde"
+            },
+            {
+              "name": "liefermodus"
             }
           ]
         }
@@ -1026,14 +1062,6 @@
       ]
     },
     {
-      "id": "14556ed3-7c04-4136-9b50-c3237048e449",
-      "name": "Aufruf gescheitert?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        928,
-        912
-      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -1056,19 +1084,18 @@
           "combinator": "and"
         },
         "options": {}
-      }
+      },
+      "id": "14556ed3-7c04-4136-9b50-c3237048e449",
+      "name": "Aufruf gescheitert?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        928,
+        912
+      ]
     },
     {
-      "id": "10f9728c-0fd1-4e79-a170-b0b7ff907152",
-      "name": "Aufruffehler in fehler schreiben",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
-      "position": [
-        1152,
-        912
-      ],
       "parameters": {
-        "operation": "insert",
         "schema": {
           "__rl": true,
           "mode": "list",
@@ -1160,12 +1187,180 @@
         },
         "options": {}
       },
+      "id": "10f9728c-0fd1-4e79-a170-b0b7ff907152",
+      "name": "Aufruffehler in fehler schreiben",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1152,
+        912
+      ],
       "credentials": {
         "postgres": {
           "name": "Postgres BC3"
         }
       },
       "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Lauf einstellen').first().json.telegram_chat_id_sabrina }}",
+        "text": "={{ $('Gate-2-Daten bauen').first().json.nachricht }}\n<a href=\"{{ $('Lauf einstellen').first().json.gate2_adresse }}?lauf={{ $('Gate-2-Daten speichern').first().json.lauf_id }}&amp;t={{ $('Gate-2-Daten speichern').first().json.token }}\">Gate-2-Seite öffnen</a>",
+        "additionalFields": {
+          "appendAttribution": false,
+          "disable_web_page_preview": true,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "18c23f93-d064-40eb-8b04-d5ae535e7af2",
+      "name": "Telegram an Gate 2 (Sabrina)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1888,
+        240
+      ],
+      "credentials": {
+        "telegramApi": {
+          "name": "TG Sabrina"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "rw1",
+              "leftValue": "={{ $json.rueckweg?.neu_starten === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "3dee25cd-ca88-4f31-8526-d23646385250",
+      "name": "Neu starten?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2560,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Mi0FNs8k9wCMgHQu",
+          "cachedResultName": "BC3-00 Orchestrator"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "pfad": "={{ $json.rueckweg.pfad }}",
+            "gestartet_von": "={{ $json.rueckweg.gestartet_von }}",
+            "bemerkung": "={{ $json.rueckweg.bemerkung }}",
+            "gate2_kommentar": "={{ $json.rueckweg.gate2_kommentar }}",
+            "vorlauf": "={{ $json.rueckweg.vorlauf }}",
+            "runde": "={{ String($json.rueckweg.runde) }}",
+            "liefermodus": "={{ $json.rueckweg.liefermodus }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "pfad",
+              "displayName": "pfad",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "gestartet_von",
+              "displayName": "gestartet_von",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "bemerkung",
+              "displayName": "bemerkung",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "gate2_kommentar",
+              "displayName": "gate2_kommentar",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "vorlauf",
+              "displayName": "vorlauf",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "runde",
+              "displayName": "runde",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "liefermodus",
+              "displayName": "liefermodus",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
+      "id": "0133232b-1f8a-4e78-9454-303a26d86f90",
+      "name": "BC3-00 neu starten",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        2784,
+        624
+      ]
     }
   ],
   "connections": {
@@ -1315,6 +1510,11 @@
             "node": "Laufprotokoll: Ende",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Neu starten?",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -1432,17 +1632,6 @@
         ]
       ]
     },
-    "Telegram an Gate 2": {
-      "main": [
-        [
-          {
-            "node": "Auf Freigabe warten",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Von BC3-01 gestartet": {
       "main": [
         [
@@ -1511,6 +1700,39 @@
         [
           {
             "node": "Aufruffehler in fehler schreiben",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram an Gate 2": {
+      "main": [
+        [
+          {
+            "node": "Telegram an Gate 2 (Sabrina)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram an Gate 2 (Sabrina)": {
+      "main": [
+        [
+          {
+            "node": "Auf Freigabe warten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Neu starten?": {
+      "main": [
+        [
+          {
+            "node": "BC3-00 neu starten",
             "type": "main",
             "index": 0
           }
