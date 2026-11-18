@@ -1,0 +1,215 @@
+{
+  "name": "BC3-83 Prüfstand",
+  "description": "Misst Precision, Recall und F1 der Risikoklasse von BC3-30 an 16 Testfällen mit bestätigter Soll-Klasse, Ergebnis im Backoffice",
+  "nodes": [
+    {
+      "id": "db874ba3-f7f0-4192-b362-7b6b176df074",
+      "name": "Einmal im Monat",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "months",
+              "monthsInterval": 1,
+              "triggerAtDayOfMonth": 1,
+              "triggerAtHour": 3,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "0b9de27e-a36d-4a26-9d7b-0bc2d7177904",
+      "name": "Fälle laden",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Testfälle des Prüfstands (P4, 22.10.2026). Soll-Werte von Svetlana bestätigt.\n// Quelle: ablage\\pg-ki-coe-kmu\\bc3-engineering-architect\\pruefstand\\risikoklasse-faelle.json\n// Erfundene Fälle ohne echte Unternehmen oder Personen. Gemessen wird BC3-30 ohne\n// Regel R2 (BC3-15): plan bleibt leer, Datenarten und Tragweite sind nicht ausgewertet.\nconst FAELLE = [\n {\n  \"id\": \"U1\",\n  \"soll_klasse\": \"unacceptable\",\n  \"soll_fundstelle\": \"Art. 5 Abs. 1 Buchst. f\",\n  \"titel\": \"Stimmungsanalyse im Callcenter\",\n  \"prozess\": \"Ein Callcenter mit 40 Beschäftigten wertet die Stimme der Mitarbeitenden in Kundengesprächen aus, erkennt daraus Ärger, Stress und Langeweile und nutzt das Ergebnis für die monatliche Leistungsbewertung.\",\n  \"stories\": [\n   [\n    \"Stimmung je Gespräch erkennen\",\n    \"Das System erkennt aus der Stimme der Mitarbeitenden die Emotion je Gespräch.\"\n   ],\n   [\n    \"Stimmungswerte in die Leistungsbewertung übernehmen\",\n    \"Die Stimmungswerte fließen in die monatliche Bewertung jeder Person ein.\"\n   ]\n  ]\n },\n {\n  \"id\": \"U2\",\n  \"soll_klasse\": \"unacceptable\",\n  \"soll_fundstelle\": \"Art. 5 Abs. 1 Buchst. c\",\n  \"titel\": \"Mieterbewertung aus sozialem Verhalten\",\n  \"prozess\": \"Eine Hausverwaltung bewertet Mietinteressenten nach ihrem Verhalten in sozialen Netzwerken und in Nachbarschaftsforen und vergibt eine Gesamtpunktzahl. Wer wenig Punkte hat, erhält keine Besichtigungstermine und wird auch für Stellplätze und Gemeinschaftsräume gesperrt.\",\n  \"stories\": [\n   [\n    \"Soziales Verhalten bewerten\",\n    \"Das System sammelt Beiträge aus sozialen Netzwerken und Foren und berechnet eine Punktzahl je Person.\"\n   ],\n   [\n    \"Zugang nach Punktzahl sperren\",\n    \"Personen unter dem Schwellwert erhalten keine Termine und keinen Zugang zu Stellplätzen.\"\n   ]\n  ]\n },\n {\n  \"id\": \"U3\",\n  \"soll_klasse\": \"unacceptable\",\n  \"soll_fundstelle\": \"Art. 5 Abs. 1 Buchst. e\",\n  \"titel\": \"Gesichtsdatenbank aus dem Internet\",\n  \"prozess\": \"Ein Einzelhändler baut eine Datenbank mit Gesichtsbildern auf, indem er Fotos ungezielt von öffentlichen Webseiten und Social-Media-Profilen ausliest, um Kundinnen und Kunden im Laden wiederzuerkennen.\",\n  \"stories\": [\n   [\n    \"Gesichtsbilder aus dem Internet sammeln\",\n    \"Ein Crawler liest Profilfotos von öffentlichen Seiten aus und speichert Gesichtsmerkmale.\"\n   ],\n   [\n    \"Kundschaft im Laden wiedererkennen\",\n    \"Kameras gleichen Gesichter am Eingang mit der Datenbank ab.\"\n   ]\n  ]\n },\n {\n  \"id\": \"H1\",\n  \"soll_klasse\": \"high\",\n  \"soll_fundstelle\": \"Anhang III Nr. 4 Buchst. a\",\n  \"titel\": \"Bewerbungen vorsortieren\",\n  \"prozess\": \"Ein Handwerksbetrieb lässt eingehende Bewerbungen automatisch lesen, nach Eignung bewerten und als Rangliste an die Geschäftsführung geben, die daraus zu Gesprächen einlädt.\",\n  \"stories\": [\n   [\n    \"Bewerbungen auslesen\",\n    \"Das System liest Lebenslauf und Anschreiben aus.\"\n   ],\n   [\n    \"Bewerbende nach Eignung ordnen\",\n    \"Das System bewertet jede Bewerbung und erstellt eine Rangliste.\"\n   ]\n  ]\n },\n {\n  \"id\": \"H2\",\n  \"soll_klasse\": \"high\",\n  \"soll_fundstelle\": \"Anhang III Nr. 4 Buchst. b\",\n  \"titel\": \"Schichtzuweisung nach Leistung\",\n  \"prozess\": \"Ein Pflegedienst teilt Touren und Schichten automatisch zu. Grundlage sind Leistungskennzahlen und Pünktlichkeit der einzelnen Beschäftigten aus den letzten drei Monaten.\",\n  \"stories\": [\n   [\n    \"Leistung je Person auswerten\",\n    \"Das System berechnet Kennzahlen zu Tempo und Pünktlichkeit je Pflegekraft.\"\n   ],\n   [\n    \"Touren nach Leistung zuweisen\",\n    \"Beliebte Touren gehen an Personen mit den besten Werten.\"\n   ]\n  ]\n },\n {\n  \"id\": \"H3\",\n  \"soll_klasse\": \"high\",\n  \"soll_fundstelle\": \"Anhang III Nr. 5 Buchst. b\",\n  \"titel\": \"Ratenkauf für Privatkunden\",\n  \"prozess\": \"Ein Möbelhändler prüft beim Ratenkauf die Kreditwürdigkeit der Privatkundinnen und -kunden automatisch und entscheidet über Zusage und Höhe des Rahmens.\",\n  \"stories\": [\n   [\n    \"Bonität berechnen\",\n    \"Das System berechnet aus Einkommen und Zahlungshistorie einen Bonitätswert.\"\n   ],\n   [\n    \"Ratenrahmen festlegen\",\n    \"Nach dem Bonitätswert wird der Ratenkauf zugesagt oder abgelehnt.\"\n   ]\n  ]\n },\n {\n  \"id\": \"H4\",\n  \"soll_klasse\": \"high\",\n  \"soll_fundstelle\": \"Anhang III Nr. 3 Buchst. d\",\n  \"titel\": \"Aufsicht bei Online-Prüfungen\",\n  \"prozess\": \"Eine private Fachschule beaufsichtigt Online-Abschlussprüfungen per Kamera und markiert automatisch Verhalten, das auf Täuschung hindeutet. Markierte Prüfungen werden nicht gewertet, bis die Schule entschieden hat.\",\n  \"stories\": [\n   [\n    \"Prüfung per Kamera beobachten\",\n    \"Das System wertet Blickrichtung und Geräusche während der Prüfung aus.\"\n   ],\n   [\n    \"Täuschungsverdacht markieren\",\n    \"Auffällige Prüfungen werden markiert und zurückgehalten.\"\n   ]\n  ]\n },\n {\n  \"id\": \"H5\",\n  \"soll_klasse\": \"high\",\n  \"soll_fundstelle\": \"Anhang III Nr. 3 Buchst. a\",\n  \"titel\": \"Zulassung zur Weiterbildungsakademie\",\n  \"prozess\": \"Eine Akademie für berufliche Weiterbildung entscheidet über die Zulassung zu einem staatlich anerkannten Lehrgang anhand eines automatisch ausgewerteten Eingangstests und der Unterlagen.\",\n  \"stories\": [\n   [\n    \"Eingangstest auswerten\",\n    \"Das System bewertet den Test und die eingereichten Zeugnisse.\"\n   ],\n   [\n    \"Über die Zulassung entscheiden\",\n    \"Personen über dem Schwellwert erhalten automatisch einen Platz.\"\n   ]\n  ]\n },\n {\n  \"id\": \"H6\",\n  \"soll_klasse\": \"high\",\n  \"soll_fundstelle\": \"Anhang III Nr. 5 Buchst. c\",\n  \"titel\": \"Tarif für Krankenzusatzversicherung\",\n  \"prozess\": \"Ein Versicherungsmakler lässt für Antragstellende einer Krankenzusatzversicherung das Gesundheitsrisiko bewerten und daraus den Beitrag berechnen.\",\n  \"stories\": [\n   [\n    \"Gesundheitsangaben bewerten\",\n    \"Das System bewertet die Gesundheitsfragen des Antrags als Risikowert.\"\n   ],\n   [\n    \"Beitrag berechnen\",\n    \"Aus dem Risikowert ergibt sich der Monatsbeitrag.\"\n   ]\n  ]\n },\n {\n  \"id\": \"H7\",\n  \"soll_klasse\": \"high\",\n  \"soll_fundstelle\": \"Anhang III Nr. 2\",\n  \"titel\": \"Leckerkennung in der Trinkwasserversorgung\",\n  \"prozess\": \"Ein kleines Stadtwerk nutzt ein KI-System als Sicherheitsbauteil im Trinkwassernetz: Es erkennt Lecks und Druckabfälle und schließt selbsttätig Schieber, um die Versorgung zu sichern.\",\n  \"stories\": [\n   [\n    \"Druckabfall erkennen\",\n    \"Das System wertet Sensordaten im Netz aus und erkennt Lecks.\"\n   ],\n   [\n    \"Schieber selbsttätig schließen\",\n    \"Bei einem Leck schließt das System den betroffenen Abschnitt.\"\n   ]\n  ]\n },\n {\n  \"id\": \"F1\",\n  \"soll_klasse\": \"minimal\",\n  \"soll_fundstelle\": null,\n  \"titel\": \"Falle: Reiserücktrittsversicherung\",\n  \"prozess\": \"Ein Reisebüro versendet nach jeder Buchung automatisch das Angebot einer Reiserücktrittsversicherung des Partnerversicherers. Der Preis steht im Tarif fest, das Reisebüro bewertet keine Personen.\",\n  \"stories\": [\n   [\n    \"Versicherungsangebot erzeugen\",\n    \"Nach der Buchung wird das Angebot mit festem Tarifpreis erstellt.\"\n   ],\n   [\n    \"Angebot versenden\",\n    \"Das Angebot geht per Mail an die reisende Person.\"\n   ]\n  ]\n },\n {\n  \"id\": \"F2\",\n  \"soll_klasse\": \"minimal\",\n  \"soll_fundstelle\": null,\n  \"titel\": \"Falle: genehmigte Urlaube eintragen\",\n  \"prozess\": \"In einem Büro mit 25 Beschäftigten trägt ein System Urlaubsanträge, die die Führungskraft bereits genehmigt hat, in den Teamkalender und die Lohnabrechnung ein. Über die Genehmigung entscheidet allein die Führungskraft.\",\n  \"stories\": [\n   [\n    \"Genehmigten Urlaub übernehmen\",\n    \"Nach der Genehmigung wird der Urlaub in den Teamkalender eingetragen.\"\n   ],\n   [\n    \"Lohnabrechnung informieren\",\n    \"Die Urlaubstage gehen an die Lohnabrechnung.\"\n   ]\n  ]\n },\n {\n  \"id\": \"L1\",\n  \"soll_klasse\": \"limited\",\n  \"soll_fundstelle\": \"Art. 50 Abs. 1\",\n  \"titel\": \"Kundenchat auf der Website\",\n  \"prozess\": \"Ein Onlineshop für Fahrradteile setzt einen KI-Chat auf der Website ein, der Fragen zu Lieferzeiten, Größen und Rücksendungen beantwortet.\",\n  \"stories\": [\n   [\n    \"Fragen im Chat beantworten\",\n    \"Der Chat beantwortet Kundenfragen aus der Wissensbasis des Shops.\"\n   ],\n   [\n    \"An den Kundenservice übergeben\",\n    \"Bei offenen Fragen übernimmt ein Mensch das Gespräch.\"\n   ]\n  ]\n },\n {\n  \"id\": \"L2\",\n  \"soll_klasse\": \"limited\",\n  \"soll_fundstelle\": \"Art. 50 Abs. 2\",\n  \"titel\": \"Erzeugte Produktbilder\",\n  \"prozess\": \"Eine Möbelmanufaktur lässt Produktbilder in Wohnumgebungen und die zugehörigen Beschreibungstexte von einem KI-System erzeugen und veröffentlicht sie im Onlineshop.\",\n  \"stories\": [\n   [\n    \"Produktbilder erzeugen\",\n    \"Das System erzeugt Bilder der Möbel in verschiedenen Räumen.\"\n   ],\n   [\n    \"Bilder und Texte veröffentlichen\",\n    \"Die erzeugten Inhalte werden im Shop veröffentlicht.\"\n   ]\n  ]\n },\n {\n  \"id\": \"M1\",\n  \"soll_klasse\": \"minimal\",\n  \"soll_fundstelle\": null,\n  \"titel\": \"Eingangsrechnungen vorkontieren\",\n  \"prozess\": \"Ein Steuerbüro lässt Eingangsrechnungen seiner Mandanten automatisch auslesen und einen Buchungsvorschlag erzeugen, den die Buchhaltung prüft und übernimmt.\",\n  \"stories\": [\n   [\n    \"Rechnung auslesen\",\n    \"Das System liest Betrag, Datum und Lieferant aus.\"\n   ],\n   [\n    \"Buchungsvorschlag erzeugen\",\n    \"Das System schlägt Konto und Steuerschlüssel vor.\"\n   ]\n  ]\n },\n {\n  \"id\": \"M2\",\n  \"soll_klasse\": \"minimal\",\n  \"soll_fundstelle\": null,\n  \"titel\": \"Nachbestellung im Lager\",\n  \"prozess\": \"Ein Großhändler für Elektromaterial prognostiziert den Bedarf je Artikel aus den Verkäufen der letzten zwei Jahre und erzeugt Nachbestellvorschläge für den Einkauf.\",\n  \"stories\": [\n   [\n    \"Bedarf prognostizieren\",\n    \"Das System berechnet den Bedarf je Artikel für die nächsten acht Wochen.\"\n   ],\n   [\n    \"Nachbestellung vorschlagen\",\n    \"Unter dem Mindestbestand entsteht ein Bestellvorschlag.\"\n   ]\n  ]\n }\n];\n\nconst NICHT_AUSGEWERTET = ['nicht nach Regeln ausgewertet (Prüfstand), aus den Epics beurteilen'];\nconst start = new Date().toISOString();\nreturn FAELLE.map(f => ({\n  json: {\n    fall: f,\n    lauf_id: `pruefstand-${f.id}`,\n    umschlag: {\n      lauf: { lauf_nr: `pruefstand-${f.id}`, pruefstand: true, liefermodus: 'test', gestartet_am: start },\n      konzept: { kp_id: 'PRUEFSTAND', prozess: f.prozess },\n      plan: {},\n      potenziale: [],\n      protokoll: [],\n      aggregat: {\n        prozess: `${f.titel}: ${f.prozess}`,\n        schmerzpunkte: [],\n        risiken: [],\n        datenarten: { als_text: NICHT_AUSGEWERTET },\n        tragweite: { als_text: NICHT_AUSGEWERTET },\n        epics: [{\n          epic_id: `ep-${f.id.toLowerCase()}`,\n          titel: f.titel,\n          ziel: f.prozess,\n          stories: f.stories.map(([titel, beschreibung], i) => ({ story_id: `${f.id.toLowerCase()}-${i + 1}`, titel, beschreibung })),\n        }],\n      },\n    },\n  },\n}));\n"
+      }
+    },
+    {
+      "id": "bbc8dc9a-19b8-4aff-94f2-ed966200a9dd",
+      "name": "BC3-30 je Fall",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        448,
+        0
+      ],
+      "parameters": {
+        "mode": "each",
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "4MH1nHOhouKuDtP9",
+          "cachedResultName": "BC3-30 Compliance prüfen"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "lauf_id": "={{ $json.lauf_id }}",
+            "umschlag": "={{ $json.umschlag }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "lauf_id",
+              "displayName": "lauf_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "umschlag",
+              "displayName": "umschlag",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "12d986b4-ba64-4002-bcae-3dda1af8e772",
+      "name": "Kennzahlen berechnen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Precision, Recall und F1 der Risikoklasse (P4). Ein Fall ohne lesbare Klasse zählt als falsch.\nconst faelle = $('Fälle laden').all().map(i => i.json);\nconst antworten = $input.all().map(i => i.json);\nconst KLASSEN = ['unacceptable', 'high', 'limited', 'minimal'];\nconst flach = t => String(t || '').toLowerCase().replace(/\\s+/g, ' ');\n\n// Fundstelle der Antwort mit der Soll-Fundstelle vergleichen (nur Nummer und Buchstabe)\nfunction fundstelleTrifft(soll, c) {\n  if (!soll) return null;\n  const s = flach(soll);\n  const text = flach(JSON.stringify([c.anhang_iii_kategorie, c.pflichten, c.begruendung_ampel]));\n  let m = s.match(/art\\. 5 abs\\. 1 buchst\\. ([a-h])/);\n  if (m) return new RegExp(String.raw`(art\\.?|artikel) ?5 (abs\\.?|absatz) ?1 (buchst\\.?|buchstabe|lit\\.?) ?${m[1]}\\b`).test(text);\n  m = s.match(/art\\. 50 abs\\. (\\d)/);\n  if (m) return new RegExp(String.raw`(art\\.?|artikel) ?50 (abs\\.?|absatz) ?${m[1]}\\b`).test(text);\n  m = s.match(/anhang iii nr\\. (\\d)(?: buchst\\. ([a-e]))?/);\n  if (m) {\n    const ist = flach(c.anhang_iii_kategorie).match(/nr\\.? ?(\\d+)(?:[^a-z0-9]{0,20}(?:buchst\\w*\\.?|lit\\.?)? ?([a-e])\\b)?/);\n    return !!ist && ist[1] === m[1] && (!m[2] || ist[2] === m[2]);\n  }\n  return null;\n}\n\nconst ergebnisse = faelle.map(f => {\n  const a = antworten.find(x => x.lauf_id === f.lauf_id) || {};\n  const c = a.umschlag?.compliance || {};\n  const bc30 = (a.umschlag?.protokoll || []).filter(p => p.stufe === 'BC3-30 Compliance prüfen').slice(-1)[0] || {};\n  return {\n    id: f.fall.id,\n    titel: f.fall.titel,\n    soll: f.fall.soll_klasse,\n    ist: c.ai_act_klasse || null,\n    ampel: c.ampel || null,\n    soll_fundstelle: f.fall.soll_fundstelle,\n    ist_fundstelle: c.anhang_iii_kategorie || null,\n    fundstelle_trifft: c.ai_act_klasse ? fundstelleTrifft(f.fall.soll_fundstelle, c) : false,\n    richtig: c.ai_act_klasse === f.fall.soll_klasse,\n    befunde: [...(c.einstufung_strittig || []), ...(a.error ? [String(a.error.message || a.error)] : [])],\n    modell: (bc30.modelle || [])[0]?.modell || null,\n  };\n});\n\nconst runde = x => Math.round(x * 1000) / 1000;\nfunction masse(tp, fp, fn) {\n  const p = tp + fp ? tp / (tp + fp) : 0;\n  const r = tp + fn ? tp / (tp + fn) : 0;\n  return { tp, fp, fn, precision: runde(p), recall: runde(r), f1: runde(p + r ? 2 * p * r / (p + r) : 0) };\n}\nconst je_klasse = Object.fromEntries(KLASSEN.map(k => [k, masse(\n  ergebnisse.filter(e => e.ist === k && e.soll === k).length,\n  ergebnisse.filter(e => e.ist === k && e.soll !== k).length,\n  ergebnisse.filter(e => e.soll === k && e.ist !== k).length)]));\nconst hr = x => x === 'high' || x === 'unacceptable';\nconst hochrisiko = masse(\n  ergebnisse.filter(e => hr(e.ist) && hr(e.soll)).length,\n  ergebnisse.filter(e => hr(e.ist) && !hr(e.soll)).length,\n  ergebnisse.filter(e => hr(e.soll) && !hr(e.ist)).length);\nconst mitFundstelle = ergebnisse.filter(e => e.soll_fundstelle);\n\nreturn [{\n  json: {\n    ausfuehrung: String($execution.id),\n    modell: ergebnisse.find(e => e.modell)?.modell || null,\n    anzahl_faelle: ergebnisse.length,\n    anzahl_gelesen: ergebnisse.filter(e => e.ist).length,\n    anzahl_richtig: ergebnisse.filter(e => e.richtig).length,\n    macro_f1: runde(KLASSEN.reduce((s, k) => s + je_klasse[k].f1, 0) / KLASSEN.length),\n    hochrisiko_precision: hochrisiko.precision,\n    hochrisiko_recall: hochrisiko.recall,\n    hochrisiko_f1: hochrisiko.f1,\n    fundstelle_treffer: mitFundstelle.filter(e => e.fundstelle_trifft).length,\n    fundstelle_von: mitFundstelle.length,\n    je_klasse: JSON.stringify(je_klasse),\n    faelle: JSON.stringify(ergebnisse),\n    bemerkung: 'BC3-30 ohne Regel R2, eigene Testfälle (16), Soll-Werte von Svetlana bestätigt',\n  },\n}];\n"
+      }
+    },
+    {
+      "id": "fb86c890-e69c-4d10-8329-1e8d1028e436",
+      "name": "In pruefstand schreiben",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        896,
+        0
+      ],
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "name",
+          "value": "pruefstand"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "name": "Postgres BC3"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "id": "4c4f3897-aef5-4198-bdd8-ba76375f2670",
+      "name": "Hinweis: BC3-83 Prüfstand",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -360
+      ],
+      "parameters": {
+        "content": "## BC3-83 Prüfstand\n\nMisst, wie gut BC3-30 die Risikoklasse trifft: 16 erfundene Fälle mit von Svetlana bestätigter Soll-Klasse, BC3-30 ohne Regel R2. Läuft einmal im Monat.\n\nDie Ergebnisse stehen im Backoffice (`nachweis-pruefstand-reproduzierbarkeit.md`). „In pruefstand schreiben“ ist abgeschaltet, die Tabelle bleibt für später.",
+        "color": 4
+      }
+    }
+  ],
+  "connections": {
+    "Einmal im Monat": {
+      "main": [
+        [
+          {
+            "node": "Fälle laden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fälle laden": {
+      "main": [
+        [
+          {
+            "node": "BC3-30 je Fall",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BC3-30 je Fall": {
+      "main": [
+        [
+          {
+            "node": "Kennzahlen berechnen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kennzahlen berechnen": {
+      "main": [
+        [
+          {
+            "node": "In pruefstand schreiben",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "D03E5Rn1DDKDZGbL",
+    "executionTimeout": 1500,
+    "callerPolicy": "workflowsFromSameOwner"
+  }
+}

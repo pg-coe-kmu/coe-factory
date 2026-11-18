@@ -185,7 +185,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Hält fest, welcher Pull Request zu welcher Lieferung gehört und ob BC3 ihn zusammengeführt hat.\n// Scheitert das Zusammenführen, bleibt der Pull Request offen und wird von Hand zusammengeführt.\nconst v = $('Lieferung ins Repo vorbereiten').first().json;\nconst g = $('Entscheidung auswerten').first().json;\n\nlet pr = null;\ntry {\n  const a = $('Pull Request öffnen').first().json;\n  if (a && a.number) pr = { nummer: a.number, url: a.html_url, zweig: v.zweig };\n} catch (e) { pr = null; }\n\nlet gemergt = false;\nlet mergeFehler = null;\nlet commitMain = null;\ntry {\n  const m = $input.first().json;\n  gemergt = m && m.merged === true;\n  // Seit 23.10.2026: der Squash-Commit auf main, nicht der Commit im Zweig (für bc3.lieferungen)\n  if (gemergt && m.sha) commitMain = m.sha;\n  if (!gemergt) mergeFehler = String(m?.error?.description || m?.error?.message || m?.message || 'keine Antwort').split('\\n')[0].slice(0, 200);\n} catch (e) { mergeFehler = 'Merge nicht gelaufen'; }\nif (pr) { pr.gemergt = gemergt; pr.commit_main = commitMain; }\n\nconst befunde = !pr\n  ? ['Der Pull Request konnte nicht angelegt werden. Die Dateien liegen im Zweig '\n     + v.zweig + ', der Pull Request muss von Hand aufgemacht werden.']\n  : gemergt\n    ? [`Lieferung als Pull Request #${pr.nummer} angelegt und von BC3 gemergt: ${pr.url}`,\n       'BC4 holt sie aus main.']\n    : [`Lieferung liegt als Pull Request #${pr.nummer} im Repository: ${pr.url}`,\n       `Automatischer Merge gescheitert (${mergeFehler}). Bitte von Hand mergen.`];\n\nconst u = g.umschlag || {};\nreturn [{\n  json: {\n    ...g,\n    umschlag: {\n      ...u,\n      lieferung: { ...(u.lieferung || {}), pr, zweig: v.zweig, repo: v.repo,\n                   repo_pfade: v.dateien.map(d => d.pfad) },\n      protokoll: [...(u.protokoll || []), {\n        stufe: 'BC3-80 Lieferung ins Repository',\n        zeitpunkt: new Date().toISOString(),\n        status: pr && gemergt ? 'ok' : 'mit Fehler',\n        umfang: { dateien: v.dateien.length, zweig: v.zweig },\n        befunde,\n      }],\n    },\n  },\n}];\n"
+        "jsCode": "// Hält fest, welcher Pull Request zu welcher Lieferung gehört und ob BC3 ihn zusammengeführt hat.\n// Scheitert das Zusammenführen, bleibt der Pull Request offen und wird von Hand zusammengeführt.\nconst v = $('Lieferung ins Repo vorbereiten').first().json;\nconst g = $('Entscheidung auswerten').first().json;\n\nlet pr = null;\ntry {\n  const a = $('Pull Request öffnen').first().json;\n  if (a && a.number) pr = { nummer: a.number, url: a.html_url, zweig: v.zweig };\n} catch (e) { pr = null; }\n\nlet gemergt = false;\nlet mergeFehler = null;\nlet commitMain = null;\ntry {\n  const m = $input.first().json;\n  if (m && m.entscheidung === 'nicht_mergen') {\n    // Seit 18.11.2026: nicht gemergt, weil die Prüfung im Repo nicht grün war\n    mergeFehler = 'nicht gemergt, ' + String(m.grund || 'Prüfung nicht grün');\n  } else {\n    gemergt = m && m.merged === true;\n    // Seit 23.10.2026: der Squash-Commit auf main, nicht der Commit im Zweig (für bc3.lieferungen)\n    if (gemergt && m.sha) commitMain = m.sha;\n    if (!gemergt) mergeFehler = String(m?.error?.description || m?.error?.message || m?.message || 'keine Antwort').split('\\n')[0].slice(0, 200);\n  }\n} catch (e) { mergeFehler = 'Merge nicht gelaufen'; }\nif (pr) { pr.gemergt = gemergt; pr.commit_main = commitMain; }\n\nconst befunde = !pr\n  ? ['Der Pull Request konnte nicht angelegt werden. Die Dateien liegen im Zweig '\n     + v.zweig + ', der Pull Request muss von Hand aufgemacht werden.']\n  : gemergt\n    ? [`Lieferung als Pull Request #${pr.nummer} angelegt und von BC3 gemergt: ${pr.url}`,\n       'BC4 holt sie aus main.']\n    : [`Lieferung liegt als Pull Request #${pr.nummer} im Repository: ${pr.url}`,\n       `Automatischer Merge gescheitert (${mergeFehler}). Bitte im Pull Request nachsehen und von Hand mergen.`];\n\nconst u = g.umschlag || {};\nreturn [{\n  json: {\n    ...g,\n    umschlag: {\n      ...u,\n      lieferung: { ...(u.lieferung || {}), pr, zweig: v.zweig, repo: v.repo,\n                   repo_pfade: v.dateien.map(d => d.pfad) },\n      protokoll: [...(u.protokoll || []), {\n        stufe: 'BC3-80 Lieferung ins Repository',\n        zeitpunkt: new Date().toISOString(),\n        status: pr && gemergt ? 'ok' : 'mit Fehler',\n        umfang: { dateien: v.dateien.length, zweig: v.zweig },\n        befunde,\n      }],\n    },\n  },\n}];\n"
       },
       "id": "c74623729",
       "name": "Lieferung vermerken",
@@ -486,7 +486,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Eine Zeile je Lieferung für bc3.lieferungen (Team-Datenbank), nur Verweis auf GitHub, keine Kopien\nconst g = $input.first().json;\nconst u = g.umschlag || {};\nconst l = u.lieferung || {};\nconst z = u.gate2 || {};\nconst ids = u.ids || {};\nconst tickets = (l.dateien || []).find(d => d._datei === 'tickets') || {};\n\n// Werte wie in der Prüfregel der Tabelle, Fristablauf zählt als Ablehnung\nconst STATUS = { approved: 'approved', nachbessern: 'nachbessern', rejected: 'rejected' };\nconst status = STATUS[z.entscheidung];\n\nconst fehlt = [];\nif (!l.lieferung_id) fehlt.push('lieferung_id');\n// company_id kommt aus dem Konzept von BC2, BC3 setzt sie nicht selbst\nif (!ids.company_id) fehlt.push('company_id (fehlt im Konzept von BC2)');\n// Seit 25.10.2026: ohne paket_id lässt sich die Lieferung in BC0 keiner Übergabe zuordnen (Simeon, ADR-003)\nif (!ids.paket_id) fehlt.push('paket_id (fehlt in der Priorisierung von BC2)');\nif (!l.projekt_kurzname) fehlt.push('projekt_kurzname');\nif (!status) fehlt.push('gate2_status');\nif (fehlt.length) throw new Error('bc3.lieferungen: es fehlt ' + fehlt.join(', ') + ' (BC3-80 Lieferungs-Zeile bauen)');\n\n// Seit 23.10.2026: der Squash-Commit auf main, sonst der Commit im Zweig\nlet commit = l.pr?.commit_main || null;\nif (!commit) { try { commit = $('Zweig vorbereiten').first().json.commit || null; } catch (e) { commit = null; } }\n\n// Die Spalte nimmt einen Teilprozess (Fremdschlüssel), weitere stehen im Ticket-Set\nconst tp = String(ids.sub_process_id || '').split(',')[0].trim() || null;\n\nreturn [{\n  json: {\n    werte: [\n      l.lieferung_id,\n      ids.company_id,\n      ids.process_id || u.konzept?.kp_id || null,\n      tp,\n      l.projekt_kurzname,\n      tickets.schema_version || null,\n      `contracts/bc3-to-bc4/${l.projekt_kurzname}/${l.lieferung_id}/`,\n      commit,\n      status,\n      z.person || null,\n      z.zeitpunkt || new Date().toISOString(),\n      JSON.stringify(z.pruefpunkte || []),\n      z.begruendung || null,\n      ids.paket_id,\n      ids.anfrage_id || null,\n    ],\n    // anfrage_id ist ohne Anfrage (Portfolio) leer, das kommt als Hinweis ins Protokoll\n    ohne_anfrage: !ids.anfrage_id,\n  },\n}];\n"
+        "jsCode": "// Eine Zeile je Lieferung für bc3.lieferungen (Team-Datenbank): Verweis auf GitHub, dazu seit 11.11.2026 ticket_set, compliance_audit und blueprint\nconst g = $input.first().json;\nconst u = g.umschlag || {};\nconst l = u.lieferung || {};\nconst z = u.gate2 || {};\nconst ids = u.ids || {};\nconst tickets = (l.dateien || []).find(d => d._datei === 'tickets') || {};\n\n// Werte wie in der Prüfregel der Tabelle, Fristablauf zählt als Ablehnung\nconst STATUS = { approved: 'approved', nachbessern: 'nachbessern', rejected: 'rejected' };\nconst status = STATUS[z.entscheidung];\n\nconst fehlt = [];\nif (!l.lieferung_id) fehlt.push('lieferung_id');\n// company_id kommt aus dem Konzept von BC2, BC3 setzt sie nicht selbst\nif (!ids.company_id) fehlt.push('company_id (fehlt im Konzept von BC2)');\n// Seit 25.10.2026: ohne paket_id lässt sich die Lieferung in BC0 keiner Übergabe zuordnen (Simeon, ADR-003)\nif (!ids.paket_id) fehlt.push('paket_id (fehlt in der Priorisierung von BC2)');\nif (!l.projekt_kurzname) fehlt.push('projekt_kurzname');\nif (!status) fehlt.push('gate2_status');\nif (fehlt.length) throw new Error('bc3.lieferungen: es fehlt ' + fehlt.join(', ') + ' (BC3-80 Lieferungs-Zeile bauen)');\n\n// Seit 23.10.2026: der Squash-Commit auf main, sonst der Commit im Zweig\nlet commit = l.pr?.commit_main || null;\nif (!commit) { try { commit = $('Zweig vorbereiten').first().json.commit || null; } catch (e) { commit = null; } }\n\n// Die Spalte nimmt einen Teilprozess (Fremdschlüssel), weitere stehen im Ticket-Set\nconst tp = String(ids.sub_process_id || '').split(',')[0].trim() || null;\n\n// Seit 11.11.2026: ticket_set wie ticket_set.json im Repo (ohne interne _-Felder),\n// darin die Akzeptanzkriterien je Story, aus denen BC4 Testfälle macht (Simeon, BC0)\nconst ticketSet = {};\nfor (const [k, v] of Object.entries(tickets)) if (!k.startsWith('_')) ticketSet[k] = v;\nconst hatTickets = Array.isArray(ticketSet.epics) && ticketSet.epics.length > 0;\nconst kriterien = (ticketSet.epics || []).reduce((n, e) =>\n  n + (e.stories || []).reduce((m, s) => m + (s.akzeptanzkriterien || []).length, 0), 0);\n\n// Seit 11.11.2026: compliance_audit und blueprint ebenso als Kopie der Dateien im Repo\n// (offene-punkte bleibt bei BC3, architecture.md hat keine Spalte)\nconst alsDatei = name => {\n  const d = (l.dateien || []).find(x => x._datei === name);\n  if (!d) return null;\n  const rein = {};\n  for (const [k, v] of Object.entries(d)) if (!k.startsWith('_')) rein[k] = v;\n  return Object.keys(rein).length ? JSON.stringify(rein) : null;\n};\n\n// Seit 11.11.2026: anfrage_id auf das Format A-JJJJ-NN prüfen, sonst leer lassen.\n// Ob es sie gibt, prüft nur der Fremdschlüssel (bc3_role darf ref_anfragen nicht lesen).\nconst anfrage = ids.anfrage_id ? String(ids.anfrage_id).trim() : null;\nconst anfrageFormatOk = !anfrage || /^A-\\d{4}-\\d{2,}$/.test(anfrage);\n\n// Seit 18.11.2026: eigene Spalten für Priorisierung, Konzept und Potenziale (Vertrag 3.6),\n// dazu status wie der Ordnername im Repo (gueltig, test, veraltet). Nicht freigegebene\n// Lieferungen (nachbessern, abgelehnt) sind nie maßgeblich und kommen als veraltet hinein.\nconst UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\nconst alsUuid = v => (v && UUID.test(String(v).trim()) ? String(v).trim() : null);\nconst ref = ticketSet.konzept_ref || {};\nconst priorisierungId = alsUuid(ids.priorisierung_id || ref.priorisierung_id);\nconst konzeptId = alsUuid(ids.konzept_id || ref.konzept_id);\nconst potenzialIds = (ticketSet.epics || []).map(e => alsUuid(e.potenzial_id)).filter(Boolean);\nconst zeilenStatus = status === 'approved' ? 'gueltig' : 'veraltet';\n\nreturn [{\n  json: {\n    werte: [\n      l.lieferung_id,\n      ids.company_id,\n      ids.process_id || u.konzept?.kp_id || null,\n      tp,\n      l.projekt_kurzname,\n      tickets.schema_version || null,\n      `contracts/bc3-to-bc4/${l.projekt_kurzname}/${l.lieferung_id}/`,\n      commit,\n      status,\n      z.person || null,\n      z.zeitpunkt || new Date().toISOString(),\n      JSON.stringify(z.pruefpunkte || []),\n      z.begruendung || null,\n      ids.paket_id,\n      anfrageFormatOk ? anfrage : null,\n      hatTickets ? JSON.stringify(ticketSet) : null,\n      alsDatei('compliance-audit'),\n      alsDatei('blueprint'),\n      priorisierungId,\n      konzeptId,\n      potenzialIds.length ? JSON.stringify(potenzialIds) : null,\n      zeilenStatus,\n    ],\n    // anfrage_id ist ohne Anfrage (Portfolio) leer, das kommt als Hinweis ins Protokoll\n    ohne_anfrage: !anfrage,\n    anfrage_geliefert: anfrage,\n    anfrage_format_ok: anfrageFormatOk,\n    ticket_set_kriterien: hatTickets ? kriterien : null,\n  },\n}];\n"
       },
       "id": "12736b3b-e70f-4ab4-bd94-c75a16ee5a1f",
       "name": "Lieferungs-Zeile bauen",
@@ -501,7 +501,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "insert into bc3.lieferungen\n  (lieferung_id, company_id, process_id, sub_process_id, use_case, schema_version, datei_pfad, commit_sha,\n   gate2_status, gate2_von, gate2_am, gate2_pruefpunkte, gate2_begruendung, paket_id, anfrage_id)\nvalues ($1, $2::uuid, $3, $4, $5, $6, $7, $8, $9, $10, $11::timestamptz, $12::jsonb, $13, $14::uuid, $15)\non conflict (lieferung_id) do update set\n  gate2_status = excluded.gate2_status,\n  gate2_von = excluded.gate2_von,\n  gate2_am = excluded.gate2_am,\n  gate2_pruefpunkte = excluded.gate2_pruefpunkte,\n  gate2_begruendung = excluded.gate2_begruendung,\n  commit_sha = coalesce(excluded.commit_sha, bc3.lieferungen.commit_sha),\n  paket_id = coalesce(excluded.paket_id, bc3.lieferungen.paket_id),\n  anfrage_id = coalesce(excluded.anfrage_id, bc3.lieferungen.anfrage_id)\nreturning lieferung_id, gate2_status",
+        "query": "-- Seit 18.11.2026: neue Spalten priorisierung_id, konzept_id, potenzial_ids, status.\n-- Eine neue gültige Lieferung setzt ältere gültige Zeilen mit gleichem Paket und\n-- Kernprozess auf veraltet, damit je Paket und Kernprozess nur eine gilt.\nwith neu as (\ninsert into bc3.lieferungen\n  (lieferung_id, company_id, process_id, sub_process_id, use_case, schema_version, datei_pfad, commit_sha,\n   gate2_status, gate2_von, gate2_am, gate2_pruefpunkte, gate2_begruendung, paket_id, anfrage_id, ticket_set,\n   compliance_audit, blueprint, priorisierung_id, konzept_id, potenzial_ids, status)\nvalues ($1, $2::uuid, $3, $4, $5, $6, $7, $8, $9, $10, $11::timestamptz, $12::jsonb, $13, $14::uuid, $15, $16::jsonb,\n        $17::jsonb, $18::jsonb, $19::uuid, $20::uuid,\n        (select array_agg(x::uuid) from jsonb_array_elements_text($21::jsonb) as x), $22)\non conflict (lieferung_id) do update set\n  gate2_status = excluded.gate2_status,\n  gate2_von = excluded.gate2_von,\n  gate2_am = excluded.gate2_am,\n  gate2_pruefpunkte = excluded.gate2_pruefpunkte,\n  gate2_begruendung = excluded.gate2_begruendung,\n  commit_sha = coalesce(excluded.commit_sha, bc3.lieferungen.commit_sha),\n  paket_id = coalesce(excluded.paket_id, bc3.lieferungen.paket_id),\n  anfrage_id = coalesce(excluded.anfrage_id, bc3.lieferungen.anfrage_id),\n  ticket_set = coalesce(excluded.ticket_set, bc3.lieferungen.ticket_set),\n  compliance_audit = coalesce(excluded.compliance_audit, bc3.lieferungen.compliance_audit),\n  blueprint = coalesce(excluded.blueprint, bc3.lieferungen.blueprint),\n  priorisierung_id = coalesce(excluded.priorisierung_id, bc3.lieferungen.priorisierung_id),\n  konzept_id = coalesce(excluded.konzept_id, bc3.lieferungen.konzept_id),\n  potenzial_ids = coalesce(excluded.potenzial_ids, bc3.lieferungen.potenzial_ids),\n  status = excluded.status\nreturning lieferung_id, gate2_status, anfrage_id, ticket_set is not null as hat_ticket_set,\n  compliance_audit is not null as hat_compliance_audit, blueprint is not null as hat_blueprint,\n  status, priorisierung_id, konzept_id, cardinality(potenzial_ids) as anzahl_potenziale\n), alt as (\n  update bc3.lieferungen set status = 'veraltet'\n  where $22 = 'gueltig' and status = 'gueltig'\n    and paket_id = $14::uuid and process_id = $3 and lieferung_id <> $1\n  returning lieferung_id\n)\nselect neu.*, (select count(*) from alt) as veraltet_gesetzt,\n  (select string_agg(lieferung_id, ', ') from alt) as veraltet_ids\nfrom neu",
         "options": {
           "queryReplacement": "={{ $json.werte }}"
         }
@@ -520,11 +520,11 @@
         }
       },
       "onError": "continueRegularOutput",
-      "notes": "Team-Datenbank (Zugang Postgres Team-Datenbank, bc3_role). Läuft bei Fehler weiter, der Lauf hängt nicht an der Team-Datenbank, BC3-99 meldet nichts davon"
+      "notes": "Team-Datenbank (Zugang Postgres Simeon, bc3_role). Läuft bei Fehler weiter, der Lauf hängt nicht an der Team-Datenbank, BC3-99 meldet nichts davon"
     },
     {
       "parameters": {
-        "jsCode": "// BC3-00 bekommt den Umschlag aus \"Gate 2 abschliessen\", egal ob in bc3.lieferungen geschrieben wurde\nconst g = $('Gate 2 abschliessen').first().json;\nlet befund = null;\ntry {\n  // Seit 23.10.2026: scheitert schon die Zeile (z. B. company_id fehlt), steht deren Grund im Befund,\n  // nicht der Folgefehler der Datenbank\n  const zeile = $('Lieferungs-Zeile bauen').isExecuted ? $('Lieferungs-Zeile bauen').first().json : null;\n  if (zeile?.error) {\n    befund = 'bc3.lieferungen nicht geschrieben: ' + String(zeile.error.message || 'ohne Angabe').split('\\n')[0].slice(0, 200);\n  } else if ($('In bc3.lieferungen schreiben').isExecuted) {\n    const r = $('In bc3.lieferungen schreiben').first().json;\n    befund = r.lieferung_id\n      ? 'In bc3.lieferungen eingetragen: ' + r.lieferung_id + ' (' + r.gate2_status + ')'\n        + (zeile?.ohne_anfrage ? ', ohne anfrage_id (von BC2 nicht geliefert)' : '')\n      : 'bc3.lieferungen nicht geschrieben: ' + String(r.error?.message || r.message || 'ohne Angabe').split('\\n')[0].slice(0, 200);\n  }\n} catch (e) { befund = null; }\nif (!befund) return [{ json: g }];\n\nconst u = g.umschlag || {};\nconst prot = [...(u.protokoll || [])];\n// An den Eintrag „BC3-80 Gate 2“ hängen, nicht an den letzten Eintrag\nlet i = prot.map(p => p.stufe).lastIndexOf('BC3-80 Gate 2');\nif (i < 0) i = prot.length - 1;\nif (i >= 0) prot[i] = { ...prot[i], befunde: [...(prot[i].befunde || []), befund] };\nreturn [{ json: { ...g, umschlag: { ...u, protokoll: prot } } }];\n"
+        "jsCode": "// BC3-00 bekommt den Umschlag aus \"Gate 2 abschliessen\", egal ob in bc3.lieferungen geschrieben wurde\nconst g = $('Gate 2 abschliessen').first().json;\nlet befund = null;\ntry {\n  // Seit 23.10.2026: scheitert schon die Zeile (z. B. company_id fehlt), steht deren Grund im Befund,\n  // nicht der Folgefehler der Datenbank\n  const zeile = $('Lieferungs-Zeile bauen').isExecuted ? $('Lieferungs-Zeile bauen').first().json : null;\n  if (zeile?.error) {\n    befund = 'bc3.lieferungen nicht geschrieben: ' + String(zeile.error.message || 'ohne Angabe').split('\\n')[0].slice(0, 200);\n  } else if ($('In bc3.lieferungen schreiben').isExecuted) {\n    const r = $('In bc3.lieferungen schreiben').first().json;\n    // Seit 11.11.2026: sagt auch, welche Inhalte drinstehen und was mit anfrage_id passiert ist\n    const a = zeile?.anfrage_geliefert;\n    const zuAnfrage = !a ? ', ohne anfrage_id (von BC2 nicht geliefert)'\n      : zeile.anfrage_format_ok === false ? ', anfrage_id ' + a + ' hat nicht das Format A-JJJJ-NN, leer gelassen'\n      : r.anfrage_id === a ? ', anfrage_id ' + a\n      : ', anfrage_id ' + a + ' nicht übernommen';\n    const mit = [], ohne = [];\n    (r.hat_ticket_set ? mit : ohne).push('ticket_set'\n      + (r.hat_ticket_set && zeile?.ticket_set_kriterien != null ? ' (' + zeile.ticket_set_kriterien + ' Akzeptanzkriterien)' : ''));\n    (r.hat_compliance_audit ? mit : ohne).push('compliance_audit');\n    (r.hat_blueprint ? mit : ohne).push('blueprint');\n    const zuTickets = (mit.length ? ', mit ' + mit.join(', ') : '') + (ohne.length ? ', ohne ' + ohne.join(', ') : '');\n    befund = r.lieferung_id\n      ? 'In bc3.lieferungen eingetragen: ' + r.lieferung_id + ' (' + r.gate2_status + ')' + zuTickets + zuAnfrage\n      : 'bc3.lieferungen nicht geschrieben: ' + String(r.error?.message || r.message || 'ohne Angabe').split('\\n')[0].slice(0, 200);\n  }\n} catch (e) { befund = null; }\nif (!befund) return [{ json: g }];\n\nconst u = g.umschlag || {};\nconst prot = [...(u.protokoll || [])];\n// An den Eintrag „BC3-80 Gate 2“ hängen, nicht an den letzten Eintrag\nlet i = prot.map(p => p.stufe).lastIndexOf('BC3-80 Gate 2');\nif (i < 0) i = prot.length - 1;\nif (i >= 0) prot[i] = { ...prot[i], befunde: [...(prot[i].befunde || []), befund] };\nreturn [{ json: { ...g, umschlag: { ...u, protokoll: prot } } }];\n"
       },
       "id": "05640346-e95e-4ea7-a6c1-815431c27278",
       "name": "Ergebnis zurückgeben",
@@ -534,6 +534,247 @@
         1392,
         304
       ]
+    },
+    {
+      "id": "1aac4622-82cb-44cf-b4b6-93964a5ea8f5",
+      "name": "Auf Prüfung warten",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1968,
+        -480
+      ],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 30,
+        "unit": "seconds"
+      },
+      "notes": "Die Prüfung im Team-Repo braucht nach dem Öffnen etwa 10 bis 30 Sekunden"
+    },
+    {
+      "id": "ea682857-f2f0-4432-a84e-2bf8bade0d85",
+      "name": "Prüfung holen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2192,
+        -480
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Lieferung ins Repo vorbereiten').first().json.url_pulls.replace(/\\/pulls$/, '') }}/commits/{{ $('Pull Request öffnen').first().json.head?.sha }}/check-runs?check_name={{ encodeURIComponent('Schema und Vollständigkeit') }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "credentials": {
+        "githubApi": {
+          "name": "GitHub coe-factory"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "e16eb9b1-0ce8-4323-acc5-daf0c3b08eda",
+      "name": "Prüfung auswerten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2416,
+        -480
+      ],
+      "parameters": {
+        "jsCode": "// Seit 18.11.2026 (Prüfung Kritiker/Richter): BC3 mergt erst, wenn die Prüfung\n// „Schema und Vollständigkeit“ im Team-Repo grün ist. Vorher wurden #397 und #398\n// nach 3 Sekunden gemergt, obwohl die Prüfung rot war.\nconst PRUEFUNG = 'Schema und Vollständigkeit';\nconst MAX_RUNDEN = 5;          // je 30 Sekunden Wartezeit\nconst runde = $runIndex + 1;\n\nlet pr = null;\ntry { pr = $('Pull Request öffnen').first().json; } catch (e) { pr = null; }\nif (!pr || !pr.number) {\n  return [{ json: { entscheidung: 'nicht_mergen', grund: 'kein Pull Request angelegt', runde } }];\n}\n\nconst antwort = $input.first().json || {};\nconst basis = { number: pr.number, runde };\nconst laeufe = (antwort.check_runs || []).filter(c => c.name === PRUEFUNG);\n\nif (!laeufe.length) {\n  // Die Prüfung startet erst nach dem Öffnen, in der ersten Runde gibt es oft noch keinen Lauf\n  const grund = antwort.message || antwort.error\n    ? `Prüfung nicht abrufbar (${String(antwort.message || antwort.error?.message || antwort.error).slice(0, 120)})`\n    : `keine Prüfung „${PRUEFUNG}“ nach ${runde * 30} Sekunden`;\n  return [{ json: { ...basis, entscheidung: runde < MAX_RUNDEN ? 'warten' : 'nicht_mergen', grund } }];\n}\n\nconst l = [...laeufe].sort((a, b) => String(b.started_at).localeCompare(String(a.started_at)))[0];\nif (l.status !== 'completed') {\n  return [{ json: { ...basis, entscheidung: runde < MAX_RUNDEN ? 'warten' : 'nicht_mergen',\n    grund: `Prüfung nach ${runde * 30} Sekunden noch nicht fertig` } }];\n}\nif (l.conclusion === 'success') {\n  return [{ json: { ...basis, entscheidung: 'mergen', grund: 'Prüfung grün' } }];\n}\nreturn [{ json: { ...basis, entscheidung: 'nicht_mergen',\n  grund: `Prüfung „${PRUEFUNG}“ ist ${l.conclusion}: ${l.html_url}` } }];\n"
+      }
+    },
+    {
+      "id": "5693607d-93bc-4e97-acb2-364e61940d5c",
+      "name": "Weiter warten?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2640,
+        -480
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ww1",
+              "leftValue": "={{ $json.entscheidung }}",
+              "rightValue": "warten",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a1d9cb51-02fa-41fc-b561-8b3b43e5176b",
+      "name": "Mergen?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2864,
+        -400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "mg1",
+              "leftValue": "={{ $json.entscheidung }}",
+              "rightValue": "mergen",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "36dbdd7d-bf45-46d0-b7d7-38632b9521fd",
+      "name": "Fehler melden?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        -160
+      ],
+      "parameters": {
+        "jsCode": "// Seit 18.11.2026: Scheitert die Lieferung ins Repository (kein Pull Request, Prüfung\n// nicht grün, Merge gescheitert), steht das zusätzlich in der Tabelle fehler und damit\n// auf der Übersicht BC3-82. Vorher stand es nur im Protokoll des Laufs.\nconst j = $input.first().json;\nconst p = (j.umschlag?.protokoll || []).slice(-1)[0] || {};\nif (p.status === 'ok') return [];\nreturn [{ json: {\n  baustein: 'Lieferung ins Repository',\n  meldung: (p.befunde || []).join(' ').slice(0, 900) || 'Lieferung ins Repository mit Fehler',\n} }];\n"
+      }
+    },
+    {
+      "id": "5181446b-23ca-4e6c-bfda-835528f68844",
+      "name": "In fehler schreiben",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1184,
+        -160
+      ],
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public",
+          "cachedResultName": "public"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "name",
+          "value": "fehler"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "zeitpunkt": "={{ $now.toISO() }}",
+            "workflow": "BC3-80 Gate 2",
+            "stufe": "BC3-80",
+            "baustein": "={{ $json.baustein }}",
+            "meldung": "={{ $json.meldung }}",
+            "schwere": "fehler",
+            "link": "=__N8N_ADRESSE__/workflow/{{ $workflow.id }}/executions/{{ $execution.id }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "zeitpunkt",
+              "displayName": "zeitpunkt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "workflow",
+              "displayName": "workflow",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "stufe",
+              "displayName": "stufe",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "baustein",
+              "displayName": "baustein",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "meldung",
+              "displayName": "meldung",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "schwere",
+              "displayName": "schwere",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "link",
+              "displayName": "link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "name": "Postgres BC3"
+        }
+      },
+      "onError": "continueRegularOutput"
     }
   ],
   "connections": {
@@ -699,17 +940,6 @@
         ]
       ]
     },
-    "Pull Request öffnen": {
-      "main": [
-        [
-          {
-            "node": "Pull Request mergen",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Pull Request mergen": {
       "main": [
         [
@@ -726,6 +956,11 @@
         [
           {
             "node": "Gate 2 abschliessen",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fehler melden?",
             "type": "main",
             "index": 0
           }
@@ -788,6 +1023,97 @@
         [
           {
             "node": "Ergebnis zurückgeben",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pull Request öffnen": {
+      "main": [
+        [
+          {
+            "node": "Auf Prüfung warten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auf Prüfung warten": {
+      "main": [
+        [
+          {
+            "node": "Prüfung holen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prüfung holen": {
+      "main": [
+        [
+          {
+            "node": "Prüfung auswerten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prüfung auswerten": {
+      "main": [
+        [
+          {
+            "node": "Weiter warten?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Weiter warten?": {
+      "main": [
+        [
+          {
+            "node": "Auf Prüfung warten",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mergen?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mergen?": {
+      "main": [
+        [
+          {
+            "node": "Pull Request mergen",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Lieferung vermerken",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fehler melden?": {
+      "main": [
+        [
+          {
+            "node": "In fehler schreiben",
             "type": "main",
             "index": 0
           }
