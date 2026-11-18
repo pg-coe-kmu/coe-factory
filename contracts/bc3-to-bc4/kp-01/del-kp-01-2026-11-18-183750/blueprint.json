@@ -1,0 +1,187 @@
+{
+  "projekt_kurzname": "kp-01",
+  "lieferung_id": "del-kp-01-2026-11-18-183750",
+  "kp_id": "KP-01",
+  "teilprozess_ids": [
+    "KP-01.TP-1",
+    "KP-01.TP-2"
+  ],
+  "erzeugt_am": "2026-11-18T18:37:51.075Z",
+  "erzeugt_von": "BC3-50 Bauplan erzeugen",
+  "komponenten": [
+    {
+      "name": "EspoCRM",
+      "anbindung": "API",
+      "rollen": [
+        "Quelle"
+      ],
+      "verwendet_in": [
+        "Automatisierte Klausur-Vorbereitung durch Lagedaten-Aggregation"
+      ]
+    },
+    {
+      "name": "Grafana",
+      "anbindung": "API",
+      "rollen": [
+        "Quelle"
+      ],
+      "verwendet_in": [
+        "Automatisierte Klausur-Vorbereitung durch Lagedaten-Aggregation"
+      ]
+    },
+    {
+      "name": "NocoDB",
+      "anbindung": "API",
+      "rollen": [
+        "Quelle",
+        "Ziel"
+      ],
+      "verwendet_in": [
+        "Automatisierte Klausur-Vorbereitung durch Lagedaten-Aggregation",
+        "Automatisierte Protokoll- und OKR-Kaskaden-Ableitung nach der Klausur"
+      ]
+    },
+    {
+      "name": "n8n",
+      "anbindung": "API",
+      "rollen": [
+        "Quelle+Ziel"
+      ],
+      "verwendet_in": [
+        "Automatisierte Klausur-Vorbereitung durch Lagedaten-Aggregation",
+        "Automatisierte Protokoll- und OKR-Kaskaden-Ableitung nach der Klausur"
+      ]
+    },
+    {
+      "name": "Nextcloud Hub",
+      "anbindung": "API",
+      "rollen": [
+        "Ziel",
+        "Quelle+Ziel"
+      ],
+      "verwendet_in": [
+        "Automatisierte Klausur-Vorbereitung durch Lagedaten-Aggregation",
+        "Automatisierte Protokoll- und OKR-Kaskaden-Ableitung nach der Klausur"
+      ]
+    },
+    {
+      "name": "PaddleOCR",
+      "anbindung": "API",
+      "rollen": [
+        "Quelle"
+      ],
+      "verwendet_in": [
+        "Automatisierte Protokoll- und OKR-Kaskaden-Ableitung nach der Klausur"
+      ]
+    }
+  ],
+  "datenfluesse": [
+    {
+      "von": "EspoCRM",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Grafana",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "NocoDB",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Prozess",
+      "nach": "NocoDB",
+      "art": "schreibt"
+    },
+    {
+      "von": "n8n",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Prozess",
+      "nach": "n8n",
+      "art": "schreibt"
+    },
+    {
+      "von": "Prozess",
+      "nach": "Nextcloud Hub",
+      "art": "schreibt"
+    },
+    {
+      "von": "Nextcloud Hub",
+      "nach": "Prozess",
+      "art": "liest"
+    },
+    {
+      "von": "Prozess",
+      "nach": "Nextcloud Hub",
+      "art": "schreibt"
+    },
+    {
+      "von": "PaddleOCR",
+      "nach": "Prozess",
+      "art": "liest"
+    }
+  ],
+  "menschliche_entscheidungspunkte": [
+    {
+      "story_id": "st-703c-a5c0-a016-79366fe7cea8-6",
+      "epic_id": "ep-703c-a5c0-a016-79366fe7cea8",
+      "titel": "Ablage des Drafts in Nextcloud Hub und Freigabeprozess",
+      "erkannt_an": "Freigab"
+    },
+    {
+      "story_id": "st-592d-60c5-c0cd-4eab59bdbf35-3",
+      "epic_id": "ep-592d-60c5-c0cd-4eab59bdbf35",
+      "titel": "OKR-Kaskade aus Protokoll ableiten und ins OKR-Tooling eintragen",
+      "erkannt_an": "freigeb"
+    },
+    {
+      "story_id": "st-592d-60c5-c0cd-4eab59bdbf35-4",
+      "epic_id": "ep-592d-60c5-c0cd-4eab59bdbf35",
+      "titel": "Protokollentwurf und OKR-Vorschläge für Freigabe bereitstellen",
+      "erkannt_an": "Freigab"
+    }
+  ],
+  "tech_stack": [
+    "n8n (self-hosted, Hetzner) — Workflow-Orchestrierung und Datenabruf",
+    "Ollama mit Mistral oder Llama — primäres LLM für Textsynthese (EU, OSS, kein externes API erforderlich)",
+    "Anthropic Claude API (EU-Region, AVV) — Fallback-LLM bei höherer Synthesekomplexität",
+    "Nextcloud Hub (self-hosted, Hetzner) — Ablage und Freigabe des generierten Drafts",
+    "GitLab self-hosted — Versionierung der Prompt-Templates und Workflow-Konfiguration",
+    "PostgreSQL 16 — optionale Persistenz von Workflow-Läufen und Snapshot-Daten",
+    "n8n (self-hosted, Hetzner) — Workflow-Orchestrierung und Input-Routing",
+    "Ollama mit Mistral oder Llama — primäres LLM für Protokoll-Synthese und OKR-Strukturierung (EU, OSS)",
+    "Anthropic Claude API (EU-Region, AVV) — Fallback-LLM bei hoher Eingabe-Komplexität",
+    "PaddleOCR (self-hosted) — OCR für Whiteboard-Fotos und gescannte Unterlagen",
+    "Nextcloud Hub (self-hosted, Hetzner) — Ablage von Protokoll und OKR-Fallback-Dateien",
+    "NocoDB (self-hosted, IONOS) — strukturiertes Logging der Workflow-Läufe",
+    "GitLab self-hosted — Versionierung von Prompt-Templates und OKR-Schema"
+  ],
+  "epics": [
+    {
+      "epic_id": "ep-703c-a5c0-a016-79366fe7cea8",
+      "titel": "Automatisierte Klausur-Vorbereitung durch Lagedaten-Aggregation",
+      "kategorien": [
+        "it:backend",
+        "it:integration",
+        "it:ai-pipeline"
+      ],
+      "anzahl_stories": 9
+    },
+    {
+      "epic_id": "ep-592d-60c5-c0cd-4eab59bdbf35",
+      "titel": "Automatisierte Protokoll- und OKR-Kaskaden-Ableitung nach der Strategie-Klausur",
+      "kategorien": [
+        "it:backend",
+        "it:integration",
+        "it:ai-pipeline"
+      ],
+      "anzahl_stories": 7
+    }
+  ]
+}
