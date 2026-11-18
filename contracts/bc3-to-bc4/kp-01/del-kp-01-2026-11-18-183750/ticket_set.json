@@ -1,0 +1,313 @@
+{
+  "lieferung_id": "del-kp-01-2026-11-18-183750",
+  "schema_version": "3.6",
+  "projekt_kurzname": "kp-01",
+  "konzept_ref": {
+    "konzept_id": "51a80db2-799c-405e-b45f-38862830f59c",
+    "schema_version": "3.1",
+    "source_file": "konzept_KP-01.json",
+    "kp_id": "KP-01",
+    "teilprozess_ids": [
+      "KP-01.TP-1",
+      "KP-01.TP-2"
+    ],
+    "value_quelle": "keine",
+    "company_id": "3e163e8a-18a2-4bde-b0ba-b7986de670f7",
+    "paket_id": "fd2e2712-fbb6-426a-937b-747fbb83e18d",
+    "priorisierung_id": "c4e30d28-871f-4620-bbba-ffbce3b42162"
+  },
+  "epics": [
+    {
+      "epic_id": "ep-703c-a5c0-a016-79366fe7cea8",
+      "titel": "Automatisierte Klausur-Vorbereitung durch Lagedaten-Aggregation",
+      "ziel": "Die Geschäftsführung erhält termingerecht einen vollständigen, automatisiert erstellten Klausur-Vorbereitungsdraft mit Lagebild und Agenda-Entwurf, um manuelle Routinearbeit zu reduzieren.",
+      "kategorien": [
+        "it:backend",
+        "it:integration",
+        "it:ai-pipeline"
+      ],
+      "stories": [
+        {
+          "story_id": "st-703c-a5c0-a016-79366fe7cea8-1",
+          "titel": "Termingesteuerte Workflow-Auslösung für Klausur-Vorbereitung",
+          "beschreibung": "Als n8n-Workflow möchte ich zum konfigurierten Vorlauf-Zeitpunkt eines Klausurtermins automatisch ausgelöst werden, damit die Datensammlung und Draft-Erstellung pünktlich beginnen kann.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein geplanter Klausurtermin ist im System hinterlegt, When der konfigurierte Vorlauf-Zeitpunkt erreicht wird, Then wird der n8n-Workflow automatisch ausgelöst.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given der Workflow wird ausgelöst, When der Klausurtermin erreicht ist, Then liegt der vollständige Draft in Nextcloud Hub vor, bevor die Klausur beginnt.",
+              "messverfahren": "Zeitstempel der Datei-Erstellung in Nextcloud Hub wird mit dem Klausur-Startzeitpunkt verglichen; Prüfung nach jeder Klausur."
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-703c-a5c0-a016-79366fe7cea8-2",
+          "titel": "Datenabruf aus EspoCRM, Grafana und NocoDB",
+          "beschreibung": "Als n8n-Workflow möchte ich Daten aus EspoCRM, Grafana und NocoDB abrufen, normalisieren und für die weitere Verarbeitung bereitstellen, damit das Lagebild alle relevanten Metriken enthält.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given EspoCRM, Grafana und NocoDB sind erreichbar, When der Workflow ausgeführt wird, Then werden Daten aus allen drei Quellen erfolgreich abgerufen und im Workflow-Protokoll dokumentiert.",
+              "messverfahren": "Prüfung des n8n-Workflow-Protokolls auf erfolgreiche Abfragen aller drei Quellen."
+            },
+            {
+              "text": "Given eine der Datenquellen ist nicht erreichbar, When der Workflow ausgeführt wird, Then wird eine eindeutige Fehlerbenachrichtigung an die Geschäftsführung gesendet und der Draft mit einem entsprechenden Hinweis erzeugt.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given personenbezogene Daten aus EspoCRM werden abgerufen, When die Daten für den Draft aufbereitet werden, Then werden nur die für die strategische Lagebewertung erforderlichen Daten übernommen.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-703c-a5c0-a016-79366fe7cea8-1"
+          ]
+        },
+        {
+          "story_id": "st-703c-a5c0-a016-79366fe7cea8-3",
+          "titel": "Transparente Kennzeichnung der Datenquellen und Abrufzeitpunkte",
+          "beschreibung": "Als n8n-Workflow möchte ich die Quellsysteme und den Abrufzeitpunkt der Daten im Draft transparent ausweisen, damit die Geschäftsführung die Aktualität der Datenbasis beurteilen kann.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given der Workflow hat Daten aus EspoCRM, Grafana und NocoDB abgerufen, When der Draft erzeugt wird, Then sind die Quellsysteme und der Abrufzeitpunkt im Dokument vermerkt.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-703c-a5c0-a016-79366fe7cea8-2"
+          ]
+        },
+        {
+          "story_id": "st-703c-a5c0-a016-79366fe7cea8-4",
+          "titel": "Verarbeitung unstrukturierter KB-Input-Daten",
+          "beschreibung": "Als n8n-Workflow möchte ich unstrukturierte KB-Input-Daten erkennen und im Draft als ausstehend markieren, damit die Geschäftsführung gezielt manuell ergänzen kann.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given der KB-Input liegt nicht in strukturierter Form vor, When der Workflow den Draft erzeugt, Then ist der KB-Abschnitt im Dokument als ausstehend markiert und enthält keinen Platzhaltertext.",
+              "messverfahren": "Manuelle Sichtprüfung des Drafts nach Workflow-Ausführung; Kontrolle, ob der Marker-Text im Dokument vorhanden ist."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-703c-a5c0-a016-79366fe7cea8-2"
+          ]
+        },
+        {
+          "story_id": "st-703c-a5c0-a016-79366fe7cea8-5",
+          "titel": "Textsynthese des Lagebilds und Agenda-Entwurfs durch LLM",
+          "beschreibung": "Als LLM möchte ich die normalisierten Daten aus dem Workflow erhalten und daraus ein strukturiertes Lagebild sowie einen Agenda-Entwurf generieren, damit die Geschäftsführung einen vollständigen Draft erhält.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given die Daten aus EspoCRM, Grafana und NocoDB sind normalisiert, When das LLM den Draft erzeugt, Then enthält das Lagebild alle relevanten Metriken und der Agenda-Entwurf benennt die wesentlichen strategischen Themen.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given das LLM (Ollama oder Claude API) ist nicht erreichbar, When der Workflow ausgeführt wird, Then wird eine Fehlerbenachrichtigung an die Geschäftsführung gesendet und der Draft nicht erzeugt.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-703c-a5c0-a016-79366fe7cea8-2"
+          ]
+        },
+        {
+          "story_id": "st-703c-a5c0-a016-79366fe7cea8-6",
+          "titel": "Ablage des Drafts in Nextcloud Hub und Freigabeprozess",
+          "beschreibung": "Als n8n-Workflow möchte ich den erzeugten Draft in Nextcloud Hub ablegen und den Freigabeprozess der Geschäftsführung unterstützen, damit das Dokument erst nach Freigabe als final gilt.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given der Draft wurde erzeugt, When der Workflow abgeschlossen ist, Then liegt der Draft im definierten Nextcloud-Ordner und ist für die Geschäftsführung zur Freigabe verfügbar.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given der Draft wurde nicht von der Geschäftsführung freigegeben, When die Klausur beginnt, Then gilt der Draft nicht als finales Klausurdokument.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-703c-a5c0-a016-79366fe7cea8-5"
+          ]
+        },
+        {
+          "story_id": "st-703c-a5c0-a016-79366fe7cea8-7",
+          "titel": "Kennzeichnung vorläufiger Lagebilder bei Ad-hoc-Klausuren",
+          "beschreibung": "Als n8n-Workflow möchte ich bei Ad-hoc-Klausuren mit unvollständigen Datenbeständen das Lagebild als vorläufig kennzeichnen, damit die Geschäftsführung die Datenbasis korrekt einordnen kann.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine Ad-hoc-Klausur wird mit unvollständigen Daten ausgelöst, When der Workflow den Draft erzeugt, Then ist das Lagebild im Dokument als vorläufig gekennzeichnet.",
+              "messverfahren": "Manuelle Sichtprüfung des Drafts nach Workflow-Ausführung bei simulierter Ad-hoc-Klausur."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-703c-a5c0-a016-79366fe7cea8-2"
+          ]
+        },
+        {
+          "story_id": "st-703c-a5c0-a016-79366fe7cea8-8",
+          "titel": "Kennzeichnung LLM-generierter Inhalte im Lagebild und Agenda-Entwurf",
+          "beschreibung": "Der Workflow muss sicherstellen, dass alle durch das LLM generierten Textabschnitte (Lagebild, Agenda-Entwurf) maschinenlesbar als künstlich erzeugt gekennzeichnet werden, um Artikel 50 Absatz 2 AI-Act zu erfüllen. Die Kennzeichnung erfolgt durch einen standardisierten Hinweis im Dokumentenkopf und in den Metadaten.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given der Workflow generiert das Lagebild oder den Agenda-Entwurf, When der Draft in Nextcloud Hub abgelegt wird, Then enthält das Dokument einen maschinenlesbaren Hinweis auf die KI-Erzeugung im Dokumentenkopf und in den Metadaten.",
+              "messverfahren": "Manuelle Prüfung des Dokumentenkopfs und der Metadaten nach jeder Draft-Erstellung."
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-703c-a5c0-a016-79366fe7cea8-9",
+          "titel": "Pseudonymisierung von Zugangsdaten vor LLM-Verarbeitung",
+          "beschreibung": "Der Workflow muss sicherstellen, dass Zugangsdaten (Stufe hoch) vor der Verarbeitung durch das LLM pseudonymisiert werden, um Artikel 25 DSGVO zu erfüllen. Die Pseudonymisierung erfolgt durch Ersetzen der Zugangsdaten durch eine Kennung, die nach der Verarbeitung wieder aufgelöst wird.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given Zugangsdaten werden aus EspoCRM abgerufen, When die Daten für die LLM-Verarbeitung aufbereitet werden, Then werden die Zugangsdaten durch eine Kennung ersetzt und erst nach der Verarbeitung wieder eingesetzt.",
+              "messverfahren": "Manuelle Prüfung der Workflow-Protokolle auf Pseudonymisierung der Zugangsdaten vor und nach der LLM-Verarbeitung."
+            }
+          ],
+          "abhaengigkeiten": []
+        }
+      ],
+      "teilprozess_ids": [
+        "KP-01.TP-1"
+      ],
+      "potenzial_id": "1c647610-7fab-4ebe-bce2-9cea555ffd87"
+    },
+    {
+      "epic_id": "ep-592d-60c5-c0cd-4eab59bdbf35",
+      "titel": "Automatisierte Protokoll- und OKR-Kaskaden-Ableitung nach der Strategie-Klausur",
+      "ziel": "Ein KI-gestützter Workflow erzeugt unmittelbar nach der Klausur einen freigebbaren Protokollentwurf und trägt OKR-Vorschläge ins OKR-Tooling ein, um die Nachbereitungszeit von mehreren Tagen auf nahezu sofortige Verfügbarkeit zu reduzieren.",
+      "kategorien": [
+        "it:backend",
+        "it:integration",
+        "it:ai-pipeline"
+      ],
+      "stories": [
+        {
+          "story_id": "st-592d-60c5-c0cd-4eab59bdbf35-1",
+          "titel": "Eingabeformat des Klausur-Inputs erkennen und Extraktionsschritt einleiten",
+          "beschreibung": "Als n8n-Workflow möchte ich das Eingabeformat der Klausurergebnisse (strukturiert: Textdatei/Markdown; unstrukturiert: Audio/Bild) automatisch erkennen, damit bei unstrukturiertem Input ein vorgelagerter Extraktionsschritt (Transkription/OCR) transparent ausgelöst wird.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given Klausurergebnisse liegen in einem der definierten Formate (Text, Audio, Bild) vor, When der Workflow gestartet wird, Then erkennt er das Format und leitet bei unstrukturiertem Input (Audio/Bild) den Extraktionsschritt (Whisper/PaddleOCR) ein.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given unstrukturierte Klausurergebnisse (Audio/Bild) wurden erkannt, When der Extraktionsschritt abgeschlossen ist, Then ist der extrahierte Text als Eingabe für die weitere Verarbeitung verfügbar und der Workflow dokumentiert den Extraktionsschritt im Log-Eintrag (NocoDB).",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-592d-60c5-c0cd-4eab59bdbf35-2",
+          "titel": "Strukturierten Protokollentwurf aus Klausur-Notizen generieren",
+          "beschreibung": "Als LLM möchte ich die Klausur-Notizen (direkt oder nach Extraktion) verarbeiten, damit ein strukturierter Protokollentwurf mit klar getrennten Abschnitten für Beschlüsse, Diskussionspunkte und Aktionspunkte erzeugt wird.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given strukturierte oder extrahierte Klausur-Notizen liegen vor, When das LLM den Protokollentwurf generiert, Then enthält das Ergebnis Beschlüsse, Diskussionspunkte und Aktionspunkte in einheitlichem Format.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given der Protokollentwurf wurde aus unstrukturiertem Input (Audio/Bild) generiert, When der Entwurf vorliegt, Then ist er als 'aus Audio extrahiert' oder 'aus Bild extrahiert' gekennzeichnet.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given der Protokollentwurf liegt vor, When er in Nextcloud Hub abgelegt wird, Then ist der Zugriff auf berechtigte Personen beschränkt.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-592d-60c5-c0cd-4eab59bdbf35-1"
+          ]
+        },
+        {
+          "story_id": "st-592d-60c5-c0cd-4eab59bdbf35-3",
+          "titel": "OKR-Kaskade aus Protokoll ableiten und ins OKR-Tooling eintragen",
+          "beschreibung": "Als LLM möchte ich aus dem Protokollentwurf eine OKR-Kaskade ableiten und die OKR-Vorschläge als Entwurf-Status ins OKR-Tooling eintragen, damit die Geschäftsführung sie prüfen und freigeben kann.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein strukturierter Protokollentwurf liegt vor, When das LLM die OKR-Kaskade ableitet, Then folgen die OKR-Vorschläge der unternehmensinternen OKR-Logik und sind als Entwurf-Status im OKR-Tooling eingetragen.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            },
+            {
+              "text": "Given OKR-Vorschläge wurden ins OKR-Tooling eingetragen, When die Geschäftsführung sie prüft, Then sind keine manuellen Übertragungsschritte erforderlich.",
+              "messverfahren": "Audit der OKR-Tooling-Einträge: Prüfung per Changelog oder Vorgangsprotokoll, ob Einträge durch den Workflow angelegt wurden (K3)."
+            },
+            {
+              "text": "Given das OKR-Tooling ist nicht erreichbar, When der Workflow die OKR-Objekte überträgt, Then legt er sie als strukturierte Datei in Nextcloud Hub ab.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-592d-60c5-c0cd-4eab59bdbf35-2"
+          ]
+        },
+        {
+          "story_id": "st-592d-60c5-c0cd-4eab59bdbf35-4",
+          "titel": "Protokollentwurf und OKR-Vorschläge für Freigabe bereitstellen",
+          "beschreibung": "Als n8n-Workflow möchte ich den Protokollentwurf in Nextcloud Hub ablegen und die OKR-Vorschläge im OKR-Tooling eintragen, damit die Geschäftsführung sie prüfen und freigeben kann.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given strukturierte Klausur-Notizen liegen vor, When der Workflow abgeschlossen ist, Then ist ein vollständiger Protokollentwurf in Nextcloud Hub abgelegt und OKR-Vorschläge sind im OKR-Tooling eingetragen, bevor der nächste Arbeitstag beginnt.",
+              "messverfahren": "Zeitstempel der Datei-Erstellung in Nextcloud Hub und Erstellungszeitpunkt der OKR-Einträge im Tooling werden gegenüber dem Klausur-Endzeitpunkt gemessen; Prüfung nach jeder Klausur (K1)."
+            },
+            {
+              "text": "Given der Workflow abgeschlossen ist, When Protokollentwurf und OKR-Vorschläge vorliegen, Then wird der gesamte Vorgang in NocoDB als Log-Eintrag dokumentiert.",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-592d-60c5-c0cd-4eab59bdbf35-2",
+            "st-592d-60c5-c0cd-4eab59bdbf35-3"
+          ]
+        },
+        {
+          "story_id": "st-592d-60c5-c0cd-4eab59bdbf35-5",
+          "titel": "Protokollentwurf aus Audio-Aufzeichnungen kennzeichnen und validieren",
+          "beschreibung": "Als Geschäftsführung möchte ich, dass Protokollentwürfe, die aus Audio-Aufzeichnungen extrahiert wurden, klar als solche gekennzeichnet sind und die wesentlichen Beschlüsse enthalten, damit die Herkunft nachvollziehbar ist und die Qualität sichergestellt wird.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given die Klausurergebnisse wurden als Audio-Aufzeichnung übergeben, When der Workflow den Extraktionsschritt abschließt, Then enthält der Protokollentwurf die wesentlichen Beschlüsse und ist als 'aus Audio extrahiert' gekennzeichnet.",
+              "messverfahren": "Manuelle Stichprüfung des Protokollentwurfs gegen die Audio-Aufzeichnung durch die Geschäftsführung; Marker-Text im Dokument wird auf Vorhandensein geprüft."
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-592d-60c5-c0cd-4eab59bdbf35-1"
+          ]
+        },
+        {
+          "story_id": "st-592d-60c5-c0cd-4eab59bdbf35-6",
+          "titel": "Kennzeichnung LLM-generierter Protokollentwürfe und OKR-Vorschläge",
+          "beschreibung": "Der Workflow muss sicherstellen, dass Protokollentwürfe und OKR-Vorschläge, die durch das LLM generiert werden, maschinenlesbar als künstlich erzeugt gekennzeichnet werden, um Artikel 50 Absatz 2 AI-Act zu erfüllen. Die Kennzeichnung erfolgt durch einen standardisierten Hinweis im Dokumentenkopf und in den Metadaten der OKR-Einträge.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given der Workflow generiert den Protokollentwurf oder OKR-Vorschläge, When die Inhalte in Nextcloud Hub oder im OKR-Tooling abgelegt werden, Then enthalten sie einen maschinenlesbaren Hinweis auf die KI-Erzeugung im Dokumentenkopf bzw. in den Metadaten der OKR-Einträge.",
+              "messverfahren": "Manuelle Prüfung des Dokumentenkopfs und der Metadaten nach jeder Generierung."
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-592d-60c5-c0cd-4eab59bdbf35-7",
+          "titel": "Hinweis auf KI-Interaktion bei Protokollentwurf und OKR-Vorschlägen",
+          "beschreibung": "Der Workflow muss sicherstellen, dass die Geschäftsführung darüber informiert wird, dass sie mit einem KI-System interagiert, wenn sie den Protokollentwurf oder die OKR-Vorschläge prüft, um Artikel 50 Absatz 1 AI-Act zu erfüllen. Der Hinweis erfolgt durch eine standardisierte Benachrichtigung bei der Bereitstellung der Inhalte.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given der Protokollentwurf oder die OKR-Vorschläge werden in Nextcloud Hub oder im OKR-Tooling bereitgestellt, When die Geschäftsführung auf die Inhalte zugreift, Then erhält sie eine Benachrichtigung, dass die Inhalte durch ein KI-System generiert wurden.",
+              "messverfahren": "Manuelle Prüfung der Benachrichtigung bei jedem Zugriff auf die Inhalte."
+            }
+          ],
+          "abhaengigkeiten": []
+        }
+      ],
+      "teilprozess_ids": [
+        "KP-01.TP-2"
+      ],
+      "potenzial_id": "ef702fb3-4958-4dba-9e98-1efa93caad2f"
+    }
+  ],
+  "gate2": {
+    "status": "approved"
+  }
+}
