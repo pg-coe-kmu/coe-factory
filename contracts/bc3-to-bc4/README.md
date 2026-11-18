@@ -100,6 +100,16 @@ python -c "import json,jsonschema,sys; \
 Bei jedem Pull Request auf `contracts/**` läuft dieselbe Prüfung automatisch, siehe
 `.github/workflows/vertraege-pruefen.yml`. Ihr seht also grün oder rot, bevor ihr lest.
 
+## Was sich am 18.11.2026 geändert hat (v3.6)
+
+| Vorher | Jetzt | Warum |
+|---|---|---|
+| nur `konzept_id` und `kp_id` in `konzept_ref` | dazu `company_id`, `paket_id`, `priorisierung_id` und, wenn BC2 sie liefert, `anfrage_id` | Soll-Ist-Vergleich: Ohne diese IDs lässt sich kein Ergebnis von BC4 der Vorgabe von BC2 zuordnen (Befund BC0, 17.11.2026) |
+| Potenzial nur im Compliance-Audit | `potenzial_id` je Epic in `ticket_set.json` | ein Potenzial von BC2 ergibt ein Epic, BC4 kann so jedes Ergebnis zurückführen |
+| `value_quelle` ohne `keine` | `keine` erlaubt | wie im Vertrag BC2 → BC3; die Lieferung `kp-01` vom 16.11. war deshalb rot |
+
+Alle neuen Felder sind optional. `schema_version` darf `3.5` oder `3.6` sein, ältere Lieferungen bleiben gültig.
+
 ## Was sich am 03.09.2026 geändert hat
 
 | Vorher | Jetzt | Warum |

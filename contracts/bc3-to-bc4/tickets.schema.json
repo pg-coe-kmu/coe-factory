@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://coe-factory/contracts/bc3-to-bc4/tickets.schema.json",
-  "title": "BC3 Tickets-Lieferung an BC4 (v3.5, mit Prozesskennung)",
-  "description": "Lieferungs-Artefakt von BC3 an BC4. Maximal reduziert: nur Stammdaten, Epics mit Stories, gate2. Compliance liegt komplett in compliance-audit.json (DSB-Audit).\n\nNeu gegenüber v3.4: die Prozesskennung. Simeon hat am 24.08.2026 festgelegt, dass die Kernprozess-ID aus der Datenbank überall mitläuft. In v3.4 hatte sie keinen Platz, weil additionalProperties auf allen Ebenen false steht.",
+  "title": "BC3 Tickets-Lieferung an BC4 (v3.6, mit IDs für den Soll-Ist-Vergleich)",
+  "description": "Lieferungs-Artefakt von BC3 an BC4. Maximal reduziert: nur Stammdaten, Epics mit Stories, gate2. Compliance liegt komplett in compliance-audit.json (DSB-Audit).\n\nNeu gegenüber v3.4: die Prozesskennung. Simeon hat am 24.08.2026 festgelegt, dass die Kernprozess-ID aus der Datenbank überall mitläuft. In v3.4 hatte sie keinen Platz, weil additionalProperties auf allen Ebenen false steht.\n\nNeu gegenüber v3.5: die IDs aus der Lieferung von BC2 (Mandant, Paket, Priorisierung, Anfrage) in konzept_ref und je Epic die potenzial_id. Grund: Simeons Befund vom 17.11.2026, ohne diese IDs lässt sich kein Ergebnis von BC4 der Vorgabe von BC2 zuordnen. Alle neuen Felder sind optional.",
   "type": "object",
   "required": [
     "lieferung_id",
@@ -20,7 +20,11 @@
     },
     "schema_version": {
       "type": "string",
-      "const": "3.5"
+      "enum": [
+        "3.5",
+        "3.6"
+      ],
+      "description": "3.6 ab 18.11.2026, 3.5 bleibt gültig für ältere Lieferungen."
     },
     "projekt_kurzname": {
       "type": "string",
@@ -68,9 +72,30 @@
           "enum": [
             "berechnet",
             "default",
-            "annahme"
+            "annahme",
+            "keine"
           ],
-          "description": "Woher die Zahlen im zugrunde liegenden Konzept stammen. 'annahme' heißt: vorläufige Übergangslieferung, noch nicht bewertet. Wandert von dort in alle abgeleiteten Artefakte mit."
+          "description": "Woher die Zahlen im zugrunde liegenden Konzept stammen. 'annahme' heißt: vorläufige Übergangslieferung, noch nicht bewertet. Wandert von dort in alle abgeleiteten Artefakte mit. 'keine' (seit v3.6, wie im Vertrag BC2 → BC3): BC2 weist für dieses Konzept keine Zahl aus."
+        },
+        "company_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Mandant aus der Lieferung von BC2 (umschlag.ids.company_id)."
+        },
+        "paket_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Paket aus der Lieferung von BC2."
+        },
+        "priorisierung_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Priorisierung aus prozesspriorisierung.json von BC2 (Gate 1)."
+        },
+        "anfrage_id": {
+          "type": "string",
+          "pattern": "^A-[0-9]{4}-[0-9]{2,}$",
+          "description": "Anfrage aus BC0, nur wenn BC2 sie mitliefert."
         }
       }
     },
@@ -150,6 +175,11 @@
             "pattern": "^KP-(0[1-9]|10)\\.TP-[1-9][0-9]?$"
           },
           "description": "Die Teilprozesse, die dieses Epic betrifft, aus dem zugehörigen Potenzial. Freiwillig: BC0 verlangt die Kennung auf Prozess- ODER Teilprozessebene, und kp_id in konzept_ref ist Pflicht. BC2 liefert Teilprozess-IDs in v2.0 noch nicht."
+        },
+        "potenzial_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Potenzial von BC2, aus dem dieses Epic entstanden ist (ein Potenzial ergibt ein Epic)."
         }
       }
     },
