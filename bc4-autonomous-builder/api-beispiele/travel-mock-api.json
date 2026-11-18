@@ -1,0 +1,420 @@
+{
+  "_quelle": "Felder laut /v3/api-docs der laufenden API (15.11.2026) und Quelltext pg-coe-kmu/travel-mock-api (master a8a766b). Werte beispielhaft, weil die Datenbank der API am 15.11. nicht antwortete.",
+  "_hinweise": [
+    "Basisadresse https://bc04-travel-mock-api.onrender.com, Pfade ohne /api, ohne Anmeldung.",
+    "Suche mit Stadtnamen: origin/destination (Flüge, mit departureDate JJJJ-MM-TT), destination (Hotels), location = Abholort (Mietwagen).",
+    "Hotels: roomTypes[] je Hotel, nur Zimmer mit maxOccupancy.adults >= numberOfAdults. Mietwagen: providers[].cars[], Preis cars[].pricing.pricePerDay.",
+    "Rückflug: zweite Flugsuche mit getauschtem origin/destination am Rückreisedatum; bei der Reservierung returnFlightId (braucht returnDate).",
+    "Ablauf: /reservation/create → status PENDING, 30 Minuten gültig. Zahlt die reisende Person (POST /payment, nicht Teil der Tickets), entsteht eine Buchung (bookingNumber BOOK-…). Nur Buchungen gehen an /booking/snapshot und /booking/cancel.",
+    "Preis rechnet die API: Flug = price je Strecke, Hotel = pricePerNight × Nächte (ein Zimmer), Mietwagen = pricePerDay × Tage. items[].price und price.totalPrice übernehmen.",
+    "items[] hat je type nur flight, hotel oder car. cancelledAt fehlt, solange nicht storniert.",
+    "Stornierbar steht nicht im Snapshot: cancelledAt fehlt und reservation.status = PAID heißt nur 'Storno möglich, falls die Bedingungen von Zimmer/Mietwagen es erlauben'; das entscheidet POST /booking/cancel (409). Also 'unbekannt' statt 'ja'.",
+    "Fehler 4xx: {timestamp, status, error, message, path}, message = Grund. Fehlt ein Pflichtfeld im Body, kommt 400 ohne message.",
+    "Stornobedingung heißt freeCancellation (true/false), dazu cancellationDeadline {type, value, unit} oder null."
+  ],
+  "GET /search/flights?origin=Frankfurt am Main&destination=Madrid&departureDate=2026-12-10&numberOfAdults=2": {
+    "antwort": {
+      "timestamp": "2026-11-15T10:41:58.731",
+      "totalCount": 2,
+      "flights": [
+        {
+          "flightId": "FL-1001",
+          "airline": "Lufthansa",
+          "flightNumber": "LH1114",
+          "departureAirport": "FRA",
+          "arrivalAirport": "MAD",
+          "departureTime": "2026-12-10T08:15:00",
+          "arrivalTime": "2026-12-10T10:50:00",
+          "travelClass": "Economy",
+          "price": 129.99,
+          "currency": "EUR",
+          "availableSeats": 18
+        }
+      ]
+    },
+    "_ohne_treffer": "totalCount 0, flights []"
+  },
+  "GET /search/flights?origin=Madrid&destination=Frankfurt am Main&departureDate=2026-12-17&numberOfAdults=2": {
+    "antwort": {
+      "timestamp": "2026-11-15T10:41:59.102",
+      "totalCount": 1,
+      "flights": [
+        {
+          "flightId": "FL-2001",
+          "airline": "Lufthansa",
+          "flightNumber": "LH1115",
+          "departureAirport": "MAD",
+          "arrivalAirport": "FRA",
+          "departureTime": "2026-12-17T11:45:00",
+          "arrivalTime": "2026-12-17T14:20:00",
+          "travelClass": "Economy",
+          "price": 119.99,
+          "currency": "EUR",
+          "availableSeats": 22
+        }
+      ]
+    }
+  },
+  "GET /search/hotels?destination=Madrid&numberOfAdults=2": {
+    "antwort": {
+      "timestamp": "2026-11-15T10:41:59.240",
+      "totalCount": 1,
+      "hotels": [
+        {
+          "hotelId": "HOT-1001",
+          "name": "Hotel Madrid Centro",
+          "city": "Madrid",
+          "country": "Spain",
+          "address": "Gran Via 12, Madrid",
+          "stars": 4,
+          "rating": {
+            "score": 4.6,
+            "reviewCount": 1280
+          },
+          "hotelAmenities": [
+            "Free WiFi",
+            "Spa"
+          ],
+          "checkInTime": "15:00",
+          "checkOutTime": "11:00",
+          "baseCurrency": "EUR",
+          "roomTypes": [
+            {
+              "roomId": "ROOM-101",
+              "roomType": "Standard Double",
+              "board": "Breakfast",
+              "pricePerNight": 136.0,
+              "availableRooms": 5,
+              "maxOccupancy": {
+                "adults": 2,
+                "children": 1
+              },
+              "bedType": "1 King Bed",
+              "roomSizeSqm": 25,
+              "cancellationPolicy": {
+                "freeCancellation": true,
+                "cancellationDeadline": {
+                  "type": "BEFORE_CHECK_IN",
+                  "value": 48,
+                  "unit": "HOURS"
+                }
+              },
+              "roomAmenities": [
+                "Air Conditioning",
+                "TV"
+              ]
+            },
+            {
+              "roomId": "ROOM-105",
+              "roomType": "Family Suite",
+              "pricePerNight": 220.0,
+              "_hinweis": "übrige Felder wie ROOM-101",
+              "cancellationPolicy": {
+                "freeCancellation": false,
+                "cancellationDeadline": null
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "GET /search/cars?location=Madrid": {
+    "antwort": {
+      "timestamp": "2026-11-15T10:41:59.388",
+      "totalCount": 1,
+      "providers": [
+        {
+          "providerId": "PROV-SIXT-01",
+          "providerName": "Sixt",
+          "rating": {
+            "score": 4.5,
+            "reviewCount": 3120
+          },
+          "baseCurrency": "EUR",
+          "providerPolicies": {
+            "minDriverAge": 21,
+            "youngDriverFeePerDay": 12.5,
+            "depositAmount": 300.0,
+            "acceptedPaymentMethods": [
+              "Credit Card"
+            ]
+          },
+          "cars": [
+            {
+              "carId": "CAR-1001",
+              "vehicleClass": "Compact",
+              "categoryCode": "CDMR",
+              "brand": "VW",
+              "model": "Golf",
+              "availableVehicles": 8,
+              "locations": {
+                "pickupLocation": {
+                  "locationId": "LOC-MAD-AP",
+                  "name": "Madrid Airport (MAD)",
+                  "city": "Madrid",
+                  "address": "28042 Madrid",
+                  "openingHours": "07:00 - 23:30"
+                },
+                "returnLocation": {
+                  "locationId": "LOC-MAD-AP",
+                  "name": "Madrid Airport (MAD)",
+                  "city": "Madrid",
+                  "address": "28042 Madrid",
+                  "openingHours": "07:00 - 23:30"
+                }
+              },
+              "specifications": {
+                "transmission": "Automatic",
+                "fuelType": "Petrol",
+                "doors": 5,
+                "seats": 5,
+                "luggageCapacity": {
+                  "largeBags": 2,
+                  "smallBags": 1
+                },
+                "airCondition": true,
+                "driveType": "FWD"
+              },
+              "pricing": {
+                "pricePerDay": 48.0,
+                "totalPrice": 240.0,
+                "rentalDays": 5
+              },
+              "includedServices": [
+                "Unlimited Mileage"
+              ],
+              "cancellationPolicy": {
+                "freeCancellation": true,
+                "cancellationDeadline": {
+                  "type": "BEFORE_PICKUP",
+                  "value": 48,
+                  "unit": "HOURS"
+                }
+              },
+              "additionalExtras": [
+                {
+                  "extraId": "EXT-GPS",
+                  "name": "Navigation System",
+                  "pricePerDay": 8.5,
+                  "priceType": "PER_DAY"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "POST /reservation/create": {
+    "anfrage": {
+      "origin": "Frankfurt am Main",
+      "destination": "Madrid",
+      "departureDate": "2026-12-10",
+      "returnDate": "2026-12-17",
+      "adults": 2,
+      "children": 0,
+      "infants": 0,
+      "flightId": "FL-1001",
+      "returnFlightId": "FL-2001",
+      "hotelId": "HOT-1001",
+      "roomId": "ROOM-101",
+      "carId": "CAR-1001",
+      "providerId": "PROV-SIXT-01",
+      "currency": "EUR"
+    },
+    "antwort_201": {
+      "reservationNumber": "RES-20261115-K7M2QX",
+      "status": "PENDING",
+      "createdAt": "2026-11-15T09:42:07.512Z",
+      "expiresAt": "2026-11-15T10:12:07.512Z",
+      "expiresInSeconds": 1799,
+      "trip": {
+        "origin": "Frankfurt am Main",
+        "destination": "Madrid",
+        "adults": 2,
+        "children": 0,
+        "infants": 0
+      },
+      "items": [
+        {
+          "type": "FLIGHT",
+          "price": 129.99,
+          "flight": {
+            "direction": "OUTBOUND",
+            "flightId": "FL-1001",
+            "airline": "Lufthansa",
+            "flightNumber": "LH1114",
+            "departureAirport": "FRA",
+            "arrivalAirport": "MAD",
+            "departureAt": "2026-12-10T08:15:00Z",
+            "arrivalAt": "2026-12-10T10:50:00Z"
+          }
+        },
+        {
+          "type": "FLIGHT",
+          "price": 119.99,
+          "flight": {
+            "direction": "RETURN",
+            "flightId": "FL-2001",
+            "airline": "Lufthansa",
+            "flightNumber": "LH1115",
+            "departureAirport": "MAD",
+            "arrivalAirport": "FRA",
+            "departureAt": "2026-12-17T11:45:00Z",
+            "arrivalAt": "2026-12-17T14:20:00Z"
+          }
+        },
+        {
+          "type": "HOTEL",
+          "price": 952.0,
+          "hotel": {
+            "hotelId": "HOT-1001",
+            "roomId": "ROOM-101",
+            "checkIn": "2026-12-10",
+            "checkOut": "2026-12-17",
+            "hotelName": "Hotel Madrid Centro",
+            "roomName": "Standard Double"
+          }
+        },
+        {
+          "type": "CAR",
+          "price": 336.0,
+          "car": {
+            "carId": "CAR-1001",
+            "providerId": "PROV-SIXT-01",
+            "pickupAt": "2026-12-10T00:00:00Z",
+            "returnAt": "2026-12-17T00:00:00Z",
+            "pickupLocation": "Madrid Airport (MAD)",
+            "returnLocation": "Madrid Airport (MAD)",
+            "vehicleName": "VW Golf"
+          }
+        }
+      ],
+      "price": {
+        "totalPrice": 1537.98,
+        "currency": "EUR"
+      }
+    },
+    "_weitere_400": [
+      "Unknown hotelId/roomId: HOT-1001 / ROOM-999",
+      "returnFlightId requires returnDate"
+    ],
+    "antwort_409": {
+      "timestamp": "2026-11-15T09:42:07.512Z",
+      "status": 409,
+      "error": "Conflict",
+      "message": "Insufficient availability in room_types for external_id ROOM-101 (or catalog row missing)",
+      "path": "/reservation/create"
+    }
+  },
+  "GET /booking/snapshot?bookingNumber=BOOK-20261115-T4XW9P": {
+    "antwort": {
+      "bookingNumber": "BOOK-20261115-T4XW9P",
+      "reservationNumber": "RES-20261115-K7M2QX",
+      "paidAt": "2026-11-15T09:50:31.204Z",
+      "createdAt": "2026-11-15T09:50:31.204Z",
+      "reservation": {
+        "reservationNumber": "RES-20261115-K7M2QX",
+        "status": "PAID",
+        "createdAt": "2026-11-15T09:42:07.512Z",
+        "expiresAt": "2026-11-15T10:12:07.512Z",
+        "expiresInSeconds": 0,
+        "trip": {
+          "origin": "Frankfurt am Main",
+          "destination": "Madrid",
+          "adults": 2,
+          "children": 0,
+          "infants": 0
+        },
+        "items": [
+          {
+            "type": "HOTEL",
+            "price": 952.0,
+            "hotel": {
+              "hotelId": "HOT-1001",
+              "roomId": "ROOM-101",
+              "checkIn": "2026-12-10",
+              "checkOut": "2026-12-17",
+              "hotelName": "Hotel Madrid Centro",
+              "roomName": "Standard Double"
+            }
+          }
+        ],
+        "price": {
+          "totalPrice": 952.0,
+          "currency": "EUR"
+        }
+      }
+    },
+    "antwort_unbekannt_404": {
+      "timestamp": "2026-11-15T09:42:07.512Z",
+      "status": 404,
+      "error": "Not Found",
+      "message": "No booking found for bookingNumber: BOOK-20261115-XXXXXX",
+      "path": "/booking/snapshot"
+    }
+  },
+  "POST /booking/cancel": {
+    "anfrage": {
+      "bookingNumber": "BOOK-20261115-T4XW9P"
+    },
+    "antwort_200": {
+      "bookingNumber": "BOOK-20261115-T4XW9P",
+      "reservationNumber": "RES-20261115-K7M2QX",
+      "paidAt": "2026-11-15T09:50:31.204Z",
+      "createdAt": "2026-11-15T09:50:31.204Z",
+      "cancelledAt": "2026-11-16T08:03:12.044Z",
+      "reservation": {
+        "reservationNumber": "RES-20261115-K7M2QX",
+        "status": "CANCELLED",
+        "createdAt": "2026-11-15T09:42:07.512Z",
+        "expiresAt": "2026-11-15T10:12:07.512Z",
+        "expiresInSeconds": 0,
+        "trip": {
+          "origin": "Frankfurt am Main",
+          "destination": "Madrid",
+          "adults": 2,
+          "children": 0,
+          "infants": 0
+        },
+        "items": [
+          {
+            "type": "HOTEL",
+            "price": 952.0,
+            "hotel": {
+              "hotelId": "HOT-1001",
+              "roomId": "ROOM-101",
+              "checkIn": "2026-12-10",
+              "checkOut": "2026-12-17",
+              "hotelName": "Hotel Madrid Centro",
+              "roomName": "Standard Double"
+            }
+          }
+        ],
+        "price": {
+          "totalPrice": 952.0,
+          "currency": "EUR"
+        }
+      }
+    },
+    "antwort_409_bedingungen": {
+      "timestamp": "2026-11-15T09:42:07.512Z",
+      "status": 409,
+      "error": "Conflict",
+      "message": "Booking cannot be cancelled: room ROOM-105 does not allow free cancellation",
+      "path": "/booking/cancel"
+    },
+    "_weitere_409": [
+      "Booking cannot be cancelled: cancellation deadline for car CAR-1001 has passed",
+      "Booking already cancelled"
+    ],
+    "antwort_unbekannt_404": {
+      "timestamp": "2026-11-15T09:42:07.512Z",
+      "status": 404,
+      "error": "Not Found",
+      "message": "No booking found for bookingNumber: BOOK-20261115-XXXXXX",
+      "path": "/booking/cancel"
+    }
+  }
+}
