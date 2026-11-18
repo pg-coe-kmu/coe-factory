@@ -1,0 +1,119 @@
+# Bauplan — kp-06
+
+**Lieferung:** `del-kp-06-2026-11-18-201545`  
+**Konzept:** `4d53e481-b332-43c7-b191-63869059afd8`  
+**Erzeugt am:** 2026-11-18 durch den BC3-Slicer
+
+> Automatisch erzeugt aus dem Ticket-Set. Nicht von Hand ändern —
+> Änderungen gehen beim nächsten Lauf verloren.
+
+## Überblick
+
+```mermaid
+flowchart LR
+  subgraph Eingang
+    s0EMailTelefon["E-Mail / Telefon"]
+    s5Angebotslist["Angebotsliste"]
+  end
+  subgraph Verarbeitung
+    e0Automatisier["Automatisierte Reiseanfrage-Extraktion …<br/>12 Stories"]
+    e1Automatisier["Automatisierte Medienbruch-Integration …<br/>7 Stories"]
+  end
+  subgraph Ausgang
+    s1Erfassungsbo["Erfassungsbogen"]
+    s2n8n["n8n"]
+    s3NocoDB["NocoDB"]
+    s4Ollama["Ollama"]
+    s7Vorgangslist["Vorgangsliste"]
+    s8PostgreSQL16["PostgreSQL 16"]
+  end
+  subgraph "Lesend und schreibend"
+    s6Anbieterport["Anbieterportal"]
+  end
+  s0EMailTelefon --> e0Automatisier
+  s0EMailTelefon --> e1Automatisier
+  e0Automatisier --> s1Erfassungsbo
+  e0Automatisier --> s2n8n
+  e1Automatisier --> s2n8n
+  e0Automatisier --> s3NocoDB
+  e1Automatisier --> s3NocoDB
+  e0Automatisier --> s4Ollama
+  s5Angebotslist --> e1Automatisier
+  e1Automatisier --> s6Anbieterport
+  s6Anbieterport --> e1Automatisier
+  e1Automatisier --> s7Vorgangslist
+  e1Automatisier --> s8PostgreSQL16
+```
+
+Die Epics stehen in der Reihenfolge der Umsetzungsempfehlung von BC2. Das ist kein Ablauf.
+
+## Komponenten
+
+| Komponente | Rolle | Anbindung | Use Case |
+|---|---|---|---|
+| E-Mail / Telefon | Quelle | Email | Reiseanfrage-Extraktion aus E-Mai…, Medienbruch-Integration zwischen … |
+| Angebotsliste | Quelle | Manuell | Medienbruch-Integration zwischen … |
+| Anbieterportal | Quelle+Ziel | API | Medienbruch-Integration zwischen … |
+| Erfassungsbogen | Ziel | Manuell | Reiseanfrage-Extraktion aus E-Mai… |
+| n8n | Ziel | API | Reiseanfrage-Extraktion aus E-Mai…, Medienbruch-Integration zwischen … |
+| NocoDB | Ziel | API | Reiseanfrage-Extraktion aus E-Mai…, Medienbruch-Integration zwischen … |
+| Ollama | Ziel | API | Reiseanfrage-Extraktion aus E-Mai… |
+| Vorgangsliste | Ziel | DB | Medienbruch-Integration zwischen … |
+| PostgreSQL 16 | Ziel | DB | Medienbruch-Integration zwischen … |
+
+## Tech-Stack laut Konzept (BC2)
+
+- n8n (self-hosted, Hetzner) — Workflow-Orchestrierung und E-Mail-Trigger
+- Ollama mit Mistral oder Qwen — lokales LLM für Feldextraktion und Rückfrage-Generierung
+- NocoDB (self-hosted, IONOS) — strukturierter Erfassungsbogen und Datenhaltung
+- PostgreSQL 16 — persistente Protokollierung der Extraktionsergebnisse und Freigaben
+- Anthropic Claude (EU-Region, optional, nur mit AVV) — Fallback für komplexe oder mehrdeutige E-Mails
+- n8n (self-hosted, Hetzner) — Workflow-Orchestrierung und Anbieteranbindung
+- NocoDB (self-hosted, IONOS) — Vorgangsliste und Angebotsliste als strukturierte Datenbasis
+- PostgreSQL 16 — Protokollierung aller Aktionen und Rohantworten
+- K3s — Container-Betrieb des RPA-Fallback-Dienstes (Playwright)
+- Ollama mit Mistral oder Qwen — optionale Klassifikation von Freitext-Portalantworten
+- GitLab CI (self-hosted) — Versionierung und Deployment der Workflow-Konfigurationen
+
+## Epics und Stories
+
+### Automatisierte Reiseanfrage-Extraktion aus E-Mails in strukturierten Erfassungsbogen
+
+`ep-5df5-0da1-9841-5793dbd06895`  
+**Ziel:** Automatisierte Extraktion und Strukturierung von Reisedaten aus eingehenden E-Mail-Anfragen zur Reduzierung manueller Übertragungsarbeit im Prozess KP-06.TP-2.  
+**Kategorien:** it:backend, it:integration, it:ai-pipeline
+
+| Story | Titel | Akzeptanzkriterien |
+|---|---|---|
+| 1 | Pflichtfeldschema für Erfassungsbogen dokumentieren und ver… | 1 |
+| 2 | E-Mail-Postfach für eingehende Reiseanfragen überwachen und… | 1 |
+| 3 | Reisedaten aus E-Mails extrahieren und in Erfassungsbogen e… | 3 |
+| 4 | Vollständigkeitsprüfung durchführen und Lücken erkennen | 1 |
+| 5 | Rückfrage-Entwürfe zur Freigabe vorlegen und manuell versen… | 2 |
+| 6 | Unsichere Extraktionsergebnisse kennzeichnen und zur manuel… | 1 |
+| 7 | Extraktionsergebnisse und Freigaben revisionssicher protoko… | 1 |
+| 8 | Ausnahmen und nicht automatisierbare Anfragen kennzeichnen | 2 |
+| 9 | Automatische Befüllung des Erfassungsbogens innerhalb von z… | 1 |
+| 10 | Hinweis auf KI-Verarbeitung in automatisierten E-Mail-Antwo… | 1 |
+| 11 | Pseudonymisierung von Zugangsdaten vor der Extraktion durch… | 1 |
+| 12 | Datenminimierung bei der Extraktion von Reisedaten umsetzen | 1 |
+
+### Automatisierte Medienbruch-Integration zwischen Angebotsliste, Anbieterportalen und Vorgangsliste
+
+`ep-26d9-5ed3-1682-ce59de66b523`  
+**Ziel:** Manuelle Datenübertragungen zwischen Angebotsliste, Anbieterportalen und Vorgangsliste durch eine automatisierte Integrationsschicht ersetzen, um Reservierungs-, Buchungsprüfungs- und Stornierungsvorgänge zu beschleunigen und Fehler zu reduzieren.  
+**Kategorien:** it:backend, it:integration
+
+| Story | Titel | Akzeptanzkriterien |
+|---|---|---|
+| 1 | Vorbedingungen für die Integrationsschicht prüfen und siche… | 2 |
+| 2 | Automatisierte Reservierung beim Anbieter durchführen | 3 |
+| 3 | Automatisierte Buchungsprüfung durchführen | 2 |
+| 4 | Automatisierte Stornierung durchführen | 3 |
+| 5 | Benachrichtigungsentwürfe für Kunden erstellen und zur Frei… | 2 |
+| 6 | Anbieterindividuelle Konfiguration der Integrationsschicht … | 1 |
+| 7 | Manuellen Ablauf für nicht integrierbare Anbieterportale un… | 1 |
+
+---
+
+2 Epics · 19 Stories · 9 Komponenten

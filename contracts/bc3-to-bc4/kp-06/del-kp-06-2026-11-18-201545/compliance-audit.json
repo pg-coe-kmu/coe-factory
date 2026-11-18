@@ -1,0 +1,315 @@
+{
+  "lieferung_id": "del-kp-06-2026-11-18-201545",
+  "schema_version": "3.6",
+  "projekt_kurzname": "kp-06",
+  "erzeugt_am": "2026-11-18T20:15:45.369Z",
+  "konzept_ref": {
+    "konzept_id": "4d53e481-b332-43c7-b191-63869059afd8",
+    "schema_version": "3.1",
+    "source_file": "konzept_KP-06.json",
+    "kp_id": "KP-06",
+    "teilprozess_ids": [
+      "KP-06.TP-2",
+      "KP-06.TP-3",
+      "KP-06.TP-4",
+      "KP-06.TP-5"
+    ],
+    "value_quelle": "berechnet",
+    "company_id": "7c2d5ee9-2a9a-5990-810f-502ea2b2012d",
+    "paket_id": "cc7f4d1b-4c71-4cfa-92c3-46a395080e4b",
+    "priorisierung_id": "b7e0b991-83f7-4536-ac42-ef22f8279354"
+  },
+  "prozess_kurzbeschreibung": "Der Kernprozess Personal (KP-06) umfasst den vollständigen Reisebuchungszyklus von der Anfrage über Angebot, Reservierung und Buchungsprüfung bis zur Stornierung — heute geprägt durch manuelle Datenübertragungen zwischen E-Mail, Portalen und internen Listen.",
+  "vorpruefung": {
+    "ampel": "yellow",
+    "ai_act_klasse": "limited",
+    "anhang_iii_kategorie": null,
+    "dsgvo_rechtsgrundlage": "Artikel 6 Absatz 1 Buchstabe b (Vertragserfüllung), Artikel 28 (Auftragsverarbeitungsvertrag bei externem Modellanbieter)",
+    "betroffene_datenarten": [
+      "Zugangsdaten (Stufe hoch)",
+      "E-Mail-Adresse (Stufe gering)",
+      "Telefonnummer (Stufe gering)",
+      "Reise- und Termindaten (Stufe gering)",
+      "Kostenstelle und Budget (Stufe gering)"
+    ],
+    "begruendung_ampel": "Der Prozess fällt unter die 'limited'-Klasse des AI-Act, da er KI-gestützte Extraktion und Automatisierung nutzt, aber keine Hochrisiko-Anwendungen nach Anhang III oder verbotene Praktiken nach Artikel 5 umfasst. Die Ampel ist 'yellow', weil menschliche Freigabeschritte (Rückfragen, Reservierungen, Stornierungen) und Pseudonymisierung von Zugangsdaten eingebaut sind, um die Anforderungen von DSGVO Artikel 22 und 25 zu erfüllen. Ein externer Modellanbieter wird nur mit dokumentiertem AVV genutzt (DSGVO Artikel 28)."
+  },
+  "pflichten": [
+    {
+      "id": "p1",
+      "tag": "[AI-Act Art. 4]",
+      "text": "Personen, die das KI-System nutzen, müssen über ausreichende KI-Kompetenz verfügen, um die Funktionsweise, Risiken und Grenzen des Systems zu verstehen.",
+      "massnahme": "hinweis_geben",
+      "datenkategorie": "gering",
+      "stelle": "Schulung der Sachbearbeitung vor Inbetriebnahme des Extraktionsdienstes (ep-969094-3, ep-969094-6)",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p2",
+      "tag": "[AI-Act Art. 50 Absatz 1]",
+      "text": "Personen müssen darüber informiert werden, dass sie mit einem KI-System interagieren, wenn der Extraktionsdienst E-Mails verarbeitet.",
+      "massnahme": "hinweis_geben",
+      "datenkategorie": "gering",
+      "stelle": "Automatisierte Weiterleitung von E-Mails an den Extraktionsdienst (ep-969094-2)",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p3",
+      "tag": "[DSGVO Art. 25]",
+      "text": "Datenschutz durch Technikgestaltung: Personenbezogene Daten (insbesondere Zugangsdaten) müssen vor dem Modellaufruf pseudonymisiert oder weggelassen werden, wenn sie nicht für die Extraktion benötigt werden.",
+      "massnahme": "pseudonymisieren",
+      "datenkategorie": "hoch",
+      "stelle": "Extraktion von Reisedaten aus E-Mails (ep-969094-3)",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p4",
+      "tag": "[DSGVO Art. 32]",
+      "text": "Sicherheit der Verarbeitung: Zugangsdaten und andere personenbezogene Daten müssen während der Verarbeitung verschlüsselt und vor unbefugtem Zugriff geschützt werden.",
+      "massnahme": "eu_modell",
+      "datenkategorie": "hoch",
+      "stelle": "Verarbeitung von E-Mails und Extraktionsergebnissen (ep-969094-2, ep-969094-3, ep-969094-7)",
+      "adressat": "plattform",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p5",
+      "tag": "[DSGVO Art. 28]",
+      "text": "Bei Nutzung externer LLM-APIs muss ein Auftragsverarbeitungsvertrag (AVV) mit dem Anbieter geschlossen und dokumentiert werden.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "gering",
+      "stelle": "Externer API-Aufruf (Konzept: Primärpfad läuft über Ollama, externer API-Aufruf nur mit dokumentiertem AVV)",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p6",
+      "tag": "[DSGVO Art. 22 Absatz 1]",
+      "text": "Eine ausschließlich automatisierte Entscheidung mit erheblicher Wirkung (z. B. Buchung, Stornierung) ist untersagt. Die finale Entscheidung muss durch einen Menschen erfolgen.",
+      "massnahme": "mensch_prueft",
+      "datenkategorie": "gering",
+      "stelle": "Automatisierte Reservierung, Buchungsprüfung und Stornierung beim Anbieter (ep-17530-2, ep-17530-3, ep-17530-4)",
+      "adressat": "bc4",
+      "wird_zu_story": false,
+      "abgedeckt_durch": [
+        "ep-17530-2",
+        "ep-17530-3",
+        "ep-17530-4",
+        "ep-17530-5"
+      ]
+    },
+    {
+      "id": "p7",
+      "tag": "[DSGVO Art. 5 Absatz 1 Buchstabe c]",
+      "text": "Datenminimierung: Nur die für den Zweck erforderlichen personenbezogenen Daten dürfen verarbeitet werden.",
+      "massnahme": "feld_weglassen",
+      "datenkategorie": "gering",
+      "stelle": "Extraktion von Reisedaten aus E-Mails (ep-969094-3)",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p8",
+      "tag": "[AI-Act Art. 12]",
+      "text": "Transparenz: Automatisch befüllte Felder im Erfassungsbogen müssen visuell hervorgehoben werden, um die Sachbearbeitung auf die Notwendigkeit einer Prüfung hinzuweisen.",
+      "massnahme": "hinweis_geben",
+      "datenkategorie": "gering",
+      "stelle": "Extraktion und Kennzeichnung unsicherer Felder (ep-969094-6)",
+      "adressat": "bc4",
+      "wird_zu_story": false,
+      "abgedeckt_durch": [
+        "ep-969094-6"
+      ]
+    },
+    {
+      "id": "p9",
+      "tag": "[AI-Act Art. 14]",
+      "text": "Menschliche Aufsicht: Kritische Schritte (z. B. Rückfragen, Reservierungen, Stornierungen) müssen vor der Ausführung durch einen Menschen freigegeben werden.",
+      "massnahme": "mensch_prueft",
+      "datenkategorie": "gering",
+      "stelle": "Rückfrage-Entwürfe, Benachrichtigungsentwürfe und schreibende Aktionen beim Anbieter (ep-969094-5, ep-17530-2, ep-17530-3, ep-17530-4, ep-17530-5)",
+      "adressat": "bc4",
+      "wird_zu_story": false,
+      "abgedeckt_durch": [
+        "ep-969094-5",
+        "ep-17530-5"
+      ]
+    },
+    {
+      "id": "p10",
+      "tag": "[AI-Act Art. 13]",
+      "text": "Betriebsanleitung: Die Funktionsweise des Extraktionsdienstes, seine Grenzen und die Bedeutung der visuellen Hervorhebung unsicherer Felder müssen in einer Betriebsanleitung dokumentiert werden.",
+      "massnahme": "hinweis_geben",
+      "datenkategorie": "gering",
+      "stelle": "Dokumentation des Pflichtfeldschemas und der Extraktionslogik (ep-969094-1, ep-969094-3)",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    }
+  ],
+  "pflichten_nach_adressat": {
+    "bc4": [
+      "p2",
+      "p3",
+      "p6",
+      "p7",
+      "p8",
+      "p9"
+    ],
+    "organisation": [
+      "p1",
+      "p5",
+      "p10"
+    ],
+    "plattform": [
+      "p4"
+    ],
+    "ohne_angabe": []
+  },
+  "nicht_an_bc4": [],
+  "plattform_standards": [
+    "Verschlüsselung aller personenbezogenen Daten während der Verarbeitung und Speicherung (DSGVO Artikel 32)",
+    "Zentrales Audit-Log für alle automatisierten Schritte (DSGVO Artikel 30)",
+    "PII-Filter zur automatischen Erkennung und Pseudonymisierung sensibler Daten vor der Verarbeitung durch externe Modelle"
+  ],
+  "zuordnung": [
+    {
+      "epic_id": "ep-5df5-0da1-9841-5793dbd06895",
+      "use_case_id_ref": "969094be-b547-4ebc-a849-ea319e31fda8",
+      "id_saat": "969094be-b547-4ebc-a849-ea319e31fda8",
+      "titel": "Automatisierte Reiseanfrage-Extraktion aus E-Mails in strukturierten Erfassungsbogen"
+    },
+    {
+      "story_id": "st-5df5-0da1-9841-5793dbd06895-10",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p2"
+      ]
+    },
+    {
+      "story_id": "st-5df5-0da1-9841-5793dbd06895-11",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p3"
+      ]
+    },
+    {
+      "story_id": "st-5df5-0da1-9841-5793dbd06895-12",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p7"
+      ]
+    },
+    {
+      "epic_id": "ep-26d9-5ed3-1682-ce59de66b523",
+      "use_case_id_ref": "17530cac-5348-44c5-aaf1-187ad935e518",
+      "id_saat": "17530cac-5348-44c5-aaf1-187ad935e518",
+      "titel": "Automatisierte Medienbruch-Integration zwischen Angebotsliste, Anbieterportalen und Vorgangsliste"
+    },
+    {
+      "story_id": "st-26d9-5ed3-1682-ce59de66b523-2",
+      "herkunft": "fachlich mit Pflicht",
+      "pflicht_ids": [
+        "p6"
+      ],
+      "quelle": "abgedeckt_durch"
+    },
+    {
+      "story_id": "st-26d9-5ed3-1682-ce59de66b523-3",
+      "herkunft": "fachlich mit Pflicht",
+      "pflicht_ids": [
+        "p6"
+      ],
+      "quelle": "abgedeckt_durch"
+    },
+    {
+      "story_id": "st-26d9-5ed3-1682-ce59de66b523-4",
+      "herkunft": "fachlich mit Pflicht",
+      "pflicht_ids": [
+        "p6"
+      ],
+      "quelle": "abgedeckt_durch"
+    },
+    {
+      "story_id": "st-26d9-5ed3-1682-ce59de66b523-5",
+      "herkunft": "fachlich mit Pflicht",
+      "pflicht_ids": [
+        "p6"
+      ],
+      "quelle": "abgedeckt_durch"
+    },
+    {
+      "story_id": "st-5df5-0da1-9841-5793dbd06895-6",
+      "herkunft": "fachlich mit Pflicht",
+      "pflicht_ids": [
+        "p8"
+      ],
+      "quelle": "abgedeckt_durch"
+    },
+    {
+      "story_id": "st-5df5-0da1-9841-5793dbd06895-5",
+      "herkunft": "fachlich mit Pflicht",
+      "pflicht_ids": [
+        "p9"
+      ],
+      "quelle": "abgedeckt_durch"
+    },
+    {
+      "story_id": "st-26d9-5ed3-1682-ce59de66b523-5",
+      "herkunft": "fachlich mit Pflicht",
+      "pflicht_ids": [
+        "p9"
+      ],
+      "quelle": "abgedeckt_durch"
+    }
+  ],
+  "nicht_zugeordnete_compliance_stories": [],
+  "zuordnung_korrigiert": [],
+  "zusammengelegt": [],
+  "befunde_zuordnung": [
+    "Prüfen: Pflicht p6 [DSGVO Art. 22 Absatz 1] gilt laut BC3-30 durch „Automatisierte Reservierung beim Anbieter durchführen“ und „Automatisierte Buchungsprüfung durchführen“ und „Automatisierte Stornierung durchführen“ und „Benachrichtigungsentwürfe für Kunden erstellen und zur Freig“ als erfüllt.",
+    "Prüfen: Pflicht p8 [AI-Act Art. 12] gilt laut BC3-30 durch „Unsichere Extraktionsergebnisse kennzeichnen und zur manuell“ als erfüllt.",
+    "Prüfen: Pflicht p9 [AI-Act Art. 14] gilt laut BC3-30 durch „Rückfrage-Entwürfe zur Freigabe vorlegen und manuell versend“ und „Benachrichtigungsentwürfe für Kunden erstellen und zur Freig“ als erfüllt."
+  ],
+  "pflichten_ohne_story": [],
+  "pflichten_mit_story_ohne_vermerk": [
+    "p6",
+    "p8",
+    "p9"
+  ],
+  "befunde_adressat": [],
+  "pruefung_bc3": {
+    "geprueft_gegen": "tickets.schema.json 3.6",
+    "ergebnis": "bestanden",
+    "befunde": [
+      "Epic 1: K1 im zweiten Durchgang ergänzt (1 Story(s))",
+      "Epic 1: Prüfen: Story des Ergänzers „Automatische Befüllung des Erfassungsbogens innerhalb von zwei Minuten“ (K1) ähnlich wie ep-969094-3 (75 %), an Gate 2 prüfen, ob doppelt."
+    ],
+    "epics": 2,
+    "stories": 16,
+    "potenziale": 2,
+    "anforderungen_im_eingang": 13,
+    "akzeptanzkriterien_im_eingang": 6,
+    "vorgaben_bc3": 0,
+    "stories_ohne_kriterium": 0,
+    "nachgebessert": [
+      "Epic 1: K1 im zweiten Durchgang ergänzt (1 Story(s))"
+    ]
+  }
+}
