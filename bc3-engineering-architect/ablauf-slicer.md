@@ -64,7 +64,7 @@ flowchart TD
 | 1 | **BC3-10** Konzept einlesen (mit BC3-11) | Konzeptdatei und `prozesspriorisierung.json` aus GitHub | Potenziale mit Anforderungen (A), Akzeptanzkriterien (K), Vorgaben (V); IDs von BC2 (Mandant, Paket, Priorisierung, Anfrage, Konzept); Eingangsprüfung | nein | – |
 | 2 | **BC3-15** Plan festlegen | Potenziale, Anbindungen, Herkunft der Zahlen | Plan: welche Stufe in welchem Modus (R1–R6); Hochrisiko-Regel für alle acht Bereiche aus Anhang III; Hinweise des Ratgebers | nur Ratgeber (`mistral-medium-3-5`), ändert den Plan nicht | – |
 | 3 | **BC3-20** Stories schneiden | Potenziale | je Potenzial ein Epic mit Stories und Akzeptanzkriterien, Abdeckung von A, K, V. Messverfahren: wörtlich von BC2, wenn das Kriterium zu einem K passt; sonst „offen: von BC3 abgeleitet, BC2 nennt dafür kein Messverfahren“. BC3 erfindet keine Messverfahren | ja (`mistral-large-2512`, Temperatur 0, Seed 42) | – |
-| 4 | **BC3-30** Compliance prüfen | Epics, Datenarten, Tragweite | Ampel, Risikoklasse nach KI-VO, Pflichten mit Adressat, Zusatz-Stories, Zuordnung zu vorhandenen Stories; meldet Pflichten mit Artikeln, die nur für Hochrisiko gelten (`artikel_nur_hochrisiko`) | ja (`mistral-large-2512`, Temperatur 0, Seed 42) | – |
+| 4 | **BC3-30** Compliance prüfen | Epics, Datenarten, Tragweite | Ampel, Risikoklasse nach KI-VO, Pflichten mit Adressat, Zusatz-Stories, Zuordnung zu vorhandenen Stories; meldet Pflichten mit Artikeln, die nur für Hochrisiko gelten (`artikel_nur_hochrisiko`), und vermerkt sie bei Klasse unter `high` als `freiwillig` mit `grundlage_hinweis`; beim Neustart bekommt die KI den Kommentar von Gate 2 | ja (`mistral-large-2512`, Temperatur 0, Seed 42) | – |
 | 5 | **BC3-40** Tickets bauen und prüfen | Epics, Compliance-Befund, IDs | `ticket_set.json` mit IDs in `konzept_ref` und `potenzial_id` je Epic, `compliance-audit.json`; geprüft wie Schema 3.6; bricht ab, wenn etwas nicht passt | nein | – |
 | 6 | **BC3-50** Architektur | Tickets | `architecture.md` (Mermaid), `blueprint.json` mit menschlichen Entscheidungspunkten; API-Teil abgeschaltet | nein | – |
 | 7 | **BC3-70** Ausliefern | alle Dateien des Laufs | `offene-punkte.json` (was offen ist und für wen, bleibt bei BC3), Dateien zur Ansicht, je Lieferung ein Ordner | nein | Ablage zur Ansicht |
@@ -130,7 +130,7 @@ Laufprotokoll, Entscheidungen und Fehler liegen in einem eigenen Supabase-Projek
 - **Rückweg zu BC2:** „Nachbessern“ startet BC3 neu, erreicht BC2 aber nicht. Fehlende Messverfahren sind im Ticket-Set als „offen“ markiert und stehen in `offene-punkte.json`.
 - **ID je Akzeptanzkriterium:** gibt es nicht, BC2 liefert keine. Nachverfolgen lässt sich die Kette bis zum Epic.
 - **`anfrage_id`:** bleibt leer, wenn BC2 sie nicht mitliefert (so bei UC1).
-- **Kommentar an Gate 2:** BC3-30 setzt ihn beim Neustart nicht zuverlässig um (Lauf vom 18.11.2026: Art. 12 bis 14 KI-VO bei begrenztem Risiko blieben stehen). Die Kette meldet solche Artikel, korrigiert sie aber nicht selbst.
+- **Kommentar an Gate 2:** Er geht beim Neustart an BC3-20 und seit 18.11.2026 auch an BC3-30. Ob die KI ihn umsetzt, ist nicht garantiert; nach dem Neustart prüft ihn wieder ein Mensch an Gate 2. Artikel, die nur für Hochrisiko gelten, vermerkt die Kette bei begrenztem oder minimalem Risiko selbst als freiwillig.
 - **Rückkanal von BC4:** BC3 erfährt nicht, was BC4 gebaut hat.
 - **Was BC4 daraus macht:** endet an der Übergabe in `contracts/bc3-to-bc4/`.
 
@@ -144,6 +144,7 @@ Laufprotokoll, Entscheidungen und Fehler liegen in einem eigenen Supabase-Projek
 - **18.11.** Liefermodus: Simulation, Übungsmandant und Start von Hand sind `test`, der Neustart behält den Modus.
 - **18.11.** BC3-80 führt erst nach grüner Prüfung „Schema und Vollständigkeit“ zusammen.
 - **18.11.** BC3-20 übernimmt Messverfahren von BC2, wo es welche gibt.
+- **18.11.** BC3-30 bekommt den Kommentar von Gate 2 (vorher nur BC3-20) und vermerkt Pflichten mit Hochrisiko-Artikeln bei Klasse unter `high` als freiwillig.
 - **18.11.** Lieferordner gekennzeichnet: `del-`, `test-del-`, `veraltet-del-` (PR #401).
 - **18.11.** `bc3.lieferungen` um `priorisierung_id`, `konzept_id`, `potenzial_ids` und `status` erweitert, BC3-80 schreibt sie.
 - **18.11.** Erste Lieferung nach 3.6: `del-kp-06-2026-11-18-201545` (UC1, PR #402).
