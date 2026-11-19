@@ -1,0 +1,243 @@
+{
+  "lieferung_id": "del-kp-05-2026-11-19-105004",
+  "schema_version": "3.7",
+  "projekt_kurzname": "kp-05",
+  "konzept_ref": {
+    "konzept_id": "5d82f848-fdbc-40a9-9169-c03c0893b077",
+    "schema_version": "3.1",
+    "source_file": "konzept_KP-05.json",
+    "kp_id": "KP-05",
+    "teilprozess_ids": [
+      "KP-05.TP-1"
+    ],
+    "value_quelle": "berechnet",
+    "company_id": "7c2d5ee9-2a9a-5990-810f-502ea2b2012d",
+    "paket_id": "8c7d19c1-838c-458f-aa59-39ca8194753e",
+    "priorisierung_id": "d79e5912-afc7-45cf-add4-2e1b59f7c7c4"
+  },
+  "epics": [
+    {
+      "epic_id": "ep-35ec-f2fb-68d5-6d6dddfa6fa7",
+      "titel": "KI-gestützte Wissenssuche im Nextcloud/Google-Drive-Bestand mit RAG-Schicht",
+      "ziel": "Mitarbeitende erhalten innerhalb von Sekunden strukturierte Antwortvorschläge mit Quellenverweisen aus dem indizierten Drive-Bestand, ohne manuell Dokumente durchsuchen zu müssen.",
+      "kategorien": [
+        "it:backend",
+        "it:integration",
+        "it:ai-pipeline"
+      ],
+      "stories": [
+        {
+          "story_id": "st-35ec-f2fb-68d5-6d6dddfa6fa7-1",
+          "titel": "Indizierungspipeline für Drive-Dokumente aufbauen",
+          "beschreibung": "Als IT/DevOps möchte ich eine automatisierte Pipeline einrichten, die freigegebene Dokumente aus Nextcloud/Google-Drive periodisch ausliest, per OCR aufbereitet, in Chunks zerlegt und als Vektoren in Qdrant indiziert, damit der RAG-Prozess auf aktuelle Daten zugreifen kann.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein freigegebener Drive-Ordner mit Dokumenten, When der Indizierungslauf startet, Then werden alle lesbaren Dokumente (inkl. OCR-Verarbeitung) in Chunks zerlegt und in Qdrant indiziert, wobei Metadaten (Dateiname, Pfad, Änderungsdatum) erhalten bleiben.",
+              "messverfahren": "offen: von BC3 abgeleitet, BC2 nennt dafür kein Messverfahren"
+            },
+            {
+              "text": "Gegeben ein neu in den indizierten Drive-Ordner abgelegtes Dokument, wenn der geplante Indizierungslauf abgeschlossen ist, dann ist das Dokument bei inhaltlich passenden Anfragen im Antwortvorschlag als Quelle abrufbar.",
+              "messverfahren": "Protokoll des Indizierungslaufs (Zeitstempel, Anzahl verarbeiteter Dokumente); anschließende Kontrollanfrage zu einem im neuen Dokument enthaltenen Begriff mit Sichtprüfung des Quellverweises.",
+              "bc2_kriterium_id": "bc2:d79e5912/288edb94/3"
+            },
+            {
+              "text": "Given ein Dokument mit komplexen Zugriffsrechten, die nicht gespiegelt werden können, When der Indizierungslauf startet, Then wird das Dokument ausgeschlossen und nicht indiziert.",
+              "messverfahren": "offen: von BC3 abgeleitet, BC2 nennt dafür kein Messverfahren"
+            },
+            {
+              "text": "Given ein rein grafisches Dokument ohne Textebene, When der Indizierungslauf die OCR-Verarbeitung durchführt, Then wird das Dokument als leer markiert und nicht indiziert.",
+              "messverfahren": "offen: von BC3 abgeleitet, BC2 nennt dafür kein Messverfahren"
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-35ec-f2fb-68d5-6d6dddfa6fa7-2",
+          "titel": "Zugriffsrechtespiegelung zwischen Drive und RAG-Schicht implementieren",
+          "beschreibung": "Als Wissensverantwortlicher möchte ich sicherstellen, dass die RAG-Schicht nur Dokumente indiziert und ausgibt, für die die anfragende Person in Google Drive/Nextcloud eine Leseberechtigung besitzt, damit keine unberechtigten Zugriffe erfolgen.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine Mitarbeiterin mit eingeschränkten Drive-Berechtigungen, When das System einen Antwortvorschlag generiert, Then werden ausschließlich Dokumente referenziert, auf die die Mitarbeiterin Zugriff hat (A1).",
+              "messverfahren": "Gezielter Testlauf mit einem Testnutzer ohne Zugriff auf ein definiertes Testdokument: Sichtprüfung des Antwortvorschlags auf Nennung des Dokuments; Abgleich mit dem Zugriffsrechte-Mapping im Index."
+            },
+            {
+              "text": "Gegeben ein Dokument, auf das eine Mitarbeiterin aufgrund ihrer Drive-Berechtigungen keinen Zugriff hat, wenn das System einen Antwortvorschlag zu einem Thema generiert, das ausschließlich in diesem Dokument beschrieben ist, dann wird das betreffende Dokument weder im Antwortvorschlag noch im Quellverweis genannt.",
+              "messverfahren": "Gezielter Testlauf mit einem Testnutzer ohne Zugriff auf ein definiertes Testdokument: Sichtprüfung des Antwortvorschlags auf Nennung des Dokuments; Abgleich mit dem Zugriffsrechte-Mapping im Index.",
+              "bc2_kriterium_id": "bc2:d79e5912/288edb94/2"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-35ec-f2fb-68d5-6d6dddfa6fa7-1"
+          ]
+        },
+        {
+          "story_id": "st-35ec-f2fb-68d5-6d6dddfa6fa7-3",
+          "titel": "Semantische Suche und Antwortgenerierung mit LLM umsetzen",
+          "beschreibung": "Als Mitarbeitender möchte ich eine Frage in natürlicher Sprache eingeben und einen strukturierten Antwortvorschlag mit Quellenverweisen erhalten, damit ich schnell und nachvollziehbar auf Wissen zugreifen kann.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Gegeben eine freigegebene Frage, die mit Inhalten aus dem indizierten Drive-Bestand beantwortet werden kann, wenn die anfragende Person die Frage in die Wissenssuche eingibt, dann liefert das System einen Antwortvorschlag mit mindestens einem validen Quellverweis auf ein tatsächlich im Index vorhandenes Dokument.",
+              "messverfahren": "Stichprobe aus abgeschlossenen Anfragen: Für jede geprüfte Anfrage wird im Systemprotokoll nachgewiesen, dass der Quellverweis auf ein real indexiertes Dokument zeigt und der angezeigte Dateiname mit dem tatsächlichen Drive-Pfad übereinstimmt.",
+              "bc2_kriterium_id": "bc2:d79e5912/288edb94/1"
+            },
+            {
+              "text": "Given eine Frage mit widersprüchlichen Inhalten in verschiedenen Dokumenten, When das System die Frage verarbeitet, Then werden alle widersprüchlichen Quellen genannt und der Widerspruch gekennzeichnet (A5, V3).",
+              "messverfahren": "offen: von BC3 abgeleitet, BC2 nennt dafür kein Messverfahren"
+            },
+            {
+              "text": "Given eine Frage zu einem Thema ohne ausreichenden Bestand, When das System die Frage verarbeitet, Then wird explizit darauf hingewiesen, dass kein gesicherter Vorschlag möglich ist (A3, K4, V4).",
+              "messverfahren": "Testlauf mit definierten Fragen zu Themen außerhalb des indizierten Bestands; Sichtprüfung der Systemantwort auf das Vorhandensein eines expliziten Hinweises auf fehlende Belege."
+            },
+            {
+              "text": "Given eine Frage, die nur teilweise beantwortet werden kann, When das System die Frage verarbeitet, Then wird der beantwortbare Teil ausgegeben, der offene Teil benannt und die Antwort als Teilantwort gekennzeichnet (V2).",
+              "messverfahren": "offen: von BC3 abgeleitet, BC2 nennt dafür kein Messverfahren"
+            },
+            {
+              "text": "Given eine leere Frage oder eine Frage über der Höchstlänge, When die Frage eingegeben wird, Then wird sie mit einem Hinweis zurückgewiesen (V6).",
+              "messverfahren": "offen: von BC3 abgeleitet, BC2 nennt dafür kein Messverfahren"
+            },
+            {
+              "text": "Given ein technischer Fehler bei der Suche oder Modellaufruf, When die Frage verarbeitet wird, Then wird ein technischer Fehler gemeldet (V5).",
+              "messverfahren": "offen: von BC3 abgeleitet, BC2 nennt dafür kein Messverfahren"
+            },
+            {
+              "text": "Given eine erfolgreiche Antwortgenerierung, When die Antwort ausgegeben wird, Then trägt sie einen Status aus der Liste: beantwortet, teilweise beantwortet, Widerspruch, keine Antwort im Bestand, technischer Fehler, ungültige Eingabe (V8).",
+              "messverfahren": "offen: von BC3 abgeleitet, BC2 nennt dafür kein Messverfahren"
+            },
+            {
+              "text": "Gegeben eine Anfrage zu einem Thema, zu dem kein ausreichend relevanter Inhalt im indizierten Bestand vorliegt, wenn das System die Anfrage verarbeitet, dann weist die Anwendung die anfragende Person explizit darauf hin, dass kein hinreichend gesicherter Antwortvorschlag erzeugt werden konnte, anstatt eine inhaltlich falsche Antwort zu präsentieren.",
+              "messverfahren": "Testlauf mit definierten Fragen zu Themen außerhalb des indizierten Bestands; Sichtprüfung der Systemantwort auf das Vorhandensein eines expliziten Hinweises auf fehlende Belege.",
+              "bc2_kriterium_id": "bc2:d79e5912/288edb94/4"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-35ec-f2fb-68d5-6d6dddfa6fa7-1",
+            "st-35ec-f2fb-68d5-6d6dddfa6fa7-2"
+          ]
+        },
+        {
+          "story_id": "st-35ec-f2fb-68d5-6d6dddfa6fa7-4",
+          "titel": "Quellenverweise und Metadaten korrekt ausgeben",
+          "beschreibung": "Als Mitarbeitender möchte ich zu jedem Antwortvorschlag direkte Verweise auf die Quelldokumente (Dateiname, Pfad, Änderungsdatum) erhalten, damit ich die Antwort nachvollziehen und prüfen kann.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein Antwortvorschlag, When das System die Antwort ausgibt, Then enthält jeder Quellverweis mindestens Dateiname, Pfad und — falls verfügbar — das Änderungsdatum (A2).",
+              "messverfahren": "offen: von BC3 abgeleitet, BC2 nennt dafür kein Messverfahren"
+            },
+            {
+              "text": "Given ein wörtliches Zitat im Antwortvorschlag, When die Quelle geprüft wird, Then steht das Zitat genau so im referenzierten Dokument (V7).",
+              "messverfahren": "offen: von BC3 abgeleitet, BC2 nennt dafür kein Messverfahren"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-35ec-f2fb-68d5-6d6dddfa6fa7-3"
+          ]
+        },
+        {
+          "story_id": "st-35ec-f2fb-68d5-6d6dddfa6fa7-5",
+          "titel": "Fallback auf Anthropic Claude API bei lokaler Modell-Limitierung",
+          "beschreibung": "Als IT/DevOps möchte ich die Anthropic Claude API als Fallback nutzen, wenn lokale Ollama-Modelle dokumentiert nicht ausreichen, damit komplexe Anfragen trotzdem beantwortet werden können (unter Einhaltung der EU-First- und Open-Source-Maxime).",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine Frage, die mit lokalen Modellen nicht ausreichend beantwortet werden kann, When das System die Frage verarbeitet, Then wird die Claude API mit gültigem AVV genutzt, sofern der Mehrwert dokumentiert ist (A6).",
+              "messverfahren": "offen: von BC3 abgeleitet, BC2 nennt dafür kein Messverfahren"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-35ec-f2fb-68d5-6d6dddfa6fa7-3"
+          ]
+        },
+        {
+          "story_id": "st-35ec-f2fb-68d5-6d6dddfa6fa7-6",
+          "titel": "Indizierungsaktualisierung bei Dokumentenänderungen sicherstellen",
+          "beschreibung": "Als Wissensverantwortlicher möchte ich, dass geänderte Dokumente im Drive automatisch neu indiziert werden, damit Antworten immer auf dem aktuellen Stand basieren.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein geändertes Dokument im freigegebenen Ordner, When der nächste Indizierungslauf abgeschlossen ist, Then ersetzt die neue Fassung die alte im Index (V9).",
+              "messverfahren": "offen: von BC3 abgeleitet, BC2 nennt dafür kein Messverfahren"
+            },
+            {
+              "text": "Given ein erneuter Indizierungslauf ohne Änderungen am Bestand, When der Lauf abgeschlossen ist, Then bleibt der Index unverändert (V9).",
+              "messverfahren": "offen: von BC3 abgeleitet, BC2 nennt dafür kein Messverfahren"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-35ec-f2fb-68d5-6d6dddfa6fa7-1"
+          ]
+        },
+        {
+          "story_id": "st-35ec-f2fb-68d5-6d6dddfa6fa7-7",
+          "titel": "Steuerung der indizierten Ordner durch Wissensverantwortliche ermöglichen",
+          "beschreibung": "Als Wissensverantwortlicher möchte ich festlegen, welche Drive-Ordner indiziert werden, damit nur freigegebene Inhalte durchsucht werden.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine Änderung der freigegebenen Ordner durch den Wissensverantwortlichen, When der nächste Indizierungslauf startet, Then werden nur Dokumente aus den neu definierten Ordnern indiziert (A4).",
+              "messverfahren": "offen: von BC3 abgeleitet, BC2 nennt dafür kein Messverfahren"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-35ec-f2fb-68d5-6d6dddfa6fa7-1"
+          ]
+        },
+        {
+          "story_id": "st-35ec-f2fb-68d5-6d6dddfa6fa7-8",
+          "titel": "Quellenangaben in Antwortvorschlag integrieren",
+          "beschreibung": "Als Mitarbeitende möchte ich zu jeder Antwort des Systems direkte Quellenangaben (Dokument, Abschnitt, Stand oder Version) erhalten, damit ich die Herkunft der Information nachvollziehen und prüfen kann.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine Frage, die vollständig aus dem freigegebenen Drive-Bestand beantwortet werden kann, When das System einen Antwortvorschlag generiert, Then enthält die Antwort direkte Quellenangaben (Dokumentname, Pfad, Abschnitt, Stand oder Version).",
+              "messverfahren": "offen: kein Messverfahren im Konzept"
+            }
+          ],
+          "abhaengigkeiten": [
+            "st-35ec-f2fb-68d5-6d6dddfa6fa7-3",
+            "st-35ec-f2fb-68d5-6d6dddfa6fa7-4"
+          ]
+        },
+        {
+          "story_id": "st-35ec-f2fb-68d5-6d6dddfa6fa7-9",
+          "titel": "Transparenzhinweis für KI-generierte Antworten integrieren",
+          "beschreibung": "Als Mitarbeitender möchte ich in jedem Antwortvorschlag einen klaren Hinweis sehen, dass die Antwort von einem KI-System generiert wurde, um die Herkunft der Information nachvollziehen zu können. Dies erfüllt die Anforderungen aus Artikel 50 Absatz 1 AI Act.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein Antwortvorschlag, When das System die Antwort ausgibt, Then enthält die Antwort einen sichtbaren Hinweis: 'Diese Antwort wurde von einem KI-System generiert.'",
+              "messverfahren": "Sichtprüfung des Antwortvorschlags auf Vorhandensein des Hinweises."
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-35ec-f2fb-68d5-6d6dddfa6fa7-10",
+          "titel": "Maschinenlesbare Kennzeichnung für KI-generierte Texte implementieren",
+          "beschreibung": "Als IT/DevOps möchte ich sicherstellen, dass alle textuellen Antwortvorschläge maschinenlesbar als künstlich erzeugt gekennzeichnet werden, um Artikel 50 Absatz 2 AI Act zu erfüllen.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given ein textueller Antwortvorschlag, When das System die Antwort generiert, Then wird der Antworttext mit einem maschinenlesbaren Metadaten-Tag (z. B. 'data-ai-generated=true') versehen.",
+              "messverfahren": "Technische Prüfung der Antwort-HTML/JSON-Struktur auf Vorhandensein des Metadaten-Tags."
+            }
+          ],
+          "abhaengigkeiten": []
+        },
+        {
+          "story_id": "st-35ec-f2fb-68d5-6d6dddfa6fa7-11",
+          "titel": "Pseudonymisierung der E-Mail-Adressen vor Modellaufruf sicherstellen",
+          "beschreibung": "Als IT/DevOps möchte ich sicherstellen, dass E-Mail-Adressen der anfragenden Personen vor der Verarbeitung durch das KI-System pseudonymisiert werden, um Artikel 25 DSGVO (Datenschutz durch Technikgestaltung) zu erfüllen.",
+          "akzeptanzkriterien": [
+            {
+              "text": "Given eine Frage mit E-Mail-Adresse der anfragenden Person, When die Frage an das KI-System übergeben wird, Then wird die E-Mail-Adresse durch eine eindeutige Kennung ersetzt, bevor das Modell die Frage verarbeitet.",
+              "messverfahren": "Protokollprüfung: Vor dem Modellaufruf wird die E-Mail-Adresse durch eine Kennung ersetzt; nach der Antwortgenerierung wird die Kennung wieder aufgelöst."
+            }
+          ],
+          "abhaengigkeiten": []
+        }
+      ],
+      "teilprozess_ids": [
+        "KP-05.TP-1"
+      ],
+      "potenzial_id": "288edb94-7229-4aac-8844-e74a75697289"
+    }
+  ],
+  "gate2": {
+    "status": "approved"
+  }
+}
