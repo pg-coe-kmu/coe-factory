@@ -10,7 +10,7 @@ Von der Lieferung von BC2 bis zur Übergabe an BC4. Stand 18.11.2026 (vorher 23.
 - „Nachbessern“ startet den Lauf mit demselben Konzept und dem Kommentar neu, höchstens dreimal. Ablehnen ist endgültig.
 - Modus `echt` nur für echte Lieferungen von BC2. Testläufe (Übungsmandant, Simulation, Start von Hand) liefern nichts an BC4.
 - Bei Freigabe im Modus `echt`: Pull Request nach `contracts/bc3-to-bc4/`, BC3 führt ihn erst zusammen, wenn die Prüfung „Schema und Vollständigkeit“ grün ist.
-- Seit 18.11.2026 Vertrag BC3 → BC4 **3.6**: Die IDs von BC2 (Mandant, Paket, Priorisierung, Potenzial) laufen bis ins Ticket-Set mit. Erste Lieferung danach: `kp-06/veraltet-del-kp-06-2026-11-18-201545` (UC1, PR #402).
+- Seit 19.11.2026 Vertrag BC3 → BC4 **3.7**: Die IDs von BC2 (Mandant, Paket, Priorisierung, Potenzial) laufen bis ins Ticket-Set mit (seit 3.6), jedes Akzeptanzkriterium von BC2 steht wörtlich darin und trägt seine Kennung `bc2_kriterium_id`. Gültige Lieferungen: `kp-06/del-kp-06-2026-11-19-104358` (UC1, PR #412) und `kp-05/del-kp-05-2026-11-19-105004` (UC2, PR #413).
 
 ## Bild
 
@@ -23,7 +23,7 @@ flowchart TD
   B15["BC3-15 Plan festlegen<br>Regeln R1–R6, KI-Ratgeber"]
   B20["BC3-20 Stories schneiden<br>KI, Messverfahren von BC2"]
   B30["BC3-30 Compliance prüfen<br>KI"]
-  B40["BC3-40 Tickets bauen und prüfen<br>gegen Vertrag 3.6, mit IDs"]
+  B40["BC3-40 Tickets bauen und prüfen<br>gegen Vertrag 3.7, mit IDs und Kennung je Kriterium"]
   B50["BC3-50 Architektur<br>Bauplan"]
   B70["BC3-70 Ausliefern<br>offene Punkte, Ablage zur Ansicht"]
   G2P["Gate 2 vorbereiten<br>Prüfpunkte, Telegram"]
@@ -63,12 +63,12 @@ flowchart TD
 | – | **BC3-00** Orchestrator | Pfad der Konzeptdatei | legt den Liefermodus fest (siehe „Echt oder Test“), ruft die Schritte nacheinander auf, hält an Gate 2 an, startet bei „nachbessern“ neu, schreibt den Abschlussbericht | nein | über BC3-91 in `laeufe` |
 | 1 | **BC3-10** Konzept einlesen (mit BC3-11) | Konzeptdatei und `prozesspriorisierung.json` aus GitHub | Potenziale mit Anforderungen (A), Akzeptanzkriterien (K), Vorgaben (V); IDs von BC2 (Mandant, Paket, Priorisierung, Anfrage, Konzept); Eingangsprüfung | nein | – |
 | 2 | **BC3-15** Plan festlegen | Potenziale, Anbindungen, Herkunft der Zahlen | Plan: welche Stufe in welchem Modus (R1–R6); Hochrisiko-Regel für alle acht Bereiche aus Anhang III; Hinweise des Ratgebers | nur Ratgeber (`mistral-medium-3-5`), ändert den Plan nicht | – |
-| 3 | **BC3-20** Stories schneiden | Potenziale | je Potenzial ein Epic mit Stories und Akzeptanzkriterien, Abdeckung von A, K, V. Messverfahren: wörtlich von BC2, wenn das Kriterium zu einem K passt; sonst „offen: von BC3 abgeleitet, BC2 nennt dafür kein Messverfahren“. BC3 erfindet keine Messverfahren | ja (`mistral-large-2512`, Temperatur 0, Seed 42) | – |
+| 3 | **BC3-20** Stories schneiden | Potenziale | je Potenzial ein Epic mit Stories und Akzeptanzkriterien, Abdeckung von A, K, V. Kriterien von BC2 (K) wörtlich mit Messverfahren und Kennung `bc2_kriterium_id`; eigene Kriterien von BC3 mit „offen: von BC3 abgeleitet, BC2 nennt dafür kein Messverfahren“. BC3 erfindet keine Messverfahren | ja (`mistral-large-2512`, Temperatur 0, Seed 42) | – |
 | 4 | **BC3-30** Compliance prüfen | Epics, Datenarten, Tragweite | Ampel, Risikoklasse nach KI-VO, Pflichten mit Adressat, Zusatz-Stories, Zuordnung zu vorhandenen Stories; meldet Pflichten mit Artikeln, die nur für Hochrisiko gelten (`artikel_nur_hochrisiko`), und vermerkt sie bei Klasse unter `high` als `freiwillig` mit `grundlage_hinweis`; beim Neustart bekommt die KI den Kommentar von Gate 2 | ja (`mistral-large-2512`, Temperatur 0, Seed 42) | – |
-| 5 | **BC3-40** Tickets bauen und prüfen | Epics, Compliance-Befund, IDs | `ticket_set.json` mit IDs in `konzept_ref` und `potenzial_id` je Epic, `compliance-audit.json`; geprüft wie Schema 3.6; bricht ab, wenn etwas nicht passt | nein | – |
+| 5 | **BC3-40** Tickets bauen und prüfen | Epics, Compliance-Befund, IDs | `ticket_set.json` mit IDs in `konzept_ref`, `potenzial_id` je Epic und `bc2_kriterium_id` je Kriterium von BC2, `compliance-audit.json` aus dem geprüften Befund von BC3-30 (mit Vermerk `freiwillig`); geprüft wie Schema 3.7; bricht ab, wenn etwas nicht passt | nein | – |
 | 6 | **BC3-50** Architektur | Tickets | `architecture.md` (Mermaid), `blueprint.json` mit menschlichen Entscheidungspunkten; API-Teil abgeschaltet | nein | – |
 | 7 | **BC3-70** Ausliefern | alle Dateien des Laufs | `offene-punkte.json` (was offen ist und für wen, bleibt bei BC3), Dateien zur Ansicht, je Lieferung ein Ordner | nein | Ablage zur Ansicht |
-| 8 | **Gate 2** (BC3-00, BC3-81) | Umschlag des Laufs | fünf maschinelle Prüfpunkte, drei Akzeptanzkriterien zur Stichprobe, Telegram mit Link; die Seite zeigt Eingang, Schritte, Ergebnis, Ausgang | nein | `gate2_ansicht` |
+| 8 | **Gate 2** (BC3-00, BC3-81) | Umschlag des Laufs | sechs maschinelle Prüfpunkte (seit 19.11. auch „Kriterien von BC2 vollständig“), drei Akzeptanzkriterien von BC3 zur Stichprobe, Telegram mit Link; die Seite zeigt Eingang, Schritte, Ergebnis, Ausgang | nein | `gate2_ansicht` |
 | 9 | **BC3-80** Gate 2 Freigabe | Entscheidung, Begründung | Entscheidung festgehalten. Bei Freigabe im Modus `echt`: Pull Request mit vier Dateien nach `contracts/bc3-to-bc4/<projekt>/<lieferung>/`, bis 5 × 30 Sekunden auf die Prüfung „Schema und Vollständigkeit“ warten, nur bei grün zusammenführen, sonst bleibt der Pull Request offen und eine Zeile kommt in `fehler`. Danach Zeile in `bc3.lieferungen` | nein | `freigaben`, GitHub, Team-Datenbank |
 
 ## Echt oder Test
@@ -128,7 +128,8 @@ Laufprotokoll, Entscheidungen und Fehler liegen in einem eigenen Supabase-Projek
 ## Was dieser Ablauf nicht abdeckt
 
 - **Rückweg zu BC2:** „Nachbessern“ startet BC3 neu, erreicht BC2 aber nicht. Fehlende Messverfahren sind im Ticket-Set als „offen“ markiert und stehen in `offene-punkte.json`.
-- **ID je Akzeptanzkriterium:** gibt es nicht, BC2 liefert keine. Nachverfolgen lässt sich die Kette bis zum Epic.
+- **ID je Akzeptanzkriterium:** BC2 vergibt keine. Seit 19.11.2026 setzt BC3 die Kennung nach der Konvention von BC0 (`bc2:<Priorisierung>/<Potenzial>/<Nr.>`), nur bei Kriterien von BC2.
+- **`bc3.lieferungen` und `gate_pakete`:** Steht das Paket nicht in `gate_pakete` (BC0), lehnt die Datenbank die Zeile ab, so bei UC2 am 19.11.; die Lieferung auf GitHub ist davon nicht betroffen.
 - **`anfrage_id`:** bleibt leer, wenn BC2 sie nicht mitliefert (so bei UC1).
 - **Kommentar an Gate 2:** Er geht beim Neustart an BC3-20 und seit 18.11.2026 auch an BC3-30. Ob die KI ihn umsetzt, ist nicht garantiert; nach dem Neustart prüft ihn wieder ein Mensch an Gate 2. Artikel, die nur für Hochrisiko gelten, vermerkt die Kette bei begrenztem oder minimalem Risiko selbst als freiwillig.
 - **Rückkanal von BC4:** BC3 erfährt nicht, was BC4 gebaut hat.
@@ -149,4 +150,8 @@ Laufprotokoll, Entscheidungen und Fehler liegen in einem eigenen Supabase-Projek
 - **18.11.** `bc3.lieferungen` um `priorisierung_id`, `konzept_id`, `potenzial_ids` und `status` erweitert, BC3-80 schreibt sie.
 - **18.11.** Erste Lieferung nach 3.6: `del-kp-06-2026-11-18-201545` (UC1, PR #402), seit 19.11. veraltet.
 - **19.11.** Übergabe-Befund BC0: BC3-20 übernimmt die Akzeptanzkriterien von BC2 wörtlich, BC3-40 nennt im Compliance-Audit dieselbe Story-Kennung wie im Ticket-Set.
-- **19.11.** Neue Lieferung UC1: `del-kp-06-2026-11-19-094806` (PR #407).
+- **19.11.** Neue Lieferung UC1: `del-kp-06-2026-11-19-094806` (PR #407), am Abend ersetzt.
+- **19.11.** Vertrag BC3 → BC4 3.7 (PR #411): Kennung `bc2_kriterium_id` je Kriterium von BC2. BC3-20 setzt sie, BC3-40 prüft sie.
+- **19.11.** Compliance-Audit aus dem geprüften Befund von BC3-30: Pflichten mit Hochrisiko-Artikeln bei Klasse unter `high` kommen mit `freiwillig` an.
+- **19.11.** Gate 2: Prüfpunkt „Kriterien von BC2 vollständig“, Hinweis auf den Vermerk `freiwillig` bei „Rechtsgrundlage“.
+- **19.11.** Gültige Lieferungen nach 3.7: UC1 `del-kp-06-2026-11-19-104358` (PR #412), erstes gültiges UC2-Ticket `del-kp-05-2026-11-19-105004` (PR #413); `094806` veraltet (PR #414).
