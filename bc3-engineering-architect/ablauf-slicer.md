@@ -10,7 +10,7 @@ Von der Lieferung von BC2 bis zur Übergabe an BC4. Stand 18.11.2026 (vorher 23.
 - „Nachbessern“ startet den Lauf mit demselben Konzept und dem Kommentar neu, höchstens dreimal. Ablehnen ist endgültig.
 - Modus `echt` nur für echte Lieferungen von BC2. Testläufe (Übungsmandant, Simulation, Start von Hand) liefern nichts an BC4.
 - Bei Freigabe im Modus `echt`: Pull Request nach `contracts/bc3-to-bc4/`, BC3 führt ihn erst zusammen, wenn die Prüfung „Schema und Vollständigkeit“ grün ist.
-- Seit 18.11.2026 Vertrag BC3 → BC4 **3.6**: Die IDs von BC2 (Mandant, Paket, Priorisierung, Potenzial) laufen bis ins Ticket-Set mit. Erste Lieferung danach: `kp-06/del-kp-06-2026-11-18-201545` (UC1, PR #402).
+- Seit 18.11.2026 Vertrag BC3 → BC4 **3.6**: Die IDs von BC2 (Mandant, Paket, Priorisierung, Potenzial) laufen bis ins Ticket-Set mit. Erste Lieferung danach: `kp-06/veraltet-del-kp-06-2026-11-18-201545` (UC1, PR #402).
 
 ## Bild
 
@@ -147,4 +147,6 @@ Laufprotokoll, Entscheidungen und Fehler liegen in einem eigenen Supabase-Projek
 - **18.11.** BC3-30 bekommt den Kommentar von Gate 2 (vorher nur BC3-20) und vermerkt Pflichten mit Hochrisiko-Artikeln bei Klasse unter `high` als freiwillig.
 - **18.11.** Lieferordner gekennzeichnet: `del-`, `test-del-`, `veraltet-del-` (PR #401).
 - **18.11.** `bc3.lieferungen` um `priorisierung_id`, `konzept_id`, `potenzial_ids` und `status` erweitert, BC3-80 schreibt sie.
-- **18.11.** Erste Lieferung nach 3.6: `del-kp-06-2026-11-18-201545` (UC1, PR #402).
+- **18.11.** Erste Lieferung nach 3.6: `del-kp-06-2026-11-18-201545` (UC1, PR #402), seit 19.11. veraltet.
+- **19.11.** Übergabe-Befund BC0: BC3-20 übernimmt die Akzeptanzkriterien von BC2 wörtlich, BC3-40 nennt im Compliance-Audit dieselbe Story-Kennung wie im Ticket-Set.
+- **19.11.** Neue Lieferung UC1: `del-kp-06-2026-11-19-094806` (PR #407).

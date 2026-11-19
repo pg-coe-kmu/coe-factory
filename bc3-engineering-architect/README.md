@@ -24,7 +24,7 @@
 - Ein Mensch gibt an Gate 2 frei, bessert nach oder lehnt ab. „Nachbessern“ startet einen neuen Lauf mit dem Kommentar, höchstens dreimal. Die Gate-2-Seite kommt per Telegram-Link.
 - Vertrag BC3 → BC4 3.6: Die IDs von BC2 (Mandant, Paket, Priorisierung, Potenzial je Epic) stehen im Ticket-Set und in `bc3.lieferungen`. Messverfahren übernimmt BC3 von BC2, fehlende sind als „offen“ markiert.
 - Nur Lieferungen aus echten Läufen kommen an BC4. BC3 führt den Pull Request erst nach grüner Prüfung zusammen. Ordner: `del-` gültig, `test-del-` Testlauf, `veraltet-del-` alter Stand.
-- Erste Lieferung nach 3.6: `contracts/bc3-to-bc4/kp-06/del-kp-06-2026-11-18-201545/` (UC1, PR #402). Erste echte Lieferung überhaupt am 23.10.2026 (KP-05, PR #337).
+- Gültige Lieferung für UC1: `contracts/bc3-to-bc4/kp-06/del-kp-06-2026-11-19-094806/` (PR #407), Kriterien von BC2 wörtlich. Die erste Lieferung nach 3.6 vom 18.11. (PR #402) ist veraltet. Erste echte Lieferung überhaupt am 23.10.2026 (KP-05, PR #337).
 - Offen: Rückweg zu BC2, ID je Akzeptanzkriterium, Rückkanal von BC4. Einzelheiten und alle Änderungen seit 23.10.: [ablauf-slicer.md](ablauf-slicer.md).
 
 ## Dateien in diesem Ordner

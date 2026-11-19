@@ -39,22 +39,26 @@ als Ergebnis werten.
 |---|---|
 | `del-` | gültige Lieferung aus einem echten Lauf |
 | `test-del-` | Testlauf mit Übungsmandant oder Simulation, nur zum Ausprobieren |
-| `veraltet-del-` | echter Lauf, aber alter Stand (Vertrag 3.5, ohne IDs von BC2), nicht mehr maßgeblich |
+| `veraltet-del-` | echter Lauf, aber alter Stand, durch eine neuere Lieferung ersetzt, nicht mehr maßgeblich |
 
-Stand 18.11.2026:
+Stand 19.11.2026:
 
 | Projekt | Ordner | Art |
 |---|---|---|
-| kp-06 | `del-kp-06-2026-11-18-201545` | **gültig**, UC1 (Reisebuchung), Vertrag 3.6 mit IDs |
+| kp-06 | `del-kp-06-2026-11-19-094806` | **gültig**, UC1 (Reisebuchung), Vertrag 3.6 mit IDs, Kriterien von BC2 wörtlich |
 | kp-01 | `test-del-kp-01-2026-11-13-130559` | Übungsmandant |
 | kp-01 | `test-del-kp-01-2026-11-18-183750` | Übungsmandant (Vertrag 3.6) |
 | kp-06 | `test-del-kp-06-2026-11-15-210539` | Simulation |
 | kp-05 | `veraltet-del-kp-05-2026-10-26-185111` | alter Stand |
 | kp-06 | `veraltet-del-kp-06-2026-10-31-090033`, `-11-02-172536`, `-11-03-184824` | alter Stand |
+| kp-06 | `veraltet-del-kp-06-2026-11-18-201545` | ersetzt durch `del-kp-06-2026-11-19-094806` |
 
-Maßgeblich für UC1 ist `del-kp-06-2026-11-18-201545`. In `compliance-audit.json` stehen bei
-P8 bis P10 Artikel 12 bis 14 der KI-Verordnung, die nur für Hochrisiko-Systeme gelten; das
-System ist als begrenztes Risiko eingestuft (`artikel_nur_hochrisiko`).
+Maßgeblich für UC1 ist `del-kp-06-2026-11-19-094806`. Gegenüber dem 18.11. neu: Die
+Akzeptanzkriterien von BC2 stehen wörtlich im Ticket-Set (mit „Gegeben … wenn … dann“, eigene
+Kriterien von BC3 weiter als Given/When/Then), und `compliance-audit.json` nennt Stories mit
+derselben Kennung wie `ticket_set.json`. In `compliance-audit.json` steht bei P8 Artikel 12 der
+KI-Verordnung, der nur für Hochrisiko-Systeme gilt; das System ist als begrenztes Risiko
+eingestuft.
 
 ## Was BC4 braucht, und was nicht
 
