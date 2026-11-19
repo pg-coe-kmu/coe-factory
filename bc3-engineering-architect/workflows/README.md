@@ -1,6 +1,15 @@
 # BC3 – n8n-Workflows des Slicers
 
-Stand 19.11.2026: veröffentlichte Fassung aus n8n, bereinigt exportiert. Neu exportiert sind nur Workflows, die sich seit dem letzten Export geändert haben (19.11.: BC3-20 und BC3-40). Die übrigen Dateien sind unverändert und stimmen mit der Fassung in n8n überein. Ablauf eines Laufs: [../ablauf-slicer.md](../ablauf-slicer.md).
+Stand 19.11.2026 abends: veröffentlichte Fassung aus n8n, bereinigt exportiert. Neu exportiert sind nur Workflows, die sich seit dem letzten Export geändert haben (19.11. abends: BC3-00, BC3-20, BC3-40, BC3-81). Die übrigen Dateien sind unverändert und stimmen mit der Fassung in n8n überein. Ablauf eines Laufs: [../ablauf-slicer.md](../ablauf-slicer.md).
+
+## Änderungen am 19.11.2026 abends
+
+Vertrag BC3 → BC4 3.7 (PR #411) und Gate 2:
+
+- **BC3-20** (`f5d81ecf`): „Umschlag ergänzen“ setzt an jedes Akzeptanzkriterium von BC2 die Kennung `bc2_kriterium_id` (`bc2:<Priorisierung>/<Potenzial>/<Nr.>`, je 8 Zeichen der UUID, Nr. in der Reihenfolge von BC2). Ein Story-Kriterium trägt höchstens eine Kennung. Fehlt `priorisierung_id` oder die Potenzial-ID, gibt es keine Kennung und einen Befund im Laufprotokoll.
+- **BC3-40** (`2bbf2d39`): Vertrag 3.7. „Compliance bereitstellen“ nimmt den geprüften Befund von BC3-30 statt der Rohantwort, damit der Vermerk `freiwillig` bei Hochrisiko-Artikeln im Compliance-Audit ankommt. „Lieferung prüfen“ erlaubt `bc2_kriterium_id` nur bei 3.7 und prüft das Muster; fehlen Kennungen, ist das ein weicher Befund.
+- **BC3-00** (`f13b030b`): „Gate 2 vorbereiten“ hat den Prüfpunkt „Kriterien von BC2 vollständig“: stehen alle Kriterien von BC2 wörtlich und mit Kennung im Ticket-Set? Beim Prüfpunkt „Rechtsgrundlage“ sagt „Was hilft“ zuerst, wenn die Pflicht schon als freiwillig vermerkt ist.
+- **BC3-81** (`c7126fde`): Der Satz oben auf der Seite verweist auf die Stichprobe der Akzeptanzkriterien in Bereich 5.
 
 ## Änderungen am 19.11.2026
 
@@ -29,18 +38,18 @@ Stand 19.11.2026: veröffentlichte Fassung aus n8n, bereinigt exportiert. Neu ex
 
 | Nr. | Datei | Aufgabe | ID in der Originalinstanz | Fassung | Export |
 |---|---|---|---|---|---|
-| BC3-00 | [bc3-00-orchestrator.json](bc3-00-orchestrator.json) | Steuert einen Lauf, hält an Gate 2 an, schreibt den Abschluss | `Mi0FNs8k9wCMgHQu` | `a4282226` | 18.11. |
+| BC3-00 | [bc3-00-orchestrator.json](bc3-00-orchestrator.json) | Steuert einen Lauf, hält an Gate 2 an, schreibt den Abschluss | `Mi0FNs8k9wCMgHQu` | `f13b030b` | 19.11. |
 | BC3-01 | [bc3-01-neue-lieferung-suchen.json](bc3-01-neue-lieferung-suchen.json) | Sucht alle 15 Minuten neue Konzepte von BC2 und startet BC3-00 | `ffLq7cRw96M8YHck` | `5fb15f01` | 23.10. |
 | BC3-10 | [bc3-10-konzept-einlesen.json](bc3-10-konzept-einlesen.json) | Liest das Konzept und prüft den Eingang | `L0kJaQpzehSf6LKY` | `a2f5105e` | 25.10. |
 | BC3-11 | [bc3-11-datei-aus-github-holen.json](bc3-11-datei-aus-github-holen.json) | Holt eine Datei aus `coe-factory` | `ehcA304UI8tpGUIQ` | `4c577604` | 23.10. |
 | BC3-15 | [bc3-15-plan-festlegen.json](bc3-15-plan-festlegen.json) | Legt mit festen Regeln fest, welche Stufe in welchem Modus läuft, ein KI-Ratgeber meldet Lücken | `V9FJSchlZhzjIw8R` | `b5cccc36` | 23.10. |
-| BC3-20 | [bc3-20-stories-schneiden.json](bc3-20-stories-schneiden.json) | Schneidet Epics und Stories (KI) | `dYZc5Z0JGsd03ZMS` | `c4a65b75` | 19.11. |
+| BC3-20 | [bc3-20-stories-schneiden.json](bc3-20-stories-schneiden.json) | Schneidet Epics und Stories (KI) | `dYZc5Z0JGsd03ZMS` | `f5d81ecf` | 19.11. |
 | BC3-30 | [bc3-30-compliance-pruefen.json](bc3-30-compliance-pruefen.json) | Prüft die Epics gegen EU AI Act und DSGVO, setzt Ampel und Risikoklasse (KI) | `4MH1nHOhouKuDtP9` | `a1105411` | 18.11. |
-| BC3-40 | [bc3-40-tickets-bauen-und-pruefen.json](bc3-40-tickets-bauen-und-pruefen.json) | Baut `tickets.json` und `compliance-audit.json` und prüft beides gegen den Vertrag mit BC4 | `rc7L7WfB4HOwZuN5` | `87f22da0` | 19.11. |
+| BC3-40 | [bc3-40-tickets-bauen-und-pruefen.json](bc3-40-tickets-bauen-und-pruefen.json) | Baut `tickets.json` und `compliance-audit.json` und prüft beides gegen den Vertrag mit BC4 | `rc7L7WfB4HOwZuN5` | `2bbf2d39` | 19.11. |
 | BC3-50 | [bc3-50-architektur.json](bc3-50-architektur.json) | Erzeugt `architecture.md` und `blueprint.json` aus den Tickets, API-Teil abgeschaltet | `ScGYz1bQxqryE9Iy` | `29c7a4dc` | 23.10. |
 | BC3-70 | [bc3-70-ausliefern.json](bc3-70-ausliefern.json) | Legt die Lieferung zur Ansicht in Google Drive ab und sammelt die offenen Punkte | `bHwGl0vFoE8v2O00` | `143d92f0` | 23.10. |
 | BC3-80 | [bc3-80-gate-2-freigabe.json](bc3-80-gate-2-freigabe.json) | Setzt die Entscheidung an Gate 2 um (Pull Request, Team-Datenbank) | `btNCECvEp5neQ2h4` | `a04bbec4` | 18.11. |
-| BC3-81 | [bc3-81-gate-2-seite.json](bc3-81-gate-2-seite.json) | Gate-2-Seite zum Entscheiden (Webhook) | `eKr8CANKYO4OyM27` | `c13fb8f1` | 23.10. |
+| BC3-81 | [bc3-81-gate-2-seite.json](bc3-81-gate-2-seite.json) | Gate-2-Seite zum Entscheiden (Webhook) | `eKr8CANKYO4OyM27` | `c7126fde` | 19.11. |
 | BC3-82 | [bc3-82-uebersicht.json](bc3-82-uebersicht.json) | Übersicht über Läufe, Fehler und Lieferungen (Webhook mit Passwort) | `1I8HbQb1g6SCRipA` | `561f065d` | 25.10. |
 | BC3-83 | [bc3-83-pruefstand.json](bc3-83-pruefstand.json) | Prüfstand: misst einmal im Monat, wie gut BC3-30 die Risikoklasse trifft (16 erfundene Fälle), schreibt in `pruefstand` | `m6uKYlxaLRoKshhv` | `2648bf7d` | 18.11. |
 | BC3-90 | [bc3-90-live-demo.json](bc3-90-live-demo.json) | Live-Demo für Präsentationen: Seite mit Passwort, zeigt einen Lauf Schritt für Schritt bis zur Entscheidung an Gate 2. „Jetzt prüfen“ ruft BC3-01 auf und startet neue, an Gate 1 freigegebene Lieferungen von BC2 im Modus `echt` (nach Freigabe Pull Request an BC4), ohne neue Lieferung nur eine Meldung. „Testfall“ startet das simulierte UC1 im Modus `test` | `YkJfiOq1fJwAqVQD` | `5234c493` | 31.10. |
