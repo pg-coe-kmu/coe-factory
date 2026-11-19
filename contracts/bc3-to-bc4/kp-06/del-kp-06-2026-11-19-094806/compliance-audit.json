@@ -1,0 +1,315 @@
+{
+  "lieferung_id": "del-kp-06-2026-11-19-094806",
+  "schema_version": "3.6",
+  "projekt_kurzname": "kp-06",
+  "erzeugt_am": "2026-11-19T09:48:06.101Z",
+  "konzept_ref": {
+    "konzept_id": "4d53e481-b332-43c7-b191-63869059afd8",
+    "schema_version": "3.1",
+    "source_file": "konzept_KP-06.json",
+    "kp_id": "KP-06",
+    "teilprozess_ids": [
+      "KP-06.TP-2",
+      "KP-06.TP-3",
+      "KP-06.TP-4",
+      "KP-06.TP-5"
+    ],
+    "value_quelle": "berechnet",
+    "company_id": "7c2d5ee9-2a9a-5990-810f-502ea2b2012d",
+    "paket_id": "cc7f4d1b-4c71-4cfa-92c3-46a395080e4b",
+    "priorisierung_id": "b7e0b991-83f7-4536-ac42-ef22f8279354"
+  },
+  "prozess_kurzbeschreibung": "Der Kernprozess Personal (KP-06) umfasst den vollständigen Reisebuchungszyklus von der Anfrage über Angebot, Reservierung und Buchungsprüfung bis zur Stornierung — heute geprägt durch manuelle Datenübertragungen zwischen E-Mail, Portalen und internen Listen.",
+  "vorpruefung": {
+    "ampel": "yellow",
+    "ai_act_klasse": "limited",
+    "anhang_iii_kategorie": null,
+    "dsgvo_rechtsgrundlage": "Artikel 6 Absatz 1 Buchstabe b (Vertragserfüllung), Artikel 28 (AV-Vertrag bei externem Modellanbieter)",
+    "betroffene_datenarten": [
+      "Zugangsdaten (Stufe hoch)",
+      "E-Mail-Adresse (Stufe gering)",
+      "Telefonnummer (Stufe gering)",
+      "Reise- und Termindaten (Stufe gering)",
+      "Kostenstelle und Budget (Stufe gering)"
+    ],
+    "begruendung_ampel": "Der Prozess fällt unter die KI-Verordnung als 'limited', da keine Hochrisiko-Anwendung nach Anhang III vorliegt und keine verbotenen Praktiken nach Artikel 5 verwendet werden. Die Ampel ist 'yellow', weil menschliche Freigaben vor geldwirksamen Entscheidungen (Buchung, Reservierung, Stornierung) erforderlich sind und Pseudonymisierung für hochsensible Daten (Zugangsdaten) umgesetzt wird. Die Maßnahmen stellen sicher, dass der Prozess automatisiert ablaufen darf, ohne gegen DSGVO oder AI-Act zu verstoßen."
+  },
+  "pflichten": [
+    {
+      "id": "p1",
+      "tag": "[AI-Act Art. 4]",
+      "text": "Schulung der Sachbearbeitung zur Nutzung des KI-gestützten Extraktionsdienstes und zur Prüfung unsicherer Extraktionsergebnisse.",
+      "massnahme": "hinweis_geben",
+      "datenkategorie": "gering",
+      "stelle": "Extraktion von Reisedaten aus E-Mails implementieren (st-5df5-0da1-9841-5793dbd06895-3)",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p2",
+      "tag": "[AI-Act Art. 50 Absatz 1]",
+      "text": "Hinweis in der E-Mail-Signatur oder im Erfassungsbogen, dass die Verarbeitung der Reiseanfrage durch ein KI-System unterstützt wird.",
+      "massnahme": "hinweis_geben",
+      "datenkategorie": "gering",
+      "stelle": "Extraktion von Reisedaten aus E-Mails implementieren (st-5df5-0da1-9841-5793dbd06895-3)",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p3",
+      "tag": "[DSGVO Art. 25]",
+      "text": "Pseudonymisierung der E-Mail-Adressen und Telefonnummern vor der Verarbeitung durch den Extraktionsdienst, sofern diese nicht für die Kommunikation mit dem Kunden benötigt werden.",
+      "massnahme": "pseudonymisieren",
+      "datenkategorie": "gering",
+      "stelle": "E-Mail-Postfach für Extraktionsdienst zugänglich machen (st-5df5-0da1-9841-5793dbd06895-2)",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p4",
+      "tag": "[DSGVO Art. 25]",
+      "text": "Zugangsdaten (Stufe hoch) werden vor der Verarbeitung durch den Extraktionsdienst pseudonymisiert und nur an den Stellen, an denen sie für die Buchung oder Reservierung benötigt werden, wieder eingesetzt.",
+      "massnahme": "pseudonymisieren",
+      "datenkategorie": "hoch",
+      "stelle": "Extraktion von Reisedaten aus E-Mails implementieren (st-5df5-0da1-9841-5793dbd06895-3)",
+      "adressat": "bc4",
+      "wird_zu_story": true,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p5",
+      "tag": "[DSGVO Art. 32]",
+      "text": "Verschlüsselung der personenbezogenen Daten während der Übertragung und Speicherung, insbesondere der Zugangsdaten.",
+      "massnahme": "eu_modell",
+      "datenkategorie": "hoch",
+      "stelle": "E-Mail-Postfach für Extraktionsdienst zugänglich machen (st-5df5-0da1-9841-5793dbd06895-2)",
+      "adressat": "plattform",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p6",
+      "tag": "[DSGVO Art. 22]",
+      "text": "Menschliche Freigabe vor der finalen Buchung, Reservierung oder Stornierung beim Anbieter, da es sich um eine geldwirksame Entscheidung handelt.",
+      "massnahme": "mensch_prueft",
+      "datenkategorie": "gering",
+      "stelle": "Automatisierte Reservierung beim Anbieter anlegen (st-26d9-5ed3-1682-ce59de66b523-3), Buchungsstatus automatisch abrufen und aufbereiten (st-26d9-5ed3-1682-ce59de66b523-4), Stornierungsaufruf beim Anbieter auslösen und Ergebnis verarbeiten (st-26d9-5ed3-1682-ce59de66b523-5)",
+      "adressat": "bc4",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": [
+        "st-26d9-5ed3-1682-ce59de66b523-3",
+        "st-26d9-5ed3-1682-ce59de66b523-4",
+        "st-26d9-5ed3-1682-ce59de66b523-5"
+      ]
+    },
+    {
+      "id": "p7",
+      "tag": "[DSGVO Art. 28]",
+      "text": "Abschluss eines Auftragsverarbeitungsvertrags (AV-Vertrag) mit dem externen Modellanbieter, falls der primäre Pfad (Ollama) nicht genutzt wird.",
+      "massnahme": "frist_vereinbaren",
+      "datenkategorie": "gering",
+      "stelle": "Extraktion von Reisedaten aus E-Mails implementieren (st-5df5-0da1-9841-5793dbd06895-3)",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    },
+    {
+      "id": "p8",
+      "tag": "[AI-Act Art. 12]",
+      "text": "Protokollierung aller automatisierten Schritte (Extraktion, Reservierung, Buchungsprüfung, Stornierung) mit Zeitstempel und Status für Nachvollziehbarkeit.",
+      "massnahme": "protokollieren",
+      "datenkategorie": "gering",
+      "stelle": "Revisionssichere Protokollierung der Extraktionsergebnisse (st-5df5-0da1-9841-5793dbd06895-6), Automatisierte Reservierung beim Anbieter anlegen (st-26d9-5ed3-1682-ce59de66b523-3), Buchungsstatus automatisch abrufen und aufbereiten (st-26d9-5ed3-1682-ce59de66b523-4), Stornierungsaufruf beim Anbieter auslösen und Ergebnis verarbeiten (st-26d9-5ed3-1682-ce59de66b523-5)",
+      "adressat": "bc4",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": [
+        "st-5df5-0da1-9841-5793dbd06895-6",
+        "st-26d9-5ed3-1682-ce59de66b523-3",
+        "st-26d9-5ed3-1682-ce59de66b523-4",
+        "st-26d9-5ed3-1682-ce59de66b523-5"
+      ]
+    },
+    {
+      "id": "p9",
+      "tag": "[DSGVO Art. 5 Absatz 1 Buchstabe c]",
+      "text": "Löschung oder Anonymisierung der personenbezogenen Daten nach Abschluss des Reisevorgangs, sofern keine gesetzlichen Aufbewahrungsfristen entgegenstehen.",
+      "massnahme": "feld_weglassen",
+      "datenkategorie": "gering",
+      "stelle": "Revisionssichere Protokollierung der Extraktionsergebnisse (st-5df5-0da1-9841-5793dbd06895-6)",
+      "adressat": "organisation",
+      "wird_zu_story": false,
+      "owner": "BC3",
+      "abgedeckt_durch": []
+    }
+  ],
+  "pflichten_nach_adressat": {
+    "bc4": [
+      "p2",
+      "p3",
+      "p4",
+      "p6",
+      "p8"
+    ],
+    "organisation": [
+      "p1",
+      "p7",
+      "p9"
+    ],
+    "plattform": [
+      "p5"
+    ],
+    "ohne_angabe": []
+  },
+  "nicht_an_bc4": [],
+  "plattform_standards": [
+    "Verschlüsselung der personenbezogenen Daten während der Übertragung und Speicherung",
+    "Zentrales Audit-Log für alle automatisierten Schritte",
+    "Löschungs-Cron für personenbezogene Daten nach Abschluss des Reisevorgangs"
+  ],
+  "zuordnung": [
+    {
+      "epic_id": "ep-5df5-0da1-9841-5793dbd06895",
+      "use_case_id_ref": "969094be-b547-4ebc-a849-ea319e31fda8",
+      "id_saat": "969094be-b547-4ebc-a849-ea319e31fda8",
+      "titel": "Automatisierte Extraktion von Reiseanfragen aus E-Mails in strukturierten Erfassungsbogen"
+    },
+    {
+      "story_id": "st-5df5-0da1-9841-5793dbd06895-9",
+      "herkunft": "fachlich mit Pflicht",
+      "pflicht_ids": [
+        "p4"
+      ]
+    },
+    {
+      "story_id": "st-5df5-0da1-9841-5793dbd06895-8",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p2"
+      ]
+    },
+    {
+      "story_id": "st-5df5-0da1-9841-5793dbd06895-9",
+      "herkunft": "compliance",
+      "pflicht_ids": [
+        "p3"
+      ]
+    },
+    {
+      "epic_id": "ep-26d9-5ed3-1682-ce59de66b523",
+      "use_case_id_ref": "17530cac-5348-44c5-aaf1-187ad935e518",
+      "id_saat": "17530cac-5348-44c5-aaf1-187ad935e518",
+      "titel": "Automatisierte Medienbruch-Integration zwischen Angebotsliste, Anbieterportalen und Vorgangsliste"
+    },
+    {
+      "story_id": "st-26d9-5ed3-1682-ce59de66b523-3",
+      "herkunft": "fachlich mit Pflicht",
+      "pflicht_ids": [
+        "p6"
+      ],
+      "quelle": "abgedeckt_durch"
+    },
+    {
+      "story_id": "st-26d9-5ed3-1682-ce59de66b523-4",
+      "herkunft": "fachlich mit Pflicht",
+      "pflicht_ids": [
+        "p6"
+      ],
+      "quelle": "abgedeckt_durch"
+    },
+    {
+      "story_id": "st-26d9-5ed3-1682-ce59de66b523-5",
+      "herkunft": "fachlich mit Pflicht",
+      "pflicht_ids": [
+        "p6"
+      ],
+      "quelle": "abgedeckt_durch"
+    },
+    {
+      "story_id": "st-5df5-0da1-9841-5793dbd06895-6",
+      "herkunft": "fachlich mit Pflicht",
+      "pflicht_ids": [
+        "p8"
+      ],
+      "quelle": "abgedeckt_durch"
+    },
+    {
+      "story_id": "st-26d9-5ed3-1682-ce59de66b523-3",
+      "herkunft": "fachlich mit Pflicht",
+      "pflicht_ids": [
+        "p8"
+      ],
+      "quelle": "abgedeckt_durch"
+    },
+    {
+      "story_id": "st-26d9-5ed3-1682-ce59de66b523-4",
+      "herkunft": "fachlich mit Pflicht",
+      "pflicht_ids": [
+        "p8"
+      ],
+      "quelle": "abgedeckt_durch"
+    },
+    {
+      "story_id": "st-26d9-5ed3-1682-ce59de66b523-5",
+      "herkunft": "fachlich mit Pflicht",
+      "pflicht_ids": [
+        "p8"
+      ],
+      "quelle": "abgedeckt_durch"
+    }
+  ],
+  "nicht_zugeordnete_compliance_stories": [],
+  "zuordnung_korrigiert": [],
+  "zusammengelegt": [
+    {
+      "titel": "Pseudonymisierung von Zugangsdaten vor der Verarbeitung",
+      "pflicht_ids": [
+        "p4"
+      ],
+      "steht_schon_in": [
+        {
+          "story_id": "st-5df5-0da1-9841-5793dbd06895-9",
+          "titel": "Pseudonymisierung von E-Mail-Adressen und Telefonnummern vor der Extraktion"
+        }
+      ],
+      "aehnlichkeit": [
+        0.4
+      ]
+    }
+  ],
+  "befunde_zuordnung": [
+    "Prüfen: Pflicht p6 [DSGVO Art. 22] gilt laut BC3-30 durch „Automatisierte Reservierung beim Anbieter anlegen“ und „Buchungsstatus automatisch abrufen und aufbereiten“ und „Stornierungsaufruf beim Anbieter auslösen und Ergebnis verar“ als erfüllt.",
+    "Prüfen: Pflicht p8 [AI-Act Art. 12] gilt laut BC3-30 durch „Revisionssichere Protokollierung der Extraktionsergebnisse“ und „Automatisierte Reservierung beim Anbieter anlegen“ und „Buchungsstatus automatisch abrufen und aufbereiten“ und „Stornierungsaufruf beim Anbieter auslösen und Ergebnis verar“ als erfüllt.",
+    "Compliance-Story „Pseudonymisierung von Zugangsdaten vor der Verarbeitung“ nicht angehängt, ihre Kriterien stehen schon in „Pseudonymisierung von E-Mail-Adressen und Telefonnummern vor der Extraktion“ (Pflicht p4)."
+  ],
+  "pflichten_ohne_story": [],
+  "pflichten_mit_story_ohne_vermerk": [
+    "p6",
+    "p8"
+  ],
+  "befunde_adressat": [],
+  "pruefung_bc3": {
+    "geprueft_gegen": "tickets.schema.json 3.6",
+    "ergebnis": "bestanden",
+    "befunde": [
+      "Epic 1: K1 steht schon fast wörtlich in „Extraktion von Reisedaten aus E-Mails implementieren“ (100 %), kein Nachauftrag."
+    ],
+    "epics": 2,
+    "stories": 15,
+    "potenziale": 2,
+    "anforderungen_im_eingang": 13,
+    "akzeptanzkriterien_im_eingang": 6,
+    "vorgaben_bc3": 0,
+    "stories_ohne_kriterium": 0
+  }
+}
