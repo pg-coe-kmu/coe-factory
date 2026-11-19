@@ -1,8 +1,15 @@
 # BC3 – n8n-Workflows des Slicers
 
-Stand 18.11.2026: veröffentlichte Fassung aus n8n, bereinigt exportiert. Neu exportiert sind nur Workflows, die sich seit dem letzten Export geändert haben, und BC3-83 Prüfstand (neu im Repo). Die übrigen Dateien sind unverändert und stimmen mit der Fassung in n8n überein. Ablauf eines Laufs: [../ablauf-slicer.md](../ablauf-slicer.md).
+Stand 19.11.2026: veröffentlichte Fassung aus n8n, bereinigt exportiert. Neu exportiert sind nur Workflows, die sich seit dem letzten Export geändert haben (19.11.: BC3-20 und BC3-40). Die übrigen Dateien sind unverändert und stimmen mit der Fassung in n8n überein. Ablauf eines Laufs: [../ablauf-slicer.md](../ablauf-slicer.md).
 
-## Änderungen seit dem letzten Export
+## Änderungen am 19.11.2026
+
+Übergabe-Befund von BC0 vom 19.11. (UC1):
+
+- **BC3-20** (`c4a65b75`): „Umschlag ergänzen“ setzt jedes Akzeptanzkriterium von BC2 wörtlich ins Ticket, mit dem Messverfahren von BC2 und in der Formulierung von BC2 („Gegeben …, wenn …, dann …“). Fehlt in der abdeckenden Story ein passendes Kriterium, wird es angehängt. Der Prompt des Story-Architekten verlangt die wörtliche Übernahme, eigene Kriterien bleiben Given/When/Then.
+- **BC3-40** (`87f22da0`): Das Compliance-Audit nennt Stories mit derselben Kennung wie `ticket_set.json` (`abgedeckt_durch`, `stelle` und die Befunde aus BC3-20), vorher mit der Zwischenkennung aus BC3-20.
+
+## Änderungen am 18.11.2026
 
 - **BC3-00** (`a4282226`): Rückweg an Gate 2. „Nachbessern“ startet über „Neu starten?“ und „BC3-00 neu starten“ einen neuen Lauf mit demselben Konzept und dem Kommentar, höchstens dreimal (Eingänge `gate2_kommentar`, `vorlauf`, `runde`, `liefermodus`). Liefermodus `test` für Simulation, Übungsmandant und Start von Hand ohne `liefermodus`, der Neustart behält den Modus. Die Gate-2-Nachricht geht zusätzlich an Legal (eigener Telegram-Baustein).
 - **BC3-20** (`212ecebc`): „Kriterien reparieren“ und „Ergänzung bereinigen“ übernehmen das Messverfahren von BC2 wörtlich, wo es eines gibt, sonst „offen“. „Modus setzen“ gibt den Gate-2-Kommentar an den Story-Architekten.
@@ -27,9 +34,9 @@ Stand 18.11.2026: veröffentlichte Fassung aus n8n, bereinigt exportiert. Neu ex
 | BC3-10 | [bc3-10-konzept-einlesen.json](bc3-10-konzept-einlesen.json) | Liest das Konzept und prüft den Eingang | `L0kJaQpzehSf6LKY` | `a2f5105e` | 25.10. |
 | BC3-11 | [bc3-11-datei-aus-github-holen.json](bc3-11-datei-aus-github-holen.json) | Holt eine Datei aus `coe-factory` | `ehcA304UI8tpGUIQ` | `4c577604` | 23.10. |
 | BC3-15 | [bc3-15-plan-festlegen.json](bc3-15-plan-festlegen.json) | Legt mit festen Regeln fest, welche Stufe in welchem Modus läuft, ein KI-Ratgeber meldet Lücken | `V9FJSchlZhzjIw8R` | `b5cccc36` | 23.10. |
-| BC3-20 | [bc3-20-stories-schneiden.json](bc3-20-stories-schneiden.json) | Schneidet Epics und Stories (KI) | `dYZc5Z0JGsd03ZMS` | `212ecebc` | 18.11. |
+| BC3-20 | [bc3-20-stories-schneiden.json](bc3-20-stories-schneiden.json) | Schneidet Epics und Stories (KI) | `dYZc5Z0JGsd03ZMS` | `c4a65b75` | 19.11. |
 | BC3-30 | [bc3-30-compliance-pruefen.json](bc3-30-compliance-pruefen.json) | Prüft die Epics gegen EU AI Act und DSGVO, setzt Ampel und Risikoklasse (KI) | `4MH1nHOhouKuDtP9` | `a1105411` | 18.11. |
-| BC3-40 | [bc3-40-tickets-bauen-und-pruefen.json](bc3-40-tickets-bauen-und-pruefen.json) | Baut `tickets.json` und `compliance-audit.json` und prüft beides gegen den Vertrag mit BC4 | `rc7L7WfB4HOwZuN5` | `bcb5d19c` | 18.11. |
+| BC3-40 | [bc3-40-tickets-bauen-und-pruefen.json](bc3-40-tickets-bauen-und-pruefen.json) | Baut `tickets.json` und `compliance-audit.json` und prüft beides gegen den Vertrag mit BC4 | `rc7L7WfB4HOwZuN5` | `87f22da0` | 19.11. |
 | BC3-50 | [bc3-50-architektur.json](bc3-50-architektur.json) | Erzeugt `architecture.md` und `blueprint.json` aus den Tickets, API-Teil abgeschaltet | `ScGYz1bQxqryE9Iy` | `29c7a4dc` | 23.10. |
 | BC3-70 | [bc3-70-ausliefern.json](bc3-70-ausliefern.json) | Legt die Lieferung zur Ansicht in Google Drive ab und sammelt die offenen Punkte | `bHwGl0vFoE8v2O00` | `143d92f0` | 23.10. |
 | BC3-80 | [bc3-80-gate-2-freigabe.json](bc3-80-gate-2-freigabe.json) | Setzt die Entscheidung an Gate 2 um (Pull Request, Team-Datenbank) | `btNCECvEp5neQ2h4` | `a04bbec4` | 18.11. |
