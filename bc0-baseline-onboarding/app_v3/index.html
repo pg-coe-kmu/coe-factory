@@ -362,6 +362,18 @@ body{background:#F4F4F2}
 .wz-fuss .merk{font-size:11.5px;color:#888780;margin-top:10px}
 /* Personen und Systeme getrennt (Entwurf), obwohl die alte Maske beide traegt */
 #ps[data-wz="personen"] .panel[data-teil="systeme"]{display:none}
+/* v3.27: Profil-Popup, Pflichtangaben */
+.pu-tab td{vertical-align:top}.pu-tab input,.pu-tab textarea{width:100%;box-sizing:border-box;font:inherit;font-size:12.5px}.pu-tab textarea{resize:vertical;min-height:38px}
+.pv-hg{position:fixed;inset:0;background:rgba(20,38,63,.45);z-index:900;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:40px 16px}
+.pv-box{background:#fff;border-radius:12px;max-width:820px;width:100%;padding:22px 24px;box-shadow:0 10px 40px rgba(0,0,0,.25)}
+.pv-box h2{margin:0 0 4px;font-size:20px}
+.pv-fund{font-size:11.5px;color:#4A5568;margin-top:3px}
+.pv-bisher{font-size:11.5px;color:#b26a00;margin-top:3px}
+.pv-neu{border-color:#1f6f5c !important;background:#f3faf7}
+.pflicht{color:#c0392b;font-weight:700}
+th .pflicht{color:#ff9a8f}
+.pflicht-hinweis{color:#c0392b;font-size:12.5px;margin:4px 0 8px}
+.fehlt{border:2px solid #c0392b !important;background:#fdf1ef !important}
 #ps[data-wz="systeme"] .panel[data-teil="personen"],#ps[data-wz="systeme"] .panel[data-teil="zuordnung"]{display:none}
 .content.wz-sys #rk{display:none!important}
 #wzMand{display:none;color:#5F5E5A;font-size:14px;margin-left:auto}
@@ -451,7 +463,7 @@ body{background:#F4F4F2}
 <div class="schritt braucht-mandant"><div class="spalte"><div class="kreis">3</div><div class="linie"></div></div><div class="text"><a class="titel" data-v="kz">Kennzahlen</a></div></div>
 <div class="schritt braucht-mandant"><div class="spalte"><div class="kreis">4</div><div class="linie"></div></div><div class="text"><div class="navgruppe" id="grp-stamm"><div class="navkopf">Unternehmensdaten <span class="pfeil">▾</span></div><div class="navinhalt unter"><a data-v="pf">Profil</a><a data-v="ps">Personen</a><a data-v="ps" data-anker="Systeme">Systeme</a><a data-v="pr">Prozesse</a><a data-v="ra">Rating</a><a data-v="rb">Reifegradbericht</a></div></div></div></div>
 <div class="schritt braucht-mandant" id="grp-uebergabe" style="display:none"><div class="spalte"><div class="kreis">5</div><div class="linie"></div></div><div class="text"><a class="titel" data-v="g0" id="navG0">HitL Gate 0 – Freigabe</a></div></div>
-<div class="schritt braucht-mandant"><div class="spalte"><div class="kreis">6</div></div><div class="text"><div class="navgruppe" id="grp-ki"><div class="navkopf">KI-Transformation <span class="pfeil">▾</span></div><div class="navinhalt unter"><a data-v="kic">KI-Controlling · Übersicht</a><a data-v="kid">1 Modell-Drift</a><a data-v="kit">2 MLOps · Tokenverbrauch</a><a data-v="kil">3 LongLife Learning</a><a data-v="kip">4 Prozessdoku &amp; Verantwortung</a><a data-v="kiw">5 Wissensdatenbank</a><a data-v="kis">6 KI-Strategie</a><div class="geplant" style="font-style:normal;font-weight:600;color:#5F5E5A;margin-top:6px;border-left-color:transparent">KI-Reifegrad</div><div class="geplant"><span>Datenstruktur</span><span class="badge-geplant">geplant</span></div><a data-v="kr" class="spaeter" title="Erst ab Schema v1.9 bedienbar — vorgesehen für Oktober 2026."><span>KI-Readiness</span><span class="badge-geplant">geplant</span></a><a data-v="pd" class="spaeter" title="Erst ab Schema v2.0 bedienbar — vorgesehen für Oktober 2026."><span>Prozessdokumentation</span><span class="badge-geplant">geplant</span></a></div></div></div></div>
+<div class="schritt braucht-mandant"><div class="spalte"><div class="kreis">6</div></div><div class="text"><div class="navgruppe" id="grp-ki"><div class="navkopf">KI-Transformation <span class="pfeil">▾</span></div><div class="navinhalt unter"><a data-v="kic">KI-Controlling · Übersicht</a><a data-v="kid">1 Modell-Drift</a><a data-v="kit">2 MLOps · Tokenverbrauch</a><a data-v="kil">3 LongLife Learning</a><a data-v="kiw">4 Wissensdatenbank</a><a data-v="kis">5 KI-Strategie</a><div class="geplant" style="font-style:normal;font-weight:600;color:#5F5E5A;margin-top:6px;border-left-color:transparent">KI-Reifegrad</div><div class="geplant"><span>Datenstruktur</span><span class="badge-geplant">geplant</span></div><a data-v="kia" title="KI-Reifegrad nach SEI (AI Adoption Maturity Model v1.0) — v3.43">KI-Reifegrad (SEI)</a><a data-v="pd" class="spaeter" title="Erst ab Schema v2.0 bedienbar — vorgesehen für Oktober 2026."><span>Prozessdokumentation</span><span class="badge-geplant">geplant</span></a><a data-v="kip">Prozessdoku &amp; Verantwortung</a></div></div></div></div>
 </div>
 <div class="v2ab" id="v2Abmelden">⏻ Abmelden</div></aside>
 <div class="content">
@@ -508,10 +520,11 @@ body{background:#F4F4F2}
  <section class="view" id="rk"></section>
  <section class="view" id="ps"></section>
  <section class="view" id="pr"></section>
- <section class="view" id="gr"></section>
  <section class="view" id="pd"></section>
  <section class="view" id="ra"></section>
+ <section class="view" id="gr"></section>
  <section class="view" id="kr"></section>
+ <section class="view" id="kia"></section>
  <section class="view" id="kic"></section>
  <section class="view" id="kid"></section>
  <section class="view" id="kit"></section>
@@ -618,10 +631,11 @@ async function api2(p,text){return await pruefeAntwort(await fetch(p,{method:"PO
    anklickt, waehrend die Uebersicht noch laedt, landet wieder auf der
    Uebersicht, weil deren Aufbau laenger dauert. Der Fehler faellt seit dem
    19.08. auf, weil der Bericht mehr zu laden hat — er war aber vorher da. */
-var WS_REITER=['ov','ck','kz','pf','ud','rk','ps','pr','pd','ra','kr','gr','rb','g0','kic','kid','kit','kil','kip','kiw','kis'], WS_ZIEL=null;
+var WS_REITER=['ov','ck','kz','pf','ud','rk','ps','pr','pd','ra','kr','gr','rb','g0','kic','kid','kit','kil','kip','kiw','kis','kia'], WS_ZIEL=null;
 /* V2 (Vorgang 910): zusammengelegte Bildschirme nach Simeons Zuordnung vom 27.09.2026. */
-var BEGLEITER={pf:['ud'],ps:['rk'],pr:['gr']};
-var REITER_ALIAS={ud:'pf',rk:'ps',gr:'pr',ov:'ck'};
+/* v3.30 (01.11.): Bewertungen begleiten das Self-Rating, nicht mehr die Prozesse (Simeon). */
+var BEGLEITER={pf:['ud'],ps:['rk'],ra:['gr']};
+var REITER_ALIAS={ud:'pf',rk:'ps',gr:'ra',ov:'ck'};
 function show(v){
   if(WS_ZIEL && v!==WS_ZIEL && WS_REITER.indexOf(v)>=0) return;
   var s=document.querySelectorAll('.view');
@@ -746,9 +760,19 @@ $('logoutLink').onclick=async function(){
    mehr die Mandantenliste. Die Liste beantwortet die Frage "welcher Mandant?"
    — der Anfragende hat sie nie gestellt. Die Liste bleibt unveraendert
    erreichbar, sie ist nur nicht mehr das Erste, was jeder sieht. */
-async function starteAnwendung(){META=await api('/api/meta');setBackendLabel();goStart();}
+/* v3.31 (01.11.): Admin — nach der Anmeldung zuerst die Mandantenauswahl, danach die Kacheln
+   mit Seitenleiste; im Onboarding/in der Aenderung bleibt die Seitenleiste neben der Schrittleiste (Simeon). */
+function istAdmin(){ return !!(BENUTZER&&BENUTZER.ist_admin); }
+async function starteAnwendung(){META=await api('/api/meta');setBackendLabel(); if(istAdmin()) goList(); else goStart();}
 
-function goStart(){wzEnde();cur=null;WS_ZIEL=null;$('side').style.display='none';$('tsel').style.display='none';show('start');startSperreLaden();}
+function goStart(){
+  if(istAdmin()){
+    if(!cur) return goList();
+    wzEnde();WS_ZIEL=null;$('side').style.display='block';$('side').classList.remove('ohne-mandant');$('tsel').style.display='inline';
+    for(var j=0;j<wnav.length;j++)wnav[j].classList.remove('active');navAktivMarkieren();
+    show('start');startSperreLaden();return;
+  }
+  wzEnde();cur=null;WS_ZIEL=null;$('side').style.display='none';$('tsel').style.display='none';show('start');startSperreLaden();}
 /* V2 (Vorgang 910): Anfrage und Aenderung/Ergaenzung erst frei, wenn mindestens ein Kernprozess
    MIT Teilprozess gespeichert ist (Start.dc.html, 23.09.; gleiche Regel wie 14_App_V2/shared/lib.js
    onboardingAbgeschlossen). Gemessen am Bestand der zugaenglichen Mandanten, nicht geschaetzt. */
@@ -846,7 +870,8 @@ async function wzStart(art){
   var behalte = cur ? cur.company.id : (list.length===1 ? list[0].id : null);
   wzEnde(); WZ.art=art;
   if(behalte){ cur=await api('/api/companies/'+behalte); }
-  $('side').style.display='none'; $('tsel').style.display='none';
+  if(istAdmin() && cur){ $('side').style.display='block'; $('side').classList.remove('ohne-mandant'); $('tsel').style.display='inline'; }
+  else { $('side').style.display='none'; $('tsel').style.display='none'; }
   $('wzBand').classList.add('an'); $('wzInfo').classList.toggle('an',art==='aend');
   $('wzRbPill').style.display = art==='aend' ? 'block' : 'none';
   document.querySelector('.content').classList.add('wz-modus');
@@ -866,7 +891,7 @@ function wzEnde(){
   $('wzLogo').innerHTML='BC0 <span>V2 (Entwurf)</span>';
 }
 function wzMandantZeigen(){
-  $('wzMand').style.display = cur ? 'block' : 'none';
+  $('wzMand').style.display = (cur && !istAdmin()) ? 'block' : 'none';   /* Admin: Mandant steht in der Auswahl oben rechts */
   if(cur) $('wzMandName').textContent = cur.company.name;
 }
 function wzLeiste(){
@@ -954,6 +979,7 @@ async function wzGeh(n){
   if(d.v==='wzerg') return wzZeigeErgaenzung();
   var p=renderWS(d.v);
   if(d.teil && p && p.then) p.then(wzPsTeile);
+  if(d.teil==='systeme' && p && p.then) p.then(function(){ svOeffnen(false); });   /* v3.28 */
 }
 /* Markiert die Panels der alten Personen-&-Systeme-Maske, damit Schritt 3 und 4 je nur ihren Teil zeigen.
    Laeuft nach jedem Neuzeichnen (zeichnePS) erneut, deshalb per MutationObserver. */
@@ -1014,8 +1040,9 @@ async function kicLaden(ziel){
   KIC_FEHLT=null;
   if(ziel){ $(ziel).innerHTML='<div class="crumb">'+cr()+'KI-Controlling</div><p class="mut">lädt …</p>'; show(ziel); }
   try{ KIC=await api('/api/companies/'+cur.company.id+'/ki_controlling'); }
-  catch(e){ KIC={schulungen:[],research_bereiche:[],research_notizen:[],wissensdb:null,strategie:null,meilensteine:[],laufdaten:{vorhanden:false,token_tag_modell:[],token_tag_prozess:[],laeufe_tag_prozess:[]}};
+  catch(e){ KIC={schulungen:[],research_bereiche:[],research_notizen:[],wissensdb:null,strategie:null,meilensteine:[],modellregister:[],modellwechsel:[],modell_einsatz:[],laufdaten:{vorhanden:false,token_tag_modell:[],token_tag_prozess:[],laeufe_tag_prozess:[]}};
     KIC_FEHLT=(e&&(e.status===404||e.status===405))?'Der Server kennt KI-Controlling noch nicht (Schema v3.11 / Backend nicht eingespielt) — Eingaben werden nicht gespeichert.':('KI-Controlling nicht ladbar: '+((e&&e.detail)||e)); }
+  KIC.modellregister=KIC.modellregister||[]; KIC.modellwechsel=KIC.modellwechsel||[]; KIC.modell_einsatz=KIC.modell_einsatz||[]; /* v3.42: alter Server liefert die Schluessel nicht */
   try{ var ent=await api('/api/companies/'+cur.company.id+'/entitaeten'); KIC_PERS=(ent.personen||[]).filter(function(p){return p.aktiv!==false;}); KIC.__zuordnungen=ent.zuordnungen||[]; }
   catch(e){ KIC_PERS=[]; KIC.__zuordnungen=[]; }
 }
@@ -1049,6 +1076,15 @@ function kicBeispielLaufdaten(){
   return {vorhanden:false,beispiel:true,token_tag_modell:token,token_tag_prozess:prozess,laeufe_tag_prozess:laeufe};
 }
 function kicLauf(){ return (KIC.laufdaten&&KIC.laufdaten.vorhanden)?KIC.laufdaten:kicBeispielLaufdaten(); }
+/* v3.36b (06.11.2026): Modell-Drift braucht die Angabe "korrigiert" je Lauf. Solange BC4 sie bei keinem Lauf
+   eingetragen hat, gibt es keine Drift-Daten: dann zeigt die Regelkarte wie bisher die Beispieldaten. */
+function kicDriftLauf(){ var l=kicLauf(); if(l.beispiel) return l;
+  var erf=0; l.laeufe_tag_prozess.forEach(function(z){ erf+=(z.korrigiert_erfasst||0); });
+  if(erf>0) return l;
+  var b=kicBeispielLaufdaten(); b.ohne_korrektur=l.laeufe_tag_prozess.reduce(function(a,z){return a+(z.laeufe||0);},0); return b; }
+function kicDriftHinweis(l){ return l.ohne_korrektur
+  ? '<div class="panel kic-beispiel" style="border-left:4px solid #d98c1f;background:#fdf6ea"><b>Beispieldaten.</b> BC4 hat '+l.ohne_korrektur+' Läufe in <code>ki_laufdaten</code> geschrieben, aber bei keinem eingetragen, ob ein Mensch das Ergebnis ändern oder verwerfen musste (<code>korrigiert</code>). Ohne diese Angabe gibt es keine Korrekturquote. Die Regelkarte unten ist <b>erfunden</b> und dient nur der Darstellung.</div>'
+  : kicBeispielHinweis(); }
 /* ---- Regelkarte (Einzelwerte, Shewhart; NIST/SEMATECH 6.3.1/6.3.2) ---- */
 function kicRegelkarte(werte,tage,titel){
   var n=werte.length, ein=Math.min(25,n), basis=werte.slice(0,ein);
@@ -1122,27 +1158,182 @@ function kicKennzahlen(){
     k.wissen={farbe:fw, text:(w.vorhanden==='ja'?'vorhanden':(w.vorhanden==='im_aufbau'?'im Aufbau':'keine'))+(alt!==null?' · vor '+alt+' Tagen aktualisiert (Takt '+takt+' Tage)':'')}; }
   var st=KIC.strategie, ms=KIC.meilensteine; if(!st) k.strategie={farbe:'grau',text:'nicht erfasst'}; else { var nu=st.ueberarbeitet_am?kicPlusMonate(st.ueberarbeitet_am,6):null, msu=ms.filter(function(m){return !m.erreicht_am&&m.zieldatum<h;}).length;
     k.strategie={farbe:st.sachstand==='keine'?'rot':((msu||(nu&&nu<h))?'rot':(st.sachstand==='entwurf'?'gelb':'gruen')), text:({keine:'keine Strategie',entwurf:'Entwurf',beschlossen:'beschlossen',in_umsetzung:'in Umsetzung'}[st.sachstand])+(nu?' · Überarbeitung fällig '+kicDatum(nu):'')+(msu?' · '+msu+' Meilenstein(e) überfällig':'')}; }
+  var rz=kicRegisterZusatz(); if(rz) k.strategie.zusatz=rz; /* v3.42 */
   var l=kicLauf(), sum=0; l.token_tag_modell.forEach(function(z){ if(kicTage(z.tag)<=30) sum+=z.token; });
   k.token={farbe:l.beispiel?'grau':'gruen', text:(l.beispiel?'Beispiel · ':'')+(sum>=1e6?(sum/1e6).toLocaleString('de-DE',{maximumFractionDigits:1})+' Mio.':Math.round(sum/1000).toLocaleString('de-DE')+' Tsd.')+' Token in 30 Tagen'};
-  var proz={}; l.laeufe_tag_prozess.forEach(function(z){ (proz[z.prozess]=proz[z.prozess]||[]).push(z); }); var rot=0,gelb=0;
+  var ld=kicDriftLauf(), proz={}; ld.laeufe_tag_prozess.forEach(function(z){ (proz[z.prozess]=proz[z.prozess]||[]).push(z); }); var rot=0,gelb=0;
   Object.keys(proz).forEach(function(p){ var r=kicRegelkarte(proz[p].map(function(z){return z.laeufe?z.korrigiert/z.laeufe:0;}),proz[p].map(function(z){return z.tag;}),p); rot+=r.rot; gelb+=r.gelb; });
-  k.drift={farbe:l.beispiel?'grau':(rot?'rot':(gelb?'gelb':'gruen')), text:(l.beispiel?'Beispiel · ':'')+Object.keys(proz).length+' Prozess(e) · '+rot+' Punkt(e) außerhalb ±3σ'+(gelb?' · '+gelb+' Muster-Hinweise':'')};
+  k.drift={farbe:ld.beispiel?'grau':(rot?'rot':(gelb?'gelb':'gruen')), text:(ld.beispiel?'Beispiel · ':'')+Object.keys(proz).length+' Prozess(e) · '+rot+' Punkt(e) außerhalb ±3σ'+(gelb?' · '+gelb+' Muster-Hinweise':'')};
   var kps=Object.keys(cur.processes||{}), e={}; (KIC.__zuordnungen||[]).forEach(function(z){ if(z.funktion==='eigner') e[z.process_id]=1; }); var mit=kps.filter(function(p){return e[p];}).length;
   k.prozess={farbe:!kps.length?'grau':(mit===kps.length?'gruen':(mit?'gelb':'rot')), text:mit+' von '+kps.length+' Kernprozessen mit Verantwortlichem'};
   return k;
 }
+/* ================= KI-Reifegrad nach SEI (v3.43, 17.11.2026) ======================
+   Acht Dimensionen, 25 Fähigkeitsbereiche, Stufen 1–5 (SEI/Accenture, AI Adoption Maturity
+   Model v1.0). Server: GET/PUT /api/companies/{cid}/ki_reifegrad_sei. Die Stufen rechnet der
+   Server; hier wird nur gezeigt und eine Bewertung bzw. Zielstufe angehängt. */
+var KIA=null;
+var KIA_STUFE_FARBE={1:'#c0392b',2:'#d98c1f',3:'#d4b106',4:'#4c9a2a',5:'#1f6f43'};
+var KIA_IND_TEXT={ /* sinngemäß nach SEI S. 82–83 */
+  v:['','nicht durchgängig zugewiesen','Rollen fest zugewiesen','Ziele und Kennzahlen (KPI/KRI/ROI) an die Leitung berichtet','einheitlich gemessen und gesteuert','Verbesserung nach Langfriststrategie'],
+  p:['','nicht durchgängig geplant','Plan vorhanden','Plan nach Kennzahlen fortgeschrieben','Standardvorgehen, anpassbar','künftige Entwicklungen eingeplant'],
+  r:['','nicht durchgängig zugeteilt','über das Budget zugeteilt','nach gemessener Leistung zugeteilt','einheitlich zugeteilt und gesteuert','für die Langfriststrategie zugeteilt']};
+var KIA_ZIELE_TXT={erfuellt:'erfüllt',teilweise:'teilweise',nein:'nicht erfüllt',zurueckgestellt:'zurückgestellt'};
+var KIA_NW_TXT={messung:'Messung',beleg:'Beleg',einschaetzung:'Einschätzung'};
+var KIA_KX={
+  umfang:['Umfang',[['mandant','ganzer Mandant'],['bereich','Bereich'],['kernprozess','Kernprozess'],['team','Team']]],
+  regulierung:['Regulierung',[['','—'],['reguliert','reguliert'],['teilweise','teilweise'],['nicht_reguliert','nicht reguliert']]],
+  planungshorizont:['Planungshorizont',[['','—'],['unter_6_monate','< 6 Monate'],['6_12_monate','6–12 Monate'],['1_3_jahre','1–3 Jahre'],['ueber_3_jahre','> 3 Jahre']]],
+  entwicklungsansatz:['Entwicklungsansatz',[['','—'],['selbst_bauen','selbst bauen'],['kaufen','kaufen'],['anpassen','anpassen'],['gemischt','gemischt']]],
+  risikobereitschaft:['Risikobereitschaft',[['','—'],['hoch','hoch'],['mittel','mittel'],['niedrig','niedrig']]]};
+function kiaStufeChip(s,leer){ if(!s) return '<span class="mut">'+(leer||'—')+'</span>';
+  return '<span style="display:inline-block;min-width:22px;text-align:center;font-weight:700;color:#fff;border-radius:6px;padding:1px 6px;background:'+KIA_STUFE_FARBE[s]+'">'+s+'</span>'; }
+function kiaOpt(liste,wert){ return liste.map(function(o){ return '<option value="'+esc(o[0])+'"'+(String(wert||'')===String(o[0])?' selected':'')+'>'+esc(o[1])+'</option>'; }).join(''); }
+function kiaWert(m){
+  if(m.status==='nicht_verfuegbar') return '<span class="mut">nicht verfügbar</span>';
+  if(m.status==='keine_daten'||m.wert==null) return '<span class="mut">keine Daten</span>';
+  if(m.einheit==='%') return '<b>'+String(m.wert).replace('.',',')+' %</b> <span class="mut">('+Math.round(m.zaehler)+' von '+Math.round(m.nenner)+')</span>';
+  if(m.einheit==='Text') return '<b>'+esc(m.wert)+'</b>';
+  if(m.einheit==='€') return '<b>'+Number(m.wert).toLocaleString('de-DE',{minimumFractionDigits:4,maximumFractionDigits:4})+' €</b>';
+  return '<b>'+Number(m.wert).toLocaleString('de-DE')+'</b> '+esc(m.einheit==='Anzahl'?'':m.einheit); }
+/* Balken je Dimension: Ist (Farbe der Stufe) und Ziel (Strich). Gruppen nach SEI Kap. 4.2. */
+function kiaBalken(dims){
+  var gruppen=dims.filter(function(d,i){ return i===0||dims[i-1].gruppe!==d.gruppe; }).length;
+  var KOPF=30, B=640, L=230, R=20, Z=26, GZ=16, H=KOPF+dims.length*Z+gruppen*GZ+36, x=function(s){ return L+(B-L-R)*(s/5); }, yo=KOPF;
+  var NAMEN=['','Exploratory','Implemented','Aligned','Scaled','Future Ready'];
+  var g='<svg viewBox="0 0 '+B+' '+H+'" style="width:100%;max-width:760px" role="img" aria-label="Ist und Ziel je Dimension">';
+  for(var k=1;k<=5;k++){ var mx=(x(k-1)+x(k))/2;
+    g+='<rect x="'+(x(k-1)+1)+'" y="2" width="'+(x(k)-x(k-1)-2)+'" height="'+(KOPF-6)+'" rx="4" fill="'+KIA_STUFE_FARBE[k]+'" opacity=".14"/>'
+      +'<text x="'+mx+'" y="13" font-size="10" text-anchor="middle" font-weight="700" fill="#2b2a26">'+k+'</text>'
+      +'<text x="'+mx+'" y="23" font-size="8.5" text-anchor="middle" fill="#2b2a26">'+NAMEN[k]+' AI</text>'; }
+  for(var s=0;s<=5;s++){ g+='<line x1="'+x(s)+'" y1="'+KOPF+'" x2="'+x(s)+'" y2="'+(H-22)+'" stroke="#e6e4dc"/>'
+    +(s?'<text x="'+(x(s)-(B-L-R)/10)+'" y="'+(H-6)+'" font-size="10" text-anchor="middle" fill="#888">'+s+'</text>':''); }
+  dims.forEach(function(d,i){
+    if(i===0||dims[i-1].gruppe!==d.gruppe){ yo+=GZ; g+='<text x="4" y="'+(i*Z+yo+4)+'" font-size="9" fill="#888" letter-spacing=".5">'+esc(d.gruppe.toUpperCase())+'</text>'; }
+    var y=8+i*Z+yo;
+    g+='<text x="'+(L-8)+'" y="'+(y+13)+'" font-size="12" text-anchor="end" fill="#2b2a26">'+esc(d.dim_nr+' · '+d.name)+'</text>'
+      +'<rect x="'+L+'" y="'+(y+3)+'" width="'+(x(d.ist)-L)+'" height="14" rx="3" fill="'+KIA_STUFE_FARBE[d.ist]+'"/>'
+      +'<text x="'+(x(d.ist)-5)+'" y="'+(y+14)+'" font-size="10" text-anchor="end" fill="#fff" font-weight="700">'+d.ist+'</text>';
+    if(d.ziel) g+='<line x1="'+x(d.ziel)+'" y1="'+(y+0)+'" x2="'+x(d.ziel)+'" y2="'+(y+20)+'" stroke="#2b2a26" stroke-width="2.5"/>'
+      +'<text x="'+(x(d.ziel)+4)+'" y="'+(y+14)+'" font-size="10" fill="#2b2a26">Ziel '+d.ziel+'</text>'; });
+  return g+'</svg><div class="mut" style="margin-top:2px">Balken = Ist · Strich = Zielstufe</div>'; }
+async function kiaLaden(){
+  KIA=await api('/api/companies/'+cur.company.id+'/ki_reifegrad_sei'); return KIA; }
+async function kiaSpeichern(teil){
+  try{ await api('/api/companies/'+cur.company.id+'/ki_reifegrad_sei','PUT',teil); }
+  catch(e){ toast('Fehler: '+(e.detail||e),true); return false; }
+  toast('✓ Gespeichert.'); return true; }
+async function renderKIA(){
+  try{ await kiaLaden(); }
+  catch(e){
+    if(!(e && e.status===501)) throw e;
+    $('kia').innerHTML='<div class="crumb">'+cr()+'KI-Reifegrad › nach SEI</div><h1>KI-Reifegrad nach SEI</h1><div class="panel hinw"><b>Noch nicht freigeschaltet.</b> Schema v3.43 ist in dieser Datenbank noch nicht eingespielt.<div class="mut" style="margin-top:8px">Meldung des Servers: '+esc(e.detail||'—')+'</div></div>';
+    return show('kia'); }
+  var d=KIA, kx=d.kontext||{}, aufZiel=d.dimensionen.filter(function(x){return x.ziel&&x.ist>=x.ziel;}).length,
+      mitZiel=d.dimensionen.filter(function(x){return x.ziel;}).length;
+  var h='<div class="crumb">'+cr()+'KI-Reifegrad › nach SEI</div><h1>KI-Reifegrad nach SEI</h1>'
+    +'<p class="lead">Acht Dimensionen, 25 Fähigkeitsbereiche, Stufen 1–5. Gemessen wird die KI-Reife der Einheit, nicht die Digitalisierung. '
+    +'Quelle: <a href="'+esc(d.quelle_url)+'" target="_blank" rel="noopener">'+esc(d.quelle)+'</a>.</p>'
+    +'<div class="panel"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><b>Ist gegen Ziel</b>'
+    +'<span class="mut">'+(mitZiel?aufZiel+' von '+mitZiel+' Dimensionen auf Ziel':'noch keine Zielstufe gesetzt')+' · '+d.verlauf.bewertungen+' Bewertungen im Verlauf</span></div>'
+    +kiaBalken(d.dimensionen)
+    +'<div class="mut" style="margin-top:8px"><b>Regel:</b> '+esc(d.regel)+' Unbewertete Bereiche zählen wie Stufe 1.</div>'
+    +'<div class="mut" style="margin-top:4px"><b>Nummern wie 4.4.1:</b> Abschnitt im SEI-Modell. 4.4 bis 4.11 sind die acht Dimensionen (4.4 Organisationsstrategie … 4.11 Technologie-Ökosystem), die letzte Ziffer ist der Fähigkeitsbereich darin — z. B. 4.4.1 Strategieentwicklung (PDF S. 33).</div></div>';
+  /* Kontext (Tabelle 1, S. 27) */
+  h+='<details class="panel" id="kia-kontext"><summary style="cursor:pointer"><b>Kontext der Bewertung</b> <span class="mut">(SEI Tabelle 1 · '
+    +esc(((KIA_KX.umfang[1].filter(function(o){return o[0]===(kx.umfang||'mandant');})[0])||['',''])[1])
+    +(kx.planungshorizont?' · Planungshorizont '+esc((KIA_KX.planungshorizont[1].filter(function(o){return o[0]===kx.planungshorizont;})[0]||['',''])[1]):'')+')</span></summary>'
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-top:10px">'
+    +Object.keys(KIA_KX).map(function(f){ return '<label style="font-size:12px">'+esc(KIA_KX[f][0])+'<br><select data-kx="'+f+'" style="width:100%">'+kiaOpt(KIA_KX[f][1],kx[f]||(f==='umfang'?'mandant':''))+'</select></label>'; }).join('')
+    +'</div><div class="mut" style="margin-top:6px">Ein nicht regulierter Mandant darf Compliance-Bereiche zurückstellen (SEI S. 10). Sie zählen dann nicht in die Stufe.</div>'
+    +'<button class="btn sec" id="kia-kx-speichern" style="margin-top:8px">Kontext speichern</button></details>';
+  /* je Dimension */
+  d.dimensionen.forEach(function(dm){
+    h+='<details class="panel kia-dim" data-dim="'+dm.dim_nr+'"'+(dm.naechster_schritt.length?' open':'')+'><summary style="cursor:pointer;display:flex;gap:10px;align-items:center;flex-wrap:wrap">'
+      +'<b style="min-width:260px">'+dm.dim_nr+' · '+esc(dm.name)+'</b>'
+      +'Ist '+kiaStufeChip(dm.ist)+' <span class="mut">'+esc(dm.ist_name)+'</span>'
+      +' · Ziel '+kiaStufeChip(dm.ziel,'offen')
+      +' · <span class="mut">'+dm.bewertet+' von '+dm.bereiche.length+' Bereichen bewertet</span></summary>';
+    h+='<div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin:10px 0">'
+      +'<label style="font-size:12px">Zielstufe<br><select data-ziel="'+dm.dim_nr+'">'+kiaOpt([['','—'],['1','1 Exploratory'],['2','2 Implemented'],['3','3 Aligned'],['4','4 Scaled'],['5','5 Future Ready']],dm.ziel)+'</select></label>'
+      +'<label style="font-size:12px;flex:1;min-width:240px">Begründung (Pflicht)<br><input data-zielbg="'+dm.dim_nr+'" style="width:100%" value="'+esc(dm.ziel_begruendung||'')+'"></label>'
+      +'<button class="btn sec" data-zielspeichern="'+dm.dim_nr+'">Zielstufe setzen</button></div>';
+    if(dm.naechster_schritt.length) h+='<div style="border-left:4px solid #d98c1f;background:#fdf6ea;padding:8px 12px;border-radius:6px;margin-bottom:10px"><b>Nächster Schritt zu Stufe '+dm.ziel+':</b><ul style="margin:4px 0 0 18px;font-size:13px">'
+      +dm.naechster_schritt.map(function(n){ return '<li><b>'+esc(n.name)+'</b> <span class="mut">(SEI '+esc(n.bereich_id)+')</span> — <span class="mut">'+esc(n.grund)+'</span></li>'; }).join('')+'</ul></div>';
+    else if(dm.ziel) h+='<div style="border-left:4px solid #1f9d57;background:#eef8f1;padding:8px 12px;border-radius:6px;margin-bottom:10px">Zielstufe '+dm.ziel+' erreicht.</div>';
+    h+='<table style="width:100%"><tr><th title="Abschnitt im SEI-Modell: 4.x = Dimension, letzte Ziffer = Fähigkeitsbereich">SEI-Abschnitt</th><th>Fähigkeitsbereich</th><th>ab</th><th>Stufe</th><th>Bewertung</th><th>Messwerte (90 Tage)</th><th></th></tr>';
+    dm.bereiche.forEach(function(b){ var bw=b.bewertung;
+      h+='<tr data-bereich="'+esc(b.bereich_id)+'"><td class="mut">'+esc(b.bereich_id)+'<br><span style="font-size:10px">S. '+esc(b.seite||'')+'</span></td>'
+        +'<td><b>'+esc(b.name)+'</b><br><span class="mut" style="font-size:11px">'+esc(b.menue||'')+'</span></td>'
+        +'<td>'+b.eintrittsstufe+'</td>'
+        +'<td>'+(b.zurueckgestellt?'<span class="mut">zurückgestellt</span>':kiaStufeChip(b.stufe,'offen'))+'</td>'
+        +'<td style="font-size:12px">'+(bw?esc(KIA_ZIELE_TXT[bw.ziele])+' · '+esc(KIA_NW_TXT[bw.nachweis])
+            +'<br><span class="mut">V '+bw.ind_verantwortung+' · P '+bw.ind_planung+' · R '+bw.ind_ressourcen+' · '+esc((bw.bewertet_am||'').slice(0,10))+'</span>'
+            +'<br>'+esc(bw.begruendung)+(bw.beleg?'<br><span class="mut">Beleg: '+esc(bw.beleg)+'</span>':''):'<span class="mut">nicht bewertet</span>')+'</td>'
+        +'<td style="font-size:12px">'+(b.messungen.length?b.messungen.map(function(m){ return '<div>'+esc(m.kennzahl)+': '+kiaWert(m)
+            +(m.hinweis?'<br><span class="mut" style="font-size:11px">'+esc(m.hinweis)+'</span>':'')+'</div>'; }).join(''):'<span class="mut">keine Messung in der App</span>')+'</td>'
+        +'<td><button class="btn sm sec" data-bewerten="'+esc(b.bereich_id)+'">bewerten</button></td></tr>';
+    });
+    h+='</table></details>';
+  });
+  $('kia').innerHTML=h;
+  /* Ereignisse */
+  $('kia-kx-speichern').onclick=async function(){ var k={}; $('kia').querySelectorAll('[data-kx]').forEach(function(s){ k[s.dataset.kx]=s.value||null; });
+    if(await kiaSpeichern({kontext:k})) renderKIA(); };
+  $('kia').querySelectorAll('[data-zielspeichern]').forEach(function(btn){ btn.onclick=async function(){ var n=btn.dataset.zielspeichern,
+      st=$('kia').querySelector('[data-ziel="'+n+'"]').value, bg=$('kia').querySelector('[data-zielbg="'+n+'"]').value.trim();
+    if(!st) return toast('Zielstufe wählen.',true); if(!bg) return toast('Begründung fehlt.',true);
+    if(await kiaSpeichern({zielstufen:[{dim_nr:+n,zielstufe:+st,begruendung:bg}]})) renderKIA(); }; });
+  $('kia').querySelectorAll('[data-bewerten]').forEach(function(btn){ btn.onclick=function(){ kiaFormular(btn.dataset.bewerten); }; });
+  show('kia'); }
+function kiaFormular(bid){
+  var tr=$('kia').querySelector('tr[data-bereich="'+bid+'"]'); if(!tr) return;
+  var alt=$('kia').querySelector('tr.kia-form'); if(alt) alt.remove();
+  var b=null; KIA.dimensionen.forEach(function(d){ d.bereiche.forEach(function(x){ if(x.bereich_id===bid) b=x; }); });
+  var bw=b.bewertung||{}, ind=function(k,f){ var w=bw[f]||1; return '<label style="font-size:12px">'+({v:'Verantwortung',p:'Planung',r:'Ressourcen'})[k]+'<br><select data-f="'+f+'" style="width:100%">'
+      +[1,2,3,4,5].map(function(s){ return '<option value="'+s+'"'+(s===w?' selected':'')+'>'+s+' – '+esc(KIA_IND_TEXT[k][s])+'</option>'; }).join('')+'</select></label>'; };
+  var f=document.createElement('tr'); f.className='kia-form';
+  f.innerHTML='<td colspan="7" style="background:#f7f6f2"><div style="font-weight:600;margin-bottom:6px">'+esc(bid+' '+b.name)+' bewerten <span class="mut">(wird angehängt; die jüngste Bewertung gilt)</span></div>'
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px">'
+    +'<label style="font-size:12px">Ziele des Bereichs<br><select data-f="ziele" style="width:100%">'+kiaOpt([['erfuellt','erfüllt'],['teilweise','teilweise'],['nein','nicht erfüllt'],['zurueckgestellt','zurückgestellt']],bw.ziele||'nein')+'</select></label>'
+    +'<label style="font-size:12px">Nachweis<br><select data-f="nachweis" style="width:100%">'+kiaOpt([['messung','Messung'],['beleg','Beleg'],['einschaetzung','Einschätzung']],bw.nachweis||'einschaetzung')+'</select></label>'
+    +ind('v','ind_verantwortung')+ind('p','ind_planung')+ind('r','ind_ressourcen')+'</div>'
+    +'<label style="font-size:12px;display:block;margin-top:8px">Beleg (Pflicht bei Nachweis „Beleg“)<br><input data-f="beleg" style="width:100%" value="'+esc(bw.beleg||'')+'"></label>'
+    +'<label style="font-size:12px;display:block;margin-top:8px">Begründung (Pflicht)<br><textarea data-f="begruendung" rows="2" style="width:100%"></textarea></label>'
+    +'<div class="mut" style="font-size:11px;margin-top:4px">Stufe des Bereichs = schwächster der drei Indikatoren. Sind die Ziele nicht erfüllt, höchstens Stufe '+Math.max(1,b.eintrittsstufe-1)+' (eine unter der Eintrittsstufe '+b.eintrittsstufe+').</div>'
+    +'<div style="margin-top:8px;display:flex;gap:8px"><button class="btn" data-f="speichern">Bewertung speichern</button><button class="btn sec" data-f="abbrechen">Abbrechen</button></div></td>';
+  tr.after(f);
+  f.querySelector('[data-f="abbrechen"]').onclick=function(){ f.remove(); };
+  f.querySelector('[data-f="speichern"]').onclick=async function(){ var v=function(k){ return f.querySelector('[data-f="'+k+'"]').value; };
+    var x={bereich_id:bid,ziele:v('ziele'),nachweis:v('nachweis'),ind_verantwortung:+v('ind_verantwortung'),ind_planung:+v('ind_planung'),
+           ind_ressourcen:+v('ind_ressourcen'),beleg:v('beleg').trim()||null,begruendung:v('begruendung').trim()};
+    if(!x.begruendung) return toast('Begründung fehlt.',true);
+    if(x.nachweis==='beleg'&&!x.beleg) return toast('Beleg angeben.',true);
+    if(await kiaSpeichern({bewertungen:[x]})) renderKIA(); };
+}
+/* Karte für die KI-Controlling-Übersicht */
+async function kiaKarte(){
+  try{ var d=await api('/api/companies/'+cur.company.id+'/ki_reifegrad_sei'); }
+  catch(e){ return {farbe:'grau',text:e&&e.status===501?'Schema v3.43 fehlt':'nicht lesbar',zusatz:''}; }
+  var mz=d.dimensionen.filter(function(x){return x.ziel;}), auf=mz.filter(function(x){return x.ist>=x.ziel;}).length,
+      ist=d.dimensionen.map(function(x){return x.ist;}), lo=Math.min.apply(null,ist), hi=Math.max.apply(null,ist);
+  if(!d.verlauf.bewertungen) return {farbe:'grau',text:'noch nicht bewertet',zusatz:'8 Dimensionen, 25 Bereiche'};
+  return {farbe:mz.length&&auf===mz.length?'gruen':(auf?'gelb':'rot'),text:(mz.length?auf+' von '+mz.length+' Dimensionen auf Ziel':'keine Zielstufe'),
+          zusatz:'Ist je Dimension '+(lo===hi?lo:lo+'–'+hi)+' · '+d.verlauf.bewertungen+' Bewertungen'}; }
+
 async function renderKIC(){ await kicLaden('kic'); var k=kicKennzahlen();
-  var karten=[['kid','1 · Modell-Drift',k.drift],['kit','2 · MLOps · Tokenverbrauch',k.token],['kil','3 · LongLife Learning',k.lernen],['kip','4 · Prozessdoku & Verantwortung',k.prozess],['kiw','5 · Wissensdatenbank',k.wissen],['kis','6 · KI-Strategie',k.strategie]];
-  $('kic').innerHTML=kicKopf('Übersicht','Prüfen und Nachsteuern nach der Automatisierung — sechs Bausteine (Fachkonzept S-153).')
+  var karten=[['kid','1 · Modell-Drift',k.drift],['kit','2 · MLOps · Tokenverbrauch',k.token],['kil','3 · LongLife Learning',k.lernen],['kiw','4 · Wissensdatenbank',k.wissen],['kis','5 · KI-Strategie',k.strategie]];
+  karten.push(['kia','KI-Reifegrad nach SEI',await kiaKarte()]);   // v3.43
+  $('kic').innerHTML=kicKopf('Übersicht','Prüfen und Nachsteuern nach der Automatisierung — fünf Bausteine und der KI-Reifegrad nach SEI (v3.43). Prozessdoku &amp; Verantwortung steht seit v3.37 unter KI-Reifegrad.')
    +((KIC.laufdaten&&KIC.laufdaten.vorhanden)?'':'<div class="panel" style="border-left:4px solid #d98c1f;background:#fdf6ea"><b>Laufdaten fehlen noch.</b> Bausteine 1 und 2 brauchen die Laufdaten, die <b>BC4</b> je Modellaufruf in <code>ki_laufdaten</code> schreibt. Bis dahin zeigen sie Beispieldaten (grau).</div>')
    +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px">'
    +karten.map(function(c){return '<div class="panel kic-karte" style="cursor:pointer;margin:0" data-kicgeh="'+c[0]+'"><div style="font-weight:600;margin-bottom:8px">'+c[1]+'</div>'+kicAmpel(c[2].farbe,c[2].text)+(c[2].zusatz?'<div class="mut" style="margin-top:6px">'+esc(c[2].zusatz)+'</div>':'')+'</div>';}).join('')+'</div>';
   $('kic').querySelectorAll('[data-kicgeh]').forEach(function(el){ el.onclick=function(){ gehZuReiter(el.dataset.kicgeh); }; });
   show('kic'); }
-async function renderKID(){ await kicLaden('kid'); var l=kicLauf(), proz={};
+async function renderKID(){ await kicLaden('kid'); var l=kicDriftLauf(), proz={};
   l.laeufe_tag_prozess.forEach(function(z){ (proz[z.prozess]=proz[z.prozess]||[]).push(z); });
   var h=kicKopf('Modell-Drift-Management','Regelkarte <b>je automatisiertem Prozess</b>: Korrekturquote je Tag (Anteil der Ergebnisse, die ein Mensch ändern oder verwerfen musste). Einzelwertkarte, Grenzen ±3σ aus der Einlaufphase (bis 25 Werte).')
-    +(l.beispiel?kicBeispielHinweis():'');
+    +(l.beispiel?kicDriftHinweis(l):'');
   if(!Object.keys(proz).length) h+='<div class="panel mut">Noch keine Läufe.</div>';
   Object.keys(proz).sort().forEach(function(p){ var r=kicRegelkarte(proz[p].map(function(z){return z.laeufe?z.korrigiert/z.laeufe:0;}),proz[p].map(function(z){return z.tag;}),p);
     h+='<div class="panel"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px"><b>'+esc(p)+(l.beispiel?' <span class="mut">(Beispiel)</span>':'')+'</b>'
@@ -1193,18 +1384,173 @@ async function renderKIL(ohneLaden){ if(!ohneLaden) await kicLaden('kil'); var h
     var alle=[{bereich:b,datum:$('kilND').value,person_id:document.querySelector('#kil .kil-np').value,notiz:t}].concat(KIC.research_notizen.map(function(n){return {bereich:n.bereich,datum:n.datum,person_id:n.person_id,notiz:n.notiz};}));
     if(await kicSpeichern({research_notizen:alle})) await renderKIL(); };
   show('kil'); }
-async function renderKIP(){ await kicLaden('kip'); var kps=Object.keys(cur.processes||{}).sort(), e={}, doku=null, dokuText='';
-  (KIC.__zuordnungen||[]).forEach(function(z){ if(z.funktion==='eigner') (e[z.process_id]=e[z.process_id]||[]).push(z.person_id); });
-  try{ doku=await api('/api/companies/'+cur.company.id+'/prozessdokumentation'); }catch(x){ dokuText=(x&&x.status===501)?'Schema v2.0 (Dokumentation automatisierter Prozesse) ist noch nicht eingespielt — vorgesehen für Oktober 2026.':('nicht ladbar: '+((x&&x.detail)||x)); }
-  var mit=kps.filter(function(p){return e[p];}).length, anzahl=doku?(Array.isArray(doku)?doku.length:((doku.dokumente||doku.liste||[]).length)):0;
-  $('kip').innerHTML=kicKopf('Prozessbeschreibung & Prozessverantwortlicher','Wer verantwortet den automatisierten Prozess? Ist er in allen Punkten beschrieben (Schnittstellen, In-/Output …) und in der Wissensdatenbank eingetragen?')
-    +'<div class="panel">'+kicAmpel(!kps.length?'grau':(mit===kps.length?'gruen':(mit?'gelb':'rot')),mit+' von '+kps.length+' Kernprozessen mit Verantwortlichem (Eigner)')
-    +'<table style="margin-top:10px"><tr><th>Kernprozess</th><th>Verantwortlich (Eigner)</th></tr>'+kps.map(function(p){return '<tr><td>'+esc(p+' · '+kpName(p))+'</td><td>'+(e[p]?e[p].map(kicPersName).map(esc).join(', '):'<span class="pill no">fehlt</span>')+'</td></tr>';}).join('')+'</table>'
-    +'<div class="mut" style="margin-top:8px">Eigner pflegen: Unternehmensdaten › Personen › „Wer verantwortet welchen Prozess". Ein eigener Verantwortlicher je <b>automatisiertem Teilprozess</b> ist noch offen (Konzept E4).</div></div>'
-    +'<div class="panel"><b>Dokumentation automatisierter Prozesse</b><div style="margin-top:6px">'+(doku?(anzahl+' dokumentierte Teilprozesse'):'<span class="mut">'+esc(dokuText)+'</span>')+'</div>'
-    +'<div class="row" style="margin-top:10px"><button class="btn sec" id="kipPD">zur Prozessdokumentation</button></div></div>';
-  $('kipPD').onclick=function(){ gehZuReiter('pd'); };
-  show('kip'); }
+/* v3.37 (06.11.2026): KI-Reifegrad › Prozessdoku & Verantwortung.
+   Simeon 06.11.: aus KI-Transformation nach KI-Reifegrad verschoben. Keine bisherigen
+   (digitalen) Prozesse — nur die KI-gestuetzten Prozesse, die Ozans Generator durchlaufen
+   hat, je Anfrage › KP › TP mit den Durchlaeufen 1..x, und je Ruecklauf die KPI als Grafik.
+   Quelle: GET /ki_reifegrad/durchlaeufe (kir_-Tabellen v3.36 + ki_laufdaten), nur lesend. */
+var KIR=null;
+function kirZahl(v,st){ return (v==null||isNaN(v))?'—':Number(v).toLocaleString('de-DE',{maximumFractionDigits:st==null?1:st}); }
+/* Saeulen je Durchlauf. werte: [{x:'1', v:Zahl|null}] — null = "nicht erfasst" (grau, keine 0 vortaeuschen).
+   o: {titel, einheit, max, ziel, vorher, richtung, st} */
+function kirSaeulen(werte,o){
+  var W=300,H=180,L=44,R=12,O=30,U=30, n=Math.max(werte.length,1);
+  var max=o.max||0; werte.forEach(function(w){ if(w.v!=null&&w.v>max) max=w.v; }); [o.ziel,o.vorher].forEach(function(z){ if(z!=null&&z>max) max=z; }); if(!max) max=1; if(!o.max){ var st10=Math.pow(10,Math.floor(Math.log10(max*1.1))); max=Math.ceil(max*1.1/st10*2)/2*st10; }
+  var Y=function(v){return O+(H-O-U)*(1-v/max);}, bw=Math.min(46,(W-L-R)/n*0.6), X=function(i){return L+(W-L-R)*(i+0.5)/n;};
+  var g='<svg class="kir-saeulen" viewBox="0 0 '+W+' '+H+'" width="100%" style="max-width:'+W+'px;background:#fff" role="img" aria-label="'+esc(o.titel)+'">'
+    +'<text x="0" y="13" font-size="12" font-weight="600" fill="#1F3A5F">'+esc(o.titel)+'</text>';
+  [0,0.5,1].forEach(function(f){ var y=Y(max*f); g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y+'" y2="'+y+'" stroke="#eceae4"/><text x="'+(L-5)+'" y="'+(y+4)+'" font-size="10" text-anchor="end" fill="#5F5E5A">'+kirZahl(max*f,max*f<10?1:0)+'</text>'; });
+  g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+(H-U)+'" y2="'+(H-U)+'" stroke="#9aa3ad"/>';
+  if(o.vorher!=null){ var yv=Y(o.vorher); g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+yv+'" y2="'+yv+'" stroke="#9aa3ad" stroke-dasharray="2,3"/><text x="'+(W-R)+'" y="'+(yv-3)+'" font-size="10" text-anchor="end" fill="#5F5E5A">vorher '+kirZahl(o.vorher,o.st)+'</text>'; }
+  if(o.ziel!=null){ var yz=Y(o.ziel); g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+yz+'" y2="'+yz+'" stroke="#1f9d57" stroke-width="1.5" stroke-dasharray="6,3"/><text x="'+(L+3)+'" y="'+(yz-3)+'" font-size="10" fill="#1f9d57">Ziel '+kirZahl(o.ziel,o.st)+'</text>'; }
+  werte.forEach(function(w,i){ var x=X(i);
+    if(w.v==null){ g+='<rect x="'+(x-bw/2)+'" y="'+(H-U-14)+'" width="'+bw+'" height="14" fill="none" stroke="#c9ccd1" stroke-dasharray="3,2"/><text x="'+x+'" y="'+(H-U-18)+'" font-size="10" text-anchor="middle" fill="#9aa3ad">n. erfasst</text>'; }
+    else { var y=Y(w.v), ok=(o.ziel==null)?null:(o.richtung==='niedriger_besser'?w.v<=o.ziel:w.v>=o.ziel);
+      g+='<rect x="'+(x-bw/2)+'" y="'+y+'" width="'+bw+'" height="'+Math.max(1,H-U-y)+'" fill="'+(ok===null?'#185FA5':(ok?'#1f9d57':'#d98c1f'))+'"><title>Durchlauf '+esc(w.x)+': '+kirZahl(w.v,o.st)+' '+esc(o.einheit||'')+'</title></rect>'
+        +'<text x="'+x+'" y="'+(y-4)+'" font-size="11" text-anchor="middle" fill="#1F3A5F">'+kirZahl(w.v,o.st)+(ok===null?'':(ok?' ✓':' ✗'))+'</text>'; }
+    g+='<text x="'+x+'" y="'+(H-U+14)+'" font-size="10" text-anchor="middle" fill="#5F5E5A">D'+esc(w.x)+'</text>'; });
+  g+='<text x="'+(W-R)+'" y="'+(H-3)+'" font-size="10" text-anchor="end" fill="#5F5E5A">Durchlauf →'+(o.einheit?'  ('+esc(o.einheit)+')':'')+'</text>';
+  return g+'</svg>';
+}
+function kirKachel(svg,unter){ return '<div class="panel" style="margin:0;padding:10px">'+svg+(unter?'<div class="mut" style="margin-top:4px;font-size:12px">'+unter+'</div>':'')+'</div>'; }
+function kirTpName(sid){ var kp=(cur.processes||{})[(sid||'').slice(0,5)]; var t=kp&&(kp.tps||[]).filter(function(x){return x.sub_process_id===sid;})[0]; return (t&&t.sub_process_name)||''; }
+/* v3.41 (14.11.2026): Vorgabe aus BC2 (Gate 1 freigegeben) fuer BC3/BC4 — nur lesen.
+   Quelle: GET /bc2_vorgabe (Sicht v_bc2_vorgabe auf die eingefrorene Ergebnisakte von BC2).
+   Die Praesentation kommt ueber BC0 mit Anmeldung, nicht ueber den offenen Link von BC2. */
+var VG=null;
+function vgSpanne(o,st,e){ if(o==null) return '—'; e=e||''; if(typeof o==='object'){ if(o.min==null&&o.max==null) return '—'; return (o.min===o.max?kirZahl(o.min,st):kirZahl(o.min,st)+'–'+kirZahl(o.max,st))+e; } return kirZahl(o,st)+e; }
+async function vgPraes(pid){ try{ var a=await fetch('/api/companies/'+cur.company.id+'/bc2_praesentation/'+pid);
+  if(!a.ok){ alert('Präsentation nicht ladbar ('+a.status+')'); return; }
+  var b=await a.blob(), u=URL.createObjectURL(b), l=document.createElement('a'); l.href=u; l.download='bc2_'+pid.slice(0,8)+'_praesentation.pptx'; document.body.appendChild(l); l.click(); l.remove(); setTimeout(function(){URL.revokeObjectURL(u);},2000);
+  }catch(x){ alert('Präsentation nicht ladbar'); } }
+/* Harte Fakten je Potenzial: Soll aus BC2, daneben was BC3/BC4 dazu geliefert haben (Ist). */
+function vgPanel(pid,lf){ if(!VG||!VG.vorgabe) return ''; var z=VG.vorgabe.filter(function(v){return v.paket_id===pid;}); if(!z.length) return '';
+  var pot={}, ord=[]; z.forEach(function(v){ if(!pot[v.potenzial_id]){ pot[v.potenzial_id]={v:v,tps:[]}; ord.push(v.potenzial_id); } pot[v.potenzial_id].tps.push(v.sub_process_id); });
+  var pr=(VG.praesentationen||[]).filter(function(x){return x.paket_id===pid;})[0], unbek=z.filter(function(v){return !v.teilprozess_bekannt;}), gl=VG.geliefert||{};
+  var fehlt='<span class="pill no">0</span>';
+  var h='<div class="panel" style="border-left:4px solid #1f9d57"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><b>Vorgabe aus BC2 · Gate 1 freigegeben · Fassung '+esc(z[0].fassung)+' · Lauf '+esc((z[0].priorisierung_id||'').slice(0,8))+' · eingefroren '+kicDatum(z[0].eingefroren_am)+'</b>'
+    +(pr?'<button class="btn" onclick="vgPraes(\''+esc(pr.priorisierung_id)+'\')">Präsentation (pptx)</button>':'')+'</div>';
+  if(unbek.length) h+='<div style="color:#c0392b;margin:6px 0"><b>Befund:</b> bei BC0 unbekannter Teilprozess: '+unbek.map(function(v){return esc(v.sub_process_id);}).join(', ')+'</div>';
+  var td=function(x){return '<td style="white-space:nowrap">'+x+'</td>';}, rg=function(v){return v.finaler_rang!=null?v.finaler_rang:v.potenzialrang;};
+  h+='<div style="font-weight:600;margin-top:8px">Soll aus BC2</div><div style="overflow-x:auto"><table style="margin-top:4px;font-size:12.5px"><tr><th>Rang</th><th>Potenzial</th><th>Teilprozess</th><th>Prio · Score</th><th>Impact / Kompl.</th>'
+    +'<th>Autom.</th><th>Handarbeit</th><th>Kosten heute /J</th><th>Einsparung /J</th><th>Investition</th><th>Amortisation</th><th>Aufwand</th></tr>';
+  ord.forEach(function(id){ var v=pot[id].v;
+    h+='<tr>'+td('<b>'+rg(v)+'</b>')+'<td title="'+esc(v.titel||'')+'">'+esc((v.titel||'').length>34?(v.titel.slice(0,32)+' …'):(v.titel||''))+'</td>'
+      +td(pot[id].tps.map(esc).join('<br>'))+td(esc((v.prioritaetsgruppe||'').replace('PRIO ','P'))+' · '+kirZahl(v.score,0))
+      +td((v.impact!=null?v.impact:'—')+' / '+(v.umsetzungskomplexitaet!=null?v.umsetzungskomplexitaet:'—'))
+      +td(v.automatisierung_min_pct!=null?kirZahl(v.automatisierung_min_pct,0)+'–'+kirZahl(v.automatisierung_max_pct,0)+' %':'—')
+      +td(v.stunden_jahr_heute!=null?kirZahl(v.stunden_jahr_heute,0)+' h/J':'—')+td(vgSpanne(v.ist_kosten_eur_jahr,0,' €'))+td(vgSpanne(v.einsparung_eur_jahr,0,' €'))
+      +td(v.investition_eur_richtwert!=null?kirZahl(v.investition_eur_richtwert,0)+' €':'—')+td(vgSpanne(v.amortisation_monate,0,' Mon.'))+td(v.aufwand_pt!=null?kirZahl(v.aufwand_pt,0)+' PT':'—')+'</tr>'; });
+  h+='</table></div>';
+  h+='<div style="font-weight:600;margin-top:10px">Ist: geliefert von BC3 / BC4</div><div style="overflow-x:auto"><table style="margin-top:4px;font-size:12.5px"><tr><th>Rang</th><th>Akzeptanzkriterien (BC2)</th><th>übernommen (BC3)</th><th>Kennzahlen (BC4)</th><th>Generator-Kosten Ist</th><th>Investition Soll</th></tr>';
+  ord.forEach(function(id){ var v=pot[id].v, g=gl[id]||{}, ak=v.akzeptanzkriterien||[];
+    var kosten=(lf||[]).filter(function(x){return pot[id].tps.indexOf(x.sub_process_id)>=0;}), kE=kosten.reduce(function(a,x){return a+(x.kosten_erfasst||0);},0), kS=kosten.reduce(function(a,x){return a+(x.kosten_eur||0);},0);
+    h+='<tr>'+td('<b>'+rg(v)+'</b>')+td(ak.length)+td((g.kriterien?g.kriterien:fehlt)+' / '+ak.length)+td(g.kennzahlen?g.kennzahlen:fehlt)
+      +td(kE?kirZahl(kS,2)+' €':'<span class="mut">nicht erfasst</span>')+td(v.investition_eur_richtwert!=null?kirZahl(v.investition_eur_richtwert,0)+' €':'—')+'</tr>'; });
+  h+='</table></div><div class="mut" style="margin-top:4px">Spannen = Unter-/Obergrenze aus BC2 (Wertquelle: '+esc(z[0].value_quelle||'—')+'). Rot „0“ = von BC3/BC4 noch nicht geliefert.</div>';
+  h+='<details style="margin-top:6px"><summary>Akzeptanzkriterien im Wortlaut ('+ord.reduce(function(a,id){return a+((pot[id].v.akzeptanzkriterien||[]).length);},0)+')</summary>'
+    +ord.map(function(id){ var v=pot[id].v; return '<div style="margin-top:6px"><b>'+(v.finaler_rang!=null?v.finaler_rang:v.potenzialrang)+'.</b><ol style="margin:2px 0 0 18px">'+(v.akzeptanzkriterien||[]).map(function(a){return '<li>'+esc(a.kriterium||'')+(a.messverfahren?' <span class="mut">— Messung: '+esc(a.messverfahren)+'</span>':'')+'</li>';}).join('')+'</ol></div>'; }).join('')+'</details>';
+  return h+'</div>'; }
+/* v3.41: Messung gegen die Vorgabe aus BC2 — je freigegebenem Potenzial die Diagramme mit Ziellinie aus BC2
+   und Ist je Durchlauf aus BC3/BC4. Kein Ist = gestrichelt "n. erfasst", nie 0. */
+function vgDiagramme(pid,dl,lf){ if(!VG||!VG.vorgabe) return ''; var z=VG.vorgabe.filter(function(v){return v.paket_id===pid;}); if(!z.length) return '';
+  var pot={}, ord=[]; z.forEach(function(v){ if(!pot[v.potenzial_id]){ pot[v.potenzial_id]={v:v,tps:[]}; ord.push(v.potenzial_id); } pot[v.potenzial_id].tps.push(v.sub_process_id); });
+  var MA=VG.messung_ak||[], MK=VG.messung_kz||[], h='<h3>Messung gegen die Vorgabe aus BC2 · Soll (grüne Linie) gegen Ist je Durchlauf</h3>';
+  ord.forEach(function(id){ var v=pot[id].v, tps=pot[id].tps, nAK=(v.akzeptanzkriterien||[]).length, kach=[];
+    var w=function(f){ return dl.map(function(d){ return {x:''+d.durchlauf_nr, v:f(d)}; }); };
+    kach.push(kirKachel(kirSaeulen(w(function(d){ var m=MA.filter(function(x){return x.pot===id&&x.paket_id===pid&&x.durchlauf_nr===d.durchlauf_nr;})[0]; return m?m.erfuellt:null; }),
+      {titel:'Akzeptanzkriterien erfüllt',einheit:'von '+nAK,max:Math.max(nAK,1),ziel:nAK,richtung:'hoeher_besser',st:0}),
+      'Ziel: alle '+nAK+' Kriterien aus BC2. Ist: Kriterien, deren Tests im Durchlauf alle bestanden sind (BC3 übernimmt, BC4 testet).'));
+    var kz={}; MK.filter(function(k){return k.pot===id;}).forEach(function(k){ (kz[k.kennzahl_id]=kz[k.kennzahl_id]||{k:k,m:[]}).m.push(k); });
+    var hat=function(q){ return Object.keys(kz).some(function(i){return kz[i].k.quelle_vorher===q;}); };
+    var reihe=function(i){ return w(function(d){ var m=kz[i].m.filter(function(x){return x.paket_id===pid&&x.durchlauf_nr===d.durchlauf_nr&&x.nachher!=null;})[0]; return m?m.nachher:null; }); };
+    var aMin=v.automatisierung_min_pct, hHeute=v.stunden_jahr_heute, hZiel=(hHeute&&aMin!=null)?hHeute*(1-aMin/100):null;
+    Object.keys(kz).forEach(function(i){ var k=kz[i].k, q=k.quelle_vorher||'', ziel=k.zielwert, vor=null, hinweis='Kennzahl '+esc(i)+' von BC4';
+      if(q==='bc2:automatisierungsgrad'&&aMin!=null){ ziel=aMin; hinweis+=' · Ziel aus BC2: mind. '+kirZahl(aMin,0)+' %'+(k.zielwert!=null&&Number(k.zielwert)!==Number(aMin)?' (BC4 setzt '+kirZahl(k.zielwert,0)+')':''); }
+      if(q==='bc2:handarbeit'&&hZiel!=null){ ziel=hZiel; vor=hHeute; hinweis+=' · heute '+kirZahl(hHeute,0)+' h/J, Ziel ≤ '+kirZahl(hZiel,0)+' h/J aus BC2'; }
+      kach.push(kirKachel(kirSaeulen(reihe(i),{titel:i+' '+(k.bezeichnung||''),einheit:k.einheit,max:(k.einheit==='%'?100:undefined),ziel:ziel,vorher:vor,richtung:k.richtung}),hinweis)); });
+    var leer=function(){ return w(function(){return null;}); };
+    if(aMin!=null&&!hat('bc2:automatisierungsgrad'))
+      kach.push(kirKachel(kirSaeulen(leer(),{titel:'Automatisierungsgrad',einheit:'%',max:100,ziel:aMin,richtung:'hoeher_besser',st:0}),'Ziel aus BC2: mind. '+kirZahl(aMin,0)+' %. <b>BC4 hat dafür keine Kennzahl</b> (<code>quelle_vorher = bc2:automatisierungsgrad</code>).'));
+    if(hZiel!=null&&!hat('bc2:handarbeit'))
+      kach.push(kirKachel(kirSaeulen(leer(),{titel:'Handarbeit',einheit:'h/J',ziel:hZiel,vorher:hHeute,richtung:'niedriger_besser',st:0}),'heute '+kirZahl(hHeute,0)+' h/J, Ziel ≤ '+kirZahl(hZiel,0)+' h/J aus BC2. <b>BC4 hat dafür keine Kennzahl</b> (<code>quelle_vorher = bc2:handarbeit</code>).'));
+    if(v.investition_eur_richtwert!=null){ var k2=(lf||[]).filter(function(x){return tps.indexOf(x.sub_process_id)>=0;});
+      kach.push(kirKachel(kirSaeulen(w(function(d){ var r=k2.filter(function(x){return x.durchlauf_nr===d.durchlauf_nr;}), e=r.reduce(function(a,x){return a+(x.kosten_erfasst||0);},0); return e?r.reduce(function(a,x){return a+(x.kosten_eur||0);},0):null; }),
+        {titel:'Generator-Kosten gegen Investition',einheit:'€',ziel:v.investition_eur_richtwert,richtung:'niedriger_besser',st:2}),'Obergrenze: Investitions-Richtwert aus BC2 ('+kirZahl(v.investition_eur_richtwert,0)+' €). Ist: <code>ki_laufdaten.kosten_eur</code> der Teilprozesse.')); }
+    h+='<div style="margin:8px 0 4px"><b>Rang '+(v.finaler_rang!=null?v.finaler_rang:v.potenzialrang)+'</b> · '+esc(v.titel||'')+' <span class="mut">· '+tps.map(esc).join(', ')+'</span></div>'
+      +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px">'+kach.join('')+'</div>'; });
+  return h; }
+async function renderKIP(){ var cid=cur.company.id;
+  $('kip').innerHTML='<div class="crumb">'+cr()+'KI-Reifegrad › Prozessdoku &amp; Verantwortung</div><p class="mut">lädt …</p>'; show('kip');
+  var fehler=''; KIR=null;
+  try{ KIR=await api('/api/companies/'+cid+'/ki_reifegrad/durchlaeufe'); }
+  catch(x){ fehler=(x&&(x.status===404||x.status===405))?'Der Server kennt die Durchläufe noch nicht (Backend v3.37 nicht eingespielt).':((x&&x.status===501)?'Die Tabellen für KI-Reifegrad (Schema v3.36) fehlen in der Datenbank.':('nicht ladbar: '+((x&&x.detail)||x))); }
+  VG=null; try{ VG=await api('/api/companies/'+cid+'/bc2_vorgabe'); }catch(x){ VG=null; }
+  try{ if(!KIC_PERS||!KIC_PERS.length){ var ent=await api('/api/companies/'+cid+'/entitaeten'); KIC_PERS=(ent.personen||[]).filter(function(p){return p.aktiv!==false;}); } }catch(x){}
+  var h='<div class="crumb">'+cr()+'KI-Reifegrad › Prozessdoku &amp; Verantwortung</div><h1>Prozessdoku &amp; Verantwortung</h1>'
+    +'<p class="lead">KI-gestützte Prozesse, die der <b>BC4-Generator</b> durchlaufen hat: je <b>Anfrage › Kernprozess › Teilprozess</b>, mit den Durchläufen 1 … x und den Kennzahlen je Rücklauf. Bisherige, nur digitale Prozesse stehen hier nicht.</p>';
+  if(fehler){ $('kip').innerHTML=h+'<div class="panel" style="border-left:4px solid #c0392b"><b>'+esc(fehler)+'</b></div>'; show('kip'); return; }
+  var D=KIR.durchlaeufe||[];
+  if(!D.length) h+='<div class="panel mut">Noch kein Durchlauf angelegt. Ein Durchlauf entsteht je Paket, das BC2 → BC3 → BC4 durchläuft (Tabelle <code>kir_durchlauf</code>).</div>';
+  var pakete={}; D.forEach(function(d){ (pakete[d.paket_id]=pakete[d.paket_id]||[]).push(d); });
+  Object.keys(pakete).forEach(function(pid){ var dl=pakete[pid].sort(function(a,b){return a.durchlauf_nr-b.durchlauf_nr;}), uc=dl[0].use_case, letzt=dl[dl.length-1];
+    var lf=(KIR.laeufe||[]).filter(function(z){return z.paket_id===pid;}), bl=(KIR.agentenblaetter||[]).filter(function(z){return z.paket_id===pid;});
+    var aktiv={}; lf.forEach(function(z){aktiv[z.sub_process_id]=1;}); bl.forEach(function(z){aktiv[z.sub_process_id]=1;});
+    var inh=(KIR.inhalt||[]).filter(function(z){return z.paket_id===pid;}), ohneLauf=inh.filter(function(z){return !aktiv[z.sub_process_id];});
+    h+='<div class="panel" style="border-left:4px solid #185FA5"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><b>'+esc(uc)+' · Paket '+esc(pid.slice(0,8))+' · '+dl.length+' Durchlauf'+(dl.length>1?'e':'')+'</b>'
+      +kicAmpel(letzt.entscheidung==='weiter'?'gruen':(letzt.entscheidung==='verwerfen'?'rot':(letzt.entscheidung==='nachbessern'?'gelb':'grau')),'Durchlauf '+letzt.durchlauf_nr+': '+(letzt.entscheidung?('entschieden „'+letzt.entscheidung+'“'):'offen, noch keine Entscheidung'))+'</div>';
+    /* Baum Anfrage › KP › TP, nur durchlaufene Teilprozesse */
+    var baum={}; inh.filter(function(z){return aktiv[z.sub_process_id];}).forEach(function(z){ var a=baum[z.anfrage_id||'ohne Anfrage']=baum[z.anfrage_id||'ohne Anfrage']||{}; (a[z.process_id]=a[z.process_id]||[]).push(z.sub_process_id); });
+    Object.keys(aktiv).forEach(function(s){ if(!inh.some(function(z){return z.sub_process_id===s;})){ var a=baum['ohne Paketbezug']=baum['ohne Paketbezug']||{}; (a[s.slice(0,5)]=a[s.slice(0,5)]||[]).push(s); } });
+    Object.keys(baum).sort().forEach(function(an){ h+='<div style="margin-top:12px"><div style="font-weight:600">Anfrage '+esc(an)+'</div>';
+      Object.keys(baum[an]).sort().forEach(function(kp){ h+='<div style="margin:6px 0 0 14px"><span class="mut">Kernprozess</span> <b>'+esc(kp)+'</b> · '+esc(kpName(kp));
+        baum[an][kp].sort().forEach(function(tp){ var n=kirTpName(tp);
+          h+='<div style="margin:6px 0 0 14px"><span class="mut">Teilprozess</span> <b>'+esc(tp)+'</b>'+(n?' · '+esc(n):'')
+            +'<div style="overflow-x:auto"><table style="margin-top:6px"><tr><th>Durchlauf</th><th>Läufe</th><th>Token</th><th>Kosten (€)</th><th>Korrekturquote</th><th>Fehler</th><th>Ø Dauer</th><th>Modell</th><th>Verantwortlich fachlich / technisch</th><th>Agentenblatt</th></tr>'
+            +dl.map(function(d){ var z=lf.filter(function(x){return x.durchlauf_nr===d.durchlauf_nr&&x.sub_process_id===tp;})[0], b=bl.filter(function(x){return x.durchlauf_nr===d.durchlauf_nr&&x.sub_process_id===tp;})[0];
+              var nichts='<span class="mut">nicht erfasst</span>';
+              return '<tr><td>'+d.durchlauf_nr+'</td><td>'+(z?z.laeufe:0)+'</td><td>'+(z&&z.token?kirZahl(z.token,0):(z?nichts:'—'))+'</td>'
+                +'<td>'+(z&&z.kosten_erfasst?kirZahl(z.kosten_eur,2)+(z.kosten_erfasst<z.laeufe?' <span class="mut">('+z.kosten_erfasst+' von '+z.laeufe+')</span>':''):(z?nichts:'—'))+'</td>'
+                +'<td>'+(z&&z.korrigiert_erfasst?kirZahl(100*z.korrigiert/z.korrigiert_erfasst,0)+' %'+(z.korrigiert_erfasst<z.laeufe?' <span class="mut">('+z.korrigiert_erfasst+' von '+z.laeufe+')</span>':''):(z?nichts:'—'))+'</td>'
+                +'<td>'+(z?z.fehler:'—')+'</td><td>'+(z&&z.dauer_ms_mittel!=null?kirZahl(z.dauer_ms_mittel/1000,1)+' s':(z?nichts:'—'))+'</td><td>'+(z?esc(z.modelle||''):'—')+'</td>'
+                +'<td>'+(b?(esc(kicPersName(b.fachlich_person_id))+' / '+esc(kicPersName(b.technisch_person_id))):'<span class="pill no">fehlt</span>')+'</td>'
+                +'<td>'+(b?('v'+esc(b.version)+(b.geprueft_am?' · geprüft '+kicDatum(b.geprueft_am):' · <span class="mut">ungeprüft</span>')):'<span class="pill no">fehlt</span>')+'</td></tr>'; }).join('')
+            +'</table></div></div>'; });
+        h+='</div>'; });
+      h+='</div>'; });
+    if(!Object.keys(aktiv).length) h+='<div class="mut" style="margin-top:10px">In diesem Paket hat der Generator noch keinen Teilprozess durchlaufen.</div>';
+    if(ohneLauf.length) h+='<div class="mut" style="margin-top:10px">Ebenfalls im Paket, aber ohne Lauf des Generators: '+ohneLauf.map(function(z){return esc(z.sub_process_id)+' ('+esc(z.anfrage_id||'—')+')';}).join(', ')+'.</div>';
+    h+='</div>';
+    h+=vgPanel(pid,lf);
+    /* KPI je Ruecklauf */
+    var sum=function(nr,f){ return lf.filter(function(z){return z.durchlauf_nr===nr;}).reduce(function(a,z){return a+(z[f]||0);},0); };
+    var w=function(f){ return dl.map(function(d){ return {x:''+d.durchlauf_nr, v:f(d)}; }); };
+    var kpi=[
+      kirKachel(kirSaeulen(w(function(d){return d.erfuellung_pct;}),{titel:'Erfüllungsgrad Anfrage → Prototyp',einheit:'%',max:100}),
+        'A '+letzt.a_x+'/'+letzt.a_n+' · K '+letzt.k_x+'/'+letzt.k_n+' · W '+letzt.w_x+'/'+letzt.w_n+' (Gewichte '+kirZahl(letzt.g_a,0)+'/'+kirZahl(letzt.g_k,0)+'/'+kirZahl(letzt.g_w,0)+')'+(letzt.hinweis?' · nicht messbar: '+esc(letzt.hinweis):'')),
+      kirKachel(kirSaeulen(w(function(d){return sum(d.durchlauf_nr,'laeufe');}),{titel:'Läufe des Generators',st:0})),
+      kirKachel(kirSaeulen(w(function(d){var t=sum(d.durchlauf_nr,'token');return t||null;}),{titel:'Token',st:0})),
+      kirKachel(kirSaeulen(w(function(d){return sum(d.durchlauf_nr,'kosten_erfasst')?sum(d.durchlauf_nr,'kosten_eur'):null;}),{titel:'Kosten',einheit:'€',st:2})),
+      kirKachel(kirSaeulen(w(function(d){var e=sum(d.durchlauf_nr,'korrigiert_erfasst');return e?100*sum(d.durchlauf_nr,'korrigiert')/e:null;}),{titel:'Korrekturquote',einheit:'%',max:100,st:0}),'Anteil der Läufe, deren Ergebnis ein Mensch ändern oder verwerfen musste (<code>korrigiert</code>).')];
+    var kz=(KIR.kennzahlen||[]).filter(function(k){return k.use_case===uc;});
+    kz.forEach(function(k){ var mw=(KIR.messwerte||[]).filter(function(m){return m.paket_id===pid&&m.kennzahl_id===k.kennzahl_id;}), vor=mw.filter(function(m){return m.vorher!=null;})[0];
+      kpi.push(kirKachel(kirSaeulen(w(function(d){var m=mw.filter(function(x){return x.durchlauf_nr===d.durchlauf_nr;})[0];return m?m.nachher:null;}),
+        {titel:k.kennzahl_id+' '+k.bezeichnung,einheit:k.einheit,max:(k.einheit==='%'?100:undefined),ziel:k.zielwert,vorher:vor?vor.vorher:null,richtung:k.richtung}),
+        (k.richtung==='niedriger_besser'?'niedriger ist besser':'höher ist besser')+' · grün = Ziel erreicht, orange = verfehlt')); });
+    h+='<h3>Kennzahlen je Rücklauf · '+esc(uc)+'</h3>'
+      +(kz.length?'':'<div class="panel" style="border-left:4px solid #d98c1f;background:#fdf6ea">BC4 hat für <b>'+esc(uc)+'</b> noch <b>keine Kennzahlen</b> festgelegt (<code>kir_kennzahlen</code>, Pflicht vor dem ersten Test). Bis dahin zeigen die Grafiken nur Erfüllungsgrad und Laufdaten.</div>')
+      +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px">'+kpi.join('')+'</div>'
+      +'<div class="mut" style="margin:6px 0 4px">Gestrichelt umrandet = von BC4 nicht erfasst (wird nicht als 0 gezeichnet).</div>'+vgDiagramme(pid,dl,lf);
+    /* Durchlaeufe */
+    h+='<div class="panel"><b>Durchläufe</b><div style="overflow-x:auto"><table style="margin-top:8px"><tr><th>Nr.</th><th>angelegt</th><th>Anlass</th><th>Tests bestanden</th><th>Messwerte</th><th>Abweichungen</th><th>Erfüllungsgrad</th><th>Entscheidung</th></tr>'
+      +dl.map(function(d){ return '<tr><td>'+d.durchlauf_nr+'</td><td>'+kicDatum(d.angelegt_am)+'</td><td>'+esc(d.anlass)+'</td><td>'+d.bestanden+' von '+d.testergebnisse+'</td><td>'+d.messwerte+'</td><td>'+d.abweichungen+'</td><td>'+kirZahl(d.erfuellung_pct)+' %</td>'
+        +'<td>'+(d.entscheidung?('<b>'+esc(d.entscheidung)+'</b> · '+kicDatum(d.entschieden_am)+'<div class="mut">'+esc(d.begruendung||'')+'</div>'):'<span class="mut">offen</span>')+'</td></tr>'; }).join('')+'</table></div></div>';
+  });
+  if(VG&&VG.vorgabe){ var ohneDl={}; VG.vorgabe.forEach(function(v){ if(!pakete[v.paket_id]) ohneDl[v.paket_id]=1; });
+    Object.keys(ohneDl).forEach(function(pid){ h+='<h3>Paket '+esc(pid.slice(0,8))+' · noch kein Durchlauf von BC4</h3>'+vgPanel(pid); }); }
+  var oh=KIR.ohne_durchlauf||{};
+  if(oh.laeufe) h+='<div class="mut" style="margin-top:4px">'+oh.laeufe+' weitere Läufe in <code>ki_laufdaten</code> ('+kicDatum(oh.erster)+(oh.letzter&&(''+oh.letzter).slice(0,10)!==(''+oh.erster).slice(0,10)?' bis '+kicDatum(oh.letzter):'')+') gehören zu keinem Durchlauf, weil ihr Paket nicht (mehr) besteht. Sie zählen hier nicht; im KI-Controlling bleiben sie sichtbar.</div>';
+  $('kip').innerHTML=h; show('kip'); }
 async function renderKIW(){ await kicLaden('kiw'); var w=KIC.wissensdb||{vorhanden:'nein'}, k=kicKennzahlen().wissen;
   var opt=function(v,t){return '<option value="'+v+'"'+(w.vorhanden===v?' selected':'')+'>'+t+'</option>';};
   $('kiw').innerHTML=kicKopf('Wissensdatenbank','Gibt es eine Wissensdatenbank „Unternehmen"? Wie aktuell ist sie? Wer ist verantwortlich?')
@@ -1216,6 +1562,135 @@ async function renderKIW(){ await kicLaden('kiw'); var w=KIC.wissensdb||{vorhand
     +'<div class="row" style="margin-top:12px"><button class="btn" id="kiwSave">Speichern</button></div></div>';
   $('kiwSave').onclick=async function(){ if(await kicSpeichern({wissensdb:{vorhanden:$('kiwV').value,person_id:document.querySelector('#kiw .kiw-p').value,system:$('kiwS').value,ort:$('kiwO').value,aktualisiert_am:$('kiwA').value,takt_tage:$('kiwT').value}})) await renderKIW(); };
   show('kiw'); }
+/* ---- v3.42 (15.11.2026): Modellregister und Wechselplan je Modell (KI-Strategie) ----
+   Simeon 15.11.: "Projektplan für die Modell-Switches — wenn ein Modell neu auf die Agents
+   angelernt werden muss, weil die alten abgeschaltet werden"; "eigenes Register".
+   Ein Wechsel ist ein weiterer Durchlauf derselben Kette: gleiche BC4-Testfälle, gleiches
+   Soll aus BC2, neue Einlaufphase der Drift-Karte. Eingesetzt-in kommt aus ki_laufdaten. */
+var KIC_WECHSEL_VORLAGE=[
+  [0,'Abkündigung erkannt, Abschaltdatum notiert','Datum steht fest'],
+  [7,'Inventur: betroffene Agents und Teilprozesse','Liste aus den Laufdaten'],
+  [28,'Nachfolger wählen, Regressionstest gegen die BC4-Testfälle','Erfüllungsgrad ≥ letzter Stand'],
+  [42,'Agentenblätter anpassen, Abnahme durch die Prozessverantwortlichen','Agentenblatt geprüft'],
+  [56,'Schattenbetrieb, neue Einlaufphase der Drift-Karte','0 Punkte außerhalb ±3σ'],
+  [70,'Umschaltung, kurze Schulung (LongLife Learning)','Kosten ≤ Investitions-Richtwert aus BC2'],
+  [84,'Altmodell abgeschaltet','keine Läufe mehr auf dem Altmodell']];
+var KIC_MSTATUS={im_einsatz:'im Einsatz',abgekuendigt:'abgekündigt',wechsel_laeuft:'Wechsel läuft',abgeloest:'abgelöst'};
+function kicPlusTage(d,n){ var x=new Date(d); x.setDate(x.getDate()+n); return x.toISOString().slice(0,10); }
+function kicSchritte(modell){ return (KIC.modellwechsel||[]).filter(function(s){return s.modell===modell;}).sort(function(a,b){return a.schritt_nr-b.schritt_nr;}); }
+function kicEinsatz(modell){ return (KIC.modell_einsatz||[]).filter(function(e){return e.modell===modell;})[0]||null; }
+function kicModellAmpel(m){
+  var h=kicHeute(), sch=kicSchritte(m.modell), ueb=sch.filter(function(s){return !s.erledigt_am&&s.zieldatum&&s.zieldatum<h;}).length,
+      fertig=sch.length&&sch.every(function(s){return s.erledigt_am;}), rest=m.abschaltung_am?kicTage(h,m.abschaltung_am):null,
+      restT=rest===null?'':(rest<0?'Abschaltung seit '+(-rest)+' Tagen':'Abschaltung in '+rest+' Tagen'),
+      uebT=ueb?ueb+' Schritt(e) überfällig':'';
+  var mit=function(a,b){return [a,b].filter(function(x){return x;}).join(' · ');};
+  if(m.status==='abgeloest') return {farbe:'grau',text:'abgelöst',rest:rest};
+  if(fertig) return {farbe:'gruen',text:'Wechsel abgeschlossen',rest:rest};
+  if(rest!==null&&rest<=90) return {farbe:'rot',text:mit(restT,uebT),rest:rest};
+  if(ueb) return {farbe:'rot',text:mit(uebT,restT),rest:rest};
+  if(rest!==null&&!sch.length) return {farbe:'gelb',text:mit(restT,'kein Wechselplan'),rest:rest};
+  if(rest!==null&&rest<=180) return {farbe:'gelb',text:restT,rest:rest};
+  return {farbe:'gruen',text:restT||KIC_MSTATUS[m.status]||'im Einsatz',rest:rest};
+}
+/* Übersicht: Zusatzzeile unter der Karte KI-Strategie (Farbe der Karte bleibt die der Strategie) */
+function kicRegisterZusatz(){
+  var reg=KIC.modellregister||[]; if(!reg.length) return '';
+  var am=reg.filter(function(m){return m.status!=='abgeloest';}).map(function(m){return {m:m,a:kicModellAmpel(m)};}),
+      rot=am.filter(function(x){return x.a.farbe==='rot';}), naechste=am.filter(function(x){return x.a.rest!==null;}).sort(function(a,b){return a.a.rest-b.a.rest;})[0];
+  return 'Modellregister: '+reg.length+' Modell(e)'+(rot.length?' · ⚠ '+rot.length+' kritisch':'')
+    +(naechste?' · nächste Abschaltung '+naechste.m.modell+' '+kicDatum(naechste.m.abschaltung_am)+' ('+naechste.a.rest+' Tage)':'');
+}
+/* Wechsel im Strategiezeitraum (gleiche Achse wie der Zeitstrahl, 36 Monate): ein Balken je Modell */
+function kicWechselUeberblick(st,reg){
+  var zeilen=reg.filter(function(m){return kicSchritte(m.modell).length||m.abschaltung_am;}); if(!zeilen.length) return '';
+  var start=(st&&st.beschlossen_am)||kicHeute(), ende=kicPlusMonate(start,36), W=760,L=44,R=44,ZH=36,H=56+zeilen.length*ZH+30;
+  var X=function(d){ var t=(new Date(d)-new Date(start))/(new Date(ende)-new Date(start)); return L+(W-L-R)*Math.max(0,Math.min(1,t)); };
+  var g='<div style="overflow-x:auto"><svg class="kic-wechsel-ueberblick" style="min-width:640px;background:#fff" viewBox="0 0 '+W+' '+H+'" width="100%" role="img" aria-label="Modellwechsel im Strategiezeitraum">';
+  for(var j=0;j<=6;j++){ var d=kicPlusMonate(start,j*6), x=X(d); g+='<line x1="'+x+'" x2="'+x+'" y1="20" y2="'+(H-24)+'" stroke="#e3e1da"/><text x="'+x+'" y="'+(H-8)+'" font-size="10" text-anchor="middle" fill="#5F5E5A">'+kicDatum(d).slice(3)+'</text>'; }
+  var h=kicHeute(); if(h>=start&&h<=ende){ var xh=X(h); g+='<line x1="'+xh+'" x2="'+xh+'" y1="18" y2="'+(H-24)+'" stroke="#c0392b" stroke-dasharray="3,3"/><text x="'+xh+'" y="12" font-size="10" text-anchor="middle" fill="#c0392b">heute</text>'; }
+  zeilen.forEach(function(m,i){ var y=50+i*ZH, sch=kicSchritte(m.modell), a=kicModellAmpel(m), f={gruen:'#1f9d57',gelb:'#d98c1f',rot:'#c0392b',grau:'#9aa3ad'}[a.farbe];
+    g+='<text x="'+L+'" y="'+(y-8)+'" font-size="11" font-weight="600" fill="#1F3A5F">'+esc(m.modell)+'</text>';
+    if(sch.length){ var x1=X(sch[0].zieldatum), x2=Math.max(X(sch[sch.length-1].zieldatum),x1+3), erl=sch.filter(function(s){return s.erledigt_am;}).length;
+      g+='<rect x="'+x1+'" y="'+(y-4)+'" width="'+(x2-x1)+'" height="10" rx="3" fill="#dfe8f3" stroke="#185FA5"><title>Wechselplan '+esc(m.modell)+': '+kicDatum(sch[0].zieldatum)+' – '+kicDatum(sch[sch.length-1].zieldatum)+', '+erl+' von '+sch.length+' Schritten erledigt</title></rect>'
+        +'<rect x="'+x1+'" y="'+(y-4)+'" width="'+((x2-x1)*erl/sch.length)+'" height="10" rx="3" fill="#1f9d57"/>'; }
+    if(m.abschaltung_am){ var xa=X(m.abschaltung_am); g+='<line x1="'+xa+'" x2="'+xa+'" y1="'+(y-10)+'" y2="'+(y+12)+'" stroke="'+f+'" stroke-width="2.5"/><text x="'+(xa+4)+'" y="'+(y+16)+'" font-size="10" fill="'+f+'">Abschaltung '+kicDatum(m.abschaltung_am)+'</text>'; }
+  });
+  return g+'</svg></div>';
+}
+/* Wechselplan eines Modells im Detail (eigene Achse: Plan plus Puffer) */
+function kicWechselDetail(m){
+  var sch=kicSchritte(m.modell).filter(function(s){return s.zieldatum;}); if(!sch.length) return '';
+  var h=kicHeute(), alle=sch.map(function(s){return s.zieldatum;}).concat(m.abschaltung_am?[m.abschaltung_am]:[]).sort(),
+      start=kicPlusTage(alle[0],-7), ende=kicPlusTage(alle[alle.length-1],14), W=760,L=24,R=24,H=118,Y=58;
+  var X=function(d){ var t=(new Date(d)-new Date(start))/(new Date(ende)-new Date(start)); return L+(W-L-R)*Math.max(0,Math.min(1,t)); };
+  var g='<div style="overflow-x:auto"><svg class="kic-wechsel-detail" style="min-width:640px;background:#fff" viewBox="0 0 '+W+' '+H+'" width="100%" role="img" aria-label="Wechselplan '+esc(m.modell)+'">';
+  g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+Y+'" y2="'+Y+'" stroke="#1F3A5F" stroke-width="2"/>';
+  var tage=kicTage(start,ende), takt=tage>200?56:(tage>100?28:14);
+  for(var t=0;t<=tage;t+=takt){ var d=kicPlusTage(start,t), x=X(d); g+='<line x1="'+x+'" x2="'+x+'" y1="'+(Y-4)+'" y2="'+(Y+4)+'" stroke="#1F3A5F"/><text x="'+x+'" y="'+(H-8)+'" font-size="10" text-anchor="middle" fill="#5F5E5A">'+kicDatum(d).slice(0,6)+'</text>'; }
+  if(h>=start&&h<=ende){ var xh=X(h); g+='<line x1="'+xh+'" x2="'+xh+'" y1="18" y2="'+(H-22)+'" stroke="#c0392b" stroke-dasharray="3,3"/><text x="'+xh+'" y="14" font-size="10" text-anchor="middle" fill="#c0392b">heute</text>'; }
+  if(m.abschaltung_am){ var xa=X(m.abschaltung_am); g+='<line x1="'+xa+'" x2="'+xa+'" y1="26" y2="'+(Y+14)+'" stroke="#c0392b" stroke-width="2.5"/><text x="'+(xa-4)+'" y="30" font-size="10" text-anchor="end" fill="#c0392b">Abschaltung '+kicDatum(m.abschaltung_am)+'</text>'; }
+  sch.forEach(function(s,i){ var x=X(s.zieldatum), f=s.erledigt_am?'#1f9d57':(s.zieldatum<h?'#c0392b':'#185FA5'), ly=i%2?Y+26:Y-18;
+    g+='<circle cx="'+x+'" cy="'+Y+'" r="9" fill="'+f+'"><title>'+s.schritt_nr+'. '+esc(s.titel)+' · Ziel '+kicDatum(s.zieldatum)+(s.erledigt_am?' · erledigt '+kicDatum(s.erledigt_am):'')+'</title></circle>'
+      +'<text x="'+x+'" y="'+(Y+4)+'" font-size="10" font-weight="600" text-anchor="middle" fill="#fff">'+s.schritt_nr+'</text>'
+      +'<text x="'+x+'" y="'+ly+'" font-size="9" text-anchor="middle" fill="'+f+'">'+kicDatum(s.zieldatum).slice(0,6)+'</text>'; });
+  return g+'</svg></div>';
+}
+function kicRegisterHtml(){
+  var h=kicHeute(), reg=KIC.modellregister||[], im=reg.map(function(m){return m.modell;}),
+      fremd=(KIC.modell_einsatz||[]).filter(function(e){return im.indexOf(e.modell)<0;});
+  var sel=function(cls,wert,paare){ return '<select class="'+cls+'">'+paare.map(function(p){return '<option value="'+p[0]+'"'+(p[0]===wert?' selected':'')+'>'+p[1]+'</option>';}).join('')+'</select>'; };
+  var karte=function(m,i){ var a=kicModellAmpel(m), e=kicEinsatz(m.modell), sch=kicSchritte(m.modell);
+    var zeile=function(s,k){ var f=s.erledigt_am?['gruen','erledigt']:(s.zieldatum&&s.zieldatum<h?['rot','überfällig']:['grau','offen']);
+      return '<tr data-krs="'+k+'"><td style="text-align:center">'+(k+1)+'</td><td><input class="krs-t" value="'+esc(s.titel||'')+'"></td><td><input class="krs-k" value="'+esc(s.kriterium||'')+'"></td>'
+        +'<td><input class="krs-z" type="date" value="'+esc(s.zieldatum||'')+'"></td><td><input class="krs-e" type="date" value="'+esc(s.erledigt_am||'')+'"></td><td>'+kicAmpel(f[0],f[1])+'</td>'
+        +'<td><button class="btn sec sm" data-krsdel="'+i+':'+k+'">✕</button></td></tr>'; };
+    return '<div class="panel kic-modell" data-kisreg="'+i+'" style="margin:12px 0 0 0;border-left:4px solid #1F3A5F">'
+      +'<div class="row" style="justify-content:space-between;align-items:center"><b>'+esc(m.modell||'neues Modell')+'</b>'+kicAmpel(a.farbe,a.text)+'</div>'
+      +'<p class="mut" style="margin:6px 0">Eingesetzt in (aus den Laufdaten): '+(e?esc(e.teilprozesse||'—')+' · '+e.laeufe.toLocaleString('de-DE')+' Läufe gesamt, '+e.laeufe_90.toLocaleString('de-DE')+' in 90 Tagen · letzter Lauf '+kicDatum(e.letzter):'keine Läufe erfasst')+'</p>'
+      +'<div class="formgrid"><div><label>Modell</label><input class="kr-modell" value="'+esc(m.modell||'')+'"></div><div><label>Anbieter</label><input class="kr-anbieter" value="'+esc(m.anbieter||'')+'"></div>'
+      +'<div><label>Betrieb</label>'+sel('kr-art',m.betriebsart||'cloud',[['cloud','Cloud'],['lokal','lokal']])+'</div>'
+      +'<div><label>Status</label>'+sel('kr-status',m.status||'im_einsatz',[['im_einsatz','im Einsatz'],['abgekuendigt','abgekündigt'],['wechsel_laeuft','Wechsel läuft'],['abgeloest','abgelöst']])+'</div>'
+      +'<div><label>Abgekündigt am</label><input class="kr-abg" type="date" value="'+esc(m.abgekuendigt_am||'')+'"></div><div><label>Abschaltung am</label><input class="kr-aus" type="date" value="'+esc(m.abschaltung_am||'')+'"></div>'
+      +'<div><label>Nachfolger</label><input class="kr-nach" value="'+esc(m.nachfolger||'')+'" placeholder="Auswahl in Schritt 3"></div><div><label>Verantwortlich</label>'+kicPersSel('kr-p',m.person_id)+'</div>'
+      +'<div class="full"><label>Bemerkung</label><input class="kr-bem" value="'+esc(m.bemerkung||'')+'"></div></div>'
+      +(sch.length?'<h3 style="margin-top:12px">Wechselplan</h3>'+kicWechselDetail(m):'')
+      +'<div style="overflow-x:auto"><table><tr><th>Nr.</th><th>Schritt</th><th>umschalten nur, wenn</th><th>Ziel</th><th>erledigt am</th><th>Status</th><th></th></tr>'+sch.map(zeile).join('')+'</table></div>'
+      +'<div class="row" style="margin-top:8px">'+(sch.length?'':'<button class="btn sec sm" data-krvorlage="'+i+'">Wechselplan aus Vorlage (7 Schritte)</button>')
+      +'<button class="btn sec sm" data-kradd="'+i+'">+ Schritt</button><button class="btn sec sm" data-krdel="'+i+'">Modell entfernen</button></div></div>'; };
+  return '<div class="panel"><h3 style="margin-top:0">Modellregister und Wechselplan</h3>'
+    +'<p class="mut">Ein Modellwechsel ist ein weiterer Durchlauf derselben Kette: dieselben BC4-Testfälle, dasselbe Soll aus BC2, eine neue Einlaufphase der Drift-Karte. Rot: Abschaltung in höchstens 90 Tagen oder ein Schritt überfällig; gelb: höchstens 180 Tage oder kein Plan.</p>'
+    +kicWechselUeberblick(KIC.strategie,reg)
+    +(fremd.length?'<div class="panel" style="border-left:4px solid #d98c1f;background:#fdf6ea;margin:10px 0 0 0"><b>Nicht im Register:</b> '+fremd.map(function(e){return esc(e.modell)+' ('+e.laeufe+' Läufe, '+esc(e.teilprozesse||'—')+') <button class="btn sec sm" data-krneu="'+esc(e.modell)+'">übernehmen</button>';}).join(' · ')+'</div>':'')
+    +(reg.length?reg.map(karte).join(''):'<p class="mut" style="margin-top:10px">Noch kein Modell erfasst.</p>')
+    +'<div class="row" style="margin-top:12px"><button class="btn sec" id="krAdd">+ Modell</button><button class="btn" id="krSave">Register speichern</button></div></div>';
+}
+function kicRegisterLesen(){
+  var reg=[], schritte=[];
+  document.querySelectorAll('#kisReg [data-kisreg]').forEach(function(k){ var q=function(c){var el=k.querySelector('.'+c); return el?el.value:'';};
+    var m={modell:q('kr-modell').trim(),anbieter:q('kr-anbieter'),betriebsart:q('kr-art'),status:q('kr-status'),abgekuendigt_am:q('kr-abg'),abschaltung_am:q('kr-aus'),nachfolger:q('kr-nach'),person_id:q('kr-p'),bemerkung:q('kr-bem')};
+    var s=[].map.call(k.querySelectorAll('tr[data-krs]'),function(tr,j){return {modell:m.modell,schritt_nr:j+1,titel:tr.querySelector('.krs-t').value,kriterium:tr.querySelector('.krs-k').value,zieldatum:tr.querySelector('.krs-z').value,erledigt_am:tr.querySelector('.krs-e').value};});
+    reg.push(m); schritte=schritte.concat(s); });
+  return {reg:reg, schritte:schritte};
+}
+function kicRegisterRender(){
+  $('kisReg').innerHTML=kicRegisterHtml();
+  var neu=function(f){ var r=kicRegisterLesen(); KIC.modellregister=r.reg; KIC.modellwechsel=r.schritte; f(); kicRegisterRender(); };
+  $('krAdd').onclick=function(){ neu(function(){ KIC.modellregister.push({modell:'',betriebsart:'cloud',status:'im_einsatz'}); }); };
+  document.querySelectorAll('#kisReg [data-krneu]').forEach(function(b){ b.onclick=function(){ neu(function(){ KIC.modellregister.push({modell:b.dataset.krneu,betriebsart:'cloud',status:'im_einsatz'}); }); }; });
+  document.querySelectorAll('#kisReg [data-krdel]').forEach(function(b){ b.onclick=function(){ neu(function(){ var m=KIC.modellregister.splice(+b.dataset.krdel,1)[0]; KIC.modellwechsel=KIC.modellwechsel.filter(function(s){return s.modell!==m.modell;}); }); }; });
+  document.querySelectorAll('#kisReg [data-kradd]').forEach(function(b){ b.onclick=function(){ neu(function(){ var m=KIC.modellregister[+b.dataset.kradd], n=kicSchritte(m.modell).length; KIC.modellwechsel.push({modell:m.modell,schritt_nr:n+1,titel:'',zieldatum:''}); }); }; });
+  document.querySelectorAll('#kisReg [data-krvorlage]').forEach(function(b){ b.onclick=function(){ neu(function(){ var m=KIC.modellregister[+b.dataset.krvorlage]; if(!m.modell){ toast('Zuerst den Modellnamen eintragen.',true); return; }
+      var t0=m.abgekuendigt_am||kicHeute(); KIC_WECHSEL_VORLAGE.forEach(function(v,j){ KIC.modellwechsel.push({modell:m.modell,schritt_nr:j+1,titel:v[1],kriterium:v[2],zieldatum:kicPlusTage(t0,v[0])}); }); }); }; });
+  document.querySelectorAll('#kisReg [data-krsdel]').forEach(function(b){ b.onclick=function(){ var p=b.dataset.krsdel.split(':'); neu(function(){ var m=KIC.modellregister[+p[0]], n=0;
+      KIC.modellwechsel=KIC.modellwechsel.filter(function(s){ if(s.modell!==m.modell) return true; return (n++)!==+p[1]; }); }); }; });
+  $('krSave').onclick=async function(){ var r=kicRegisterLesen();
+    if(r.reg.some(function(m){return !m.modell;})){ toast('Jedes Modell braucht einen Namen.',true); return; }
+    var namen=r.reg.map(function(m){return m.modell;}); if(namen.some(function(n,i){return namen.indexOf(n)!==i;})){ toast('Ein Modell steht doppelt im Register.',true); return; }
+    if(r.schritte.some(function(s){return s.titel.trim()&&!s.zieldatum;})){ toast('Jeder Schritt braucht ein Zieldatum.',true); return; }
+    var body=r.reg.map(function(m){ m.schritte=r.schritte.filter(function(s){return s.modell===m.modell;}); return m; });
+    if(await kicSpeichern({modellregister:body})){ await kicLaden(); renderKIS(true); } };
+}
 async function renderKIS(ohneLaden){ if(!ohneLaden) await kicLaden('kis'); var st=KIC.strategie||{sachstand:'keine'}, k=kicKennzahlen().strategie, h=kicHeute();
   var opt=function(v,t){return '<option value="'+v+'"'+(st.sachstand===v?' selected':'')+'>'+t+'</option>';};
   var mz=function(m,i){ var f=m.erreicht_am?['gruen','erreicht']:(m.zieldatum&&m.zieldatum<h?['rot','überfällig']:['grau','offen']); return '<tr data-kism="'+i+'"><td><input class="kis-t" value="'+esc(m.titel||'')+'"></td><td><input class="kis-z" type="date" value="'+esc(m.zieldatum||'')+'"></td><td><input class="kis-e" type="date" value="'+esc(m.erreicht_am||'')+'"></td><td>'+kicAmpel(f[0],f[1])+'</td><td><button class="btn sec sm" data-kismdel="'+i+'">✕</button></td></tr>'; };
@@ -1226,7 +1701,8 @@ async function renderKIS(ohneLaden){ if(!ohneLaden) await kicLaden('kis'); var s
     +'<div><label>Beschlossen am</label><input id="kisB" type="date" value="'+esc(st.beschlossen_am||'')+'"></div><div><label>Zuletzt überarbeitet</label><input id="kisU" type="date" value="'+esc(st.ueberarbeitet_am||'')+'"></div>'
     +'<div class="full"><label>Beschreibung</label><textarea id="kisD" rows="4">'+esc(st.beschreibung||'')+'</textarea></div></div>'
     +'<h3>Meilensteine</h3><div style="overflow-x:auto"><table><tr><th>Meilenstein</th><th>Zieldatum</th><th>erreicht am</th><th>Status</th><th></th></tr>'+KIC.meilensteine.map(mz).join('')+'</table></div>'
-    +'<div class="row" style="margin-top:10px"><button class="btn sec" id="kisAdd">+ Meilenstein</button><button class="btn" id="kisSave">Strategie speichern</button></div></div>';
+    +'<div class="row" style="margin-top:10px"><button class="btn sec" id="kisAdd">+ Meilenstein</button><button class="btn" id="kisSave">Strategie speichern</button></div></div>'
+    +'<div id="kisReg"></div>';
   var lesenM=function(){ return [].map.call(document.querySelectorAll('#kis tr[data-kism]'),function(tr){return {titel:tr.querySelector('.kis-t').value,zieldatum:tr.querySelector('.kis-z').value,erreicht_am:tr.querySelector('.kis-e').value};}); };
   var formular=function(){ return {sachstand:$('kisS').value,person_id:document.querySelector('#kis .kis-p').value,beschlossen_am:$('kisB').value,ueberarbeitet_am:$('kisU').value,beschreibung:$('kisD').value}; };
   $('kisAdd').onclick=function(){ KIC.meilensteine=lesenM(); KIC.strategie=formular(); KIC.meilensteine.push({titel:'',zieldatum:''}); renderKIS(true); };
@@ -1234,6 +1710,7 @@ async function renderKIS(ohneLaden){ if(!ohneLaden) await kicLaden('kis'); var s
   $('kisSave').onclick=async function(){ var m=lesenM(), f=formular(); if(m.some(function(x){return x.titel.trim()&&!x.zieldatum;})){toast('Jeder Meilenstein braucht ein Zieldatum.',true);return;}
     var grenze=f.beschlossen_am?kicPlusMonate(f.beschlossen_am,36):null;
     if(await kicSpeichern({strategie:f,meilensteine:m})){ if(grenze&&m.some(function(x){return x.zieldatum&&x.zieldatum>grenze;})) toast('Hinweis: ein Meilenstein liegt mehr als 3 Jahre nach dem Beschluss.',true); await renderKIS(); } };
+  kicRegisterRender();
   show('kis'); }
 
 /* Einstieg. Fragt zuerst, ob eine Sitzung besteht; die Anwendung wird nur
@@ -1279,7 +1756,7 @@ function kpName(pid){
 async function renderList(){
   var list=await api('/api/companies');var q=($('q').value||'').toLowerCase();var box=$('coGrid');box.innerHTML='';
   list.filter(function(t){return t.name.toLowerCase().indexOf(q)>=0||(t.branche||'').toLowerCase().indexOf(q)>=0;}).forEach(function(t){
-    var el=document.createElement('div');el.className='co';el.onclick=function(){openTenant(t.id);};
+    var el=document.createElement('div');el.className='co';el.onclick=function(){openTenant(t.id, istAdmin()?'start':null);};
     var ini=(t.name.match(/[A-ZÄÖÜ]/g)||['?']).slice(0,2).join('');
     el.innerHTML='<div class="top"><div class="logo-sq" style="background:#3B6EA5">'+ini+'</div><div><h3>'+esc(t.name)+'</h3><div class="br">'+esc(t.branche||'—')+' · '+esc(t.region||'')+'</div></div><span class="st '+(t.status||'neu')+'">'+(t.status||'neu')+'</span></div>'+
       '<div class="meta"><div>MA<b>'+(t.ma||'–')+'</b></div><div>Kernprozesse<b>'+t.kp_count+'</b></div><div>Ø Reifegrad<b>'+(t.avg?(''+t.avg).replace('.',','):'–')+'</b></div></div>'+
@@ -1377,7 +1854,12 @@ async function anfListeLaden(){
                        : '<span style="color:#8a6100">ohne Prozessbezug</span>')+'</span></div>'
         +'<div style="margin-top:6px;font-size:13px">'+esc(a.originaltext||'')+'</div>'
         +(a.erhofftes_ziel?'<div class="mut" style="margin-top:4px;font-size:12px">Ziel: '+esc(a.erhofftes_ziel)+'</div>':'')
-        +(a.process_id?'':'<div style="margin-top:8px"><button class="btn sm sec" data-vorschlag="'
+        +((a.bezuege&&a.bezuege.length>1)?'<div class="mut" style="margin-top:4px;font-size:12px">Teilprozesse: '
+          +a.bezuege.map(function(b){return esc(b.sub_process_id||b.process_id)+(b.rolle==='haupt'?' (Haupt)':'');}).join(' · ')+'</div>':'')
+        /* v3.22: Vorschlag immer anbieten (ausser bei abgelehnten Anfragen) — auch
+           an zugeordneten Anfragen kommen weitere passende Teilprozesse als
+           „beteiligt" dazu; der bestehende Hauptbezug bleibt. */
+        +(st==='abgelehnt'?'':'<div style="margin-top:8px"><button class="btn sm sec" data-vorschlag="'
           +esc(a.anfrage_id)+'">Vorschlag holen</button>'
           +'<span class="mut" style="margin-left:8px;font-size:11.5px">Stichwortabgleich, kein Sprachmodell</span></div>'
           +'<div id="anfv_'+esc(a.anfrage_id)+'"></div>')
@@ -1405,8 +1887,10 @@ async function anfListeLaden(){
 async function anfListeKlick(ev){
   var hol=ev.target.closest?ev.target.closest('[data-vorschlag]'):null;
   if(hol){ await anfVorschlagHolen(hol.dataset.vorschlag); return; }
+  var alle=ev.target.closest?ev.target.closest('[data-alle]'):null;
+  if(alle){ await anfVorschlagUebernehmen(alle.dataset.alle, JSON.parse(alle.dataset.tps||'[]')); return; }
   var ueb=ev.target.closest?ev.target.closest('[data-uebernehmen]'):null;
-  if(ueb){ await anfVorschlagUebernehmen(ueb.dataset.uebernehmen, ueb.dataset.kp, ueb.dataset.tp); }
+  if(ueb){ await anfVorschlagUebernehmen(ueb.dataset.uebernehmen, [ueb.dataset.tp]); }
 }
 
 async function anfVorschlagHolen(aid){
@@ -1415,7 +1899,9 @@ async function anfVorschlagHolen(aid){
   try{
     var r=await api('/api/companies/'+ANF.cid+'/anfragen/'+aid+'/vorschlaege');
   }catch(e){ ziel.innerHTML='<div class="mut" style="margin-top:6px;font-size:12px">Der Abgleich ist fehlgeschlagen.</div>'; return; }
-  var vs=r.vorschlaege||[];
+  /* v3.22: gruppiert je Kernprozess, bis zu fuenf Teilprozesse je KP. */
+  var gr=(r.je_kp||[]).filter(function(g){ return (g.teilprozesse||[]).length; });
+  var vs=gr.length?gr:[];
   if(!vs.length){
     /* Kein Vorschlag ist eine gueltige Antwort. Sie hier auszusprechen ist
        wichtiger, als sie zu verschweigen: Sonst sucht jemand den Fehler. */
@@ -1424,21 +1910,30 @@ async function anfVorschlagHolen(aid){
       +'Der Bezug entsteht dann im Interview.</div>';
     return;
   }
-  ziel.innerHTML='<div style="margin-top:6px">'+vs.map(function(v){
-    return '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;margin:4px 0">'
-      +'<span class="g0feld">'+esc((v.sub_process_id||v.process_id)+' · '
-        +(v.sub_process_name||v.process_name||''))+'</span>'
-      +'<span class="mut" style="font-size:11.5px">wegen '+esc(v.treffer.join(', '))+'</span>'
-      +'<button class="btn sm" data-uebernehmen="'+esc(aid)+'" data-kp="'+esc(v.process_id)
-      +'" data-tp="'+esc(v.sub_process_id||'')+'">Übernehmen</button></div>';
-  }).join('')+'</div>';
+  ziel.innerHTML='<div style="margin-top:6px">'+vs.map(function(g){
+    var ids=g.teilprozesse.map(function(t){ return t.sub_process_id; });
+    return '<div style="margin:8px 0 4px"><b>'+esc(g.process_id+' · '+(g.process_name||''))+'</b> '
+      +'<button class="btn sm" data-alle="'+esc(aid)+'" data-tps="'+esc(JSON.stringify(ids))+'">'
+      +'Alle '+ids.length+' übernehmen</button></div>'
+      +g.teilprozesse.map(function(v){
+        return '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;margin:3px 0 3px 12px">'
+          +'<span class="g0feld">'+esc(v.sub_process_id+' · '+(v.sub_process_name||''))+'</span>'
+          +'<span class="mut" style="font-size:11.5px">wegen '+esc(v.treffer.join(', '))+' · '+v.punkte+' Punkte</span>'
+          +'<button class="btn sm sec" data-uebernehmen="'+esc(aid)+'" data-tp="'+esc(v.sub_process_id)+'">Übernehmen</button></div>';
+      }).join('');
+  }).join('')+'<div class="mut" style="font-size:11.5px;margin-top:6px">Ein bestehender Hauptbezug bleibt; '
+    +'übernommene Teilprozesse kommen als „beteiligt“ dazu, Herkunft „Vorschlag BC0“.</div></div>';
 }
 
-async function anfVorschlagUebernehmen(aid, kp, tp){
+async function anfVorschlagUebernehmen(aid, tps){
+  /* v3.22: ein Klick uebernimmt einen oder alle vorgeschlagenen Teilprozesse.
+     Der Server rechnet die Vorschlaege selbst neu und schreibt nur, was er
+     selbst vorschlaegt — der Browser waehlt nur aus. */
   try{
-    await api('/api/companies/'+ANF.cid+'/anfragen/'+aid+'/zuordnung','PUT',
-              {process_id:kp, sub_process_id:tp||null, zuordnung_quelle:'vorschlag_bc0'});
-    toast('Zuordnung übernommen — Herkunft: Vorschlag BC0.');
+    var r=await api('/api/companies/'+ANF.cid+'/anfragen/'+aid+'/vorschlaege/uebernehmen','POST',{auswahl:tps});
+    toast((r.uebernommen&&r.uebernommen.length)
+      ? ('Übernommen: '+r.uebernommen.join(', ')+' — Herkunft: Vorschlag BC0.')
+      : 'Schon zugeordnet — nichts zu übernehmen.');
     await anfListeLaden();
   }catch(e){ toast('Die Zuordnung konnte nicht gespeichert werden.',true); }
 }
@@ -1475,6 +1970,10 @@ $('nextBtn').onclick=async function(){saveWiz();if(wstep===0&&!draft.name.trim()
    renderWS() setzt WS_ZIEL und verteilt auf die render*-Funktionen — siehe die
    Anmerkung zum Wettlauf bei show(). */
 var wnav=document.querySelectorAll('#wnav a');for(var i=0;i<wnav.length;i++){(function(a){if(!a.dataset.v)return;a.onclick=function(){for(var j=0;j<wnav.length;j++)wnav[j].classList.remove('active');a.classList.add('active');navAktivMarkieren();
+  if(WZ.art){ var teil=a.dataset.anker==='Systeme'?'systeme':(a.dataset.v==='ps'?'personen':null);
+    var d=wzDefs().filter(function(x){ return x.v===a.dataset.v && (!teil || x.teil===teil); })[0];
+    if(d) return wzGeh(d.n);
+    wzEnde(); }
   var p=renderWS(a.dataset.v); if(a.dataset.anker&&p&&p.then) p.then(function(){ springeZuAbschnitt(a.dataset.v,a.dataset.anker); });};})(wnav[i]);}
 /* V2: Sprung an einen Abschnitt innerhalb eines Bildschirms (z. B. Systeme in Personen & Systeme). */
 function springeZuAbschnitt(v,text){var hs=document.querySelectorAll('#'+v+' h3');for(var i=0;i<hs.length;i++){if(hs[i].textContent.indexOf(text)===0){hs[i].scrollIntoView({block:'start'});return;}}}
@@ -1554,9 +2053,10 @@ function navGruppeOeffnenFuer(v){
   });
   navAktivMarkieren();
 })();
-async function openTenant(id){wzEnde();cur=await api('/api/companies/'+id);$('side').style.display='block';$('tsel').style.display='inline';
-  var sw=$('tswitch');var list=await api('/api/companies');sw.innerHTML='';list.forEach(function(t){sw.innerHTML+='<option value="'+t.id+'" '+(String(t.id)===String(id)?'selected':'')+'>'+esc(t.name)+'</option>';});sw.onchange=function(){openTenant(sw.value);};
+async function openTenant(id,ziel){wzEnde();cur=await api('/api/companies/'+id);$('side').style.display='block';$('tsel').style.display='inline';
+  var sw=$('tswitch');var list=await api('/api/companies');sw.innerHTML='';list.forEach(function(t){sw.innerHTML+='<option value="'+t.id+'" '+(String(t.id)===String(id)?'selected':'')+'>'+esc(t.name)+'</option>';});sw.onchange=async function(){ if(WZ.art){ cur=await api('/api/companies/'+sw.value); return wzGeh(WZ.schritt||1); } openTenant(sw.value); };
   $('side').classList.remove('ohne-mandant');
+  if(ziel==='start') return goStart();
   for(var j=0;j<wnav.length;j++)wnav[j].classList.remove('active');document.querySelector('#wnav a[data-v="ck"]').classList.add('active');navAktivMarkieren();renderWS('ck');}
 async function reloadCur(){cur=await api('/api/companies/'+cur.company.id);}
 
@@ -1569,9 +2069,9 @@ async function renderWS(v){
   if(v==='ud')return renderUD();
   if(v==='rk')return renderRK();
   if(v==='ps')return Promise.all([renderPS(), renderRK()]);
-  if(v==='pr')return Promise.all([renderPR(), renderGR()]);
+  if(v==='pr')return renderPR();
   if(v==='pd')return reiterMitSchema('pd', renderPD, 'Prozessdokumentation', 'Schema v2.0');
-  if(v==='ra')return renderRA();
+  if(v==='ra')return Promise.all([renderRA(), renderGR(true)]);
   if(v==='kr')return reiterMitSchema('kr', renderKR, 'KI-Readiness', 'Schema v1.9');
   if(v==='gr')return renderGR();
   if(v==='rb')return renderRB();
@@ -1583,6 +2083,7 @@ async function renderWS(v){
   if(v==='kip')return renderKIP();
   if(v==='kiw')return renderKIW();
   if(v==='kis')return renderKIS();
+  if(v==='kia')return renderKIA();   // v3.43
 }
 
 /* Die beiden Boegen des letzten Blocks sind gebaut, ihre Tabellen aber erst mit Schema
@@ -1789,6 +2290,20 @@ async function udSpeichern(){
     toast('✓ Unternehmensdaten gespeichert.'); UD_EDIT=false; UD_ENTWURF=null; renderUD();
   }catch(e){ toast('Fehler: '+(e.detail||e),true); }
 }
+/* v3.26: Was aus dem Text eines Belegs geworden ist — Konzept Stufe 2, Abschnitt 4.
+   Statt vorher zu fragen, zeigt die Oberfläche hinterher, was geworden ist. */
+function dokTextStand(d){
+  var e=d.erkannt_durch||'', w=(d.ocr_confidence==null?null:Number(d.ocr_confidence)), m=d.mime_type||'';
+  var pct=function(x){return Math.round(x*100)+' %';};
+  if(d.status==='verworfen') return 'verworfen';
+  if(e==='in Erkennung') return '&#9203; in Erkennung';
+  if(/unter Schwelle$/.test(e)) return '<span style="color:#b26a00">&#9888; nicht erkannt ('+pct(w||0)+') — bitte manuell prüfen</span>';
+  if(/nicht lesbar/.test(e)) return '<span style="color:#b26a00">&#9888; nicht lesbar — bitte manuell prüfen</span>';
+  if(e && w!==null && w>=1) return '&#10003; Text übernommen ('+esc(e)+')';
+  if(e && w!==null) return '&#10003; erkannt, '+pct(w)+' ('+esc(e)+')';
+  if(/^image\//.test(m)||m==='application/pdf') return '&#9203; wartet auf Erkennung';
+  return esc(d.status||'');
+}
 async function udDokListe(){
   var el=$('udDokListe'); if(!el) return;
   try{
@@ -1796,8 +2311,10 @@ async function udDokListe(){
     if(!ds.length){ el.innerHTML='<span class="mut">Noch keine Dokumente.</span>'; return; }
     el.innerHTML=ds.map(function(d){return '<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)">'
       +'<a href="'+window.BC0_BASIS+'/api/companies/'+cur.company.id+'/documents/'+d.doc_id+'/file" target="_blank" rel="noopener">&#128206; '+esc(d.filename)+'</a>'
-      +'<span class="mut" style="font-size:11.5px">'+esc((d.uploaded_at||'').slice(0,16).replace('T',' '))+' &middot; '+esc(d.status||'')+(d.erkannt_durch?' &middot; Text: '+esc(d.erkannt_durch):'')+'</span>'
-      +'<button class="btn sec sm" style="margin-left:auto" data-uddel="'+d.doc_id+'" title="Löschen">&#10005;</button></div>';}).join('');
+      +'<span class="mut" style="font-size:11.5px">'+esc((d.uploaded_at||'').slice(0,16).replace('T',' '))+' &middot; '+dokTextStand(d)+'</span>'
+      +(pvLesbar(d)?'<button class="btn sec sm" style="margin-left:auto" data-pv="'+d.doc_id+'" title="Profilfelder aus diesem Dokument vorschlagen">Daten übernehmen</button>':'')
+      +'<button class="btn sec sm" style="'+(pvLesbar(d)?'':'margin-left:auto')+'" data-uddel="'+d.doc_id+'" title="Löschen">&#10005;</button></div>';}).join('');
+    el.querySelectorAll('[data-pv]').forEach(function(b){ b.onclick=function(){ pvOeffnen(b.dataset.pv); }; });
     el.querySelectorAll('[data-uddel]').forEach(function(b){b.onclick=async function(){if(!confirm('Dokument löschen?'))return;
       try{await api('/api/companies/'+cur.company.id+'/documents/'+b.dataset.uddel,'DELETE');toast('Gelöscht.');udDokListe();}catch(e){toast('Fehler: '+(e.detail||e),true);}};});
   }catch(e){ el.innerHTML='<span class="mut">Dokumente nicht ladbar: '+esc(e.detail||e)+'</span>'; }
@@ -1808,7 +2325,53 @@ async function udHochladen(){
   var r=await fetch('/api/companies/'+cur.company.id+'/documents',{method:'POST',body:fd});
   if(!r.ok){ var d=''; try{d=(await r.json()).detail;}catch(e){}
     toast(r.status===400?'Der Server nimmt Unternehmensdokumente noch nicht an — Backend-Erweiterung vom 29.09. fehlt dort.':('Fehler: '+(d||r.status)),true); return; }
+  var neu=null; try{ neu=await r.json(); }catch(e){}
   toast('✓ Hochgeladen.'); $('udDatei').value=''; udDokListe();
+  if(neu && neu.doc_id && pvLesbar(neu)) pvOeffnen(neu.doc_id);   /* v3.27: gleich Vorschlag anbieten */
+}
+/* ================= v3.27: Profil aus Dokument vorschlagen (Popup) =================
+   Simeon 31.10.: "zuerst ein PopUp Fenster anzeigen (identisch zum Screenshot) und die Daten
+   korrigieren lassen". Die App schreibt NICHTS selbst: Der Mensch korrigiert und speichert.
+   Felder, die das Dokument nicht hergibt, bleiben leer. Bisheriger Wert sichtbar. */
+var PV_FELDER=[['name','Firmenname','full','text'],['branche','Branche','','text'],['rechtsform','Rechtsform','','text'],
+  ['ma','Mitarbeitende','','number'],['region','Region','','text'],['geschaeftsmodell','Geschäftsmodell','full','area'],['tech_stack','Tech-Stack','full','text']];
+function pvLesbar(d){ var n=(d.filename||'').toLowerCase(), m=d.mime_type||'';
+  return /\.(docx|pdf|md|txt)$/.test(n) || m==='application/pdf' || m==='text/plain' || m==='text/markdown' || m.indexOf('wordprocessingml')>=0; }
+async function pvOeffnen(docId){
+  var v; try{ v=await api('/api/companies/'+cur.company.id+'/documents/'+docId+'/profilvorschlag'); }
+  catch(e){ toast('Kein Vorschlag möglich: '+(e.detail||e),true); return; }
+  var f=v.felder||{}, b=v.bisher||{}, n=Object.keys(f).length;
+  var h='<div class="pv-hg" id="pvHg"><div class="pv-box" role="dialog" aria-modal="true" aria-labelledby="pvT">'
+    +'<h2 id="pvT">Unternehmensprofil aus Dokument übernehmen</h2>'
+    +'<div class="mut" style="margin-bottom:12px">Aus <b>'+esc(v.filename||'')+'</b> gelesen: <b>'+n+' von '+PV_FELDER.length+'</b> Feldern. Bitte prüfen und korrigieren — gespeichert wird erst mit „Übernehmen“. Grün = Vorschlag aus dem Dokument; leer = im Dokument nicht gefunden.</div>'
+    +'<div class="formgrid">';
+  PV_FELDER.forEach(function(x){
+    var k=x[0], vor=f[k], wert=vor?vor.wert:(b[k]==null?'':b[k]), alt=b[k]==null?'':(''+b[k]);
+    var feld = x[3]==='area' ? '<textarea id="pv_'+k+'" class="'+(vor?'pv-neu':'')+'">'+esc(wert)+'</textarea>'
+      : '<input id="pv_'+k+'" type="'+(x[3]==='number'?'number':'text')+'" class="'+(vor?'pv-neu':'')+'" value="'+esc(wert)+'">';
+    h+='<div class="'+x[2]+'"><label>'+x[1]+'</label>'+feld
+      +(vor?'<div class="pv-fund">Fundstelle: „'+esc(vor.fundstelle)+'“</div>':'')
+      +(vor && alt && alt!==(''+vor.wert)?'<div class="pv-bisher">bisher: '+esc(alt)+' → Vorschlag aus dem Dokument</div>':'')+'</div>';
+  });
+  h+='</div><div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">'
+    +'<button class="btn sec" id="pvNein">Verwerfen</button><button class="btn" id="pvJa">Übernehmen</button></div></div></div>';
+  var w=document.createElement('div'); w.innerHTML=h; document.body.appendChild(w.firstChild);
+  var zu=function(){ var e=$('pvHg'); if(e) e.remove(); };
+  $('pvNein').onclick=zu;
+  $('pvHg').onclick=function(ev){ if(ev.target.id==='pvHg') zu(); };
+  $('pvJa').onclick=async function(){
+    var werte={}; PV_FELDER.forEach(function(x){ werte[x[0]]=$('pv_'+x[0]).value; });
+    var body={name:werte.name,branche:werte.branche,rechtsform:werte.rechtsform,ma:werte.ma?+werte.ma:null,
+              region:werte.region,geschaeftsmodell:werte.geschaeftsmodell,tech_stack:werte.tech_stack};
+    if(!(''+body.name).trim()){ $('pv_name').classList.add('fehlt'); toast('Der Firmenname darf nicht leer sein.',true); return; }
+    $('pvJa').disabled=true;
+    try{
+      await api('/api/companies/'+cur.company.id+'/profile','PUT',body);
+      try{ await api('/api/companies/'+cur.company.id+'/documents/'+docId+'/profilvorschlag/bestaetigt','POST',{werte:body}); }catch(e){}
+      zu(); await reloadCur(); toast('✓ Profil aus dem Dokument übernommen.');
+      if(typeof WZ!=='undefined' && WZ.art && WZ.schritt){ wzGeh(WZ.schritt); } else if($('pf') && $('pf').innerHTML) renderPF();
+    }catch(e){ $('pvJa').disabled=false; toast('Fehler: '+(e.detail||e),true); }
+  };
 }
 /* ================= Rollen & Kosten (Stammdaten, seit 11.08.2026) =================
    Vokabular der ROI-Kostenachse: welche Rollen gibt es beim Mandanten, welcher
@@ -1837,7 +2400,7 @@ function rkQuellenAuswahl(gewaehlt){
 function zeichneRK(){
   var satzNach = {}; RK.kostensaetze.forEach(function(s){satzNach[s.klasse]=s;});
 
-  var rollen = '<table><tr><th style="width:80px">ID</th><th>Bezeichnung</th><th style="width:230px">Kostenklasse</th><th>Hinweis</th><th style="width:70px">aktiv</th></tr>';
+  var rollen = '<table><tr><th style="width:80px">ID</th><th>Bezeichnung <span class="pflicht">*</span></th><th style="width:230px">Kostenklasse <span class="pflicht">*</span></th><th>Hinweis</th><th style="width:70px">aktiv</th></tr>';
   RK.rollen.forEach(function(r,i){
     rollen += '<tr data-rolle="'+i+'">'
       + '<td class="mut">'+esc(r.rolle_id||'neu')+'</td>'
@@ -1848,7 +2411,7 @@ function zeichneRK(){
   });
   rollen += '</table>';
 
-  var saetze = '<table><tr><th style="width:230px">Klasse</th><th style="width:140px">Vollkosten €/h</th><th style="width:180px">Quelle</th><th>Bemerkung (z. B. Gemeinkostenfaktor)</th></tr>';
+  var saetze = '<table><tr><th style="width:230px">Klasse</th><th style="width:140px">Vollkosten €/h <span class="pflicht">*</span></th><th style="width:180px">Quelle <span class="pflicht">*</span></th><th>Bemerkung (z. B. Gemeinkostenfaktor)</th></tr>';
   RK.klassen.forEach(function(k){
     var s = satzNach[k.klasse] || {};
     saetze += '<tr data-klasse="'+k.klasse+'">'
@@ -1864,10 +2427,12 @@ function zeichneRK(){
     + '<h1>Rollen &amp; Kosten</h1>'
     + '<p class="lead">Grundlage der ROI-Rechnung durch BC2. Hier steht, <b>welche Rollen es gibt</b> und <b>was eine Stunde kostet</b> — nicht, wer wie lange woran arbeitet. Das erhebt BC1.</p>'
     + '<div class="panel"><h3>Rollen des Mandanten</h3>'
+    + '<div class="pflicht-hinweis"><span class="pflicht">*</span> Pflichtangabe — Bezeichnung und Kostenklasse je aktiver Rolle</div>'
     + '<p class="mut">BC1 wählt im Interview aus dieser Liste und speichert die ID. Nicht mehr benötigte Rollen werden <b>gesperrt statt gelöscht</b> — Häkchen entfernen genügt. Ein Verweis auf eine verschwundene Rolle wäre nicht mehr auflösbar.</p>'
     + rollen
     + '<div class="row" style="margin-top:10px"><button class="btn sec" id="rk_add">+ Rolle</button></div></div>'
     + '<div class="panel"><h3>Kostensätze je Klasse</h3>'
+    + '<div class="pflicht-hinweis"><span class="pflicht">*</span> Pflichtangabe — Vollkostensatz und Quelle für jede Klasse, die eine aktive Rolle verwendet</div>'
     + '<p class="mut"><b>Vollkostensatz</b>, nicht Bruttolohn: einschließlich Arbeitgeberanteil, Ausfallzeiten (1.500–1.600 produktive Stunden statt 2.080) und Arbeitsplatzkosten — typisch das 1,7- bis 2,2-fache des Bruttostundenlohns. Der angesetzte Faktor gehört in die Bemerkung, sonst ist der ROI nicht reproduzierbar.</p>'
     + '<p class="mut">Eine Änderung erzeugt einen <b>neuen Satz ab heute</b>; der bisherige bleibt erhalten, damit frühere Freigaben nachvollziehbar bleiben.</p>'
     + saetze + '</div>'
@@ -1880,7 +2445,23 @@ function zeichneRK(){
   $('rk_save').onclick = speichereRK;
 }
 
+function rkPflichtPruefen(){
+  var fehler=0, genutzt={};
+  document.querySelectorAll('#rk .fehlt').forEach(function(e){e.classList.remove('fehlt');});
+  document.querySelectorAll('#rk tr[data-rolle]').forEach(function(tr){
+    if(!tr.querySelector('.rk-aktiv').checked) return;
+    var bez=tr.querySelector('.rk-bez'); if(!bez.value.trim()){ bez.classList.add('fehlt'); fehler++; }
+    genutzt[tr.querySelector('.rk-kl').value]=1;
+  });
+  document.querySelectorAll('#rk tr[data-klasse]').forEach(function(tr){
+    if(!genutzt[tr.dataset.klasse]) return;
+    var w=tr.querySelector('.rk-satz'); if(w.value==='' || +w.value<=0){ w.classList.add('fehlt'); fehler++; }
+  });
+  return fehler;
+}
 async function speichereRK(){
+  var nFehlt=rkPflichtPruefen();
+  if(nFehlt){ toast(nFehlt+' Pflichtangabe'+(nFehlt===1?'':'n')+' fehlen (rot markiert): Bezeichnung je aktiver Rolle, Vollkostensatz je verwendeter Klasse.',true); return; }
   var rollen = [];
   document.querySelectorAll('#rk tr[data-rolle]').forEach(function(tr){
     var i = +tr.dataset.rolle;
@@ -1945,9 +2526,9 @@ function psAuswahl(liste, gewaehlt, wertFeld, textFn, leerText){
 
 function zeichnePS(){
   /* ---- Personen ---- */
-  var personen = '<table><tr><th style="width:64px">ID</th><th>Name</th><th>Funktion</th>'
-    + '<th style="width:190px">Hauptrolle (Kostenklasse)</th><th style="width:62px">extern</th>'
-    + '<th>Organisation</th><th>E-Mail (dienstlich)</th><th style="width:150px">Telefon (dienstlich)</th>'
+  var personen = '<table><tr><th style="width:64px">ID</th><th>Name <span class="pflicht">*</span></th><th>Funktion <span class="pflicht">*</span></th>'
+    + '<th style="width:190px">Hauptrolle (Kostenklasse) <span class="pflicht">*</span></th><th style="width:62px">extern</th>'
+    + '<th>Organisation <span class="pflicht">*</span><span class="mut" style="font-weight:400"> bei extern</span></th><th>E-Mail (dienstlich)</th><th style="width:150px">Telefon (dienstlich)</th>'
     + '<th style="width:56px">aktiv</th></tr>';
   PS.personen.forEach(function(p,i){
     personen += '<tr data-person="'+i+'">'
@@ -2010,6 +2591,7 @@ function zeichnePS(){
     + '<h1>Personen &amp; Systeme</h1>'
     + '<p class="lead">Das Entitäten-Register nach <b>ADR-004</b>. Personen und Systeme bekommen hier stabile IDs, auf die BC1 bis BC4 verweisen können. <b>Klarnamen stehen ausschließlich auf dieser Seite</b> — die nachgelagerten Kontexte lesen Sichten, die nur die ID enthalten.</p>'
     + '<div class="panel"><h3>Personen</h3>'
+    + '<div class="pflicht-hinweis"><span class="pflicht">*</span> Pflichtangabe — Name <b>oder</b> Funktion, Hauptrolle; bei externen Personen die Organisation</div>'
     + '<p class="mut">Der <b>Name darf leer bleiben</b>, wenn nur die Funktion bekannt ist („externer Steuerberater"). Mindestens eines von beiden muss stehen. Ohne zugeordnete Rolle gibt es keine Kostenklasse und damit keinen Beitrag zur ROI-Rechnung. Ausgeschiedene Personen werden <b>gesperrt statt gelöscht</b>: Häkchen entfernen. Bei E-Mail und Telefon werden <b>ausschließlich dienstliche Angaben</b> erfasst, keine privaten — sie bleiben in BC0 und gehen nicht an die nachgelagerten Kontexte.</p>'
     + personen
     + '<div class="row" style="margin-top:10px"><button class="btn sec" id="ps_add_p">+ Person</button></div></div>'
@@ -2017,11 +2599,7 @@ function zeichnePS(){
     + '<div class="panel"><h3>Systeme und Werkzeuge</h3>'
     + '<p class="mut">Der <b>Produktbezug ist optional</b>. „Strategie-Cockpit" benennt eine Gattung, kein Produkt — solche Einträge bleiben katalogfrei, bis im Interview herauskommt, welches Werkzeug tatsächlich läuft.</p>'
     + systeme
-    + '<div class="row" style="margin-top:10px"><button class="btn sec" id="ps_add_s">+ System</button></div></div>'
-    + '<div class="panel"><h3>Wer verantwortet welchen Prozess</h3>'
-    + '<p class="mut">Mehrere Personen je Prozess sind zulässig, und dieselbe Person darf zugleich Eigner und Sponsor sein. Genau das ließ sich im alten Feld <code>owner_name</code> nicht abbilden.</p>'
-    + warnung + zu
-    + '<div class="row" style="margin-top:10px"><button class="btn sec" id="ps_add_z">+ Zuordnung</button></div></div>'
+    + '<div class="row" style="margin-top:10px;gap:8px"><button class="btn sec" id="ps_add_s">+ System</button><button class="btn sec" id="ps_sys_vor" title="Systeme aus dem Unternehmensdokument vorschlagen">Aus Unternehmensdokument übernehmen</button></div></div>'
     + '<div class="row"><button class="btn" id="ps_save">Speichern</button></div>';
 
   document.querySelectorAll('#ps .ps-rolle').forEach(function(sel){ sel.onchange=function(){ psUebernehmen(); zeichnePS(); }; });
@@ -2031,9 +2609,65 @@ function zeichnePS(){
   $('ps_add_s').onclick = function(){ psUebernehmen();
     PS.systeme.push({system_id:'', bezeichnung:'', katalog_id:'', einsatz:'', aktiv:true});
     zeichnePS(); };
-  $('ps_add_z').onclick = function(){ psUebernehmen();
-    PS.zuordnungen.push({process_id:'', person_id:'', funktion:'eigner'}); zeichnePS(); };
   $('ps_save').onclick = speicherePS;
+  if($('ps_sys_vor')) $('ps_sys_vor').onclick = function(){ svOeffnen(true); };
+}
+/* ================= v3.28: Systeme aus dem Unternehmensdokument (Popup, Schritt 4) =================
+   Simeon 31.10.: "Auch hier müssten jetzt die eingelesenen Daten zu sehen sein … auch als PopUp zur
+   Bearbeitung/Speicherung aus dem Unternehmensprofil." Vorschlag, kein Automatismus: angehakt
+   werden nur Systeme, die es noch nicht gibt; gespeichert wird erst mit "Übernehmen". */
+var SV_GEZEIGT={};
+async function svDokument(){
+  var ds=[]; try{ ds=await api('/api/companies/'+cur.company.id+'/documents?ref_id=MANDANT'); }catch(e){}
+  return (ds||[]).filter(function(d){ return d.status!=='verworfen' && pvLesbar(d); })[0]||null;
+}
+async function svOeffnen(vonHand){
+  var d=await svDokument();
+  if(!d){ if(vonHand) toast('Kein Unternehmensdokument hochgeladen (Schritt 2, „Dokumente zum Unternehmen“).',true); return; }
+  var v; try{ v=await api('/api/companies/'+cur.company.id+'/documents/'+d.doc_id+'/systemvorschlag'); }
+  catch(e){ if(vonHand) toast('Kein Vorschlag möglich: '+(e.detail||e),true); return; }
+  var liste=v.systeme||[], neu=liste.filter(function(x){return !x.schon_da;}).length;
+  if(!vonHand && (!neu || SV_GEZEIGT[d.doc_id])) return;
+  SV_GEZEIGT[d.doc_id]=1;
+  if(!liste.length){ toast('Im Dokument ist keine Tabelle mit Werkzeugen/Systemen zu finden.',true); return; }
+  var kat=(PS&&PS.katalog)||[];
+  var h='<div class="pv-hg" id="svHg"><div class="pv-box" style="max-width:1100px" role="dialog" aria-modal="true" aria-labelledby="svT">'
+    +'<h2 id="svT">Systeme aus dem Unternehmensdokument übernehmen</h2>'
+    +'<div class="mut" style="margin-bottom:10px">Aus <b>'+esc(v.filename||'')+'</b>: <b>'+liste.length+'</b> Systeme gefunden, davon <b>'+neu+'</b> neu. Angehakte Zeilen werden mit „Übernehmen“ als neue Systeme angelegt (ID vergibt das System). Bitte prüfen und korrigieren; schon vorhandene sind nicht angehakt.</div>'
+    +'<div style="max-height:60vh;overflow:auto"><table><tr><th style="width:34px"><input type="checkbox" id="svAlle" title="alle"></th><th>Bezeichnung im Haus <span class="pflicht">*</span></th><th style="width:230px">Produkt im Katalog</th><th>Einsatz</th></tr>';
+  liste.forEach(function(x,i){
+    h+='<tr data-sv="'+i+'"><td style="text-align:center"><input type="checkbox" class="sv-an"'+(x.schon_da?'':' checked')+'></td>'
+      +'<td><input class="sv-bez pv-neu" value="'+esc(x.bezeichnung)+'">'
+      +'<div class="pv-fund">Fundstelle: „'+esc(x.fundstelle)+'“</div>'+(x.schon_da?'<div class="pv-bisher">schon vorhanden</div>':'')+'</td>'
+      +'<td><select class="sv-kat">'+psAuswahl(kat, x.katalog_id, 'katalog_id', function(k){return k.bezeichnung+' ('+k.kategorie+')';}, 'kein Produkt / Eigenbau')+'</select></td>'
+      +'<td><input class="sv-eins" value="'+esc(x.einsatz||'')+'"></td></tr>';
+  });
+  h+='</table></div><div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">'
+    +'<button class="btn sec" id="svNein">Verwerfen</button><button class="btn" id="svJa">Übernehmen</button></div></div></div>';
+  var w=document.createElement('div'); w.innerHTML=h; document.body.appendChild(w.firstChild);
+  var zu=function(){ var e=$('svHg'); if(e) e.remove(); };
+  $('svNein').onclick=zu;
+  $('svHg').onclick=function(ev){ if(ev.target.id==='svHg') zu(); };
+  $('svAlle').onchange=function(){ var a=this.checked; document.querySelectorAll('#svHg .sv-an').forEach(function(c){c.checked=a;}); };
+  $('svJa').onclick=async function(){
+    var neueS=[], fehler=0;
+    document.querySelectorAll('#svHg tr[data-sv]').forEach(function(tr){
+      if(!tr.querySelector('.sv-an').checked) return;
+      var bez=tr.querySelector('.sv-bez'); bez.classList.remove('fehlt');
+      if(!bez.value.trim()){ bez.classList.add('fehlt'); fehler++; return; }
+      neueS.push({system_id:'', bezeichnung:bez.value.trim(), katalog_id:tr.querySelector('.sv-kat').value, einsatz:tr.querySelector('.sv-eins').value.trim(), aktiv:true});
+    });
+    if(fehler){ toast('Bezeichnung fehlt (rot markiert).',true); return; }
+    if(!neueS.length){ toast('Nichts angehakt.',true); return; }
+    $('svJa').disabled=true;
+    try{
+      var basis=await api('/api/companies/'+cur.company.id+'/entitaeten');
+      await api('/api/companies/'+cur.company.id+'/entitaeten','PUT',{personen:basis.personen, systeme:(basis.systeme||[]).concat(neueS), zuordnungen:basis.zuordnungen});
+      zu(); toast('✓ '+neueS.length+' System'+(neueS.length===1?'':'e')+' übernommen.');
+      await renderPS();
+      if(typeof WZ!=='undefined' && WZ.art && WZ.schritt){ await wzProzente(); wzLeiste(); wzKopfZeigen(); }
+    }catch(e){ $('svJa').disabled=false; toast('Fehler: '+(e.detail||e),true); }
+  };
 }
 
 /* Formularstand zurück ins Modell holen, bevor neu gezeichnet wird. Ohne das
@@ -2102,7 +2736,24 @@ function psUebernehmen(){
 
 function psZeileWeg(i){ psUebernehmen(); PS.zuordnungen.splice(i,1); zeichnePS(); }
 
+function psPflichtPruefen(){
+  var fehler=0;
+  document.querySelectorAll('#ps .fehlt').forEach(function(e){e.classList.remove('fehlt');});
+  document.querySelectorAll('#ps tr[data-person]').forEach(function(tr){
+    if(!tr.querySelector('.ps-aktiv').checked) return;
+    var n=tr.querySelector('.ps-name'), f=tr.querySelector('.ps-funk'), r=tr.querySelector('.ps-rolle'), o=tr.querySelector('.ps-org');
+    if(!n.value.trim() && !f.value.trim()){ n.classList.add('fehlt'); f.classList.add('fehlt'); fehler++; }
+    if(!r.value){ r.classList.add('fehlt'); fehler++; }
+    if(tr.querySelector('.ps-ext').checked && !o.value.trim()){ o.classList.add('fehlt'); fehler++; }
+  });
+  return fehler;
+}
 async function speicherePS(){
+  /* v3.27: Pflichtangaben nur fuer den Personen-Teil (Schritt 3); Systeme haben eigene Regeln. */
+  if(!(typeof WZ!=='undefined' && WZ.art && $('ps').getAttribute('data-wz')==='systeme')){
+    var nFehlt=psPflichtPruefen();
+    if(nFehlt){ toast(nFehlt+' Pflichtangabe'+(nFehlt===1?'':'n')+' fehlen (rot markiert).',true); return; }
+  }
   psUebernehmen();
   var unvollstaendig = PS.zuordnungen.filter(function(z){
     return !(z.process_id && z.person_id && z.funktion); });
@@ -2136,22 +2787,24 @@ function eignerText(pid){
 }
 
 async function renderPR(){var keys=Object.keys(cur.processes).sort();
-  /* Die cross-sectionale Betrachtung steht hier und nicht nur im Bericht: Sie
-     spricht ueber die Prozesskette, und die wird auf dieser Seite gepflegt.
-     Wer Input, Output und Schnittstellen aendert, sieht unmittelbar, was das
-     fuer die Durchgaengigkeit bedeutet. */
-  var rep=null;
-  try{ rep=await api('/api/companies/'+cur.company.id+'/report'); baueKritZuordnung(); }catch(e){ rep=null; }
+  /* v3.30 (01.11.): Die cross-sectionale Betrachtung steht nicht mehr hier, sondern im
+     Self-Rating nach den Bitkom-Bewertungen — die Bewertungen sind ihre Grundlage (Simeon). */
   /* Eigner stehen in prozess_personen, nicht in ref_prozesse.owner_name.
      PS wurde bisher erst beim Oeffnen von "Personen & Systeme" geladen —
      hier wird es nachgeholt, sonst bliebe die Eignerspalte leer, obwohl
      die Zuordnung existiert. */
   if(!PS){ try{ PS=await api('/api/companies/'+cur.company.id+'/entitaeten'); }catch(e){} }
-  $('pr').innerHTML='<div class="crumb">'+cr()+'Prozesse</div><h1>Prozesse &amp; Teilprozesse</h1><p class="lead">ref_prozesse / ref_teilprozesse</p><div id="pracc"></div><div id="prcross"></div>';
+  $('pr').innerHTML='<div class="crumb">'+cr()+'Prozesse</div><h1>Prozesse &amp; Teilprozesse</h1><p class="lead">ref_prozesse / ref_teilprozesse</p>'
+    +'<div class="panel" id="puBox"><h3>Prozessunterlagen hochladen</h3>'
+    +'<p class="mut">Prozesslandkarte, Ablaufgrafiken und Prozessbeschreibungen — <b>einzeln</b> hochladen (Word, PDF, Bild). Die App schlägt danach die erkannten Kern- und Teilprozesse vor; Sie prüfen und korrigieren im Fenster, gespeichert wird erst mit „Übernehmen“. Bei Grafiken ohne Text liest PaddleOCR die Beschriftungen.</p>'
+    +'<div class="row" style="gap:8px;align-items:center"><input type="file" id="puDatei" accept=".docx,.pdf,.png,.jpg,.jpeg,.md,.txt"><button class="btn sec" id="puHoch">Hochladen</button></div>'
+    +'<div id="puListe" style="margin-top:8px"></div></div>'
+    +'<div id="pracc"></div>';
+  $('puHoch').onclick=puHochladen; puListe();
   var box=$('pracc');var html='';
   keys.forEach(function(pid){var p=cur.processes[pid];var tpsfilled=p.tps.filter(function(t){return t.sub_process_name;}).length;
     html+='<div class="acc" data-pid="'+pid+'"><div class="head">'+pid+' · '+esc(p.process_name)+'<span class="tp">'+(function(){var e=eignerText(pid);return e?('Eigner: '+esc(e)):'<span style="color:#c0392b">kein Eigner zugeordnet</span>';})()+' · '+tpsfilled+'/5 TP</span></div><div class="body"><div class="formgrid">'+
-      '<div style="grid-column:1/-1"><label>Eigner</label><div class="hint">'+(function(){var e=eignerText(pid);return e?esc(e):'noch keiner zugeordnet';})()+' &middot; zugeordnet wird unter <b>Personen &amp; Systeme</b>. Klarnamen stehen nach ADR-004 nur dort.</div></div>'+
+      '<div style="grid-column:1/-1"><label>Eigner</label><div class="hint">'+(function(){var e=eignerText(pid);return e?esc(e):'noch keiner zugeordnet';})()+' &middot; zugeordnet wird unten unter <b>„Wer verantwortet welchen Prozess“</b>. Klarnamen stehen nach ADR-004 nur bei den Personen.</div></div>'+
       '<div><label>Kategorie</label><input data-k="kategorie" value="'+esc(p.kategorie)+'"></div><div><label>Auslöser/Trigger</label><input data-k="trigger_text" value="'+esc(p.trigger_text)+'"></div>'+
       '<div><label>Input</label><input data-k="input_text" value="'+esc(p.input_text)+'"></div><div><label>Output</label><input data-k="output_text" value="'+esc(p.output_text)+'"></div></div>'+
       /* Beschreibung: Quelle fuer die Erklaerung durch den BC1-Interview-Bot.
@@ -2223,15 +2876,167 @@ async function renderPR(){var keys=Object.keys(cur.processes).sort();
       }catch(e){toast('Fehler: '+e.detail,true);}
     };
   });
-  var cb=$('prcross');
-  if(cb) cb.innerHTML = rep
-    ? '<div class="panel"><b>Cross-sectionale Betrachtung (Bitkom, Zusatzmodul Prozessautomatisierung)</b>'
-      +'<div class="mut" style="margin:4px 0 10px">Die Prozesse in der Reihenfolge der Kette, nicht nach Nummer. '
-      +'Unter jedem Kriterium der Durchschnitt und die beiden Einzelfragen. Rot umrandet, wo die beiden '
-      +'Fragen um '+fmt2(rep.cf_delta)+' Stufen oder mehr auseinanderliegen.</div>'
-      +'<div style="overflow-x:auto">'+crossTabelle(rep)+'</div></div>'
-    : '<div class="panel mut">Cross-sectionale Betrachtung nicht verfügbar — der Bericht konnte nicht geladen werden.</div>';
+  prZuordnung();
   show('pr');}
+/* ================= v3.29: Prozessunterlagen hochladen und Prozesse vorschlagen =================
+   Simeon 01.11.: Upload im Prozess-Schritt, danach Popup mit den erkannten Prozessen und
+   Aenderungen; Prozesslandkarte, Ablaufgrafiken, Prozessbeschreibungen einzeln hochladbar.
+   Abgelegt werden die Unterlagen als Unternehmensdokumente (ref_id MANDANT). */
+var PU_MUSTER=/prozess|ablauf|landkarte|kp-\d/i;
+async function puListe(){
+  var el=$('puListe'); if(!el) return;
+  var ds=[]; try{ ds=await api('/api/companies/'+cur.company.id+'/documents?ref_id=MANDANT'); }catch(e){}
+  ds=(ds||[]).filter(function(d){ return d.status!=='verworfen' && PU_MUSTER.test(d.filename||''); });
+  el.innerHTML=ds.length?ds.map(function(d){ return '<div style="display:flex;gap:10px;align-items:center;padding:5px 0;border-bottom:1px solid var(--line)">'
+      +'<span>&#128206; '+esc(d.filename)+'</span><span class="mut" style="font-size:11.5px">'+dokTextStand(d)+'</span>'
+      +'<button class="btn sec sm" style="margin-left:auto" data-pu="'+d.doc_id+'">Prozesse übernehmen</button></div>'; }).join('')
+    :'<span class="mut">Noch keine Prozessunterlagen hochgeladen.</span>';
+  el.querySelectorAll('[data-pu]').forEach(function(b){ b.onclick=function(){ puOeffnen(b.dataset.pu); }; });
+}
+async function puHochladen(){
+  var f=$('puDatei').files[0]; if(!f){ toast('Bitte eine Datei wählen.',true); return; }
+  var fd=new FormData(); fd.append('ref_id','MANDANT'); fd.append('file',f);
+  var r=await fetch('/api/companies/'+cur.company.id+'/documents',{method:'POST',body:fd});
+  if(!r.ok){ var t=''; try{t=(await r.json()).detail;}catch(e){} toast('Fehler: '+(t||r.status),true); return; }
+  var neu=null; try{ neu=await r.json(); }catch(e){}
+  toast('✓ Hochgeladen.'); $('puDatei').value=''; puListe();
+  if(neu && neu.doc_id){
+    if(/^image\//.test(neu.mime_type||'')){ toast('Grafik: PaddleOCR liest die Beschriftungen — das Fenster öffnet sich, sobald der Text da ist.'); puWarten(neu.doc_id,0); }
+    else puOeffnen(neu.doc_id);
+  }
+}
+async function puWarten(docId,n){
+  try{ await api('/api/companies/'+cur.company.id+'/documents/'+docId+'/prozessvorschlag'); return puOeffnen(docId); }
+  catch(e){ if(e && e.status===409 && n<20) return setTimeout(function(){ puWarten(docId,n+1); },6000); toast('Kein Vorschlag möglich: '+(e.detail||e),true); }
+}
+function puNorm(t){ return (t||'').toLowerCase().replace(/[^a-z0-9äöüß]+/g,' ').trim(); }
+async function puOeffnen(docId){
+  var v; try{ v=await api('/api/companies/'+cur.company.id+'/documents/'+docId+'/prozessvorschlag'); }
+  catch(e){ toast((e&&e.status===409)?e.detail:('Kein Vorschlag möglich: '+(e.detail||e)),true); return; }
+  var kps=v.kernprozesse||[];
+  if(!kps.length){ toast('In dieser Unterlage sind keine Prozesse (KP-01 …) zu erkennen.',true); return; }
+  if(!PS){ try{ PS=await api('/api/companies/'+cur.company.id+'/entitaeten'); }catch(e){} }
+  var vorh=cur.processes||{}, ids=Object.keys(vorh).sort();
+  var pers=((PS&&PS.personen)||[]).filter(function(p){return p.aktiv;});
+  var opt=function(sel){ return '<option value="neu"'+(sel==='neu'?' selected':'')+'>neu anlegen (ID vergibt die App)</option>'
+      +ids.map(function(i){return '<option value="'+i+'"'+(sel===i?' selected':'')+'>aktualisieren: '+i+' · '+esc(vorh[i].process_name)+'</option>';}).join('')
+      +'<option value="ignorieren"'+(sel==='ignorieren'?' selected':'')+'>nicht übernehmen</option>'; };
+  var h='<div class="pv-hg" id="puHg"><div class="pv-box" style="max-width:1150px" role="dialog" aria-modal="true" aria-labelledby="puT">'
+    +'<h2 id="puT">Prozesse aus Unterlage übernehmen</h2>'
+    +'<div class="mut" style="margin-bottom:10px">Aus <b>'+esc(v.filename||'')+'</b>'+(v.verfahren==='ocr'?' (über PaddleOCR gelesen — bitte genau prüfen)':'')+': <b>'+kps.length+'</b> Kernprozess'+(kps.length===1?'':'e')+'. Die Nummern im Dokument sind die des Hauses — die App vergibt ihre eigenen IDs. Gleichnamige Kernprozesse werden aktualisiert, andere neu angelegt; das lässt sich je Zeile ändern. Leere Werte überschreiben nichts.</div>'
+    +'<div style="max-height:62vh;overflow:auto">';
+  kps.forEach(function(k,i){
+    var treffer=ids.filter(function(x){ return puNorm(vorh[x].process_name)===puNorm(k.name); })[0];
+    var eigName=(k.eigner||'').replace(/\s*\(.*$/,'').replace(/\s+[—–-].*$/,'').trim();
+    var eigP=pers.filter(function(p){ return p.name && puNorm(p.name)===puNorm(eigName); })[0];
+    h+='<div class="panel" data-pk="'+i+'" style="margin:0 0 10px">'
+      +'<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><b>'+esc(k.doc_kp)+' im Dokument</b>'
+      +'<select class="pu-akt" style="flex:1;min-width:260px">'+opt(treffer||'neu')+'</select></div>'
+      +'<div class="formgrid" style="margin-top:8px">'
+      +'<div class="full"><label>Name des Kernprozesses <span class="pflicht">*</span></label><input class="pu-name pv-neu" value="'+esc(k.name||'')+'">'+(treffer?'<div class="pv-fund">gleichnamig vorhanden: '+treffer+'</div>':'')+'</div>'
+      +'<div><label>Kategorie</label><select class="pu-kat">'+['Kerngeschäftsprozess','Unterstützungsprozess','Steuerungsprozess'].map(function(x){return '<option'+((k.kategorie||'Kerngeschäftsprozess')===x?' selected':'')+'>'+x+'</option>';}).join('')+'</select></div>'
+      +'<div><label>Eigner</label><div class="mut" style="font-size:12.5px;line-height:1.45;padding-top:4px">'+(k.eigner?esc(k.eigner):'— im Dokument nicht genannt')+(eigP?' → <b>'+esc(eigP.person_id)+'</b> wird als Eigner eingetragen':(k.eigner?' → nicht im Personenregister, bitte in Schritt 3 anlegen':''))+'</div><input type="hidden" class="pu-eig" value="'+(eigP?esc(eigP.person_id):'')+'"></div>'
+      +'<div><label>Auslöser/Trigger</label><input class="pu-trig" value="'+esc(k.trigger_text||'')+'"></div>'
+      +'<div><label>Input</label><input class="pu-in" value="'+esc(k.input_text||'')+'"></div>'
+      +'<div class="full"><label>Output</label><input class="pu-out" value="'+esc(k.output_text||'')+'"></div></div>';
+    if((k.tps||[]).length){
+      h+='<table class="pu-tab" style="margin-top:8px;width:100%;table-layout:fixed"><tr><th style="width:34px"></th><th style="width:52px">wird</th><th style="width:24%">Teilprozess <span class="pflicht">*</span></th><th>Beschreibung</th><th style="width:19%">Tools</th><th style="width:22%">Medienbrüche</th></tr>';
+      k.tps.forEach(function(t,j){
+        var no=[t.rolle,(t.input&&t.output)?(t.input+' → '+t.output):(t.output||t.input),t.aufwand].filter(Boolean).join(' · ');
+        h+='<tr data-pt="'+j+'"><td style="text-align:center"><input type="checkbox" class="pu-tan" checked></td><td class="mut">TP-'+(j+1)+'</td>'
+          +'<td><input class="pu-tname pv-neu" value="'+esc(t.name||'')+'"><div class="pv-fund">'+esc(t.doc_tp)+' im Dokument</div></td>'
+          +'<td><textarea class="pu-tno" rows="2">'+esc(no)+'</textarea></td><td><textarea class="pu-ttools" rows="2">'+esc(t.tools||'')+'</textarea></td><td><textarea class="pu-tmb" rows="2">'+esc(t.medienbrueche||'')+'</textarea></td></tr>';
+      });
+      h+='</table>';
+    } else h+='<div class="mut" style="margin-top:6px">Keine Teilprozesse in dieser Unterlage — dafür die Ablaufgrafik oder Prozessbeschreibung dieses Prozesses hochladen.</div>';
+    h+='</div>';
+  });
+  h+='</div><div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px"><button class="btn sec" id="puNein">Verwerfen</button><button class="btn" id="puJa">Übernehmen</button></div></div></div>';
+  var w=document.createElement('div'); w.innerHTML=h; document.body.appendChild(w.firstChild);
+  var zu=function(){ var e=$('puHg'); if(e) e.remove(); };
+  $('puNein').onclick=zu; $('puHg').onclick=function(ev){ if(ev.target.id==='puHg') zu(); };
+  $('puJa').onclick=async function(){
+    var liste=[], fehler=0;
+    document.querySelectorAll('#puHg [data-pk]').forEach(function(box){
+      var akt=box.querySelector('.pu-akt').value; if(akt==='ignorieren') return;
+      var nm=box.querySelector('.pu-name'); nm.classList.remove('fehlt');
+      if(!nm.value.trim()){ nm.classList.add('fehlt'); fehler++; return; }
+      var tps=[];
+      box.querySelectorAll('tr[data-pt]').forEach(function(tr){ if(!tr.querySelector('.pu-tan').checked) return;
+        tps.push({name:tr.querySelector('.pu-tname').value, notation:tr.querySelector('.pu-tno').value, tools:tr.querySelector('.pu-ttools').value, medienbrueche:tr.querySelector('.pu-tmb').value}); });
+      liste.push({aktion: akt==='neu'?'neu':'aktualisieren', process_id: akt==='neu'?'':akt, name:nm.value.trim(), kategorie:box.querySelector('.pu-kat').value,
+        trigger_text:box.querySelector('.pu-trig').value, input_text:box.querySelector('.pu-in').value, output_text:box.querySelector('.pu-out').value,
+        eigner_person_id:box.querySelector('.pu-eig').value, tps:tps});
+    });
+    if(fehler){ toast('Name fehlt (rot markiert).',true); return; }
+    if(!liste.length){ toast('Nichts zum Übernehmen ausgewählt.',true); return; }
+    $('puJa').disabled=true;
+    var r;
+    try{ r=await api('/api/companies/'+cur.company.id+'/prozessvorschlag/uebernehmen','POST',{doc_id:docId, kernprozesse:liste}); }
+    catch(e){ $('puJa').disabled=false; toast('Fehler: '+(e.detail||e),true); return; }
+    zu(); PS=null;
+    toast('✓ Übernommen: '+r.ergebnis.map(function(e){return e.process_id+' ('+e.teilprozesse+' TP)';}).join(', ')+(r.hinweise.length?' · Hinweise: '+r.hinweise.join(' · '):''), r.hinweise.length>0);
+    try{ await reloadCur(); await renderPR();
+      if(typeof WZ!=='undefined' && WZ.art && WZ.schritt){ await wzProzente(); wzLeiste(); wzKopfZeigen(); }
+    }catch(e){ console.log('Neuaufbau nach Übernahme:', e); }
+  };
+}
+/* ================= v3.27: "Wer verantwortet welchen Prozess" im Prozess-Schritt =================
+   Simeon 31.10.: "Passt hier nicht [Schritt 3 Personen]! Die Prozesse sind noch nicht erfasst."
+   Deshalb steht die Zuordnung jetzt bei den Haupt- und Teilprozessen (Schritt 5): erst Prozesse,
+   dann Verantwortung. Gespeichert wird wie bisher ueber PUT …/entitaeten (Personen und Systeme
+   unveraendert aus dem frisch geladenen Stand). */
+var PRZ=null;
+async function prZuordnung(){
+  var ziel=$('prZu');
+  if(!ziel){ ziel=document.createElement('div'); ziel.id='prZu'; $('pr').appendChild(ziel); }
+  try{ PRZ=await api('/api/companies/'+cur.company.id+'/entitaeten'); PS=PS||PRZ; }
+  catch(e){ ziel.innerHTML='<div class="panel mut">Zuordnung nicht ladbar: '+esc(e.detail||e)+'</div>'; return; }
+  prZuZeichnen();
+}
+function prZuZeichnen(){
+  var ziel=$('prZu'); if(!ziel||!PRZ) return;
+  var pers=(PRZ.personen||[]).filter(function(p){return p.aktiv;});
+  var P='<span class="pflicht">*</span>';
+  var zu='<table><tr><th style="width:260px">Kernprozess '+P+'</th><th style="width:280px">Person '+P+'</th><th style="width:240px">Beteiligung '+P+'</th><th style="width:90px"></th></tr>';
+  (PRZ.zuordnungen||[]).forEach(function(z,i){
+    zu+='<tr data-prz="'+i+'"><td><select class="prz-p">'+psAuswahl(PRZ.prozesse||[], z.process_id, 'process_id', function(p){return p.process_id+' · '+p.process_name;}, '—')+'</select></td>'
+      +'<td><select class="prz-per">'+psAuswahl(pers, z.person_id, 'person_id', function(p){return p.person_id+' · '+(p.name||p.funktion);}, '—')+'</select></td>'
+      +'<td><select class="prz-f">'+psAuswahl(PRZ.beteiligungen||[], z.funktion, 'wert', function(b){return b.bezeichnung;}, '—')+'</select></td>'
+      +'<td><button class="btn sec" data-prz-weg="'+i+'">entfernen</button></td></tr>';
+  });
+  zu+='</table>';
+  var mit={}; (PRZ.zuordnungen||[]).forEach(function(z){ if(z.funktion==='eigner') mit[z.process_id]=1; });
+  var ohne=(PRZ.prozesse||[]).filter(function(p){return !mit[p.process_id];}).map(function(p){return p.process_id;});
+  ziel.innerHTML='<div class="panel"><h3>Wer verantwortet welchen Prozess</h3>'
+    +'<div class="pflicht-hinweis">'+P+' Pflichtangabe — je Kernprozess mindestens ein <b>Eigner</b>; ohne Eigner ist ein Prozess nicht interviewfähig.</div>'
+    +'<p class="mut">Mehrere Personen je Prozess sind zulässig, und dieselbe Person darf zugleich Eigner und Sponsor sein. Personen kommen aus Schritt 3.</p>'
+    +(ohne.length?'<p class="mut" style="color:#c0392b"><b>Ohne Eigner:</b> '+esc(ohne.join(', '))+' — diese Prozesse sind nicht interviewfähig.</p>':'<p class="mut">Jeder Kernprozess hat einen Eigner.</p>')
+    +zu+'<div class="row" style="margin-top:10px;gap:8px"><button class="btn sec" id="prz_add">+ Zuordnung</button><button class="btn" id="prz_save">Zuordnung speichern</button></div></div>';
+  $('prz_add').onclick=function(){ prZuUebernehmen(); PRZ.zuordnungen.push({process_id:'',person_id:'',funktion:'eigner'}); prZuZeichnen(); };
+  ziel.querySelectorAll('[data-prz-weg]').forEach(function(b){ b.onclick=function(){ prZuUebernehmen(); PRZ.zuordnungen.splice(+b.dataset.przWeg,1); prZuZeichnen(); }; });
+  $('prz_save').onclick=prZuSpeichern;
+}
+function prZuUebernehmen(){
+  document.querySelectorAll('#prZu tr[data-prz]').forEach(function(tr){
+    var z=PRZ.zuordnungen[+tr.dataset.prz];
+    z.process_id=tr.querySelector('.prz-p').value; z.person_id=tr.querySelector('.prz-per').value; z.funktion=tr.querySelector('.prz-f').value;
+  });
+}
+async function prZuSpeichern(){
+  prZuUebernehmen();
+  var fehler=0;
+  document.querySelectorAll('#prZu .fehlt').forEach(function(e){e.classList.remove('fehlt');});
+  document.querySelectorAll('#prZu tr[data-prz]').forEach(function(tr){
+    ['.prz-p','.prz-per','.prz-f'].forEach(function(k){ var e=tr.querySelector(k); if(!e.value){ e.classList.add('fehlt'); fehler++; } });
+  });
+  if(fehler){ toast(fehler+' Pflichtangabe'+(fehler===1?'':'n')+' fehlen (rot markiert).',true); return; }
+  try{
+    await api('/api/companies/'+cur.company.id+'/entitaeten','PUT',{personen:PRZ.personen, systeme:PRZ.systeme, zuordnungen:PRZ.zuordnungen});
+    toast('✓ Zuordnung gespeichert.'); PS=PRZ; await reloadCur(); renderPR();
+    if(typeof WZ!=='undefined' && WZ.art && WZ.schritt){ await wzProzente(); wzLeiste(); wzKopfZeigen(); }
+  }catch(e){ toast('Fehler: '+(e.detail||e),true); }
+}
 function renderRA(){var keys=Object.keys(cur.processes).sort();if(!keys.length){$('ra').innerHTML='<div class="crumb">'+cr()+'Self-Rating</div><h1>Self-Rating</h1><p class="lead mut">Erst Prozesse anlegen.</p>';show('ra');return;}
   curKP=curKP&&cur.processes[curKP]?curKP:keys[0];
   var p=cur.processes[curKP];
@@ -2244,14 +3049,27 @@ function renderRA(){var keys=Object.keys(cur.processes).sort();if(!keys.length){
    '<div class="panel tpbeleg"><label><b>Beleg für diesen Teilprozess</b> <span class="reqstar">*</span> <span class="mut">— gilt für jedes bewertete Item ohne eigenen Beleg. Mindestens ein Beleg je Teilprozess, höchstens einer je Frage.</span></label>'+
    '<textarea id="tpBeleg" rows="3" style="width:100%;box-sizing:border-box" placeholder="z. B. Interview mit der Teamleitung am …, Mitarbeiterbefragung 2026, Prozessbeschreibung v3"></textarea>'+
    '<div class="mut" id="tpBelegInfo" style="margin-top:4px"></div></div>'+
-   '<div id="items"></div><div class="actionbar"><button class="btn" id="saveR">Speichern</button><button class="btn sec" id="fillR">Beispiel ausfüllen</button><span class="mut" id="sh"></span></div>';
+   '<div id="items"></div><div class="actionbar"><button class="btn" id="saveR">Speichern</button><button class="btn sec" id="fillR">Beispiel ausfüllen</button><span class="mut" id="sh"></span></div><div id="racross"></div>';
   $('kpSel').onchange=function(){curKP=$('kpSel').value;renderRA();};
   curTP=1;$('tpSel').onchange=function(){curTP=+$('tpSel').value;drawItems();};
   $('docUp').onclick=uploadDoc;
   /* Suchen auf Klick und auf Enter — wer in ein Suchfeld tippt, drueckt Enter. */
   if($('belegSuch')) $('belegSuch').onclick=belegeSuchen;
   if($('belegQ')) $('belegQ').onkeydown=function(e){ if(e.key==='Enter'){ e.preventDefault(); belegeSuchen(); } };
-  drawItems();show('ra');zeichneErhebung();}
+  drawItems();show('ra');zeichneErhebung();raCross();}
+/* v3.30 (01.11.): Cross-sectionale Betrachtung nach den Bitkom-Bewertungen. */
+async function raCross(){
+  var cb=$('racross'); if(!cb) return;
+  var rep=null;
+  try{ rep=await api('/api/companies/'+cur.company.id+'/report'); baueKritZuordnung(); }catch(e){ rep=null; }
+  cb.innerHTML = rep
+    ? '<div class="panel"><b>Cross-sectionale Betrachtung (Bitkom, Zusatzmodul Prozessautomatisierung)</b>'
+      +'<div class="mut" style="margin:4px 0 10px">Grundlage sind die Bitkom-Bewertungen oben. Die Prozesse in der Reihenfolge der Kette, nicht nach Nummer. '
+      +'Unter jedem Kriterium der Durchschnitt und die beiden Einzelfragen. Rot umrandet, wo die beiden '
+      +'Fragen um '+fmt2(rep.cf_delta)+' Stufen oder mehr auseinanderliegen.</div>'
+      +'<div style="overflow-x:auto">'+crossTabelle(rep)+'</div></div>'
+    : '<div class="panel mut">Cross-sectionale Betrachtung nicht verfügbar — der Bericht konnte nicht geladen werden.</div>';
+}
 /* ---- Erhebung: Stand, abschliessen, neu (v2.8, 04.09.2026) --------------------
    Eine Erhebung ist der Name einer Messkampagne, kein Einfrierpunkt mehr — den
    liefert seit v2.6 die Historie. Abschliessen ist eine bewusste Handlung von
@@ -2375,7 +3193,8 @@ document.addEventListener('click',async function(ev){
     try{var r=await api('/api/companies/'+cur.company.id+'/rating','POST',{key:k,items:items});toast('✓ '+r.saved+' Bewertungen gespeichert'+(r.erhebung_id?(r.erhebung_neu?' — neue Erhebung '+r.erhebung_id+' begonnen.':' ('+r.erhebung_id+').'):'.'));
       /* v3.12 (917): ohne Dokument am Teilprozess ist das eine Zwischenspeicherung. */
       if(r.zwischenstand){ setTimeout(function(){ toast(r.hinweis||'Zwischenstand gespeichert — Dokument fehlt.',true); },1600); }
-      renderDocs();cur.company.status='laeuft';if(r.erhebung_neu)zeichneErhebung();}
+      renderDocs();cur.company.status='laeuft';if(r.erhebung_neu)zeichneErhebung();
+      try{ renderGR(true); raCross(); }catch(e2){}}
     catch(e){toast('Blockiert: '+e.detail,true);document.querySelectorAll('.item').forEach(function(x){x.classList.remove('missing');});var m=(''+e.detail).match(/I-?(\d+)|Item\(s\):\s*([\d, ]+)/);}
   }
   if(ev.target&&ev.target.id==='fillR'){var k=rkey();cur.ratings[k]=cur.ratings[k]||{};META.items.forEach(function(it){var s=3+Math.round(Math.random());cur.ratings[k][it.item_nr]={stufe:Math.min(5,s),beleg:'Beleg '+it.kriterium};});drawItems();toast('Beispiel eingefüllt.');}
@@ -2403,7 +3222,7 @@ async function renderDocs(){var el=$('docsList');if(!el)return;var ref=rkey();va
     if(!ds.length){el.innerHTML='<span class="mut">Noch keine Dateien.</span>';return;}
     el.innerHTML=ds.map(function(d){return '<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)">'
       +'<a href="'+window.BC0_BASIS+'/api/companies/'+cur.company.id+'/documents/'+d.doc_id+'/file" target="_blank" rel="noopener">&#128206; '+esc(d.filename)+'</a>'
-      +'<span class="mut" style="font-size:11.5px">'+esc((d.uploaded_at||'').slice(0,16).replace('T',' '))+' &middot; '+esc(d.status)+'</span>'
+      +'<span class="mut" style="font-size:11.5px">'+esc((d.uploaded_at||'').slice(0,16).replace('T',' '))+' &middot; '+dokTextStand(d)+'</span>'
       +'<button class="btn sec" style="margin-left:auto" data-doccite="1" data-fn="'+esc(d.filename)+'">Zitat kopieren</button>'
       +'<button class="btn sec" data-docdel="'+d.doc_id+'" title="L\u00f6schen">&#10005;</button></div>';}).join('');
     el.querySelectorAll('[data-doccite]').forEach(function(b){b.onclick=function(){var t='Beleg-Dokument: '+b.dataset.fn+' ('+rkey()+')';
@@ -2457,9 +3276,9 @@ async function uploadDoc(){var inp=$('docFile');var f=inp&&inp.files&&inp.files[
   var r=await fetch('/api/companies/'+cur.company.id+'/documents',{method:'POST',body:fd});
   if(!r.ok){var d='';try{d=(await r.json()).detail;}catch(e){d=r.statusText;}toast('Upload-Fehler: '+d,true);return;}
   inp.value='';toast('\u2713 Hochgeladen.');renderDocs();}
-function renderGR(){var rows='';var keys=Object.keys(cur.ratings).sort();keys.forEach(function(k){var rg=cur.ratings[k];Object.keys(rg).sort(function(a,b){return a-b;}).forEach(function(nr){var e=rg[nr];if(!e.stufe)return;var it=META.items[nr-1];rows+='<tr><td>'+k+'.I-'+('0'+nr).slice(-2)+'</td><td>'+k.split('.')[0]+'</td><td>'+k.split('.')[1]+'</td><td>I-'+('0'+nr).slice(-2)+'</td><td>'+shortDim(it.dimension)+'</td><td>'+e.stufe+'</td><td>'+((e.beleg||'').trim()?'✓':'<span class="pill no">fehlt</span>')+'</td></tr>';});});
+function renderGR(still){var rows='';var keys=Object.keys(cur.ratings).sort();keys.forEach(function(k){var rg=cur.ratings[k];Object.keys(rg).sort(function(a,b){return a-b;}).forEach(function(nr){var e=rg[nr];if(!e.stufe)return;var it=META.items[nr-1];rows+='<tr><td>'+k+'.I-'+('0'+nr).slice(-2)+'</td><td>'+k.split('.')[0]+'</td><td>'+k.split('.')[1]+'</td><td>I-'+('0'+nr).slice(-2)+'</td><td>'+shortDim(it.dimension)+'</td><td>'+e.stufe+'</td><td>'+((e.beleg||'').trim()?'✓':'<span class="pill no">fehlt</span>')+'</td></tr>';});});
   if(!rows)rows='<tr><td colspan="7" class="mut">Noch keine Bewertungen.</td></tr>';
-  $('gr').innerHTML='<div class="crumb">'+cr()+'Bewertungen</div><h1>Bewertungen</h1><div class="panel" style="padding:0;max-height:62vh;overflow:auto"><table><thead><tr><th>id</th><th>KP</th><th>TP</th><th>Item</th><th>Dim</th><th>Stufe</th><th>Beleg</th></tr></thead><tbody>'+rows+'</tbody></table></div>';show('gr');}
+  $('gr').innerHTML='<div class="crumb">'+cr()+'Bewertungen</div><h1>Bewertungen</h1><div class="panel" style="padding:0;max-height:62vh;overflow:auto"><table><thead><tr><th>id</th><th>KP</th><th>TP</th><th>Item</th><th>Dim</th><th>Stufe</th><th>Beleg</th></tr></thead><tbody>'+rows+'</tbody></table></div>';if(!still)show('gr');}
 
 /* ================= Reifegradbericht, neu gefasst am 19.08.2026 ==============
    Die alte Ansicht war ein Bildschirmabzug: `window.print()` auf die
@@ -3532,7 +4351,7 @@ function g0IdWahlAnbinden(box){
 /* Verlauf je Anfrage (22.10.2026): Schrittleiste BC0 → BC1 → Freigabe → BC2 → BC3 → BC4
    und darunter, wer was wann in die DB geschrieben hat. Quelle: GET …/anfragen/{id}/verlauf
    (nur lesend). Das „Wer" folgt aus der Tabelle (jede BC schreibt nur in ihre eigenen). */
-var G0_STUFEN_TEXT={BC0:'BC0 · Anfrage',BC1:'BC1 · Prozessprofil',Freigabe:'Freigabe · Gate 0 + Paket',BC2:'BC2 · Analyse',BC3:'BC3 · Architektur',BC4:'BC4 · Umsetzung'};
+var G0_STUFEN_TEXT={BC0:'BC0 · Anfrage',BC1:'BC1 · Prozessprofil',Freigabe:'Freigabe · Gate 0 + Paket',BC2:'BC2 · Analyse',BC3:'BC3 · Architektur',BC4:'BC4 · Umsetzung',Abschluss:'Anfrage abgeschlossen',Alt:'Prozess(e) alt sperren'};
 function g0VerlaufLeiste(v){
   var n=v.stufen.length, h='<div style="display:flex;align-items:flex-start;margin:6px 0 14px">';
   v.stufen.forEach(function(s,i){
@@ -3547,7 +4366,7 @@ function g0VerlaufLeiste(v){
       +'<div style="width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:13px;flex:none;'+kreis+'">'+(i+1)+'</div>'
       +linieR+'</div>'
       +'<div style="font-size:12px;margin-top:6px;'+(s.erledigt||akt?'color:#222;font-weight:'+(akt?'600':'400'):'color:#888')+'">'+esc(G0_STUFEN_TEXT[s.stufe]||s.stufe)+'</div>'
-      +'<div class="mut" style="font-size:11px">'+(s.erledigt?g0Datum(s.seit):(akt?'als Nächstes':'—'))+(s.eintraege?' · '+s.eintraege+'×':'')+'</div></div>';
+      +'<div class="mut" style="font-size:11px">'+(s.erledigt?g0Datum(s.seit):(s.stufe==='BC4'?'Prototyp':(akt?'als Nächstes':'—')))+(s.eintraege?' · '+s.eintraege+'×':'')+'</div></div>';
   });
   return h+'</div>';
 }
@@ -3570,9 +4389,56 @@ async function g0VerlaufZeigen(anfrageId, ziel){
   catch(e){ ziel.innerHTML='<span class="mut">Verlauf nicht verfügbar: '+esc(e.detail||e)+'</span>'; return; }
   ziel.innerHTML='<div style="padding:8px 4px"><b>Verlauf '+esc(v.anfrage.anfrage_id)+'</b> <span class="mut">· Teilprozesse: '
     +(v.anfrage.teilprozesse.length?v.anfrage.teilprozesse.map(function(t){return esc(t+' '+(G0_NAMEN.tp[t]||''));}).join(', '):'keine zugeordnet')+'</span>'
-    +g0VerlaufLeiste(v)+'<b style="font-size:13px">Wer hat was wann in die Datenbank geschrieben</b>'+g0VerlaufTabelle(v)
+    +g0VerlaufLeiste(v)+g0AbschlussBox(v)+'<b style="font-size:13px">Wer hat was wann in die Datenbank geschrieben</b>'+g0VerlaufTabelle(v)
     +(v.hinweise.length?'<div class="mut" style="margin-top:6px">Hinweise: '+v.hinweise.map(esc).join(' · ')+'</div>':'')+'</div>';
   g0IdWahlAnbinden(ziel);
+  g0AbschlussAnbinden(v, ziel, anfrageId);
+}
+/* v3.25: Schritte 7 und 8 der Verlaufslinie — beide manuell.
+   7 = Anfrage abgeschlossen (Status erledigt), sperrt keinen Prozess.
+   8 = alte Prozesse sperren? Ja = abgelöst durch Folgeprozess (stillgelegt + eingefroren). */
+function g0AbschlussBox(v){
+  var st=v.anfrage.status, tps=v.anfrage.teilprozesse||[];
+  var tpText=tps.length?tps.map(function(t){return esc(t+' '+(G0_NAMEN.tp[t]||''));}).join(', '):'keine';
+  var h='<div class="g0abschluss" style="border:1px solid #e3e3e3;border-radius:8px;padding:10px 12px;margin:0 0 14px;background:#fff">';
+  if(st==='abgelehnt') return '';
+  if(st!=='erledigt'){
+    h+='<label style="display:flex;gap:8px;align-items:center;font-weight:600;margin:0"><input type="checkbox" data-abschluss style="width:auto"> 7 · Anfrage abgeschlossen</label>'
+      +'<div class="mut" style="font-size:12px;margin-top:4px">Setzt den Status auf <b>erledigt</b>. Die beteiligten Prozesse werden dadurch <b>nicht</b> gesperrt — darüber entscheidet Schritt 8.</div>'
+      +'<div data-abschluss-ok style="display:none;margin-top:6px"><button class="btn sm" data-abschluss-ja>Ja, '+esc(v.anfrage.anfrage_id)+' abschließen</button> <button class="btn sm sec" data-abschluss-nein>abbrechen</button></div>';
+  } else if(!v.abloesung){
+    h+='<b>8 · Prozess(e) alt sperren?</b> <span class="mut">Betrifft: '+tpText+'</span>'
+      +'<div style="display:flex;gap:18px;margin:6px 0"><label style="margin:0;font-weight:400"><input type="radio" name="g0alt" value="ja" style="width:auto"> Ja — abgelöst durch Folgeprozess (stilllegen + einfrieren)</label>'
+      +'<label style="margin:0;font-weight:400"><input type="radio" name="g0alt" value="nein" style="width:auto"> Nein — alter Prozess bleibt</label></div>'
+      +'<div class="row" style="gap:8px;align-items:center"><input data-alt-grund placeholder="Begründung (Pflicht, ein Satz)" style="flex:1"><button class="btn sm" data-alt-ok>Entscheidung speichern</button></div>'
+      +'<div class="mut" style="font-size:12px;margin-top:4px">Einmalig je Anfrage. Bei <b>Ja</b> sind Stammzeile und Bitkom-Werte der Teilprozesse danach nicht mehr änderbar.</div>';
+  } else {
+    var a=v.abloesung;
+    h+='<b>8 · Prozess(e) alt sperren: '+(a.alt_sperren?'Ja':'Nein')+'</b> <span class="mut">· '+g0Datum(a.am)+' · '+esc(a.von||'')+'</span>'
+      +'<div style="font-size:13px;margin-top:4px">'+(a.alt_sperren?'Abgelöst durch Folgeprozess, stillgelegt und eingefroren: ':'Nicht gesperrt: ')
+      +esc((a.teilprozesse||[]).join(', '))+'</div><div class="mut" style="font-size:12px">'+esc(a.begruendung||'')+'</div>';
+  }
+  return h+'</div>';
+}
+function g0AbschlussAnbinden(v, ziel, anfrageId){
+  var box=ziel.querySelector('.g0abschluss'); if(!box) return;
+  var url='/api/companies/'+cur.company.id+'/anfragen/'+encodeURIComponent(anfrageId);
+  var cb=box.querySelector('[data-abschluss]'), ok=box.querySelector('[data-abschluss-ok]');
+  if(cb) cb.onchange=function(){ ok.style.display=cb.checked?'block':'none'; };
+  var nein=box.querySelector('[data-abschluss-nein]'); if(nein) nein.onclick=function(){ cb.checked=false; ok.style.display='none'; };
+  var ja=box.querySelector('[data-abschluss-ja]');
+  if(ja) ja.onclick=async function(){ ja.disabled=true;
+    try{ await api(url+'/status','PUT',{status:'erledigt'}); toast('✓ '+anfrageId+' abgeschlossen'); g0VerlaufZeigen(anfrageId, ziel); }
+    catch(e){ ja.disabled=false; toast('Fehler: '+(e.detail||e),true); } };
+  var alt=box.querySelector('[data-alt-ok]');
+  if(alt) alt.onclick=async function(){
+    var w=box.querySelector('input[name=g0alt]:checked'), g=(box.querySelector('[data-alt-grund]').value||'').trim();
+    if(!w){ toast('Bitte Ja oder Nein wählen.',true); return; }
+    if(!g){ toast('Bitte eine Begründung angeben.',true); return; }
+    alt.disabled=true;
+    try{ var r=await api(url+'/alt_entscheiden','POST',{sperren:w.value==='ja',begruendung:g});
+      toast('✓ Entscheidung gespeichert'+(r.alt_sperren?' — '+r.gesperrt+' Teilprozess(e) gesperrt':'')); g0VerlaufZeigen(anfrageId, ziel); }
+    catch(e){ alt.disabled=false; toast('Fehler: '+(e.detail||e),true); } };
 }
 function g0VerlaufAnbinden(box){
   box.querySelectorAll('[data-verlauf]').forEach(function(a){
@@ -3597,16 +4463,23 @@ async function zeichneG0Uebergabe(){
   /* --- je Anfrage: soll / freigegeben / fehlend --- */
   var anfr=(u.anfragen||[]).filter(function(a){return a.soll>0 || a.status!=='eingegangen';});
   if(anfr.length){
-    h+='<table><tr><th>Anfrage</th><th style="width:430px">IDs</th><th style="width:110px">Status</th><th style="width:150px">freigegeben</th><th>es fehlen</th><th style="width:170px">letzte Übergabe</th><th style="width:230px"></th></tr>';
+    h+='<table><tr><th style="width:34px" title="Auswahl für ein Sammelpaket">&#9745;</th><th>Anfrage</th><th style="width:430px">IDs</th><th style="width:110px">Status</th><th style="width:150px">freigegeben</th><th>es fehlen</th><th style="width:170px">letzte Übergabe</th><th style="width:230px"></th></tr>';
     anfr.forEach(function(a){
       var frei=a.soll?('<b>'+a.freigegeben+' von '+a.soll+'</b> '+(a.vollstaendig?'<span class="pill gut">vollständig</span>':'<span class="pill no">unvollständig</span>')):'<span class="mut">kein Teilprozess zugeordnet</span>';
       var fehlt=a.fehlend.length?a.fehlend.map(function(s){return esc(g0TpText(s));}).join('<br>'):'<span class="mut">—</span>';
       var letzte=a.letzte_uebergabe_am?g0Datum(a.letzte_uebergabe_am)+'<div class="mut">'+esc((a.letztes_paket_id||'').slice(0,8))+'</div>':'<span class="mut">noch nie</span>';
-      var knopf=a.uebergabefaehig?'<button class="btn sm" data-ueb-anfrage="'+esc(a.anfrage_id)+'">Paket für '+esc(a.anfrage_id)+' übergeben</button>'
-        :(a.vollstaendig&&a.letzte_uebergabe_am?'<span class="mut">übergeben, unverändert</span>':'<span class="mut">erst alle freigeben</span>');
-      h+='<tr><td>'+g0AnfrageText(a.anfrage_id)+'<div><a href="#" data-verlauf="'+esc(a.anfrage_id)+'" style="font-size:12px">▸ Verlauf</a></div></td><td>'+g0IdWahl(g0AnfrageIds(a,u.pakete))+'</td><td>'+esc(a.status)+'</td><td>'+frei+'</td><td>'+fehlt+'</td><td>'+letzte+'</td><td>'+knopf+'</td></tr>';
+      var knopf=(a.uebergabefaehig&&a.status!=='erledigt')?'<button class="btn sm" data-ueb-anfrage="'+esc(a.anfrage_id)+'">Paket für '+esc(a.anfrage_id)+' übergeben</button>'
+        :(a.status==='erledigt'?'<span class="pill gut">abgeschlossen</span>':(a.vollstaendig&&a.letzte_uebergabe_am?'<span class="mut">übergeben, unverändert</span>':'<span class="mut">erst alle freigeben</span>'));
+      var wahl=(a.vollstaendig&&a.status!=='erledigt')?'<input type="checkbox" data-ueb-wahl="'+esc(a.anfrage_id)+'" title="für ein Sammelpaket auswählen">':'';
+      h+='<tr><td>'+wahl+'</td><td>'+g0AnfrageText(a.anfrage_id)+'<div><a href="#" data-verlauf="'+esc(a.anfrage_id)+'" style="font-size:12px">▸ Verlauf</a></div></td><td>'+g0IdWahl(g0AnfrageIds(a,u.pakete))+'</td><td>'+esc(a.status)+'</td><td>'+frei+'</td><td>'+fehlt+'</td><td>'+letzte+'</td><td>'+knopf+'</td></tr>';
     });
     h+='</table>';
+    /* v3.24: Sammelpaket — mehrere vollständige Anfragen, EINE Paket-ID.
+       BC2 rechnet je Paket einen Lauf mit einem Modellaufruf über alle
+       Teilprozesse (ADR-005, #194). Vier Einzelpakete hießen vier Läufe. */
+    h+='<div class="row" style="margin-top:8px;gap:8px;align-items:center"><input id="g0uebSammelHinweis" placeholder="Hinweis an BC2 zum Sammelpaket (optional)" style="flex:1">'
+      +'<button class="btn" id="g0uebSammel" disabled>Ausgewählte als ein Paket übergeben</button></div>'
+      +'<div class="mut" style="font-size:12px;margin-top:4px">Anhaken lässt sich jede vollständig freigegebene Anfrage — auch eine schon übergebene, um sie mit anderen zu einem Paket zu bündeln. Jeder Teilprozess behält seine Anfrage und seinen BC1-Stand. Ein identisches zweites Paket entsteht nicht.</div>';
   } else {
     h+='<div class="g0nichts">Keine Anfrage mit Prozessbezug — nichts, was als Ganzes übergeben werden könnte.</div>';
   }
@@ -3653,6 +4526,15 @@ async function zeichneG0Uebergabe(){
   }
   box.querySelectorAll('[data-ueb-anfrage]').forEach(function(b){
     b.onclick=function(){b.disabled=true;schnueren({anfrage_id:b.dataset.uebAnfrage});};});
+  var smKnopf=$('g0uebSammel');
+  function smZahl(){ return box.querySelectorAll('[data-ueb-wahl]:checked').length; }
+  box.querySelectorAll('[data-ueb-wahl]').forEach(function(x){ x.onchange=function(){
+    var n=smZahl(); if(smKnopf){ smKnopf.disabled=!n; smKnopf.textContent=n?('Ausgewählte '+n+' als ein Paket übergeben'):'Ausgewählte als ein Paket übergeben'; } }; });
+  if(smKnopf) smKnopf.onclick=function(){
+    var anf=[]; box.querySelectorAll('[data-ueb-wahl]:checked').forEach(function(x){anf.push(x.dataset.uebWahl);});
+    if(!anf.length){toast('Nichts ausgewählt.',true);return;}
+    smKnopf.disabled=true; schnueren({anfragen:anf,hinweis:($('g0uebSammelHinweis')||{}).value||''});
+  };
   var pfKnopf=$('g0uebPortfolio');
   if(pfKnopf) pfKnopf.onclick=function(){
     var tps=[];box.querySelectorAll('[data-pf]:checked').forEach(function(x){tps.push(x.dataset.pf);});

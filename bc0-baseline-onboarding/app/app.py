@@ -470,6 +470,33 @@ CREATE TABLE IF NOT EXISTS ki_laufdaten (
   dauer_ms       INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_ki_laufdaten_co_zeit ON ki_laufdaten(company_id, zeitpunkt);
+-- v3.42 (15.11.2026): Modellregister und Wechselplan je Modell (KI-Strategie)
+CREATE TABLE IF NOT EXISTS ki_modellregister (
+  id              BIGSERIAL PRIMARY KEY,
+  company_id      UUID NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
+  modell          TEXT NOT NULL,
+  anbieter        TEXT,
+  betriebsart     TEXT NOT NULL DEFAULT 'cloud' CHECK (betriebsart IN ('cloud','lokal')),
+  status          TEXT NOT NULL DEFAULT 'im_einsatz' CHECK (status IN ('im_einsatz','abgekuendigt','wechsel_laeuft','abgeloest')),
+  abgekuendigt_am DATE,
+  abschaltung_am  DATE,
+  nachfolger      TEXT,
+  person_id       TEXT,
+  bemerkung       TEXT,
+  UNIQUE (company_id, modell)
+);
+CREATE TABLE IF NOT EXISTS ki_modellwechsel_schritte (
+  id          BIGSERIAL PRIMARY KEY,
+  company_id  UUID NOT NULL,
+  modell      TEXT NOT NULL,
+  schritt_nr  INTEGER NOT NULL CHECK (schritt_nr BETWEEN 1 AND 20),
+  titel       TEXT NOT NULL,
+  kriterium   TEXT,
+  zieldatum   DATE NOT NULL,
+  erledigt_am DATE,
+  UNIQUE (company_id, modell, schritt_nr),
+  FOREIGN KEY (company_id, modell) REFERENCES ki_modellregister(company_id, modell) ON DELETE CASCADE ON UPDATE CASCADE
+);
 """
 KIC_DDL_SQLITE = """
 CREATE TABLE IF NOT EXISTS ki_schulungen(id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER NOT NULL,
@@ -490,6 +517,124 @@ CREATE TABLE IF NOT EXISTS ki_laufdaten(id INTEGER PRIMARY KEY AUTOINCREMENT, co
   zeitpunkt TEXT NOT NULL, process_id TEXT, sub_process_id TEXT, kontext TEXT NOT NULL DEFAULT 'betrieb',
   modell TEXT NOT NULL, input_tokens INTEGER, output_tokens INTEGER, kosten_eur REAL,
   status TEXT NOT NULL DEFAULT 'ok' CHECK (status IN ('ok','fehler','abgebrochen')), korrigiert INTEGER, dauer_ms INTEGER);
+CREATE TABLE IF NOT EXISTS ki_modellregister(id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER NOT NULL,
+  modell TEXT NOT NULL, anbieter TEXT, betriebsart TEXT NOT NULL DEFAULT 'cloud' CHECK (betriebsart IN ('cloud','lokal')),
+  status TEXT NOT NULL DEFAULT 'im_einsatz' CHECK (status IN ('im_einsatz','abgekuendigt','wechsel_laeuft','abgeloest')),
+  abgekuendigt_am TEXT, abschaltung_am TEXT, nachfolger TEXT, person_id TEXT, bemerkung TEXT, UNIQUE(company_id, modell));
+CREATE TABLE IF NOT EXISTS ki_modellwechsel_schritte(id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER NOT NULL,
+  modell TEXT NOT NULL, schritt_nr INTEGER NOT NULL CHECK (schritt_nr BETWEEN 1 AND 20), titel TEXT NOT NULL, kriterium TEXT,
+  zieldatum TEXT NOT NULL, erledigt_am TEXT, UNIQUE(company_id, modell, schritt_nr));
+"""
+# ---- KI-Reifegrad nach SEI (Schema v3.43, 17.11.2026) ----------------------------------
+# Grundlage: SEI/Accenture, "The AI Adoption Maturity Model v1.0" (Juni 2026).
+# Konzept: BC0_Konzept_KI-Reifegrad_SEI_App_16-11-2026.md. Massgeblich fuer Rechte und
+# Mockdaten ist schema_v3.43_ki_reifegrad_sei.sql; hier steht nur, was die App beim Start
+# braucht (IF NOT EXISTS, Stammdaten ON CONFLICT DO NOTHING).
+# Acht Dimensionen; Gruppe nach Kap. 4.2 (Organisatorischer Wandel / KI-Lebenszyklus).
+KIA_DIMENSIONEN = [
+    (1, "Organisationsstrategie", "Organisatorischer Wandel"),
+    (2, "Belegschaft und Kultur", "Organisatorischer Wandel"),
+    (3, "Neugestaltung der Arbeitsabläufe", "Organisatorischer Wandel"),
+    (4, "Risiko und Governance", "Organisatorischer Wandel"),
+    (5, "Daten", "KI-Lebenszyklus"),
+    (6, "Engineering", "KI-Lebenszyklus"),
+    (7, "Betrieb", "KI-Lebenszyklus"),
+    (8, "Technologie-Ökosystem", "KI-Lebenszyklus"),
+]
+# 25 Faehigkeitsbereiche: (SEI-Nummer, Dimension, Name, Eintrittsstufe nach Tabelle 2 S. 85,
+# Seite im PDF, Menuepunkt der App, in dem die Messung bzw. die Daten liegen).
+KIA_BEREICHE = [
+    ("4.4.1", 1, "Strategieentwicklung", 2, 33, "5 KI-Strategie"),
+    ("4.4.2", 1, "Partnerschaften", 3, 34, "5 KI-Strategie"),
+    ("4.4.3", 1, "Organisationsstruktur anpassen", 3, 36, "5 KI-Strategie"),
+    ("4.4.4", 1, "Zukunftsplanung", 5, 37, "5 KI-Strategie"),
+    ("4.5.1", 2, "KI-kompetente Belegschaft", 1, 41, "3 LongLife Learning"),
+    ("4.5.2", 2, "Wandel der Kultur", 3, 42, "3 LongLife Learning"),
+    ("4.6.1", 3, "Experimente", 1, 45, "Prozessdoku & Verantwortung"),
+    ("4.6.2", 3, "Neue Arbeitsabläufe", 3, 46, "Prozessdoku & Verantwortung"),
+    ("4.6.3", 3, "Mensch führt die Automatisierung", 3, 48, "Prozessdoku & Verantwortung"),
+    ("4.6.4", 3, "Messung und Analyse", 3, 49, "Prozessdoku & Verantwortung"),
+    ("4.7.1", 4, "Risikomanagement", 2, 52, "Risiko und Governance (neu)"),
+    ("4.7.2", 4, "Richtlinien und Compliance", 2, 54, "Risiko und Governance (neu)"),
+    ("4.7.3", 4, "Verantwortungsvolle KI", 2, 55, "Risiko und Governance (neu)"),
+    ("4.8.1", 5, "Lebenszyklus der Daten", 2, 58, "Daten und Sicherung (neu)"),
+    ("4.8.2", 5, "Datenqualität", 2, 60, "Daten und Sicherung (neu)"),
+    ("4.9.1", 6, "KI-Architektur", 2, 63, "Prozessdoku & Verantwortung"),
+    ("4.9.2", 6, "Test und Evaluation", 2, 64, "Prozessdoku & Verantwortung"),
+    ("4.9.3", 6, "Einbindung von Altsystemen", 3, 66, "Prozessdoku & Verantwortung"),
+    ("4.9.4", 6, "Transparenz und Erklärbarkeit", 3, 67, "4 Wissensdatenbank"),
+    ("4.10.1", 7, "Modellverwaltung", 2, 70, "5 KI-Strategie (Modellregister)"),
+    ("4.10.2", 7, "Sicherheit von Modellen und Agenten", 2, 71, "Test und Sicherheit (neu)"),
+    ("4.10.3", 7, "Überwachung", 3, 72, "1 Modell-Drift"),
+    ("4.11.1", 8, "Technische Infrastruktur", 2, 75, "2 MLOps · Tokenverbrauch"),
+    ("4.11.2", 8, "Lieferkette", 3, 76, "5 KI-Strategie (Modellregister)"),
+    ("4.11.3", 8, "Einsatz in der Breite", 4, 77, "Übersicht"),
+]
+KIA_DDL_PG = """
+CREATE TABLE IF NOT EXISTS kia_dimensionen (
+  dim_nr  INTEGER PRIMARY KEY CHECK (dim_nr BETWEEN 1 AND 8),
+  name    TEXT NOT NULL,
+  gruppe  TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS kia_bereiche (
+  bereich_id     TEXT PRIMARY KEY,
+  dim_nr         INTEGER NOT NULL REFERENCES kia_dimensionen(dim_nr),
+  name           TEXT NOT NULL,
+  eintrittsstufe INTEGER NOT NULL CHECK (eintrittsstufe BETWEEN 1 AND 5),
+  seite          INTEGER,
+  menue          TEXT
+);
+CREATE TABLE IF NOT EXISTS kia_kontext (
+  company_id         UUID PRIMARY KEY REFERENCES companies(company_id) ON DELETE CASCADE,
+  umfang             TEXT NOT NULL DEFAULT 'mandant' CHECK (umfang IN ('mandant','bereich','kernprozess','team')),
+  regulierung        TEXT CHECK (regulierung IN ('reguliert','teilweise','nicht_reguliert')),
+  planungshorizont   TEXT CHECK (planungshorizont IN ('unter_6_monate','6_12_monate','1_3_jahre','ueber_3_jahre')),
+  entwicklungsansatz TEXT CHECK (entwicklungsansatz IN ('selbst_bauen','kaufen','anpassen','gemischt')),
+  risikobereitschaft TEXT CHECK (risikobereitschaft IN ('hoch','mittel','niedrig')),
+  geaendert_von      TEXT,
+  geaendert_am       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS kia_zielstufe (
+  id          BIGSERIAL PRIMARY KEY,
+  company_id  UUID NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
+  dim_nr      INTEGER NOT NULL REFERENCES kia_dimensionen(dim_nr),
+  zielstufe   INTEGER NOT NULL CHECK (zielstufe BETWEEN 1 AND 5),
+  begruendung TEXT NOT NULL CHECK (length(btrim(begruendung)) > 0),
+  gesetzt_von TEXT,
+  gesetzt_am  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS kia_bewertung (
+  id                 BIGSERIAL PRIMARY KEY,
+  company_id         UUID NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
+  bereich_id         TEXT NOT NULL REFERENCES kia_bereiche(bereich_id),
+  ziele              TEXT NOT NULL CHECK (ziele IN ('erfuellt','teilweise','nein','zurueckgestellt')),
+  nachweis           TEXT NOT NULL CHECK (nachweis IN ('messung','beleg','einschaetzung')),
+  ind_verantwortung  INTEGER NOT NULL CHECK (ind_verantwortung BETWEEN 1 AND 5),
+  ind_planung        INTEGER NOT NULL CHECK (ind_planung BETWEEN 1 AND 5),
+  ind_ressourcen     INTEGER NOT NULL CHECK (ind_ressourcen BETWEEN 1 AND 5),
+  beleg              TEXT,
+  begruendung        TEXT NOT NULL CHECK (length(btrim(begruendung)) > 0),
+  bewertet_von       TEXT,
+  bewertet_am        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_kia_bewertung_co ON kia_bewertung(company_id, bereich_id, bewertet_am);
+CREATE INDEX IF NOT EXISTS idx_kia_zielstufe_co ON kia_zielstufe(company_id, dim_nr, gesetzt_am);
+"""
+KIA_DDL_SQLITE = """
+CREATE TABLE IF NOT EXISTS kia_dimensionen(dim_nr INTEGER PRIMARY KEY, name TEXT NOT NULL, gruppe TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS kia_bereiche(bereich_id TEXT PRIMARY KEY, dim_nr INTEGER NOT NULL, name TEXT NOT NULL,
+  eintrittsstufe INTEGER NOT NULL, seite INTEGER, menue TEXT);
+CREATE TABLE IF NOT EXISTS kia_kontext(company_id INTEGER PRIMARY KEY, umfang TEXT NOT NULL DEFAULT 'mandant',
+  regulierung TEXT, planungshorizont TEXT, entwicklungsansatz TEXT, risikobereitschaft TEXT, geaendert_von TEXT,
+  geaendert_am TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS kia_zielstufe(id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER NOT NULL,
+  dim_nr INTEGER NOT NULL, zielstufe INTEGER NOT NULL CHECK (zielstufe BETWEEN 1 AND 5), begruendung TEXT NOT NULL,
+  gesetzt_von TEXT, gesetzt_am TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS kia_bewertung(id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER NOT NULL,
+  bereich_id TEXT NOT NULL, ziele TEXT NOT NULL CHECK (ziele IN ('erfuellt','teilweise','nein','zurueckgestellt')),
+  nachweis TEXT NOT NULL CHECK (nachweis IN ('messung','beleg','einschaetzung')),
+  ind_verantwortung INTEGER NOT NULL, ind_planung INTEGER NOT NULL, ind_ressourcen INTEGER NOT NULL,
+  beleg TEXT, begruendung TEXT NOT NULL, bewertet_von TEXT, bewertet_am TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
 """
 ENTITAET_DDL_SQLITE = """
 CREATE TABLE IF NOT EXISTS ref_personen(
@@ -694,6 +839,10 @@ CREATE TABLE IF NOT EXISTS ref_anfragen(
   PRIMARY KEY(company_id, anfrage_id),
   CHECK (process_id IS NOT NULL OR status = 'eingegangen'),
   CHECK ((process_id IS NULL) = (zuordnung_quelle IS NULL)));
+CREATE TABLE IF NOT EXISTS bc1_gespraeche(              -- v3.21
+  company_id INTEGER NOT NULL, anfrage_id TEXT NOT NULL,
+  session_id TEXT NOT NULL UNIQUE, angelegt_am TEXT,
+  PRIMARY KEY(company_id, anfrage_id));
 CREATE TABLE IF NOT EXISTS anfrage_prozesse(
   bezug_id INTEGER PRIMARY KEY AUTOINCREMENT,
   company_id INTEGER NOT NULL, anfrage_id TEXT NOT NULL,
@@ -1210,7 +1359,7 @@ if PG:
                 + _bew_aktuell("company_id,erhebung_id,id,sub_process_id,item_nr,stufe,beleg,"
                                "quelle,bewertet_am"))
     SEL_DOC  = ("SELECT doc_id::text AS doc_id,company_id::text AS company_id,ref_id,filename,storage_key,"
-                "mime_type,seiten,ocr_confidence,status::text AS status,uploaded_at::text AS uploaded_at FROM beleg_dokumente")
+                "mime_type,seiten,ocr_confidence,erkannt_durch,status::text AS status,uploaded_at::text AS uploaded_at FROM beleg_dokumente")
 else:
     SEL_CO   = "SELECT * FROM companies";        KEY_CO = "id=?";        W_CO = "company_id=?"
     SEL_PROF = "SELECT * FROM company_profile"
@@ -1220,7 +1369,7 @@ else:
                 + _bew_aktuell("company_id,erhebung_id,id,sub_process_id,process_id,item_nr,"
                                "stufe,beleg,quelle,bewertet_am"))
     SEL_DOC  = ("SELECT doc_id,company_id,ref_id,filename,storage_key,mime_type,seiten,"
-                "ocr_confidence,status,uploaded_at FROM beleg_dokumente")
+                "ocr_confidence,erkannt_durch,status,uploaded_at FROM beleg_dokumente")
 
 def _sel_bew(grenze=None) -> str:
     """SEL_BEW, wahlweise auf den Stand nach einer Erhebung begrenzt (v2.9).
@@ -1314,6 +1463,10 @@ def init_db():
         c.execute(STAMM_DDL_PG)
         c.execute(ENTITAET_DDL_PG)
         c.execute(KIC_DDL_PG)
+        c.execute(KIA_DDL_PG)   # v3.43 KI-Reifegrad nach SEI
+        c.executemany("INSERT INTO kia_dimensionen(dim_nr,name,gruppe) VALUES(?,?,?) ON CONFLICT (dim_nr) DO NOTHING", KIA_DIMENSIONEN)
+        c.executemany("INSERT INTO kia_bereiche(bereich_id,dim_nr,name,eintrittsstufe,seite,menue) VALUES(?,?,?,?,?,?) "
+                      "ON CONFLICT (bereich_id) DO NOTHING", KIA_BEREICHE)
         c.execute(ERHEBUNG_DDL_PG)
         c.execute(GATE0_DDL_PG)
         c.executemany("INSERT INTO ref_gate_pruefpunkte(pruefpunkt,bezeichnung,erlaeuterung,"
@@ -1378,6 +1531,9 @@ def init_db():
     c.c.executescript(STAMM_DDL_SQLITE)
     c.c.executescript(ENTITAET_DDL_SQLITE)
     c.c.executescript(KIC_DDL_SQLITE)
+    c.c.executescript(KIA_DDL_SQLITE)   # v3.43
+    c.executemany("INSERT OR IGNORE INTO kia_dimensionen(dim_nr,name,gruppe) VALUES(?,?,?)", KIA_DIMENSIONEN)
+    c.executemany("INSERT OR IGNORE INTO kia_bereiche(bereich_id,dim_nr,name,eintrittsstufe,seite,menue) VALUES(?,?,?,?,?,?)", KIA_BEREICHE)
     c.c.executescript(ERHEBUNG_DDL_SQLITE)
     c.c.executescript(GATE0_DDL_SQLITE)
     # Nachtrag: dienstliche Kontaktdaten (Schema v1.5). SQLite kennt kein
@@ -3325,6 +3481,12 @@ async def upload_document(cid: str, ref_id: str = Form(...), file: UploadFile = 
     except Exception as ausnahme:
         LOG.info("Textextraktion uebersprungen (%s): %s", doc_id[:8], ausnahme)
     c.commit()
+    # v3.26: Bild oder Scan ohne Text -> OCR-Faden sofort wecken.
+    if (file.content_type or "").startswith("image/") or file.content_type == "application/pdf":
+        try:
+            ocr_wecken()
+        except NameError:
+            pass
     d = dict(c.execute(SEL_DOC + " WHERE doc_id" + ("::text" if PG else "") + "=?", (doc_id,)).fetchone())
     c.close()
     return _doc_public(d)
@@ -4926,7 +5088,7 @@ def uebergabe_lesen(cid: str, benutzer: Benutzer = Depends(admin)):
         anfragen = [dict(r) for r in c.execute(                    # v2.7
             "SELECT anfrage_id, status, soll, freigegeben, fehlend, vollstaendig, uebergabefaehig, "
             "letztes_paket_id::text AS letztes_paket_id, letzte_uebergabe_am::text AS letzte_uebergabe_am "
-            "FROM v_anfrage_uebergabe_stand WHERE company_id=? AND status NOT IN ('erledigt','abgelehnt') "
+            "FROM v_anfrage_uebergabe_stand WHERE company_id=? AND status <> 'abgelehnt' "   # v3.25: erledigte bleiben sichtbar (Verlauf)
             "ORDER BY anfrage_id", (cid,)).fetchall()]
     finally:
         c.close()
@@ -4971,19 +5133,33 @@ async def uebergabe_schnueren(cid: str, req: Request, benutzer: Benutzer = Depen
     hinweis = (b.get("hinweis") or "").strip() or None
     anfrage_id = (b.get("anfrage_id") or "").strip() or None
     teilprozesse = [str(x).strip() for x in (b.get("teilprozesse") or []) if str(x).strip()]
-    if not anfrage_id and not teilprozesse:
-        raise HTTPException(400, "Entweder eine Anfrage (vollstaendig) oder eine ausdrueckliche "
-                                 "Liste von Teilprozessen (Portfolio-Weg).")
-    if anfrage_id and teilprozesse:
-        raise HTTPException(400, "Entweder Anfrage oder Liste — nicht beides.")
+    # v3.24: mehrere Anfragen als EIN Paket (Sammelpaket). BC2 rechnet je Paket
+    # einen Lauf mit einem Modellaufruf ueber alle Teilprozesse (ADR-005, #194).
+    anfragen = []
+    for x in (b.get("anfragen") or []):
+        x = str(x or "").strip()
+        if x and x not in anfragen:
+            anfragen.append(x)
+    wege = sum(1 for w in (anfrage_id, teilprozesse, anfragen) if w)
+    if wege == 0:
+        raise HTTPException(400, "Entweder eine Anfrage (vollstaendig), eine Auswahl von Anfragen "
+                                 "(Sammelpaket) oder eine ausdrueckliche Liste von Teilprozessen "
+                                 "(Portfolio-Weg).")
+    if wege > 1:
+        raise HTTPException(400, "Entweder Anfrage, Auswahl von Anfragen oder Liste — nur eins davon.")
     c = db()
     try:
         _gate_mandant(c, cid)
         try:
-            # v2.7: je Anfrage nur vollstaendig; Portfolio mit Liste.
-            paket = c.execute("SELECT gate_paket_schnueren(?, ?, ?, ?, ?)::text AS paket_id",
-                              (cid, benutzer.benutzer_id, hinweis, anfrage_id,
-                               teilprozesse or None)).fetchone()["paket_id"]
+            if anfragen:
+                # v3.24: jede Anfrage vollstaendig, alle in EIN Paket.
+                paket = c.execute("SELECT gate_paket_buendeln(?, ?, ?, ?)::text AS paket_id",
+                                  (cid, benutzer.benutzer_id, hinweis, anfragen)).fetchone()["paket_id"]
+            else:
+                # v2.7: je Anfrage nur vollstaendig; Portfolio mit Liste.
+                paket = c.execute("SELECT gate_paket_schnueren(?, ?, ?, ?, ?)::text AS paket_id",
+                                  (cid, benutzer.benutzer_id, hinweis, anfrage_id,
+                                   teilprozesse or None)).fetchone()["paket_id"]
         except HTTPException:
             raise
         except Exception as e:  # noqa: BLE001 — die Datenbank hat den Satz, wir reichen ihn durch
@@ -5266,6 +5442,7 @@ def anfragen(cid: str, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
         z["steller"] = steller.get(z["anfrage_id"],
                                    {"person_id": None, "herkunft": "unbekannt",
                                     "name": None, "funktion": None})
+        z["gespraech_moeglich"] = _bc1_gespraech_moeglich(cid, z.get("status"))   # v3.21
     return {"anfragen": zeilen}
 
 
@@ -5276,7 +5453,7 @@ def anfragen(cid: str, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
 # BC3/BC4 fuehren (Stand 22.10.) weder paket_id noch anfrage_id -> Zuordnung ueber Teilprozess,
 # in der Antwort als zuordnung='teilprozess' gekennzeichnet. Jeder Block liest mit eigener
 # Verbindung; fehlt einer Tabelle oder Recht, steht das in `hinweise`, der Rest kommt trotzdem.
-_VERLAUF_STUFEN = ["BC0", "BC1", "Freigabe", "BC2", "BC3", "BC4"]
+_VERLAUF_STUFEN = ["BC0", "BC1", "Freigabe", "BC2", "BC3", "BC4", "Abschluss", "Alt"]   # v3.25: 7, 8
 
 
 def _verlauf_block(hinweise, name, fn):
@@ -5489,6 +5666,26 @@ def anfrage_verlauf(cid: str, anfrage_id: str, benutzer: Benutzer = Depends(admi
                                "process_id": r["process_id"], "sub_process_id": r["sub_process_id"]}, z)
     _verlauf_block(hinweise, "BC4", _bc4)
 
+    # --- v3.25: Abschluss (Status erledigt, manuell) und Entscheidung ueber die alten Prozesse ---
+    if a.get("status") == "erledigt":
+        e(a.get("status_seit"), "Abschluss", "BC0", "Anfrage abgeschlossen (Status erledigt) — "
+          "beteiligte Prozesse dadurch nicht gesperrt", "ref_anfragen", basis)
+    abloesung = {}
+    def _abl(c):
+        r = c.execute("SELECT alt_sperren, begruendung, teilprozesse, entschieden_von, "
+                      "entschieden_am::text AS am FROM anfrage_abloesung "
+                      "WHERE company_id::text=? AND anfrage_id=?", (cid, anfrage_id)).fetchone()
+        if not r:
+            return
+        abloesung.update({"alt_sperren": bool(r["alt_sperren"]), "begruendung": r["begruendung"],
+                          "teilprozesse": list(r["teilprozesse"] or []), "am": r["am"],
+                          "von": namen.get(str(r["entschieden_von"]), r["entschieden_von"])})
+        e(r["am"], "Alt", wer0(r["entschieden_von"]),
+          ("Alte Prozesse gesperrt (abgelöst durch Folgeprozess): " + ", ".join(r["teilprozesse"] or [])
+           if r["alt_sperren"] else "Alte Prozesse NICHT gesperrt")
+          + " – " + r["begruendung"], "anfrage_abloesung", basis)
+    _verlauf_block(hinweise, "Abloesung", _abl)
+
     # 25.10.2026: Was nur ueber den Teilprozess zugeordnet ist und VOR dem Eingang der
     # Anfrage geschah, gehoert zur Vorgeschichte des Teilprozesses, nicht zur Anfrage.
     beginn = a["angelegt_am"] or a["eingang_am"] or ""
@@ -5504,6 +5701,10 @@ def anfrage_verlauf(cid: str, anfrage_id: str, benutzer: Benutzer = Depends(admi
             fertig = bool(pakete)
         elif s == "BC2":
             fertig = any(x["tabelle"] == "bc2.lauf" for x in eig)
+        elif s == "Abschluss":
+            fertig = a.get("status") == "erledigt"
+        elif s == "Alt":
+            fertig = bool(abloesung)
         elif s in ("BC3", "BC4"):
             # v3.18: erledigt nur, was ueber paket_id/anfrage_id zu DIESER Anfrage gehoert
             fertig = any(x["zuordnung"] == "id" for x in eig)
@@ -5513,7 +5714,45 @@ def anfrage_verlauf(cid: str, anfrage_id: str, benutzer: Benutzer = Depends(admi
                        "zuletzt": eig[-1]["am"] if eig else None, "eintraege": len(eig)})
     aktuell = next((x["stufe"] for x in stufen if not x["erledigt"]), None)
     return {"anfrage": {k: a[k] for k in ("anfrage_id", "originaltext", "status", "eingang_am", "teilprozesse", "prozesse")},
-            "pakete": pakete, "stufen": stufen, "aktuell": aktuell, "ereignisse": ev, "hinweise": hinweise}
+            "pakete": pakete, "stufen": stufen, "aktuell": aktuell, "ereignisse": ev, "hinweise": hinweise,
+            "abloesung": abloesung or None}
+
+
+@app.post("/api/companies/{cid}/anfragen/{anfrage_id}/alt_entscheiden")
+async def anfrage_alt_entscheiden(cid: str, anfrage_id: str, req: Request,
+                                  benutzer: Benutzer = Depends(admin)):
+    """v3.25: Schritt 8 der Verlaufslinie — alte Prozesse sperren? Ja / Nein.
+
+    Erst nach dem Abschluss (Status ``erledigt``). Ja heisst "abgeloest durch
+    Folgeprozess": die Teilprozesse der Anfrage werden stillgelegt und
+    eingefroren (Datenbank, anfrage_alt_entscheiden). Nein wird ebenso
+    festgehalten. Genau eine Entscheidung je Anfrage, mit Begruendung.
+    """
+    pruefe_mandant(benutzer, cid)
+    _nur_pg("Die Abloesung alter Prozesse")
+    b = await req.json()
+    sperren = b.get("sperren")
+    if not isinstance(sperren, bool):
+        raise HTTPException(400, "sperren muss ja (true) oder nein (false) sein.")
+    begruendung = (b.get("begruendung") or "").strip()
+    if not begruendung:
+        raise HTTPException(400, "Die Entscheidung braucht eine Begruendung.")
+    c = db()
+    try:
+        _gate_mandant(c, cid)
+        try:
+            n = c.execute("SELECT anfrage_alt_entscheiden(?, ?, ?, ?, ?) AS n",
+                          (cid, anfrage_id, benutzer.benutzer_id, sperren, begruendung)).fetchone()["n"]
+        except HTTPException:
+            raise
+        except Exception as e:  # noqa: BLE001 — die Datenbank hat den Satz
+            c.close()
+            raise _db_fehler_lesbar(e)
+        c.commit()
+    finally:
+        try: c.close()
+        except Exception: pass
+    return {"ok": True, "anfrage_id": anfrage_id, "alt_sperren": sperren, "gesperrt": int(n or 0)}
 
 
 @app.post("/api/companies/{cid}/anfragen")
@@ -5569,6 +5808,32 @@ async def anfrage_anlegen(cid: str, req: Request, benutzer: Benutzer = Depends(s
         sub_process_id = (b.get("sub_process_id") or "").strip() or None
         quelle = (b.get("zuordnung_quelle") or "").strip() or None
 
+        # v3.24 (31.10.2026): Mehrere Teilprozesse direkt in der Anfrage.
+        # Anlass UC1 Reisebuchung: vier Schritte eines Ablaufs (KP-06.TP-2..5)
+        # liefen als vier Anfragen und damit als vier Pakete bei BC2. Wer die
+        # Schritte kennt, waehlt sie gleich zusammen. Der ERSTE ist der
+        # Hauptbezug (Kurzform in ref_anfragen), die uebrigen sind beteiligt —
+        # Herkunft in beiden Faellen 'anfrage'. Alle muessen zum gewaehlten
+        # Kernprozess gehoeren; quer ueber Kernprozesse fuehrt der Vorschlag
+        # (v3.22) bzw. die Zuordnung.
+        weitere = []
+        liste = b.get("teilprozesse")
+        if liste is not None:
+            if not isinstance(liste, list):
+                raise HTTPException(400, "teilprozesse muss eine Liste sein.")
+            gesehen = []
+            for x in liste:
+                x = str(x or "").strip()
+                if x and x not in gesehen:
+                    gesehen.append(x)
+            if gesehen:
+                if sub_process_id and sub_process_id != gesehen[0]:
+                    if sub_process_id in gesehen:
+                        gesehen.remove(sub_process_id)
+                    gesehen.insert(0, sub_process_id)
+                sub_process_id = gesehen[0]
+                weitere = gesehen[1:]
+
         if sub_process_id and not process_id:
             raise HTTPException(400, "Ein Teilprozess ohne Kernprozess ergibt keinen Bezug.")
         if process_id:
@@ -5581,6 +5846,12 @@ async def anfrage_anlegen(cid: str, req: Request, benutzer: Benutzer = Depends(s
                     (cid, sub_process_id, process_id)).fetchone():
                 raise HTTPException(400, "%s gehoert nicht zu %s." % (sub_process_id, process_id))
             _tp_benannt_pruefen(c, cid, sub_process_id)      # v3.20
+            for w in weitere:                                  # v3.24
+                if not c.execute("SELECT 1 AS da FROM ref_teilprozesse WHERE " + W_CO +
+                                 " AND sub_process_id=? AND process_id=?",
+                                 (cid, w, process_id)).fetchone():
+                    raise HTTPException(400, "%s gehoert nicht zu %s." % (w, process_id))
+                _tp_benannt_pruefen(c, cid, w)
             # Herkunft ist Pflicht, sobald ein Bezug da ist (ADR-005, und
             # ck_anfrage_bezug_paarweise setzt es durch). Wer ueber die
             # Maske kommt, hat ihn selbst gewaehlt: 'anfrage'.
@@ -5623,11 +5894,16 @@ async def anfrage_anlegen(cid: str, req: Request, benutzer: Benutzer = Depends(s
             c.execute("INSERT INTO anfrage_prozesse(company_id,anfrage_id,process_id,sub_process_id,"
                       "rolle,zuordnung_quelle,angelegt_am) VALUES(?,?,?,?,?,?,?)",
                       (cid, anfrage_id, process_id, sub_process_id, "haupt", quelle, _jetzt()))
+            for w in weitere:                                   # v3.24: beteiligt
+                c.execute("INSERT INTO anfrage_prozesse(company_id,anfrage_id,process_id,sub_process_id,"
+                          "rolle,zuordnung_quelle,angelegt_am) VALUES(?,?,?,?,?,?,?)",
+                          (cid, anfrage_id, process_id, w, "beteiligt", quelle, _jetzt()))
         c.commit()
     finally:
         c.close()
     return {"ok": True, "anfrage_id": anfrage_id, "status": "eingegangen",
-            "process_id": process_id, "zuordnung_quelle": quelle}
+            "process_id": process_id, "zuordnung_quelle": quelle,
+            "teilprozesse": ([sub_process_id] + weitere) if sub_process_id else []}
 
 
 
@@ -5879,6 +6155,40 @@ def vorschlaege_bc0(anfragetext, prozesse, teilprozesse,
     return kandidaten[:hoechstens]
 
 
+#: v3.22 (30.10.2026, Entscheidung Simeon): je Kernprozess hoechstens so viele
+#: Teilprozesse im Vorschlag, und hoechstens so viele Kernprozesse.
+VORSCHLAG_JE_KP = 5
+VORSCHLAG_KPS = 3
+
+
+def vorschlaege_je_kp(anfragetext, prozesse, teilprozesse,
+                      je_kp=VORSCHLAG_JE_KP, kps=VORSCHLAG_KPS):
+    """v3.22: Vorschlaege gruppiert nach Kernprozess, je KP bis zu ``je_kp`` Teilprozesse.
+
+    Grundlage ist derselbe Stichwortabgleich wie :func:`vorschlaege_bc0` (gleiche
+    Gewichte, gleiche Schwelle). Unbenannte Teilprozesse („Teilprozess N") fallen
+    heraus — zuordnen liessen sie sich ohnehin nicht (v3.19b). Die Kernprozesse
+    stehen nach ihrem besten Treffer geordnet; bei Gleichstand entscheidet die ID.
+
+    Returns:
+        list: ``[{"process_id", "process_name", "punkte", "teilprozesse": [...]}]``.
+        Ein Eintrag ohne Teilprozesse ist ein Vorschlag auf Kernprozessebene.
+    """
+    alle = vorschlaege_bc0(anfragetext, prozesse, teilprozesse, hoechstens=10_000)
+    gruppen = {}
+    for v in alle:
+        if v.get("sub_process_id") and _tp_unbenannt(v.get("sub_process_name")):
+            continue
+        g = gruppen.setdefault(v["process_id"], {"process_id": v["process_id"],
+                                                 "process_name": v.get("process_name"),
+                                                 "punkte": 0, "teilprozesse": []})
+        g["punkte"] = max(g["punkte"], v["punkte"])
+        if v.get("sub_process_id") and len(g["teilprozesse"]) < je_kp:
+            g["teilprozesse"].append(v)
+    reihe = sorted(gruppen.values(), key=lambda g: (-g["punkte"], g["process_id"] or ""))
+    return reihe[:kps]
+
+
 @app.get("/api/companies/{cid}/anfragen/{anfrage_id}/vorschlaege")
 def anfrage_vorschlaege(cid: str, anfrage_id: str,
                         benutzer: Benutzer = Depends(angemeldeter_benutzer)):
@@ -5937,6 +6247,7 @@ def anfrage_vorschlaege(cid: str, anfrage_id: str,
     quellfelder = ("originaltext", "erhofftes_ziel", "ausloeser")
     text = " ".join((anfrage[f] or "") for f in quellfelder)
     treffer = vorschlaege_bc0(text, prozesse, teilprozesse)
+    je_kp = vorschlaege_je_kp(text, prozesse, teilprozesse)              # v3.22
 
     if treffer:
         # Auf `info`, nicht auf `warning`: Das ist der Normalfall und keine
@@ -5947,7 +6258,66 @@ def anfrage_vorschlaege(cid: str, anfrage_id: str,
     return {"anfrage_id": anfrage_id,
             "bereits_zugeordnet": anfrage["process_id"],
             "grundlage": [f for f in quellfelder if anfrage[f]],
-            "vorschlaege": treffer}
+            "vorschlaege": treffer, "je_kp": je_kp}
+
+
+@app.post("/api/companies/{cid}/anfragen/{anfrage_id}/vorschlaege/uebernehmen")
+def anfrage_vorschlaege_uebernehmen(cid: str, anfrage_id: str, koerper: dict = None,
+                                    benutzer: Benutzer = Depends(schreibender_benutzer)):
+    """v3.22: Uebernimmt die Vorschlaege mit EINEM Klick (Entscheidung Simeon 30.10.2026).
+
+    **Der Mensch quittiert, die App traegt nicht selbst ein.** Dieser Endpunkt laeuft nur
+    auf Klick. Er rechnet die Vorschlaege serverseitig neu (aus dem gespeicherten Text,
+    nicht aus dem, was der Browser schickt) und schreibt sie mit
+    ``zuordnung_quelle='vorschlag_bc0'``.
+
+    **Bestehende Bezuege bleiben.** Neue kommen als ``beteiligt`` dazu. Hat die Anfrage
+    noch keinen Bezug, wird der beste Teilprozess des besten Kernprozesses Hauptbezug.
+
+    Body (optional): ``{"auswahl": ["KP-06.TP-2", ...]}`` beschraenkt auf diese
+    Teilprozesse; ohne Auswahl werden alle vorgeschlagenen Teilprozesse uebernommen.
+    """
+    pruefe_mandant(benutzer, cid)
+    auswahl = None
+    if koerper and isinstance(koerper.get("auswahl"), list):
+        auswahl = {str(x) for x in koerper["auswahl"]}
+    c = db()
+    try:
+        _gate_mandant(c, cid)
+        anfrage = c.execute("SELECT originaltext, erhofftes_ziel, ausloeser FROM ref_anfragen "
+                            "WHERE " + W_CO + " AND anfrage_id=?", (cid, anfrage_id)).fetchone()
+        if not anfrage:
+            raise HTTPException(404, "Unbekannte Anfrage: %s" % anfrage_id)
+        prozesse = [dict(r) for r in c.execute(SEL_PROC + " WHERE " + W_CO, (cid,)).fetchall()]
+        teilprozesse = [dict(r) for r in c.execute(SEL_TP + " WHERE " + W_CO, (cid,)).fetchall()]
+        text = " ".join((anfrage[f] or "") for f in ("originaltext", "erhofftes_ziel", "ausloeser"))
+        gruppen = vorschlaege_je_kp(text, prozesse, teilprozesse)
+        neu = [{"process_id": t["process_id"], "sub_process_id": t["sub_process_id"]}
+               for g in gruppen for t in g["teilprozesse"]
+               if auswahl is None or t["sub_process_id"] in auswahl]
+        if not neu:
+            raise HTTPException(409, "Keine passenden Teilprozesse zum Uebernehmen.")
+        bestehend = _bezuege_lesen(c, cid, anfrage_id).get(anfrage_id, [])
+        liste = [{"process_id": b["process_id"], "sub_process_id": b.get("sub_process_id"),
+                  "rolle": b.get("rolle"), "zuordnung_quelle": b.get("zuordnung_quelle")}
+                 for b in bestehend]
+        da = {(b["process_id"], b.get("sub_process_id") or None) for b in liste}
+        hat_haupt = any(b.get("rolle") == "haupt" for b in liste)
+        dazu = []
+        for n in neu:
+            if (n["process_id"], n["sub_process_id"]) in da:
+                continue
+            rolle = "beteiligt" if (hat_haupt or dazu) else "haupt"
+            dazu.append({"process_id": n["process_id"], "sub_process_id": n["sub_process_id"],
+                         "rolle": rolle, "zuordnung_quelle": "vorschlag_bc0"})
+        if dazu:
+            _bezuege_schreiben(c, cid, anfrage_id, liste + dazu)
+            c.commit()
+        bezuege = _bezuege_lesen(c, cid, anfrage_id).get(anfrage_id, [])
+    finally:
+        c.close()
+    return {"ok": True, "anfrage_id": anfrage_id,
+            "uebernommen": [d["sub_process_id"] for d in dazu], "bezuege": bezuege}
 
 
 @app.put("/api/companies/{cid}/anfragen/{anfrage_id}/zuordnung")
@@ -6180,6 +6550,176 @@ async def anfrage_status_setzen(cid: str, anfrage_id: str, req: Request,
     return {"ok": True, "anfrage_id": anfrage_id, "status_alt": alt, "status": neu}
 
 
+# =============================================================================
+# v3.21 (28.10.2026): BC1-Interview in der Anfrage-App — Weiterleitung an BC1
+# =============================================================================
+# Grundlage: Brief BC1 an BC0 „Einbau des Interviews in die Anfrage-App“ (27.10.2026),
+# Teil 2 Abschnitte A–C, und „Rückmeldung und Fahrplan für den ersten Start“.
+#
+# Der Browser spricht nur mit uns, nie mit BC1. BC1 laeuft als Container ohne Port
+# nach aussen und ist nur im Compose-Netz unter BC1_URL erreichbar. Anfrage, Mandant,
+# Gespraechskennung und Zugangsschluessel setzt dieses Backend — nicht der Browser.
+#
+# Datenschutz: Nachrichtentexte werden hier WEDER gespeichert NOCH protokolliert.
+# BC1 filtert personenbezogene Angaben, bevor es etwas ablegt; wuerden wir vorher
+# speichern, ginge das am Filter vorbei. Ins Log kommen nur Kennungen.
+#
+# Der Endpunkt ist bewusst `def` (nicht `async def`): FastAPI fuehrt ihn im
+# Threadpool aus. Ein Turn dauert 4–6 s, im Grenzfall ueber 60 s; ein blockierender
+# urllib-Aufruf in einem async-Endpunkt haelte so lange das ganze Backend an.
+_BC1_KENNUNG_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+_BC1_ANFRAGE_RE = re.compile(r"^A-[0-9]{4}-[0-9]{2}$")
+_BC1_GESPRAECH_STATUS = ("zugeordnet", "im_interview")
+_BC1_MAX_ZEICHEN = 4000
+#: Antworten von BC1, deren JSON (detail + chat_text) unveraendert an den Browser geht.
+_BC1_DURCHREICHEN = (409, 500, 503)
+
+
+def _bc1_konfig():
+    """Liest die BC1-Einstellungen bei jedem Aufruf (Tests setzen sie zur Laufzeit)."""
+    return {
+        "url": (os.environ.get("BC1_URL") or "").rstrip("/"),
+        "zugang": os.environ.get("BC1_ZUGANG") or "",
+        "company_id": (os.environ.get("BC1_COMPANY_ID") or "").strip(),
+        "timeout": float(os.environ.get("BC1_TIMEOUT") or 90),
+    }
+
+
+def _bc1_gespraech_moeglich(cid, status):
+    """Ob die Anfrage-App fuer diese Anfrage das Gespraech anbietet.
+
+    Nur fuer den BC1-Mandanten, nur wenn BC1 eingerichtet ist, und nur in den
+    Staenden ``zugeordnet`` und ``im_interview`` (BC1 setzt ``im_interview`` schon
+    beim eigenen Start).
+    """
+    k = _bc1_konfig()
+    return bool(k["url"] and k["zugang"] and k["company_id"]
+                and str(cid) == k["company_id"] and status in _BC1_GESPRAECH_STATUS)
+
+
+def _bc1_session_id(c, cid, anfrage_id):
+    """Dauerhafte Gespraechskennung je Anfrage — nach einem Neustart dieselbe.
+
+    Sonst entstuende nach einem Neustart des Backends eine zweite BC1-Sitzung zum
+    selben Teilprozess (Brief 27.10., Abschnitt B Punkt 6).
+    """
+    z = c.execute("SELECT session_id FROM bc1_gespraeche WHERE " + W_CO +
+                  " AND anfrage_id=?", (cid, anfrage_id)).fetchone()
+    if z:
+        return z["session_id"]
+    neu = uuid.uuid4().hex
+    c.execute("INSERT INTO bc1_gespraeche(company_id,anfrage_id,session_id,angelegt_am) "
+              "VALUES(?,?,?,?) ON CONFLICT (company_id, anfrage_id) DO NOTHING",
+              (cid, anfrage_id, neu, datetime.datetime.now(datetime.timezone.utc).isoformat()))
+    c.commit()
+    # Bei gleichzeitigem Erstaufruf gewinnt die zuerst geschriebene Kennung.
+    return c.execute("SELECT session_id FROM bc1_gespraeche WHERE " + W_CO +
+                     " AND anfrage_id=?", (cid, anfrage_id)).fetchone()["session_id"]
+
+
+def _bc1_json(roh):
+    try:
+        d = json.loads(roh.decode("utf-8") if isinstance(roh, (bytes, bytearray)) else roh)
+        return d if isinstance(d, dict) else {}
+    except Exception:  # noqa: BLE001 - kaputtes JSON von BC1 = kein Inhalt
+        return {}
+
+
+def _bc1_antwort(code, d):
+    """Nur ``status``/``detail`` und ``chat_text`` gehen an den Browser.
+
+    Der Rest der BC1-Antwort enthaelt das Zwischenergebnis des Profils und bleibt
+    hier (Brief 27.10., Abschnitt A).
+    """
+    aus = {}
+    if code == 200:
+        aus["status"] = d.get("status")
+    else:
+        aus["detail"] = d.get("detail")
+    if isinstance(d.get("chat_text"), str):
+        aus["chat_text"] = d["chat_text"]
+    return JSONResponse(aus, status_code=code)
+
+
+@app.post("/api/companies/{cid}/anfragen/{anfrage_id}/gespraech")
+def anfrage_gespraech(cid: str, anfrage_id: str, koerper: dict,
+                      benutzer: Benutzer = Depends(schreibender_benutzer)):
+    """Reicht eine Chat-Nachricht an BC1 weiter (POST ``/turn``) und gibt die Antwort zurueck.
+
+    Body: ``message_id`` (erzeugt der Browser; bei „Erneut senden“ dieselbe) und
+    ``message``. Antwort bei 200: ``status`` + ``chat_text``. Fehler von BC1 mit
+    409/500/503 gehen mit ``detail`` + ``chat_text`` unveraendert weiter. Eine 401
+    von BC1 heisst „Zugangsschluessel falsch“ — ein Konfigurationsfehler, kein
+    Anmeldeproblem der Person — und wird zu 502 ``bc1_zugang_fehler``; eine 401 an
+    den Browser bleibt der BC0-Anmeldung vorbehalten.
+    """
+    pruefe_mandant(benutzer, cid)
+    k = _bc1_konfig()
+    if not (k["url"] and k["zugang"] and k["company_id"]):
+        return JSONResponse({"detail": "bc1_nicht_eingerichtet"}, status_code=503)
+    if str(cid) != k["company_id"]:
+        return JSONResponse({"detail": "gespraech_nicht_verfuegbar"}, status_code=404)
+    if not _BC1_ANFRAGE_RE.match(anfrage_id or ""):
+        raise HTTPException(422, "anfrage_id hat nicht die Form A-JJJJ-NN.")
+    message_id = str(koerper.get("message_id") or "")
+    nachricht = koerper.get("message")
+    if not _BC1_KENNUNG_RE.match(message_id):
+        raise HTTPException(422, "message_id: nur A–Z a–z 0–9 _ -, hoechstens 64 Zeichen.")
+    if not isinstance(nachricht, str) or not nachricht.strip():
+        raise HTTPException(422, "message fehlt.")
+    if len(nachricht) > _BC1_MAX_ZEICHEN:
+        raise HTTPException(422, "message ist zu lang (hoechstens %d Zeichen)." % _BC1_MAX_ZEICHEN)
+
+    c = db()
+    try:
+        _gate_mandant(c, cid)
+        z = c.execute("SELECT status FROM ref_anfragen WHERE " + W_CO + " AND anfrage_id=?",
+                      (cid, anfrage_id)).fetchone()
+        if not z:
+            raise HTTPException(404, "Unbekannte Anfrage: %s" % anfrage_id)
+        if z["status"] not in _BC1_GESPRAECH_STATUS:
+            return JSONResponse({"detail": "gespraech_nicht_moeglich", "status": z["status"]},
+                                status_code=409)
+        session_id = _bc1_session_id(c, cid, anfrage_id)
+    finally:
+        c.close()
+
+    korrelation = uuid.uuid4().hex[:16]
+    daten = json.dumps({"session_id": session_id, "message_id": message_id,
+                        "message": nachricht, "anfrage_id": anfrage_id,
+                        "company_id": str(cid)}).encode("utf-8")
+    req = urllib.request.Request(k["url"] + "/turn", data=daten, method="POST", headers={
+        "Content-Type": "application/json", "X-BC1-Zugang": k["zugang"],
+        "X-Correlation-ID": korrelation})
+    t0 = time.monotonic()
+    try:
+        with urllib.request.urlopen(req, timeout=k["timeout"]) as r:   # noqa: S310 - feste interne URL
+            code, d = r.status, _bc1_json(r.read())
+    except urllib.error.HTTPError as e:
+        code = e.code
+        try:
+            d = _bc1_json(e.read())
+        except Exception:  # noqa: BLE001
+            d = {}
+    except Exception as e:  # noqa: BLE001 - Zeitueberschreitung, Verbindung, DNS
+        LOG.warning("BC1-Turn %s %s [%s]: keine Antwort (%s) nach %.1f s",
+                    anfrage_id, message_id, korrelation, type(e).__name__, time.monotonic() - t0)
+        return JSONResponse({"detail": "zeitueberschreitung"}, status_code=504)
+
+    LOG.info("BC1-Turn %s %s [%s]: HTTP %s %s nach %.1f s", anfrage_id, message_id, korrelation,
+             code, d.get("status") or d.get("detail") or "", time.monotonic() - t0)
+    if code == 200:
+        return _bc1_antwort(200, d)
+    if code == 401:
+        LOG.error("BC1 lehnt den Zugangsschluessel ab [%s] — BC1_ZUGANG pruefen", korrelation)
+        return JSONResponse({"detail": "bc1_zugang_fehler"}, status_code=502)
+    if code == 422:
+        return JSONResponse({"detail": "bc1_eingabe_fehler"}, status_code=502)
+    if code in _BC1_DURCHREICHEN:
+        return _bc1_antwort(code, d)
+    return JSONResponse({"detail": "bc1_fehler"}, status_code=502)
+
+
 @app.post("/api/companies/{cid}/prozesskanten")
 async def prozesskante_anlegen(cid: str, req: Request,
                                benutzer: Benutzer = Depends(schreibender_benutzer)):
@@ -6384,6 +6924,17 @@ def ki_controlling(cid: str, benutzer: Benutzer = Depends(angemeldeter_benutzer)
         st = alle("SELECT sachstand, beschreibung, person_id, beschlossen_am, ueberarbeitet_am FROM ki_strategie WHERE " + W_CO)
         meilensteine = alle("SELECT id, titel, zieldatum, erreicht_am FROM ki_meilensteine WHERE " + W_CO
                             + " ORDER BY zieldatum, id")
+        # v3.42: Modellregister, Wechselplan und Einsatz je Modell (aus ki_laufdaten; Teilprozesse gesamt, Laeufe auch der letzten 90 Tage)
+        modellregister = alle("SELECT modell, anbieter, betriebsart, status, abgekuendigt_am, abschaltung_am, nachfolger, "
+                              "person_id, bemerkung FROM ki_modellregister WHERE " + W_CO + " ORDER BY abschaltung_am, modell")
+        modellwechsel = alle("SELECT modell, schritt_nr, titel, kriterium, zieldatum, erledigt_am FROM ki_modellwechsel_schritte "
+                             "WHERE " + W_CO + " ORDER BY modell, schritt_nr")
+        grenze90 = "now() - interval '90 days'" if PG else "datetime('now','-90 days')"
+        modell_einsatz = alle("SELECT modell, count(*) AS laeufe, sum(CASE WHEN zeitpunkt >= " + grenze90 + " THEN 1 ELSE 0 END) AS laeufe_90, "
+                              "min(zeitpunkt) AS erster, max(zeitpunkt) AS letzter, "
+                              + ("string_agg(DISTINCT coalesce(sub_process_id, process_id, '—'), ', ' ORDER BY coalesce(sub_process_id, process_id, '—'))"
+                                 if PG else "group_concat(DISTINCT coalesce(sub_process_id, process_id, '—'))")
+                              + " AS teilprozesse FROM ki_laufdaten WHERE " + W_CO + " GROUP BY modell ORDER BY modell")
         tag = "date(zeitpunkt)" if not PG else "zeitpunkt::date"
         token = alle("SELECT " + tag + " AS tag, modell, sum(coalesce(input_tokens,0)+coalesce(output_tokens,0)) AS token, "
                      "sum(coalesce(kosten_eur,0)) AS kosten_eur, count(*) AS aufrufe FROM ki_laufdaten WHERE " + W_CO
@@ -6393,7 +6944,8 @@ def ki_controlling(cid: str, benutzer: Benutzer = Depends(angemeldeter_benutzer)
                              + W_CO + " GROUP BY 1,2 ORDER BY 1,2")
         korr = "CASE WHEN korrigiert THEN 1 ELSE 0 END" if PG else "coalesce(korrigiert,0)"
         laeufe = alle("SELECT " + tag + " AS tag, coalesce(sub_process_id, process_id, '—') AS prozess, count(*) AS laeufe, "
-                      "sum(" + korr + ") AS korrigiert, sum(CASE WHEN status<>'ok' THEN 1 ELSE 0 END) AS fehler "
+                      "sum(" + korr + ") AS korrigiert, sum(CASE WHEN korrigiert IS NULL THEN 0 ELSE 1 END) AS korrigiert_erfasst, "
+                      "sum(CASE WHEN status<>'ok' THEN 1 ELSE 0 END) AS fehler "
                       "FROM ki_laufdaten WHERE " + W_CO + " GROUP BY 1,2 ORDER BY 2,1")
     finally:
         c.close()
@@ -6402,11 +6954,92 @@ def ki_controlling(cid: str, benutzer: Benutzer = Depends(angemeldeter_benutzer)
     for z in token:
         z["kosten_eur"] = float(z["kosten_eur"] or 0)
     for z in laeufe:
-        for k in ("laeufe", "korrigiert", "fehler"): z[k] = int(z[k] or 0)
-    return {"schulungen": schulungen, "research_bereiche": bereiche, "research_notizen": notizen,
+        for k in ("laeufe", "korrigiert", "korrigiert_erfasst", "fehler"): z[k] = int(z[k] or 0)
+    for z in modell_einsatz:
+        z["laeufe"] = int(z["laeufe"] or 0); z["laeufe_90"] = int(z["laeufe_90"] or 0)
+    return {"modellregister": modellregister, "modellwechsel": modellwechsel, "modell_einsatz": modell_einsatz,
+            "schulungen": schulungen, "research_bereiche": bereiche, "research_notizen": notizen,
             "wissensdb": w[0] if w else None, "strategie": st[0] if st else None, "meilensteine": meilensteine,
             "laufdaten": {"vorhanden": bool(token or laeufe), "token_tag_modell": token,
                           "token_tag_prozess": token_prozess, "laeufe_tag_prozess": laeufe}}
+
+# =============================================================================
+# v3.37 (06.11.2026): KI-Reifegrad › Prozessdoku & Verantwortung — nur lesen
+# =============================================================================
+# Simeon 06.11.: "Aus der KI-Transformation in den Bereich KI-Reifegrad verschieben —
+# keine bisherigen Prozesse hinterlegen, das sind nur digitale Prozesse und nicht
+# KI-gestuetzte. Dort soll hinterlegt werden: die durchgelaufenen Prozesse von Ozan auf
+# Anfrage/KP/TP-Ebene in der Anzahl 1-x. Zusaetzlich die passenden KPI fuer jeden
+# Ruecklauf mitplotten."
+# Quelle sind ausschliesslich die kir_-Tabellen aus v3.36 und ki_laufdaten. Ein Lauf
+# gehoert zu dem Durchlauf, den kir_lauf_zuordnung nennt; ohne Zuordnung zu Durchlauf 1
+# (Regel aus v3.36, gleiche Rechnung wie v_kir_durchlauf_stand). Dieser Endpunkt
+# schreibt nichts.
+import decimal as _kir_decimal                                           # noqa: E402
+
+def _kir_wert(v):
+    if isinstance(v, _kir_decimal.Decimal):
+        return float(v)
+    return _kic_iso(v)
+
+@app.get("/api/companies/{cid}/ki_reifegrad/durchlaeufe")
+def kir_durchlaeufe(cid: str, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+    pruefe_mandant(benutzer, cid)
+    _nur_pg("KI-Reifegrad (Durchläufe)")
+    c = db()
+    try:
+        def alle(sql, n=1):
+            return [{k: _kir_wert(v) for k, v in dict(r).items()} for r in c.execute(sql, (cid,) * n).fetchall()]
+        durchlaeufe = alle(
+            "SELECT d.paket_id::text AS paket_id, d.durchlauf_nr, d.use_case, d.anlass, d.angelegt_am, "
+            "d.entscheidung, d.entschieden_am, d.begruendung, "
+            "e.erfuellung_pct, e.a_x, e.a_n, e.k_x, e.k_n, e.w_x, e.w_n, e.g_a, e.g_k, e.g_w, e.hinweis, "
+            "s.agentenblaetter, s.blaetter_geprueft, s.testergebnisse, s.bestanden, s.messwerte, "
+            "s.abweichungen, s.werkzeuge_verwendet "
+            "FROM kir_durchlauf d "
+            "JOIN v_kir_erfuellungsgrad e ON (e.company_id,e.paket_id,e.durchlauf_nr)=(d.company_id,d.paket_id,d.durchlauf_nr) "
+            "JOIN v_kir_durchlauf_stand s ON (s.company_id,s.paket_id,s.durchlauf_nr)=(d.company_id,d.paket_id,d.durchlauf_nr) "
+            "WHERE d.company_id::text=? ORDER BY d.paket_id, d.durchlauf_nr")
+        inhalt = alle(
+            "SELECT i.paket_id::text AS paket_id, i.anfrage_id, i.sub_process_id, left(i.sub_process_id,5) AS process_id "
+            "FROM gate_paket_inhalt i WHERE i.company_id::text=? "
+            "AND EXISTS (SELECT 1 FROM kir_durchlauf d WHERE d.company_id=i.company_id AND d.paket_id=i.paket_id) "
+            "ORDER BY i.anfrage_id, i.sub_process_id")
+        laeufe = alle(
+            "SELECT l.paket_id::text AS paket_id, coalesce(z.durchlauf_nr,1) AS durchlauf_nr, "
+            "coalesce(l.sub_process_id, l.process_id, '—') AS sub_process_id, "
+            "count(*) AS laeufe, sum(coalesce(l.input_tokens,0)+coalesce(l.output_tokens,0)) AS token, "
+            "sum(l.kosten_eur) AS kosten_eur, count(l.kosten_eur) AS kosten_erfasst, "
+            "sum(CASE WHEN l.korrigiert THEN 1 ELSE 0 END) AS korrigiert, count(l.korrigiert) AS korrigiert_erfasst, "
+            "sum(CASE WHEN l.status<>'ok' THEN 1 ELSE 0 END) AS fehler, round(avg(l.dauer_ms)) AS dauer_ms_mittel, "
+            "min(l.zeitpunkt) AS erster, max(l.zeitpunkt) AS letzter, "
+            "array_to_string(array_agg(DISTINCT l.modell), ', ') AS modelle "
+            "FROM ki_laufdaten l LEFT JOIN kir_lauf_zuordnung z ON z.ki_laufdaten_id=l.id "
+            "WHERE l.company_id::text=? "
+            "AND EXISTS (SELECT 1 FROM kir_durchlauf d WHERE d.company_id=l.company_id AND d.paket_id=l.paket_id) "
+            "GROUP BY 1,2,3 ORDER BY 1,2,3")
+        ohne = alle("SELECT count(*) AS laeufe, min(zeitpunkt) AS erster, max(zeitpunkt) AS letzter FROM ki_laufdaten l "
+                    "WHERE l.company_id::text=? AND NOT EXISTS (SELECT 1 FROM kir_durchlauf d "
+                    "WHERE d.company_id=l.company_id AND d.paket_id=l.paket_id)")
+        kennzahlen = alle("SELECT use_case, kennzahl_id, bezeichnung, einheit, richtung, zielwert, schwelle "
+                          "FROM kir_kennzahlen WHERE company_id::text=? ORDER BY use_case, kennzahl_id")
+        messwerte = alle("SELECT paket_id::text AS paket_id, durchlauf_nr, kennzahl_id, vorher, nachher "
+                         "FROM kir_messwerte WHERE company_id::text=? ORDER BY paket_id, durchlauf_nr, kennzahl_id")
+        blaetter = alle("SELECT paket_id::text AS paket_id, durchlauf_nr, sub_process_id, bezeichnung, version, "
+                        "fachlich_person_id, technisch_person_id, geprueft_am, geprueft_von "
+                        "FROM kir_agentenblatt WHERE company_id::text=? ORDER BY paket_id, durchlauf_nr, sub_process_id")
+    except HTTPException:
+        raise
+    except Exception:
+        c.close(); _tabelle_fehlt("kir_durchlauf (Schema v3.36)")
+    c.close()
+    for z in laeufe:
+        for k in ("laeufe", "token", "kosten_erfasst", "korrigiert", "korrigiert_erfasst", "fehler"):
+            z[k] = int(z[k] or 0)
+    return {"durchlaeufe": durchlaeufe, "inhalt": inhalt, "laeufe": laeufe,
+            "ohne_durchlauf": ohne[0] if ohne else {"laeufe": 0},
+            "kennzahlen": kennzahlen, "messwerte": messwerte, "agentenblaetter": blaetter}
+
 
 @app.put("/api/companies/{cid}/ki_controlling")
 async def save_ki_controlling(cid: str, req: Request, benutzer: Benutzer = Depends(schreibender_benutzer)):
@@ -6488,12 +7121,406 @@ async def save_ki_controlling(cid: str, req: Request, benutzer: Benutzer = Depen
                                _kic_datum(e.get("erreicht_am"), "erreicht_am")))
             plan.append(("DELETE FROM ki_meilensteine WHERE " + W_CO, [(cid,)]))
             plan.append(("INSERT INTO ki_meilensteine(company_id,titel,zieldatum,erreicht_am) VALUES(?,?,?,?)", zeilen))
+        if "modellregister" in b:
+            # v3.42: Register und Wechselplan ersetzen den Bestand des Mandanten (wie Meilensteine).
+            reg, schritte, gesehen = [], [], set()
+            for e in liste("modellregister"):
+                if not isinstance(e, dict): raise HTTPException(400, "modellregister: Objekte erwartet")
+                modell = _kic_text(e.get("modell"))
+                if not modell: continue
+                if modell in gesehen: raise HTTPException(400, "Modell doppelt im Register: %s" % modell)
+                gesehen.add(modell)
+                art = e.get("betriebsart") or "cloud"
+                if art not in ("cloud", "lokal"): raise HTTPException(400, "betriebsart: cloud / lokal")
+                stat = e.get("status") or "im_einsatz"
+                if stat not in ("im_einsatz", "abgekuendigt", "wechsel_laeuft", "abgeloest"):
+                    raise HTTPException(400, "status: im_einsatz / abgekuendigt / wechsel_laeuft / abgeloest")
+                reg.append((cid, modell, _kic_text(e.get("anbieter")), art, stat,
+                            _kic_datum(e.get("abgekuendigt_am"), "abgekuendigt_am"), _kic_datum(e.get("abschaltung_am"), "abschaltung_am"),
+                            _kic_text(e.get("nachfolger")), _kic_person(e.get("person_id"), bekannte), _kic_text(e.get("bemerkung"))))
+                nummern = set()
+                sl = e.get("schritte") or []
+                if not isinstance(sl, list): raise HTTPException(400, "schritte muss eine Liste sein")
+                for i, sch in enumerate(sl):
+                    if not isinstance(sch, dict): raise HTTPException(400, "schritte: Objekte erwartet")
+                    titel = _kic_text(sch.get("titel"))
+                    if not titel: continue
+                    try: nr = int(sch.get("schritt_nr") or (i + 1))
+                    except (TypeError, ValueError): raise HTTPException(400, "schritt_nr muss eine Zahl sein")
+                    if nr < 1 or nr > 20 or nr in nummern: raise HTTPException(400, "schritt_nr ungueltig oder doppelt: %s / %s" % (modell, nr))
+                    nummern.add(nr)
+                    schritte.append((cid, modell, nr, titel, _kic_text(sch.get("kriterium")),
+                                     _kic_datum(sch.get("zieldatum"), "zieldatum (Schritt %d, %s)" % (nr, modell), pflicht=True),
+                                     _kic_datum(sch.get("erledigt_am"), "erledigt_am")))
+            plan.append(("DELETE FROM ki_modellwechsel_schritte WHERE " + W_CO, [(cid,)]))
+            plan.append(("DELETE FROM ki_modellregister WHERE " + W_CO, [(cid,)]))
+            plan.append(("INSERT INTO ki_modellregister(company_id,modell,anbieter,betriebsart,status,abgekuendigt_am,abschaltung_am,"
+                         "nachfolger,person_id,bemerkung) VALUES(?,?,?,?,?,?,?,?,?,?)", reg))
+            plan.append(("INSERT INTO ki_modellwechsel_schritte(company_id,modell,schritt_nr,titel,kriterium,zieldatum,erledigt_am) "
+                         "VALUES(?,?,?,?,?,?,?)", schritte))
         for sql, werte in plan:
             for w in werte: c.execute(sql, w)
         c.commit()
     finally:
         c.close()
     return {"ok": True}
+
+# =============================================================================
+# KI-Reifegrad nach SEI (v3.43, 17.11.2026)
+# Acht Dimensionen, 25 Faehigkeitsbereiche, Stufen 1-5. Jede Dimension bekommt den Wert
+# ihres schwaechsten Bereichs, jeder Bereich den seines schwaechsten Reifeindikators
+# (SEI S. 87). Die App rechnet und schlaegt vor; die Bewertung traegt ein Mensch ein.
+# =============================================================================
+KIA_STUFEN = {1: "Exploratory AI", 2: "Implemented AI", 3: "Aligned AI", 4: "Scaled AI", 5: "Future Ready AI"}
+KIA_ZIELE = ("erfuellt", "teilweise", "nein", "zurueckgestellt")
+KIA_NACHWEIS = ("messung", "beleg", "einschaetzung")
+KIA_KONTEXT = {
+    "umfang": ("mandant", "bereich", "kernprozess", "team"),
+    "regulierung": ("reguliert", "teilweise", "nicht_reguliert"),
+    "planungshorizont": ("unter_6_monate", "6_12_monate", "1_3_jahre", "ueber_3_jahre"),
+    "entwicklungsansatz": ("selbst_bauen", "kaufen", "anpassen", "gemischt"),
+    "risikobereitschaft": ("hoch", "mittel", "niedrig"),
+}
+
+
+def _kia_bereichsstufe(eintritt, bew):
+    """Stufe eines Faehigkeitsbereichs aus seiner juengsten Bewertung.
+
+    Ohne Bewertung: None (zaehlt in der Dimension wie Stufe 1). Zurueckgestellt: None mit
+    Kennzeichen. Sonst das Minimum der drei Reifeindikatoren; sind die Ziele nicht
+    vollstaendig erfuellt, hoechstens eine Stufe unter der Eintrittsstufe (mindestens 1).
+    """
+    if not bew:
+        return None
+    if bew["ziele"] == "zurueckgestellt":
+        return None
+    s = min(int(bew["ind_verantwortung"]), int(bew["ind_planung"]), int(bew["ind_ressourcen"]))
+    if bew["ziele"] != "erfuellt":
+        s = min(s, max(1, int(eintritt) - 1))
+    return s
+
+
+def _kia_dimensionsstufe(bereiche):
+    """Stufe L einer Dimension: alle Bereiche mit Eintrittsstufe <= L (nicht zurueckgestellt)
+    haben mindestens L. Unbewertete Bereiche zaehlen wie Stufe 1. Mindestens 1."""
+    best = 1
+    for L in range(2, 6):
+        ok = True
+        for b in bereiche:
+            if b["zurueckgestellt"] or b["eintrittsstufe"] > L:
+                continue
+            if (b["stufe"] or 1) < L:
+                ok = False
+                break
+        if not ok:
+            break
+        best = L
+    return best
+
+
+def _kia_naechster_schritt(bereiche, ziel):
+    """Bereiche, die fuer die Zielstufe noch fehlen (Tabelle 2), mit Grund."""
+    if not ziel:
+        return []
+    fehlt = []
+    for b in bereiche:
+        if b["zurueckgestellt"] or b["eintrittsstufe"] > ziel or (b["stufe"] or 1) >= ziel:
+            continue
+        bw = b["bewertung"]
+        if not bw:
+            grund = "nicht bewertet"
+        elif bw["ziele"] != "erfuellt":
+            grund = "Ziele %s" % {"teilweise": "teilweise erfüllt", "nein": "nicht erfüllt"}.get(bw["ziele"], bw["ziele"])
+        else:
+            ind = {"Verantwortung": bw["ind_verantwortung"], "Planung": bw["ind_planung"], "Ressourcen": bw["ind_ressourcen"]}
+            grund = ", ".join("%s auf %s" % (k, v) for k, v in ind.items() if int(v) < ziel)
+        fehlt.append({"bereich_id": b["bereich_id"], "name": b["name"], "grund": grund})
+    return fehlt
+
+
+def _kia_messungen(c, cid):
+    """Messwerte je Faehigkeitsbereich aus den vorhandenen Daten (ki_*, kir_*).
+
+    Nur lesen. Jede Kennzahl einzeln: Fehlt eine Tabelle (z. B. kir_* im SQLite-Modus),
+    steht dort "nicht verfuegbar" statt eines Fehlers. Zeitraum Laufdaten: 90 Tage.
+    """
+    erg = {}
+
+    def eins(sql, *p):
+        try:
+            r = c.execute(sql, (cid,) + p).fetchone()
+            return dict(r) if r else None
+        except Exception:  # noqa: BLE001 — fehlende Tabelle = nicht verfuegbar
+            if PG:
+                c.c.rollback()
+            return False
+
+    def add(bid, kennzahl, zaehler, nenner, quelle, hinweis=None, einheit="%"):
+        if zaehler is False or nenner is False:
+            wert, status = None, "nicht_verfuegbar"
+        elif einheit == "%":
+            wert = round(100.0 * float(zaehler) / float(nenner), 1) if nenner else None
+            status = "ok" if nenner else "keine_daten"
+        else:
+            wert = None if zaehler is None else (round(float(zaehler), 2) if not isinstance(zaehler, str) else zaehler)
+            status = "ok" if zaehler is not None else "keine_daten"
+        erg.setdefault(bid, []).append({"kennzahl": kennzahl, "wert": wert, "einheit": einheit,
+                                        "zaehler": None if zaehler is False else (float(zaehler) if isinstance(zaehler, (int, float, _kir_decimal.Decimal)) else zaehler),
+                                        "nenner": None if nenner is False else (float(nenner) if nenner is not None and not isinstance(nenner, str) else nenner),
+                                        "status": status, "quelle": quelle, "hinweis": hinweis})
+
+    g90 = "now() - interval '90 days'" if PG else "datetime('now','-90 days')"
+    korr = "CASE WHEN korrigiert IS NOT NULL THEN 1 ELSE 0 END"
+    ld = eins("SELECT count(*) AS n, sum(" + korr + ") AS korr_erfasst, sum(CASE WHEN status<>'ok' THEN 1 ELSE 0 END) AS fehler, "
+              "sum(CASE WHEN kosten_eur IS NOT NULL THEN 1 ELSE 0 END) AS kosten_erfasst, "
+              "sum(CASE WHEN status='ok' THEN 1 ELSE 0 END) AS ok, "
+              "sum(CASE WHEN status='ok' THEN coalesce(kosten_eur,0) ELSE 0 END) AS kosten_ok, "
+              "avg(coalesce(input_tokens,0)+coalesce(output_tokens,0)) AS token_lauf "
+              "FROM ki_laufdaten WHERE " + W_CO + " AND zeitpunkt >= " + g90)
+    n = (ld or {}).get("n") if ld is not False else False
+    if ld is False:
+        for bid, k in (("4.10.3", "Erfassungsquote Korrektur"), ("4.11.1", "Erfassungsquote Kosten")):
+            add(bid, k, False, False, "ki_laufdaten")
+    else:
+        n = int(ld["n"] or 0)
+        add("4.10.3", "Erfassungsquote Korrektur (Voraussetzung Drift)", ld["korr_erfasst"] or 0, n, "ki_laufdaten.korrigiert, 90 Tage",
+            "Ziel-Vorschlag ≥ 90 % (Projektsetzung)")
+        add("4.10.3", "Fehlerquote der Läufe", ld["fehler"] or 0, n, "ki_laufdaten.status, 90 Tage")
+        add("4.11.1", "Erfassungsquote Kosten", ld["kosten_erfasst"] or 0, n, "ki_laufdaten.kosten_eur, 90 Tage",
+            "Ziel-Vorschlag ≥ 95 % (Projektsetzung)")
+        add("4.11.1", "Token je Lauf (Mittel)", ld["token_lauf"], None, "ki_laufdaten, 90 Tage", einheit="Token")
+        # v3.43a: ohne erfasste Kosten "keine Daten" statt 0 EUR
+        add("4.11.1", "Kosten je erfolgreichem Lauf", (float(ld["kosten_ok"] or 0) / int(ld["ok"])) if (ld["ok"] and int(ld["kosten_erfasst"] or 0)) else None, None,
+            "ki_laufdaten, 90 Tage", einheit="€")
+    # Modellverwaltung: feste Fassung im Modellnamen und Abdeckung durch das Modellregister (v3.42)
+    datum = "(modell ~ '[0-9]{4}-[0-9]{2}-[0-9]{2}' OR modell ~ '[0-9]{8}')" if PG else "(modell GLOB '*[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]*')"
+    ff = eins("SELECT count(*) AS n, sum(CASE WHEN " + datum + " THEN 1 ELSE 0 END) AS fest FROM ki_laufdaten WHERE "
+              + W_CO + " AND zeitpunkt >= " + g90)
+    add("4.10.1", "Läufe mit fester Modellfassung (Datum im Namen)", False if ff is False else (ff["fest"] or 0),
+        False if ff is False else int(ff["n"] or 0), "ki_laufdaten.modell, 90 Tage",
+        "Lokale Modelle (z. B. mistral:7b) tragen oft kein Datum — dann Fassung im Register belegen.")
+    rg = eins("SELECT count(DISTINCT l.modell) AS n, count(DISTINCT r.modell) AS im_register FROM ki_laufdaten l "
+              "LEFT JOIN ki_modellregister r ON r.company_id=l.company_id AND r.modell=l.modell WHERE l."
+              + W_CO + " AND l.zeitpunkt >= " + g90)
+    add("4.10.1", "Verwendete Modelle im Modellregister", False if rg is False else (rg["im_register"] or 0),
+        False if rg is False else int(rg["n"] or 0), "ki_laufdaten + ki_modellregister")
+    wp = eins("SELECT count(*) AS n, sum(CASE WHEN EXISTS (SELECT 1 FROM ki_modellwechsel_schritte s WHERE s.company_id=r.company_id "
+              "AND s.modell=r.modell) THEN 1 ELSE 0 END) AS mit_plan FROM ki_modellregister r WHERE r." + W_CO
+              + " AND r.abschaltung_am IS NOT NULL AND r.status<>'abgeloest'")
+    add("4.11.2", "Modelle mit Abschaltdatum und Wechselplan", False if wp is False else (wp["mit_plan"] or 0),
+        False if wp is False else int(wp["n"] or 0), "ki_modellregister + ki_modellwechsel_schritte")
+    # Belegschaft: Schulungen
+    sc = eins("SELECT count(*) AS n, sum(CASE WHEN erledigt_am IS NOT NULL THEN 1 ELSE 0 END) AS erledigt, "
+              "sum(CASE WHEN erledigt_am IS NULL AND termin < " + ("current_date" if PG else "date('now')") + " THEN 1 ELSE 0 END) AS ueberfaellig "
+              "FROM ki_schulungen WHERE " + W_CO)
+    add("4.5.1", "Schulungen erledigt", False if sc is False else (sc["erledigt"] or 0), False if sc is False else int(sc["n"] or 0),
+        "ki_schulungen")
+    add("4.5.1", "Schulungen überfällig", False if sc is False else int(sc["ueberfaellig"] or 0), None, "ki_schulungen", einheit="Anzahl")
+    # Strategie
+    st = eins("SELECT sachstand, " + ("(current_date - ueberarbeitet_am)" if PG else "CAST(julianday('now') - julianday(ueberarbeitet_am) AS INTEGER)")
+              + " AS tage FROM ki_strategie WHERE " + W_CO)
+    add("4.4.1", "Sachstand KI-Strategie", False if st is False else (st or {}).get("sachstand"), None, "ki_strategie", einheit="Text")
+    add("4.4.1", "Tage seit Überarbeitung", False if st is False else (None if not st or st.get("tage") is None else int(st["tage"])), None,
+        "ki_strategie.ueberarbeitet_am", "Ziel-Vorschlag ≤ 180 Tage (Projektsetzung)", einheit="Tage")
+    kz = eins("SELECT count(DISTINCT use_case) AS uc FROM kir_kennzahlen WHERE " + W_CO)
+    add("4.4.1", "Use Cases mit Kennzahl und Zielwert", False if kz is False else int(kz["uc"] or 0), None, "kir_kennzahlen", einheit="Anzahl")
+    rn = eins("SELECT count(*) AS n FROM ki_research_notizen WHERE " + W_CO + " AND datum >= "
+              + ("current_date - 90" if PG else "date('now','-90 days')"))
+    add("4.4.2", "Markt- und Partnerbeobachtung: Notizen in 90 Tagen", False if rn is False else int(rn["n"] or 0), None,
+        "ki_research_notizen", einheit="Anzahl")
+    # Test und Evaluation
+    tk = eins("SELECT count(*) AS n, sum(CASE WHEN EXISTS (SELECT 1 FROM kir_testfaelle t WHERE t.company_id=k.company_id "
+              "AND t.use_case=k.use_case AND t.kriterium_id=k.kriterium_id) THEN 1 ELSE 0 END) AS mit_tf "
+              "FROM kir_akzeptanzkriterien k WHERE k." + W_CO)
+    add("4.9.2", "Akzeptanzkriterien mit Testfall", False if tk is False else (tk["mit_tf"] or 0), False if tk is False else int(tk["n"] or 0),
+        "kir_akzeptanzkriterien + kir_testfaelle")
+    te = eins("SELECT count(*) AS n, sum(CASE WHEN ergebnis='bestanden' THEN 1 ELSE 0 END) AS ok, "
+              "sum(CASE WHEN herkunft IN ('generiert_geprueft','mensch') THEN 1 ELSE 0 END) AS geprueft "
+              "FROM kir_testergebnisse e WHERE e." + W_CO + " AND e.durchlauf_nr = (SELECT max(durchlauf_nr) FROM kir_testergebnisse x "
+              "WHERE x.company_id=e.company_id)")
+    add("4.9.2", "Testergebnisse letzter Durchlauf bestanden", False if te is False else (te["ok"] or 0),
+        False if te is False else int(te["n"] or 0), "kir_testergebnisse")
+    add("4.9.2", "Tests von Menschen geprüft (letzter Durchlauf)", False if te is False else (te["geprueft"] or 0),
+        False if te is False else int(te["n"] or 0), "kir_testergebnisse.herkunft")
+    # Agentenblaetter: Abdeckung produktiver Teilprozesse, Pruefung
+    ab = eins("SELECT count(DISTINCT l.sub_process_id) AS n, count(DISTINCT a.sub_process_id) AS mit_blatt, "
+              "count(DISTINCT CASE WHEN a.geprueft_am IS NOT NULL THEN a.sub_process_id END) AS geprueft "
+              "FROM ki_laufdaten l LEFT JOIN kir_agentenblatt a ON a.company_id=l.company_id AND a.sub_process_id=l.sub_process_id "
+              "WHERE l." + W_CO + " AND l.sub_process_id IS NOT NULL AND l.zeitpunkt >= " + g90)
+    add("4.9.4", "Produktive Teilprozesse mit Agentenblatt", False if ab is False else (ab["mit_blatt"] or 0),
+        False if ab is False else int(ab["n"] or 0), "ki_laufdaten + kir_agentenblatt")
+    add("4.10.2", "Produktive Teilprozesse mit geprüftem Agentenblatt", False if ab is False else (ab["geprueft"] or 0),
+        False if ab is False else int(ab["n"] or 0), "kir_agentenblatt.geprueft_am", "Agentenverzeichnis als Beleg (S. 72)")
+    # Messung und Analyse: Messwerte zu den Kennzahlen
+    mw = eins("SELECT count(DISTINCT k.kennzahl_id) AS n, count(DISTINCT m.kennzahl_id) AS gemessen FROM kir_kennzahlen k "
+              "LEFT JOIN kir_messwerte m ON m.company_id=k.company_id AND m.use_case=k.use_case AND m.kennzahl_id=k.kennzahl_id WHERE k." + W_CO)
+    add("4.6.4", "Kennzahlen mit Messwert", False if mw is False else (mw["gemessen"] or 0), False if mw is False else int(mw["n"] or 0),
+        "kir_kennzahlen + kir_messwerte")
+    du = eins("SELECT count(*) AS n FROM kir_durchlauf WHERE " + W_CO)
+    add("4.6.1", "Durchläufe (Experimente) je Use Case", False if du is False else int(du["n"] or 0), None, "kir_durchlauf", einheit="Anzahl")
+    return erg
+
+
+def _kia_lesen(c, cid):
+    dims = [dict(r) for r in c.execute("SELECT dim_nr, name, gruppe FROM kia_dimensionen ORDER BY dim_nr").fetchall()]
+    ber = [dict(r) for r in c.execute("SELECT bereich_id, dim_nr, name, eintrittsstufe, seite, menue FROM kia_bereiche").fetchall()]
+    ber.sort(key=lambda b: [int(x) for x in b["bereich_id"].split(".")])
+    bew_alle = [{k: _kic_iso(v) for k, v in dict(r).items()} for r in c.execute(
+        "SELECT id, bereich_id, ziele, nachweis, ind_verantwortung, ind_planung, ind_ressourcen, beleg, begruendung, "
+        "bewertet_von, bewertet_am FROM kia_bewertung WHERE " + W_CO + " ORDER BY bewertet_am, id", (cid,)).fetchall()]
+    ziel_alle = [{k: _kic_iso(v) for k, v in dict(r).items()} for r in c.execute(
+        "SELECT id, dim_nr, zielstufe, begruendung, gesetzt_von, gesetzt_am FROM kia_zielstufe WHERE " + W_CO
+        + " ORDER BY gesetzt_am, id", (cid,)).fetchall()]
+    kx = c.execute("SELECT umfang, regulierung, planungshorizont, entwicklungsansatz, risikobereitschaft, geaendert_von, geaendert_am "
+                   "FROM kia_kontext WHERE " + W_CO, (cid,)).fetchone()
+    return dims, ber, bew_alle, ziel_alle, ({k: _kic_iso(v) for k, v in dict(kx).items()} if kx else None)
+
+
+@app.get("/api/companies/{cid}/ki_reifegrad_sei")
+def ki_reifegrad_sei(cid: str, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+    """KI-Reifegrad je Dimension nach SEI: Ist, Ziel, Bereiche, Messwerte, naechster Schritt.
+
+    Bewertungen und Zielstufen werden nur angehaengt; massgeblich ist je Bereich bzw.
+    Dimension die juengste Zeile. Der Verlauf kommt mit (``verlauf``).
+    """
+    pruefe_mandant(benutzer, cid)
+    c = db()
+    try:
+        try:
+            dims, ber, bew_alle, ziel_alle, kontext = _kia_lesen(c, cid)
+        except Exception:  # noqa: BLE001
+            c.close(); _tabelle_fehlt("kia_bereiche")
+        mess = _kia_messungen(c, cid)
+    finally:
+        try: c.close()
+        except Exception: pass  # noqa: BLE001
+    letzte = {}
+    for b in bew_alle:
+        letzte[b["bereich_id"]] = b
+    ziel = {}
+    for z in ziel_alle:
+        ziel[int(z["dim_nr"])] = z
+    aus = []
+    for d in dims:
+        nr = int(d["dim_nr"])
+        bb = []
+        for b in ber:
+            if int(b["dim_nr"]) != nr:
+                continue
+            bw = letzte.get(b["bereich_id"])
+            e = int(b["eintrittsstufe"])
+            bb.append({"bereich_id": b["bereich_id"], "name": b["name"], "eintrittsstufe": e, "seite": b["seite"], "menue": b["menue"],
+                       "bewertung": bw, "stufe": _kia_bereichsstufe(e, bw),
+                       "zurueckgestellt": bool(bw and bw["ziele"] == "zurueckgestellt"),
+                       "messungen": mess.get(b["bereich_id"], [])})
+        ist = _kia_dimensionsstufe(bb)
+        z = ziel.get(nr)
+        zs = int(z["zielstufe"]) if z else None
+        aus.append({"dim_nr": nr, "name": d["name"], "gruppe": d["gruppe"], "ist": ist, "ist_name": KIA_STUFEN[ist],
+                    "ziel": zs, "ziel_name": KIA_STUFEN.get(zs), "ziel_begruendung": z["begruendung"] if z else None,
+                    "bewertet": sum(1 for x in bb if x["bewertung"]), "bereiche": bb,
+                    "naechster_schritt": _kia_naechster_schritt(bb, zs)})
+    return {"dimensionen": aus, "kontext": kontext, "stufen": KIA_STUFEN,
+            "verlauf": {"bewertungen": len(bew_alle), "zielstufen": len(ziel_alle)},
+            "regel": "Dimension = schwächster verlangter Bereich; Bereich = schwächster Reifeindikator; "
+                     "Ziele nicht erfüllt → höchstens Eintrittsstufe − 1 (SEI S. 82–87, Tabelle 2).",
+            "quelle": "SEI/Accenture, The AI Adoption Maturity Model v1.0 (2026)",
+            "quelle_url": "https://www.sei.cmu.edu/library/ai-adoption-maturity-model/"}
+
+
+@app.put("/api/companies/{cid}/ki_reifegrad_sei")
+async def ki_reifegrad_sei_speichern(cid: str, req: Request, benutzer: Benutzer = Depends(schreibender_benutzer)):
+    """Haengt Bewertungen und Zielstufen an; der Kontext wird ersetzt.
+
+    Schluessel optional: ``kontext`` (Objekt), ``zielstufen`` (Liste {dim_nr, zielstufe,
+    begruendung}), ``bewertungen`` (Liste {bereich_id, ziele, nachweis, ind_verantwortung,
+    ind_planung, ind_ressourcen, beleg, begruendung}). Erst alles pruefen, dann schreiben;
+    ein Fehler schreibt nichts. Begruendung ist Pflicht (Nachweis, ADR-005).
+    """
+    pruefe_mandant(benutzer, cid)
+    b = await req.json()
+    if not isinstance(b, dict):
+        raise HTTPException(400, "Objekt erwartet")
+    wer = str(getattr(benutzer, "benutzer_id", "") or "") or None
+    c = db()
+    try:
+        try:
+            bekannte = {r["bereich_id"]: int(r["eintrittsstufe"]) for r in c.execute("SELECT bereich_id, eintrittsstufe FROM kia_bereiche").fetchall()}
+        except Exception:  # noqa: BLE001
+            c.close(); _tabelle_fehlt("kia_bereiche")
+        plan = []
+        if "kontext" in b:
+            k = b.get("kontext")
+            if not isinstance(k, dict):
+                raise HTTPException(400, "kontext muss ein Objekt sein")
+            werte = []
+            for feld, erlaubt in KIA_KONTEXT.items():
+                v = k.get(feld)
+                v = None if v in (None, "") else str(v)
+                if feld == "umfang" and v is None:
+                    v = "mandant"
+                if v is not None and v not in erlaubt:
+                    raise HTTPException(400, "Unbekannter Wert für %s: %s" % (feld, v))
+                werte.append(v)
+            plan.append(("DELETE FROM kia_kontext WHERE " + W_CO, (cid,)))
+            plan.append(("INSERT INTO kia_kontext(company_id, umfang, regulierung, planungshorizont, entwicklungsansatz, "
+                         "risikobereitschaft, geaendert_von) VALUES(?,?,?,?,?,?,?)", tuple([cid] + werte + [wer])))
+        if "zielstufen" in b:
+            zl = b.get("zielstufen")
+            if not isinstance(zl, list):
+                raise HTTPException(400, "zielstufen muss eine Liste sein")
+            for z in zl:
+                try:
+                    nr, st = int(z.get("dim_nr")), int(z.get("zielstufe"))
+                except (TypeError, ValueError, AttributeError):
+                    raise HTTPException(400, "dim_nr und zielstufe müssen Zahlen sein")
+                if not 1 <= nr <= 8 or not 1 <= st <= 5:
+                    raise HTTPException(400, "dim_nr 1–8, zielstufe 1–5")
+                bg = (z.get("begruendung") or "").strip()
+                if not bg:
+                    raise HTTPException(400, "Zielstufe Dimension %d: Begründung fehlt" % nr)
+                plan.append(("INSERT INTO kia_zielstufe(company_id, dim_nr, zielstufe, begruendung, gesetzt_von) VALUES(?,?,?,?,?)",
+                             (cid, nr, st, bg, wer)))
+        if "bewertungen" in b:
+            bl = b.get("bewertungen")
+            if not isinstance(bl, list):
+                raise HTTPException(400, "bewertungen muss eine Liste sein")
+            for x in bl:
+                if not isinstance(x, dict):
+                    raise HTTPException(400, "Bewertung muss ein Objekt sein")
+                bid = str(x.get("bereich_id") or "")
+                if bid not in bekannte:
+                    raise HTTPException(400, "Unbekannter Bereich: %s" % bid)
+                if x.get("ziele") not in KIA_ZIELE:
+                    raise HTTPException(400, "Bereich %s: ziele muss %s sein" % (bid, "/".join(KIA_ZIELE)))
+                if x.get("nachweis") not in KIA_NACHWEIS:
+                    raise HTTPException(400, "Bereich %s: nachweis muss %s sein" % (bid, "/".join(KIA_NACHWEIS)))
+                ind = []
+                for f in ("ind_verantwortung", "ind_planung", "ind_ressourcen"):
+                    try:
+                        v = int(x.get(f))
+                    except (TypeError, ValueError):
+                        raise HTTPException(400, "Bereich %s: %s muss 1–5 sein" % (bid, f))
+                    if not 1 <= v <= 5:
+                        raise HTTPException(400, "Bereich %s: %s muss 1–5 sein" % (bid, f))
+                    ind.append(v)
+                bg = (x.get("begruendung") or "").strip()
+                if not bg:
+                    raise HTTPException(400, "Bereich %s: Begründung fehlt" % bid)
+                beleg = (x.get("beleg") or "").strip() or None
+                if x.get("nachweis") == "beleg" and not beleg:
+                    raise HTTPException(400, "Bereich %s: Nachweis „Beleg“ ohne Angabe des Belegs" % bid)
+                plan.append(("INSERT INTO kia_bewertung(company_id, bereich_id, ziele, nachweis, ind_verantwortung, ind_planung, "
+                             "ind_ressourcen, beleg, begruendung, bewertet_von) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                             (cid, bid, x["ziele"], x["nachweis"], ind[0], ind[1], ind[2], beleg, bg, wer)))
+        for sql, w in plan:
+            c.execute(sql, w)
+        c.commit()
+    finally:
+        try: c.close()
+        except Exception: pass  # noqa: BLE001
+    return {"ok": True, "geschrieben": len(plan)}
+
 
 @app.get("/anfrage/manifest.json")
 def anfrage_manifest():
@@ -6517,3 +7544,920 @@ def manifest():
     """
     return FileResponse(os.path.join(HERE, "static", "manifest.json"), media_type="application/manifest+json")
 app.mount("/static", StaticFiles(directory=os.path.join(HERE,"static")), name="static")
+
+
+# =============================================================================
+# v3.26 (31.10.2026): PaddleOCR — Konzept Stufe 2, Schritt 5 (GitHub #139, #204)
+# =============================================================================
+# Die Weiche text_holen() liest verlustfrei aus, was sich auslesen laesst (Office,
+# PDF mit Textebene, Text). Bilder und textlose PDFs bleiben auf `hochgeladen` und
+# ohne `erkannt_durch` — das ist der Arbeitsvorrat. Ein Hintergrundfaden holt
+# EINEN Beleg nach dem anderen, schickt die Bytes an den OCR-Dienst (eigener
+# Container, nur im Compose-Netz, OCR_URL) und schreibt das Ergebnis zurueck.
+#
+# Zustaende in den vorhandenen Spalten (kein neues Schema):
+#   erkannt_durch NULL, ocr_text NULL, Bild/PDF  -> wartet
+#   erkannt_durch 'in Erkennung'                 -> laeuft (zugleich Sperre gegen Doppelarbeit)
+#   ocr_text gesetzt, status ocr_fertig          -> erkannt, ocr_confidence = Wert
+#   ocr_text NULL, erkannt_durch '<engine> · unter Schwelle' -> NICHT erkannt, bitte pruefen
+# Unter der Schwelle gilt ein Beleg als nicht erkannt, nicht als schlecht erkannt
+# (Konzept Abschnitt 4) — lieber eine ehrliche Luecke als Text, dem niemand ansieht,
+# wie verlaesslich er ist.
+import threading as _threading                                           # noqa: E402
+
+OCR_URL = (os.environ.get("OCR_URL") or "").strip().rstrip("/")
+OCR_ZUGANG = (os.environ.get("OCR_ZUGANG") or "").strip()
+OCR_SCHWELLE = float(os.environ.get("OCR_SCHWELLE", "0.80"))
+OCR_TAKT_S = int(os.environ.get("OCR_TAKT_S", "300"))
+OCR_IN_ARBEIT = "in Erkennung"
+_OCR_WECKER = _threading.Event()
+_OCR_STAND = {"laeuft": False, "letzter_lauf": None, "letzter_fehler": None, "erledigt": 0}
+
+
+def _ocr_vorrat_sql():
+    return ("FROM beleg_dokumente WHERE ocr_text IS NULL AND erkannt_durch IS NULL "
+            "AND status" + ("::text" if PG else "") + "='hochgeladen' "
+            "AND (substr(mime_type, 1, 6)='image/' OR mime_type='application/pdf')")
+    # Kein Prozentzeichen im SQL-Text: psycopg2 liest es als Platzhalter (IndexError,
+    # Lehre vom 03.09. — und am 31.10. beim ersten Lauf auf dem Server wieder getroffen).
+
+
+def _ocr_ergebnis_schreiben(c, doc_id, erg):
+    """Schreibt ein Ergebnis des OCR-Dienstes zurueck. Gibt 'erkannt' oder 'unter_schwelle'."""
+    wert = float(erg.get("confidence") or 0.0)
+    text = (erg.get("text") or "").strip()
+    engine = (erg.get("engine") or "paddleocr")[:60]
+    k = "doc_id" + ("::text" if PG else "") + "=?"
+    if text and wert >= OCR_SCHWELLE:
+        c.execute("UPDATE beleg_dokumente SET ocr_text=?, ocr_confidence=?, erkannt_durch=?, "
+                  "seiten=coalesce(seiten, ?), status=? WHERE " + k,
+                  (text, round(wert, 3), engine, erg.get("seiten"), "ocr_fertig", doc_id))
+        return "erkannt"
+    c.execute("UPDATE beleg_dokumente SET ocr_text=NULL, ocr_confidence=?, erkannt_durch=?, "
+              "seiten=coalesce(seiten, ?) WHERE " + k,
+              (round(wert, 3), engine + " · unter Schwelle", erg.get("seiten"), doc_id))
+    return "unter_schwelle"
+
+
+def _ocr_dienst_rufen(daten, mime):
+    kopf = {"Content-Type": mime or "application/octet-stream"}
+    if OCR_ZUGANG:
+        kopf["X-OCR-Zugang"] = OCR_ZUGANG
+    req = urllib.request.Request(OCR_URL + "/erkennen", data=daten, headers=kopf, method="POST")
+    with urllib.request.urlopen(req, timeout=900) as r:
+        return json.loads(r.read().decode("utf-8"))
+
+
+def ocr_einen_beleg(rufen=None, laden=None):
+    """Nimmt EINEN wartenden Beleg, erkennt ihn und schreibt zurueck.
+
+    ``rufen``/``laden`` nur fuer Tests. Gibt ``None`` zurueck, wenn nichts wartet.
+    Ein voruebergehender Fehler (Dienst nicht erreichbar) gibt den Beleg wieder frei;
+    eine Datei, die der Dienst nicht lesen kann (4xx), wird als nicht erkannt markiert,
+    damit sie nicht in einer Schleife immer wieder drankommt.
+    """
+    rufen = rufen or _ocr_dienst_rufen
+    laden = laden or load_file
+    c = db()
+    try:
+        z = c.execute("SELECT doc_id" + ("::text AS doc_id" if PG else "") + ", storage_key, mime_type "
+                      + _ocr_vorrat_sql() + " ORDER BY uploaded_at LIMIT 1").fetchone()
+        if not z:
+            return None
+        doc_id = z["doc_id"]
+        k = "doc_id" + ("::text" if PG else "") + "=?"
+        # Sperre: nur wer die Zeile von NULL auf 'in Erkennung' setzt, arbeitet weiter.
+        n = c.execute("UPDATE beleg_dokumente SET erkannt_durch=? WHERE " + k + " AND erkannt_durch IS NULL",
+                      (OCR_IN_ARBEIT, doc_id)).rowcount
+        c.commit()
+        if not n:
+            return "belegt"
+    finally:
+        c.close()
+    ergebnis, fehler = None, None
+    try:
+        ergebnis = rufen(laden(z["storage_key"]), z["mime_type"])
+    except urllib.error.HTTPError as e:
+        fehler = ("datei", e.code) if 400 <= e.code < 500 and e.code not in (401, 408, 429) else ("vorueber", e.code)
+    except Exception as e:  # noqa: BLE001
+        fehler = ("vorueber", type(e).__name__)
+    c = db()
+    try:
+        k = "doc_id" + ("::text" if PG else "") + "=?"
+        if ergebnis is not None:
+            art = _ocr_ergebnis_schreiben(c, doc_id, ergebnis)
+        elif fehler[0] == "datei":
+            c.execute("UPDATE beleg_dokumente SET ocr_confidence=0, erkannt_durch=? WHERE " + k,
+                      ("paddleocr · nicht lesbar (%s)" % fehler[1], doc_id))
+            art = "nicht_lesbar"
+        else:
+            c.execute("UPDATE beleg_dokumente SET erkannt_durch=NULL WHERE " + k + " AND erkannt_durch=?",
+                      (doc_id, OCR_IN_ARBEIT))
+            art = "vorueber"
+        c.commit()
+    finally:
+        c.close()
+    LOG.info("OCR %s: %s%s", doc_id[:8], art, "" if not fehler else " (%s)" % (fehler[1],))
+    return art
+
+
+def _ocr_faden():
+    _OCR_STAND["laeuft"] = True
+    # Haengengebliebene Sperren nach einem Neustart freigeben.
+    try:
+        c = db()
+        c.execute("UPDATE beleg_dokumente SET erkannt_durch=NULL WHERE erkannt_durch=?", (OCR_IN_ARBEIT,))
+        c.commit(); c.close()
+    except Exception as e:  # noqa: BLE001
+        LOG.warning("OCR: Sperren nicht freigegeben: %s", e)
+    while True:
+        try:
+            while True:
+                art = ocr_einen_beleg()
+                _OCR_STAND["letzter_lauf"] = _jetzt()
+                if art in ("erkannt", "unter_schwelle", "nicht_lesbar"):
+                    _OCR_STAND["erledigt"] += 1
+                    continue
+                if art == "vorueber":
+                    _OCR_STAND["letzter_fehler"] = _jetzt()
+                break
+        except Exception as e:  # noqa: BLE001 — der Faden darf nicht sterben
+            _OCR_STAND["letzter_fehler"] = _jetzt()
+            LOG.warning("OCR-Lauf fehlgeschlagen: %s", type(e).__name__)
+        _OCR_WECKER.wait(OCR_TAKT_S)
+        _OCR_WECKER.clear()
+
+
+@app.on_event("startup")
+def _ocr_starten():
+    if PG and OCR_URL and not _OCR_STAND["laeuft"]:
+        _threading.Thread(target=_ocr_faden, name="ocr", daemon=True).start()
+        LOG.info("OCR-Faden gestartet (%s, Schwelle %.2f)", OCR_URL, OCR_SCHWELLE)
+
+
+def ocr_wecken():
+    """Nach einem Upload ohne Text: Faden sofort wecken statt bis zum naechsten Takt."""
+    _OCR_WECKER.set()
+
+
+@app.get("/api/ocr/stand")
+def ocr_stand(benutzer: Benutzer = Depends(admin)):
+    """Admin: Ist OCR eingeschaltet, erreichbar, wie viel wartet?"""
+    aus = {"an": bool(PG and OCR_URL), "schwelle": OCR_SCHWELLE, **_OCR_STAND, "dienst": None,
+           "wartend": None, "unter_schwelle": None}
+    if OCR_URL:
+        try:
+            with urllib.request.urlopen(OCR_URL + "/gesund", timeout=5) as r:
+                aus["dienst"] = json.loads(r.read().decode("utf-8"))
+        except Exception as e:  # noqa: BLE001
+            aus["dienst"] = {"ok": False, "fehler": type(e).__name__}
+    c = db()
+    try:
+        aus["wartend"] = c.execute("SELECT count(*) AS n " + _ocr_vorrat_sql()).fetchone()["n"]
+        aus["unter_schwelle"] = c.execute("SELECT count(*) AS n FROM beleg_dokumente WHERE erkannt_durch LIKE ?",
+                                          ("% · unter Schwelle",)).fetchone()["n"]
+    finally:
+        c.close()
+    return aus
+
+
+@app.post("/api/ocr/anstossen")
+def ocr_anstossen(benutzer: Benutzer = Depends(admin)):
+    """Admin: Faden sofort wecken (statt bis zum naechsten Takt zu warten)."""
+    if not (PG and OCR_URL):
+        raise HTTPException(409, "OCR ist nicht eingeschaltet (OCR_URL fehlt).")
+    ocr_wecken()
+    return {"ok": True}
+
+
+# =============================================================================
+# v3.27 (31.10.2026): Unternehmensprofil aus einem Dokument VORSCHLAGEN
+# =============================================================================
+# Simeon: "Daten automatisch auslesen und den passenden Zellen zuordnen … zuerst ein
+# PopUp anzeigen (identisch zum Screenshot) und die Daten korrigieren lassen."
+# Weg A (regelbasiert, lokal): Tabellenzeilen "Attribut | Wert" und Abschnitte werden
+# gelesen. Es wird NICHTS geschrieben — der Mensch korrigiert im Popup und speichert
+# ueber den gewohnten Weg (PUT …/profile). Was das Dokument nicht hergibt, bleibt leer.
+# Kein Sprachmodell: kein Text verlaesst den Server, nichts wird erfunden.
+import io, subprocess                                                   # noqa: E402
+import zipfile as _zipfile                                              # noqa: E402
+import xml.etree.ElementTree as _ET                                     # noqa: E402
+
+PROFIL_FELDER = ("name", "branche", "rechtsform", "ma", "region", "geschaeftsmodell", "tech_stack")
+_PROFIL_SCHLUESSEL = {
+    "name": ("firmierung", "firmenname", "firma", "unternehmen", "name des unternehmens", "unternehmensname"),
+    "rechtsform": ("rechtsform",),
+    "branche": ("branche", "branchenfokus", "branchen", "industrie", "wirtschaftszweig"),
+    "ma": ("mitarbeitende", "mitarbeitende intern", "mitarbeiter", "mitarbeiterzahl", "beschäftigte",
+           "anzahl mitarbeitende", "ma"),
+    "region": ("region", "sitz", "standort", "hauptsitz", "firmensitz"),
+    "geschaeftsmodell": ("geschäftsmodell", "geschaeftsmodell", "geschäftszweck", "unternehmensgegenstand"),
+    "tech_stack": ("tech-stack", "techstack", "technologie-stack", "technologien", "it-landschaft", "it-systeme"),
+}
+_W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+
+
+def _norm_schluessel(t):
+    t = re.sub(r"[*_`]", "", (t or "")).strip().lower()
+    return re.sub(r"\s+", " ", t).rstrip(":").strip()
+
+
+def _sauber(t):
+    t = re.sub(r"\*\*|__|`", "", t or "")
+    return re.sub(r"\s+", " ", t).strip()
+
+
+def _docx_bloecke(daten):
+    """Absaetze und Tabellen eines .docx in Dokumentreihenfolge.
+
+    Liefert [('absatz', text, ist_ueberschrift), ('tabelle', [[zelle, …], …])].
+    Liest die XML-Struktur direkt — beim reinen Textauszug fielen die
+    Tabellengrenzen weg, und aus "Rechtsform | GmbH" wuerde Fliesstext.
+    """
+    with _zipfile.ZipFile(io.BytesIO(daten)) as z:
+        wurzel = _ET.fromstring(z.read("word/document.xml"))
+    koerper = wurzel.find(_W + "body")
+    bloecke = []
+    for el in list(koerper if koerper is not None else []):
+        if el.tag == _W + "p":
+            text = "".join(t.text or "" for t in el.iter(_W + "t")).strip()
+            stil = el.find(_W + "pPr/" + _W + "pStyle")
+            s = (stil.get(_W + "val") if stil is not None else "") or ""
+            ueb = bool(re.match(r"(?i)(heading|berschrift|titel|title)", s)) or bool(re.match(r"^\d+(\.\d+)*\.?\s+\S", text) and len(text) < 90)
+            if text:
+                bloecke.append(("absatz", text, ueb))
+        elif el.tag == _W + "tbl":
+            zeilen = []
+            for tr in el.iter(_W + "tr"):
+                zellen = []
+                for tc in tr.findall(_W + "tc"):
+                    zellen.append(" ".join("".join(t.text or "" for t in p.iter(_W + "t")) for p in tc.iter(_W + "p")).strip())
+                if any(zellen):
+                    zeilen.append(zellen)
+            bloecke.append(("tabelle", zeilen))
+    return bloecke
+
+
+def _text_bloecke(text):
+    """Markdown/Text: Tabellenzeilen | a | b | und Ueberschriften (#) in Reihenfolge."""
+    bloecke, tab = [], []
+    for zeile in (text or "").splitlines():
+        if re.match(r"^\s*\|.*\|\s*$", zeile):
+            if re.match(r"^\s*\|?\s*:?-{3,}", zeile):
+                continue
+            tab.append([c.strip() for c in zeile.strip().strip("|").split("|")])
+            continue
+        if tab:
+            bloecke.append(("tabelle", tab)); tab = []
+        z = zeile.strip()
+        if not z:
+            continue
+        m = re.match(r"^(#{1,6})\s+(.*)$", z)
+        if m:
+            bloecke.append(("absatz", m.group(2).strip(), True))
+            continue
+        m = re.match(r"^([A-Za-zÄÖÜäöüß][\wÄÖÜäöüß \-/]{1,40}?)\s*(?::|\s{2,})\s*(\S.*)$", z)   # "Rechtsform: GmbH" (PDF, Text)
+        if m:
+            bloecke.append(("tabelle", [[m.group(1), m.group(2)]]))
+        bloecke.append(("absatz", z, False))
+    if tab:
+        bloecke.append(("tabelle", tab))
+    return bloecke
+
+
+def profil_vorschlag(bloecke):
+    """Ordnet Tabellenzeilen "Attribut | Wert" den Profilfeldern zu.
+
+    Returns:
+        dict: {feld: {"wert": …, "fundstelle": "…"}} — nur gefundene Felder.
+    """
+    funde = {}
+    for b in bloecke:
+        if b[0] != "tabelle":
+            continue
+        for zeile in b[1]:
+            if len(zeile) < 2:
+                continue
+            k, wert = _norm_schluessel(zeile[0]), _sauber(" ".join(zeile[1:]))
+            if not wert:
+                continue
+            for feld, namen in _PROFIL_SCHLUESSEL.items():
+                if feld in funde or k not in namen:
+                    continue
+                if feld == "ma":
+                    m = re.search(r"\d[\d.]*", wert)
+                    if not m:
+                        continue
+                    wert_f = int(m.group(0).replace(".", ""))
+                elif feld == "rechtsform":
+                    m = re.match(r"(GmbH & Co\. KG|gGmbH|GmbH|UG \(haftungsbeschränkt\)|UG|AG|KGaA|KG|OHG|GbR|e\.K\.|e\. ?V\.|SE|Einzelunternehmen)", wert)
+                    wert_f = m.group(1) if m else wert
+                else:
+                    wert_f = wert
+                funde[feld] = {"wert": wert_f, "fundstelle": _sauber(zeile[0]) + " | " + wert[:160]}
+    if "tech_stack" not in funde:
+        # Abschnitt "Tech-Stack …": Komponenten aus der ersten Tabelle darunter (zweite Spalte).
+        im, teile, ueb = False, [], ""
+        for b in bloecke:
+            if b[0] == "absatz" and b[2]:
+                if im and teile:
+                    break
+                im = bool(re.search(r"(?i)tech-?stack|technologie-?stack|it-landschaft", b[1]))
+                if im:
+                    ueb = b[1]
+                continue
+            if im and b[0] == "tabelle":
+                for zeile in b[1][1:] if len(b[1]) > 1 else b[1]:
+                    if len(zeile) >= 2 and zeile[1]:
+                        teile.append(_sauber(re.sub(r"\(.*?\)", "", zeile[1])))
+                if teile:
+                    break
+        if teile:
+            funde["tech_stack"] = {"wert": " · ".join(t for t in teile if t)[:500],
+                                   "fundstelle": "Abschnitt „%s“ (Tabelle)" % _sauber(ueb)[:80]}
+    return funde
+
+
+def _profil_bloecke(daten, mime, dateiname):
+    name = (dateiname or "").lower()
+    if mime in OFFICE_MIME and name.endswith(".docx") or name.endswith(".docx"):
+        return _docx_bloecke(daten), "docx"
+    if mime == "application/pdf" or name.endswith(".pdf"):
+        import tempfile as _tf
+        with _tf.NamedTemporaryFile(suffix=".pdf") as f:
+            f.write(daten); f.flush()
+            try:
+                text = subprocess.run(["pdftotext", "-layout", f.name, "-"], capture_output=True,
+                                      timeout=60).stdout.decode("utf-8", "ignore")
+            except Exception:  # noqa: BLE001
+                text = ""
+        return _text_bloecke(text), "pdftotext"
+    if mime in ("text/plain", "text/markdown", "text/csv") or name.endswith((".md", ".txt")):
+        return _text_bloecke(daten.decode("utf-8", "ignore")), "text"
+    return None, None
+
+
+@app.get("/api/companies/{cid}/documents/{doc_id}/profilvorschlag")
+def profilvorschlag_lesen(cid: str, doc_id: str, benutzer: Benutzer = Depends(schreibender_benutzer)):
+    """v3.27: Vorschlag fuer das Unternehmensprofil aus einem Dokument. Schreibt nichts."""
+    pruefe_mandant(benutzer, cid)
+    c = db()
+    try:
+        d = c.execute(SEL_DOC + " WHERE doc_id" + ("::text" if PG else "") + "=? AND company_id"
+                      + ("::text" if PG else "") + "=?", (doc_id, cid)).fetchone()
+        if not d:
+            raise HTTPException(404, "Dokument unbekannt.")
+        d = dict(d)
+        co = c.execute(SEL_CO + " WHERE " + KEY_CO, (cid,)).fetchone()
+        pr = c.execute(SEL_PROF + " WHERE " + W_CO, (cid,)).fetchone()
+    finally:
+        c.close()
+    try:
+        daten = load_file(d["storage_key"])
+    except Exception:  # noqa: BLE001
+        raise HTTPException(404, "Die Datei ist nicht abrufbar.")
+    bloecke, verfahren = _profil_bloecke(daten, d.get("mime_type"), d.get("filename"))
+    if bloecke is None:
+        raise HTTPException(415, "Aus diesem Dateityp lässt sich kein Profil lesen (Word, PDF mit Textebene, Text/Markdown).")
+    co = dict(co) if co else {}
+    pr = dict(pr) if pr else {}
+    bisher = {"name": co.get("name"), "branche": co.get("branche"), "rechtsform": co.get("rechtsform"),
+              "ma": co.get("ma"), "region": co.get("region"),
+              "geschaeftsmodell": pr.get("geschaeftsmodell"), "tech_stack": pr.get("tech_stack")}
+    return {"doc_id": doc_id, "filename": d.get("filename"), "verfahren": verfahren,
+            "felder": profil_vorschlag(bloecke), "bisher": bisher}
+
+
+@app.post("/api/companies/{cid}/documents/{doc_id}/profilvorschlag/bestaetigt")
+async def profilvorschlag_bestaetigt(cid: str, doc_id: str, req: Request,
+                                     benutzer: Benutzer = Depends(schreibender_benutzer)):
+    """v3.27: Haelt am Dokument fest, welche Werte ein Mensch daraus uebernommen hat
+    (extrakt, extrakt_durch, extrakt_am). Das Profil selbst speichert PUT …/profile."""
+    pruefe_mandant(benutzer, cid)
+    b = await req.json()
+    werte = {k: b.get("werte", {}).get(k) for k in PROFIL_FELDER if k in (b.get("werte") or {})}
+    c = db()
+    try:
+        k = "doc_id" + ("::text" if PG else "") + "=? AND company_id" + ("::text" if PG else "") + "=?"
+        z = c.execute("SELECT extrakt FROM beleg_dokumente WHERE " + k, (doc_id, cid)).fetchone()
+        if not z:
+            raise HTTPException(404, "Dokument unbekannt.")
+        alt = z["extrakt"]
+        if isinstance(alt, str):
+            try:
+                alt = json.loads(alt)
+            except ValueError:
+                alt = {}
+        alt = dict(alt or {})
+        alt["profilvorschlag"] = {"uebernommen": werte, "bestaetigt_von": benutzer.benutzer_id,
+                                  "bestaetigt_am": _jetzt()}
+        c.execute("UPDATE beleg_dokumente SET extrakt=" + ("?::jsonb" if PG else "?") +
+                  ", extrakt_durch=?, extrakt_am=? WHERE " + k,
+                  (json.dumps(alt, ensure_ascii=False), "profilvorschlag-v1 · bestätigt", _jetzt(), doc_id, cid))
+        c.commit()
+    finally:
+        c.close()
+    return {"ok": True, "felder": sorted(werte)}
+
+
+# =============================================================================
+# v3.28 (31.10.2026): Systeme aus dem Unternehmensdokument VORSCHLAGEN (Schritt 4)
+# =============================================================================
+# Simeon: "Auch hier müssten jetzt die eingelesenen Daten zu sehen sein … auch als PopUp zur
+# Bearbeitung/Speicherung aus dem Unternehmensprofil." Gelesen werden Tabellen mit einer
+# Werkzeug-/System-Spalte und einer Bereich-/Einsatz-Spalte (z. B. NoroAI 6.2 "Tech-Stack").
+# Nichts wird geschrieben; der Mensch waehlt im Popup aus und speichert ueber PUT …/entitaeten.
+_SYS_WERKZEUG = ("werkzeug", "standardwerkzeug", "tool", "system", "software", "produkt", "anwendung", "lösung")
+_SYS_BEREICH = ("bereich", "einsatz", "zweck", "kategorie", "funktion", "aufgabe", "verwendung")
+
+
+def _spalte(kopf, woerter):
+    for i, k in enumerate(kopf):
+        kk = _norm_schluessel(k)
+        if any(w in kk for w in woerter):
+            return i
+    return None
+
+
+def system_vorschlag(bloecke, katalog=(), vorhanden=()):
+    """Systeme aus Tabellen mit Werkzeug- und Bereichsspalte.
+
+    Returns:
+        list: [{bezeichnung, einsatz, katalog_id, fundstelle, schon_da}]
+    """
+    vorhanden_n = {_norm_schluessel(v) for v in vorhanden if v}
+    kat = [(k["katalog_id"], _norm_schluessel(k["bezeichnung"])) for k in katalog if k.get("bezeichnung")]
+    funde, ueb = [], ""
+    for b in bloecke:
+        if b[0] == "absatz":
+            if b[2]:
+                ueb = b[1]
+            continue
+        zeilen = b[1]
+        if len(zeilen) < 2:
+            continue
+        w, e = _spalte(zeilen[0], _SYS_WERKZEUG), _spalte(zeilen[0], _SYS_BEREICH)
+        if w is None or e is None or w == e:
+            continue
+        for z in zeilen[1:]:
+            if len(z) <= max(w, e):
+                continue
+            roh = _sauber(z[w])
+            name = re.sub(r"\s+,", ",", _sauber(re.sub(r"\([^)]*\)", "", roh))).strip(" ,;")
+            if not name:
+                continue
+            nn = _norm_schluessel(name)
+            kid = None
+            for k_id, k_n in kat:
+                if k_n and (k_n in nn or nn in k_n) and len(k_n) >= 3:
+                    kid = k_id
+                    break
+            funde.append({"bezeichnung": name[:120], "einsatz": _sauber(z[e])[:160], "katalog_id": kid,
+                          "fundstelle": ("%s · " % _sauber(ueb)[:60] if ueb else "") + _sauber(z[e])[:40] + " | " + roh[:100],
+                          "schon_da": nn in vorhanden_n})
+    return funde
+
+
+@app.get("/api/companies/{cid}/documents/{doc_id}/systemvorschlag")
+def systemvorschlag_lesen(cid: str, doc_id: str, benutzer: Benutzer = Depends(schreibender_benutzer)):
+    """v3.28: Vorschlag fuer Systeme aus einem Dokument. Schreibt nichts."""
+    pruefe_mandant(benutzer, cid)
+    c = db()
+    try:
+        d = c.execute(SEL_DOC + " WHERE doc_id" + ("::text" if PG else "") + "=? AND company_id"
+                      + ("::text" if PG else "") + "=?", (doc_id, cid)).fetchone()
+        if not d:
+            raise HTTPException(404, "Dokument unbekannt.")
+        d = dict(d)
+        katalog = [dict(r) for r in c.execute("SELECT katalog_id, bezeichnung FROM ref_systeme_katalog").fetchall()]
+        vorhanden = [r["bezeichnung"] for r in c.execute(
+            "SELECT bezeichnung FROM mandant_systeme WHERE " + W_CO, (cid,)).fetchall()]
+    finally:
+        c.close()
+    try:
+        daten = load_file(d["storage_key"])
+    except Exception:  # noqa: BLE001
+        raise HTTPException(404, "Die Datei ist nicht abrufbar.")
+    bloecke, verfahren = _profil_bloecke(daten, d.get("mime_type"), d.get("filename"))
+    if bloecke is None:
+        raise HTTPException(415, "Aus diesem Dateityp lassen sich keine Systeme lesen (Word, PDF mit Textebene, Text/Markdown).")
+    return {"doc_id": doc_id, "filename": d.get("filename"), "verfahren": verfahren,
+            "systeme": system_vorschlag(bloecke, katalog, vorhanden)}
+
+
+# =============================================================================
+# v3.29 (01.11.2026): Prozesse aus Unterlagen VORSCHLAGEN (Schritt 5, Popup)
+# =============================================================================
+# Simeon: "Hier müssen wir einen Upload machen, so dass die Mandanten eine Datei hochladen
+# können und dann PopUp-Menü mit den erkannten Prozessen und Änderungen — Prozesslandschaft,
+# Prozessgrafiken und Prozessbeschreibungen. Sollte dabei einzeln hochladbar sein."
+# Erkannt werden: Ueberschriften "KP-01 · Name" / "KP-01.TP-1 · Name", Merkmal-Tabellen
+# (Kategorie, Prozessverantwortlich, Ausloeser, Input, Output, Systeme, Medienbrueche, Aufwand)
+# und Listen-Tabellen, deren erste Spalte "KP-01 Name" oder "KP-01.TP-1 Name" ist. Bei Grafiken
+# ohne Textebene (PNG, gescanntes PDF) dient der PaddleOCR-Text (v3.26) als Quelle.
+# Die IDs im Dokument sind die des Kunden — die App vergibt ihre eigenen (ADR-003 Regel 2).
+# Nichts wird ohne Bestaetigung geschrieben.
+_RE_KP = re.compile(r"^\s*(KP-\d{2})(?![.\d])\s*[·:\-–—]?\s*(.*)$")
+_RE_TP = re.compile(r"^\s*(KP-\d{2})\.TP-(\d)\s*[·:\-–—]?\s*(.*)$")
+_PROZ_SCHL = {
+    "kategorie": ("kategorie", "prozesskategorie", "prozessart"),
+    "eigner": ("prozessverantwortlich (eigner)", "prozessverantwortlich", "eigner", "verantwortlich", "process owner", "prozesseigner"),
+    "trigger_text": ("auslöser", "ausloeser", "trigger", "auslöser/trigger"),
+    "input_text": ("input", "eingang", "eingabe"),
+    "output_text": ("output", "ergebnis", "ausgabe"),
+    "beschreibung": ("beschreibung", "zweck", "kurzbeschreibung"),
+    "rolle": ("rolle",),
+    "tools": ("systeme / werkzeuge", "systeme", "werkzeuge", "tools", "eingesetzte tools"),
+    "medienbrueche": ("medienbrüche", "medienbrueche"),
+    "aufwand": ("aufwand", "dauer"),
+}
+
+
+_NAME_SPALTEN = ("kernprozess", "teilprozess", "prozess", "prozessname", "name", "bezeichnung",
+                 "prozessschritt", "schritt", "aktivität", "aktivitaet")
+
+
+def _kat_aus_text(t):
+    t = (t or "").lower()
+    if "kerngeschäft" in t or "kerngeschaeft" in t or "kernprozess" in t:
+        return "Kerngeschäftsprozess"
+    if "unterstütz" in t or "unterstuetz" in t or "support" in t:
+        return "Unterstützungsprozess"
+    if "steuer" in t or "führung" in t or "management" in t:
+        return "Steuerungsprozess"
+    return None
+
+
+def _proz_feld(k):
+    k = _norm_schluessel(k)
+    for feld, namen in _PROZ_SCHL.items():
+        if k in namen:
+            return feld
+    return None
+
+
+def _name_rest(t):
+    """'B2B-Bestellung annehmen — Ablaufgrafik' -> 'B2B-Bestellung annehmen'."""
+    return re.split(r"\s+[—–]\s+", _sauber(t))[0].strip(" ·:-")
+
+
+def prozess_vorschlag(bloecke):
+    """Kernprozesse mit Teilprozessen aus Dokument-Bloecken (Reihenfolge wie im Dokument).
+
+    Returns:
+        list: [{doc_kp, name, kategorie, eigner, trigger_text, input_text, output_text,
+                tps: [{doc_tp, nr, name, rolle, input, output, tools, medienbrueche, aufwand}]}]
+    """
+    kps, akt_kp, akt_tp = {}, None, None
+    reihe = []
+
+    def kp(kid, name=None):
+        if kid not in kps:
+            kps[kid] = {"doc_kp": kid, "name": None, "kategorie": None, "eigner": None, "trigger_text": None,
+                        "input_text": None, "output_text": None, "beschreibung": None, "tps": {}}
+            reihe.append(kid)
+        if name and not kps[kid]["name"]:
+            kps[kid]["name"] = _name_rest(name)
+        return kps[kid]
+
+    def tp(kid, nr, name=None):
+        k = kp(kid)
+        if nr not in k["tps"]:
+            k["tps"][nr] = {"doc_tp": "%s.TP-%s" % (kid, nr), "nr": int(nr), "name": None, "rolle": None,
+                            "input": None, "output": None, "tools": None, "medienbrueche": None, "aufwand": None}
+        if name and not k["tps"][nr]["name"]:
+            k["tps"][nr]["name"] = _name_rest(name)
+        return k["tps"][nr]
+
+    def setze(ziel, feld, wert, ist_tp):
+        wert = _sauber(wert)
+        if feld == "medienbrueche":
+            wert = re.sub(r"\s*⚡\s*", "; ", wert).strip("; ")
+        if not wert:
+            return
+        if ist_tp:
+            m = {"input_text": "input", "output_text": "output"}.get(feld, feld)
+            if m in ziel and not ziel[m]:
+                ziel[m] = wert
+        else:
+            if feld == "kategorie":
+                ziel["kategorie"] = ziel["kategorie"] or _kat_aus_text(wert)
+            elif feld in ziel and not ziel[feld]:
+                ziel[feld] = wert
+
+    for b in bloecke:
+        if b[0] == "absatz":
+            text = b[1]
+            m = _RE_TP.match(text)
+            if m and (b[2] or len(text) < 120):
+                akt_kp, akt_tp = m.group(1), tp(m.group(1), m.group(2), m.group(3))
+                continue
+            m = _RE_KP.match(text)
+            if m and (b[2] or len(text) < 120) and m.group(2):
+                akt_kp, akt_tp = m.group(1), None
+                kp(m.group(1), m.group(2))
+                continue
+            if akt_kp and not akt_tp and "·" in text:
+                # "Kerngeschäftsprozess · Prozessverantwortlich: Jana Peters · Auslöser: …"
+                k = kps[akt_kp]
+                for teil in [t.strip() for t in text.split("·")]:
+                    if ":" in teil:
+                        kk, vv = teil.split(":", 1)
+                        f = _proz_feld(kk)
+                        if f:
+                            setze(k, f, vv, False)
+                    elif _kat_aus_text(teil) and not k["kategorie"]:
+                        k["kategorie"] = _kat_aus_text(teil)
+            continue
+        zeilen = b[1]
+        if not zeilen:
+            continue
+        kopf = [_norm_schluessel(x) for x in zeilen[0]]
+        # Listen-Tabelle: erste Spalte "KP-01 Name" oder "KP-01.TP-1 Name"
+        liste = [z for z in zeilen[1:] if z and (_RE_TP.match(z[0]) or _RE_KP.match(z[0]))]
+        if liste:
+            felder = [_proz_feld(k) for k in kopf]
+            for z in liste:
+                mt, mk = _RE_TP.match(z[0]), _RE_KP.match(z[0])
+                if mt:
+                    ziel, ist_tp = tp(mt.group(1), mt.group(2), mt.group(3)), True
+                    akt_kp = mt.group(1)
+                else:
+                    ziel, ist_tp = kp(mk.group(1), mk.group(2)), False
+                for i, wert in enumerate(z[1:], start=1):
+                    f = felder[i] if i < len(felder) else None
+                    if f is None and i < len(kopf) and kopf[i] in _NAME_SPALTEN:
+                        # eigene Namensspalte neben einer reinen ID-Spalte ("KP-01" | "Auftragsannahme")
+                        if _sauber(wert) and not ziel["name"]:
+                            ziel["name"] = _name_rest(wert)
+                        continue
+                    if f == "rolle" and not ist_tp:
+                        f = "eigner"          # Landkarte: Spalte "Rolle" nennt den Verantwortlichen
+                    if f:
+                        setze(ziel, f, wert, ist_tp)
+            continue
+        # Merkmal-Tabelle (zwei Spalten) fuer den aktuellen TP bzw. KP
+        if akt_kp and len(zeilen[0]) >= 2:
+            for z in zeilen:
+                if len(z) < 2:
+                    continue
+                f = _proz_feld(z[0])
+                if f:
+                    setze(akt_tp if akt_tp else kps[akt_kp], f, z[1], bool(akt_tp))
+    aus = []
+    for kid in reihe:
+        k = kps[kid]
+        k["tps"] = [k["tps"][n] for n in sorted(k["tps"], key=lambda x: int(x))]
+        if k["name"] or k["tps"]:
+            aus.append(k)
+    return aus
+
+
+def prozess_vorschlag_aus_ocr(text):
+    """Grafik ohne Textebene (Prozesslandkarte als PNG/PDF): PaddleOCR-Zeilen.
+
+    Sucht Zeilen "KP-01"; die folgenden Zeilen bis zur Zeile mit "Verantwortlich" bilden den
+    Namen, diese Zeile liefert Kategorie und Verantwortlichen. Grobere Quelle als Word.
+    """
+    zeilen = [z.strip() for z in (text or "").splitlines() if z.strip()]
+    aus, i = [], 0
+    while i < len(zeilen):
+        m = re.match(r"^(KP-\d{2})(?![.\d])\s*(.*)$", zeilen[i])
+        if not m:
+            i += 1
+            continue
+        name, j, kat, eig = [m.group(2)] if m.group(2) else [], i + 1, None, None
+        while j < len(zeilen) and j <= i + 4 and not re.match(r"^KP-\d{2}", zeilen[j]):
+            if re.search(r"(?i)verantwortlich", zeilen[j]):
+                kat = _kat_aus_text(zeilen[j])
+                mm = re.search(r"(?i)verantwortlich\s*:?\s*(.+)$", zeilen[j])
+                eig = _sauber(mm.group(1)) if mm else None
+                j += 1
+                break
+            name.append(zeilen[j]); j += 1
+        if name:
+            aus.append({"doc_kp": m.group(1), "name": _sauber(" ".join(name)), "kategorie": kat, "eigner": eig,
+                        "trigger_text": None, "input_text": None, "output_text": None, "beschreibung": None,
+                        "tps": [], "quelle": "ocr"})
+        i = j
+    return aus
+
+
+@app.get("/api/companies/{cid}/documents/{doc_id}/prozessvorschlag")
+def prozessvorschlag_lesen(cid: str, doc_id: str, benutzer: Benutzer = Depends(schreibender_benutzer)):
+    """v3.29: Kernprozesse/Teilprozesse aus einer Unterlage vorschlagen. Schreibt nichts."""
+    pruefe_mandant(benutzer, cid)
+    c = db()
+    try:
+        d = c.execute("SELECT doc_id" + ("::text AS doc_id" if PG else "") + ", filename, storage_key, mime_type, "
+                      "ocr_text, ocr_confidence, erkannt_durch FROM beleg_dokumente WHERE doc_id"
+                      + ("::text" if PG else "") + "=? AND company_id" + ("::text" if PG else "") + "=?",
+                      (doc_id, cid)).fetchone()
+    finally:
+        c.close()
+    if not d:
+        raise HTTPException(404, "Dokument unbekannt.")
+    d = dict(d)
+    kps, verfahren = [], None
+    mime, name = d.get("mime_type") or "", (d.get("filename") or "").lower()
+    if not mime.startswith("image/"):
+        try:
+            daten = load_file(d["storage_key"])
+        except Exception:  # noqa: BLE001
+            raise HTTPException(404, "Die Datei ist nicht abrufbar.")
+        bloecke, verfahren = _profil_bloecke(daten, mime, name)
+        if bloecke is not None:
+            kps = prozess_vorschlag(bloecke)
+    if not kps and (mime.startswith("image/") or mime == "application/pdf"):
+        if d.get("ocr_text"):
+            kps, verfahren = prozess_vorschlag_aus_ocr(d["ocr_text"]), "ocr"
+        elif (d.get("erkannt_durch") or "") in ("", OCR_IN_ARBEIT):
+            raise HTTPException(409, "Die Texterkennung (PaddleOCR) für diese Grafik läuft noch — bitte in einer Minute erneut öffnen.")
+    if verfahren is None and not kps:
+        raise HTTPException(415, "Aus diesem Dateityp lassen sich keine Prozesse lesen (Word, PDF, Text/Markdown, Bild mit OCR).")
+    return {"doc_id": doc_id, "filename": d.get("filename"), "verfahren": verfahren, "kernprozesse": kps}
+
+
+@app.post("/api/companies/{cid}/prozessvorschlag/uebernehmen")
+async def prozessvorschlag_uebernehmen(cid: str, req: Request, benutzer: Benutzer = Depends(schreibender_benutzer)):
+    """v3.29: Uebernimmt die im Popup bestaetigten Kern- und Teilprozesse.
+
+    Je Kernprozess: aktion 'neu' (ID vergibt die App), 'aktualisieren' (process_id) oder
+    'ignorieren'. Teilprozesse werden der Reihe nach auf TP-1, TP-2 … gelegt; fehlende
+    Positionen werden angelegt (bis TP-9, ADR-002). Ein Teilprozessname, den es beim Mandanten
+    schon gibt (Eindeutigkeit seit v3.17), wird uebersprungen und gemeldet.
+    """
+    pruefe_mandant(benutzer, cid)
+    b = await req.json()
+    ergebnis, hinweise = [], []
+    c = db()
+    try:
+        for k in (b.get("kernprozesse") or []):
+            aktion = (k.get("aktion") or "").strip()
+            if aktion == "ignorieren":
+                continue
+            name = (k.get("name") or "").strip()
+            kat = _kat(k.get("kategorie"), "Kerngeschäftsprozess")
+            if aktion == "neu":
+                if not name:
+                    raise HTTPException(400, "Ein neuer Kernprozess braucht einen Namen.")
+                nr = _naechste_kp_nummer(c, cid)
+                if nr > MAX_KP:
+                    raise HTTPException(400, "Mehr als %d Kernprozesse sind nicht möglich." % MAX_KP)
+                pid = "KP-%02d" % nr
+                c.execute("INSERT INTO ref_prozesse(company_id,process_id,process_name,kategorie) VALUES(?,?,?,?)",
+                          (cid, pid, name, kat))
+            elif aktion == "aktualisieren":
+                pid = (k.get("process_id") or "").strip()
+                if not c.execute("SELECT 1 AS da FROM ref_prozesse WHERE " + W_CO + " AND process_id=?",
+                                 (cid, pid)).fetchone():
+                    raise HTTPException(400, "Unbekannter Kernprozess: %s" % pid)
+            else:
+                raise HTTPException(400, "Unbekannte Aktion: %s" % (aktion or "—"))
+            # Felder des Kernprozesses: nur gesetzte Werte, nichts wird geleert
+            sets, werte = ["kategorie=?"], [kat]
+            for f in ("trigger_text", "input_text", "output_text", "beschreibung"):
+                v = (k.get(f) or "").strip()
+                if v:
+                    sets.append(f + "=?"); werte.append(v)
+            c.execute("UPDATE ref_prozesse SET " + ",".join(sets) + " WHERE " + W_CO + " AND process_id=?",
+                      tuple(werte) + (cid, pid))
+            # Teilprozesse der Reihe nach
+            n_tp = 0
+            for pos, t in enumerate([t for t in (k.get("tps") or []) if (t.get("name") or "").strip()], start=1):
+                if pos > MAX_TP:
+                    hinweise.append("%s: mehr als %d Teilprozesse — Rest übersprungen" % (pid, MAX_TP)); break
+                sid = "%s.TP-%d" % (pid, pos)
+                if not c.execute("SELECT 1 AS da FROM ref_teilprozesse WHERE " + W_CO + " AND sub_process_id=?",
+                                 (cid, sid)).fetchone():
+                    c.execute("INSERT INTO ref_teilprozesse(company_id,sub_process_id,process_id,step_no,sub_process_name,notation) "
+                              "VALUES(?,?,?,?,?,?)", (cid, sid, pid, pos, "Teilprozess %d" % pos, ""))
+                tname = t["name"].strip()
+                dupl = c.execute("SELECT sub_process_id FROM ref_teilprozesse WHERE " + W_CO +
+                                 " AND aktiv" + ("" if PG else "=1") + " AND lower(trim(sub_process_name))=lower(trim(?)) AND sub_process_id<>?",
+                                 (cid, tname, sid)).fetchone()
+                if dupl:
+                    hinweise.append("%s: Name „%s“ gibt es schon (%s) — übersprungen" % (sid, tname, dupl["sub_process_id"]))
+                    continue
+                sets, werte = ["sub_process_name=?"], [tname]
+                for f in ("notation", "tools", "medienbrueche"):
+                    v = (t.get(f) or "").strip()
+                    if v:
+                        sets.append(f + "=?"); werte.append(v)
+                c.execute("UPDATE ref_teilprozesse SET " + ",".join(sets) + " WHERE " + W_CO + " AND sub_process_id=?",
+                          tuple(werte) + (cid, sid))
+                n_tp += 1
+            # Eigner, wenn die Person beim Mandanten existiert (nur ergaenzen, nie ersetzen)
+            eid = (k.get("eigner_person_id") or "").strip()
+            if eid and c.execute("SELECT 1 AS da FROM ref_personen WHERE " + W_CO + " AND person_id=?", (cid, eid)).fetchone():
+                if not c.execute("SELECT 1 AS da FROM prozess_personen WHERE " + W_CO + " AND process_id=? AND person_id=? AND funktion=?",
+                                 (cid, pid, eid, "eigner")).fetchone():
+                    c.execute("INSERT INTO prozess_personen(company_id,process_id,person_id,funktion) VALUES(?,?,?,?)",
+                              (cid, pid, eid, "eigner"))
+            ergebnis.append({"process_id": pid, "aktion": aktion, "teilprozesse": n_tp})
+        c.commit()
+    except HTTPException:
+        c.close(); raise
+    except Exception as e:  # noqa: BLE001
+        c.close()
+        raise _db_fehler_lesbar(e)
+    c.close()
+    return {"ok": True, "ergebnis": ergebnis, "hinweise": hinweise}
+
+
+# =============================================================================
+# v3.41 (14.11.2026): Vorgabe aus BC2 fuer BC3/BC4 — nur lesen
+# =============================================================================
+# Simeon 14.11.: "BC2 uebergibt Prios ... diese dienen als Vorgabe fuer BC3 und 4" —
+# Stufe 1: sichtbar machen. Quelle ist die Sicht v_bc2_vorgabe (v3.41), die die
+# eingefrorene Ergebnisakte von BC2 liest (bc2.v_ergebnisakte), ohne Kopie (ADR-003).
+# Die Praesentation an den Mandanten liefert BC0 selbst aus, mit Anmeldung — nicht
+# ueber den offenen Link von BC2. Diese Endpunkte schreiben nichts.
+
+@app.get("/api/companies/{cid}/bc2_vorgabe")
+def bc2_vorgabe(cid: str, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+    pruefe_mandant(benutzer, cid)
+    _nur_pg("Die Vorgabe aus BC2")
+    c = db()
+    try:
+        da = c.execute("SELECT to_regclass('public.v_bc2_vorgabe') IS NOT NULL AS ok").fetchone()["ok"]
+        if not da:
+            raise HTTPException(501, "Sicht v_bc2_vorgabe fehlt (Schema v3.41 nicht eingespielt).")
+        zeilen = [{k: _kir_wert(v) for k, v in dict(r).items()} for r in c.execute(
+            "SELECT paket_id, fassung, priorisierung_id::text AS priorisierung_id, eingefroren_am, lieferbar, "
+            "gate1_status, potenzial_id, konzept_id, potenzialrang, finaler_rang, prioritaetsgruppe, score, "
+            "kp_id, sub_process_id, teilprozess_bekannt, titel, user_story, akzeptanzkriterien, "
+            "anzahl_akzeptanzkriterien, automatisierung_min_pct, automatisierung_max_pct, stunden_jahr_heute, "
+            "aufwand_pt, einsparung_eur_jahr, investition_eur_richtwert, ist_kosten_eur_jahr, ersparnis_prozent, "
+            "amortisation_monate, value_quelle, impact, umsetzungskomplexitaet, kategorie "
+            "FROM v_bc2_vorgabe WHERE company_id = ? "
+            "ORDER BY paket_id, COALESCE(finaler_rang, potenzialrang), potenzialrang, sub_process_id", (cid,)).fetchall()]
+        praes = [dict(r) for r in c.execute(
+            "SELECT DISTINCT priorisierung_id::text AS priorisierung_id, paket_id, fassung, name, groesse "
+            "FROM bc2.v_ergebnisakte WHERE company_id = ? AND empfaenger = 'mandant'", (cid,)).fetchall()]
+        # Was BC3/BC4 zur Vorgabe schon geliefert haben (Stufe 2): uebernommene Kriterien
+        # (quelle 'bc2:<priorisierung_id>/<potenzial_id>/<Nr.>') und Kennzahlen je Potenzial.
+        geliefert = {}
+        kir_da = c.execute("SELECT to_regclass('public.kir_akzeptanzkriterien') IS NOT NULL "
+                           "AND to_regclass('public.kir_kennzahlen') IS NOT NULL "
+                           "AND to_regclass('public.kir_testfaelle') IS NOT NULL "
+                           "AND to_regclass('public.kir_testergebnisse') IS NOT NULL "
+                           "AND to_regclass('public.kir_messwerte') IS NOT NULL AS ok").fetchone()["ok"]
+        for r in ([] if not kir_da else c.execute("SELECT split_part(quelle, '/', 2) AS pot, count(*) AS n FROM kir_akzeptanzkriterien "
+                           "WHERE company_id::text = ? AND left(quelle, 4) = 'bc2:' GROUP BY 1", (cid,)).fetchall()):
+            geliefert.setdefault(r["pot"], {})["kriterien"] = r["n"]
+        for r in ([] if not kir_da else c.execute("SELECT bezug_potenzial_id AS pot, count(*) AS n FROM kir_kennzahlen "
+                           "WHERE company_id::text = ? AND bezug_potenzial_id IS NOT NULL GROUP BY 1", (cid,)).fetchall()):
+            geliefert.setdefault(r["pot"], {})["kennzahlen"] = r["n"]
+        # Messung gegen die Vorgabe je Durchlauf (die harte Wahrheit in den Diagrammen):
+        # (a) Akzeptanzkriterien aus BC2 erfuellt = alle Testergebnisse ihrer Testfaelle im
+        #     Durchlauf bestanden; (b) Kennzahlen mit Bezug auf das Potenzial und ihre Messwerte.
+        messung_ak = [] if not kir_da else [dict(r) for r in c.execute(
+            "SELECT pot, paket_id, durchlauf_nr, count(*) AS getestet, count(*) FILTER (WHERE ok) AS erfuellt FROM ("
+            " SELECT split_part(a.quelle, '/', 2) AS pot, r.paket_id::text AS paket_id, r.durchlauf_nr, a.kriterium_id, "
+            "        bool_and(r.ergebnis = 'bestanden') AS ok "
+            "   FROM kir_akzeptanzkriterien a "
+            "   JOIN kir_testfaelle t ON t.company_id = a.company_id AND t.use_case = a.use_case AND t.kriterium_id = a.kriterium_id "
+            "   JOIN kir_testergebnisse r ON r.company_id = t.company_id AND r.use_case = t.use_case AND r.testfall_id = t.testfall_id "
+            "  WHERE a.company_id::text = ? AND left(a.quelle, 4) = 'bc2:' "
+            "  GROUP BY 1, 2, 3, 4) x GROUP BY 1, 2, 3", (cid,)).fetchall()]
+        messung_kz = [] if not kir_da else [{k: _kir_wert(v) for k, v in dict(r).items()} for r in c.execute(
+            "SELECT k.bezug_potenzial_id AS pot, k.quelle_vorher, k.kennzahl_id, k.bezeichnung, k.einheit, k.richtung, "
+            "       k.zielwert, m.paket_id::text AS paket_id, m.durchlauf_nr, m.vorher, m.nachher "
+            "  FROM kir_kennzahlen k LEFT JOIN kir_messwerte m "
+            "    ON m.company_id = k.company_id AND m.use_case = k.use_case AND m.kennzahl_id = k.kennzahl_id "
+            " WHERE k.company_id::text = ? AND k.bezug_potenzial_id IS NOT NULL "
+            " ORDER BY k.kennzahl_id, m.durchlauf_nr", (cid,)).fetchall()]
+    except HTTPException:
+        c.close()
+        raise
+    except Exception as e:  # noqa: BLE001
+        c.close()
+        raise _db_fehler_lesbar(e)
+    c.close()
+    return {"vorgabe": zeilen, "praesentationen": praes, "geliefert": geliefert,
+            "messung_ak": messung_ak, "messung_kz": messung_kz}
+
+
+@app.get("/api/companies/{cid}/bc2_praesentation/{priorisierung_id}")
+def bc2_praesentation(cid: str, priorisierung_id: str, benutzer: Benutzer = Depends(angemeldeter_benutzer)):
+    pruefe_mandant(benutzer, cid)
+    _nur_pg("Die Praesentation aus BC2")
+    if not re.fullmatch(r"[0-9a-fA-F-]{36}", priorisierung_id or ""):
+        raise HTTPException(400, "priorisierung_id ungueltig")
+    c = db()
+    try:
+        r = c.execute(
+            "SELECT name, inhalt FROM bc2.v_ergebnisakte WHERE company_id = ? AND priorisierung_id::text = ? "
+            "AND empfaenger = 'mandant' AND inhalt IS NOT NULL ORDER BY name LIMIT 1",
+            (cid, priorisierung_id.lower())).fetchone()
+    except Exception as e:  # noqa: BLE001
+        c.close()
+        raise _db_fehler_lesbar(e)
+    c.close()
+    if not r:
+        raise HTTPException(404, "Keine Praesentation in der Ergebnisakte")
+    name = re.sub(r"[^A-Za-z0-9._-]", "_", r["name"] or "praesentation.pptx")
+    return Response(content=bytes(r["inhalt"]), media_type="application/octet-stream",
+                    headers={"Content-Disposition": 'attachment; filename="bc2_%s_%s"' % (priorisierung_id[:8], name),
+                             "X-Content-Type-Options": "nosniff"})
