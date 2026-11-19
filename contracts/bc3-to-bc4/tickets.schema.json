@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://coe-factory/contracts/bc3-to-bc4/tickets.schema.json",
-  "title": "BC3 Tickets-Lieferung an BC4 (v3.6, mit IDs für den Soll-Ist-Vergleich)",
-  "description": "Lieferungs-Artefakt von BC3 an BC4. Maximal reduziert: nur Stammdaten, Epics mit Stories, gate2. Compliance liegt komplett in compliance-audit.json (DSB-Audit).\n\nNeu gegenüber v3.4: die Prozesskennung. Simeon hat am 24.08.2026 festgelegt, dass die Kernprozess-ID aus der Datenbank überall mitläuft. In v3.4 hatte sie keinen Platz, weil additionalProperties auf allen Ebenen false steht.\n\nNeu gegenüber v3.5: die IDs aus der Lieferung von BC2 (Mandant, Paket, Priorisierung, Anfrage) in konzept_ref und je Epic die potenzial_id. Grund: Simeons Befund vom 17.11.2026, ohne diese IDs lässt sich kein Ergebnis von BC4 der Vorgabe von BC2 zuordnen. Alle neuen Felder sind optional.",
+  "title": "BC3 Tickets-Lieferung an BC4 (v3.7, mit Kennung je Kriterium von BC2)",
+  "description": "Lieferungs-Artefakt von BC3 an BC4. Maximal reduziert: nur Stammdaten, Epics mit Stories, gate2. Compliance liegt komplett in compliance-audit.json (DSB-Audit).\n\nNeu gegenüber v3.4: die Prozesskennung. Simeon hat am 24.08.2026 festgelegt, dass die Kernprozess-ID aus der Datenbank überall mitläuft. In v3.4 hatte sie keinen Platz, weil additionalProperties auf allen Ebenen false steht.\n\nNeu gegenüber v3.5: die IDs aus der Lieferung von BC2 (Mandant, Paket, Priorisierung, Anfrage) in konzept_ref und je Epic die potenzial_id. Grund: Simeons Befund vom 17.11.2026, ohne diese IDs lässt sich kein Ergebnis von BC4 der Vorgabe von BC2 zuordnen. Alle neuen Felder sind optional.\n\nNeu gegenüber v3.6: je Akzeptanzkriterium von BC2 die Kennung bc2_kriterium_id (Konvention von BC0: bc2:<Priorisierung>/<Potenzial>/<Nr.>, je 8 Zeichen der UUID, Nr. = Reihenfolge in akzeptanzkriterien_geschaeftlich des Potenzials). Grund: Übergabe-Befund BC0 vom 19.11.2026, ohne Kennung lässt sich ein Messwert von BC4 keinem Kriterium von BC2 zuordnen. Das Feld ist optional, Kriterien von BC3 haben keine Kennung.",
   "type": "object",
   "required": [
     "lieferung_id",
@@ -22,9 +22,10 @@
       "type": "string",
       "enum": [
         "3.5",
-        "3.6"
+        "3.6",
+        "3.7"
       ],
-      "description": "3.6 ab 18.11.2026, 3.5 bleibt gültig für ältere Lieferungen."
+      "description": "3.7 ab 19.11.2026, 3.5 und 3.6 bleiben gültig für ältere Lieferungen."
     },
     "projekt_kurzname": {
       "type": "string",
@@ -227,6 +228,11 @@
               "messverfahren": {
                 "type": "string",
                 "minLength": 5
+              },
+              "bc2_kriterium_id": {
+                "type": "string",
+                "pattern": "^bc2:[0-9a-f]{8}/[0-9a-f]{8}/[1-9][0-9]*$",
+                "description": "Seit v3.7: Kennung des Akzeptanzkriteriums von BC2, z. B. bc2:b7e0b991/969094be/1 (Priorisierung, Potenzial, Nr.). Nur bei Kriterien, die BC3 wörtlich von BC2 übernimmt."
               }
             }
           }

@@ -130,6 +130,14 @@ python -c "import json,jsonschema,sys; \
 Bei jedem Pull Request auf `contracts/**` läuft dieselbe Prüfung automatisch, siehe
 `.github/workflows/vertraege-pruefen.yml`. Ihr seht also grün oder rot, bevor ihr lest.
 
+## Was sich am 19.11.2026 geändert hat (v3.7)
+
+| Vorher | Jetzt | Warum |
+|---|---|---|
+| Kriterium nur mit `text` und `messverfahren` | bei Kriterien von BC2 zusätzlich `bc2_kriterium_id`, z. B. `bc2:b7e0b991/969094be/1` | Soll-Ist-Vergleich: BC4 kann einen Messwert so einem Kriterium von BC2 zuordnen, ohne Textvergleich (Übergabe-Befund BC0, 19.11.2026) |
+
+Die Kennung folgt der Konvention von BC0: `bc2:<Priorisierung>/<Potenzial>/<Nr.>`, je die ersten 8 Zeichen der UUID, Nr. = Reihenfolge in `akzeptanzkriterien_geschaeftlich` des Potenzials. BC2 vergibt selbst keine ID. Das Feld ist optional, eigene Kriterien von BC3 haben keins. `schema_version` darf `3.5`, `3.6` oder `3.7` sein, ältere Lieferungen bleiben gültig. Für eure Pipeline ändert sich nichts, `text` und `messverfahren` bleiben wie bisher.
+
 ## Was sich am 18.11.2026 geändert hat (v3.6)
 
 | Vorher | Jetzt | Warum |
